@@ -68,7 +68,7 @@ class AuthService(IAuthService):
                 # You may want to silence the logger for this special OAuth user lookup case
                 user = await self.user_service.get_user_by_email(session, google_user["email"])
                 return AuthResponse(
-                    access_token=token.access_token,
+                    access_token=access_token,
                     id=user.id,
                     first_name=user.first_name,
                     last_name=user.last_name,
@@ -91,7 +91,7 @@ class AuthService(IAuthService):
                 signup_method="GOOGLE",
             )
             return AuthResponse(
-                access_token=token.access_token,
+                access_token=access_token,
                 id=user.id,
                 first_name=user.first_name,
                 last_name=user.last_name,
@@ -218,7 +218,8 @@ class AuthService(IAuthService):
             )
             firebase_user = firebase_admin.auth.get_user(decoded_id_token["uid"])
             return firebase_user.email_verified and token_user_id == requested_user_id
-        except:
+        except Exception as e:
+            self.logger.error(f"Authorization by user ID failed: {type(e).__name__}: {str(e)}")
             return False
 
     def is_authorized_by_email(self, access_token: str, requested_email: str) -> bool:
@@ -231,5 +232,6 @@ class AuthService(IAuthService):
                 firebase_user.email_verified
                 and decoded_id_token["email"] == requested_email
             )
-        except:
+        except Exception as e:
+            self.logger.error(f"Authorization by email failed: {type(e).__name__}: {str(e)}")
             return False
