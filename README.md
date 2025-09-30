@@ -43,22 +43,7 @@ food4kids/
 │       ├── alembic.ini            # Alembic configuration
 │       ├── requirements.txt       # Python dependencies
 │       └── server.py              # Application entry point
-├── frontend/
-│   ├── public/                    # Static assets
-│   ├── src/
-│   │   ├── APIClients/            # API client classes
-│   │   ├── components/            # Reusable React components
-│   │   │   ├── auth/              # Authentication components
-│   │   │   ├── common/            # Shared UI components
-│   │   │   ├── crud/              # CRUD operation components
-│   │   │   └── pages/             # Page-level components
-│   │   ├── constants/             # Application constants
-│   │   ├── contexts/              # React Context providers
-│   │   ├── reducers/              # State management reducers
-│   │   ├── types/                 # TypeScript type definitions
-│   │   └── utils/                 # Utility functions
-│   ├── package.json               # Node.js dependencies
-│   └── tsconfig.json              # TypeScript configuration
+├── frontend/                      # Frontend (TBD)
 ├── e2e-tests/                     # End-to-end tests
 ├── db-init/                       # Database initialization scripts
 ├── docker-compose.yml             # Multi-container Docker setup
@@ -79,20 +64,7 @@ cd food4kids
 
 ### Environment Configuration
 
-1. Create environment files based on the samples:
-
-```bash
-# Root directory .env for database configuration
-cp .env.sample .env
-
-# Frontend environment file
-cp frontend/.env.sample frontend/.env
-```
-
-2. Update the environment variables as needed. Key variables include:
-   - Database credentials (`POSTGRES_USER`, `POSTGRES_PASSWORD`, etc.)
-   - Firebase configuration for authentication
-   - CORS origins for development
+You will need to create environment files: `.env` and `frontend/.env`. Talk to the PL to obtain these.
 
 ### Installation
 
@@ -163,14 +135,6 @@ docker-compose exec db psql -U postgres -d f4k_test
 \q           # Quit
 SELECT * FROM users; # Run SQL queries
 ```
-
-### Database Schema
-
-The current schema includes:
-
-- **users**: User accounts with Firebase auth integration
-- **entities**: Main business entities with various field types
-- **simple_entities**: Simplified entity structure
 
 ## Version Control Guide
 
