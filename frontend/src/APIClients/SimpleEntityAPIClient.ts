@@ -35,14 +35,10 @@ const create = async ({
     AUTHENTICATED_USER_KEY,
     "accessToken",
   )}`;
-  try {
-    const { data } = await baseAPIClient.post("/simple-entities", formData, {
-      headers: { Authorization: bearerToken },
-    });
-    return data;
-  } catch (error) {
-    return error;
-  }
+  const { data } = await baseAPIClient.post("/simple-entities", formData, {
+    headers: { Authorization: bearerToken },
+  });
+  return data;
 };
 
 const get = async (): Promise<SimpleEntityResponse[]> => {
@@ -50,14 +46,10 @@ const get = async (): Promise<SimpleEntityResponse[]> => {
     AUTHENTICATED_USER_KEY,
     "accessToken",
   )}`;
-  try {
-    const { data } = await baseAPIClient.get("/simple-entities", {
-      headers: { Authorization: bearerToken },
-    });
-    return data;
-  } catch (error) {
-    return error;
-  }
+  const { data } = await baseAPIClient.get("/simple-entities", {
+    headers: { Authorization: bearerToken },
+  });
+  return data;
 };
 
 const getCSV = async (): Promise<string> => {
@@ -65,17 +57,13 @@ const getCSV = async (): Promise<string> => {
     AUTHENTICATED_USER_KEY,
     "accessToken",
   )}`;
-  try {
-    const { data } = await baseAPIClient.get("/simple-entities", {
-      // Following line is necessary to set the Content-Type header
-      // Reference: https://github.com/axios/axios/issues/86
-      data: null,
-      headers: { Authorization: bearerToken, "Content-Type": "text/csv" },
-    });
-    return data;
-  } catch (error) {
-    return error;
-  }
+  const { data } = await baseAPIClient.get("/simple-entities", {
+    // Following line is necessary to set the Content-Type header
+    // Reference: https://github.com/axios/axios/issues/86
+    data: null,
+    headers: { Authorization: bearerToken, "Content-Type": "text/csv" },
+  });
+  return data;
 };
 
 const update = async (
@@ -90,18 +78,14 @@ const update = async (
     AUTHENTICATED_USER_KEY,
     "accessToken",
   )}`;
-  try {
-    const { data } = await baseAPIClient.put(
-      `/simple-entities/${id}`,
-      entityData,
-      {
-        headers: { Authorization: bearerToken },
-      },
-    );
-    return data;
-  } catch (error) {
-    return error;
-  }
+  const { data } = await baseAPIClient.put(
+    `/simple-entities/${id}`,
+    entityData,
+    {
+      headers: { Authorization: bearerToken },
+    },
+  );
+  return data;
 };
 
 export default { create, get, getCSV, update };

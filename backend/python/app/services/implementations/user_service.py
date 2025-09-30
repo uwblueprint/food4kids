@@ -1,400 +1,264 @@
 import firebase_admin.auth
+import logging
+from typing import List, Optional
+from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...models.user import User, UserCreate, UserUpdate, UserRead
 from ..interfaces.user_service import IUserService
-from ...models.user import User
-from ...models import db
-from ...resources.user_dto import UserDTO
 
 
 class UserService(IUserService):
-    """
-    UserService implementation with user management methods
-    """
+    """Modern FastAPI-style user service"""
 
-    def __init__(self, logger):
-        """
-        Create an instance of UserService
-
-        :param logger: application's logger instance
-        :type logger: logger
-        """
+    def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def get_user_by_id(self, user_id):
+    async def get_user_by_id(self, session: AsyncSession, user_id: int) -> Optional[User]:
+        """Get user by ID - returns SQLModel instance"""
         try:
-            user = User.query.get(user_id)
+            statement = select(User).where(User.id == user_id)
+            result = await session.execute(statement)
+            user = result.scalars().first()
 
             if not user:
-                raise Exception("user_id {user_id} not found".format(user_id))
+                self.logger.error(f"User with id {user_id} not found")
+                return None
 
-            firebase_user = firebase_admin.auth.get_user(user.auth_id)
-
-            user_dict = UserService.__user_to_dict_and_remove_auth_id(user)
-            user_dict["email"] = firebase_user.email
-
-            return UserDTO(**user_dict)
+            return user
         except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to get user. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
+            self.logger.error(f"Failed to get user by id: {str(e)}")
             raise e
 
-    def get_user_by_email(self, email):
+    async def get_user_by_email(self, session: AsyncSession, email: str) -> Optional[User]:
+        """Get user by email using Firebase"""
         try:
             firebase_user = firebase_admin.auth.get_user_by_email(email)
-            user = User.query.filter_by(auth_id=firebase_user.uid).first()
+            statement = select(User).where(User.auth_id == firebase_user.uid)
+            result = await session.execute(statement)
+            user = result.scalars().first()
 
             if not user:
-                raise Exception(
-                    "user with auth_id {auth_id} not found".format(
-                        auth_id=firebase_user.uid
-                    )
-                )
+                self.logger.error(f"User with email {email} not found")
+                return None
 
-            user_dict = UserService.__user_to_dict_and_remove_auth_id(user)
-            user_dict["email"] = firebase_user.email
-
-            return UserDTO(**user_dict)
+            return user
         except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to get user. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
+            self.logger.error(f"Failed to get user by email: {str(e)}")
             raise e
 
-    def get_user_role_by_auth_id(self, auth_id):
+    async def get_users(self, session: AsyncSession) -> List[User]:
+        """Get all users - returns SQLModel instances"""
         try:
-            user = self.__get_user_by_auth_id(auth_id)
-            return user.role
+            statement = select(User)
+            result = await session.execute(statement)
+            return result.scalars().all()
         except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to get user role. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
+            self.logger.error(f"Failed to get users: {str(e)}")
             raise e
 
-    def get_user_id_by_auth_id(self, auth_id):
-        try:
-            user = self.__get_user_by_auth_id(auth_id)
-            return str(user.id)
-        except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to get user id. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
-            raise e
-
-    def get_auth_id_by_user_id(self, user_id):
-        try:
-            user = User.query.get(user_id)
-
-            if not user:
-                raise Exception("user_id {user_id} not found".format(user_id=user_id))
-
-            return user.auth_id
-        except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "failed to get auth_id. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
-            raise e
-
-    def get_users(self):
-        user_dtos = []
-        user_list = [result for result in User.query.all()]
-        for user in user_list:
-            user_dict = UserService.__user_to_dict_and_remove_auth_id(user)
-            try:
-                firebase_user = firebase_admin.auth.get_user(user.auth_id)
-                user_dict["email"] = firebase_user.email
-                user_dtos.append(UserDTO(**user_dict))
-            except Exception as e:
-                self.logger.error(
-                    "User with auth_id {auth_id} could not be fetched from Firebase".format(
-                        auth_id=user.auth_id
-                    )
-                )
-                raise e
-
-        return user_dtos
-
-    def create_user(self, user, auth_id=None, signup_method="PASSWORD"):
-        new_user = None
+    async def create_user(self, session: AsyncSession, user_data: UserCreate, auth_id: Optional[str] = None, signup_method: str = "PASSWORD") -> User:
+        """Create new user with Firebase integration"""
         firebase_user = None
-
+        
         try:
+            # Create Firebase user
             if signup_method == "PASSWORD":
                 firebase_user = firebase_admin.auth.create_user(
-                    email=user.email, password=user.password
+                    email=user_data.email, password=user_data.password
                 )
             elif signup_method == "GOOGLE":
-                # If they signup with Google OAuth, a Firebase user is automatically created
                 firebase_user = firebase_admin.auth.get_user(uid=auth_id)
 
-            postgres_user = {
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "auth_id": firebase_user.uid,
-                "role": user.role,
-            }
+            # Create database user
+            user = User(
+                first_name=user_data.first_name,
+                last_name=user_data.last_name,
+                email=user_data.email,
+                auth_id=firebase_user.uid,
+                role=user_data.role,
+            )
 
             try:
-                new_user = User(**postgres_user)
-                db.session.add(new_user)
-                db.session.commit()
-            except Exception as postgres_error:
-                # rollback user creation in Firebase
+                session.add(user)
+                await session.commit()
+                await session.refresh(user)
+                return user
+                
+            except Exception as db_error:
+                # Rollback Firebase user creation
                 try:
                     firebase_admin.auth.delete_user(firebase_user.uid)
                 except Exception as firebase_error:
-                    reason = getattr(firebase_error, "message", None)
-                    error_message = [
-                        "Failed to rollback Firebase user creation after PostgreSQL user creation failed.",
-                        "Reason = {reason},".format(
-                            reason=(reason if reason else str(firebase_error))
-                        ),
-                        "Orphaned auth_id (Firebase uid) = {auth_id}".format(
-                            auth_id=firebase_user.uid
-                        ),
-                    ]
-                    self.logger.error(" ".join(error_message))
-                raise postgres_error
+                    self.logger.error(f"Failed to rollback Firebase user: {str(firebase_error)}")
+                raise db_error
 
         except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to create user. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
+            self.logger.error(f"Failed to create user: {str(e)}")
             raise e
 
-        new_user_dict = UserService.__user_to_dict_and_remove_auth_id(new_user)
-        new_user_dict["email"] = firebase_user.email
-        return UserDTO(**new_user_dict)
-
-    def update_user_by_id(self, user_id, user):
+    async def update_user_by_id(self, session: AsyncSession, user_id: int, user_data: UserUpdate) -> Optional[User]:
+        """Update user by ID"""
         try:
-            old_user = User.query.get(user_id)
+            statement = select(User).where(User.id == user_id)
+            result = await session.execute(statement)
+            user = result.scalars().first()
 
-            if not old_user:
-                raise Exception("user_id {user_id} not found".format(user_id=user_id))
+            if not user:
+                self.logger.error(f"User with id {user_id} not found")
+                return None
 
-            User.query.filter_by(id=user_id).update(
-                {
-                    User.first_name: user.first_name,
-                    User.last_name: user.last_name,
-                    User.role: user.role,
-                }
-            )
+            # Store old values for rollback
+            old_first_name = user.first_name
+            old_last_name = user.last_name
+            old_role = user.role
 
-            db.session.commit()
+            # Update user fields
+            user.first_name = user_data.first_name
+            user.last_name = user_data.last_name
+            user.role = user_data.role
 
+            await session.commit()
+
+            # Update Firebase email
             try:
-                firebase_admin.auth.update_user(old_user.auth_id, email=user.email)
+                firebase_admin.auth.update_user(user.auth_id, email=user_data.email)
+                await session.refresh(user)
+                return user
+                
             except Exception as firebase_error:
-                try:
-                    old_user_dict = {
-                        User.first_name: old_user.first_name,
-                        User.last_name: old_user.last_name,
-                        User.role: old_user.role,
-                    }
-                    User.query.filter_by(id=user_id).update(**old_user_dict)
-                    db.session.commit()
-
-                except Exception as postgres_error:
-                    reason = getattr(postgres_error, "message", None)
-                    error_message = [
-                        "Failed to rollback Postgres user update after Firebase user update failure.",
-                        "Reason = {reason},".format(
-                            reason=(reason if reason else str(postgres_error))
-                        ),
-                        "Postgres user id with possibly inconsistent data = {user_id}".format(
-                            user_id=user_id
-                        ),
-                    ]
-                    self.logger.error(" ".join(error_message))
-
+                # Rollback database changes
+                user.first_name = old_first_name
+                user.last_name = old_last_name
+                user.role = old_role
+                await session.commit()
                 raise firebase_error
 
         except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to update user. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
+            self.logger.error(f"Failed to update user: {str(e)}")
             raise e
 
-        return UserDTO(user_id, user.first_name, user.last_name, user.email, user.role)
-
-    def delete_user_by_id(self, user_id):
+    async def delete_user_by_id(self, session: AsyncSession, user_id: int) -> bool:
+        """Delete user by ID"""
         try:
-            deleted_user = User.query.get(user_id)
+            statement = select(User).where(User.id == user_id)
+            result = await session.execute(statement)
+            user = result.scalars().first()
 
-            if not deleted_user:
-                raise Exception("user_id {user_id} not found".format(user_id=user_id))
+            if not user:
+                self.logger.error(f"User with id {user_id} not found")
+                return False
 
-            delete_count = User.query.filter_by(id=user_id).delete(
-                synchronize_session="fetch"
-            )
+            # Store for rollback
+            user_data = {
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "auth_id": user.auth_id,
+                "role": user.role,
+            }
 
-            if delete_count < 1:
-                raise Exception(
-                    "user_id {user_id} was not deleted".format(user_id=user_id)
-                )
-            elif delete_count > 1:
-                raise Exception(
-                    "user_id {user_id} had multiple instances. Delete not committed.".format(
-                        user_id=user_id
-                    )
-                )
+            await session.delete(user)
+            await session.commit()
 
-            db.session.commit()
-
+            # Delete from Firebase
             try:
-                firebase_admin.auth.delete_user(deleted_user.auth_id)
+                firebase_admin.auth.delete_user(user.auth_id)
+                return True
+                
             except Exception as firebase_error:
-                # rollback Postgres user deletion
-                try:
-                    deleted_user_dict = {
-                        "first_name": deleted_user.first_name,
-                        "last_name": deleted_user.last_name,
-                        "auth_id": deleted_user.auth_id,
-                        "role": deleted_user.role,
-                    }
-
-                    new_user = User(**deleted_user_dict)
-                    db.session.add(new_user)
-                    db.session.commit()
-
-                except Exception as postgres_error:
-                    reason = getattr(postgres_error, "message", None)
-                    error_message = [
-                        "Failed to rollback Postgres user deletion after Firebase user deletion failure.",
-                        "Reason = {reason},".format(
-                            reason=(reason if reason else str(postgres_error)),
-                        ),
-                        "Firebase uid with non-existent Postgres record ={auth_id}".format(
-                            auth_id=deleted_user.auth_id
-                        ),
-                    ]
-                    self.logger.error(" ".join(error_message))
-
+                # Rollback database deletion
+                new_user = User(**user_data)
+                session.add(new_user)
+                await session.commit()
                 raise firebase_error
 
         except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to delete user. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
+            self.logger.error(f"Failed to delete user: {str(e)}")
             raise e
 
-    def delete_user_by_email(self, email):
+    async def get_user_role_by_auth_id(self, session: AsyncSession, auth_id: str) -> Optional[str]:
+        """Get user role by auth_id"""
+        try:
+            statement = select(User).where(User.auth_id == auth_id)
+            result = await session.execute(statement)
+            user = result.scalars().first()
+            
+            if not user:
+                return None
+                
+            # RoleEnum inherits from str, so user.role is already a string value
+            return user.role
+        except Exception as e:
+            self.logger.error(f"Failed to get user role: {str(e)}")
+            raise e
+
+    async def get_auth_id_by_user_id(self, session: AsyncSession, user_id: int) -> Optional[str]:
+        """Get auth_id by user_id"""
+        try:
+            statement = select(User).where(User.id == user_id)
+            result = await session.execute(statement)
+            user = result.scalars().first()
+            
+            if not user:
+                self.logger.error(f"User with id {user_id} not found")
+                return None
+                
+            return user.auth_id
+        except Exception as e:
+            self.logger.error(f"Failed to get auth_id by user_id: {str(e)}")
+            raise e
+
+    async def get_user_id_by_auth_id(self, session: AsyncSession, auth_id: str) -> Optional[int]:
+        """Get user_id by auth_id"""
+        try:
+            statement = select(User).where(User.auth_id == auth_id)
+            result = await session.execute(statement)
+            user = result.scalars().first()
+            
+            if not user:
+                self.logger.error(f"User with auth_id {auth_id} not found")
+                return None
+                
+            return user.id
+        except Exception as e:
+            self.logger.error(f"Failed to get user_id by auth_id: {str(e)}")
+            raise e
+
+    async def delete_user_by_email(self, session: AsyncSession, email: str) -> bool:
+        """Delete user by email"""
         try:
             firebase_user = firebase_admin.auth.get_user_by_email(email)
-            deleted_user = User.query.filter_by(auth_id=firebase_user.uid).first()
+            statement = select(User).where(User.auth_id == firebase_user.uid)
+            result = await session.execute(statement)
+            user = result.scalars().first()
 
-            if not deleted_user:
-                raise Exception(
-                    "auth_id (Firebase uid) {auth_id} not found".format(
-                        auth_id=firebase_user.uid
-                    )
-                )
+            if not user:
+                self.logger.error(f"User with email {email} not found")
+                return False
 
-            delete_count = User.query.filter_by(auth_id=firebase_user.uid).delete(
-                synchronize_session="fetch"
-            )
+            # Store for rollback
+            user_data = {
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "auth_id": user.auth_id,
+                "role": user.role,
+            }
 
-            if delete_count < 1:
-                raise Exception(
-                    "user_id {user_id} was not deleted".format(user_id=user_id)
-                )
-            elif delete_count > 1:
-                raise Exception(
-                    "user_id {user_id} had multiple instances. Delete not committed.".format(
-                        user_id=user_id
-                    )
-                )
+            await session.delete(user)
+            await session.commit()
 
-            db.session.commit()
-
+            # Delete from Firebase
             try:
-                firebase_admin.auth.delete_user(firebase_user.uid)
+                firebase_admin.auth.delete_user(user.auth_id)
+                return True
+                
             except Exception as firebase_error:
-                try:
-                    deleted_user_dict = {
-                        "first_name": deleted_user.first_name,
-                        "last_name": deleted_user.last_name,
-                        "auth_id": deleted_user.auth_id,
-                        "role": deleted_user.role,
-                    }
-                    new_user = User(**deleted_user_dict)
-                    db.session.add(new_user)
-                    db.session.commit()
-
-                except Exception as postgres_error:
-                    reason = getattr(postgres_error, "message", None)
-                    error_message = [
-                        "Failed to rollback Postgres user deletion after Firebase user deletion failure.",
-                        "Reason = {reason},".format(
-                            reason=(reason if reason else str(postgres_error))
-                        ),
-                        "Firebase uid with non-existent Postgres record = {auth_id}".format(
-                            auth_id=deleted_user.auth_id
-                        ),
-                    ]
-                    self.logger.error(" ".join(error_message))
-
+                # Rollback database deletion
+                new_user = User(**user_data)
+                session.add(new_user)
+                await session.commit()
                 raise firebase_error
 
         except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                "Failed to delete user. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
-            )
+            self.logger.error(f"Failed to delete user by email: {str(e)}")
             raise e
-
-    def __get_user_by_auth_id(self, auth_id):
-        """
-        Get a user document by auth_id
-
-        :param auth_id: the user's auth_id (Firebase uid)
-        :type auth_id: str
-        """
-        user = User.query.filter_by(auth_id=auth_id).first()
-
-        if not user:
-            raise Exception(
-                "user with auth_id {auth_id} not found".format(auth_id=auth_id)
-            )
-
-        return user
-
-    @staticmethod
-    def __user_to_dict_and_remove_auth_id(user):
-        """
-        Convert a User document to a serializable dict and remove the
-        auth id field
-
-        :param user: the user
-        :type user: User
-        """
-        user_dict = user.to_dict()
-        user_dict.pop("auth_id", None)
-        return user_dict

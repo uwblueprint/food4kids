@@ -1,8 +1,8 @@
-from sqlalchemy import inspect
-from sqlalchemy.orm.properties import ColumnProperty
-
-from . import db
-from .enum import enum
+from typing import Optional, List
+from sqlmodel import Field, Column, SQLModel
+from sqlalchemy import ARRAY, String, Enum
+from .base import BaseModel
+from .enum import EntityEnum
 
 # common columns and methods across multiple data models can be added via a Mixin class:
 # https://docs.sqlalchemy.org/en/13/orm/extensions/declarative/mixins.html
@@ -12,36 +12,38 @@ from .enum import enum
 # https://github.com/uwblueprint/plasta/blob/master/backend/app/models/mixins.py#L10-L95
 
 
-class Entity(db.Model):
-    # define the entities table
+class EntityBase(SQLModel):
+    """Shared fields between table and API models"""
+    string_field: str = Field(min_length=1, max_length=255)
+    int_field: int = Field(ge=0)  # Greater than or equal to 0
+    enum_field: EntityEnum = Field(default=EntityEnum.A, sa_type=Enum("A", "B", "C", "D", name="entityenum"))
+    string_array_field: List[str] = Field(default_factory=list, sa_column=Column(ARRAY(String)))
+    bool_field: bool = Field(default=False)
+
+
+class Entity(EntityBase, BaseModel, table=True):
+    """Entity model for demonstration purposes"""
 
     __tablename__ = "entities"
 
-    id = db.Column(db.Integer, primary_key=True, nullable=False)
-    string_field = db.Column(db.String, nullable=False)
-    int_field = db.Column(db.Integer, nullable=False)
-    enum_field = db.Column(enum, nullable=False)
-    string_array_field = db.Column(db.ARRAY(db.String), nullable=False)
-    bool_field = db.Column(db.Boolean, nullable=False)
+    id: Optional[int] = Field(default=None, primary_key=True)
 
-    # must define how to convert to a dict so that Entity can eventually be serialized into JSON
-    # this would be a good method to include in a base Mixin
-    def to_dict(self, include_relationships=False):
-        cls = type(self)
-        # mapper allows us to grab the columns of a Model
-        mapper = inspect(cls)
-        formatted = {}
-        for column in mapper.attrs:
-            field = column.key
-            attr = getattr(self, field)
-            # if it's a regular column, extract the value
-            if isinstance(column, ColumnProperty):
-                formatted[field] = attr
-            # otherwise, it's a relationship field
-            # (currently not applicable, but may be useful for entity groups)
-            elif include_relationships:
-                # recursively format the relationship
-                # don't format the relationship's relationships
-                formatted[field] = [obj.to_dict() for obj in attr]
-        return formatted
+
+class EntityCreate(EntityBase):
+    """Entity creation request"""
+    pass
+
+
+class EntityRead(EntityBase):
+    """Entity response model"""
+    id: int
+
+
+class EntityUpdate(SQLModel):
+    """Entity update request - all optional"""
+    string_field: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    int_field: Optional[int] = Field(default=None, ge=0)
+    enum_field: Optional[EntityEnum] = Field(default=None)
+    string_array_field: Optional[List[str]] = Field(default=None)
+    bool_field: Optional[bool] = Field(default=None)
 

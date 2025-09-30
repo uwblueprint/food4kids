@@ -1,9 +1,6 @@
-version: "3.7"
-
 services:
   frontend:
-    # TODO: rename container for your project
-    container_name: scv2_frontend
+    container_name: f4k_frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -16,9 +13,8 @@ services:
       - CHOKIDAR_USEPOLLING=true
     env_file:
       - ./frontend/.env
-  py-backend:
-    # TODO: rename container for your project
-    container_name: scv2_py_backend
+  backend:
+    container_name: f4k_backend
     restart: always
     build:
       context: ./backend/python
@@ -35,8 +31,7 @@ services:
     env_file:
       - ./.env
   db:
-    # TODO: rename container for your project
-    container_name: scv2_db
+    container_name: f4k_db
     image: postgres:12-alpine
     ports:
       - 5432:5432

@@ -1,8 +1,8 @@
-from sqlalchemy import inspect
-from sqlalchemy.orm.properties import ColumnProperty
-
-from . import db
-from .enum import simple_entity_enum
+from typing import Optional, List
+from sqlmodel import Field, Column, SQLModel
+from sqlalchemy import ARRAY, String, Enum
+from .base import BaseModel
+from .enum import SimpleEntityEnum
 
 # common columns and methods across multiple data models can be added via a Mixin class:
 # https://docs.sqlalchemy.org/en/13/orm/extensions/declarative/mixins.html
@@ -12,36 +12,38 @@ from .enum import simple_entity_enum
 # https://github.com/uwblueprint/plasta/blob/master/backend/app/models/mixins.py#L10-L95
 
 
-class SimpleEntity(db.Model):
-    # define the simple entities table
+class SimpleEntityBase(SQLModel):
+    """Shared fields between table and API models"""
+    string_field: str = Field(min_length=1, max_length=255)
+    int_field: int = Field(ge=0)  # Greater than or equal to 0
+    enum_field: SimpleEntityEnum = Field(default=SimpleEntityEnum.A, sa_type=Enum("A", "B", "C", "D", name="simpleentityenum"))
+    string_array_field: List[str] = Field(default_factory=list, sa_column=Column(ARRAY(String)))
+    bool_field: bool = Field(default=False)
+
+
+class SimpleEntity(SimpleEntityBase, BaseModel, table=True):
+    """Simple entity model for demonstration purposes"""
 
     __tablename__ = "simple_entities"
 
-    id = db.Column(db.Integer, primary_key=True, nullable=False)
-    string_field = db.Column(db.String, nullable=False)
-    int_field = db.Column(db.Integer, nullable=False)
-    enum_field = db.Column(simple_entity_enum, nullable=False)
-    string_array_field = db.Column(db.ARRAY(db.String), nullable=False)
-    bool_field = db.Column(db.Boolean, nullable=False)
+    id: Optional[int] = Field(default=None, primary_key=True)
 
-    # must define how to convert to a dict so that SimpleEntity can eventually be serialized into JSON
-    # this would be a good method to include in a base Mixin
-    def to_dict(self, include_relationships=False):
-        cls = type(self)
-        # mapper allows us to grab the columns of a Model
-        mapper = inspect(cls)
-        formatted = {}
-        for column in mapper.attrs:
-            field = column.key
-            attr = getattr(self, field)
-            # if it's a regular column, extract the value
-            if isinstance(column, ColumnProperty):
-                formatted[field] = attr
-            # otherwise, it's a relationship field
-            # (currently not applicable, but may be useful for entity groups)
-            elif include_relationships:
-                # recursively format the relationship
-                # don't format the relationship's relationships
-                formatted[field] = [obj.to_dict() for obj in attr]
-        return formatted
+
+class SimpleEntityCreate(SimpleEntityBase):
+    """Simple entity creation request"""
+    pass
+
+
+class SimpleEntityRead(SimpleEntityBase):
+    """Simple entity response model"""
+    id: int
+
+
+class SimpleEntityUpdate(SQLModel):
+    """Simple entity update request - all optional"""
+    string_field: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    int_field: Optional[int] = Field(default=None, ge=0)
+    enum_field: Optional[SimpleEntityEnum] = Field(default=None)
+    string_array_field: Optional[List[str]] = Field(default=None)
+    bool_field: Optional[bool] = Field(default=None)
 

@@ -1,7 +1,9 @@
-from flask import current_app
+# Note: This test file may need to be updated for FastAPI compatibility
+# from flask import current_app
 import pytest
 
 from app.models.user import User
+from app.models.enum import RoleEnum
 from app.services.implementations.user_service import UserService
 
 from app.models import db
@@ -24,7 +26,10 @@ def setup(module_mocker):
 
 @pytest.fixture
 def user_service():
-    user_service = UserService(current_app.logger)
+    # TODO: Update for FastAPI - need to replace current_app.logger
+    # user_service = UserService(current_app.logger)
+    import logging
+    user_service = UserService(logging.getLogger(__name__))
     yield user_service
     User.query.delete()
 
@@ -34,13 +39,13 @@ TEST_USERS = (
         "auth_id": "A",
         "first_name": "Jane",
         "last_name": "Doe",
-        "role": "Admin",
+        "role": RoleEnum.ADMIN,
     },
     {
         "auth_id": "B",
         "first_name": "Hello",
         "last_name": "World",
-        "role": "User",
+        "role": RoleEnum.USER,
     },
 )
 

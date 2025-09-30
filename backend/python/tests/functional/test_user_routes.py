@@ -2,6 +2,7 @@ import pytest
 
 from app import create_app
 from app.models.user import User
+from app.models.enum import RoleEnum
 
 from app.models import db
 
@@ -17,13 +18,13 @@ TEST_USERS = [
         "auth_id": "A",
         "first_name": "Jane",
         "last_name": "Doe",
-        "role": "Admin",
+        "role": RoleEnum.ADMIN,
     },
     {
         "auth_id": "B",
         "first_name": "Hello",
         "last_name": "World",
-        "role": "User",
+        "role": RoleEnum.USER,
     },
 ]
 

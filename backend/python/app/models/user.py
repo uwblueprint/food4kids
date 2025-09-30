@@ -1,36 +1,49 @@
-from sqlalchemy import inspect
-from sqlalchemy.orm.properties import ColumnProperty
+from typing import Optional
+from sqlmodel import Field, SQLModel
+from sqlalchemy import Enum
+from pydantic import EmailStr
+from .base import BaseModel
+from .enum import RoleEnum
 
-from . import db
 
-roles_enum = db.Enum("User", "Admin", name="roles")
+class UserBase(SQLModel):
+    """Shared fields between table and API models"""
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    email: EmailStr = Field(unique=True, index=True)
+    role: RoleEnum = Field(default=RoleEnum.USER, sa_type=Enum("User", "Admin", name="roleenum"))
 
 
-class User(db.Model):
+class User(UserBase, BaseModel, table=True):
+    """Database table model"""
     __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True, nullable=False)
-    first_name = db.Column(db.String, nullable=False)
-    last_name = db.Column(db.String, nullable=False)
-    auth_id = db.Column(db.String, nullable=False)
-    role = db.Column(roles_enum)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    auth_id: str = Field(nullable=False, unique=True, index=True)
 
-    def to_dict(self, include_relationships=False):
-        # define the entities table
-        cls = type(self)
 
-        mapper = inspect(cls)
-        formatted = {}
-        for column in mapper.attrs:
-            field = column.key
-            attr = getattr(self, field)
-            # if it's a regular column, extract the value
-            if isinstance(column, ColumnProperty):
-                formatted[field] = attr
-            # otherwise, it's a relationship field
-            # (currently not applicable, but may be useful for entity groups)
-            elif include_relationships:
-                # recursively format the relationship
-                # don't format the relationship's relationships
-                formatted[field] = [obj.to_dict() for obj in attr]
-        return formatted
+class UserCreate(UserBase):
+    """Create request model"""
+    password: str = Field(min_length=8, max_length=100)
+
+
+class UserRead(UserBase):
+    """Read response model"""
+    id: int
+    auth_id: str
+
+
+class UserUpdate(SQLModel):
+    """Update request model - all optional"""
+    first_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    email: Optional[EmailStr] = Field(default=None)
+    role: Optional[RoleEnum] = Field(default=None)
+
+
+class UserRegister(SQLModel):
+    """User registration request"""
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=100)

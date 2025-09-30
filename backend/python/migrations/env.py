@@ -1,11 +1,23 @@
 from __future__ import with_statement
 
 import logging
+import os
+import sys
 from logging.config import fileConfig
 
-from flask import current_app
+# Add the project root to Python path to ensure app module can be imported
+# This handles both running from /app and /app/migrations
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
+from sqlmodel import SQLModel
 from alembic import context
+
+# Import all models to ensure they're registered with SQLModel
+from app.models.user import User
+from app.models.entity import Entity
+from app.models.simple_entity import SimpleEntity
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -16,15 +28,24 @@ config = context.config
 fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-config.set_main_option(
-    "sqlalchemy.url",
-    str(current_app.extensions["migrate"].db.get_engine().url).replace("%", "%%"),
-)
-target_metadata = current_app.extensions["migrate"].db.metadata
+# Set the database URL from environment
+def get_database_url():
+    if os.getenv("APP_ENV") == "production":
+        return os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
+    else:
+        return "postgresql://{username}:{password}@{host}:5432/{db}".format(
+            username=os.getenv("POSTGRES_USER"),
+            password=os.getenv("POSTGRES_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+            db=(
+                os.getenv("POSTGRES_DB_TEST")
+                if os.getenv("APP_ENV") == "testing"
+                else os.getenv("POSTGRES_DB_DEV")
+            ),
+        )
+
+config.set_main_option("sqlalchemy.url", get_database_url())
+target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -69,14 +90,15 @@ def run_migrations_online():
                 directives[:] = []
                 logger.info("No changes in schema detected.")
 
-    connectable = current_app.extensions["migrate"].db.get_engine()
+    from sqlalchemy import create_engine
+    
+    connectable = create_engine(get_database_url())
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             process_revision_directives=process_revision_directives,
-            **current_app.extensions["migrate"].configure_args
         )
 
         with context.begin_transaction():

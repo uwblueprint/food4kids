@@ -1,0 +1,38 @@
+---
+description: General project guidelines and architecture for Food4Kids
+globs:
+  ["**/*.py", "**/*.ts", "**/*.tsx", "**/docker-compose.yml", "**/Dockerfile"]
+alwaysApply: true
+---
+
+# Food4Kids Project Guidelines
+
+## Architecture Overview
+
+This is a full-stack web application with:
+
+- **Backend**: FastAPI with Python, SQLModel for database models
+- **Frontend**: React with TypeScript
+- **Database**: PostgreSQL running in Docker container
+- **Containerization**: Docker Compose for development environment
+
+## Development Environment
+
+- All services run in Docker containers
+- Backend container: `f4k_backend`
+- Database container: `f4k_db`
+- Frontend container: `f4k_frontend`
+
+## Key Conventions
+
+- Use SQLModel for database models with proper type hints
+- Follow FastAPI best practices for API routes
+- Use TypeScript for all frontend code
+- Maintain consistent naming conventions across the stack
+- All database changes must go through Alembic migrations
+
+## Container Commands
+
+Start all services: `docker-compose up`
+Access backend shell: `docker-compose exec backend sh`
+Access database: `docker-compose exec db psql -U postgres -d f4k`

@@ -1,4 +1,5 @@
 from app.models.user import User
+from app.models.enum import RoleEnum
 
 from app.models import db
 
@@ -14,7 +15,7 @@ def test_create_user():
         "first_name": "Jane",
         "last_name": "Doe",
         "auth_id": "abc",
-        "role": "Admin",
+        "role": RoleEnum.ADMIN,
     }
 
     user = User(**user)
@@ -23,4 +24,4 @@ def test_create_user():
     assert user.first_name == "Jane"
     assert user.last_name == "Doe"
     assert user.auth_id == "abc"
-    assert user.role == "Admin"
+    assert user.role == RoleEnum.ADMIN

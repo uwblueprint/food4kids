@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { decamelizeKeys } from "humps";
 import { JSONSchema7 } from "json-schema";
 import { Form } from "@rjsf/bootstrap-4";
 import SimpleEntityAPIClient, {

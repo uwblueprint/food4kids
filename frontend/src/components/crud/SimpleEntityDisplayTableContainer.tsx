@@ -111,37 +111,38 @@ const SimpleEntityDisplayTable = ({ data }: TableProps) => {
   );
 };
 
-const SimpleEntityDisplayTableContainer: React.FC = (): React.ReactElement | null => {
-  const [entities, setEntities] = useState<EntityData[] | null>(null);
+const SimpleEntityDisplayTableContainer: React.FC =
+  (): React.ReactElement | null => {
+    const [entities, setEntities] = useState<EntityData[] | null>(null);
 
-  useEffect(() => {
-    const retrieveAndUpdateData = async () => {
-      const result = await SimpleEntityAPIClient.get();
-      if (result) {
-        setEntities(result.map((r: SimpleEntityResponse) => convert(r)));
+    useEffect(() => {
+      const retrieveAndUpdateData = async () => {
+        const result = await SimpleEntityAPIClient.get();
+        if (result) {
+          setEntities(result.map((r: SimpleEntityResponse) => convert(r)));
+        }
+      };
+      retrieveAndUpdateData();
+    }, []);
+
+    const downloadEntitiesCSV = async () => {
+      if (entities) {
+        const csvString = await SimpleEntityAPIClient.getCSV();
+        downloadCSV(csvString, "export.csv");
+        // Use the following lines to download CSV using frontend CSV generation instead of API
+        // const csvString = await generateCSV<EntityData>({ data: entities });
+        // downloadCSV(csvString, "export.csv");
       }
     };
-    retrieveAndUpdateData();
-  }, []);
 
-  const downloadEntitiesCSV = async () => {
-    if (entities) {
-      const csvString = await SimpleEntityAPIClient.getCSV();
-      downloadCSV(csvString, "export.csv");
-      // Use the following lines to download CSV using frontend CSV generation instead of API
-      // const csvString = await generateCSV<EntityData>({ data: entities });
-      // downloadCSV(csvString, "export.csv");
-    }
+    return (
+      <>
+        <button type="button" onClick={downloadEntitiesCSV}>
+          Download CSV
+        </button>
+        {entities && <SimpleEntityDisplayTable data={entities} />}
+      </>
+    );
   };
-
-  return (
-    <>
-      <button type="button" onClick={downloadEntitiesCSV}>
-        Download CSV
-      </button>
-      {entities && <SimpleEntityDisplayTable data={entities} />}
-    </>
-  );
-};
 
 export default SimpleEntityDisplayTableContainer;

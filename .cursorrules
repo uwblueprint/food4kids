@@ -1,0 +1,141 @@
+# Food4Kids Project - Cursor Rules
+
+## Database Migrations
+
+### Overview
+
+This project uses Alembic for database migrations with a containerized PostgreSQL database. All migrations have been consolidated into a single initial schema migration.
+
+### Container Setup
+
+- **Backend container**: `f4k_backend` (accessible via `docker-compose exec backend`)
+- **Database container**: `f4k_db` (accessible via `docker-compose exec db`)
+- **Database name**: `f4k` (development), `f4k_test` (testing)
+- **Database user**: `postgres`
+
+### Migration File Structure
+
+```
+backend/python/migrations/
+├── alembic.ini          # Alembic configuration
+├── env.py              # Migration environment setup
+├── versions/           # Migration files directory
+│   └── 001_initial_schema.py  # Consolidated initial migration
+└── migrations_backup/  # Backup of original separate migrations
+```
+
+### Running Migrations
+
+#### Prerequisites
+
+1. Ensure containers are running: `docker-compose up -d`
+2. All migration commands must be run from within the backend container
+3. Set PYTHONPATH to include the app module for model imports
+
+#### Common Migration Commands
+
+**Check current migration status:**
+
+```bash
+docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic current"
+```
+
+**Generate new migration (auto-detect changes):**
+
+```bash
+docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic revision --autogenerate -m 'description_of_changes'"
+```
+
+**Apply pending migrations:**
+
+```bash
+docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic upgrade head"
+```
+
+**Check if database schema matches models:**
+
+```bash
+docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic check"
+```
+
+**View migration history:**
+
+```bash
+docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic history"
+```
+
+#### Direct Database Access
+
+```bash
+# Connect to development database
+docker-compose exec db psql -U postgres -d f4k
+
+# Connect to test database
+docker-compose exec db psql -U postgres -d f4k_test
+
+# List all databases
+docker-compose exec db psql -U postgres -l
+```
+
+### Current Database Schema
+
+The consolidated migration creates three main tables:
+
+**users table:**
+
+- `id` (Primary Key)
+- `first_name`, `last_name`, `email` (NOT NULL)
+- `auth_id` (NOT NULL, unique index)
+- `role` (roleenum: 'User'|'Admin', NOT NULL, default='User')
+- `created_at`, `updated_at` (timestamp with timezone, nullable)
+
+**entities table:**
+
+- `id` (Primary Key)
+- `string_field`, `int_field`, `bool_field` (NOT NULL)
+- `enum_field` (entityenum: 'A'|'B'|'C'|'D', NOT NULL, default='A')
+- `string_array_field` (varchar array, NOT NULL, default=[])
+- `created_at`, `updated_at` (timestamp with timezone, nullable)
+
+**simple_entities table:**
+
+- Same structure as entities table
+- `enum_field` uses `simpleentityenum` type
+
+### Important Notes
+
+1. **Always run migrations from container**: The Python environment and database connections are configured within the Docker container.
+
+2. **PYTHONPATH requirement**: Set `PYTHONPATH=/app` when running alembic commands to ensure model imports work correctly.
+
+3. **Working directory**: Run alembic commands from `/app/migrations` directory within the container.
+
+4. **Enum types**: The project uses custom PostgreSQL enum types (`roleenum`, `entityenum`, `simpleentityenum`) that match SQLModel expectations.
+
+5. **Migration consolidation**: All original migrations have been consolidated into `001_initial_schema.py`. Backups are available in `migrations_backup/`.
+
+6. **Schema validation**: Use `alembic check` to verify database schema matches current models. "No changes detected" indicates perfect sync.
+
+### Troubleshooting
+
+**"Can't find Python file ./env.py"**:
+
+- Ensure you're running from `/app/migrations` directory
+- Check that `script_location = .` in `alembic.ini`
+
+**"No module named 'app'"**:
+
+- Add `PYTHONPATH=/app` to your alembic command
+
+**"Can't locate revision identified by 'xxx'"**:
+
+- The alembic_version table references a deleted migration
+- Update manually: `UPDATE alembic_version SET version_num = '001_initial_schema';`
+
+### Model Changes Workflow
+
+1. Modify your SQLModel classes in `app/models/`
+2. Generate migration: `docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic revision --autogenerate -m 'describe_your_changes'"`
+3. Review the generated migration file
+4. Apply migration: `docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic upgrade head"`
+5. Verify: `docker-compose exec backend sh -c "cd /app/migrations && PYTHONPATH=/app alembic check"`

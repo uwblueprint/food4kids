@@ -22,19 +22,6 @@ class IAuthService(ABC):
         """
         pass
 
-    @abstractmethod
-    def generate_token_for_oauth(self, id_token):
-        """
-        Generate a short-lived JWT access token and a long-lived refresh token
-        when supplied user's OAuth ID token
-
-        :param id_token: user's OAuth ID token
-        :type id_token: str
-        :return: AuthDTO object containing the access token, refresh token, and user info
-        :rtype: AuthDTO
-        :raises Exception: if token generation fails
-        """
-        pass
 
     @abstractmethod
     def revoke_tokens(self, user_id):
@@ -85,11 +72,13 @@ class IAuthService(ABC):
         pass
 
     @abstractmethod
-    def is_authorized_by_role(self, access_token, roles):
+    async def is_authorized_by_role(self, session, access_token, roles):
         """
         Determine if the provided access token is valid and authorized for at least
         one of the specified roles
 
+        :param session: database session
+        :type session: AsyncSession
         :param access_token: user's access token
         :type access_token: str
         :param roles: roles to check for
@@ -100,10 +89,12 @@ class IAuthService(ABC):
         pass
 
     @abstractmethod
-    def is_authorized_by_user_id(self, access_token, requested_user_id):
+    async def is_authorized_by_user_id(self, session, access_token, requested_user_id):
         """
         Determine if the provided access token is valid and issued to the requested user
 
+        :param session: database session
+        :type session: AsyncSession
         :param access_token: user's access token
         :type access_token: str
         :param requested_user_id: user_id of the requested user

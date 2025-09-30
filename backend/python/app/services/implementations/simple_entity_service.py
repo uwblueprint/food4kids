@@ -1,56 +1,95 @@
-from ...models.simple_entity import SimpleEntity
-from ...models import db
-from ..interfaces.simple_entity_service import ISimpleEntityService
+import logging
+from typing import List, Optional
+from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...models.simple_entity import SimpleEntity, SimpleEntityCreate, SimpleEntityUpdate
 
 
-class SimpleEntityService(ISimpleEntityService):
-    def __init__(self, logger):
+class SimpleEntityService:
+    """Modern FastAPI-style simple entity service"""
+    
+    def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def get_entities(self):
-        # SimpleEntity is a SQLAlchemy model, we can use convenient methods provided
-        # by SQLAlchemy like query.all() to query the data
-        return [result.to_dict() for result in SimpleEntity.query.all()]
+    async def get_simple_entities(self, session: AsyncSession) -> List[SimpleEntity]:
+        """Get all simple entities - returns SQLModel instances directly"""
+        statement = select(SimpleEntity)
+        result = await session.execute(statement)
+        return result.scalars().all()
 
-    def get_entity(self, id):
-        # get queries by the primary key, which is id for the Entity table
-        entity = SimpleEntity.query.get(id)
-        if entity is None:
-            self.logger.error("Invalid id")
-            raise Exception("Invalid id")
-        return entity.to_dict()
+    async def get_simple_entity(self, session: AsyncSession, simple_entity_id: int) -> Optional[SimpleEntity]:
+        """Get simple entity by ID"""
+        statement = select(SimpleEntity).where(SimpleEntity.id == simple_entity_id)
+        result = await session.execute(statement)
+        simple_entity = result.scalars().first()
+        
+        if not simple_entity:
+            self.logger.error(f"SimpleEntity with id {simple_entity_id} not found")
+            return None
+            
+        return simple_entity
 
-    def create_entity(self, entity):
+    async def create_simple_entity(self, session: AsyncSession, simple_entity_data: SimpleEntityCreate) -> SimpleEntity:
+        """Create new simple entity"""
         try:
-            new_entity = SimpleEntity(**entity.__dict__)
+            # Create SQLModel instance from data
+            simple_entity = SimpleEntity(**simple_entity_data.model_dump())
+            
+            session.add(simple_entity)
+            await session.commit()
+            await session.refresh(simple_entity)
+            
+            return simple_entity
+            
         except Exception as error:
-            self.logger.error(str(error))
+            self.logger.error(f"Failed to create simple entity: {str(error)}")
+            await session.rollback()
             raise error
 
-        db.session.add(new_entity)
-        # remember to commit to actually persist into the database
-        db.session.commit()
+    async def update_simple_entity(self, session: AsyncSession, simple_entity_id: int, simple_entity_data: SimpleEntityUpdate) -> Optional[SimpleEntity]:
+        """Update existing simple entity"""
+        try:
+            statement = select(SimpleEntity).where(SimpleEntity.id == simple_entity_id)
+            result = await session.execute(statement)
+            simple_entity = result.scalars().first()
+            
+            if not simple_entity:
+                self.logger.error(f"SimpleEntity with id {simple_entity_id} not found")
+                return None
+            
+            # Update fields
+            update_data = simple_entity_data.model_dump(exclude_unset=True)
+            for field, value in update_data.items():
+                setattr(simple_entity, field, value)
+            
+            await session.commit()
+            await session.refresh(simple_entity)
+            
+            return simple_entity
+            
+        except Exception as error:
+            self.logger.error(f"Failed to update simple entity: {str(error)}")
+            await session.rollback()
+            raise error
 
-        return new_entity.to_dict()
-
-    def update_entity(self, id, entity):
-        SimpleEntity.query.filter_by(id=id).update(entity.__dict__)
-        updated_entity = SimpleEntity.query.get(id)
-        db.session.commit()
-
-        if updated_entity is None:
-            self.logger.error("Invalid id")
-            raise Exception("Invalid id")
-        return updated_entity.to_dict()
-
-    def delete_entity(self, id):
-        deleted = SimpleEntity.query.filter_by(id=id).delete()
-        db.session.commit()
-
-        # deleted is the number of rows deleted
-        if deleted == 1:
-            return id
-
-        self.logger.error("Invalid id")
-        raise Exception("Invalid id")
-
+    async def delete_simple_entity(self, session: AsyncSession, simple_entity_id: int) -> bool:
+        """Delete simple entity by ID"""
+        try:
+            statement = select(SimpleEntity).where(SimpleEntity.id == simple_entity_id)
+            result = await session.execute(statement)
+            simple_entity = result.scalars().first()
+            
+            if not simple_entity:
+                self.logger.error(f"SimpleEntity with id {simple_entity_id} not found")
+                return False
+            
+            await session.delete(simple_entity)
+            await session.commit()
+            
+            return True
+            
+        except Exception as error:
+            self.logger.error(f"Failed to delete simple entity: {str(error)}")
+            await session.rollback()
+            raise error
