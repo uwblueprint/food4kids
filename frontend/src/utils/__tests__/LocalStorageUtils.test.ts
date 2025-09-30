@@ -49,7 +49,7 @@ describe("LocalStorageUtils", () => {
     ).toEqual("world");
   });
 
-  it("setLocalStorageObjproperty should set obj property by key, property and value", () => {
+  it("setLocalStorageObjProperty should set obj property by key, property and value", () => {
     localStorage.setItem("club", JSON.stringify({}));
     LocalStorageUtils.setLocalStorageObjProperty("club", "name", "Blueprint");
     expect(LocalStorageUtils.getLocalStorageObj("club")).toEqual({
