@@ -34,18 +34,20 @@ def init_database():
     database_url = get_database_url()
     sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
     
+    # Set echo based on environment
+    app_env = os.getenv("APP_ENV")
+    echo_sql = app_env in ("development", "testing")
+    
     # Synchronous engine for migrations
-    engine = create_engine(sync_database_url, echo=True)
+    engine = create_engine(sync_database_url, echo=echo_sql)
     
     # Asynchronous engine for application
-    async_engine = create_async_engine(database_url, echo=True)
+    async_engine = create_async_engine(database_url, echo=echo_sql)
     
     # Async session maker
     async_session_maker = sessionmaker(
         async_engine, class_=AsyncSession, expire_on_commit=False
     )
-
-
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get database session"""
     async with async_session_maker() as session:
