@@ -58,7 +58,7 @@ food4kids/
 - Clone this repository:
 
 ```bash
-git clone <repository-url>
+git clone git@github.com:uwblueprint/food4kids.git
 cd food4kids
 ```
 
