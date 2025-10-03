@@ -189,7 +189,9 @@ docker system prune -a --volumes
 
 ### Backend (Python)
 
-The project will use **Ruff** for Python linting and formatting:
+The project uses **Ruff** for Python linting and formatting, and **mypy** for static type checking:
+
+#### Ruff (Linting & Formatting)
 
 ```bash
 # Check for linting issues
@@ -200,9 +202,28 @@ docker-compose exec backend ruff check --fix .
 
 # Format code
 docker-compose exec backend ruff format .
+
+# Check formatting without making changes
+docker-compose exec backend ruff format --check .
 ```
 
-_Note: Ruff configuration will be added in future updates._
+#### mypy (Static Type Checking)
+
+```bash
+# Run type checking
+docker-compose exec backend mypy .
+```
+
+#### Combined Quality Checks
+
+```bash
+# Run all quality checks (linting, formatting, type checking)
+docker-compose exec backend ruff check . && docker-compose exec backend ruff format --check . && docker-compose exec backend mypy .
+```
+
+**Configuration Files:**
+- Ruff: `backend/python/pyproject.toml` (under `[tool.ruff]`)
+- mypy: `backend/python/mypy.ini`
 
 ### Frontend (TypeScript/React)
 

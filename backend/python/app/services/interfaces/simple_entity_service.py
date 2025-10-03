@@ -1,5 +1,11 @@
 from abc import ABC, abstractmethod
 
+from app.models.simple_entity import (
+    SimpleEntity,
+    SimpleEntityCreate,
+    SimpleEntityUpdate,
+)
+
 
 class ISimpleEntityService(ABC):
     """
@@ -7,7 +13,7 @@ class ISimpleEntityService(ABC):
     """
 
     @abstractmethod
-    def get_entities(self):
+    def get_entities(self) -> list[SimpleEntity]:
         """Return a list of all simple entities
 
         :return: A list of dictionaries from SimpleEntity objects
@@ -16,7 +22,7 @@ class ISimpleEntityService(ABC):
         pass
 
     @abstractmethod
-    def get_entity(self, id):
+    def get_entity(self, id: int) -> SimpleEntity | None:
         """Return a dictionary from the SimpleEntity object based on id
 
         :param id: SimpleEntity id
@@ -27,7 +33,7 @@ class ISimpleEntityService(ABC):
         pass
 
     @abstractmethod
-    def create_entity(self, entity):
+    def create_entity(self, entity: SimpleEntityCreate) -> SimpleEntity:
         """Create a new SimpleEntity object
 
         :param entity: dictionary of simple entity fields
@@ -38,7 +44,7 @@ class ISimpleEntityService(ABC):
         pass
 
     @abstractmethod
-    def update_entity(self, id, entity):
+    def update_entity(self, id: int, entity: SimpleEntityUpdate) -> SimpleEntity | None:
         """Update existing simple entity
 
         :param entity: dictionary of simple entity fields
@@ -49,7 +55,7 @@ class ISimpleEntityService(ABC):
         pass
 
     @abstractmethod
-    def delete_entity(self, id):
+    def delete_entity(self, id: int) -> int | None:
         """Delete existing simple entity
 
         :param id: SimpleEntity id

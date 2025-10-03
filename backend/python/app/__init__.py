@@ -1,22 +1,19 @@
-import os
-import re
-import firebase_admin
-import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from logging.config import dictConfig
 
+import firebase_admin
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from logging.config import dictConfig
 
 from .config import settings
 from .models import init_app as init_models
 from .routers import init_app as init_routers
 
 
-def configure_logging():
+def configure_logging() -> None:
     """Configure application logging based on environment"""
-    
+
     # Base configuration that applies to all environments
     base_config = {
         "version": 1,
@@ -25,14 +22,12 @@ def configure_logging():
             "detailed": {
                 "format": "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s"
             },
-            "simple": {
-                "format": "%(levelname)s - %(message)s"
-            },
+            "simple": {"format": "%(levelname)s - %(message)s"},
         },
         "handlers": {},
         "root": {},
     }
-    
+
     if settings.is_development:
         # Development: Log to console with INFO level, and errors to file
         base_config["handlers"] = {
@@ -49,19 +44,18 @@ def configure_logging():
                 "formatter": "detailed",
             },
         }
-        base_config["root"] = {
-            "level": "INFO",
-            "handlers": ["console", "file"]
-        }
-        
+        base_config["root"] = {"level": "INFO", "handlers": ["console", "file"]}
+
         # Set specific loggers to appropriate levels
         base_config["loggers"] = {
             "uvicorn": {"level": "INFO"},
             "uvicorn.access": {"level": "INFO"},
-            "sqlalchemy.engine": {"level": "INFO"},  # Use "WARNING" to avoid SQL query noise
+            "sqlalchemy.engine": {
+                "level": "INFO"
+            },  # Use "WARNING" to avoid SQL query noise
             "app": {"level": "DEBUG"},  # Your app logs at DEBUG level
         }
-        
+
     elif settings.is_testing:
         # Testing: Minimal logging to avoid test output noise
         base_config["handlers"] = {
@@ -72,11 +66,8 @@ def configure_logging():
                 "stream": "ext://sys.stdout",
             },
         }
-        base_config["root"] = {
-            "level": "WARNING",
-            "handlers": ["console"]
-        }
-        
+        base_config["root"] = {"level": "WARNING", "handlers": ["console"]}
+
     else:  # Production
         # Production: Only errors to file, warnings and above to console
         base_config["handlers"] = {
@@ -93,15 +84,12 @@ def configure_logging():
                 "formatter": "detailed",
             },
         }
-        base_config["root"] = {
-            "level": "WARNING",
-            "handlers": ["console", "file"]
-        }
-    
+        base_config["root"] = {"level": "WARNING", "handlers": ["console", "file"]}
+
     dictConfig(base_config)
 
 
-def initialize_firebase():
+def initialize_firebase() -> None:
     """Initialize Firebase Admin SDK"""
     firebase_admin.initialize_app(
         firebase_admin.credentials.Certificate(
@@ -109,7 +97,9 @@ def initialize_firebase():
                 "type": "service_account",
                 "project_id": settings.firebase_project_id,
                 "private_key_id": settings.firebase_svc_account_private_key_id,
-                "private_key": settings.firebase_svc_account_private_key.replace("\\n", "\n"),
+                "private_key": settings.firebase_svc_account_private_key.replace(
+                    "\\n", "\n"
+                ),
                 "client_email": settings.firebase_svc_account_client_email,
                 "client_id": settings.firebase_svc_account_client_id,
                 "auth_uri": settings.firebase_svc_account_auth_uri,
@@ -122,15 +112,15 @@ def initialize_firebase():
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan management"""
     # Startup
     configure_logging()
     initialize_firebase()
     init_models()
-    
+
     yield
-    
+
     # Shutdown
     # Add any cleanup code here if needed
     pass
@@ -138,7 +128,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
-    
+
     app = FastAPI(
         title="Food4Kids API",
         description="Backend API for the Food4Kids application",
@@ -151,11 +141,13 @@ def create_app() -> FastAPI:
     # Configure CORS
     cors_origins = settings.cors_origins.copy()
     if settings.is_development:
-        cors_origins.extend([
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ])
-    
+        cors_origins.extend(
+            [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+            ]
+        )
+
     # Add regex pattern for preview deployments
     cors_origins.append("https://uw-blueprint-starter-code--pr.*\\.web\\.app")
 

@@ -3,6 +3,7 @@ from enum import Enum
 
 class EntityEnum(str, Enum):
     """Entity enum with string values"""
+
     A = "A"
     B = "B"
     C = "C"
@@ -11,6 +12,7 @@ class EntityEnum(str, Enum):
 
 class SimpleEntityEnum(str, Enum):
     """Simple entity enum with string values"""
+
     A = "A"
     B = "B"
     C = "C"
@@ -19,5 +21,6 @@ class SimpleEntityEnum(str, Enum):
 
 class RoleEnum(str, Enum):
     """User role enum with string values"""
+
     USER = "User"
     ADMIN = "Admin"

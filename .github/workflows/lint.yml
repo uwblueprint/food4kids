@@ -59,7 +59,39 @@ jobs:
         working-directory: ./backend/typescript
         run: yarn lint
       
-      - name: Lint Python backend
+      - name: Set up Python
+        if: steps.changes.outputs.python-backend == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Cache pip dependencies
+        if: steps.changes.outputs.python-backend == 'true'
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
         if: steps.changes.outputs.python-backend == 'true'
         working-directory: ./backend/python
-        run: pip install black && python -m black --check .
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Ruff linter
+        if: steps.changes.outputs.python-backend == 'true'
+        working-directory: ./backend/python
+        run: ruff check . --config pyproject.toml
+
+      - name: Run Ruff formatter check
+        if: steps.changes.outputs.python-backend == 'true'
+        working-directory: ./backend/python
+        run: ruff format --check . --config pyproject.toml
+
+      - name: Run MyPy type checker
+        if: steps.changes.outputs.python-backend == 'true'
+        working-directory: ./backend/python
+        run: mypy . --config-file mypy.ini
