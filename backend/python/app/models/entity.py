@@ -20,7 +20,7 @@ class EntityBase(SQLModel):
     string_field: str = Field(min_length=1, max_length=255)
     int_field: int = Field(ge=0)  # Greater than or equal to 0
     enum_field: EntityEnum = Field(
-        default=EntityEnum.A, sa_type=Enum("entityenum", "A", "B", "C", "D")
+        default=EntityEnum.A, sa_column=Column(Enum(EntityEnum))
     )
     string_array_field: list[str] = Field(
         default_factory=list, sa_column=Column(ARRAY(String))

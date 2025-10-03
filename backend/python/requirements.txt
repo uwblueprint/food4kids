@@ -19,6 +19,7 @@ python-multipart==0.0.6
 pydantic-settings>=2.0.0
 google-api-core==1.26.3
 google-api-python-client==2.2.0
+google-api-python-client-stubs>=1.0.0
 google-auth==1.29.0
 google-auth-httplib2==0.1.0
 google-cloud-core==1.6.0
