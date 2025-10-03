@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.user import User, UserCreate, UserUpdate
 
 
 class IUserService(ABC):
@@ -9,7 +12,9 @@ class IUserService(ABC):
     """
 
     @abstractmethod
-    async def get_user_by_id(self, session: AsyncSession, user_id: int):
+    async def get_user_by_id(
+        self, session: AsyncSession, user_id: int
+    ) -> Optional[User]:
         """
         Get user associated with user_id
 
@@ -24,7 +29,9 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def get_user_by_email(self, session: AsyncSession, email: str):
+    async def get_user_by_email(
+        self, session: AsyncSession, email: str
+    ) -> Optional[User]:
         """
         Get user associated with email
 
@@ -39,7 +46,9 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def get_user_role_by_auth_id(self, session: AsyncSession, auth_id: str):
+    async def get_user_role_by_auth_id(
+        self, session: AsyncSession, auth_id: str
+    ) -> Optional[str]:
         """
         Get role of user associated with auth_id
 
@@ -54,7 +63,9 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def get_user_id_by_auth_id(self, session: AsyncSession, auth_id: str):
+    async def get_user_id_by_auth_id(
+        self, session: AsyncSession, auth_id: str
+    ) -> Optional[int]:
         """
         Get id of user associated with auth_id
 
@@ -69,7 +80,9 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def get_auth_id_by_user_id(self, session: AsyncSession, user_id: int):
+    async def get_auth_id_by_user_id(
+        self, session: AsyncSession, user_id: int
+    ) -> Optional[str]:
         """
         Get auth_id of user associated with user_id
 
@@ -84,7 +97,7 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def get_users(self, session: AsyncSession):
+    async def get_users(self, session: AsyncSession) -> list[User]:
         """
         Get all users (possibly paginated in the future)
 
@@ -97,7 +110,13 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def create_user(self, session: AsyncSession, user, auth_id=None, signup_method="PASSWORD"):
+    async def create_user(
+        self,
+        session: AsyncSession,
+        user: UserCreate,
+        auth_id: Optional[str] = None,
+        signup_method: str = "PASSWORD",
+    ) -> User:
         """
         Create a user, email verification configurable
 
@@ -116,7 +135,9 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def update_user_by_id(self, session: AsyncSession, user_id: int, user):
+    async def update_user_by_id(
+        self, session: AsyncSession, user_id: int, user: UserUpdate
+    ) -> Optional[User]:
         """
         Update a user
         Note: the password cannot be updated using this method, use IAuthService.reset_password instead
@@ -134,7 +155,7 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def delete_user_by_id(self, session: AsyncSession, user_id: int):
+    async def delete_user_by_id(self, session: AsyncSession, user_id: int) -> None:
         """
         Delete a user by user_id
 
@@ -147,7 +168,7 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def delete_user_by_email(self, session: AsyncSession, email: str):
+    async def delete_user_by_email(self, session: AsyncSession, email: str) -> None:
         """
         Delete a user by email
 

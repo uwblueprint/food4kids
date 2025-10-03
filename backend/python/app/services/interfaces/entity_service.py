@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import Optional
+
+from app.models.entity import Entity, EntityCreate, EntityUpdate
 
 
 class IEntityService(ABC):
@@ -7,7 +10,7 @@ class IEntityService(ABC):
     """
 
     @abstractmethod
-    def get_entities(self):
+    def get_entities(self) -> list[Entity]:
         """Return a list of all entities
 
         :return: A list of dictionaries from Entity objects
@@ -16,7 +19,7 @@ class IEntityService(ABC):
         pass
 
     @abstractmethod
-    def get_entity(self, id):
+    def get_entity(self, id: int) -> Optional[Entity]:
         """Return a dictionary from the Entity object based on id
 
         :param id: Entity id
@@ -27,7 +30,7 @@ class IEntityService(ABC):
         pass
 
     @abstractmethod
-    def create_entity(self, entity):
+    def create_entity(self, entity: EntityCreate) -> Entity:
         """Create a new Entity object
 
         :param entity: dictionary of entity fields
@@ -38,7 +41,7 @@ class IEntityService(ABC):
         pass
 
     @abstractmethod
-    def update_entity(self, id, entity):
+    def update_entity(self, id: int, entity: EntityUpdate) -> Optional[Entity]:
         """Update existing entity
 
         :param entity: dictionary of entity fields
@@ -49,7 +52,7 @@ class IEntityService(ABC):
         pass
 
     @abstractmethod
-    def delete_entity(self, id):
+    def delete_entity(self, id: int) -> Optional[int]:
         """Delete existing entity
 
         :param id: Entity id

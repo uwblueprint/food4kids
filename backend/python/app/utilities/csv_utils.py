@@ -1,15 +1,16 @@
-""" 
+"""
 Generates a csv string given a list of dictionaries
-Some Notes: 
+Some Notes:
 1. Unwind only unwinds a single level (i.e a list)
 2. CSV requires all dictionaries in the list are of the same type
 """
 
 import csv
 import io
+from typing import Any, Callable
 
 
-def flatten_dicts(dictionary, parent_key="", sep="."):
+def flatten_dicts(dictionary: dict, parent_key: str = "", sep: str = ".") -> dict:
     """
     Flatten a dictionary of dictionaries into a single dictionary
 
@@ -24,7 +25,7 @@ def flatten_dicts(dictionary, parent_key="", sep="."):
     :return: flattened dictionary
     :rtype: dict
     """
-    items = []
+    items: list[tuple] = []
     for key, val in dictionary.items():
         new_key = parent_key + sep + str(key) if parent_key else str(key)
         if isinstance(val, dict):
@@ -35,7 +36,7 @@ def flatten_dicts(dictionary, parent_key="", sep="."):
     return dict(items)
 
 
-def flatten_lists_in_dict(dictionary, sep="."):
+def flatten_lists_in_dict(dictionary: dict, sep: str = ".") -> dict:
     """
     Flatten a dictionary of lists into a single dictionary
 
@@ -63,7 +64,10 @@ def flatten_lists_in_dict(dictionary, sep="."):
     return dict(items) if lsts == 0 else flatten_lists_in_dict(dict(items), sep=sep)
 
 
-def transform_function(dict_list, transform):
+def transform_function(
+    dict_list: list[dict[str, Any]],
+    transform: Callable[[dict[str, Any]], dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Applies a function to each dictionary in a list of dictionaries
 
@@ -81,7 +85,7 @@ def transform_function(dict_list, transform):
     return new_dict_list
 
 
-def unwind_field(list_of_dict, field):
+def unwind_field(list_of_dict: list[dict], field: str) -> list[dict]:
     """
     Unwinds lists inside dicts into multiple dictionaries, returning a new list at the end
 
@@ -111,7 +115,7 @@ def unwind_field(list_of_dict, field):
     return new_list
 
 
-def generate_csv_from_list(dict_list, **kwargs):
+def generate_csv_from_list(dict_list: list[dict[str, Any]], **kwargs: Any) -> str:
     """
     Given a list of dictionaries, generate a csv string without spaces
 
@@ -120,30 +124,30 @@ def generate_csv_from_list(dict_list, **kwargs):
     :return: csv string
     :rtype: str
     """
-    if kwargs.get("transform", None):
+    if kwargs.get("transform"):
         dict_list = transform_function(dict_list, kwargs["transform"])
 
-    if kwargs.get("flatten_lists", None) and kwargs.get("flatten_objects", None):
+    if kwargs.get("flatten_lists") and kwargs.get("flatten_objects"):
         dict_list = [flatten_lists_in_dict(flatten_dicts(dict)) for dict in dict_list]
 
-    if kwargs.get("flatten_objects", None):
+    if kwargs.get("flatten_objects"):
         dict_list = [flatten_dicts(dict) for dict in dict_list]
 
-    if kwargs.get("unwind", None):
+    if kwargs.get("unwind"):
         dict_list = unwind_field(dict_list, kwargs["unwind"])
 
-    if kwargs.get("flatten_lists", None):
+    if kwargs.get("flatten_lists"):
         dict_list = [flatten_lists_in_dict(dict) for dict in dict_list]
 
     output = io.StringIO()
     field_names = (
-        {key: None for d in dict_list for key in d.keys()}.keys()
-        if not kwargs.get("field", None)
+        {key: None for d in dict_list for key in d}.keys()
+        if not kwargs.get("field")
         else kwargs["field"]
     )
     writer = csv.DictWriter(output, fieldnames=field_names)
 
-    if kwargs.get("header", None):
+    if kwargs.get("header"):
         writer.writeheader()
 
     writer.writerows(dict_list)

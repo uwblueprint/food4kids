@@ -1,15 +1,16 @@
-import firebase_admin.auth
-from typing import Optional, List, Set
 from logging import Logger
+from typing import Optional
+
+import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..interfaces.auth_service import IAuthService
-from ..interfaces.user_service import IUserService
-from ..interfaces.email_service import IEmailService
-from ...schemas.auth import AuthResponse, TokenResponse
-from ...models.user import UserCreate
-from ...utilities.firebase_rest_client import FirebaseRestClient
-from ...models.enum import RoleEnum
+from app.models.enum import RoleEnum
+from app.models.user import UserCreate
+from app.schemas.auth import AuthResponse, TokenResponse
+from app.services.interfaces.auth_service import IAuthService
+from app.services.interfaces.email_service import IEmailService
+from app.services.interfaces.user_service import IUserService
+from app.utilities.firebase_rest_client import FirebaseRestClient
 
 
 class AuthService(IAuthService):
@@ -17,7 +18,12 @@ class AuthService(IAuthService):
     AuthService implementation with user authentication methods
     """
 
-    def __init__(self, logger: Logger, user_service: IUserService, email_service: Optional[IEmailService] = None) -> None:
+    def __init__(
+        self,
+        logger: Logger,
+        user_service: IUserService,
+        email_service: Optional[IEmailService] = None,
+    ) -> None:
         """
         Create an instance of AuthService
 
@@ -33,11 +39,22 @@ class AuthService(IAuthService):
         self.email_service: Optional[IEmailService] = email_service
         self.firebase_rest_client: FirebaseRestClient = FirebaseRestClient(logger)
 
-    async def generate_token(self, session: AsyncSession, email: str, password: str) -> tuple[AuthResponse, str]:
+    async def generate_token(
+        self, session: AsyncSession, email: str, password: str
+    ) -> tuple[AuthResponse, str]:
         try:
+            # Always attempt Firebase authentication first
             token = self.firebase_rest_client.sign_in_with_password(email, password)
+
+            # If Firebase auth succeeds, get user from database
             user = await self.user_service.get_user_by_email(session, email)
-            
+
+            if user is None:
+                self.logger.warning(
+                    f"Firebase user {email} exists but not found in database - potential data inconsistency"
+                )
+                raise ValueError("Invalid email or password")
+
             # Create AuthResponse with all required fields (refresh_token excluded - it goes in httpOnly cookie)
             auth_response = AuthResponse(
                 access_token=token.access_token,
@@ -45,65 +62,75 @@ class AuthService(IAuthService):
                 first_name=user.first_name,
                 last_name=user.last_name,
                 email=user.email,  # Now using email from User model
-                role=user.role
+                role=user.role,
             )
             return auth_response, token.refresh_token
         except Exception as e:
-            self.logger.error(
-                "Failed to generate token for user with email {email}".format(
-                    email=email
-                )
-            )
-            raise e
+            # Log the actual error for debugging but return generic message to client
+            self.logger.error(f"Authentication failed for email {email}: {e!s}")
+            # Always return the same generic error message to prevent enumeration
+            raise ValueError("Invalid email or password") from e
 
-    async def generate_token_for_oauth(self, session: AsyncSession, id_token: str) -> AuthResponse:
+    async def generate_token_for_oauth(
+        self, session: AsyncSession, id_token: str
+    ) -> AuthResponse:
         try:
-            google_user = self.firebase_rest_client.sign_in_with_google(id_token)
-            # google_user["idToken"] refers to the Firebase Auth access token for the user
-            access_token = google_user["idToken"]
-            refresh_token = google_user["refreshToken"]
+            # Verify the ID token with Firebase
+            decoded_token = firebase_admin.auth.verify_id_token(id_token)
+            user_id = decoded_token["uid"]
+            email = decoded_token["email"]
+
             # If user already has a login with this email, just return the token
             try:
                 # Note: an error message will be logged from UserService if this lookup fails.
                 # You may want to silence the logger for this special OAuth user lookup case
-                user = await self.user_service.get_user_by_email(session, google_user["email"])
+                user = await self.user_service.get_user_by_email(session, email)
+                if user is None:
+                    self.logger.warning(
+                        f"Firebase user {email} exists but not found in database - potential data inconsistency"
+                    )
+                    raise ValueError("Invalid email or password")
+
                 return AuthResponse(
-                    access_token=access_token,
+                    access_token=id_token,
                     id=user.id,
                     first_name=user.first_name,
                     last_name=user.last_name,
                     email=user.email,  # Now using email from User model
-                    role=user.role
+                    role=user.role,
                 )
-            except Exception as e:
+            except Exception:
                 pass
 
+            # Create new user for OAuth
             user = await self.user_service.create_user(
                 session,
                 UserCreate(
-                    first_name=google_user["firstName"],
-                    last_name=google_user["lastName"],
-                    email=google_user["email"],
+                    first_name=decoded_token.get("name", "").split()[0]
+                    if decoded_token.get("name")
+                    else "",
+                    last_name=decoded_token.get("name", "").split()[-1]
+                    if decoded_token.get("name")
+                    else "",
+                    email=email,
                     role=RoleEnum.USER,
                     password="",
                 ),
-                auth_id=google_user["localId"],
+                auth_id=user_id,
                 signup_method="GOOGLE",
             )
             return AuthResponse(
-                access_token=access_token,
+                access_token=id_token,
                 id=user.id,
                 first_name=user.first_name,
                 last_name=user.last_name,
                 email=user.email,  # Now using email from User model
-                role=user.role
+                role=user.role,
             )
         except Exception as e:
             reason = getattr(e, "message", None)
             self.logger.error(
-                "Failed to generate token for user with OAuth id token. Reason = {reason}".format(
-                    reason=(reason if reason else str(e))
-                )
+                f"Failed to generate token for user with OAuth id token. Reason = {reason if reason else str(e)}"
             )
             raise e
 
@@ -114,9 +141,7 @@ class AuthService(IAuthService):
         except Exception as e:
             reason = getattr(e, "message", None)
             error_message = [
-                "Failed to revoke refresh tokens of user with id {user_id}".format(
-                    user_id=user_id
-                ),
+                f"Failed to revoke refresh tokens of user with id {user_id}",
                 "Reason =",
                 (reason if reason else str(e)),
             ]
@@ -125,7 +150,8 @@ class AuthService(IAuthService):
 
     def renew_token(self, refresh_token: str) -> TokenResponse:
         try:
-            return self.firebase_rest_client.refresh_token(refresh_token)
+            token_response = self.firebase_rest_client.refresh_token(refresh_token)
+            return token_response
         except Exception as e:
             self.logger.error("Failed to refresh token")
             raise e
@@ -141,7 +167,7 @@ class AuthService(IAuthService):
 
         try:
             reset_link = firebase_admin.auth.generate_password_reset_link(email)
-            email_body = """
+            email_body = f"""
                 Hello,
                 <br><br>
                 We have received a password reset request for your account. 
@@ -149,16 +175,12 @@ class AuthService(IAuthService):
                 <strong>This link is only valid for 1 hour.</strong>
                 <br><br>
                 <a href={reset_link}>Reset Password</a>
-                """.format(
-                reset_link=reset_link
-            )
+                """
             self.email_service.send_email(email, "Your Password Reset Link", email_body)
         except Exception as e:
             reason = getattr(e, "message", None)
             self.logger.error(
-                "Failed to send password reset link for {email}. Reason = {reason}".format(
-                    email=email, reason=(reason if reason else str(e))
-                )
+                f"Failed to send password reset link for {email}. Reason = {reason if reason else str(e)}"
             )
             raise e
 
@@ -175,26 +197,24 @@ class AuthService(IAuthService):
             verification_link = firebase_admin.auth.generate_email_verification_link(
                 email
             )
-            email_body = """
+            email_body = f"""
                 Hello,
                 <br><br>
                 Please click the following link to verify your email and activate your account.
                 <strong>This link is only valid for 1 hour.</strong>
                 <br><br>
                 <a href={verification_link}>Verify email</a>
-                """.format(
-                verification_link=verification_link
-            )
+                """
             self.email_service.send_email(email, "Verify your email", email_body)
         except Exception as e:
             self.logger.error(
-                "Failed to generate email verification link for user with email {email}.".format(
-                    email=email
-                )
+                f"Failed to generate email verification link for user with email {email}."
             )
             raise e
 
-    async def is_authorized_by_role(self, session: AsyncSession, access_token: str, roles: Set[str]) -> bool:
+    async def is_authorized_by_role(
+        self, session: AsyncSession, access_token: str, roles: set[str]
+    ) -> bool:
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
@@ -203,12 +223,14 @@ class AuthService(IAuthService):
                 session, decoded_id_token["uid"]
             )
             firebase_user = firebase_admin.auth.get_user(decoded_id_token["uid"])
-            return firebase_user.email_verified and user_role in roles
+            return bool(firebase_user.email_verified and user_role in roles)
         except Exception as e:
-            self.logger.error(f"Authorization failed: {type(e).__name__}: {str(e)}")
+            self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
             return False
 
-    async def is_authorized_by_user_id(self, session: AsyncSession, access_token: str, requested_user_id: int) -> bool:
+    async def is_authorized_by_user_id(
+        self, session: AsyncSession, access_token: str, requested_user_id: int
+    ) -> bool:
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
@@ -217,9 +239,13 @@ class AuthService(IAuthService):
                 session, decoded_id_token["uid"]
             )
             firebase_user = firebase_admin.auth.get_user(decoded_id_token["uid"])
-            return firebase_user.email_verified and token_user_id == requested_user_id
+            return bool(
+                firebase_user.email_verified and token_user_id == requested_user_id
+            )
         except Exception as e:
-            self.logger.error(f"Authorization by user ID failed: {type(e).__name__}: {str(e)}")
+            self.logger.error(
+                f"Authorization by user ID failed: {type(e).__name__}: {e!s}"
+            )
             return False
 
     def is_authorized_by_email(self, access_token: str, requested_email: str) -> bool:
@@ -228,10 +254,12 @@ class AuthService(IAuthService):
                 access_token, check_revoked=True
             )
             firebase_user = firebase_admin.auth.get_user(decoded_id_token["uid"])
-            return (
+            return bool(
                 firebase_user.email_verified
                 and decoded_id_token["email"] == requested_email
             )
         except Exception as e:
-            self.logger.error(f"Authorization by email failed: {type(e).__name__}: {str(e)}")
+            self.logger.error(
+                f"Authorization by email failed: {type(e).__name__}: {e!s}"
+            )
             return False
