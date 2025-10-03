@@ -51,7 +51,9 @@ class EmailService(IEmailService):
         message["from"] = self.sender
         message["to"] = to
         message["subject"] = subject
-        email: GmailMessageBody = {"raw": base64.urlsafe_b64encode(message.as_string().encode()).decode()}
+        email: GmailMessageBody = {
+            "raw": base64.urlsafe_b64encode(message.as_string().encode()).decode()
+        }
         try:
             sent_info = (
                 self.service.users()

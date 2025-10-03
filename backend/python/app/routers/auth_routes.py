@@ -37,7 +37,9 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 def get_cookie_options() -> dict[str, Union[bool, Literal["none", "strict", "lax"]]]:
     """Get cookie options based on environment"""
-    samesite: Literal["none", "strict", "lax"] = "none" if settings.preview_deploy else "strict"
+    samesite: Literal["none", "strict", "lax"] = (
+        "none" if settings.preview_deploy else "strict"
+    )
     return {
         "httponly": True,
         "samesite": samesite,
@@ -71,7 +73,9 @@ async def login(
             "refreshToken",
             value=refresh_token,
             httponly=bool(cookie_options["httponly"]),
-            samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
+            samesite=cast(
+                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
+            ),
             secure=bool(cookie_options["secure"]),
         )
 
@@ -119,7 +123,9 @@ async def register(
             "refreshToken",
             value=refresh_token,
             httponly=bool(cookie_options["httponly"]),
-            samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
+            samesite=cast(
+                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
+            ),
             secure=bool(cookie_options["secure"]),
         )
 
@@ -160,7 +166,9 @@ async def refresh(
             "refreshToken",
             value=token.refresh_token,
             httponly=bool(cookie_options["httponly"]),
-            samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
+            samesite=cast(
+                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
+            ),
             secure=bool(cookie_options["secure"]),
         )
 
