@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -25,7 +24,7 @@ class SimpleEntityService:
 
     async def get_simple_entity(
         self, session: AsyncSession, simple_entity_id: int
-    ) -> Optional[SimpleEntity]:
+    ) -> SimpleEntity | None:
         """Get simple entity by ID"""
         statement = select(SimpleEntity).where(SimpleEntity.id == simple_entity_id)
         result = await session.execute(statement)
@@ -61,7 +60,7 @@ class SimpleEntityService:
         session: AsyncSession,
         simple_entity_id: int,
         simple_entity_data: SimpleEntityUpdate,
-    ) -> Optional[SimpleEntity]:
+    ) -> SimpleEntity | None:
         """Update existing simple entity"""
         try:
             statement = select(SimpleEntity).where(SimpleEntity.id == simple_entity_id)

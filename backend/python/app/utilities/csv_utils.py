@@ -7,7 +7,8 @@ Some Notes:
 
 import csv
 import io
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def flatten_dicts(dictionary: dict, parent_key: str = "", sep: str = ".") -> dict:

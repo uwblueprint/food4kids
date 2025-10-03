@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,9 +11,7 @@ class IUserService(ABC):
     """
 
     @abstractmethod
-    async def get_user_by_id(
-        self, session: AsyncSession, user_id: int
-    ) -> Optional[User]:
+    async def get_user_by_id(self, session: AsyncSession, user_id: int) -> User | None:
         """
         Get user associated with user_id
 
@@ -29,9 +26,7 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def get_user_by_email(
-        self, session: AsyncSession, email: str
-    ) -> Optional[User]:
+    async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
         """
         Get user associated with email
 
@@ -48,7 +43,7 @@ class IUserService(ABC):
     @abstractmethod
     async def get_user_role_by_auth_id(
         self, session: AsyncSession, auth_id: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get role of user associated with auth_id
 
@@ -65,7 +60,7 @@ class IUserService(ABC):
     @abstractmethod
     async def get_user_id_by_auth_id(
         self, session: AsyncSession, auth_id: str
-    ) -> Optional[int]:
+    ) -> int | None:
         """
         Get id of user associated with auth_id
 
@@ -82,7 +77,7 @@ class IUserService(ABC):
     @abstractmethod
     async def get_auth_id_by_user_id(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get auth_id of user associated with user_id
 
@@ -114,7 +109,7 @@ class IUserService(ABC):
         self,
         session: AsyncSession,
         user: UserCreate,
-        auth_id: Optional[str] = None,
+        auth_id: str | None = None,
         signup_method: str = "PASSWORD",
     ) -> User:
         """
@@ -137,7 +132,7 @@ class IUserService(ABC):
     @abstractmethod
     async def update_user_by_id(
         self, session: AsyncSession, user_id: int, user: UserUpdate
-    ) -> Optional[User]:
+    ) -> User | None:
         """
         Update a user
         Note: the password cannot be updated using this method, use IAuthService.reset_password instead

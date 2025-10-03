@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,8 +18,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/", response_model=list[UserRead])
 async def get_users(
     session: AsyncSession = Depends(get_session),
-    user_id: Optional[int] = Query(None, description="Filter by user ID"),
-    email: Optional[str] = Query(None, description="Filter by email"),
+    user_id: int | None = Query(None, description="Filter by user ID"),
+    email: str | None = Query(None, description="Filter by email"),
     _: bool = Depends(require_user_or_admin),
 ) -> list[UserRead]:
     """

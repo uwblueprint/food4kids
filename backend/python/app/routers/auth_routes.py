@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Literal, Union, cast
+from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
@@ -35,7 +35,7 @@ auth_service = AuthService(logger, user_service, email_service)
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-def get_cookie_options() -> dict[str, Union[bool, Literal["none", "strict", "lax"]]]:
+def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
     """Get cookie options based on environment"""
     samesite: Literal["none", "strict", "lax"] = (
         "none" if settings.preview_deploy else "strict"

@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -8,10 +7,10 @@ class BaseModel(SQLModel):
     """Enhanced base model with common fields and functionality"""
 
     # Common timestamp fields
-    created_at: Optional[datetime] = Field(
+    created_at: datetime | None = Field(
         default_factory=datetime.utcnow,
     )
-    updated_at: Optional[datetime] = Field(
+    updated_at: datetime | None = Field(
         default=None,
     )
 

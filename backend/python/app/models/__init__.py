@@ -1,6 +1,6 @@
 import os
 from collections.abc import AsyncGenerator
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import (
@@ -12,9 +12,9 @@ from sqlalchemy.ext.asyncio import (
 from sqlmodel import SQLModel, create_engine
 
 # Database engines
-engine: Optional[Engine] = None
-async_engine: Optional[AsyncEngine] = None
-async_session_maker_instance: Optional[async_sessionmaker[AsyncSession]] = None
+engine: Engine | None = None
+async_engine: AsyncEngine | None = None
+async_session_maker_instance: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_database_url() -> str:
@@ -77,7 +77,7 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def init_app(_app: Optional[Any] = None) -> None:
+def init_app(_app: Any | None = None) -> None:
     """Initialize database for the application"""
     # Import models to register them with SQLModel
 

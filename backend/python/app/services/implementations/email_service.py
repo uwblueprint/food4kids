@@ -1,7 +1,7 @@
 import base64
 import logging
 from email.mime.text import MIMEText
-from typing import Any, Optional
+from typing import Any
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -22,7 +22,7 @@ class EmailService(IEmailService):
         logger: logging.Logger,
         credentials: dict[str, Any],
         sender_email: str,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
     ) -> None:
         """
         Create an instance of EmailService

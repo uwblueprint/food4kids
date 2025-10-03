@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -19,9 +18,7 @@ class EntityService:
         result = await session.execute(statement)
         return list(result.scalars().all())
 
-    async def get_entity(
-        self, session: AsyncSession, entity_id: int
-    ) -> Optional[Entity]:
+    async def get_entity(self, session: AsyncSession, entity_id: int) -> Entity | None:
         """Get entity by ID"""
         statement = select(Entity).where(Entity.id == entity_id)
         result = await session.execute(statement)
@@ -54,7 +51,7 @@ class EntityService:
 
     async def update_entity(
         self, session: AsyncSession, entity_id: int, entity_data: EntityUpdate
-    ) -> Optional[Entity]:
+    ) -> Entity | None:
         """Update existing entity"""
         try:
             statement = select(Entity).where(Entity.id == entity_id)

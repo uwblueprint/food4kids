@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from app.models.simple_entity import (
     SimpleEntity,
@@ -23,7 +22,7 @@ class ISimpleEntityService(ABC):
         pass
 
     @abstractmethod
-    def get_entity(self, id: int) -> Optional[SimpleEntity]:
+    def get_entity(self, id: int) -> SimpleEntity | None:
         """Return a dictionary from the SimpleEntity object based on id
 
         :param id: SimpleEntity id
@@ -45,9 +44,7 @@ class ISimpleEntityService(ABC):
         pass
 
     @abstractmethod
-    def update_entity(
-        self, id: int, entity: SimpleEntityUpdate
-    ) -> Optional[SimpleEntity]:
+    def update_entity(self, id: int, entity: SimpleEntityUpdate) -> SimpleEntity | None:
         """Update existing simple entity
 
         :param entity: dictionary of simple entity fields
@@ -58,7 +55,7 @@ class ISimpleEntityService(ABC):
         pass
 
     @abstractmethod
-    def delete_entity(self, id: int) -> Optional[int]:
+    def delete_entity(self, id: int) -> int | None:
         """Delete existing simple entity
 
         :param id: SimpleEntity id

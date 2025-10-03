@@ -1,5 +1,4 @@
 from logging import Logger
-from typing import Optional
 
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +21,7 @@ class AuthService(IAuthService):
         self,
         logger: Logger,
         user_service: IUserService,
-        email_service: Optional[IEmailService] = None,
+        email_service: IEmailService | None = None,
     ) -> None:
         """
         Create an instance of AuthService
@@ -36,7 +35,7 @@ class AuthService(IAuthService):
         """
         self.logger: Logger = logger
         self.user_service: IUserService = user_service
-        self.email_service: Optional[IEmailService] = email_service
+        self.email_service: IEmailService | None = email_service
         self.firebase_rest_client: FirebaseRestClient = FirebaseRestClient(logger)
 
     async def generate_token(

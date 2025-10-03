@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlalchemy import ARRAY, String
 from sqlmodel import Column, Field, SQLModel
 
@@ -31,7 +29,7 @@ class SimpleEntity(SimpleEntityBase, BaseModel, table=True):
 
     __tablename__ = "simple_entities"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
 
 
 class SimpleEntityCreate(SimpleEntityBase):
@@ -49,8 +47,8 @@ class SimpleEntityRead(SimpleEntityBase):
 class SimpleEntityUpdate(SQLModel):
     """Simple entity update request - all optional"""
 
-    string_field: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    int_field: Optional[int] = Field(default=None, ge=0)
-    enum_field: Optional[SimpleEntityEnum] = Field(default=None)
-    string_array_field: Optional[list[str]] = Field(default=None)
-    bool_field: Optional[bool] = Field(default=None)
+    string_field: str | None = Field(default=None, min_length=1, max_length=255)
+    int_field: int | None = Field(default=None, ge=0)
+    enum_field: SimpleEntityEnum | None = Field(default=None)
+    string_array_field: list[str] | None = Field(default=None)
+    bool_field: bool | None = Field(default=None)

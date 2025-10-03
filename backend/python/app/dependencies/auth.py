@@ -1,5 +1,5 @@
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import firebase_admin.auth
 from fastapi import Depends, HTTPException, status

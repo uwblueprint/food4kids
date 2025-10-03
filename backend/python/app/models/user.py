@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
 
@@ -21,7 +19,7 @@ class User(UserBase, BaseModel, table=True):
 
     __tablename__ = "users"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     auth_id: str = Field(nullable=False, unique=True, index=True)
 
 
@@ -41,10 +39,10 @@ class UserRead(UserBase):
 class UserUpdate(SQLModel):
     """Update request model - all optional"""
 
-    first_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    last_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    email: Optional[EmailStr] = Field(default=None)
-    role: Optional[RoleEnum] = Field(default=None)
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
+    email: EmailStr | None = Field(default=None)
+    role: RoleEnum | None = Field(default=None)
 
 
 class UserRegister(SQLModel):

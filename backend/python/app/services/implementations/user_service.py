@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,9 +14,7 @@ class UserService(IUserService):
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_user_by_id(
-        self, session: AsyncSession, user_id: int
-    ) -> Optional[User]:
+    async def get_user_by_id(self, session: AsyncSession, user_id: int) -> User | None:
         """Get user by ID - returns SQLModel instance"""
         try:
             statement = select(User).where(User.id == user_id)
@@ -33,9 +30,7 @@ class UserService(IUserService):
             self.logger.error(f"Failed to get user by id: {e!s}")
             raise e
 
-    async def get_user_by_email(
-        self, session: AsyncSession, email: str
-    ) -> Optional[User]:
+    async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
         """Get user by email using Firebase"""
         try:
             firebase_user = firebase_admin.auth.get_user_by_email(email)
@@ -66,7 +61,7 @@ class UserService(IUserService):
         self,
         session: AsyncSession,
         user_data: UserCreate,
-        auth_id: Optional[str] = None,
+        auth_id: str | None = None,
         signup_method: str = "PASSWORD",
     ) -> User:
         """Create new user with Firebase integration"""
@@ -115,7 +110,7 @@ class UserService(IUserService):
 
     async def update_user_by_id(
         self, session: AsyncSession, user_id: int, user_data: UserUpdate
-    ) -> Optional[User]:
+    ) -> User | None:
         """Update user by ID"""
         try:
             statement = select(User).where(User.id == user_id)
@@ -198,7 +193,7 @@ class UserService(IUserService):
 
     async def get_user_role_by_auth_id(
         self, session: AsyncSession, auth_id: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get user role by auth_id"""
         try:
             statement = select(User).where(User.auth_id == auth_id)
@@ -216,7 +211,7 @@ class UserService(IUserService):
 
     async def get_auth_id_by_user_id(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get auth_id by user_id"""
         try:
             statement = select(User).where(User.id == user_id)
@@ -234,7 +229,7 @@ class UserService(IUserService):
 
     async def get_user_id_by_auth_id(
         self, session: AsyncSession, auth_id: str
-    ) -> Optional[int]:
+    ) -> int | None:
         """Get user_id by auth_id"""
         try:
             statement = select(User).where(User.auth_id == auth_id)

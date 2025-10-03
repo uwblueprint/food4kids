@@ -75,7 +75,7 @@ def get_expected_user(user: dict) -> dict:
 
 
 def assert_returned_users(users: list, expected: list) -> None:
-    for expected_user, actual_user in zip(expected, users):
+    for expected_user, actual_user in zip(expected, users, strict=False):
         for key in expected[0]:
             assert expected_user[key] == actual_user[key]
 
