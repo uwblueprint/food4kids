@@ -1,6 +1,7 @@
-from typing import Optional
 from uuid import UUID, uuid4
+
 from sqlmodel import Field, SQLModel
+
 from .base import BaseModel
 
 
@@ -9,7 +10,7 @@ class LocationGroupBase(SQLModel):
 
     name: str = Field(unique=True, index=True)
     color: str  # TODO: Decide if this is going to be an enum or a string
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class LocationGroup(LocationGroupBase, BaseModel, table=True):
@@ -34,6 +35,6 @@ class LocationGroupRead(LocationGroupBase):
 class LocationGroupUpdate(SQLModel):
     """Location group update request - all optional"""
 
-    name: Optional[str] = Field(default=None)
-    color: Optional[str] = Field(default=None)
-    notes: Optional[str] = Field(default=None)
+    name: str | None = Field(default=None)
+    color: str | None = Field(default=None)
+    notes: str | None = Field(default=None)
