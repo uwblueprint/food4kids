@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from logging.config import fileConfig
+from typing import Any
 
 # Add the project root to Python path to ensure app module can be imported
 # This handles both running from /app and /app/migrations
@@ -25,11 +26,12 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-fileConfig(config.config_file_name)
+if config.config_file_name:
+    fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
 # Set the database URL from environment
-def get_database_url():
+def get_database_url() -> str:
     if os.getenv("APP_ENV") == "production":
         return os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
     else:
@@ -53,7 +55,7 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
     This configures the context with just a URL
@@ -72,7 +74,7 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def run_migrations_online():
+def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
     In this scenario we need to create an Engine
@@ -83,7 +85,7 @@ def run_migrations_online():
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
-    def process_revision_directives(context, revision, directives):
+    def process_revision_directives(context: Any, revision: Any, directives: Any) -> None:
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
             if script.upgrade_ops.is_empty():

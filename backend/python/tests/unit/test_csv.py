@@ -6,6 +6,10 @@ Current Issues:
 2. List of dictionaries must be of the same type
 """
 
+from typing import Any
+
+from app.utilities.csv_utils import generate_csv_from_list
+
 person = [
     {
         "name": "Person1",
@@ -54,7 +58,7 @@ person4 = [
 ]
 
 
-def transform_person(person):
+def transform_person(person: dict[str, Any]) -> dict[str, Any]:
     transformed = person.copy()
     transformed["num_pets"] = len(transformed["pets"])
     return transformed
@@ -102,10 +106,8 @@ no_header_options = {
     "flatten_objects": False,
 }
 
-from app.utilities.csv_utils import generate_csv_from_list
 
-
-def test_basic():
+def test_basic() -> None:
     result = generate_csv_from_list(person)
     assert (
         result
@@ -113,7 +115,7 @@ def test_basic():
     )
 
 
-def test_transform():
+def test_transform() -> None:
     result = generate_csv_from_list(person2, **options)
     assert (
         result
@@ -121,17 +123,17 @@ def test_transform():
     )
 
 
-def test_nested():
+def test_nested() -> None:
     result = generate_csv_from_list(person4, **no_header_options)
     assert result == "Person1,20,\"{'name': 'Beans', 'type': 'Cat'}\"\r\n"
 
 
-def test_flatten_objects():
+def test_flatten_objects() -> None:
     result = generate_csv_from_list(person4, **flatten_objects_options)
     assert result == "name,age,pet.name,pet.type\r\nPerson1,20,Beans,Cat\r\n"
 
 
-def test_flatten_lists():
+def test_flatten_lists() -> None:
     result = generate_csv_from_list(person2, **flatten_list_options)
     assert (
         result
@@ -139,7 +141,7 @@ def test_flatten_lists():
     )
 
 
-def test_flatten_both():
+def test_flatten_both() -> None:
     result = generate_csv_from_list(person2, **flatten_both_options)
     assert (
         result
@@ -147,7 +149,7 @@ def test_flatten_both():
     )
 
 
-def test_unwind():
+def test_unwind() -> None:
     result = generate_csv_from_list(person2, **unwind_options)
     assert (
         result
