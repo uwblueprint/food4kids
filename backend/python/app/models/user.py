@@ -1,4 +1,5 @@
 from pydantic import EmailStr
+from sqlalchemy import Column, Enum
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
@@ -21,6 +22,16 @@ class User(UserBase, BaseModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     auth_id: str = Field(nullable=False, unique=True, index=True)
+    role: RoleEnum = Field(
+        default=RoleEnum.USER,
+        sa_column=Column(
+            Enum(
+                RoleEnum,
+                values_callable=lambda obj: [e.value for e in obj],
+                name="roleenum",
+            )
+        ),
+    )
 
 
 class UserCreate(UserBase):
