@@ -1,4 +1,5 @@
 from logging import Logger
+from typing import TYPE_CHECKING
 
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,9 @@ from app.services.interfaces.auth_service import IAuthService
 from app.services.interfaces.email_service import IEmailService
 from app.services.interfaces.user_service import IUserService
 from app.utilities.firebase_rest_client import FirebaseRestClient
+
+if TYPE_CHECKING:
+    from firebase_admin.auth import UserRecord
 
 
 class AuthService(IAuthService):
@@ -75,7 +79,9 @@ class AuthService(IAuthService):
     ) -> AuthResponse:
         try:
             # Verify the ID token with Firebase
-            decoded_token = firebase_admin.auth.verify_id_token(id_token)
+            decoded_token: dict[str, str] = firebase_admin.auth.verify_id_token(
+                id_token
+            )
             user_id = decoded_token["uid"]
             email = decoded_token["email"]
 
@@ -221,7 +227,9 @@ class AuthService(IAuthService):
             user_role = await self.user_service.get_user_role_by_auth_id(
                 session, decoded_id_token["uid"]
             )
-            firebase_user = firebase_admin.auth.get_user(decoded_id_token["uid"])
+            firebase_user: UserRecord = firebase_admin.auth.get_user(
+                decoded_id_token["uid"]
+            )
             return bool(firebase_user.email_verified and user_role in roles)
         except Exception as e:
             self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
@@ -237,7 +245,9 @@ class AuthService(IAuthService):
             token_user_id = await self.user_service.get_user_id_by_auth_id(
                 session, decoded_id_token["uid"]
             )
-            firebase_user = firebase_admin.auth.get_user(decoded_id_token["uid"])
+            firebase_user: UserRecord = firebase_admin.auth.get_user(
+                decoded_id_token["uid"]
+            )
             return bool(
                 firebase_user.email_verified and token_user_id == requested_user_id
             )
@@ -252,7 +262,9 @@ class AuthService(IAuthService):
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
             )
-            firebase_user = firebase_admin.auth.get_user(decoded_id_token["uid"])
+            firebase_user: UserRecord = firebase_admin.auth.get_user(
+                decoded_id_token["uid"]
+            )
             return bool(
                 firebase_user.email_verified
                 and decoded_id_token["email"] == requested_email

@@ -140,7 +140,7 @@ def get_current_user_id(access_token: str = Depends(get_access_token)) -> str:
     :return: User ID
     """
     try:
-        decoded_token = firebase_admin.auth.verify_id_token(
+        decoded_token: dict[str, str] = firebase_admin.auth.verify_id_token(
             access_token, check_revoked=True
         )
         return str(decoded_token["uid"])
@@ -159,7 +159,7 @@ def get_current_user_email(access_token: str = Depends(get_access_token)) -> str
     :return: User email
     """
     try:
-        decoded_token = firebase_admin.auth.verify_id_token(
+        decoded_token: dict[str, str] = firebase_admin.auth.verify_id_token(
             access_token, check_revoked=True
         )
         return str(decoded_token["email"])
@@ -182,7 +182,7 @@ async def get_current_database_user_id(
     :return: Database user ID (integer)
     """
     try:
-        decoded_token = firebase_admin.auth.verify_id_token(
+        decoded_token: dict[str, str] = firebase_admin.auth.verify_id_token(
             access_token, check_revoked=True
         )
         firebase_uid = decoded_token["uid"]

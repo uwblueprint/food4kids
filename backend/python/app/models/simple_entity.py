@@ -1,4 +1,4 @@
-from sqlalchemy import ARRAY, String
+from sqlalchemy import ARRAY, Enum, String
 from sqlmodel import Column, Field, SQLModel
 
 from .base import BaseModel
@@ -17,7 +17,16 @@ class SimpleEntityBase(SQLModel):
 
     string_field: str = Field(min_length=1, max_length=255)
     int_field: int = Field(ge=0)  # Greater than or equal to 0
-    enum_field: SimpleEntityEnum = Field(default=SimpleEntityEnum.A)
+    enum_field: SimpleEntityEnum = Field(
+        default=SimpleEntityEnum.A,
+        sa_column=Column(
+            Enum(
+                SimpleEntityEnum,
+                values_callable=lambda obj: [e.value for e in obj],
+                name="simpleentityenum",
+            )
+        ),
+    )
     string_array_field: list[str] = Field(
         default_factory=list, sa_column=Column(ARRAY(String))
     )

@@ -1,4 +1,5 @@
 import logging
+from typing import TYPE_CHECKING
 
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,9 @@ from sqlmodel import select
 
 from app.models.user import User, UserCreate, UserUpdate
 from app.services.interfaces.user_service import IUserService
+
+if TYPE_CHECKING:
+    from firebase_admin.auth import UserRecord
 
 
 class UserService(IUserService):
@@ -33,7 +37,7 @@ class UserService(IUserService):
     async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
         """Get user by email using Firebase"""
         try:
-            firebase_user = firebase_admin.auth.get_user_by_email(email)
+            firebase_user: UserRecord = firebase_admin.auth.get_user_by_email(email)
             statement = select(User).where(User.auth_id == firebase_user.uid)
             result = await session.execute(statement)
             user = result.scalars().first()
@@ -65,7 +69,7 @@ class UserService(IUserService):
         signup_method: str = "PASSWORD",
     ) -> User:
         """Create new user with Firebase integration"""
-        firebase_user = None
+        firebase_user: UserRecord | None = None
 
         try:
             # Create Firebase user
@@ -248,7 +252,7 @@ class UserService(IUserService):
     async def delete_user_by_email(self, session: AsyncSession, email: str) -> None:
         """Delete user by email"""
         try:
-            firebase_user = firebase_admin.auth.get_user_by_email(email)
+            firebase_user: UserRecord = firebase_admin.auth.get_user_by_email(email)
             statement = select(User).where(User.auth_id == firebase_user.uid)
             result = await session.execute(statement)
             user = result.scalars().first()
