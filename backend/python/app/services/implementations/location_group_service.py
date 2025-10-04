@@ -8,7 +8,6 @@ from app.models.location_group import LocationGroup, LocationGroupUpdate
 
 
 class LocationGroupService:
-
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
