@@ -68,7 +68,8 @@ def init_app(app=None):
     from .entity import Entity
     from .simple_entity import SimpleEntity
     from .user import User
-    
+    from .location_group import LocationGroup
+
     init_database()
     
     # Create tables if in testing mode
