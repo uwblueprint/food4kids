@@ -1,7 +1,5 @@
-from app.models.user import User
 from app.models.enum import RoleEnum
-
-from app.models import db
+from app.models.user import User
 
 """
 Sample python test.
@@ -10,17 +8,15 @@ https://docs.pytest.org/en/6.2.x/reference.html
 """
 
 
-def test_create_user():
-    user = {
+def test_create_user() -> None:
+    user_data = {
         "first_name": "Jane",
         "last_name": "Doe",
         "auth_id": "abc",
         "role": RoleEnum.ADMIN,
     }
 
-    user = User(**user)
-    db.session.add(user)
-    db.session.commit()
+    user = User(**user_data)
     assert user.first_name == "Jane"
     assert user.last_name == "Doe"
     assert user.auth_id == "abc"

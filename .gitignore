@@ -6,6 +6,8 @@
 **/*.log
 **/firebaseServiceAccount.json
 **/.DS_Store
-.vscode
+# VS Code - ignore everything except extensions.json
+.vscode/*
+!.vscode/extensions.json
 **/*.cache
 **/*.egg-info

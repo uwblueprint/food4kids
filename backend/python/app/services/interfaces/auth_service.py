@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class IAuthService(ABC):
@@ -7,48 +10,53 @@ class IAuthService(ABC):
     """
 
     @abstractmethod
-    def generate_token(self, email, password):
+    async def generate_token(
+        self, session: AsyncSession, email: str, password: str
+    ) -> tuple[Any, str]:
         """
         Generate a short-lived JWT access token and a long-lived refresh token
         when supplied user's email and password
 
+        :param session: database session
+        :type session: AsyncSession
         :param email: user's email
         :type email: str
         :param password: user's password
         :type password: str
         :return: AuthDTO object containing the access token, refresh token, and user info
-        :rtype: AuthDTO
+        :rtype: tuple[AuthResponse, str]
         :raises Exception: if token generation fails
         """
         pass
 
-
     @abstractmethod
-    def revoke_tokens(self, user_id):
+    async def revoke_tokens(self, session: AsyncSession, user_id: int) -> None:
         """
         Revoke all refresh tokens of a user
 
+        :param session: database session
+        :type session: AsyncSession
         :param user_id: user_id of user whose refresh tokens are to be revoked
-        :type user_id: str
+        :type user_id: int
         :raises Exception: if token revocation fails
         """
         pass
 
     @abstractmethod
-    def renew_token(self, refresh_token):
+    def renew_token(self, refresh_token: str) -> Any:
         """
         Generate new access and refresh token pair using the provided refresh token
 
         :param refresh_token: user's refresh token
         :type refresh_token: str
         :return: Token object containing new access and refresh tokens
-        :rtype: Token
+        :rtype: TokenResponse
         :raises Exception: if token renewal fails
         """
         pass
 
     @abstractmethod
-    def reset_password(self, email):
+    def reset_password(self, email: str) -> None:
         """
         Generates a password reset link for the user with the given email
         and sends the reset link to that email address
@@ -60,7 +68,7 @@ class IAuthService(ABC):
         pass
 
     @abstractmethod
-    def send_email_verification_link(self, email):
+    def send_email_verification_link(self, email: str) -> None:
         """
         Generates an email verification link for the user with the given email
         and sends the reset link to that email address
@@ -72,7 +80,9 @@ class IAuthService(ABC):
         pass
 
     @abstractmethod
-    async def is_authorized_by_role(self, session, access_token, roles):
+    async def is_authorized_by_role(
+        self, session: AsyncSession, access_token: str, roles: set[str]
+    ) -> bool:
         """
         Determine if the provided access token is valid and authorized for at least
         one of the specified roles
@@ -82,14 +92,16 @@ class IAuthService(ABC):
         :param access_token: user's access token
         :type access_token: str
         :param roles: roles to check for
-        :type roles: {str}
+        :type roles: set[str]
         :return: true if token valid and authorized, false otherwise
         :rtype: bool
         """
         pass
 
     @abstractmethod
-    async def is_authorized_by_user_id(self, session, access_token, requested_user_id):
+    async def is_authorized_by_user_id(
+        self, session: AsyncSession, access_token: str, requested_user_id: int
+    ) -> bool:
         """
         Determine if the provided access token is valid and issued to the requested user
 
@@ -98,14 +110,14 @@ class IAuthService(ABC):
         :param access_token: user's access token
         :type access_token: str
         :param requested_user_id: user_id of the requested user
-        :type requested_user_id: str
+        :type requested_user_id: int
         :return: true if token valid and authorized, false otherwise
         :rtype: bool
         """
         pass
 
     @abstractmethod
-    def is_authorized_by_email(self, access_token, requested_email):
+    def is_authorized_by_email(self, access_token: str, requested_email: str) -> bool:
         """
         Determine if the provided access token is valid and issued to the requested user
         with the specified email address
