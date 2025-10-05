@@ -83,6 +83,7 @@ def init_app(_app: Any | None = None) -> None:
     from .entity import Entity  # noqa: F401
     from .simple_entity import SimpleEntity  # noqa: F401
     from .user import User  # noqa: F401
+    from .drivers import Driver
 
     init_database()
 
