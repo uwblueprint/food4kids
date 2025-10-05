@@ -41,7 +41,8 @@ def init_database() -> None:
     global engine, async_engine, async_session_maker_instance
 
     database_url = get_database_url()
-    sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    sync_database_url = database_url.replace(
+        "postgresql+asyncpg://", "postgresql://")
 
     # Set echo based on environment
     app_env = os.getenv("APP_ENV")
@@ -62,7 +63,8 @@ def init_database() -> None:
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get database session"""
     if async_session_maker_instance is None:
-        raise RuntimeError("Database not initialized. Call init_database() first.")
+        raise RuntimeError(
+            "Database not initialized. Call init_database() first.")
     async with async_session_maker_instance() as session:
         try:
             yield session
@@ -73,7 +75,8 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 def create_db_and_tables() -> None:
     """Create database tables - for testing/development"""
     if engine is None:
-        raise RuntimeError("Database not initialized. Call init_database() first.")
+        raise RuntimeError(
+            "Database not initialized. Call init_database() first.")
     SQLModel.metadata.create_all(engine)
 
 
@@ -83,6 +86,7 @@ def init_app(_app: Any | None = None) -> None:
     from .entity import Entity  # noqa: F401
     from .simple_entity import SimpleEntity  # noqa: F401
     from .user import User  # noqa: F401
+    from .location import Location
 
     init_database()
 
