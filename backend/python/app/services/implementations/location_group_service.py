@@ -4,12 +4,12 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.location import Location
 from app.models.location_group import (
     LocationGroup,
     LocationGroupCreate,
     LocationGroupUpdate,
 )
-from app.models.location import Location
 
 
 class LocationGroupService:
