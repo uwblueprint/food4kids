@@ -10,7 +10,7 @@ class DriverAssignmentBase(SQLModel):
     """Shared fields between table and API models"""
 
     driver_id: UUID = Field(foreign_key="drivers.driver_id")
-    route_id: UUID = Field(foreign_key="routes.id")
+    route_id: UUID = Field(foreign_key="routes.route_id")
     time: datetime = Field()
     completed: bool = Field(default=False)
 
@@ -20,7 +20,7 @@ class DriverAssignment(DriverAssignmentBase, BaseModel, table=True):
 
     __tablename__ = "DriverAssignments"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    driver_assignment_id: UUID = Field(default_factory=uuid4, primary_key=True)
 
 
 class DriverAssignmentCreate(DriverAssignmentBase):
@@ -32,7 +32,7 @@ class DriverAssignmentCreate(DriverAssignmentBase):
 class DriverAssignmentRead(DriverAssignmentBase):
     """Read response model"""
 
-    id: UUID
+    driver_assignment_id: UUID
 
 
 class DriverAssignmentUpdate(SQLModel):
