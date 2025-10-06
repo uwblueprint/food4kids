@@ -18,7 +18,7 @@ class DriverAssignmentBase(SQLModel):
 class DriverAssignment(DriverAssignmentBase, BaseModel, table=True):
     """Database table model"""
 
-    __tablename__ = "DriverAssignments"
+    __tablename__ = "driver_assignments"
 
     driver_assignment_id: UUID = Field(default_factory=uuid4, primary_key=True)
 
