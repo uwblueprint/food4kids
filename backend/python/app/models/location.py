@@ -4,7 +4,7 @@ from sqlmodel import SQLModel, Field
 from .base import BaseModel
 
 
-class LocationBase(SQLModel, table=True):
+class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
     location_group_id: Optional[UUID] = Field(
