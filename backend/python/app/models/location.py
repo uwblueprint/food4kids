@@ -1,27 +1,28 @@
 from uuid import UUID, uuid4
-from typing import Optional
-from sqlmodel import SQLModel, Field
+
+from sqlmodel import Field, SQLModel
+
 from .base import BaseModel
 
 
 class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
-    location_group_id: Optional[UUID] = Field(
+    location_group_id: UUID | None = Field(
         foreign_key="location_groups.location_group_id", nullable=True
     )
     is_school: bool
-    school_name: Optional[str] = None
+    school_name: str | None = None
     contact_name: str
     address: str
     phone_number: str
     longitude: float
     latitude: float
     halal: bool
-    dietary_restrictions: Optional[str] = None
-    num_children: Optional[int] = None
+    dietary_restrictions: str | None = None
+    num_children: int | None = None
     num_boxes: int
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -48,18 +49,18 @@ class LocationUpdate(SQLModel):
     """Update request model"""
 
     location_id: UUID
-    location_group_id: Optional[UUID] = Field(
+    location_group_id: UUID | None = Field(
         foreign_key="location_groups.location_group_id", nullable=True
     )
     is_school: bool
-    school_name: Optional[str] = None
+    school_name: str | None = None
     contact_name: str
     address: str
     phone_number: str
     longitude: float
     latitude: float
     halal: bool
-    dietary_restrictions: Optional[str] = None
-    num_children: Optional[int] = None
+    dietary_restrictions: str | None = None
+    num_children: int | None = None
     num_boxes: int
-    notes: Optional[str] = None
+    notes: str | None = None
