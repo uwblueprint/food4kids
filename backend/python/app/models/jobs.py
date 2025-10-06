@@ -40,7 +40,7 @@ class JobsCreate(JobsBase):
 class JobsRead(JobsBase):
     """Jobs response model"""
 
-    jobs_id: UUID
+    job_id: UUID
     started_at: datetime | None = None
     finished_at: datetime | None = None
     created_at: datetime
