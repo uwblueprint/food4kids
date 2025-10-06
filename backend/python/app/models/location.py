@@ -8,7 +8,8 @@ class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
     location_group_id: Optional[UUID] = Field(
-        foreign_key="location_groups.location_group_id", nullable=True)
+        foreign_key="location_groups.location_group_id", nullable=True
+    )
     is_school: bool
     school_name: Optional[str] = None
     contact_name: str
@@ -25,6 +26,7 @@ class LocationBase(SQLModel):
 
 class Location(LocationBase, BaseModel, table=True):
     """Database table model"""
+
     __tablename__ = "locations"
 
     location_id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -32,19 +34,23 @@ class Location(LocationBase, BaseModel, table=True):
 
 class LocationCreate(LocationBase):
     """Create request model"""
+
     pass
 
 
 class LocationRead(LocationBase):
     """Read response model"""
+
     location_id: UUID
 
 
 class LocationUpdate(SQLModel):
     """Update request model"""
+
     location_id: UUID
     location_group_id: Optional[UUID] = Field(
-        foreign_key="location_groups.location_group_id", nullable=True)
+        foreign_key="location_groups.location_group_id", nullable=True
+    )
     is_school: bool
     school_name: Optional[str] = None
     contact_name: str
