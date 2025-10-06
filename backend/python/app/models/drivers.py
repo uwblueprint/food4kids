@@ -2,6 +2,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
 
+from .base import BaseModel
+
 
 class DriverBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
@@ -14,7 +16,7 @@ class DriverBase(SQLModel):
     notes: str = Field(default="", max_length=1024)
 
 
-class Driver(DriverBase, table=True):
+class Driver(DriverBase, BaseModel, table=True):
     __tablename__ = "drivers"
 
     driver_id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
