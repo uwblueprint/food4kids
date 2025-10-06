@@ -18,6 +18,7 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
 
     __tablename__ = "location_groups"
     location_group_id: UUID = Field(default_factory=uuid4, primary_key=True)
+    num_locations: int = Field(default=0)
 
 
 class LocationGroupCreate(LocationGroupBase):
@@ -30,6 +31,7 @@ class LocationGroupRead(LocationGroupBase):
     """Location group response model"""
 
     location_group_id: UUID
+    num_locations: int
 
 
 class LocationGroupUpdate(SQLModel):
