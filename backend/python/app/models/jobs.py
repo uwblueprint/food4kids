@@ -53,4 +53,5 @@ class JobsUpdate(SQLModel):
     progress: str | None = None
     route_group_id: UUID | None = None
     started_at: datetime | None = None
+    updated_at: datetime | None = None
     finished_at: datetime | None = None
