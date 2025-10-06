@@ -9,6 +9,7 @@ from app.models.location_group import (
     LocationGroupCreate,
     LocationGroupUpdate,
 )
+from app.models.location import Location
 
 
 class LocationGroupService:
@@ -30,8 +31,18 @@ class LocationGroupService:
             await session.commit()
             await session.refresh(new_location_group)
 
-            # blocked on location model
-            # TODO: update each locations location_group_id foreign key using location_ids
+            # Update each locations location_group_id foreign key
+            for location_id in location_ids:
+                statement = select(Location).where(Location.location_id == location_id)
+                result = await session.execute(statement)
+                location = result.scalars().first()
+
+                if location:
+                    location.location_group_id = new_location_group.location_group_id
+                else:
+                    self.logger.warning(f"Location with id {location_id} not found")
+
+            await session.commit()
 
             return new_location_group
         except Exception as error:
