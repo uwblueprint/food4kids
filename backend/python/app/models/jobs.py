@@ -4,15 +4,14 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
-from .enum import StatusEnum
+from .enum import ProgressEnum
 
 
 class JobsBase(SQLModel):
     """Shared fields between table and API models"""
 
     route_group_id: UUID | None = Field(foreign_key="route_groups.id")
-    status: StatusEnum = Field(default=StatusEnum.PENDING)
-    progress: str = Field(default=None)
+    progress: ProgressEnum = Field(default=ProgressEnum.PENDING)
 
 
 class Jobs(JobsBase, BaseModel, table=True):
@@ -20,7 +19,7 @@ class Jobs(JobsBase, BaseModel, table=True):
 
     __tablename__ = "jobs"
 
-    jobs_id: UUID = Field(default_factory=uuid4, primary_key=True)
+    job_id: UUID = Field(default_factory=uuid4, primary_key=True)
     started_at: datetime | None = Field(
         default_factory=datetime.utcnow,
     )
@@ -51,7 +50,6 @@ class JobsRead(JobsBase):
 class JobsUpdate(SQLModel):
     """Jobs update request - all optional"""
 
-    status: StatusEnum | None = None
     progress: str | None = None
     route_group_id: UUID | None = None
     started_at: datetime | None = None

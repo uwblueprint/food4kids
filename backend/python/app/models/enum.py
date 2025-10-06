@@ -26,7 +26,7 @@ class RoleEnum(str, Enum):
     ADMIN = "Admin"
 
 
-class StatusEnum(str, Enum):
+class ProgressEnum(str, Enum):
     PENDING = "Pending"
     RUNNING = "Running"
     COMPLETED = "Completed"
