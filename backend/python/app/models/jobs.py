@@ -41,10 +41,6 @@ class JobsRead(JobsBase):
     """Jobs response model"""
 
     job_id: UUID
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    created_at: datetime
-    updated_at: datetime
 
 
 class JobsUpdate(SQLModel):
