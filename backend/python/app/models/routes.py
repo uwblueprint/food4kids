@@ -7,10 +7,6 @@ from .base import BaseModel
 
 class RouteBase(SQLModel):
     """Shared fields between table and API models"""
-
-    route_group_id: UUID | None = Field(
-        foreign_key = "route_groups.id"
-    )
     name: str = Field(default="", min_length=1, max_length=255) # can change this later
     notes: str = Field(default="", max_length=1000) # can change this later
     length: float = Field(ge=0.0)  # in km, must be non-negative
