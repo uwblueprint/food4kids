@@ -1,8 +1,13 @@
 from uuid import UUID, uuid4
+from typing import TYPE_CHECKING
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 
 from .base import BaseModel
+
+# temporary import to avoid circular dependency
+if TYPE_CHECKING:
+    from .location import Location
 
 
 class LocationGroupBase(SQLModel):
@@ -18,7 +23,14 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
 
     __tablename__ = "location_groups"
     location_group_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    num_locations: int = Field(default=0)
+    
+    # Relationship to locations
+    locations: list["Location"] = Relationship()
+    
+    @property
+    def num_locations(self) -> int:
+        """Computed property for number of locations"""
+        return len(self.locations)
 
 
 class LocationGroupCreate(LocationGroupBase):
