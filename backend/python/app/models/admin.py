@@ -1,4 +1,5 @@
 from uuid import UUID, uuid4
+import datetime
 
 from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
@@ -13,10 +14,8 @@ class AdminBase(SQLModel):
     default_cap: int | None = Field(default=None)
     admin_phone: str = Field(min_length=1, max_length=100, nullable=False)
     admin_email: EmailStr = Field(nullable=False)
-    route_start_time: str | None = Field(default=None)
+    route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
-    preferred_language: str | None = Field(default=None)
-    admin_timezone: str | None = Field(default=None)
 
 
 class Admin(AdminBase, BaseModel, table=True):
@@ -46,16 +45,5 @@ class AdminUpdate(SQLModel):
     default_cap: int | None = Field(default=None)
     admin_phone: str | None = Field(default=None, min_length=1, max_length=100)
     admin_email: EmailStr | None = Field(default=None)
-    route_start_time: str | None = Field(default=None)
+    route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
-    preferred_language: str | None = Field(default=None)
-    admin_timezone: str | None = Field(default=None)
-
-
-class AdminRegister(SQLModel):
-    """Admin registration request"""
-
-    admin_name: str = Field(min_length=1, max_length=100)
-    admin_phone: str = Field(min_length=1, max_length=100)
-    admin_email: EmailStr
-    admin_password: str = Field(min_length=8, max_length=100)
