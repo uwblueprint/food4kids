@@ -12,12 +12,8 @@ if TYPE_CHECKING:
 class RouteStopBase(SQLModel):
     """Shared fields between table and API models"""
 
-    route_id: UUID = Field(
-        foreign_key="routes.route_id"
-    )
-    location_id: UUID = Field(
-        foreign_key="locations.location_id"
-    )
+    route_id: UUID = Field(foreign_key="routes.route_id")
+    location_id: UUID = Field(foreign_key="locations.location_id")
     stop_number: int = Field(ge=1)  # Stop number in the route sequence
 
 
@@ -26,11 +22,7 @@ class RouteStop(RouteStopBase, BaseModel, table=True):
 
     __tablename__ = "route_stops"
 
-    route_stop_id: UUID = Field(
-        default=uuid4,
-        primary_key=True,
-        nullable=False
-    )
+    route_stop_id: UUID = Field(default=uuid4, primary_key=True, nullable=False)
 
     # Relationship back to route
     route: "Route" = Relationship(back_populates="route_stops")
