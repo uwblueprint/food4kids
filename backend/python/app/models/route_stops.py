@@ -6,7 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .route import Route
+    from .routes import Route
 
 
 class RouteStopBase(SQLModel):
