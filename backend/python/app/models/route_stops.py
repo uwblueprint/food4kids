@@ -1,10 +1,12 @@
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-from sqlalchemy.dialects.postgresql import UUID
-from sqlmodel import Field, SQLModel, Relationship
+
+from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
 
-from .route import Route
+if TYPE_CHECKING:
+    from .route import Route
 
 
 class RouteStopBase(SQLModel):

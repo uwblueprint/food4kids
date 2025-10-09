@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
+
+if TYPE_CHECKING:
+    from .route_stops import RouteStop
 
 
 class RouteBase(SQLModel):
