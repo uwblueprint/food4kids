@@ -7,21 +7,21 @@ from .base import BaseModel
 from .enum import ProgressEnum
 
 
-class JobsBase(SQLModel):
+class JobBase(SQLModel):
     """Shared fields between table and API models"""
 
-    route_group_id: UUID | None = Field(foreign_key="route_groups.id")
+    route_group_id: UUID | None = Field(foreign_key="route_groups.route_group_id")
     progress: ProgressEnum = Field(default=ProgressEnum.PENDING)
 
 
-class Jobs(JobsBase, BaseModel, table=True):
-    """Jobs model for demonstration purposes"""
+class Job(JobBase, BaseModel, table=True):
+    """Job model for demonstration purposes"""
 
-    __tablename__ = "jobs"
+    __tablename__ = "job"
 
     job_id: UUID = Field(default_factory=uuid4, primary_key=True)
     started_at: datetime | None = Field(
-        default_factory=datetime.utcnow,
+        default=None,
     )
     updated_at: datetime | None = Field(
         default=None,
@@ -31,22 +31,22 @@ class Jobs(JobsBase, BaseModel, table=True):
     )
 
 
-class JobsCreate(JobsBase):
-    """Jobs creation request"""
+class JobCreate(JobBase):
+    """Job creation request"""
 
     pass
 
 
-class JobsRead(JobsBase):
-    """Jobs response model"""
+class JobRead(JobBase):
+    """Job response model"""
 
     job_id: UUID
 
 
-class JobsUpdate(SQLModel):
-    """Jobs update request - all optional"""
+class JobUpdate(SQLModel):
+    """Job update request - all optional"""
 
-    progress: str | None = None
+    progress: ProgressEnum | None = None
     route_group_id: UUID | None = None
     started_at: datetime | None = None
     updated_at: datetime | None = None
