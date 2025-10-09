@@ -8,12 +8,15 @@ from .base import BaseModel
 # if TYPE_CHECKING:
 #     from .driver import Driver
 
+MIN_YEAR = 2025
+MAX_YEAR = 2100
+
 
 class DriverHistoryBase(SQLModel):
     """Shared fields between table and API models"""
 
     driver_id: int = Field(
-        foreign_key="drivers.id", index=True
+        foreign_key="drivers.driver_id", index=True
     )  # TODO FK to driver table, to validate later
     year: int = Field(nullable=False)
     km: float = Field(nullable=False)
@@ -21,7 +24,7 @@ class DriverHistoryBase(SQLModel):
     @field_validator("year")
     @classmethod
     def validate_year(cls, v: int) -> int:
-        if not 2025 <= v <= 2100:
+        if not (MIN_YEAR <= v <= MAX_YEAR):
             raise ValueError("Year must be between 2025 and 2100")
         return v
 
