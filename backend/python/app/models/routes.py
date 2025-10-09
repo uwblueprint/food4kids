@@ -51,7 +51,6 @@ class RouteUpdate(SQLModel):
     Note: Routes are meant to be immutable, but this allows updates if needed
     """
 
-    route_group_id: UUID | None = None
     name: str | None = None
     notes: str | None = None
     length: float | None = None
