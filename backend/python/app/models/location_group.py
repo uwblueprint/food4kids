@@ -23,7 +23,6 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
 
     __tablename__ = "location_groups"
     location_group_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    
     # Relationship to locations
     locations: list["Location"] = Relationship()
     
