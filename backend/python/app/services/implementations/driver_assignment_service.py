@@ -1,10 +1,11 @@
 import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
-from app.models.driver_assignment import DriverAssignment, DriverAssignmentCreate, DriverAssignmentUpdate
-
+from app.models.driver_assignment import (
+    DriverAssignment,
+    DriverAssignmentCreate,
+)
 
 
 class DriverAssignmentService:
@@ -31,4 +32,3 @@ class DriverAssignmentService:
             self.logger.error(f"Failed to create driver assignment: {error!s}")
             await session.rollback()
             raise error
-
