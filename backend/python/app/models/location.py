@@ -11,13 +11,12 @@ class LocationBase(SQLModel):
     location_group_id: UUID | None = Field(
         foreign_key="location_groups.location_group_id", nullable=True
     )
-    is_school: bool
     school_name: str | None = None
     contact_name: str
     address: str
     phone_number: str
-    longitude: float
-    latitude: float
+    longitude: float | None = None
+    latitude: float | None = None
     halal: bool
     dietary_restrictions: str | None = None
     num_children: int | None = None
@@ -42,25 +41,10 @@ class LocationCreate(LocationBase):
 class LocationRead(LocationBase):
     """Read response model"""
 
-    location_id: UUID
+    pass
 
 
 class LocationUpdate(SQLModel):
     """Update request model"""
 
-    location_id: UUID
-    location_group_id: UUID | None = Field(
-        foreign_key="location_groups.location_group_id", nullable=True
-    )
-    is_school: bool
-    school_name: str | None = None
-    contact_name: str
-    address: str
-    phone_number: str
-    longitude: float
-    latitude: float
-    halal: bool
-    dietary_restrictions: str | None = None
-    num_children: int | None = None
-    num_boxes: int
-    notes: str | None = None
+    pass

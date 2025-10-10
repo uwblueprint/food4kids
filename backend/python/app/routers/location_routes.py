@@ -1,0 +1,80 @@
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.dependencies.auth import require_user_or_admin
+from app.models import get_session
+from app.models.location import LocationCreate, LocationRead
+from app.services.implementations.location_service import LocationService
+
+# Initialize service
+logger = logging.getLogger(__name__)
+location_service = LocationService(logger)
+
+router = APIRouter(prefix="/locations", tags=["locations"])
+
+
+@router.get("/", response_model=list[LocationRead])
+async def get_locations(
+    session: AsyncSession = Depends(get_session),
+    location_id: int | None = Query(None, description="Filter by location ID"),
+    _: bool = Depends(require_user_or_admin),
+) -> list[LocationRead]:
+    """
+    Get all locations, optionally filter by location_id
+    """
+    try:
+        if location_id:
+            location = await location_service.get_location_by_id(session, location_id)
+            if not location:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Location with id {location_id} not found",
+                )
+            return [LocationRead.model_validate(location)]
+        else:
+            locations = await location_service.get_locations(session)
+            return [LocationRead.model_validate(location) for location in locations]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e),
+        ) from e
+
+
+@router.get("/{location_id}", response_model=LocationRead)
+async def get_location(
+    location_id: int,
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_user_or_admin),
+) -> LocationRead:
+    """
+    Get a single location by ID
+    """
+    location = await location_service.get_location_by_id(session, location_id)
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location with id {location_id} not found",
+        )
+    return LocationRead.model_validate(location)
+
+
+@router.post("/", response_model=LocationRead, status_code=status.HTTP_201_CREATED)
+async def create_location(
+    location: LocationCreate,
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_user_or_admin),
+) -> LocationRead:
+    """
+    Create a new location
+    """
+    try:
+        created_location = await location_service.create_location(session, location)
+        return LocationRead.model_validate(created_location)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e),
+        ) from e

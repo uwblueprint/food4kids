@@ -1,0 +1,66 @@
+import logging
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from app.models.location import Location, LocationCreate, LocationUpdate
+from app.services.interfaces.location_service import ILocationService
+
+
+class LocationService(ILocationService):
+    """Modern FastAPI-style location service"""
+
+    def __init__(self, logger: logging.Logger):
+        self.logger = logger
+
+    async def get_location_by_id(self, session: AsyncSession, location_id: int) -> Location | None:
+        """Get location by ID - returns SQLModel instance"""
+        try:
+            statement = select(Location).where(
+                Location.location_id == location_id)
+            result = await session.execute(statement)
+            location = result.scalars().first()
+
+            if not location:
+                self.logger.error(f"Location with id {location_id} not found")
+                return None
+
+            return location
+        except Exception as e:
+            self.logger.error(f"Failed to get location by id: {e!s}")
+            raise e
+
+    async def get_locations(self, session: AsyncSession) -> list[Location]:
+        """Get all locations - returns SQLModel instances"""
+        try:
+            statement = select(Location)
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+        except Exception as e:
+            self.logger.error(f"Failed to get locations: {e!s}")
+            raise e
+
+    async def create_location(self, session: AsyncSession, location_data: LocationCreate) -> Location:
+        """Create a new location - returns SQLModel instance"""
+        try:
+            location = Location(
+                school_name=location_data.school_name or None,
+                contact_name=location_data.contact_name,
+                address=location_data.address,
+                phone_number=location_data.phone_number,
+                longitude=location_data.longitude or None,
+                latitude=location_data.latitude or None,
+                halal=location_data.halal,
+                dietary_restrictions=location_data.dietary_restrictions or None,
+                num_children=location_data.num_children or None,
+                num_boxes=location_data.num_boxes,
+                notes=location_data.notes or None,
+            )
+
+            session.add(location)
+            await session.commit()
+            await session.refresh(location)
+            return location
+        except Exception as e:
+            self.logger.error(f"Failed to create location: {e!s}")
+            raise e
