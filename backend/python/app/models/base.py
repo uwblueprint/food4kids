@@ -1,10 +1,10 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
-from typing import Any, TypeVar, Type
+from typing import Any, TypeVar
 
 import sqlmodel as sm
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 _ONGOING_MODEL_VALIDATE: ContextVar[bool] = ContextVar("_ONGOING_MODEL_VALIDATE")
 
@@ -40,7 +40,7 @@ class BaseModel(sm.SQLModel):
         super().__init__(**data)
 
     @classmethod
-    def model_validate(cls: Type[T], *args: Any, **kwargs: Any) -> T:
+    def model_validate(cls: type[T], *args: Any, **kwargs: Any) -> T:
         with set_ongoing_model_validate():
             return super().model_validate(*args, **kwargs)
 
