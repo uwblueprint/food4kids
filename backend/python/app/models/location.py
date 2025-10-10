@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-from typing import TYPE_CHECKING
 
 from sqlmodel import Field, Relationship, SQLModel
 
