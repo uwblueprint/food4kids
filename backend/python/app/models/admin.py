@@ -1,5 +1,5 @@
-from uuid import UUID, uuid4
 import datetime
+from uuid import UUID, uuid4
 
 from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
