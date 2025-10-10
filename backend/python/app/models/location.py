@@ -1,8 +1,13 @@
 from uuid import UUID, uuid4
+from typing import TYPE_CHECKING
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 
 from .base import BaseModel
+
+# temporary import to avoid circular dependency
+if TYPE_CHECKING:
+    from .location_group import LocationGroup
 
 
 class LocationBase(SQLModel):
@@ -31,6 +36,9 @@ class Location(LocationBase, BaseModel, table=True):
     __tablename__ = "locations"
 
     location_id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+    # Relationship to location group
+    location_group: "LocationGroup" = Relationship(back_populates="locations")
 
 
 class LocationCreate(LocationBase):
