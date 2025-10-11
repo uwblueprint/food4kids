@@ -64,3 +64,36 @@ class LocationService(ILocationService):
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
             raise e
+
+    async def delete_all_locations(self, session: AsyncSession) -> None:
+        """Delete all locations"""
+        try:
+            statement = select(Location)
+            result = await session.execute(statement)
+            locations = result.scalars().all()
+
+            for location in locations:
+                await session.delete(location)
+
+            await session.commit()
+        except Exception as e:
+            self.logger.error(f"Failed to delete all locations: {e!s}")
+            raise e
+
+    async def delete_location_by_id(self, session: AsyncSession, location_id: int) -> None:
+        """Delete location by ID"""
+        try:
+            statement = select(Location).where(
+                Location.location_id == location_id)
+            result = await session.execute(statement)
+            location = result.scalars().first()
+
+            if not location:
+                self.logger.error(f"Location with id {location_id} not found")
+                return
+
+            await session.delete(location)
+            await session.commit()
+        except Exception as e:
+            self.logger.error(f"Failed to delete location by id: {e!s}")
+            raise e

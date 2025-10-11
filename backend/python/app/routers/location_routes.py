@@ -78,3 +78,31 @@ async def create_location(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e),
         ) from e
+
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_locations(
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_user_or_admin),
+) -> None:
+    """
+    Delete all locations
+    """
+    await location_service.delete_all_locations(session)
+
+
+@router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_location(
+    location_id: int,
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_user_or_admin),
+) -> None:
+    """
+    Delete a location by ID
+    """
+    deleted_location = await location_service.delete_location_by_id(session, location_id)
+    if not deleted_location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location with id {location_id} not found",
+        )

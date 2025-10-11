@@ -53,4 +53,26 @@ class ILocationService(ABC):
         """
         pass
 
-    # TODO: update and delete methods
+    @abstractmethod
+    async def delete_all_locations(self, session: AsyncSession) -> None:
+        """
+        Delete all locations
+
+        :param session: database session
+        :type session: AsyncSession
+        :raises Exception: if deletion fails
+        """
+        pass
+
+    @abstractmethod
+    async def delete_location_by_id(self, session: AsyncSession, location_id: int) -> None:
+        """
+        Delete location associated with location_id
+
+        :param session: database session
+        :type session: AsyncSession
+        :param location_id: location_id of location to be deleted
+        :type location_id: int
+        :raises Exception: if deletion fails
+        """
+        pass
