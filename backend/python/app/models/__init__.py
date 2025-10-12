@@ -45,7 +45,7 @@ def init_database() -> None:
 
     # Set echo based on environment
     app_env = os.getenv("APP_ENV")
-    echo_sql = app_env in ("development", "testing") 
+    echo_sql = app_env in ("development", "testing")
 
     # Synchronous engine for migrations
     engine = create_engine(sync_database_url, echo=echo_sql)
