@@ -80,6 +80,8 @@ def create_db_and_tables() -> None:
 def init_app(_app: Any | None = None) -> None:
     """Initialize database for the application"""
     # Import models to register them with SQLModel
+    from .driver_history import DriverHistory  # noqa: F401
+    from .driver_assignment import DriverAssignment  # noqa: F401
     from .entity import Entity  # noqa: F401
     from .jobs import Jobs  # noqa: F401
     from .simple_entity import SimpleEntity  # noqa: F401
