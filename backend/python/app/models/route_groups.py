@@ -12,7 +12,7 @@ class RouteGroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     notes: str = Field(default="")
     num_routes: int = Field(default=0)
-    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    drive_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RouteGroup(RouteGroupBase, table=True):
@@ -40,5 +40,4 @@ class RouteGroupUpdate(SQLModel):
 
     name: str | None = None
     notes: str | None = None
-    num_routes: int | None = None
-    date: datetime | None = None
+    drive_date: datetime | None = None
