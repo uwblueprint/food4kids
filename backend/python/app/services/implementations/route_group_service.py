@@ -4,14 +4,24 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.route_groups import RouteGroup, RouteGroupUpdate
+from app.models.route_groups import RouteGroup, RouteGroupCreate, RouteGroupUpdate
 
 
 class RouteGroupService:
-    """Route group service for update operations"""
+    """Route group service for CRUD operations"""
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+
+    async def create_route_group(
+        self, session: AsyncSession, route_group_data: RouteGroupCreate
+    ) -> RouteGroup:
+        """Create new route group"""
+        route_group = RouteGroup.model_validate(route_group_data)
+        session.add(route_group)
+        await session.commit()
+        await session.refresh(route_group)
+        return route_group
 
     async def update_route_group(
         self, session: AsyncSession, route_group_id: UUID, route_group_data: RouteGroupUpdate

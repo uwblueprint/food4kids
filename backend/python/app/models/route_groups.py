@@ -10,11 +10,12 @@ class RouteGroupBase(SQLModel):
     """Shared fields between table and API models"""
 
     name: str = Field(min_length=1, max_length=255)
-    notes: str = Field(default="", max_length=1000)
-    drive_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    notes: str = Field(default="")
+    num_routes: int = Field(default=0)
+    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class RouteGroup(RouteGroupBase, BaseModel, table=True):
+class RouteGroup(RouteGroupBase, table=True):
     """Database table model for Route Groups"""
 
     __tablename__ = "route_groups"
@@ -32,8 +33,6 @@ class RouteGroupRead(RouteGroupBase):
     """Read response model"""
 
     route_group_id: UUID
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
 
 
 class RouteGroupUpdate(SQLModel):
@@ -41,4 +40,5 @@ class RouteGroupUpdate(SQLModel):
 
     name: str | None = None
     notes: str | None = None
-    drive_date: datetime | None = None
+    num_routes: int | None = None
+    date: datetime | None = None

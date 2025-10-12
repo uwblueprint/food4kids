@@ -5,13 +5,27 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
-from app.models.route_groups import RouteGroupRead, RouteGroupUpdate
+from app.models.route_groups import RouteGroupCreate, RouteGroupRead, RouteGroupUpdate
 from app.services.implementations.route_group_service import RouteGroupService
 
 logger = logging.getLogger(__name__)
 route_group_service = RouteGroupService(logger)
 
 router = APIRouter(prefix="/route-groups", tags=["route-groups"])
+
+
+@router.post("", response_model=RouteGroupRead, status_code=status.HTTP_201_CREATED)
+async def create_route_group(
+    route_group: RouteGroupCreate,
+    session: AsyncSession = Depends(get_session),
+) -> RouteGroupRead:
+    """
+    Create a new route group
+    """
+    new_route_group = await route_group_service.create_route_group(
+        session, route_group
+    )
+    return RouteGroupRead.model_validate(new_route_group)
 
 
 @router.patch("/{route_group_id}", response_model=RouteGroupRead)
