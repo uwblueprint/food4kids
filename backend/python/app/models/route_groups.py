@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
@@ -11,8 +11,7 @@ class RouteGroupBase(SQLModel):
 
     name: str = Field(min_length=1, max_length=255)
     notes: str = Field(default="", max_length=1000)
-    num_routes: int = Field(default=0, ge=0)
-    date: datetime = Field(default_factory=datetime.utcnow)
+    drive_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RouteGroup(RouteGroupBase, BaseModel, table=True):
@@ -33,6 +32,8 @@ class RouteGroupRead(RouteGroupBase):
     """Read response model"""
 
     route_group_id: UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class RouteGroupUpdate(SQLModel):
@@ -40,5 +41,4 @@ class RouteGroupUpdate(SQLModel):
 
     name: str | None = None
     notes: str | None = None
-    num_routes: int | None = None
-    date: datetime | None = None
+    drive_date: datetime | None = None
