@@ -13,7 +13,7 @@ class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
     location_group_id: UUID | None = Field(
-        foreign_key="location_groups.location_group_id", nullable=True
+        default=None, foreign_key="location_groups.location_group_id", nullable=True
     )
     is_school: bool
     school_name: str | None = None
@@ -57,7 +57,7 @@ class LocationUpdate(SQLModel):
 
     location_id: UUID
     location_group_id: UUID | None = Field(
-        foreign_key="location_groups.location_group_id", nullable=True
+        default=None, foreign_key="location_groups.location_group_id", nullable=True
     )
     is_school: bool
     school_name: str | None = None

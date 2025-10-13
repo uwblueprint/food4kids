@@ -47,9 +47,17 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
     # Create all tables
     async with engine.begin() as conn:
         # Import models to register them with SQLModel
+        # Import in dependency order to avoid relationship resolution issues
+        from app.models.driver import Driver  # noqa: F401
         from app.models.location import Location  # noqa: F401
         from app.models.location_group import LocationGroup  # noqa: F401
-        from app.models.user import User  # noqa: F401
+        from app.models.route import Route  # noqa: F401
+
+        # Import relationship models after their dependencies
+        # RouteGroup must be imported before RouteGroupMembership to avoid circular dependency
+        from app.models.route_group import RouteGroup  # noqa: F401
+        from app.models.route_group_membership import RouteGroupMembership  # noqa: F401
+        from app.models.route_stop import RouteStop  # noqa: F401
 
         # Drop all tables first to ensure clean state
         await conn.run_sync(SQLModel.metadata.drop_all)
@@ -184,14 +192,16 @@ def auth_headers() -> dict[str, str]:
 
 # Test data fixtures
 @pytest.fixture
-def sample_user_data() -> dict[str, Any]:
-    """Sample user data for testing."""
+def sample_driver_data() -> dict[str, Any]:
+    """Sample driver data for testing."""
     return {
-        "first_name": "John",
-        "last_name": "Doe",
+        "name": "John Doe",
         "email": "john.doe@example.com",
+        "phone": "(555) 123-4567",
+        "address": "123 Main St, City, State 12345",
+        "license_plate": "ABC123",
+        "car_make_model": "Toyota Camry",
         "auth_id": "test-auth-id-123",
-        "role": "User",
     }
 
 

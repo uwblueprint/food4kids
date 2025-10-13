@@ -1,7 +1,6 @@
 import datetime
 from uuid import UUID, uuid4
 
-import phonenumbers
 from pydantic import EmailStr, field_validator
 from sqlmodel import Field, SQLModel
 

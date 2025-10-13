@@ -3,8 +3,10 @@ from uuid import UUID, uuid4
 from pydantic import EmailStr, field_validator
 from sqlmodel import Field, SQLModel
 
-from .base import BaseModel
 from app.utilities.utils import validate_phone
+
+from .base import BaseModel
+
 
 class DriverBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)

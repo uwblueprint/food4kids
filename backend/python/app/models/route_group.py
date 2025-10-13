@@ -4,6 +4,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from .base import BaseModel
+
 if TYPE_CHECKING:
     from .route import Route
     from .route_group_membership import RouteGroupMembership
@@ -12,12 +14,12 @@ if TYPE_CHECKING:
 class RouteGroupBase(SQLModel):
     """Shared fields between table and API models"""
 
-    name: str = Field(min_length=1, max_length=255)
+    name: str = Field(min_length=1, max_length=255, nullable=False)
     notes: str = Field(default="")
     drive_date: datetime
 
 
-class RouteGroup(RouteGroupBase, table=True):
+class RouteGroup(RouteGroupBase, BaseModel, table=True):
     """Database table model for Route Groups"""
 
     __tablename__ = "route_groups"
@@ -54,7 +56,6 @@ class RouteGroupRead(RouteGroupBase):
 
     route_group_id: UUID
     num_routes: int
-    routes: list["Route"] = []
 
 
 class RouteGroupUpdate(SQLModel):
