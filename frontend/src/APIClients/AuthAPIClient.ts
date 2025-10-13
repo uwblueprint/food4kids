@@ -23,7 +23,6 @@ const login = async (
   }
 };
 
-
 const logout = async (userId: string | undefined): Promise<boolean> => {
   const bearerToken = `Bearer ${getLocalStorageObjProperty(
     AUTHENTICATED_USER_KEY,
@@ -43,15 +42,26 @@ const logout = async (userId: string | undefined): Promise<boolean> => {
 };
 
 const register = async (
-  firstName: string,
-  lastName: string,
+  name: string,
   email: string,
+  phone: string,
+  address: string,
+  licensePlate: string,
+  carMakeModel: string,
   password: string,
 ): Promise<AuthenticatedUser> => {
   try {
     const { data } = await baseAPIClient.post(
       "/auth/register",
-      { firstName, lastName, email, password },
+      {
+        name,
+        email,
+        phone,
+        address,
+        license_plate: licensePlate,
+        car_make_model: carMakeModel,
+        password,
+      },
       { withCredentials: true },
     );
     localStorage.setItem(AUTHENTICATED_USER_KEY, JSON.stringify(data));

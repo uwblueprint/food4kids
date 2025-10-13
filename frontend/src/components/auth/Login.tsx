@@ -21,7 +21,6 @@ const Login = (): React.ReactElement => {
     history.push(SIGNUP_PAGE);
   };
 
-
   if (authenticatedUser) {
     return <Redirect to={HOME_PAGE} />;
   }
