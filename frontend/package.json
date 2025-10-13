@@ -3,38 +3,40 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@apollo/client": "^3.3.16",
+    "@apollo/client": "^3.12.7",
+    "@popperjs/core": "^2.11.8",
     "@rjsf/bootstrap-4": "^2.5.1",
     "@rjsf/core": "^2.5.1",
-    "@testing-library/jest-dom": "^5.11.4",
-    "@testing-library/react": "^11.1.0",
-    "@testing-library/user-event": "^12.1.10",
-    "@types/apollo-upload-client": "^14.1.0",
-    "@types/jest": "^26.0.15",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/apollo-upload-client": "^17.0.0",
+    "@types/jest": "^29.5.14",
     "@types/json2csv": "^5.0.3",
-    "@types/node": "^12.0.0",
-    "@types/react": "^18.2.69",
-    "@types/react-dom": "^18.2.19",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
     "@types/react-jsonschema-form": "^1.7.4",
-    "@types/react-table": "^7.0.29",
-    "apollo-upload-client": "^16.0.0",
-    "axios": "^0.21.1",
-    "bootstrap": "^4.6.0",
-    "graphql": "^15.5.0",
+    "@types/react-table": "^7.7.20",
+    "apollo-upload-client": "^18.0.0",
+    "axios": "^1.7.9",
+    "bootstrap": "^5.3.3",
+    "graphql": "^16.9.0",
     "humps": "^2.0.1",
-    "json-schema": "^0.3.0",
-    "json2csv": "^5.0.6",
+    "json-schema": "^0.4.0",
+    "json2csv": "^5.0.7",
     "jwt-decode": "^4.0.0",
-    "react": "^18.2.0",
-    "react-bootstrap": "^1.5.2",
-    "react-dom": "^18.2.0",
+    "react": "^18.3.1",
+    "react-bootstrap": "^2.10.10",
+    "react-dom": "^18.3.1",
     "react-json-schema": "^1.2.2",
     "react-jsonschema-form": "^1.8.1",
-    "react-router-dom": "^5.2.0",
+    "react-router-dom": "^6.28.0",
     "react-scripts": "^5.0.1",
-    "react-table": "^7.7.0",
-    "typescript": "^4.1.2",
-    "web-vitals": "^1.0.1"
+    "react-table": "^7.8.0",
+    "typescript": "^5.9.2",
+    "web-vitals": "^4.2.4"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -43,12 +45,6 @@
     "eject": "react-scripts eject",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
   },
   "browserslist": {
     "production": [
@@ -63,26 +59,15 @@
     ]
   },
   "resolutions": {
-    "@types/react": "^18.2.69",
-    "@types/react-dom": "^18.2.19"
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@types/humps": "^2.0.0",
     "@types/jwt-decode": "^3.1.0",
-    "@types/react-router-dom": "^5.1.7",
-    "@types/react-test-renderer": "^17.0.1",
-    "@typescript-eslint/eslint-plugin": "^7.0.2",
-    "@typescript-eslint/parser": "^7.0.0",
-    "@typescript-eslint/typescript-estree": "^7.0.2",
-    "eslint": "^8.56.0",
-    "eslint-config-airbnb-typescript": "^12.3.1",
-    "eslint-config-prettier": "^8.1.0",
-    "eslint-plugin-import": "^2.22.1",
-    "eslint-plugin-jsx-a11y": "^6.4.1",
-    "eslint-plugin-prettier": "^3.3.1",
-    "eslint-plugin-react": "^7.22.0",
-    "eslint-plugin-react-hooks": "^4.2.0",
-    "prettier": "^2.2.1",
-    "react-test-renderer": "^18.2.0"
+    "@types/react-test-renderer": "^18.3.0",
+    "prettier": "^3.4.2",
+    "react-test-renderer": "^18.3.1"
   }
 }
