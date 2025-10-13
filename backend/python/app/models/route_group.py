@@ -14,8 +14,7 @@ class RouteGroupBase(SQLModel):
 
     name: str = Field(min_length=1, max_length=255)
     notes: str = Field(default="")
-    drive_date: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc))
+    drive_date: datetime
 
 
 class RouteGroup(RouteGroupBase, table=True):
