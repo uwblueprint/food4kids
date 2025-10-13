@@ -28,8 +28,7 @@ class DriverBase(SQLModel):
 class Driver(DriverBase, BaseModel, table=True):
     __tablename__ = "drivers"
 
-    driver_id: UUID = Field(default_factory=uuid4,
-                            primary_key=True, index=True)
+    driver_id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     auth_id: str = Field(nullable=False, unique=True, index=True)
 
 
@@ -47,10 +46,8 @@ class DriverUpdate(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=254)
     phone: str | None = Field(default=None, min_length=1, max_length=20)
     address: str | None = Field(default=None, min_length=1, max_length=255)
-    license_plate: str | None = Field(
-        default=None, min_length=1, max_length=20)
-    car_make_model: str | None = Field(
-        default=None, min_length=1, max_length=255)
+    license_plate: str | None = Field(default=None, min_length=1, max_length=20)
+    car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
     active: bool | None = Field(default=None)
     notes: str | None = Field(default=None, max_length=1024)
 
