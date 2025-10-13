@@ -4,9 +4,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
-from .route import Route
-
 if TYPE_CHECKING:
+    from .route import Route
     from .route_group_membership import RouteGroupMembership
 
 
@@ -65,7 +64,3 @@ class RouteGroupUpdate(SQLModel):
     name: str | None = None
     notes: str | None = None
     drive_date: datetime | None = None
-
-
-RouteGroup.model_rebuild()
-RouteGroupRead.model_rebuild()
