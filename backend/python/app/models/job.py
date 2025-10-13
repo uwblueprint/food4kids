@@ -17,7 +17,7 @@ class JobBase(SQLModel):
 class Job(JobBase, BaseModel, table=True):
     """Job model for demonstration purposes"""
 
-    __tablename__ = "job"
+    __tablename__ = "jobs"
 
     job_id: UUID = Field(default_factory=uuid4, primary_key=True)
     started_at: datetime | None = Field(
