@@ -1,7 +1,8 @@
 import datetime
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr
+import phonenumbers
+from pydantic import EmailStr, field_validator
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
@@ -16,6 +17,20 @@ class AdminBase(SQLModel):
     admin_email: EmailStr = Field(nullable=False)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
+
+    @field_validator("admin_phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        """Validate phone number using phonenumbers library"""
+        try:
+            parsed_phone = phonenumbers.parse(v, None)
+            if not phonenumbers.is_valid_number(parsed_phone):
+                raise ValueError("Invalid phone number")
+            return phonenumbers.format_number(
+                parsed_phone, phonenumbers.PhoneNumberFormat.E164
+            )
+        except phonenumbers.NumberParseException as e:
+            raise ValueError("Invalid phone number format") from e
 
 
 class Admin(AdminBase, BaseModel, table=True):

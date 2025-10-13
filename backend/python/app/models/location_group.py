@@ -15,7 +15,7 @@ class LocationGroupBase(SQLModel):
 
     name: str = Field(unique=True, index=True)
     color: str  # TODO: Decide if this is going to be an enum or a string
-    notes: str | None = None
+    notes: str = Field(default="")
 
 
 class LocationGroup(LocationGroupBase, BaseModel, table=True):
