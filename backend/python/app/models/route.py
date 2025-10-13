@@ -26,7 +26,7 @@ class Route(RouteBase, BaseModel, table=True):
 
     __tablename__ = "routes"
 
-    route_id: UUID = Field(default=uuid4, primary_key=True, nullable=False)
+    route_id: UUID = Field(default_factory=uuid4, primary_key=True, nullable=False)
 
     # Relationship to route stops
     route_stops: list["RouteStop"] = Relationship(

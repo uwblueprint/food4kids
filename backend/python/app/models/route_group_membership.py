@@ -23,7 +23,7 @@ class RouteGroupMembership(RouteGroupMembershipBase, BaseModel, table=True):
     __tablename__ = "route_group_memberships"
 
     route_group_membership_id: UUID = Field(
-        default=uuid4, primary_key=True, nullable=False
+        default_factory=uuid4, primary_key=True, nullable=False
     )
 
     # Relationships

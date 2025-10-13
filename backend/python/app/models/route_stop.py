@@ -22,7 +22,7 @@ class RouteStop(RouteStopBase, BaseModel, table=True):
 
     __tablename__ = "route_stops"
 
-    route_stop_id: UUID = Field(default=uuid4, primary_key=True, nullable=False)
+    route_stop_id: UUID = Field(default_factory=uuid4, primary_key=True, nullable=False)
 
     # Relationship back to route
     route: "Route" = Relationship(back_populates="route_stops")
