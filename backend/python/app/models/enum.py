@@ -24,3 +24,10 @@ class RoleEnum(str, Enum):
 
     USER = "User"
     ADMIN = "Admin"
+
+
+class ProgressEnum(str, Enum):
+    PENDING = "Pending"
+    RUNNING = "Running"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
