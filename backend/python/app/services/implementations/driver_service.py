@@ -184,7 +184,8 @@ class DriverService(IDriverService):
 
             # Update Firebase email
             try:
-                firebase_admin.auth.update_user(driver.auth_id, email=driver_data.email)
+                if driver_data.email is not None:
+                    firebase_admin.auth.update_user(driver.auth_id, email=driver_data.email)
                 await session.refresh(driver)
                 return driver
 
