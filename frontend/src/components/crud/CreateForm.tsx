@@ -2,6 +2,9 @@ import React, { useState } from "react";
 // import { decamelizeKeys } from "humps";
 import { JSONSchema7 } from "json-schema";
 import { Form } from "@rjsf/bootstrap-4";
+import { IChangeEvent } from "@rjsf/core";
+import { RJSFSchema } from "@rjsf/utils";
+import AJV8Validator from "@rjsf/validator-ajv8";
 import EntityAPIClient, {
   EntityRequest,
   EntityResponse,
@@ -65,18 +68,23 @@ const CreateForm = (): React.ReactElement => {
     return <p>Created! ✔️</p>;
   }
 
-  const onSubmit = async ({ formData }: { formData: EntityRequest }) => {
-    const result = await EntityAPIClient.create({ formData });
-    setData(result);
+  const onSubmit = async (data: IChangeEvent<EntityRequest>) => {
+    if (data.formData) {
+      const result = await EntityAPIClient.create({ formData: data.formData });
+      setData(result);
+    }
   };
   return (
     <Form
       formData={formFields}
-      schema={schema}
+      schema={schema as RJSFSchema}
       uiSchema={uiSchema}
-      onChange={({ formData }: { formData: EntityRequest }) =>
-        setFormFields(formData)
-      }
+      validator={AJV8Validator}
+      onChange={(data: IChangeEvent<EntityRequest>) => {
+        if (data.formData) {
+          setFormFields(data.formData);
+        }
+      }}
       onSubmit={onSubmit}
     />
   );
