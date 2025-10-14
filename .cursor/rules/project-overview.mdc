@@ -34,19 +34,33 @@ This is a full-stack web application with:
 ## Code Quality Standards
 
 ### Python Backend
+
 - **Type Safety**: Use mypy for static type checking. All functions must have proper type hints.
 - **Code Style**: Use ruff for linting and formatting. Follow the configuration in `backend/python/pyproject.toml`.
 - **Type Hints**: Always include return types and parameter types for functions and methods.
 - **Imports**: Use absolute imports and organize them with ruff's isort integration.
 
 ### Development Workflow
+
 Before committing:
+
 1. Run `docker-compose exec backend ruff check .` to check for linting issues
 2. Run `docker-compose exec backend ruff format .` to format code
 3. Run `docker-compose exec backend mypy .` to check type safety
 4. Run tests: `docker-compose exec backend python -m pytest`
 
+## Testing
+
+### Test Command
+
+Run all tests with a single command:
+
+```bash
+docker-compose exec backend python -m pytest
+```
+
 ### Code Quality Commands
+
 ```bash
 # Backend quality checks
 docker-compose exec backend ruff check --fix .  # Fix linting issues

@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - ../backend/python:/app
+      - /app/__pycache__
+    environment:
+      - PYTHONPATH=/app
+    command: tail -f /dev/null  # Keep container running for development
+

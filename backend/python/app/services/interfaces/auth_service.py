@@ -30,14 +30,14 @@ class IAuthService(ABC):
         pass
 
     @abstractmethod
-    async def revoke_tokens(self, session: AsyncSession, user_id: int) -> None:
+    async def revoke_tokens(self, session: AsyncSession, driver_id: Any) -> None:
         """
-        Revoke all refresh tokens of a user
+        Revoke all refresh tokens of a driver
 
         :param session: database session
         :type session: AsyncSession
-        :param user_id: user_id of user whose refresh tokens are to be revoked
-        :type user_id: int
+        :param driver_id: driver_id of driver whose refresh tokens are to be revoked
+        :type driver_id: UUID
         :raises Exception: if token revocation fails
         """
         pass
@@ -99,18 +99,18 @@ class IAuthService(ABC):
         pass
 
     @abstractmethod
-    async def is_authorized_by_user_id(
-        self, session: AsyncSession, access_token: str, requested_user_id: int
+    async def is_authorized_by_driver_id(
+        self, session: AsyncSession, access_token: str, requested_driver_id: Any
     ) -> bool:
         """
-        Determine if the provided access token is valid and issued to the requested user
+        Determine if the provided access token is valid and issued to the requested driver
 
         :param session: database session
         :type session: AsyncSession
-        :param access_token: user's access token
+        :param access_token: driver's access token
         :type access_token: str
-        :param requested_user_id: user_id of the requested user
-        :type requested_user_id: int
+        :param requested_driver_id: driver_id of the requested driver
+        :type requested_driver_id: UUID
         :return: true if token valid and authorized, false otherwise
         :rtype: bool
         """

@@ -43,6 +43,11 @@ mypy-extensions>=1.0.0
 ruff>=0.5.3
 pytest>=6.2.4
 pytest-mock>=3.6.1
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+httpx>=0.24.0
+aiosqlite>=0.21.0
+asyncpg>=0.29.0
 
 # Type stubs
 types-requests>=2.32.0
@@ -59,3 +64,4 @@ pathspec>=0.8.1
 pluggy>=0.13.1
 toml>=0.10.2
 typing-extensions>=4.0.0,<5.0.0
+phonenumbers>=8.13.0
