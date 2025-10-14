@@ -8,7 +8,7 @@ type GenerateCSVParams<T> = {
   flattenObjects?: boolean;
   flattenArrays?: boolean;
   pathsToUnwind?: string[];
-  opts?: any;
+  opts?: Record<string, unknown>;
   transformOpts?: TransformOptions;
 };
 

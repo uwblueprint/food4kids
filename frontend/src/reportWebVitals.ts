@@ -1,4 +1,4 @@
-const reportWebVitals = (onPerfEntry?: (metric: any) => void): void => {
+const reportWebVitals = (onPerfEntry?: (metric: unknown) => void): void => {
   if (onPerfEntry && onPerfEntry instanceof Function) {
     import("web-vitals").then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
       onCLS(onPerfEntry);

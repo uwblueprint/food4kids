@@ -110,8 +110,16 @@ module.exports = [
       },
     },
     rules: {
+      // Disable base ESLint rules that conflict with TypeScript
+      'no-unused-vars': 'off',
+      
       // TypeScript rules
-      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        'argsIgnorePattern': '^_',
+        'varsIgnorePattern': '^_',
+        'ignoreRestSiblings': true,
+        'caughtErrorsIgnorePattern': '^_'
+      }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',

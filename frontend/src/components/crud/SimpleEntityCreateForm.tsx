@@ -6,9 +6,6 @@ import SimpleEntityAPIClient, {
   SimpleEntityResponse,
 } from "../../APIClients/SimpleEntityAPIClient";
 
-// Simple validator function for @rjsf v5 compatibility
-const validator = (formData: any, errors: any) => errors;
-
 const schema: JSONSchema7 = {
   title: "Create Simple Entity",
   description: "A simple form to test creating a simple entity",

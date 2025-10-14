@@ -113,7 +113,7 @@ const HooksDemo = (): React.ReactElement => {
   );
 
   useEffect(() => {
-    if (!bannerState.showBanner) return (): void => {};
+    if (!bannerState.showBanner) return undefined;
 
     const bannerTimer = setTimeout(() => {
       setBannerState({ emoji: bannerState.emoji, showBanner: false });
