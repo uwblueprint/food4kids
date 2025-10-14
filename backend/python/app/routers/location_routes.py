@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_user_or_admin
+from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.location import LocationCreate, LocationRead
 from app.services.implementations.location_service import LocationService
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
     location_id: int | None = Query(None, description="Filter by location ID"),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """
     Get all locations, optionally filter by location_id
@@ -48,7 +48,7 @@ async def get_locations(
 async def get_location(
     location_id: int,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Get a single location by ID
@@ -66,7 +66,7 @@ async def get_location(
 async def create_location(
     location: LocationCreate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Create a new location
@@ -83,7 +83,7 @@ async def create_location(
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_locations(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete all locations
@@ -95,7 +95,7 @@ async def delete_all_locations(
 async def delete_location(
     location_id: int,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a location by ID
