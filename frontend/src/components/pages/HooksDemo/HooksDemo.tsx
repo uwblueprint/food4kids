@@ -1,5 +1,6 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
 /* eslint-disable no-console */
+/* eslint-disable react-hooks/exhaustive-deps */
 
 // ***************************************************************
 // This page is meant to be a hooks crash course and demo basic
@@ -56,7 +57,7 @@ const HooksDemo = (): React.ReactElement => {
   // renders. Here we store an array of HTMLDivElement refs so
   // we can scroll each section into view.
   const sectionRefs = useRef<React.RefObject<HTMLDivElement>[]>(
-    new Array(EMOJIS.length).fill(React.createRef()),
+    new Array(EMOJIS.length).fill(null).map(() => React.createRef()),
   );
 
   useEffect(
