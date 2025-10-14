@@ -19,7 +19,8 @@ class LocationService(ILocationService):
     ) -> Location | None:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -55,10 +56,10 @@ class LocationService(ILocationService):
                 longitude=location_data.longitude or None,
                 latitude=location_data.latitude or None,
                 halal=location_data.halal,
-                dietary_restrictions=location_data.dietary_restrictions or None,
+                dietary_restrictions=location_data.dietary_restrictions or "",
                 num_children=location_data.num_children or None,
                 num_boxes=location_data.num_boxes,
-                notes=location_data.notes or None,
+                notes=location_data.notes or "",
             )
 
             session.add(location)
@@ -89,7 +90,8 @@ class LocationService(ILocationService):
     ) -> None:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
