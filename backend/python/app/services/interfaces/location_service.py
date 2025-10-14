@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.location import Location, LocationCreate, LocationUpdate
+from app.models.location import Location, LocationCreate
 
 
 class ILocationService(ABC):
@@ -12,7 +12,9 @@ class ILocationService(ABC):
     """
 
     @abstractmethod
-    async def get_location_by_id(self, session: AsyncSession, location_id: UUID) -> Location | None:
+    async def get_location_by_id(
+        self, session: AsyncSession, location_id: UUID
+    ) -> Location | None:
         """
         Get location associated with location_id
 
@@ -40,7 +42,9 @@ class ILocationService(ABC):
         pass
 
     @abstractmethod
-    async def create_location(self, session: AsyncSession, location: LocationCreate) -> Location:
+    async def create_location(
+        self, session: AsyncSession, location: LocationCreate
+    ) -> Location:
         """
         Create a new location
 
@@ -66,7 +70,9 @@ class ILocationService(ABC):
         pass
 
     @abstractmethod
-    async def delete_location_by_id(self, session: AsyncSession, location_id: UUID) -> None:
+    async def delete_location_by_id(
+        self, session: AsyncSession, location_id: UUID
+    ) -> None:
         """
         Delete location associated with location_id
 

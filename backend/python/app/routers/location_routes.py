@@ -19,8 +19,7 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 @router.get("/", response_model=list[LocationRead])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
-    location_id: UUID | None = Query(
-        None, description="Filter by location ID"),
+    location_id: UUID | None = Query(None, description="Filter by location ID"),
     _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """
@@ -42,7 +41,8 @@ async def get_locations(
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         ) from e
 
 
@@ -78,7 +78,8 @@ async def create_location(
         return LocationRead.model_validate(created_location)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         ) from e
 
 

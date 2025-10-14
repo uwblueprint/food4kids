@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.location import Location, LocationCreate, LocationUpdate
+from app.models.location import Location, LocationCreate
 from app.services.interfaces.location_service import ILocationService
 
 
@@ -14,11 +14,12 @@ class LocationService(ILocationService):
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_location_by_id(self, session: AsyncSession, location_id: str) -> Location | None:
+    async def get_location_by_id(
+        self, session: AsyncSession, location_id: str
+    ) -> Location | None:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -41,7 +42,9 @@ class LocationService(ILocationService):
             self.logger.error(f"Failed to get locations: {e!s}")
             raise e
 
-    async def create_location(self, session: AsyncSession, location_data: LocationCreate) -> Location:
+    async def create_location(
+        self, session: AsyncSession, location_data: LocationCreate
+    ) -> Location:
         """Create a new location - returns SQLModel instance"""
         try:
             location = Location(
@@ -81,11 +84,12 @@ class LocationService(ILocationService):
             self.logger.error(f"Failed to delete all locations: {e!s}")
             raise e
 
-    async def delete_location_by_id(self, session: AsyncSession, location_id: UUID) -> None:
+    async def delete_location_by_id(
+        self, session: AsyncSession, location_id: UUID
+    ) -> None:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
