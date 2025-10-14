@@ -129,7 +129,7 @@ const DisplayTableContainer: React.FC = (): React.ReactElement | null => {
         if (csvString) {
           downloadCSV(csvString, "export.csv");
         }
-      } catch (error) {
+      } catch (_error) {
         // Handle error silently or show user notification
         // console.error("Failed to download CSV:", error);
       }
