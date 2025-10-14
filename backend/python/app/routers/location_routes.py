@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 @router.get("/", response_model=list[LocationRead])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
-    location_id: int | None = Query(None, description="Filter by location ID"),
+    location_id: UUID | None = Query(
+        None, description="Filter by location ID"),
     _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """
@@ -46,7 +48,7 @@ async def get_locations(
 
 @router.get("/{location_id}", response_model=LocationRead)
 async def get_location(
-    location_id: int,
+    location_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
 ) -> LocationRead:
@@ -93,15 +95,15 @@ async def delete_all_locations(
 
 @router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_location(
-    location_id: int,
+    location_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a location by ID
     """
-    deleted_location = await location_service.delete_location_by_id(session, location_id)
-    if not deleted_location:
+    success = await location_service.delete_location_by_id(session, location_id)
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Location with id {location_id} not found",

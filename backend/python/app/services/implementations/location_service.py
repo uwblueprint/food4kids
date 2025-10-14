@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -13,7 +14,7 @@ class LocationService(ILocationService):
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_location_by_id(self, session: AsyncSession, location_id: int) -> Location | None:
+    async def get_location_by_id(self, session: AsyncSession, location_id: str) -> Location | None:
         """Get location by ID - returns SQLModel instance"""
         try:
             statement = select(Location).where(
@@ -80,7 +81,7 @@ class LocationService(ILocationService):
             self.logger.error(f"Failed to delete all locations: {e!s}")
             raise e
 
-    async def delete_location_by_id(self, session: AsyncSession, location_id: int) -> None:
+    async def delete_location_by_id(self, session: AsyncSession, location_id: UUID) -> None:
         """Delete location by ID"""
         try:
             statement = select(Location).where(
@@ -90,10 +91,11 @@ class LocationService(ILocationService):
 
             if not location:
                 self.logger.error(f"Location with id {location_id} not found")
-                return
+                return False
 
             await session.delete(location)
             await session.commit()
+            return True
         except Exception as e:
             self.logger.error(f"Failed to delete location by id: {e!s}")
             raise e

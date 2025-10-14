@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,14 +12,14 @@ class ILocationService(ABC):
     """
 
     @abstractmethod
-    async def get_location_by_id(self, session: AsyncSession, location_id: int) -> Location | None:
+    async def get_location_by_id(self, session: AsyncSession, location_id: UUID) -> Location | None:
         """
         Get location associated with location_id
 
         :param session: database session
         :type session: AsyncSession
         :param location_id: location's id
-        :type location_id: int
+        :type location_id: UUID
         :return: a Location with location's information
         :rtype: Location
         :raises Exception: if location retrieval fails
@@ -65,14 +66,14 @@ class ILocationService(ABC):
         pass
 
     @abstractmethod
-    async def delete_location_by_id(self, session: AsyncSession, location_id: int) -> None:
+    async def delete_location_by_id(self, session: AsyncSession, location_id: UUID) -> None:
         """
         Delete location associated with location_id
 
         :param session: database session
         :type session: AsyncSession
         :param location_id: location_id of location to be deleted
-        :type location_id: int
+        :type location_id: UUID
         :raises Exception: if deletion fails
         """
         pass
