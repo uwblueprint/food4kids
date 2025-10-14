@@ -77,7 +77,9 @@ const UpdateForm = (): React.ReactElement => {
   const onSubmit = async (data: IChangeEvent<EntityResponse>) => {
     if (data.formData) {
       const { id, ...entityData } = data.formData;
-      const result = await EntityAPIClient.update(data.formData.id, { entityData });
+      const result = await EntityAPIClient.update(data.formData.id, {
+        entityData,
+      });
       setData(result);
     }
   };

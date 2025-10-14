@@ -57,7 +57,9 @@ const HooksDemo = (): React.ReactElement => {
   // renders. Here we store an array of HTMLDivElement refs so
   // we can scroll each section into view.
   const sectionRefs = useRef<React.RefObject<HTMLDivElement | null>[]>(
-    new Array(EMOJIS.length).fill(null).map(() => React.createRef<HTMLDivElement | null>()),
+    new Array(EMOJIS.length)
+      .fill(null)
+      .map(() => React.createRef<HTMLDivElement | null>()),
   );
 
   useEffect(
