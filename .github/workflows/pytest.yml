@@ -1,0 +1,48 @@
+name: Pytest CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/python/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/python/**"
+
+concurrency:
+  group: pytest-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+   
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+          cache: "pip"
+          cache-dependency-path: backend/python/requirements.txt
+      
+      - name: Install dependencies
+        working-directory: ./backend/python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+      
+      - name: Run tests
+        working-directory: ./backend/python
+        run: |
+          pytest -q --disable-warnings -ra
+
