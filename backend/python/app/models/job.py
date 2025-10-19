@@ -11,12 +11,16 @@ class JobBase(SQLModel):
     """Shared fields between table and API models"""
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     route_group_id: UUID | None = Field(
         default=None, foreign_key="route_groups.route_group_id"
     )
 =======
     route_group_id: UUID | None = Field(foreign_key="route_groups.route_group_id")
 >>>>>>> 27f9f91 (Fix job import)
+=======
+    route_group_id: UUID | None = Field(foreign_key="route_groups.route_group_id")
+>>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
     progress: ProgressEnum = Field(default=ProgressEnum.PENDING)
 
 
@@ -24,10 +28,14 @@ class Job(JobBase, BaseModel, table=True):
     """Job model for demonstration purposes"""
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     __tablename__ = "jobs"
 =======
     __tablename__ = "job"
 >>>>>>> 27f9f91 (Fix job import)
+=======
+    __tablename__ = "job"
+>>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
 
     job_id: UUID = Field(default_factory=uuid4, primary_key=True)
     started_at: datetime | None = Field(
