@@ -1,8 +1,5 @@
 from typing import TYPE_CHECKING  # noqa: F401
-<<<<<<< HEAD
 from uuid import UUID
-=======
->>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
 
 from pydantic import field_validator
 from sqlmodel import Field, Relationship, SQLModel  # noqa: F401
@@ -19,13 +16,9 @@ MAX_YEAR = 2100
 class DriverHistoryBase(SQLModel):
     """Shared fields between table and API models"""
 
-<<<<<<< HEAD
-    driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
-=======
     driver_id: int = Field(
         foreign_key="drivers.driver_id", index=True
     )  # TODO FK to driver table, to validate later
->>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
     year: int = Field(nullable=False)
     km: float = Field(nullable=False)
 
@@ -60,10 +53,6 @@ class DriverHistoryRead(DriverHistoryBase):
 class DriverHistoryUpdate(SQLModel):
     """Update request model - all optional"""
 
-<<<<<<< HEAD
     driver_id: UUID | None = None
-=======
-    driver_id: int | None = None
->>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
     year: int | None = None
     km: float | None = None

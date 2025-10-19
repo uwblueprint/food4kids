@@ -5,13 +5,8 @@ from . import (
     entity_routes,
     job_routes,
     location_group_routes,
-<<<<<<< HEAD
     route_group_routes,
     simple_entity_routes,
-=======
-    simple_entity_routes,
-    user_routes,
->>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
 )
 
 

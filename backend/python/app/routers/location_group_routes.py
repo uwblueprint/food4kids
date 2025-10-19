@@ -4,11 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-<<<<<<< HEAD
 from app.dependencies.auth import require_driver
-=======
-from app.dependencies.auth import require_user_or_admin
->>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
 from app.models import get_session
 from app.models.location_group import LocationGroupRead, LocationGroupUpdate
 from app.services.implementations.location_group_service import LocationGroupService
@@ -25,11 +21,7 @@ async def update_location_group(
     location_group_id: UUID,
     location_group: LocationGroupUpdate,
     session: AsyncSession = Depends(get_session),
-<<<<<<< HEAD
     _: bool = Depends(require_driver),
-=======
-    _: bool = Depends(require_user_or_admin),
->>>>>>> 60cc40f1582d3e202aafec387e2306bfd622a8a6
 ) -> LocationGroupRead:
     """
     Update an existing location group
