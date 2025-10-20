@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { JSONSchema7 } from "json-schema";
 import { Form } from "@rjsf/bootstrap-4";
+import { IChangeEvent } from "@rjsf/core";
+import { RJSFSchema } from "@rjsf/utils";
+import AJV8Validator from "@rjsf/validator-ajv8";
 import SimpleEntityAPIClient, {
   SimpleEntityRequest,
   SimpleEntityResponse,
@@ -72,22 +75,26 @@ const SimpleEntityUpdateForm = (): React.ReactElement => {
     return <p>Updated! ✔️</p>;
   }
 
-  const onSubmit = async ({ formData }: { formData: SimpleEntityResponse }) => {
-    const { id, ...entityData } = formData;
-
-    const result = await SimpleEntityAPIClient.update(formData.id, {
-      entityData,
-    });
-    setData(result);
+  const onSubmit = async (data: IChangeEvent<SimpleEntityResponse>) => {
+    if (data.formData) {
+      const { id, ...entityData } = data.formData;
+      const result = await SimpleEntityAPIClient.update(data.formData.id, {
+        entityData,
+      });
+      setData(result);
+    }
   };
   return (
     <Form
       formData={formFields}
-      schema={schema}
+      schema={schema as RJSFSchema}
       uiSchema={uiSchema}
-      onChange={({ formData }: { formData: SimpleEntityRequest }) =>
-        setFormFields(formData)
-      }
+      validator={AJV8Validator}
+      onChange={(data: IChangeEvent<SimpleEntityRequest>) => {
+        if (data.formData) {
+          setFormFields(data.formData);
+        }
+      }}
       onSubmit={onSubmit}
     />
   );

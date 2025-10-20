@@ -10,14 +10,16 @@ from .enum import ProgressEnum
 class JobBase(SQLModel):
     """Shared fields between table and API models"""
 
-    route_group_id: UUID | None = Field(foreign_key="route_groups.route_group_id")
+    route_group_id: UUID | None = Field(
+        default=None, foreign_key="route_groups.route_group_id"
+    )
     progress: ProgressEnum = Field(default=ProgressEnum.PENDING)
 
 
 class Job(JobBase, BaseModel, table=True):
     """Job model for demonstration purposes"""
 
-    __tablename__ = "job"
+    __tablename__ = "jobs"
 
     job_id: UUID = Field(default_factory=uuid4, primary_key=True)
     started_at: datetime | None = Field(

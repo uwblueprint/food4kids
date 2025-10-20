@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.route_groups import RouteGroup, RouteGroupCreate, RouteGroupUpdate
+from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
 
 
 class RouteGroupService:
@@ -24,10 +24,15 @@ class RouteGroupService:
         return route_group
 
     async def update_route_group(
-        self, session: AsyncSession, route_group_id: UUID, route_group_data: RouteGroupUpdate
+        self,
+        session: AsyncSession,
+        route_group_id: UUID,
+        route_group_data: RouteGroupUpdate,
     ) -> RouteGroup | None:
         """Update existing route group"""
-        statement = select(RouteGroup).where(RouteGroup.route_group_id == route_group_id)
+        statement = select(RouteGroup).where(
+            RouteGroup.route_group_id == route_group_id
+        )
         result = await session.execute(statement)
         route_group = result.scalars().first()
 
