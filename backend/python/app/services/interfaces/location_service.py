@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.location import Location, LocationCreate
+from app.models.location import Location, LocationCreate, LocationUpdate
 
 
 class ILocationService(ABC):
@@ -83,5 +83,24 @@ class ILocationService(ABC):
         :return: True if deletion was successful, False otherwise
         :rtype: bool
         :raises Exception: if deletion fails
+        """
+        pass
+
+    @abstractmethod
+    async def update_location_by_id(
+        self, session: AsyncSession, location_id: UUID, location: LocationUpdate
+    ) -> Location:
+        """
+        Update location associated with location_id
+
+        :param session: database session
+        :type session: AsyncSession
+        :param location_id: location_id of location to be updated
+        :type location_id: UUID
+        :param updated_location_data: LocationUpdate object with location's information to be updated
+        :type location: LocationUpdate
+        :return: the updated Location
+        :rtype: Location
+        :raises Exception: if update fails
         """
         pass

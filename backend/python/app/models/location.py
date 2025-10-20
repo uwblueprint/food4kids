@@ -52,21 +52,17 @@ class LocationRead(LocationBase):
 
 
 class LocationUpdate(SQLModel):
-    """Update request model"""
+    """Update request model with all fields optional"""
 
-    location_id: UUID
-    location_group_id: UUID | None = Field(
-        default=None, foreign_key="location_groups.location_group_id", nullable=True
-    )
-    is_school: bool
+    location_group_id: UUID | None = None
     school_name: str | None = None
-    contact_name: str
-    address: str
-    phone_number: str
-    longitude: float
-    latitude: float
-    halal: bool
+    contact_name: str | None = None
+    address: str | None = None
+    phone_number: str | None = None
+    longitude: float | None = None
+    latitude: float | None = None
+    halal: bool | None = None
     dietary_restrictions: str | None = None
     num_children: int | None = None
-    num_boxes: int
+    num_boxes: int | None = None
     notes: str | None = None

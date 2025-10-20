@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.location import Location, LocationCreate
+from app.models.location import Location, LocationCreate, LocationUpdate
 from app.services.interfaces.location_service import ILocationService
 
 
@@ -68,6 +68,28 @@ class LocationService(ILocationService):
             return location
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
+            await session.rollback()
+            raise e
+
+    async def update_location_by_id(
+        self, session: AsyncSession, location_id: UUID, updated_location_data: LocationUpdate
+    ) -> Location:
+        """Update location by ID"""
+        try:
+            # Get the existing location by ID
+            location = await self.get_location_by_id(session, location_id)
+
+            # Update existing location with new data
+            updated_data = updated_location_data.model_dump(exclude_unset=True)
+            for field, value in updated_data.items():
+                setattr(location, field, value)
+
+            await session.commit()
+            await session.refresh(location)
+            return location
+
+        except Exception as e:
+            self.logger.error(f"Failed to update location by id: {e!s}")
             await session.rollback()
             raise e
 

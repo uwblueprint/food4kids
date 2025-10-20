@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # from app.dependencies.auth import require_driver
 from app.models import get_session
-from app.models.location import LocationCreate, LocationRead
+from app.models.location import LocationCreate, LocationRead, LocationUpdate
 from app.services.implementations.location_service import LocationService
 
 # Initialize service
@@ -81,6 +81,26 @@ async def create_location(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         ) from e
+
+
+@router.patch("/{location_id}", response_model=LocationRead, status_code=status.HTTP_200_OK)
+async def update_location(
+    location_id: UUID,
+    updated_location_data: LocationUpdate,
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> LocationRead:
+    """
+    Update a location by ID
+    """
+    updated_location = await location_service.update_location_by_id(session, location_id, updated_location_data)
+    
+    if not updated_location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location with id {location_id} not found",
+        )
+    return LocationRead.model_validate(updated_location)
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
