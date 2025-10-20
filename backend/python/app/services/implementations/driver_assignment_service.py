@@ -1,5 +1,4 @@
 import logging
-
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +7,7 @@ from sqlmodel import select
 from app.models.driver_assignment import (
     DriverAssignment,
     DriverAssignmentCreate,
-    DriverAssignmentUpdate
+    DriverAssignmentUpdate,
 )
 
 
@@ -18,12 +17,13 @@ class DriverAssignmentService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_driver_assignments(self, session: AsyncSession) -> list[DriverAssignment]:
+    async def get_driver_assignments(
+        self, session: AsyncSession
+    ) -> list[DriverAssignment]:
         """Get all driver assignments - returns SQLModel instances directly"""
         statement = select(DriverAssignment)
         result = await session.execute(statement)
         return list(result.scalars().all())
-
 
     async def create_driver_assignment(
         self, session: AsyncSession, driver_assignment_data: DriverAssignmentCreate
@@ -43,7 +43,7 @@ class DriverAssignmentService:
             self.logger.error(f"Failed to create driver assignment: {error!s}")
             await session.rollback()
             raise error
-        
+
     async def update_driver_assignment(
         self,
         session: AsyncSession,
@@ -79,10 +79,14 @@ class DriverAssignmentService:
             await session.rollback()
             raise error
 
-    async def delete_driver_assignment(self, session: AsyncSession, driver_assignment_id: int) -> bool:
+    async def delete_driver_assignment(
+        self, session: AsyncSession, driver_assignment_id: int
+    ) -> bool:
         """Delete driver assignment by ID"""
         try:
-            statement = select(DriverAssignment).where(DriverAssignment.driver_assignment_id == driver_assignment_id)
+            statement = select(DriverAssignment).where(
+                DriverAssignment.driver_assignment_id == driver_assignment_id
+            )
             result = await session.execute(statement)
             driver_assignment = result.scalars().first()
 

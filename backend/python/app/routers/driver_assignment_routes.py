@@ -1,5 +1,4 @@
 import logging
-
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_driver
 from app.models import get_session
-from app.models.driver_assignment import DriverAssignmentCreate, DriverAssignmentRead, DriverAssignmentUpdate
+from app.models.driver_assignment import (
+    DriverAssignmentCreate,
+    DriverAssignmentRead,
+    DriverAssignmentUpdate,
+)
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
@@ -18,6 +21,7 @@ driver_assignment_service = DriverAssignmentService(logger)
 
 router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 
+
 @router.get("/", response_model=list[DriverAssignmentRead])
 async def get_driver_assignments(
     session: AsyncSession = Depends(get_session),
@@ -27,8 +31,13 @@ async def get_driver_assignments(
     Get all driver assignments - Modern FastAPI approach
     """
     try:
-        driver_assignments = await driver_assignment_service.get_driver_assignments(session)
-        return [DriverAssignmentRead.model_validate(driver_assignment) for driver_assignment in driver_assignments]
+        driver_assignments = await driver_assignment_service.get_driver_assignments(
+            session
+        )
+        return [
+            DriverAssignmentRead.model_validate(driver_assignment)
+            for driver_assignment in driver_assignments
+        ]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -58,6 +67,7 @@ async def create_driver_assignment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
 
+
 @router.patch("/{driver_assignment_id}", response_model=DriverAssignmentRead)
 async def update_location_group(
     driver_assignment_id: UUID,
@@ -68,8 +78,10 @@ async def update_location_group(
     """
     Update an existing driver assignment
     """
-    updated_driver_assignment = await driver_assignment_service.update_driver_assignment(
-        session, driver_assignment_id, driver_assignment
+    updated_driver_assignment = (
+        await driver_assignment_service.update_driver_assignment(
+            session, driver_assignment_id, driver_assignment
+        )
     )
     if not updated_driver_assignment:
         raise HTTPException(
@@ -77,6 +89,7 @@ async def update_location_group(
             detail=f"Location group with id {driver_assignment_id} not found",
         )
     return DriverAssignmentRead.model_validate(updated_driver_assignment)
+
 
 @router.delete("/{driver_assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_entity(
@@ -87,7 +100,9 @@ async def delete_entity(
     """
     Delete a driver assignment
     """
-    success = await driver_assignment_service.delete_driver_assignment(session, driver_assignment_id)
+    success = await driver_assignment_service.delete_driver_assignment(
+        session, driver_assignment_id
+    )
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
