@@ -1,6 +1,4 @@
-/* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
 /* eslint-disable no-console */
-/* eslint-disable react-hooks/exhaustive-deps */
 
 // ***************************************************************
 // This page is meant to be a hooks crash course and demo basic

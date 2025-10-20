@@ -16,7 +16,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/apollo-upload-client": "^19.0.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.7.2",
+    "@types/node": "^24.8.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/react-jsonschema-form": "^1.7.4",
@@ -42,10 +42,11 @@
     "web-vitals": "^5.1.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
     "lint": "eslint .",
     "fix": "eslint . --fix"
   },
@@ -72,6 +73,7 @@
     "@types/react-test-renderer": "^19.1.0",
     "@typescript-eslint/eslint-plugin": "^8.46.1",
     "@typescript-eslint/parser": "^8.46.1",
+    "@vitejs/plugin-react": "^4.0.0",
     "eslint-config-airbnb-typescript": "^18.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
@@ -80,6 +82,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.0",
     "prettier": "^3.4.2",
-    "react-test-renderer": "^19.2.0"
+    "react-test-renderer": "^19.2.0",
+    "vite": "^5.0.0"
   }
 }
