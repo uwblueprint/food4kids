@@ -8,8 +8,9 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>({
   authenticatedUser: null,
-  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-  setAuthenticatedUser: (_authenticatedUser: AuthenticatedUser): void => {},
+  setAuthenticatedUser: (_authenticatedUser: AuthenticatedUser): void => {
+    // This is a placeholder implementation for the context default value
+  },
 });
 
 export default AuthContext;

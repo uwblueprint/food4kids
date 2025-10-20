@@ -18,7 +18,7 @@ const login = async (
     );
     localStorage.setItem(AUTHENTICATED_USER_KEY, JSON.stringify(data));
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
@@ -36,7 +36,7 @@ const logout = async (userId: string | undefined): Promise<boolean> => {
     );
     localStorage.removeItem(AUTHENTICATED_USER_KEY);
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 };
@@ -66,7 +66,7 @@ const register = async (
     );
     localStorage.setItem(AUTHENTICATED_USER_KEY, JSON.stringify(data));
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
@@ -83,7 +83,7 @@ const resetPassword = async (email: string | undefined): Promise<boolean> => {
       { headers: { Authorization: bearerToken } },
     );
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 };
@@ -102,7 +102,7 @@ const refresh = async (): Promise<boolean> => {
       data.accessToken,
     );
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 };
