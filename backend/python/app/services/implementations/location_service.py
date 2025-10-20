@@ -19,8 +19,7 @@ class LocationService(ILocationService):
     ) -> Location | None:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -72,7 +71,10 @@ class LocationService(ILocationService):
             raise e
 
     async def update_location_by_id(
-        self, session: AsyncSession, location_id: UUID, updated_location_data: LocationUpdate
+        self,
+        session: AsyncSession,
+        location_id: UUID,
+        updated_location_data: LocationUpdate,
     ) -> Location:
         """Update location by ID"""
         try:
@@ -114,8 +116,7 @@ class LocationService(ILocationService):
     ) -> bool:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 

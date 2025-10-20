@@ -83,7 +83,9 @@ async def create_location(
         ) from e
 
 
-@router.patch("/{location_id}", response_model=LocationRead, status_code=status.HTTP_200_OK)
+@router.patch(
+    "/{location_id}", response_model=LocationRead, status_code=status.HTTP_200_OK
+)
 async def update_location(
     location_id: UUID,
     updated_location_data: LocationUpdate,
@@ -93,8 +95,10 @@ async def update_location(
     """
     Update a location by ID
     """
-    updated_location = await location_service.update_location_by_id(session, location_id, updated_location_data)
-    
+    updated_location = await location_service.update_location_by_id(
+        session, location_id, updated_location_data
+    )
+
     if not updated_location:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
