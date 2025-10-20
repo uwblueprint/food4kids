@@ -15,7 +15,7 @@ class LocationService(ILocationService):
         self.logger = logger
 
     async def get_location_by_id(
-        self, session: AsyncSession, location_id: str
+        self, session: AsyncSession, location_id: UUID
     ) -> Location | None:
         """Get location by ID - returns SQLModel instance"""
         try:
@@ -49,17 +49,17 @@ class LocationService(ILocationService):
         """Create a new location - returns SQLModel instance"""
         try:
             location = Location(
-                school_name=location_data.school_name or None,
+                school_name=location_data.school_name,
                 contact_name=location_data.contact_name,
                 address=location_data.address,
                 phone_number=location_data.phone_number,
-                longitude=location_data.longitude or None,
-                latitude=location_data.latitude or None,
+                longitude=location_data.longitude,
+                latitude=location_data.latitude,
                 halal=location_data.halal,
-                dietary_restrictions=location_data.dietary_restrictions or "",
-                num_children=location_data.num_children or None,
+                dietary_restrictions=location_data.dietary_restrictions,
+                num_children=location_data.num_children,
                 num_boxes=location_data.num_boxes,
-                notes=location_data.notes or "",
+                notes=location_data.notes,
             )
 
             session.add(location)
@@ -68,6 +68,7 @@ class LocationService(ILocationService):
             return location
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
+            await session.rollback()
             raise e
 
     async def delete_all_locations(self, session: AsyncSession) -> None:
@@ -83,11 +84,12 @@ class LocationService(ILocationService):
             await session.commit()
         except Exception as e:
             self.logger.error(f"Failed to delete all locations: {e!s}")
+            await session.rollback()
             raise e
 
     async def delete_location_by_id(
         self, session: AsyncSession, location_id: UUID
-    ) -> None:
+    ) -> bool:
         """Delete location by ID"""
         try:
             statement = select(Location).where(

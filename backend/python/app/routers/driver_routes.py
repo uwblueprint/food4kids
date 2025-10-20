@@ -85,6 +85,7 @@ async def get_driver(
 async def create_driver(
     driver: DriverCreate,
     session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver)
 ) -> DriverRead:
     """
     Create a new driver

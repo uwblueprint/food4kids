@@ -72,7 +72,7 @@ class ILocationService(ABC):
     @abstractmethod
     async def delete_location_by_id(
         self, session: AsyncSession, location_id: UUID
-    ) -> None:
+    ) -> bool:
         """
         Delete location associated with location_id
 
@@ -80,6 +80,8 @@ class ILocationService(ABC):
         :type session: AsyncSession
         :param location_id: location_id of location to be deleted
         :type location_id: UUID
+        :return: True if deletion was successful, False otherwise
+        :rtype: bool
         :raises Exception: if deletion fails
         """
         pass
