@@ -43,6 +43,8 @@ jobs:
       
       - name: Run tests
         working-directory: ./backend/python
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend/python
         run: |
           pytest -q --disable-warnings -ra
 
