@@ -86,14 +86,14 @@ async def update_location_group(
     if not updated_driver_assignment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Location group with id {driver_assignment_id} not found",
+            detail=f"Driver assignment with id {driver_assignment_id} not found",
         )
     return DriverAssignmentRead.model_validate(updated_driver_assignment)
 
 
 @router.delete("/{driver_assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_entity(
-    driver_assignment_id: int,
+    driver_assignment_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
 ) -> None:

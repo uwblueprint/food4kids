@@ -9,9 +9,10 @@ from app.models.driver_assignment import (
     DriverAssignmentCreate,
     DriverAssignmentUpdate,
 )
+from app.services.interfaces.driver_assignment_service import IDriverAssignmentService
 
 
-class DriverAssignmentService:
+class DriverAssignmentService(IDriverAssignmentService):
     """Modern FastAPI-style driver assignment service"""
 
     def __init__(self, logger: logging.Logger):
@@ -80,7 +81,7 @@ class DriverAssignmentService:
             raise error
 
     async def delete_driver_assignment(
-        self, session: AsyncSession, driver_assignment_id: int
+        self, session: AsyncSession, driver_assignment_id: UUID
     ) -> bool:
         """Delete driver assignment by ID"""
         try:
@@ -91,7 +92,9 @@ class DriverAssignmentService:
             driver_assignment = result.scalars().first()
 
             if not driver_assignment:
-                self.logger.error(f"Entity with id {driver_assignment_id} not found")
+                self.logger.error(
+                    f"Driver assignment with id {driver_assignment_id} not found"
+                )
                 return False
 
             await session.delete(driver_assignment)
