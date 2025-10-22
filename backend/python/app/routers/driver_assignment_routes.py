@@ -92,7 +92,7 @@ async def update_driver_assignment(
 
 
 @router.delete("/{driver_assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_entity(
+async def delete_driver_assignment(
     driver_assignment_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
