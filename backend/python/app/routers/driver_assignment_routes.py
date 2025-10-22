@@ -69,7 +69,7 @@ async def create_driver_assignment(
 
 
 @router.patch("/{driver_assignment_id}", response_model=DriverAssignmentRead)
-async def update_location_group(
+async def update_driver_assignment(
     driver_assignment_id: UUID,
     driver_assignment: DriverAssignmentUpdate,
     session: AsyncSession = Depends(get_session),
