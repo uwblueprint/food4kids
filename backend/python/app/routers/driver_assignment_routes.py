@@ -1,10 +1,10 @@
-import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_driver
+from app.dependencies.services import get_driver_assignment_service
 from app.models import get_session
 from app.models.driver_assignment import (
     DriverAssignmentCreate,
@@ -15,10 +15,6 @@ from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
 
-# Initialize service
-logger = logging.getLogger(__name__)
-driver_assignment_service = DriverAssignmentService(logger)
-
 router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 
 
@@ -26,6 +22,9 @@ router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 async def get_driver_assignments(
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
+    driver_assignment_service: DriverAssignmentService = Depends(
+        get_driver_assignment_service
+    ),
 ) -> list[DriverAssignmentRead]:
     """
     Get all driver assignments - Modern FastAPI approach
@@ -51,6 +50,9 @@ async def create_driver_assignment(
     driver_assignment: DriverAssignmentCreate,  # Auto-validated by FastAPI
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
+    driver_assignment_service: DriverAssignmentService = Depends(
+        get_driver_assignment_service
+    ),
 ) -> DriverAssignmentRead:
     """
     Create a new driver assignment
@@ -74,6 +76,9 @@ async def update_driver_assignment(
     driver_assignment: DriverAssignmentUpdate,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
+    driver_assignment_service: DriverAssignmentService = Depends(
+        get_driver_assignment_service
+    ),
 ) -> DriverAssignmentRead:
     """
     Update an existing driver assignment
@@ -96,6 +101,9 @@ async def delete_driver_assignment(
     driver_assignment_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
+    driver_assignment_service: DriverAssignmentService = Depends(
+        get_driver_assignment_service
+    ),
 ) -> None:
     """
     Delete a driver assignment

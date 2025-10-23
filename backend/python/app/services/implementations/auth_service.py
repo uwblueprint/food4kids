@@ -7,16 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.driver import DriverCreate
 from app.schemas.auth import AuthResponse, TokenResponse
-from app.services.interfaces.auth_service import IAuthService
-from app.services.interfaces.driver_service import IDriverService
-from app.services.interfaces.email_service import IEmailService
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
 if TYPE_CHECKING:
     from firebase_admin.auth import UserRecord
 
+    from app.services.implementations.driver_service import DriverService
+    from app.services.implementations.email_service import EmailService
 
-class AuthService(IAuthService):
+
+class AuthService:
     """
     AuthService implementation with user authentication methods
     """
@@ -24,8 +24,8 @@ class AuthService(IAuthService):
     def __init__(
         self,
         logger: Logger,
-        driver_service: IDriverService,
-        email_service: IEmailService | None = None,
+        driver_service: "DriverService",
+        email_service: "EmailService | None" = None,
     ) -> None:
         """
         Create an instance of AuthService
@@ -38,8 +38,8 @@ class AuthService(IAuthService):
         :type email_service: Optional[IEmailService]
         """
         self.logger: Logger = logger
-        self.driver_service: IDriverService = driver_service
-        self.email_service: IEmailService | None = email_service
+        self.driver_service: DriverService = driver_service
+        self.email_service: EmailService | None = email_service
         self.firebase_rest_client: FirebaseRestClient = FirebaseRestClient(logger)
 
     async def generate_token(
