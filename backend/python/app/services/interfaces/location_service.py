@@ -22,8 +22,8 @@ class ILocationService(ABC):
         :type session: AsyncSession
         :param location_id: location's id
         :type location_id: UUID
-        :return: a Location with location's information
-        :rtype: Location
+        :return: a Location with location's information or None if not found
+        :rtype: Location | None
         :raises Exception: if location retrieval fails
         """
         pass

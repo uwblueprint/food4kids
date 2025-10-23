@@ -75,11 +75,15 @@ class LocationService(ILocationService):
         session: AsyncSession,
         location_id: UUID,
         updated_location_data: LocationUpdate,
-    ) -> Location:
+    ) -> Location | None:
         """Update location by ID"""
         try:
             # Get the existing location by ID
             location = await self.get_location_by_id(session, location_id)
+
+            if not location:
+                self.logger.error(f"Location with id {location_id} not found")
+                return None
 
             # Update existing location with new data
             updated_data = updated_location_data.model_dump(exclude_unset=True)
@@ -102,6 +106,7 @@ class LocationService(ILocationService):
             result = await session.execute(statement)
             locations = result.scalars().all()
 
+            # Delete all locations
             for location in locations:
                 await session.delete(location)
 
@@ -124,9 +129,10 @@ class LocationService(ILocationService):
                 self.logger.error(f"Location with id {location_id} not found")
                 return False
 
-            await session.delete(location)
+            session.delete(location)
             await session.commit()
             return True
         except Exception as e:
             self.logger.error(f"Failed to delete location by id: {e!s}")
+            await session.rollback()
             raise e
