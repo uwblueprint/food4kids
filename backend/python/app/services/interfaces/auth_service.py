@@ -3,6 +3,8 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.auth import AuthResponse
+
 
 class IAuthService(ABC):
     """
@@ -12,7 +14,7 @@ class IAuthService(ABC):
     @abstractmethod
     async def generate_token(
         self, session: AsyncSession, email: str, password: str
-    ) -> tuple[Any, str]:
+    ) -> tuple[AuthResponse, str]:
         """
         Generate a short-lived JWT access token and a long-lived refresh token
         when supplied user's email and password

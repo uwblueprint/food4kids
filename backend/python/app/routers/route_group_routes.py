@@ -1,15 +1,12 @@
-import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.services import get_route_group_service
 from app.models import get_session
 from app.models.route_group import RouteGroupCreate, RouteGroupRead, RouteGroupUpdate
-from app.services.implementations.route_group_service import RouteGroupService
-
-logger = logging.getLogger(__name__)
-route_group_service = RouteGroupService(logger)
+from app.services.interfaces.route_group_service import IRouteGroupService
 
 router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
@@ -18,6 +15,7 @@ router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 async def create_route_group(
     route_group: RouteGroupCreate,
     session: AsyncSession = Depends(get_session),
+    route_group_service: IRouteGroupService = Depends(get_route_group_service),
 ) -> RouteGroupRead:
     """
     Create a new route group
@@ -31,6 +29,7 @@ async def update_route_group(
     route_group_id: UUID,
     route_group: RouteGroupUpdate,
     session: AsyncSession = Depends(get_session),
+    route_group_service: IRouteGroupService = Depends(get_route_group_service),
 ) -> RouteGroupRead:
     """
     Update an existing route group

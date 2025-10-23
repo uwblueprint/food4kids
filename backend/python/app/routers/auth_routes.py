@@ -9,28 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies.auth import get_current_database_driver_id, get_current_user_email
+from app.dependencies.services import get_auth_service, get_driver_service
 from app.models import get_session
 from app.models.driver import DriverCreate, DriverRegister
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
-from app.services.implementations.auth_service import AuthService
-from app.services.implementations.driver_service import DriverService
-from app.services.implementations.email_service import EmailService
+from app.services.interfaces.auth_service import IAuthService
+from app.services.interfaces.driver_service import IDriverService
 
-# Initialize services
+# Initialize logger
 logger = logging.getLogger(__name__)
-driver_service = DriverService(logger)
-email_service = EmailService(
-    logger,
-    {
-        "refresh_token": settings.mailer_refresh_token,
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "client_id": settings.mailer_client_id,
-        "client_secret": settings.mailer_client_secret,
-    },
-    settings.mailer_user,
-    "Food4Kids",
-)
-auth_service = AuthService(logger, driver_service, email_service)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -52,6 +39,7 @@ async def login(
     login_request: LoginRequest,
     response: Response,
     session: AsyncSession = Depends(get_session),
+    auth_service: IAuthService = Depends(get_auth_service),
 ) -> AuthResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -100,6 +88,8 @@ async def register(
     register_request: DriverRegister,
     response: Response,
     session: AsyncSession = Depends(get_session),
+    auth_service: IAuthService = Depends(get_auth_service),
+    driver_service: IDriverService = Depends(get_driver_service),
 ) -> AuthResponse:
     """
     Returns access token and driver info in response body and sets refreshToken as an httpOnly cookie
@@ -145,6 +135,7 @@ async def refresh(
     request: Request,
     response: Response,
     _session: AsyncSession = Depends(get_session),
+    auth_service: IAuthService = Depends(get_auth_service),
 ) -> RefreshResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -185,6 +176,7 @@ async def logout(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
     current_database_driver_id: UUID = Depends(get_current_database_driver_id),
+    auth_service: IAuthService = Depends(get_auth_service),
 ) -> None:
     """
     Revokes all of the specified driver's refresh tokens
@@ -211,6 +203,7 @@ async def reset_password(
     email: EmailStr,
     _session: AsyncSession = Depends(get_session),
     current_user_email: str = Depends(get_current_user_email),
+    auth_service: IAuthService = Depends(get_auth_service),
 ) -> None:
     """
     Triggers password reset for user with specified email (reset link will be emailed)

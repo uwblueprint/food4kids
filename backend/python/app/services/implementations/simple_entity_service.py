@@ -8,9 +8,10 @@ from app.models.simple_entity import (
     SimpleEntityCreate,
     SimpleEntityUpdate,
 )
+from app.services.interfaces.simple_entity_service import ISimpleEntityService
 
 
-class SimpleEntityService:
+class SimpleEntityService(ISimpleEntityService):
     """Modern FastAPI-style simple entity service"""
 
     def __init__(self, logger: logging.Logger):
