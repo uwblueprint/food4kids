@@ -44,7 +44,6 @@ food4kids/
 │       ├── requirements.txt       # Python dependencies
 │       └── server.py              # Application entry point
 ├── frontend/                      # Frontend (TBD)
-├── e2e-tests/                     # End-to-end tests
 ├── db-init/                       # Database initialization scripts
 ├── docker-compose.yml             # Multi-container Docker setup
 └── README.md
@@ -269,13 +268,6 @@ docker-compose exec frontend npm test
 
 # Run tests in CI mode
 docker-compose exec frontend npm test -- --ci --coverage --watchAll=false
-```
-
-### End-to-End Tests
-
-```bash
-# Run e2e tests (ensure services are running)
-python -m pytest e2e-tests/
 ```
 
 _Note: CI/CD pipeline for automated testing will be added in future updates._
