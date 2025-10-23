@@ -18,14 +18,6 @@ from app.services.implementations.entity_service import EntityService
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.simple_entity_service import SimpleEntityService
-from app.services.interfaces.auth_service import IAuthService
-from app.services.interfaces.driver_assignment_service import IDriverAssignmentService
-from app.services.interfaces.driver_service import IDriverService
-from app.services.interfaces.email_service import IEmailService
-from app.services.interfaces.entity_service import IEntityService
-from app.services.interfaces.location_group_service import ILocationGroupService
-from app.services.interfaces.route_group_service import IRouteGroupService
-from app.services.interfaces.simple_entity_service import ISimpleEntityService
 
 
 @lru_cache
@@ -35,7 +27,7 @@ def get_logger() -> logging.Logger:
 
 
 @lru_cache
-def get_email_service() -> IEmailService:
+def get_email_service() -> EmailService:
     """Get email service instance"""
     logger = get_logger()
     return EmailService(
@@ -52,52 +44,51 @@ def get_email_service() -> IEmailService:
 
 
 @lru_cache
-def get_driver_service() -> IDriverService:
+def get_driver_service() -> DriverService:
     """Get driver service instance"""
     logger = get_logger()
     return DriverService(logger)
 
 
-@lru_cache
 def get_auth_service(
-    driver_service: IDriverService = Depends(get_driver_service),
-    email_service: IEmailService = Depends(get_email_service),
-) -> IAuthService:
+    driver_service: DriverService = Depends(get_driver_service),
+    email_service: EmailService = Depends(get_email_service),
+) -> AuthService:
     """Get auth service instance"""
     logger = get_logger()
     return AuthService(logger, driver_service, email_service)
 
 
 @lru_cache
-def get_entity_service() -> IEntityService:
+def get_entity_service() -> EntityService:
     """Get entity service instance"""
     logger = get_logger()
     return EntityService(logger)
 
 
 @lru_cache
-def get_simple_entity_service() -> ISimpleEntityService:
+def get_simple_entity_service() -> SimpleEntityService:
     """Get simple entity service instance"""
     logger = get_logger()
     return SimpleEntityService(logger)
 
 
 @lru_cache
-def get_driver_assignment_service() -> IDriverAssignmentService:
+def get_driver_assignment_service() -> DriverAssignmentService:
     """Get driver assignment service instance"""
     logger = get_logger()
     return DriverAssignmentService(logger)
 
 
 @lru_cache
-def get_location_group_service() -> ILocationGroupService:
+def get_location_group_service() -> LocationGroupService:
     """Get location group service instance"""
     logger = get_logger()
     return LocationGroupService(logger)
 
 
 @lru_cache
-def get_route_group_service() -> IRouteGroupService:
+def get_route_group_service() -> RouteGroupService:
     """Get route group service instance"""
     logger = get_logger()
     return RouteGroupService(logger)

@@ -9,7 +9,7 @@ from app.models.simple_entity import (
     SimpleEntityRead,
     SimpleEntityUpdate,
 )
-from app.services.interfaces.simple_entity_service import ISimpleEntityService
+from app.services.implementations.simple_entity_service import SimpleEntityService
 
 router = APIRouter(prefix="/simple-entities", tags=["simple-entities"])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/simple-entities", tags=["simple-entities"])
 async def get_simple_entities(
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    simple_entity_service: ISimpleEntityService = Depends(get_simple_entity_service),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> list[SimpleEntityRead]:
     """
     Get all simple entities - Modern FastAPI approach
@@ -38,7 +38,7 @@ async def get_simple_entity(
     simple_entity_id: int,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    simple_entity_service: ISimpleEntityService = Depends(get_simple_entity_service),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> SimpleEntityRead:
     """
     Get a single simple entity by ID
@@ -59,7 +59,7 @@ async def create_simple_entity(
     simple_entity: SimpleEntityCreate,  # Auto-validated by FastAPI
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    simple_entity_service: ISimpleEntityService = Depends(get_simple_entity_service),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> SimpleEntityRead:
     """
     Create a new simple entity
@@ -81,7 +81,7 @@ async def update_simple_entity(
     simple_entity: SimpleEntityUpdate,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    simple_entity_service: ISimpleEntityService = Depends(get_simple_entity_service),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> SimpleEntityRead:
     """
     Update an existing simple entity
@@ -102,7 +102,7 @@ async def delete_simple_entity(
     simple_entity_id: int,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    simple_entity_service: ISimpleEntityService = Depends(get_simple_entity_service),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> None:
     """
     Delete a simple entity

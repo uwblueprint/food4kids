@@ -13,8 +13,8 @@ from app.dependencies.services import get_auth_service, get_driver_service
 from app.models import get_session
 from app.models.driver import DriverCreate, DriverRegister
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
-from app.services.interfaces.auth_service import IAuthService
-from app.services.interfaces.driver_service import IDriverService
+from app.services.implementations.auth_service import AuthService
+from app.services.implementations.driver_service import DriverService
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def login(
     login_request: LoginRequest,
     response: Response,
     session: AsyncSession = Depends(get_session),
-    auth_service: IAuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> AuthResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -88,8 +88,8 @@ async def register(
     register_request: DriverRegister,
     response: Response,
     session: AsyncSession = Depends(get_session),
-    auth_service: IAuthService = Depends(get_auth_service),
-    driver_service: IDriverService = Depends(get_driver_service),
+    auth_service: AuthService = Depends(get_auth_service),
+    driver_service: DriverService = Depends(get_driver_service),
 ) -> AuthResponse:
     """
     Returns access token and driver info in response body and sets refreshToken as an httpOnly cookie
@@ -135,7 +135,7 @@ async def refresh(
     request: Request,
     response: Response,
     _session: AsyncSession = Depends(get_session),
-    auth_service: IAuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> RefreshResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -176,7 +176,7 @@ async def logout(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
     current_database_driver_id: UUID = Depends(get_current_database_driver_id),
-    auth_service: IAuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
     Revokes all of the specified driver's refresh tokens
@@ -203,7 +203,7 @@ async def reset_password(
     email: EmailStr,
     _session: AsyncSession = Depends(get_session),
     current_user_email: str = Depends(get_current_user_email),
-    auth_service: IAuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
     Triggers password reset for user with specified email (reset link will be emailed)

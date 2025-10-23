@@ -5,10 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
-from app.services.interfaces.route_group_service import IRouteGroupService
 
 
-class RouteGroupService(IRouteGroupService):
+class RouteGroupService:
     """Route group service for CRUD operations"""
 
     def __init__(self, logger: logging.Logger):

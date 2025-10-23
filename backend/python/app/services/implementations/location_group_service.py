@@ -5,10 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location_group import LocationGroup, LocationGroupUpdate
-from app.services.interfaces.location_group_service import ILocationGroupService
 
 
-class LocationGroupService(ILocationGroupService):
+class LocationGroupService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 

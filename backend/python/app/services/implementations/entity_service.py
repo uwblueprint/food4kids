@@ -4,10 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.entity import Entity, EntityCreate, EntityUpdate
-from app.services.interfaces.entity_service import IEntityService
 
 
-class EntityService(IEntityService):
+class EntityService:
     """Modern FastAPI-style entity service"""
 
     def __init__(self, logger: logging.Logger):

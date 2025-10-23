@@ -11,7 +11,9 @@ from app.models.driver_assignment import (
     DriverAssignmentRead,
     DriverAssignmentUpdate,
 )
-from app.services.interfaces.driver_assignment_service import IDriverAssignmentService
+from app.services.implementations.driver_assignment_service import (
+    DriverAssignmentService,
+)
 
 router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 
@@ -20,7 +22,7 @@ router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 async def get_driver_assignments(
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    driver_assignment_service: IDriverAssignmentService = Depends(
+    driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
 ) -> list[DriverAssignmentRead]:
@@ -48,7 +50,7 @@ async def create_driver_assignment(
     driver_assignment: DriverAssignmentCreate,  # Auto-validated by FastAPI
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    driver_assignment_service: IDriverAssignmentService = Depends(
+    driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
 ) -> DriverAssignmentRead:
@@ -74,7 +76,7 @@ async def update_driver_assignment(
     driver_assignment: DriverAssignmentUpdate,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    driver_assignment_service: IDriverAssignmentService = Depends(
+    driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
 ) -> DriverAssignmentRead:
@@ -99,7 +101,7 @@ async def delete_driver_assignment(
     driver_assignment_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_driver),
-    driver_assignment_service: IDriverAssignmentService = Depends(
+    driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
 ) -> None:
