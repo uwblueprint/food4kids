@@ -184,7 +184,7 @@ def main():
 
                         # Determine location group
                         location_group_id = None
-                        if random.random() < 0.05:  # 5% unassigned
+                        if random.random() < UNASSIGNED_LOCATION_PERCENTAGE:  # 5% unassigned
                             location_group_id = None
                         elif "cambridge" in address.lower():
                             location_group_id = cambridge_group
