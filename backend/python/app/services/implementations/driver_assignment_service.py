@@ -9,10 +9,9 @@ from app.models.driver_assignment import (
     DriverAssignmentCreate,
     DriverAssignmentUpdate,
 )
-from app.services.interfaces.driver_assignment_service import IDriverAssignmentService
 
 
-class DriverAssignmentService(IDriverAssignmentService):
+class DriverAssignmentService:
     """Modern FastAPI-style driver assignment service"""
 
     def __init__(self, logger: logging.Logger):

@@ -7,13 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver import Driver, DriverCreate, DriverUpdate
-from app.services.interfaces.driver_service import IDriverService
 
 if TYPE_CHECKING:
     from firebase_admin.auth import UserRecord
 
 
-class DriverService(IDriverService):
+class DriverService:
     """Modern FastAPI-style driver service"""
 
     def __init__(self, logger: logging.Logger):

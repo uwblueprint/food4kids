@@ -6,13 +6,11 @@ from typing import Any
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from app.services.interfaces.email_service import IEmailService
-
 # Type alias for Gmail API message body
 GmailMessageBody = dict[str, str]
 
 
-class EmailService(IEmailService):
+class EmailService:
     """
     EmailService implementation for handling email related functionality
     """
