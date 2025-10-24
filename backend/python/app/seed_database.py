@@ -8,7 +8,6 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple
 
 import faker  # type: ignore
 from sklearn.cluster import KMeans  # type: ignore
@@ -21,24 +20,25 @@ fake = faker.Faker()
 # Configuration constants
 UNASSIGNED_LOCATION_PERCENTAGE = 0.05
 AVG_STOPS_PER_ROUTE = 7.5
-DRIVER_TO_ROUTE_RATIO = 0.75
 MONTHS_PAST = 2
 MONTHS_FUTURE = 1
 
 # Location group schedule (weekday mapping)
 LOCATION_GROUP_SCHEDULE = {
-    "Schools": 4,  # Friday
-    "Tuesday A": 1,  # Tuesday
-    "Tuesday B": 1,  # Tuesday
-    "Wednesday A": 2,  # Wednesday
-    "Wednesday B": 2,  # Wednesday
-    "Thursday A": 3,  # Thursday
-    "Thursday B": 3,  # Thursday
+    "Schools": 4,
+    "Tuesday A": 1,
+    "Tuesday B": 1,
+    "Wednesday A": 2,
+    "Wednesday B": 2,
+    "Thursday A": 3,
+    "Thursday B": 3,
 }
 
+# Cities that need specific group assignments (will be randomly assigned)
+SMALL_CITIES = ["cambridge", "elmira", "new hamburg"]
+
 # Warehouse location
-WAREHOUSE_LAT = 43.402343
-WAREHOUSE_LON = -80.464610
+WAREHOUSE_LAT, WAREHOUSE_LON = 43.402343, -80.464610
 WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 
 
@@ -47,9 +47,18 @@ def get_database_url() -> str:
     return "postgresql://postgres:postgres@f4k_db:5432/f4k"
 
 
+def execute_insert(session, table: str, data: dict) -> None:
+    """Helper function to execute INSERT statements with common patterns"""
+    columns = ", ".join(data)
+    placeholders = ", ".join(f":{key}" for key in data)
+    session.execute(
+        text(f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"), data
+    )
+
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate haversine distance between two points in km"""
-    from math import radians, cos, sin, asin, sqrt
+    from math import asin, cos, radians, sin, sqrt
 
     # Convert to radians
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
@@ -66,8 +75,8 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 def simple_tsp(
     warehouse_lat: float,
     warehouse_lon: float,
-    locations: List[Tuple[float, float, str]],
-) -> List[str]:
+    locations: list[tuple[float, float, str]],
+) -> list[str]:
     """Simple greedy TSP starting from warehouse"""
     if not locations:
         return []
@@ -94,6 +103,113 @@ def simple_tsp(
         route.append(location_id)
 
     return route
+
+
+def create_clusters(group_locations: list, num_clusters: int) -> list[list]:
+    """Create clusters from group locations using k-means or simple grouping"""
+    if len(group_locations) <= num_clusters:
+        return [group_locations]
+
+    coords = [(loc.latitude, loc.longitude) for loc in group_locations]
+    # TODO: Eventually write our own implementation or different algorithm to avoid using scikit-learn
+    kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init=10)
+    cluster_labels = kmeans.fit_predict(coords)
+
+    clusters: list[list] = [[] for _ in range(num_clusters)]
+    for i, location in enumerate(group_locations):
+        clusters[cluster_labels[i]].append(location)
+
+    return clusters
+
+
+def calculate_route_length(
+    route_order: list[str],
+    cluster_locations: list,
+    warehouse_lat: float,
+    warehouse_lon: float,
+) -> float:
+    """Calculate total route length using haversine distance"""
+    total_length = 0.0
+    prev_lat, prev_lon = warehouse_lat, warehouse_lon
+
+    for location_id in route_order:
+        location = next(
+            loc for loc in cluster_locations if str(loc.location_id) == location_id
+        )
+        dist = haversine_distance(
+            prev_lat, prev_lon, location.latitude, location.longitude
+        )
+        total_length += dist
+        prev_lat, prev_lon = location.latitude, location.longitude
+
+    return total_length
+
+
+def create_route_and_stops(
+    session,
+    route_id: str,
+    route_order: list[str],
+    cluster_idx: int,
+    total_length: float,
+) -> None:
+    """Create route and its stops in the database"""
+    execute_insert(
+        session,
+        "routes",
+        {
+            "route_id": route_id,
+            "name": f"Route {cluster_idx + 1}",
+            "notes": fake.sentence() if random.random() < 0.1 else "",
+            "length": round(total_length, 2),
+            "created_at": "NOW()",
+            "updated_at": "NOW()",
+        },
+    )
+
+    for stop_num, location_id in enumerate(route_order, 1):
+        execute_insert(
+            session,
+            "route_stops",
+            {
+                "route_stop_id": str(uuid.uuid4()),
+                "route_id": route_id,
+                "location_id": location_id,
+                "stop_number": stop_num,
+                "created_at": "NOW()",
+                "updated_at": "NOW()",
+            },
+        )
+
+
+def create_routes_for_group(session, group_locations: list) -> int:
+    """Create routes for a location group using clustering and TSP"""
+    if len(group_locations) < 2:
+        return 0
+
+    num_clusters = max(1, int(len(group_locations) // AVG_STOPS_PER_ROUTE))
+    clusters = create_clusters(group_locations, num_clusters)
+    routes_created = 0
+
+    for cluster_idx, cluster_locations in enumerate(clusters):
+        if not cluster_locations:
+            continue
+
+        tsp_locations = [
+            (loc.latitude, loc.longitude, str(loc.location_id))
+            for loc in cluster_locations
+        ]
+        route_order = simple_tsp(WAREHOUSE_LAT, WAREHOUSE_LON, tsp_locations)
+        total_length = calculate_route_length(
+            route_order, cluster_locations, WAREHOUSE_LAT, WAREHOUSE_LON
+        )
+
+        route_id = str(uuid.uuid4())
+        create_route_and_stops(
+            session, route_id, route_order, cluster_idx, total_length
+        )
+        routes_created += 1
+
+    return routes_created
 
 
 def main():
@@ -133,34 +249,23 @@ def main():
 
             # Create location groups
             print("Creating location groups...")
-            groups = [
-                {"name": "Schools", "color": fake.hex_color()},
-                {"name": "Tuesday A", "color": fake.hex_color()},
-                {"name": "Tuesday B", "color": fake.hex_color()},
-                {"name": "Wednesday A", "color": fake.hex_color()},
-                {"name": "Wednesday B", "color": fake.hex_color()},
-                {"name": "Thursday A", "color": fake.hex_color()},
-                {"name": "Thursday B", "color": fake.hex_color()},
-            ]
-
+            group_names = list(LOCATION_GROUP_SCHEDULE.keys())
             group_ids = {}
-            for group_data in groups:
+            for name in group_names:
                 group_id = str(uuid.uuid4())
-                session.execute(
-                    text("""
-                        INSERT INTO location_groups (location_group_id, name, color, notes, created_at, updated_at)
-                        VALUES (:id, :name, :color, '', NOW(), NOW())
-                    """),
-                    {
-                        "id": group_id,
-                        "name": group_data["name"],
-                        "color": group_data["color"],
-                    },
-                )
-                group_ids[group_data["name"]] = group_id
+                data = {
+                    "location_group_id": group_id,
+                    "name": name,
+                    "color": fake.hex_color(),
+                    "notes": "",
+                    "created_at": "NOW()",
+                    "updated_at": "NOW()",
+                }
+                execute_insert(session, "location_groups", data)
+                group_ids[name] = group_id
 
             session.commit()
-            print(f"Created {len(groups)} location groups")
+            print(f"Created {len(group_names)} location groups")
 
             # Create locations from CSV
             print("Creating locations from CSV...")
@@ -168,102 +273,74 @@ def main():
             locations_created = 0
 
             if os.path.exists(csv_path):
-                non_school_groups = [
-                    gid for name, gid in group_ids.items() if name != "Schools"
-                ]
-                cambridge_group = random.choice(non_school_groups)
-                elmira_group = random.choice(non_school_groups)
-                new_hamburg_group = random.choice(non_school_groups)
-
-                with open(csv_path, "r") as file:
+                with open(csv_path) as file:
                     reader = csv.DictReader(file)
                     for row in reader:
                         address = row.get("formatted_address", "")
-                        lat = float(row.get("latitude", 0))
-                        lon = float(row.get("longitude", 0))
+                        lat, lon = (
+                            float(row.get("latitude", 0)),
+                            float(row.get("longitude", 0)),
+                        )
 
                         # Determine location group
-                        location_group_id = None
-                        if random.random() < UNASSIGNED_LOCATION_PERCENTAGE:  # 5% unassigned
-                            location_group_id = None
-                        elif "cambridge" in address.lower():
-                            location_group_id = cambridge_group
-                        elif "elmira" in address.lower():
-                            location_group_id = elmira_group
-                        elif "new hamburg" in address.lower():
-                            location_group_id = new_hamburg_group
+                        if random.random() < UNASSIGNED_LOCATION_PERCENTAGE:
+                            group_id = None
                         else:
-                            location_group_id = random.choice(list(group_ids.values()))
+                            # Check for small cities that need specific group assignments
+                            is_small_city = any(
+                                city in address.lower() for city in SMALL_CITIES
+                            )
 
-                        location_id = str(uuid.uuid4())
+                            if is_small_city:
+                                # Random assignment from non-school groups for small cities
+                                non_school_groups = [
+                                    gid
+                                    for name, gid in group_ids.items()
+                                    if name != "Schools"
+                                ]
+                                group_id = random.choice(non_school_groups)
+                            else:
+                                # Random assignment for other locations
+                                group_id = random.choice(list(group_ids.values()))
+
+                        # Generate fake data for location insertion
                         is_school = random.choice([True, False])
-                        school_name = fake.company() + " School" if is_school else None
-
-                        session.execute(
-                            text("""
-                                INSERT INTO locations (location_id, location_group_id, is_school, school_name, 
-                                                    contact_name, address, phone_number, longitude, latitude, 
-                                                    halal, dietary_restrictions, num_children, num_boxes, notes,
-                                                    created_at, updated_at)
-                                VALUES (:id, :group_id, :is_school, :school_name, :contact_name, :address, 
-                                       :phone, :lon, :lat, :halal, :dietary, :children, :boxes, :notes,
-                                       NOW(), NOW())
-                            """),
-                            {
-                                "id": location_id,
-                                "group_id": location_group_id,
-                                "is_school": is_school,
-                                "school_name": school_name,
-                                "contact_name": fake.name(),
-                                "address": address,
-                                "phone": fake.numerify("###-###-####"),
-                                "lon": lon,
-                                "lat": lat,
-                                "halal": random.choice([True, False]),
-                                "dietary": fake.sentence()
-                                if random.random() < 0.3
-                                else None,
-                                "children": random.randint(1, 10)
-                                if random.random() < 0.8
-                                else None,
-                                "boxes": random.randint(1, 5),
-                                "notes": fake.sentence()
-                                if random.random() < 0.4
-                                else "",
-                            },
-                        )
+                        data = {
+                            "location_id": str(uuid.uuid4()),
+                            "location_group_id": group_id,
+                            "is_school": is_school,
+                            "school_name": fake.company() + " School"
+                            if is_school
+                            else None,
+                            "contact_name": fake.name(),
+                            "address": address,
+                            "phone_number": fake.numerify("+1212#######"),
+                            "longitude": lon,
+                            "latitude": lat,
+                            "halal": random.choice([True, False]),
+                            "dietary_restrictions": fake.sentence()
+                            if random.random() < 0.3
+                            else None,
+                            "num_children": random.randint(1, 4)
+                            if random.random() < 0.8
+                            else None,
+                            "num_boxes": random.randint(1, 5),
+                            "notes": fake.sentence() if random.random() < 0.4 else "",
+                            "created_at": "NOW()",
+                            "updated_at": "NOW()",
+                        }
+                        execute_insert(session, "locations", data)
                         locations_created += 1
             else:
-                print(f"Warning: CSV file not found at {csv_path}")
+                raise FileNotFoundError(f"Locations CSV file not found at {csv_path}")
 
-            # Add warehouse location
-            warehouse_id = str(uuid.uuid4())
-            session.execute(
-                text("""
-                    INSERT INTO locations (location_id, location_group_id, is_school, school_name, 
-                                        contact_name, address, phone_number, longitude, latitude, 
-                                        halal, dietary_restrictions, num_children, num_boxes, notes,
-                                        created_at, updated_at)
-                    VALUES (:id, NULL, FALSE, NULL, :contact_name, :address, :phone, :lon, :lat, 
-                           FALSE, NULL, NULL, 0, :notes, NOW(), NOW())
-                """),
-                {
-                    "id": warehouse_id,
-                    "contact_name": "Warehouse Manager",
-                    "address": "330 Trillium Drive, Kitchener, ON",
-                    "phone": fake.phone_number(),
-                    "lon": -80.464610,
-                    "lat": 43.402343,
-                    "notes": "Main warehouse location",
-                },
-            )
-            locations_created += 1
+            # Warehouse location is not stored in database - it's the implicit starting point for all routes
 
             session.commit()
             print(f"Created {locations_created} locations")
 
-            # Create routes with k-means clustering
-            print("Creating routes with k-means clustering...")
+            # Create routes
+            print("Creating routes...")
             routes_created = 0
 
             # Get all locations grouped by location group
@@ -277,100 +354,15 @@ def main():
             ).fetchall()
 
             # Group locations by location group
-            locations_by_group: Dict[str, List] = {}
+            locations_by_group: dict[str, list] = {}
             for row in location_groups:
                 group_id = str(row.location_group_id)
                 if group_id not in locations_by_group:
                     locations_by_group[group_id] = []
                 locations_by_group[group_id].append(row)
 
-            for group_id, group_locations in locations_by_group.items():
-                if len(group_locations) < 2:
-                    continue
-
-                # Calculate number of clusters
-                num_clusters = max(1, int(len(group_locations) // AVG_STOPS_PER_ROUTE))
-
-                # Prepare coordinates for clustering
-                coords = [(loc.latitude, loc.longitude) for loc in group_locations]
-
-                if len(coords) <= num_clusters:
-                    # If we have fewer locations than clusters, just create one route
-                    clusters = [group_locations]
-                else:
-                    # Perform k-means clustering
-                    kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init=10)
-                    cluster_labels = kmeans.fit_predict(coords)
-
-                    # Group locations by cluster
-                    clusters = [[] for _ in range(num_clusters)]
-                    for i, location in enumerate(group_locations):
-                        clusters[cluster_labels[i]].append(location)
-
-                # Create routes for each cluster
-                for cluster_idx, cluster_locations in enumerate(clusters):
-                    if not cluster_locations:
-                        continue
-
-                    # Prepare locations for TSP (lat, lon, location_id)
-                    tsp_locations = [
-                        (loc.latitude, loc.longitude, str(loc.location_id))
-                        for loc in cluster_locations
-                    ]
-
-                    # Solve TSP
-                    route_order = simple_tsp(
-                        WAREHOUSE_LAT, WAREHOUSE_LON, tsp_locations
-                    )
-
-                    # Calculate route length
-                    total_length = 0.0
-                    prev_lat, prev_lon = WAREHOUSE_LAT, WAREHOUSE_LON
-
-                    for location_id in route_order:
-                        # Find location by ID
-                        location = next(
-                            loc
-                            for loc in cluster_locations
-                            if str(loc.location_id) == location_id
-                        )
-                        dist = haversine_distance(
-                            prev_lat, prev_lon, location.latitude, location.longitude
-                        )
-                        total_length += dist
-                        prev_lat, prev_lon = location.latitude, location.longitude
-
-                    # Create route
-                    route_id = str(uuid.uuid4())
-                    session.execute(
-                        text("""
-                            INSERT INTO routes (route_id, name, notes, length, created_at, updated_at)
-                            VALUES (:id, :name, :notes, :length, NOW(), NOW())
-                        """),
-                        {
-                            "id": route_id,
-                            "name": f"Route {cluster_idx + 1}",
-                            "notes": fake.sentence() if random.random() < 0.1 else "",
-                            "length": round(total_length, 2),
-                        },
-                    )
-
-                    # Create route stops
-                    for stop_num, location_id in enumerate(route_order, 1):
-                        session.execute(
-                            text("""
-                                INSERT INTO route_stops (route_stop_id, route_id, location_id, stop_number, created_at, updated_at)
-                                VALUES (:id, :route_id, :location_id, :stop_number, NOW(), NOW())
-                            """),
-                            {
-                                "id": str(uuid.uuid4()),
-                                "route_id": route_id,
-                                "location_id": location_id,
-                                "stop_number": stop_num,
-                            },
-                        )
-
-                    routes_created += 1
+            for _, group_locations in locations_by_group.items():
+                routes_created += create_routes_for_group(session, group_locations)
 
             session.commit()
             print(f"Created {routes_created} routes")
@@ -380,28 +372,23 @@ def main():
             num_drivers = max(routes_created, 5)
             drivers_created = 0
 
-            for i in range(num_drivers):
-                driver_id = str(uuid.uuid4())
-                session.execute(
-                    text("""
-                        INSERT INTO drivers (driver_id, auth_id, name, email, phone, address, 
-                                          license_plate, car_make_model, active, notes, created_at, updated_at)
-                        VALUES (:id, :auth_id, :name, :email, :phone, :address, 
-                               :license, :car, :active, :notes, NOW(), NOW())
-                    """),
-                    {
-                        "id": driver_id,
-                        "auth_id": f"seed_driver_{uuid.uuid4().hex[:8]}",
-                        "name": fake.name(),
-                        "email": fake.email(),
-                        "phone": fake.numerify("###-###-####"),
-                        "address": fake.address(),
-                        "license": fake.license_plate(),
-                        "car": fake.word().title() + " " + fake.word().title(),
-                        "active": random.choice([True, False]),
-                        "notes": fake.sentence() if random.random() < 0.3 else "",
-                    },
-                )
+            for _ in range(num_drivers):
+                # Create a single driver with fake data
+                data = {
+                    "driver_id": str(uuid.uuid4()),
+                    "auth_id": f"seed_driver_{uuid.uuid4().hex[:8]}",
+                    "name": fake.name(),
+                    "email": fake.email(),
+                    "phone": fake.numerify("+1212#######"),
+                    "address": fake.address(),
+                    "license_plate": fake.license_plate(),
+                    "car_make_model": fake.word().title() + " " + fake.word().title(),
+                    "active": random.choice([True, False]),
+                    "notes": fake.sentence() if random.random() < 0.3 else "",
+                    "created_at": "NOW()",
+                    "updated_at": "NOW()",
+                }
+                execute_insert(session, "drivers", data)
                 drivers_created += 1
 
             session.commit()
@@ -432,30 +419,23 @@ def main():
                     if not group_id:
                         continue
 
-                    # Find routes for this location group
+                    # Create route group for a specific date and location group
                     group_routes = session.execute(
-                        text("""
-                            SELECT DISTINCT r.route_id 
-                            FROM routes r
-                            JOIN route_stops rs ON r.route_id = rs.route_id
-                            JOIN locations l ON rs.location_id = l.location_id
-                            WHERE l.location_group_id = :group_id
-                        """),
+                        text(
+                            "SELECT DISTINCT r.route_id FROM routes r JOIN route_stops rs ON r.route_id = rs.route_id JOIN locations l ON rs.location_id = l.location_id WHERE l.location_group_id = :group_id"
+                        ),
                         {"group_id": group_id},
                     ).fetchall()
 
                     if not group_routes:
                         continue
 
-                    # Create route group
                     route_group_id = str(uuid.uuid4())
-                    session.execute(
-                        text("""
-                            INSERT INTO route_groups (route_group_id, name, notes, drive_date)
-                            VALUES (:id, :name, :notes, :drive_date)
-                        """),
+                    execute_insert(
+                        session,
+                        "route_groups",
                         {
-                            "id": route_group_id,
+                            "route_group_id": route_group_id,
                             "name": f"{group_name} - {current_date.strftime('%Y-%m-%d')}",
                             "notes": f"Route group for {group_name} on {current_date}",
                             "drive_date": datetime.combine(
@@ -464,20 +444,16 @@ def main():
                         },
                     )
 
-                    # Create memberships
                     for route in group_routes:
-                        session.execute(
-                            text("""
-                                INSERT INTO route_group_memberships (route_group_membership_id, route_group_id, route_id)
-                                VALUES (:id, :route_group_id, :route_id)
-                            """),
+                        execute_insert(
+                            session,
+                            "route_group_memberships",
                             {
-                                "id": str(uuid.uuid4()),
+                                "route_group_membership_id": str(uuid.uuid4()),
                                 "route_group_id": route_group_id,
                                 "route_id": route.route_id,
                             },
                         )
-
                     route_groups_created += 1
 
                 current_date += timedelta(days=1)
@@ -506,7 +482,7 @@ def main():
                     """)
                 ).fetchall()
 
-                for route_group_id, drive_date, route_id in route_group_data:
+                for _, drive_date, route_id in route_group_data:
                     drive_date_obj = drive_date.date()
 
                     # Determine assignment strategy based on date
@@ -514,27 +490,23 @@ def main():
                         # Past routes: assign all
                         assignment_ratio = 1.0
                     elif drive_date_obj <= today + timedelta(days=7):
-                        # Next week: assign all
-                        assignment_ratio = 1.0
+                        # Next week: assign most
+                        assignment_ratio = 0.8
                     else:
                         # Future routes: partial assignment
-                        assignment_ratio = 0.6
+                        assignment_ratio = 0.4
 
                     if random.random() < assignment_ratio:
                         driver = random.choice(active_drivers)
-                        completed = drive_date_obj < today
-
-                        session.execute(
-                            text("""
-                                INSERT INTO driver_assignments (driver_assignment_id, driver_id, route_id, time, completed)
-                                VALUES (:id, :driver_id, :route_id, :time, :completed)
-                            """),
+                        execute_insert(
+                            session,
+                            "driver_assignments",
                             {
-                                "id": str(uuid.uuid4()),
+                                "driver_assignment_id": str(uuid.uuid4()),
                                 "driver_id": driver.driver_id,
                                 "route_id": route_id,
                                 "time": drive_date,
-                                "completed": completed,
+                                "completed": drive_date_obj < today,
                             },
                         )
                         assignments_created += 1
@@ -552,25 +524,17 @@ def main():
                 text("SELECT driver_id FROM drivers")
             ).fetchall()
             for driver in all_drivers:
-                # Randomly determine which years this driver has history for
                 driver_years = random.sample(years, random.randint(1, len(years)))
-
                 for year in driver_years:
-                    # Some drivers might have left (no recent years)
                     if year == current_year and random.random() < 0.2:
-                        continue  # Skip current year for some drivers
-
-                    km = random.uniform(500, 3000)
-
-                    session.execute(
-                        text("""
-                            INSERT INTO driver_history (driver_id, year, km)
-                            VALUES (:driver_id, :year, :km)
-                        """),
+                        continue
+                    execute_insert(
+                        session,
+                        "driver_history",
                         {
                             "driver_id": driver.driver_id,
                             "year": year,
-                            "km": round(km, 2),
+                            "km": round(random.uniform(500, 3000), 2),
                         },
                     )
                     history_entries += 1
@@ -596,18 +560,15 @@ def main():
                 selected_groups = random.sample(past_route_groups, num_jobs)
 
                 for route_group_id, drive_date in selected_groups:
-                    # Create realistic timestamps
                     started_at = drive_date + timedelta(hours=random.randint(8, 10))
                     updated_at = started_at + timedelta(hours=random.randint(1, 3))
                     finished_at = updated_at + timedelta(hours=random.randint(1, 4))
 
-                    session.execute(
-                        text("""
-                            INSERT INTO jobs (job_id, route_group_id, progress, started_at, updated_at, finished_at)
-                            VALUES (:id, :route_group_id, :progress, :started_at, :updated_at, :finished_at)
-                        """),
+                    execute_insert(
+                        session,
+                        "jobs",
                         {
-                            "id": str(uuid.uuid4()),
+                            "job_id": str(uuid.uuid4()),
                             "route_group_id": route_group_id,
                             "progress": "COMPLETED",
                             "started_at": started_at,
@@ -621,21 +582,19 @@ def main():
 
             # Create admin info
             print("Creating admin info...")
-            admin_id = str(uuid.uuid4())
-            session.execute(
-                text("""
-                    INSERT INTO admin_info (admin_id, admin_name, default_cap, admin_phone, 
-                                         admin_email, route_start_time, warehouse_location, created_at, updated_at)
-                    VALUES (:id, :name, :cap, :phone, :email, :start_time, :warehouse, NOW(), NOW())
-                """),
+            execute_insert(
+                session,
+                "admin_info",
                 {
-                    "id": admin_id,
-                    "name": fake.name(),
-                    "cap": random.randint(20, 50),
-                    "phone": fake.phone_number(),
-                    "email": fake.email(),
-                    "start_time": "08:00:00",
-                    "warehouse": "330 Trillium Drive, Kitchener, ON",
+                    "admin_id": str(uuid.uuid4()),
+                    "admin_name": fake.name(),
+                    "default_cap": random.randint(20, 50),
+                    "admin_phone": fake.numerify("+1212#######"),
+                    "admin_email": fake.email(),
+                    "route_start_time": "08:00:00",
+                    "warehouse_location": WAREHOUSE_ADDRESS,
+                    "created_at": "NOW()",
+                    "updated_at": "NOW()",
                 },
             )
 
