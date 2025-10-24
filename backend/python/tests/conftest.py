@@ -219,7 +219,6 @@ def sample_location_group_data() -> dict[str, Any]:
 def sample_location_data() -> dict[str, Any]:
     """Sample location data for testing."""
     return {
-        "is_school": True,
         "school_name": "Central Elementary",
         "contact_name": "Jane Smith",
         "address": "123 Main St, City, State 12345",
