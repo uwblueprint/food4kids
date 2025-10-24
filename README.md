@@ -136,6 +136,13 @@ docker-compose exec db psql -U postgres -d f4k_test
 SELECT * FROM users; # Run SQL queries
 ```
 
+### Database Seeding
+
+```bash
+# Populate database with randomized test data
+docker-compose exec backend python app/seed_database.py
+```
+
 ## Version Control Guide
 
 ### Branching
@@ -222,6 +229,7 @@ docker-compose exec backend ruff check . && docker-compose exec backend ruff for
 ```
 
 **Configuration Files:**
+
 - Ruff: `backend/python/pyproject.toml` (under `[tool.ruff]`)
 - mypy: `backend/python/mypy.ini`
 
