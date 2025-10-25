@@ -1,5 +1,7 @@
 import logging
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,9 +20,9 @@ router = APIRouter(prefix="/drivers", tags=["drivers"])
 @router.get("/", response_model=list[DriverRead])
 async def get_drivers(
     session: AsyncSession = Depends(get_session),
-    driver_id: str | None = Query(None, description="Filter by driver ID"),
+    driver_id: UUID | None = Query(None, description="Filter by driver ID"),
     email: str | None = Query(None, description="Filter by email"),
-    _: bool = Depends(require_driver),
+    # _: bool = Depends(require_driver),
 ) -> list[DriverRead]:
     """
     Get all drivers, optionally filter by driver_id or email
@@ -64,9 +66,9 @@ async def get_drivers(
 
 @router.get("/{driver_id}", response_model=DriverRead)
 async def get_driver(
-    driver_id: str,
+    driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
+    # _: bool = Depends(require_driver),
 ) -> DriverRead:
     """
     Get a single driver by ID
@@ -100,10 +102,10 @@ async def create_driver(
 
 @router.put("/{driver_id}", response_model=DriverRead)
 async def update_driver(
-    driver_id: str,
+    driver_id: UUID,
     driver: DriverUpdate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
+    # _: bool = Depends(require_driver),
 ) -> DriverRead:
     """
     Update an existing driver
@@ -119,9 +121,9 @@ async def update_driver(
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_driver(
-    driver_id: str,
+    driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
+    # _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a driver by ID
