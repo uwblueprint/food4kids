@@ -129,7 +129,7 @@ class LocationService(ILocationService):
                 self.logger.error(f"Location with id {location_id} not found")
                 return False
 
-            session.delete(location)
+            await session.delete(location)
             await session.commit()
             return True
         except Exception as e:
