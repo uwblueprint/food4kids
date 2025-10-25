@@ -89,7 +89,7 @@ class ILocationService(ABC):
     @abstractmethod
     async def update_location_by_id(
         self, session: AsyncSession, location_id: UUID, location: LocationUpdate
-    ) -> Location:
+    ) -> Location | None:
         """
         Update location associated with location_id
 

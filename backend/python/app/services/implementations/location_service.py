@@ -19,7 +19,8 @@ class LocationService(ILocationService):
     ) -> Location | None:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -121,7 +122,8 @@ class LocationService(ILocationService):
     ) -> bool:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
