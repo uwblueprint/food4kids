@@ -34,7 +34,11 @@ async def get_jobs(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
 <<<<<<< HEAD
+<<<<<<< HEAD
         ) from e
 =======
         ) from e
 >>>>>>> 653b6fc (add route to get all routes)
+=======
+        ) from e
+>>>>>>> f642f68 (run formatter)
