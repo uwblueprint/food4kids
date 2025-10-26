@@ -1,6 +1,6 @@
 import os
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Union
 
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import (
@@ -12,9 +12,9 @@ from sqlalchemy.ext.asyncio import (
 from sqlmodel import SQLModel, create_engine
 
 # Database engines
-engine: Engine | None = None
-async_engine: AsyncEngine | None = None
-async_session_maker_instance: async_sessionmaker[AsyncSession] | None = None
+engine: Union[Engine, None] = None
+async_engine: Union[AsyncEngine, None] = None
+async_session_maker_instance: Union[async_sessionmaker[AsyncSession], None] = None
 
 
 def get_database_url() -> str:
