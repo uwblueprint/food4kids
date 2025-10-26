@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.auth import require_driver
 from app.dependencies.services import get_location_group_service
 from app.models import get_session
-from app.models.location_group import LocationGroupCreate, LocationGroupRead, LocationGroupUpdate
+from app.models.location_group import (
+    LocationGroupCreate,
+    LocationGroupRead,
+    LocationGroupUpdate,
+)
 from app.services.implementations.location_group_service import LocationGroupService
 
 router = APIRouter(prefix="/location-groups", tags=["location-groups"])
@@ -15,7 +19,8 @@ router = APIRouter(prefix="/location-groups", tags=["location-groups"])
 @router.get("/", response_model=list[LocationGroupRead])
 async def get_location_groups(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> list[LocationGroupRead]:
     """
     Get all location groups
@@ -33,12 +38,15 @@ async def get_location_groups(
 async def get_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> LocationGroupRead:
     """
     Get a single location group by ID
     """
-    location_group = await location_group_service.get_location_group(session, location_group_id)
+    location_group = await location_group_service.get_location_group(
+        session, location_group_id
+    )
     if not location_group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -51,7 +59,8 @@ async def get_location_group(
 async def create_location_group(
     location_group: LocationGroupCreate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> LocationGroupRead:
     """
     Create a new location group

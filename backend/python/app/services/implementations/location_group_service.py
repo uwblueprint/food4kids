@@ -6,7 +6,11 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.location import Location
-from app.models.location_group import LocationGroup, LocationGroupCreate, LocationGroupUpdate
+from app.models.location_group import (
+    LocationGroup,
+    LocationGroupCreate,
+    LocationGroupUpdate,
+)
 
 
 class LocationGroupService:
@@ -23,8 +27,10 @@ class LocationGroupService:
         self, session: AsyncSession, location_group_id: UUID
     ) -> LocationGroup | None:
         """Get location group by ID with locations preloaded"""
-        statement = select(LocationGroup).options(selectinload(LocationGroup.locations)).where(
-            LocationGroup.location_group_id == location_group_id
+        statement = (
+            select(LocationGroup)
+            .options(selectinload(LocationGroup.locations))
+            .where(LocationGroup.location_group_id == location_group_id)
         )
         result = await session.execute(statement)
         location_group = result.scalars().first()
@@ -64,7 +70,9 @@ class LocationGroupService:
             await session.commit()
 
             # Reload with locations for accurate num_locations
-            return await self.get_location_group(session, new_location_group.location_group_id)
+            return await self.get_location_group(
+                session, new_location_group.location_group_id
+            )
 
         except Exception as error:
             self.logger.error(f"Failed to create location group: {error!s}")
@@ -79,8 +87,10 @@ class LocationGroupService:
     ) -> LocationGroup | None:
         """Update existing location group"""
         try:
-            statement = select(LocationGroup).options(selectinload(LocationGroup.locations)).where(
-                LocationGroup.location_group_id == location_group_id
+            statement = (
+                select(LocationGroup)
+                .options(selectinload(LocationGroup.locations))
+                .where(LocationGroup.location_group_id == location_group_id)
             )
             result = await session.execute(statement)
             location_group = result.scalars().first()
