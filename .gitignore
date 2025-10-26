@@ -11,3 +11,5 @@
 !.vscode/extensions.json
 **/*.cache
 **/*.egg-info
+switch_github.sh
+CLAUDE.md

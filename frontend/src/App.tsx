@@ -1,6 +1,6 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import React, { useState, useReducer } from "react";
-import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
 import Login from "./components/auth/Login";
 import Signup from "./components/auth/Signup";
@@ -13,7 +13,7 @@ import SimpleEntityDisplayPage from "./components/pages/SimpleEntityDisplayPage"
 import NotFound from "./components/pages/NotFound";
 import UpdatePage from "./components/pages/UpdatePage";
 import SimpleEntityUpdatePage from "./components/pages/SimpleEntityUpdatePage";
-import * as Routes from "./constants/Routes";
+import * as AppRoutes from "./constants/Routes";
 import AUTHENTICATED_USER_KEY from "./constants/AuthConstants";
 import AuthContext from "./contexts/AuthContext";
 import { getLocalStorageObj } from "./utils/LocalStorageUtils";
@@ -52,52 +52,83 @@ const App = (): React.ReactElement => {
           value={{ authenticatedUser, setAuthenticatedUser }}
         >
           <Router>
-            <Switch>
-              <Route exact path={Routes.LOGIN_PAGE} component={Login} />
-              <Route exact path={Routes.SIGNUP_PAGE} component={Signup} />
-              <PrivateRoute exact path={Routes.HOME_PAGE} component={Default} />
-              <PrivateRoute
-                exact
-                path={Routes.CREATE_ENTITY_PAGE}
-                component={CreatePage}
+            <Routes>
+              <Route path={AppRoutes.LOGIN_PAGE} element={<Login />} />
+              <Route path={AppRoutes.SIGNUP_PAGE} element={<Signup />} />
+              <Route
+                path={AppRoutes.HOME_PAGE}
+                element={
+                  <PrivateRoute>
+                    <Default />
+                  </PrivateRoute>
+                }
               />
-              <PrivateRoute
-                exact
-                path={Routes.UPDATE_ENTITY_PAGE}
-                component={UpdatePage}
+              <Route
+                path={AppRoutes.CREATE_ENTITY_PAGE}
+                element={
+                  <PrivateRoute>
+                    <CreatePage />
+                  </PrivateRoute>
+                }
               />
-              <PrivateRoute
-                exact
-                path={Routes.DISPLAY_ENTITY_PAGE}
-                component={DisplayPage}
+              <Route
+                path={AppRoutes.UPDATE_ENTITY_PAGE}
+                element={
+                  <PrivateRoute>
+                    <UpdatePage />
+                  </PrivateRoute>
+                }
               />
-              <PrivateRoute
-                exact
-                path={Routes.CREATE_SIMPLE_ENTITY_PAGE}
-                component={SimpleEntityCreatePage}
+              <Route
+                path={AppRoutes.DISPLAY_ENTITY_PAGE}
+                element={
+                  <PrivateRoute>
+                    <DisplayPage />
+                  </PrivateRoute>
+                }
               />
-              <PrivateRoute
-                exact
-                path={Routes.UPDATE_SIMPLE_ENTITY_PAGE}
-                component={SimpleEntityUpdatePage}
+              <Route
+                path={AppRoutes.CREATE_SIMPLE_ENTITY_PAGE}
+                element={
+                  <PrivateRoute>
+                    <SimpleEntityCreatePage />
+                  </PrivateRoute>
+                }
               />
-              <PrivateRoute
-                exact
-                path={Routes.DISPLAY_SIMPLE_ENTITY_PAGE}
-                component={SimpleEntityDisplayPage}
+              <Route
+                path={AppRoutes.UPDATE_SIMPLE_ENTITY_PAGE}
+                element={
+                  <PrivateRoute>
+                    <SimpleEntityUpdatePage />
+                  </PrivateRoute>
+                }
               />
-              <PrivateRoute
-                exact
-                path={Routes.EDIT_TEAM_PAGE}
-                component={EditTeamInfoPage}
+              <Route
+                path={AppRoutes.DISPLAY_SIMPLE_ENTITY_PAGE}
+                element={
+                  <PrivateRoute>
+                    <SimpleEntityDisplayPage />
+                  </PrivateRoute>
+                }
               />
-              <PrivateRoute
-                exact
-                path={Routes.HOOKS_PAGE}
-                component={HooksDemo}
+              <Route
+                path={AppRoutes.EDIT_TEAM_PAGE}
+                element={
+                  <PrivateRoute>
+                    <EditTeamInfoPage />
+                  </PrivateRoute>
+                }
               />
-              <Route exact path="*" component={NotFound} />
-            </Switch>
+              <Route
+                path={AppRoutes.HOOKS_PAGE}
+                element={
+                  <PrivateRoute>
+                    <HooksDemo />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </Router>
         </AuthContext.Provider>
       </SampleContextDispatcherContext.Provider>

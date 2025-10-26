@@ -16,8 +16,18 @@ from sqlmodel import SQLModel
 from alembic import context
 
 # Import all models to ensure they're registered with SQLModel
-from app.models.user import User
+from app.models.admin import Admin
+from app.models.driver import Driver
+from app.models.driver_assignment import DriverAssignment
+from app.models.driver_history import DriverHistory
 from app.models.entity import Entity
+from app.models.job import Job
+from app.models.location import Location
+from app.models.location_group import LocationGroup
+from app.models.route import Route
+from app.models.route_group import RouteGroup
+from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_stop import RouteStop
 from app.models.simple_entity import SimpleEntity
 
 # this is the Alembic Config object, which provides

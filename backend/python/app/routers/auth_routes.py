@@ -1,36 +1,23 @@
 import logging
 import traceback
 from typing import Literal, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import get_current_database_user_id, get_current_user_email
+from app.dependencies.auth import get_current_database_driver_id, get_current_user_email
+from app.dependencies.services import get_auth_service, get_driver_service
 from app.models import get_session
-from app.models.enum import RoleEnum
-from app.models.user import UserCreate, UserRegister
+from app.models.driver import DriverCreate, DriverRegister
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
 from app.services.implementations.auth_service import AuthService
-from app.services.implementations.email_service import EmailService
-from app.services.implementations.user_service import UserService
+from app.services.implementations.driver_service import DriverService
 
-# Initialize services
+# Initialize logger
 logger = logging.getLogger(__name__)
-user_service = UserService(logger)
-email_service = EmailService(
-    logger,
-    {
-        "refresh_token": settings.mailer_refresh_token,
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "client_id": settings.mailer_client_id,
-        "client_secret": settings.mailer_client_secret,
-    },
-    settings.mailer_user,
-    "Food4Kids",
-)
-auth_service = AuthService(logger, user_service, email_service)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -52,6 +39,7 @@ async def login(
     login_request: LoginRequest,
     response: Response,
     session: AsyncSession = Depends(get_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> AuthResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -97,20 +85,21 @@ async def login(
 
 @router.post("/register", response_model=AuthResponse)
 async def register(
-    register_request: UserRegister,
+    register_request: DriverRegister,
     response: Response,
     session: AsyncSession = Depends(get_session),
+    auth_service: AuthService = Depends(get_auth_service),
+    driver_service: DriverService = Depends(get_driver_service),
 ) -> AuthResponse:
     """
-    Returns access token and user info in response body and sets refreshToken as an httpOnly cookie
+    Returns access token and driver info in response body and sets refreshToken as an httpOnly cookie
     """
     try:
-        # Create user with default role
-        user_data = register_request.model_dump()
-        user_data["role"] = RoleEnum.USER
-        user = UserCreate(**user_data)
+        # Create driver
+        driver_data = register_request.model_dump()
+        driver = DriverCreate(**driver_data)
 
-        await user_service.create_user(session, user)
+        await driver_service.create_driver(session, driver)
         auth_dto, refresh_token = await auth_service.generate_token(
             session, register_request.email, register_request.password
         )
@@ -131,7 +120,7 @@ async def register(
 
         return auth_dto
     except Exception as e:
-        logger.error(f"Error registering user: {e}")
+        logger.error(f"Error registering driver: {e}")
         # Stack trace
         logger.error(traceback.format_exc())
         error_message = getattr(e, "message", None)
@@ -146,6 +135,7 @@ async def refresh(
     request: Request,
     response: Response,
     _session: AsyncSession = Depends(get_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> RefreshResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -181,24 +171,25 @@ async def refresh(
         ) from e
 
 
-@router.post("/logout/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    user_id: int,
+    driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_database_user_id: int = Depends(get_current_database_user_id),
+    current_database_driver_id: UUID = Depends(get_current_database_driver_id),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
-    Revokes all of the specified user's refresh tokens
+    Revokes all of the specified driver's refresh tokens
     """
-    # Check if the user is authorized to logout this user_id
-    if user_id != current_database_user_id:
+    # Check if the driver is authorized to logout this driver_id
+    if driver_id != current_database_driver_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="You are not authorized to logout this user",
+            detail="You are not authorized to logout this driver",
         )
 
     try:
-        await auth_service.revoke_tokens(session, user_id)
+        await auth_service.revoke_tokens(session, driver_id)
     except Exception as e:
         error_message = getattr(e, "message", None)
         raise HTTPException(
@@ -212,6 +203,7 @@ async def reset_password(
     email: EmailStr,
     _session: AsyncSession = Depends(get_session),
     current_user_email: str = Depends(get_current_user_email),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
     Triggers password reset for user with specified email (reset link will be emailed)

@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
 /* eslint-disable no-console */
 
 // ***************************************************************
@@ -55,8 +54,10 @@ const HooksDemo = (): React.ReactElement => {
   // useRef allows us to store mutable, persistent values between
   // renders. Here we store an array of HTMLDivElement refs so
   // we can scroll each section into view.
-  const sectionRefs = useRef<React.RefObject<HTMLDivElement>[]>(
-    new Array(EMOJIS.length).fill(React.createRef()),
+  const sectionRefs = useRef<React.RefObject<HTMLDivElement | null>[]>(
+    new Array(EMOJIS.length)
+      .fill(null)
+      .map(() => React.createRef<HTMLDivElement | null>()),
   );
 
   useEffect(
@@ -112,7 +113,7 @@ const HooksDemo = (): React.ReactElement => {
   );
 
   useEffect(() => {
-    if (!bannerState.showBanner) return (): void => {};
+    if (!bannerState.showBanner) return undefined;
 
     const bannerTimer = setTimeout(() => {
       setBannerState({ emoji: bannerState.emoji, showBanner: false });

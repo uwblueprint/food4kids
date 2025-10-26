@@ -1,4 +1,4 @@
-import axios, { AxiosResponse, AxiosRequestConfig } from "axios";
+import axios, { AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import { camelizeKeys, decamelizeKeys } from "humps";
 import { jwtDecode } from "jwt-decode";
 
@@ -7,7 +7,7 @@ import { DecodedJWT } from "../types/AuthTypes";
 import { setLocalStorageObjProperty } from "../utils/LocalStorageUtils";
 
 const baseAPIClient = axios.create({
-  baseURL: process.env.REACT_APP_BACKEND_URL,
+  baseURL: import.meta.env.VITE_BACKEND_URL,
 });
 
 // Python API uses snake_case, frontend uses camelCase
@@ -22,48 +22,53 @@ baseAPIClient.interceptors.response.use((response: AxiosResponse) => {
   return response;
 });
 
-baseAPIClient.interceptors.request.use(async (config: AxiosRequestConfig) => {
-  const newConfig = { ...config };
+baseAPIClient.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    const newConfig = { ...config };
 
-  // if access token in header has expired, do a refresh
-  const authHeaderParts = config.headers.Authorization?.split(" ");
-  if (
-    authHeaderParts &&
-    authHeaderParts.length >= 2 &&
-    authHeaderParts[0].toLowerCase() === "bearer"
-  ) {
-    const decodedToken = jwtDecode(authHeaderParts[1]) as DecodedJWT;
-
+    // if access token in header has expired, do a refresh
+    const authHeader = config.headers?.Authorization;
+    const authHeaderParts =
+      typeof authHeader === "string" ? authHeader.split(" ") : null;
     if (
-      decodedToken &&
-      (typeof decodedToken === "string" ||
-        decodedToken.exp <= Math.round(new Date().getTime() / 1000))
+      authHeaderParts &&
+      authHeaderParts.length >= 2 &&
+      authHeaderParts[0].toLowerCase() === "bearer"
     ) {
-      const { data } = await axios.post(
-        `${process.env.REACT_APP_BACKEND_URL}/auth/refresh`,
-        {},
-        { withCredentials: true },
-      );
+      const decodedToken = jwtDecode(authHeaderParts[1]) as DecodedJWT;
 
-      const accessToken = data.accessToken || data.access_token;
-      setLocalStorageObjProperty(
-        AUTHENTICATED_USER_KEY,
-        "accessToken",
-        accessToken,
-      );
+      if (
+        decodedToken &&
+        (typeof decodedToken === "string" ||
+          decodedToken.exp <= Math.round(new Date().getTime() / 1000))
+      ) {
+        const { data } = await axios.post(
+          `${import.meta.env.VITE_BACKEND_URL}/auth/refresh`,
+          {},
+          { withCredentials: true },
+        );
 
-      newConfig.headers.Authorization = accessToken;
+        const accessToken = data.accessToken || data.access_token;
+        setLocalStorageObjProperty(
+          AUTHENTICATED_USER_KEY,
+          "accessToken",
+          accessToken,
+        );
+
+        newConfig.headers = newConfig.headers || {};
+        newConfig.headers.Authorization = accessToken;
+      }
     }
-  }
 
-  if (config.params) {
-    newConfig.params = decamelizeKeys(config.params);
-  }
-  if (config.data && !(config.data instanceof FormData)) {
-    newConfig.data = decamelizeKeys(config.data);
-  }
+    if (config.params) {
+      newConfig.params = decamelizeKeys(config.params);
+    }
+    if (config.data && !(config.data instanceof FormData)) {
+      newConfig.data = decamelizeKeys(config.data);
+    }
 
-  return newConfig;
-});
+    return newConfig;
+  },
+);
 
 export default baseAPIClient;

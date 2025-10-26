@@ -40,7 +40,7 @@ const create = async ({
       headers: { Authorization: bearerToken },
     });
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
@@ -55,7 +55,7 @@ const get = async (): Promise<EntityResponse[] | null> => {
       headers: { Authorization: bearerToken },
     });
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
@@ -74,7 +74,7 @@ const getCSV = async (): Promise<string | null> => {
     });
 
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
@@ -96,7 +96,7 @@ const update = async (
       headers: { Authorization: bearerToken },
     });
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };

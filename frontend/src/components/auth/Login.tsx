@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Redirect, useHistory } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 import authAPIClient from "../../APIClients/AuthAPIClient";
 import { HOME_PAGE, SIGNUP_PAGE } from "../../constants/Routes";
@@ -10,7 +10,7 @@ const Login = (): React.ReactElement => {
   const { authenticatedUser, setAuthenticatedUser } = useContext(AuthContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const onLogInClick = async () => {
     const user: AuthenticatedUser = await authAPIClient.login(email, password);
@@ -18,12 +18,11 @@ const Login = (): React.ReactElement => {
   };
 
   const onSignUpClick = () => {
-    history.push(SIGNUP_PAGE);
+    navigate(SIGNUP_PAGE);
   };
 
-
   if (authenticatedUser) {
-    return <Redirect to={HOME_PAGE} />;
+    return <Navigate to={HOME_PAGE} />;
   }
 
   return (

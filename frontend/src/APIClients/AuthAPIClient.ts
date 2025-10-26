@@ -18,11 +18,10 @@ const login = async (
     );
     localStorage.setItem(AUTHENTICATED_USER_KEY, JSON.stringify(data));
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
-
 
 const logout = async (userId: string | undefined): Promise<boolean> => {
   const bearerToken = `Bearer ${getLocalStorageObjProperty(
@@ -37,26 +36,37 @@ const logout = async (userId: string | undefined): Promise<boolean> => {
     );
     localStorage.removeItem(AUTHENTICATED_USER_KEY);
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 };
 
 const register = async (
-  firstName: string,
-  lastName: string,
+  name: string,
   email: string,
+  phone: string,
+  address: string,
+  licensePlate: string,
+  carMakeModel: string,
   password: string,
 ): Promise<AuthenticatedUser> => {
   try {
     const { data } = await baseAPIClient.post(
       "/auth/register",
-      { firstName, lastName, email, password },
+      {
+        name,
+        email,
+        phone,
+        address,
+        license_plate: licensePlate,
+        car_make_model: carMakeModel,
+        password,
+      },
       { withCredentials: true },
     );
     localStorage.setItem(AUTHENTICATED_USER_KEY, JSON.stringify(data));
     return data;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
@@ -73,7 +83,7 @@ const resetPassword = async (email: string | undefined): Promise<boolean> => {
       { headers: { Authorization: bearerToken } },
     );
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 };
@@ -92,7 +102,7 @@ const refresh = async (): Promise<boolean> => {
       data.accessToken,
     );
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 };

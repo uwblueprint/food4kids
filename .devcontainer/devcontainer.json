@@ -1,0 +1,50 @@
+{
+    "name": "Food4Kids Backend",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "backend",
+    "workspaceFolder": "/app",
+    "shutdownAction": "stopCompose",
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.mypy-type-checker",
+                "charliermarsh.ruff",
+                "ms-python.debugpy",
+                "ms-toolsai.jupyter"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.terminal.activateEnvironment": false,
+                "mypy-type-checker.importStrategy": "fromEnvironment",
+                "mypy-type-checker.args": [
+                    "--config-file=mypy.ini"
+                ],
+                "ruff.path": ["ruff"],
+                "ruff.importStrategy": "fromEnvironment",
+                "[python]": {
+                    "editor.formatOnSave": true,
+                    "editor.codeActionsOnSave": {
+                        "source.fixAll.ruff": "explicit",
+                        "source.organizeImports.ruff": "explicit"
+                    },
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                }
+            }
+        }
+    },
+    
+    "forwardPorts": [8000],
+    "portsAttributes": {
+        "8000": {
+            "label": "FastAPI Backend",
+            "onAutoForward": "notify"
+        }
+    },
+    
+    "postCreateCommand": "pip install -r requirements.txt",
+    
+    "remoteUser": "root"
+}
+

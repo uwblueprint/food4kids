@@ -4,51 +4,12 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.location import Location
-from app.models.location_group import (
-    LocationGroup,
-    LocationGroupCreate,
-    LocationGroupUpdate,
-)
+from app.models.location_group import LocationGroup, LocationGroupUpdate
 
 
 class LocationGroupService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-
-    async def create_location_group(
-        self,
-        session: AsyncSession,
-        location_group_data: LocationGroupCreate,
-    ) -> LocationGroup:
-        """Create a new location group"""
-        try:
-            data = location_group_data.model_dump()
-            location_ids = data.pop("location_ids")
-
-            new_location_group = LocationGroup(**data, num_locations=len(location_ids))
-            session.add(new_location_group)
-            await session.commit()
-            await session.refresh(new_location_group)
-
-            # Update each locations location_group_id foreign key
-            for location_id in location_ids:
-                statement = select(Location).where(Location.location_id == location_id)
-                result = await session.execute(statement)
-                location = result.scalars().first()
-
-                if location:
-                    location.location_group_id = new_location_group.location_group_id
-                else:
-                    self.logger.warning(f"Location with id {location_id} not found")
-
-            await session.commit()
-
-            return new_location_group
-        except Exception as error:
-            self.logger.error(f"Failed to create location group: {error!s}")
-            await session.rollback()
-            raise error
 
     async def update_location_group(
         self,

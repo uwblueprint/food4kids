@@ -1,9 +1,8 @@
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_user_or_admin
+from app.dependencies.auth import require_driver
+from app.dependencies.services import get_simple_entity_service
 from app.models import get_session
 from app.models.simple_entity import (
     SimpleEntityCreate,
@@ -12,17 +11,14 @@ from app.models.simple_entity import (
 )
 from app.services.implementations.simple_entity_service import SimpleEntityService
 
-# Initialize service
-logger = logging.getLogger(__name__)
-simple_entity_service = SimpleEntityService(logger)
-
 router = APIRouter(prefix="/simple-entities", tags=["simple-entities"])
 
 
 @router.get("/", response_model=list[SimpleEntityRead])
 async def get_simple_entities(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> list[SimpleEntityRead]:
     """
     Get all simple entities - Modern FastAPI approach
@@ -41,7 +37,8 @@ async def get_simple_entities(
 async def get_simple_entity(
     simple_entity_id: int,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> SimpleEntityRead:
     """
     Get a single simple entity by ID
@@ -61,7 +58,8 @@ async def get_simple_entity(
 async def create_simple_entity(
     simple_entity: SimpleEntityCreate,  # Auto-validated by FastAPI
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> SimpleEntityRead:
     """
     Create a new simple entity
@@ -82,7 +80,8 @@ async def update_simple_entity(
     simple_entity_id: int,
     simple_entity: SimpleEntityUpdate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> SimpleEntityRead:
     """
     Update an existing simple entity
@@ -102,7 +101,8 @@ async def update_simple_entity(
 async def delete_simple_entity(
     simple_entity_id: int,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_user_or_admin),
+    _: bool = Depends(require_driver),
+    simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> None:
     """
     Delete a simple entity

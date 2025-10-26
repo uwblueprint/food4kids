@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from uuid import UUID
 
-from app.models.enum import RoleEnum
+from pydantic import BaseModel, EmailStr
 
 
 class LoginRequest(BaseModel):
@@ -14,11 +14,9 @@ class AuthResponse(BaseModel):
     """Authentication response"""
 
     access_token: str
-    id: int
-    first_name: str
-    last_name: str
+    id: UUID
+    name: str
     email: EmailStr
-    role: RoleEnum
 
 
 class TokenResponse(BaseModel):

@@ -6,7 +6,7 @@ export const getLocalStorageObj = <O>(localStorageKey: string): O | null => {
   if (stringifiedObj) {
     try {
       object = JSON.parse(stringifiedObj);
-    } catch (error) {
+    } catch (_error) {
       object = null;
     }
   }
