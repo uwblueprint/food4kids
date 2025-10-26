@@ -4,9 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.job import Job
+from app.services.interfaces.job_service import IJobService
 
 
-class JobService:
+class JobService(IJobService):
     def __init__(self, logger: logging.Logger, session: AsyncSession):
         self.logger = logger
         self.session = session
