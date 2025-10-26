@@ -25,7 +25,6 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
     location_group_id: UUID = Field(default_factory=uuid4, primary_key=True)
     # Relationship to locations
     locations: list["Location"] = Relationship(back_populates="location_group")
-
     @property
     def num_locations(self) -> int:
         """Computed property for number of locations"""
@@ -35,7 +34,7 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
 class LocationGroupCreate(LocationGroupBase):
     """Location group creation request"""
 
-    pass
+    location_ids: list[UUID] = Field(min_length=1)
 
 
 class LocationGroupRead(LocationGroupBase):
