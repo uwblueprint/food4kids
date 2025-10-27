@@ -15,9 +15,7 @@ async def geocode(address: str) -> dict[str, float] | None:
         )
         data: dict[str, Any] = response.json()
         if data["status"] == "OK":
-            location: dict[str, float] = data["results"][0]["geometry"][
-                "location"
-            ]
+            location: dict[str, float] = data["results"][0]["geometry"]["location"]
             return location
         return None
 
