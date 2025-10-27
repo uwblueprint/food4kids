@@ -1,27 +1,31 @@
 import asyncio
 import os
+from typing import Any
 
 import httpx
 
 GEOCODING_API_KEY = os.getenv("GEOCODING_API_KEY")
 
 
-async def geocode(address: str):
+async def geocode(address: str) -> dict[str, float] | None:
     async with httpx.AsyncClient() as client:
         response = await client.get(
             "https://maps.googleapis.com/maps/api/geocode/json",
             params={"address": address, "key": GEOCODING_API_KEY},
         )
-        data = response.json()
+        data: dict[str, Any] = response.json()
         if data["status"] == "OK":
-            return data["results"][0]["geometry"]["location"]
+            location: dict[str, float] = data["results"][0]["geometry"][
+                "location"
+            ]  # tell mypy type
+            return location
         return None
 
 
 # Accepts a list of strings representing addresses
 # Returns a list of {"lat": ..., "lng": ...} one to one for each address
 # If address is invalid, there will be None instead
-async def geocode_addresses(addresses: list) -> list:
+async def geocode_addresses(addresses: list[str]) -> list[dict[str, float] | None]:
     tasks = [geocode(address) for address in addresses]
     return await asyncio.gather(*tasks)
 
