@@ -108,9 +108,7 @@ async def update_driver(
     """
     Update an existing driver
     """
-    updated_driver = await driver_service.update_driver_by_id(
-        session, driver_id, driver
-    )
+    updated_driver = await driver_service.update_driver_by_id(session, driver_id, driver)
     if not updated_driver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
