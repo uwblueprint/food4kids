@@ -1,5 +1,4 @@
 import logging
-
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -109,7 +108,9 @@ async def update_driver(
     """
     Update an existing driver
     """
-    updated_driver = await driver_service.update_driver_by_id(session, driver_id, driver)
+    updated_driver = await driver_service.update_driver_by_id(
+        session, driver_id, driver
+    )
     if not updated_driver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -128,4 +129,3 @@ async def delete_driver(
     Delete a driver by ID
     """
     await driver_service.delete_driver_by_id(session, driver_id)
-

@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from . import (
     auth_routes,
     driver_assignment_routes,
+    driver_routes,
     entity_routes,
     location_group_routes,
     route_group_routes,
