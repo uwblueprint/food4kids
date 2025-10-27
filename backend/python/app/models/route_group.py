@@ -1,10 +1,8 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
-
-from .base import BaseModel
 
 if TYPE_CHECKING:
     from .route import Route
@@ -19,7 +17,7 @@ class RouteGroupBase(SQLModel):
     drive_date: datetime
 
 
-class RouteGroup(RouteGroupBase, BaseModel, table=True):
+class RouteGroup(RouteGroupBase, SQLModel, table=True):
     """Database table model for Route Groups"""
 
     __tablename__ = "route_groups"
@@ -56,6 +54,7 @@ class RouteGroupRead(RouteGroupBase):
 
     route_group_id: UUID
     num_routes: int
+    routes: Optional[list[dict]] = None
 
 
 class RouteGroupUpdate(SQLModel):

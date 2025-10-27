@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
-from .base import BaseModel
+# from .base import BaseModel  # Commented out - no timestamps needed for membership
 
 if TYPE_CHECKING:
     from .route import Route
@@ -11,13 +11,13 @@ if TYPE_CHECKING:
 
 
 class RouteGroupMembershipBase(SQLModel):
-    """Shared fields between table and API models """
+    """Shared fields between table and API models"""
 
     route_group_id: UUID = Field(foreign_key="route_groups.route_group_id")
     route_id: UUID = Field(foreign_key="routes.route_id")
 
 
-class RouteGroupMembership(RouteGroupMembershipBase, BaseModel, table=True):
+class RouteGroupMembership(RouteGroupMembershipBase, SQLModel, table=True):
     """Database table model for Route Group Memberships"""
 
     __tablename__ = "route_group_memberships"

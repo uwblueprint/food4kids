@@ -19,6 +19,11 @@ class RouteGroupService:
         self, session: AsyncSession, route_group_data: RouteGroupCreate
     ) -> RouteGroup:
         """Create new route group"""
+        # Convert timezone-aware datetime to naive datetime for database storage
+        if hasattr(route_group_data, 'drive_date') and route_group_data.drive_date:
+            if route_group_data.drive_date.tzinfo is not None:
+                route_group_data.drive_date = route_group_data.drive_date.replace(tzinfo=None)
+
         route_group = RouteGroup.model_validate(route_group_data)
         session.add(route_group)
         await session.commit()
@@ -44,6 +49,9 @@ class RouteGroupService:
 
         update_data = route_group_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
+            # Convert timezone-aware datetime to naive datetime for database storage
+            if field == 'drive_date' and isinstance(value, datetime) and value.tzinfo is not None:
+                value = value.replace(tzinfo=None)
             setattr(route_group, field, value)
 
         await session.commit()
@@ -60,12 +68,18 @@ class RouteGroupService:
     ) -> list[RouteGroup]:
         """Get route groups with optional date filtering"""
         statement = select(RouteGroup)
-        
+
         if start_date:
+            # Convert timezone-aware datetime to naive datetime for comparison
+            if start_date.tzinfo is not None:
+                start_date = start_date.replace(tzinfo=None)
             statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
+            # Convert timezone-aware datetime to naive datetime for comparison
+            if end_date.tzinfo is not None:
+                end_date = end_date.replace(tzinfo=None)
             statement = statement.where(RouteGroup.drive_date <= end_date)
-        
+
         statement = statement.order_by(RouteGroup.drive_date)
         
         result = await session.execute(statement)

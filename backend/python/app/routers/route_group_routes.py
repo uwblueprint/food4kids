@@ -20,6 +20,7 @@ async def get_route_groups(
     end_date: Optional[datetime] = Query(None, description="Filter route groups until this date"),
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
+    route_group_service: RouteGroupService = Depends(get_route_group_service),
 ) -> list[RouteGroupRead]:
     """
     Get route groups with optional date filtering and route inclusion
@@ -27,15 +28,32 @@ async def get_route_groups(
     route_groups = await route_group_service.get_route_groups(
         session, start_date, end_date, include_routes
     )
-    return [
-        RouteGroupRead(
-            route_group_id=rg.route_group_id,
-            name=rg.name,
-            notes=rg.notes,
-            drive_date=rg.drive_date,
-            num_routes=len(rg.route_group_memberships) if hasattr(rg, 'route_group_memberships') else 0
-        ) for rg in route_groups
-    ]
+
+    result = []
+    for rg in route_groups:
+        route_group_data = {
+            "route_group_id": rg.route_group_id,
+            "name": rg.name,
+            "notes": rg.notes,
+            "drive_date": rg.drive_date,
+            "num_routes": len(rg.route_group_memberships) if hasattr(rg, 'route_group_memberships') else 0
+        }
+
+        # Include routes if requested
+        if include_routes and hasattr(rg, 'route_group_memberships'):
+            routes = []
+            for membership in rg.route_group_memberships:
+                if hasattr(membership, 'route') and membership.route:
+                    routes.append({
+                        "route_id": membership.route.route_id,
+                        "name": getattr(membership.route, 'name', 'Unknown Route'),
+                        "description": getattr(membership.route, 'description', ''),
+                    })
+            route_group_data["routes"] = routes
+
+        result.append(RouteGroupRead(**route_group_data))
+
+    return result
 
 
 @router.post("", response_model=RouteGroupRead, status_code=status.HTTP_201_CREATED)
@@ -75,13 +93,25 @@ async def update_route_group(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"RouteGroup with id {route_group_id} not found",
         )
-    return RouteGroupRead.model_validate(updated_route_group)
+
+    # Build response manually to avoid accessing relationships that might not be loaded
+    route_group_data = {
+        "route_group_id": updated_route_group.route_group_id,
+        "name": updated_route_group.name,
+        "notes": updated_route_group.notes,
+        "drive_date": updated_route_group.drive_date,
+        "num_routes": 0,  # Default to 0 since we don't load relationships in update
+        "routes": None
+    }
+
+    return RouteGroupRead(**route_group_data)
 
 
 @router.delete("/{route_group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_route_group(
     route_group_id: UUID,
     session: AsyncSession = Depends(get_session),
+    route_group_service: RouteGroupService = Depends(get_route_group_service),
 ) -> None:
     """
     Delete a route group and all its route group memberships
