@@ -5,6 +5,7 @@ import httpx
 
 GEOCODING_API_KEY = os.getenv("GEOCODING_API_KEY")
 
+
 async def geocode(address: str):
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -15,6 +16,7 @@ async def geocode(address: str):
         if data["status"] == "OK":
             return data["results"][0]["geometry"]["location"]
         return None
+
 
 # Accepts a list of strings representing addresses
 # Returns a list of {"lat": ..., "lng": ...} one to one for each address
