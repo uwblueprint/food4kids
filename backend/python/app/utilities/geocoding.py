@@ -1,5 +1,6 @@
-import os
 import asyncio
+import os
+
 import httpx
 
 GEOCODING_API_KEY = os.getenv("GEOCODING_API_KEY")
