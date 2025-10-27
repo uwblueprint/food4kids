@@ -13,7 +13,6 @@ from datetime import datetime
 from typing import Any
 
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.driver_assignment import (
@@ -25,19 +24,18 @@ from app.services.implementations.driver_assignment_service import (
 )
 
 
+@pytest.fixture
+def driver_assignment_service() -> DriverAssignmentService:
+    """Create DriverAssignmentService instance with real logger."""
+    logger = logging.getLogger(__name__)
+    return DriverAssignmentService(logger)
+
+
 class TestDriverAssignmentService:
     """Test suite for DriverAssignmentService CRUD operations using real database."""
 
     @pytest.fixture
-    def driver_assignment_service(self) -> DriverAssignmentService:
-        """Create DriverAssignmentService instance with real logger."""
-        logger = logging.getLogger(__name__)
-        return DriverAssignmentService(logger)
-
-    @pytest_asyncio.fixture
-    async def sample_driver_assignment_data(
-        self, test_driver: Any, test_route: Any
-    ) -> dict:
+    def sample_driver_assignment_data(self, test_driver: Any, test_route: Any) -> dict:
         """Sample driver assignment data for testing."""
         return {
             "driver_id": test_driver.driver_id,
@@ -46,8 +44,8 @@ class TestDriverAssignmentService:
             "completed": False,
         }
 
-    @pytest_asyncio.fixture
-    async def sample_driver_assignment_create(
+    @pytest.fixture
+    def sample_driver_assignment_create(
         self, sample_driver_assignment_data: dict
     ) -> DriverAssignmentCreate:
         """Sample DriverAssignmentCreate instance."""
@@ -103,12 +101,6 @@ class TestDriverAssignmentService:
 
 class TestDriverAssignmentIntegration:
     """Integration tests for driver assignment functionality."""
-
-    @pytest.fixture
-    def driver_assignment_service(self) -> DriverAssignmentService:
-        """Create DriverAssignmentService instance with real logger."""
-        logger = logging.getLogger(__name__)
-        return DriverAssignmentService(logger)
 
     @pytest.mark.asyncio
     async def test_full_crud_workflow(
