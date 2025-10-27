@@ -14,6 +14,7 @@ def init_app(app: FastAPI) -> None:
     """Initialize all routers with the FastAPI app"""
     app.include_router(driver_assignment_routes.router)
     app.include_router(auth_routes.router)
+    app.include_router(driver_routes.router)
     app.include_router(entity_routes.router)
     app.include_router(simple_entity_routes.router)
     app.include_router(location_group_routes.router)
