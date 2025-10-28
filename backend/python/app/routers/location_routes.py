@@ -19,7 +19,8 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 @router.get("/", response_model=list[LocationRead])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
-    location_id: UUID | None = Query(None, description="Filter by location ID"),
+    location_id: UUID | None = Query(
+        None, description="Filter by location ID"),
     # _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """

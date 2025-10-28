@@ -5,10 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import Location, LocationCreate, LocationUpdate
-from app.services.interfaces.location_service import ILocationService
 
 
-class LocationService(ILocationService):
+class LocationService:
     """Modern FastAPI-style location service"""
 
     def __init__(self, logger: logging.Logger):
@@ -19,7 +18,8 @@ class LocationService(ILocationService):
     ) -> Location | None:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -121,7 +121,8 @@ class LocationService(ILocationService):
     ) -> bool:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
