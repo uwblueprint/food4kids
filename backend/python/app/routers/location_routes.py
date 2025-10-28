@@ -19,27 +19,19 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 @router.get("/", response_model=list[LocationRead])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
-    location_id: UUID | None = Query(
-        None, description="Filter by location ID"),
     # _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """
-    Get all locations, optionally filter by location_id
+    Get all locations
     """
     try:
-        if location_id:
-            location = await location_service.get_location_by_id(session, location_id)
-            if not location:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Location with id {location_id} not found",
-                )
-            return [LocationRead.model_validate(location)]
-        else:
-            locations = await location_service.get_locations(session)
-            return [LocationRead.model_validate(location) for location in locations]
-    except HTTPException:
-        raise
+        locations = await location_service.get_locations(session)
+        return [LocationRead.model_validate(location) for location in locations]
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -56,13 +48,19 @@ async def get_location(
     """
     Get a single location by ID
     """
-    location = await location_service.get_location_by_id(session, location_id)
-    if not location:
+    try:
+        location = await location_service.get_location_by_id(session, location_id)
+        return LocationRead.model_validate(location)
+    except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Location with id {location_id} not found",
-        )
-    return LocationRead.model_validate(location)
+            detail=str(ve),
+        ) from ve
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
 
 
 @router.post("/", response_model=LocationRead, status_code=status.HTTP_201_CREATED)
@@ -96,16 +94,22 @@ async def update_location(
     """
     Update a location by ID
     """
-    updated_location = await location_service.update_location_by_id(
-        session, location_id, updated_location_data
-    )
+    try:
+        updated_location = await location_service.update_location_by_id(
+            session, location_id, updated_location_data
+        )
+        return LocationRead.model_validate(updated_location)
 
-    if not updated_location:
+    except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Location with id {location_id} not found",
-        )
-    return LocationRead.model_validate(updated_location)
+            detail=str(ve),
+        ) from ve
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -116,7 +120,13 @@ async def delete_all_locations(
     """
     Delete all locations
     """
-    await location_service.delete_all_locations(session)
+    try:
+        await location_service.delete_all_locations(session)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
 
 
 @router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -128,9 +138,15 @@ async def delete_location(
     """
     Delete a location by ID
     """
-    success = await location_service.delete_location_by_id(session, location_id)
-    if not success:
+    try:
+        await location_service.delete_location_by_id(session, location_id)
+    except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Location with id {location_id} not found",
-        )
+            detail=str(ve),
+        ) from ve
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e

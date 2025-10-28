@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -15,7 +16,7 @@ class LocationService:
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
-    ) -> Location | None:
+    ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
             statement = select(Location).where(
@@ -24,8 +25,7 @@ class LocationService:
             location = result.scalars().first()
 
             if not location:
-                self.logger.error(f"Location with id {location_id} not found")
-                return None
+                raise ValueError(f"Location with id {location_id} not found")
 
             return location
         except Exception as e:
@@ -75,15 +75,11 @@ class LocationService:
         session: AsyncSession,
         location_id: UUID,
         updated_location_data: LocationUpdate,
-    ) -> Location | None:
+    ) -> Location:
         """Update location by ID"""
         try:
             # Get the existing location by ID
             location = await self.get_location_by_id(session, location_id)
-
-            if not location:
-                self.logger.error(f"Location with id {location_id} not found")
-                return None
 
             # Update existing location with new data
             updated_data = updated_location_data.model_dump(exclude_unset=True)
@@ -118,7 +114,7 @@ class LocationService:
 
     async def delete_location_by_id(
         self, session: AsyncSession, location_id: UUID
-    ) -> bool:
+    ) -> None:
         """Delete location by ID"""
         try:
             statement = select(Location).where(
@@ -127,12 +123,10 @@ class LocationService:
             location = result.scalars().first()
 
             if not location:
-                self.logger.error(f"Location with id {location_id} not found")
-                return False
+                raise ValueError(f"Location with id {location_id} not found")
 
             await session.delete(location)
             await session.commit()
-            return True
         except Exception as e:
             self.logger.error(f"Failed to delete location by id: {e!s}")
             await session.rollback()
