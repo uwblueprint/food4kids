@@ -27,11 +27,6 @@ async def get_locations(
     try:
         locations = await location_service.get_locations(session)
         return [LocationRead.model_validate(location) for location in locations]
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(ve),
-        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
