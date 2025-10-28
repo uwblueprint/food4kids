@@ -1,7 +1,6 @@
 import logging
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -19,8 +18,7 @@ class LocationService:
     ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -117,8 +115,7 @@ class LocationService:
     ) -> None:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
