@@ -13,3 +13,4 @@
 **/*.egg-info
 switch_github.sh
 CLAUDE.md
+backend/python/app/data/
