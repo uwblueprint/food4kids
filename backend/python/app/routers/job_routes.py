@@ -22,10 +22,14 @@ async def get_jobs(
     progress: ProgressEnum | None = Query(None, description="Filter by job status"),
     service: JobService = Depends(get_job_service),
 <<<<<<< HEAD
+<<<<<<< HEAD
 ) -> list[JobRead]:
 =======
 ):
 >>>>>>> 653b6fc (add route to get all routes)
+=======
+) -> list[JobRead]:
+>>>>>>> 7c99254 (fix linter errors)
     """Get all jobs"""
     try:
         jobs = await service.get_jobs(progress=progress)
