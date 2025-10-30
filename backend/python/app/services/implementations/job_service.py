@@ -3,6 +3,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.services.interfaces.job_service import IJobService
 
@@ -12,7 +13,7 @@ class JobService(IJobService):
         self.logger = logger
         self.session = session
 
-    async def get_jobs(self, progress: str | None = None) -> list[Job]:
+    async def get_jobs(self, progress: ProgressEnum | None = None) -> list[Job]:
         """Get all jobs"""
         statement = select(Job)
         if progress:
