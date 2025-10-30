@@ -46,6 +46,7 @@ class JobService(IJobService):
         result = await self.session.execute(statement)
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         return list(result.scalars().all())
 =======
         return result.scalars().all()
@@ -53,3 +54,6 @@ class JobService(IJobService):
 =======
         return result.scalars().all()
 >>>>>>> f642f68 (run formatter)
+=======
+        return list(result.scalars().all())
+>>>>>>> 7c99254 (fix linter errors)
