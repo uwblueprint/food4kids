@@ -1,11 +1,10 @@
 import datetime
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator
+from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
 
-from app.utilities.utils import validate_phone
-
+# from app.utilities.utils import validate_phone
 from .base import BaseModel
 
 
@@ -19,11 +18,11 @@ class AdminBase(SQLModel):
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
 
-    @field_validator("admin_phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        """Validate phone number using phonenumbers library"""
-        return validate_phone(v)
+    # @field_validator("admin_phone")
+    # @classmethod
+    # def validate_phone(cls, v: str) -> str:
+    #     """Validate phone number using phonenumbers library"""
+    #     return validate_phone(v)
 
 
 class Admin(AdminBase, BaseModel, table=True):
