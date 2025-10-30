@@ -6,7 +6,7 @@ from app.models.job import Job
 
 class IJobService(ABC):
     @abstractmethod
-    def get_jobs(self, progress: ProgressEnum | None = None) -> list[Job]:
+    async def get_jobs(self, progress: ProgressEnum | None = None) -> list[Job]:
         """Return a list of all jobs, optionally filtered by progress.
         :param progress: Optional progress status to filter jobs
         :type progress: ProgressEnum, optional
