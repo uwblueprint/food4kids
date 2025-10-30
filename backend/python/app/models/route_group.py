@@ -4,6 +4,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from .base import BaseModel
+
 if TYPE_CHECKING:
     from .route import Route
     from .route_group_membership import RouteGroupMembership
@@ -17,7 +19,7 @@ class RouteGroupBase(SQLModel):
     drive_date: datetime
 
 
-class RouteGroup(RouteGroupBase, SQLModel, table=True):
+class RouteGroup(RouteGroupBase, BaseModel, table=True):
     """Database table model for Route Groups"""
 
     __tablename__ = "route_groups"
@@ -53,8 +55,8 @@ class RouteGroupRead(RouteGroupBase):
     """Read response model"""
 
     route_group_id: UUID
-    num_routes: int
-    routes: Optional[list[dict]] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class RouteGroupUpdate(SQLModel):

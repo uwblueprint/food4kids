@@ -66,34 +66,26 @@ async def get_all_tables(
         <head>
             <title>Database Tables</title>
             <style>
-                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f5f5f5; }}
-                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }}
-                .summary {{ background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-                .table-container {{ background: white; margin: 20px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
-                .table-header {{ background: #4CAF50; color: white; padding: 15px; font-weight: bold; font-size: 18px; }}
-                .empty-header {{ background: #FF9800; }}
-                .error-header {{ background: #f44336; }}
-                .columns {{ background: #f8f9fa; padding: 10px 15px; border-bottom: 1px solid #dee2e6; font-family: monospace; color: #6c757d; }}
-                .data-container {{ max-height: 400px; overflow-y: auto; }}
-                .row {{ padding: 10px 15px; border-bottom: 1px solid #eee; font-family: monospace; font-size: 12px; }}
-                .row:hover {{ background-color: #f8f9fa; }}
-                .row-number {{ color: #6c757d; margin-right: 10px; font-weight: bold; }}
-                .key {{ color: #d63384; font-weight: bold; }}
-                .value {{ color: #0d6efd; }}
-                .emoji {{ font-size: 1.2em; margin-right: 8px; }}
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 20px; background: #fafafa; }}
+                .header {{ background: #2563eb; color: white; padding: 16px; border-radius: 6px; margin-bottom: 20px; }}
+                .header h1 {{ margin: 0; font-size: 20px; }}
+                .header p {{ margin: 4px 0 0 0; opacity: 0.9; }}
+                .table-container {{ background: white; margin: 16px 0; border-radius: 6px; border: 1px solid #e5e7eb; }}
+                .table-header {{ background: #f3f4f6; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; font-size: 14px; }}
+                .empty-header {{ background: #fef3c7; color: #92400e; }}
+                .error-header {{ background: #fecaca; color: #991b1b; }}
+                .columns {{ padding: 8px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; font-family: monospace; }}
+                .data-container {{ max-height: 300px; overflow-y: auto; }}
+                .row {{ padding: 8px 16px; border-bottom: 1px solid #f3f4f6; font-size: 12px; font-family: monospace; }}
+                .row:hover {{ background: #f9fafb; }}
+                .key {{ color: #dc2626; }}
+                .value {{ color: #059669; }}
             </style>
         </head>
         <body>
             <div class="header">
-                <h1>🗃️ Database Tables Inspector</h1>
-                <p>Complete view of all database tables and their data</p>
-            </div>
-
-            <div class="summary">
-                <h3>📊 Summary</h3>
-                <p><strong>Total Tables:</strong> {len(table_names)}</p>
-                <p><strong>Database:</strong> PostgreSQL</p>
-                <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <h1>Database Tables</h1>
+                <p>{len(table_names)} tables • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             </div>
         """
 
@@ -103,7 +95,7 @@ async def get_all_tables(
                 html_content += f"""
                 <div class="table-container">
                     <div class="table-header error-header">
-                        <span class="emoji">❌</span>{table_name}
+                        {table_name}
                     </div>
                     <div class="columns">Error: {table_info['error']}</div>
                 </div>
@@ -112,7 +104,7 @@ async def get_all_tables(
                 html_content += f"""
                 <div class="table-container">
                     <div class="table-header empty-header">
-                        <span class="emoji">🗃️</span>{table_name} (empty)
+                        {table_name} (empty)
                     </div>
                     <div class="columns">Columns: {', '.join(table_info['columns'])}</div>
                 </div>
@@ -121,16 +113,16 @@ async def get_all_tables(
                 html_content += f"""
                 <div class="table-container">
                     <div class="table-header">
-                        <span class="emoji">📊</span>{table_name} ({table_info['total_rows']} rows)
+                        {table_name} ({table_info['total_rows']} rows)
                     </div>
                     <div class="columns">Columns: {', '.join(table_info['columns'])}</div>
                     <div class="data-container">
                 """
 
-                for i, row in enumerate(table_info["data"]):
-                    row_html = f'<div class="row"><span class="row-number">#{i+1}</span>'
+                for row in table_info["data"]:
+                    row_html = '<div class="row">'
                     for key, value in row.items():
-                        row_html += f'<span class="key">{key}=</span><span class="value">{value}</span>  '
+                        row_html += f'<span class="key">{key}</span>=<span class="value">{value}</span> '
                     row_html += '</div>'
                     html_content += row_html
 
