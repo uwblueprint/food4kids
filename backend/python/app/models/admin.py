@@ -9,6 +9,7 @@ from app.utilities.utils import validate_phone
 from .base import BaseModel
 
 
+
 class AdminBase(SQLModel):
     """Shared fields between table and API models"""
 
