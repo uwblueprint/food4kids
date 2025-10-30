@@ -19,4 +19,4 @@ class JobService(IJobService):
         if progress:
             statement = statement.where(Job.progress == progress)
         result = await self.session.execute(statement)
-        return result.scalars().all()
+        return list(result.scalars().all())

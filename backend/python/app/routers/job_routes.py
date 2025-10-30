@@ -21,7 +21,7 @@ def get_job_service(session: AsyncSession = Depends(get_session)) -> JobService:
 async def get_jobs(
     progress: ProgressEnum | None = Query(None, description="Filter by job status"),
     service: JobService = Depends(get_job_service),
-):
+) -> list[JobRead]:
     """Get all jobs"""
     try:
         jobs = await service.get_jobs(progress=progress)
