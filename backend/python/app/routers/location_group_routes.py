@@ -96,3 +96,23 @@ async def update_location_group(
             detail=f"Location group with id {location_group_id} not found",
         )
     return LocationGroupRead.model_validate(updated_location_group)
+
+
+@router.delete("/{location_group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_location_group(
+    location_group_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(get_location_group_service),
+) -> None:
+    """
+    Delete a location group by ID
+    """
+    success = await location_group_service.delete_location_group(
+        session, location_group_id
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location group with id {location_group_id} not found",
+        )

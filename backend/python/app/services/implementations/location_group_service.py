@@ -113,3 +113,39 @@ class LocationGroupService:
             self.logger.error(f"Failed to update location group: {error!s}")
             await session.rollback()
             raise error
+
+    async def delete_location_group(
+        self, session: AsyncSession, location_group_id: UUID
+    ) -> bool:
+        """Delete location group by ID"""
+        try:
+            statement = select(LocationGroup).where(
+                LocationGroup.location_group_id == location_group_id
+            )
+            result = await session.execute(statement)
+            location_group = result.scalars().first()
+
+            if not location_group:
+                self.logger.error(
+                    f"Location group with id {location_group_id} not found"
+                )
+                return False
+
+            locations_statement = select(Location).where(
+                Location.location_group_id == location_group_id
+            )
+            locations_result = await session.execute(locations_statement)
+            locations = locations_result.scalars().all()
+
+            for location in locations:
+                location.location_group_id = None
+
+            await session.delete(location_group)
+            await session.commit()
+
+            return True
+
+        except Exception as error:
+            self.logger.error(f"Failed to delete location group: {error!s}")
+            await session.rollback()
+            raise error
