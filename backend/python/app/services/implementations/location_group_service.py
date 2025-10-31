@@ -73,7 +73,7 @@ class LocationGroupService:
                 session, new_location_group.location_group_id
             )
             if not reloaded_group:
-                raise Exception("Failed to reload created location group")
+                raise Exception(f"Failed to reload created location group with id {new_location_group.location_group_id}")
             return reloaded_group
 
         except Exception as error:
