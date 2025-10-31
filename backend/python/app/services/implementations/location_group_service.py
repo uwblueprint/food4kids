@@ -53,17 +53,19 @@ class LocationGroupService:
             await session.commit()
             await session.refresh(new_location_group)
 
-            # Update each location's location_group_id foreign key
-            for location_id in location_ids:
-                statement = select(Location).where(Location.location_id == location_id)
-                result = await session.execute(statement)
-                location = result.scalars().first()
+            # Update all locations' location_group_id foreign key in bulk
+            statement = select(Location).where(Location.location_id.in_(location_ids))
+            result = await session.execute(statement)
+            locations = result.scalars().all()
 
-                if location:
-                    location.location_group_id = new_location_group.location_group_id
-                else:
-                    self.logger.warning(f"Location with id {location_id} not found")
+            found_location_ids = {loc.location_id for loc in locations}
+            missing_ids = set(location_ids) - found_location_ids
 
+            for location in locations:
+                location.location_group_id = new_location_group.location_group_id
+
+            for missing_id in missing_ids:
+                self.logger.warning(f"Location with id {missing_id} not found")
             await session.commit()
 
             # Reload with locations for accurate num_locations
