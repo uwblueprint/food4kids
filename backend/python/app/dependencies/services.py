@@ -12,6 +12,7 @@ from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
+from app.services.implementations.driver_history_service import DriverHistoryService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.entity_service import EntityService
