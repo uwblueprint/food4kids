@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # from app.dependencies.auth import require_driver
@@ -70,6 +70,32 @@ async def create_location(
     try:
         created_location = await location_service.create_location(session, location)
         return LocationRead.model_validate(created_location)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post("/import", response_model=list[LocationRead], status_code=status.HTTP_201_CREATED)
+async def import_locations(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> list[LocationRead]:
+    """
+    Ingests location Apricot data (CSV or XLSX) into database
+    """
+    # validate file type (csv or xlsx)
+    if file.content_type not in ["text/csv", "application/csv"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only CSV files are allowed.",
+        )
+
+    try:
+        imported_locations = await location_service.import_locations(session, file)
+        return [LocationRead.model_validate(loc) for loc in imported_locations]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
