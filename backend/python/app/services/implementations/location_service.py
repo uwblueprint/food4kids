@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import Location, LocationCreate, LocationUpdate
+from app.utilities.geocoding import geocode
 from app.utilities.utils import get_phone_number
 
 
@@ -80,19 +81,28 @@ class LocationService:
         try:
             file_data = await file.read()
 
-            # parse locations from file
             if file.filename.endswith(".csv"):
                 data = pd.read_csv(io.BytesIO(file_data))
 
                 imported_locations = []
+
                 for _, row in data.iterrows():
-                    # TODO: create some field mapper utility (another story)
+
+                    # geocode address
+                    address = row.get("Address")
+                    geocode_result = await geocode(address)
+
+                    if not geocode_result:
+                        raise ValueError(
+                            f"Geocoding failed for address: {address}")
+
+                    # TODO: create field mapper (another story)
                     location = {
                         "contact_name": row.get("Guardian Name"),
                         "address": row.get("Address"),
                         "phone_number": get_phone_number(str(row.get("Primary Phone"))),
-                        "longitude": 0.0,  # TODO
-                        "latitude": 0.0,  # TODO
+                        "longitude": geocode_result.longitude,
+                        "latitude": geocode_result.latitude,
                         "halal": row.get("Halal?") == "Yes",
                         "dietary_restrictions": row.get("Specific Food Restrictions") or "",
                         "num_boxes": row.get("Number of Boxes", 0),
