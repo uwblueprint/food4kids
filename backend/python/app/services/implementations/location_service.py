@@ -1,10 +1,14 @@
+import io
 import logging
 from uuid import UUID
 
+import pandas as pd
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import Location, LocationCreate, LocationUpdate
+from app.utilities.utils import get_phone_number
 
 
 class LocationService:
@@ -18,7 +22,8 @@ class LocationService:
     ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -68,6 +73,40 @@ class LocationService:
             await session.rollback()
             raise e
 
+    async def import_locations(
+        self, session: AsyncSession, file: UploadFile
+    ) -> None:
+        """Add locations from Apricot data source (CSV or XLSX)"""
+        try:
+            file_data = await file.read()
+
+            # parse locations from file
+            if file.filename.endswith(".csv"):
+                data = pd.read_csv(io.BytesIO(file_data))
+
+                imported_locations = []
+                for _, row in data.iterrows():
+                    # TODO: create some field mapper utility (another story)
+                    location = {
+                        "contact_name": row.get("Guardian Name"),
+                        "address": row.get("Address"),
+                        "phone_number": get_phone_number(str(row.get("Primary Phone"))),
+                        "longitude": 0.0,  # TODO
+                        "latitude": 0.0,  # TODO
+                        "halal": row.get("Halal?") == "Yes",
+                        "dietary_restrictions": row.get("Specific Food Restrictions") or "",
+                        "num_boxes": row.get("Number of Boxes", 0),
+                    }
+                    # call create location service
+                    location_obj = LocationCreate(**location)
+                    created_location = await self.create_location(session, location_obj)
+                    imported_locations.append(created_location)
+            return imported_locations
+
+        except Exception as e:
+            self.logger.error(f"Failed to import locations: {e!s}")
+            raise e
+
     async def update_location_by_id(
         self,
         session: AsyncSession,
@@ -115,7 +154,8 @@ class LocationService:
     ) -> None:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
