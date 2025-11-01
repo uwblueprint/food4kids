@@ -13,7 +13,7 @@ class GeocodeResult(BaseModel):
     longitude: float
 
 
-async def geocode(address: str) -> GeocodeResult | None:
+async def geocode(address: str) -> GeocodeResult:
     async with httpx.AsyncClient() as client:
         response = await client.get(
             "https://maps.googleapis.com/maps/api/geocode/json",
@@ -28,7 +28,8 @@ async def geocode(address: str) -> GeocodeResult | None:
             )
             await asyncio.sleep(0.2)  # TODO: fix rate limiting?
             return geocode_result
-        return None
+        raise Exception(
+            f"Geocoding failed for address: {address}")
 
 
 async def geocode_addresses(addresses: list[str]) -> list[dict[str, float] | None]:

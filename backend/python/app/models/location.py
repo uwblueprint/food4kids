@@ -5,6 +5,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
 
+
 if TYPE_CHECKING:
     from .location_group import LocationGroup
 
@@ -66,3 +67,16 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+
+
+class LocationImportError(SQLModel):
+    address: str
+    error: str
+
+
+class LocationImportResponse(SQLModel):
+    total_entries: int
+    successful_entries: int
+    failed_entries: int
+    successful_locations: list[LocationRead]
+    failed_locations: list[LocationImportError]

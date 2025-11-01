@@ -7,7 +7,14 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.location import Location, LocationCreate, LocationUpdate
+from app.models.location import (
+    Location,
+    LocationCreate,
+    LocationImportError,
+    LocationImportResponse,
+    LocationRead,
+    LocationUpdate,
+)
 from app.utilities.geocoding import geocode
 from app.utilities.utils import get_phone_number
 
@@ -76,7 +83,7 @@ class LocationService:
 
     async def import_locations(
         self, session: AsyncSession, file: UploadFile
-    ) -> None:
+    ) -> LocationImportResponse:
         """Add locations from Apricot data source (CSV or XLSX)"""
         try:
             file_data = await file.read()
@@ -84,34 +91,45 @@ class LocationService:
             if file.filename.endswith(".csv"):
                 data = pd.read_csv(io.BytesIO(file_data))
 
-                imported_locations = []
+                successful_entries: list[LocationRead] = []
+                failed_entries: list[LocationImportError] = []
 
                 for _, row in data.iterrows():
+                    try:
+                        # geocode address
+                        address = row.get("Address")
+                        geocode_result = await geocode(address)
 
-                    # geocode address
-                    address = row.get("Address")
-                    geocode_result = await geocode(address)
+                        # TODO: create field mapper (another story)
+                        location = {
+                            "contact_name": row.get("Guardian Name"),
+                            "address": address,
+                            "phone_number": get_phone_number(str(row.get("Primary Phone"))),
+                            "longitude": geocode_result.longitude,
+                            "latitude": geocode_result.latitude,
+                            "halal": row.get("Halal?") == "Yes",
+                            "dietary_restrictions": row.get("Specific Food Restrictions") or "",
+                            "num_boxes": row.get("Number of Boxes", 0),
+                        }
 
-                    if not geocode_result:
-                        raise ValueError(
-                            f"Geocoding failed for address: {address}")
+                        # create location into db
+                        location_obj = LocationCreate(**location)
+                        created_location = await self.create_location(session, location_obj)
+                        successful_entries.append(
+                            LocationRead.model_validate(created_location))
+                    except Exception as row_error:
+                        failed_entries.append(LocationImportError(
+                            address=address,
+                            error=str(row_error)
+                        ))
 
-                    # TODO: create field mapper (another story)
-                    location = {
-                        "contact_name": row.get("Guardian Name"),
-                        "address": row.get("Address"),
-                        "phone_number": get_phone_number(str(row.get("Primary Phone"))),
-                        "longitude": geocode_result.longitude,
-                        "latitude": geocode_result.latitude,
-                        "halal": row.get("Halal?") == "Yes",
-                        "dietary_restrictions": row.get("Specific Food Restrictions") or "",
-                        "num_boxes": row.get("Number of Boxes", 0),
-                    }
-                    # call create location service
-                    location_obj = LocationCreate(**location)
-                    created_location = await self.create_location(session, location_obj)
-                    imported_locations.append(created_location)
-            return imported_locations
+            return LocationImportResponse(
+                total_entries=len(data),
+                successful_entries=len(successful_entries),
+                failed_entries=len(failed_entries),
+                successful_locations=successful_entries,
+                failed_locations=failed_entries
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to import locations: {e!s}")
