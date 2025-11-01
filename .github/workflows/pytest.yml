@@ -64,7 +64,7 @@ jobs:
           POSTGRES_DB_DEV: f4k
           POSTGRES_DB_TEST: f4k_test
           DB_HOST: localhost
-          DATABASE_URL: "postgres+asyncpg://postgres:password@127.0.0.1:5432/f4k_test"
+          TEST_DATABASE_URL: "postgres+asyncpg://postgres:password@127.0.0.1:5432/f4k_test"
         run: |
           pytest -q --disable-warnings -ra
 
