@@ -3,11 +3,17 @@ import os
 from typing import Any
 
 import httpx
+from pydantic import BaseModel
 
 GEOCODING_API_KEY = os.getenv("GEOCODING_API_KEY")
 
 
-async def geocode(address: str) -> dict[str, float] | None:
+class GeocodeResult(BaseModel):
+    latitude: float
+    longitude: float
+
+
+async def geocode(address: str) -> GeocodeResult | None:
     async with httpx.AsyncClient() as client:
         response = await client.get(
             "https://maps.googleapis.com/maps/api/geocode/json",
@@ -15,8 +21,13 @@ async def geocode(address: str) -> dict[str, float] | None:
         )
         data: dict[str, Any] = response.json()
         if data["status"] == "OK":
-            location: dict[str, float] = data["results"][0]["geometry"]["location"]
-            return location
+            location = data["results"][0]["geometry"]["location"]
+            geocode_result = GeocodeResult(
+                latitude=location["lat"],
+                longitude=location["lng"]
+            )
+            await asyncio.sleep(0.2)  # TODO: fix rate limiting?
+            return geocode_result
         return None
 
 
