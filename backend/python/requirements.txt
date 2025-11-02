@@ -66,3 +66,4 @@ toml>=0.10.2
 typing-extensions>=4.0.0,<5.0.0
 phonenumbers>=8.13.0
 pandas>=2.3.3
+openpyxl>=3.1.5
