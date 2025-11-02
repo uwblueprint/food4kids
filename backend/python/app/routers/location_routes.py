@@ -18,8 +18,8 @@ from app.utilities.google_maps_client import GoogleMapsClient
 
 # Initialize service
 logger = logging.getLogger(__name__)
-location_service = LocationService(logger, GoogleMapsClient())
-
+maps_service = GoogleMapsClient()
+location_service = LocationService(logger, maps_service)
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
