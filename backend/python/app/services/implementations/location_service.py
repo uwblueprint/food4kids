@@ -31,8 +31,7 @@ class LocationService:
     ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -128,8 +127,7 @@ class LocationService:
                     )
                 except Exception as row_error:
                     failed_locations.append(
-                        LocationImportError(
-                            address=address, error=str(row_error))
+                        LocationImportError(address=address, error=str(row_error))
                     )
 
             return LocationImportResponse(
@@ -191,8 +189,7 @@ class LocationService:
     ) -> None:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 

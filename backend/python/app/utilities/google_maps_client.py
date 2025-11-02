@@ -18,20 +18,19 @@ class GoogleMapsClient:
     """Google Maps API client using official Python client"""
 
     def __init__(self) -> None:
-        self.client: GoogleMapsClient = googlemaps.Client(
-            key=GEOCODING_API_KEY)
+        self.client: GoogleMapsClient = googlemaps.Client(key=GEOCODING_API_KEY)
 
     async def geocode_address(self, address: str) -> GeocodeResult:
         """Geocode a single address string using Google Maps Geocoding API"""
         try:
-
             cleaned_address = self._clean_address(address)
-            geocode_result = self.client.geocode(
-                cleaned_address, region=REGION_BIAS)
+            geocode_result = self.client.geocode(cleaned_address, region=REGION_BIAS)
 
             if geocode_result:
                 location = geocode_result[0]["geometry"]["location"]
-                return GeocodeResult(latitude=location["lat"], longitude=location["lng"])
+                return GeocodeResult(
+                    latitude=location["lat"], longitude=location["lng"]
+                )
             raise Exception(f"Geocoding failed for address: {address}")
         except Exception as e:
             raise e
