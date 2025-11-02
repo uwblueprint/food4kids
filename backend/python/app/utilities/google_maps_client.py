@@ -2,9 +2,9 @@ import os
 import re
 from dataclasses import dataclass
 
-import googlemaps
+from googlemaps import Client
 
-GEOCODING_API_KEY = os.getenv("GEOCODING_API_KEY")
+GEOCODING_API_KEY: str = os.getenv("GEOCODING_API_KEY")
 REGION_BIAS = "ca"
 
 
@@ -18,7 +18,7 @@ class GoogleMapsClient:
     """Google Maps API client using official Python client"""
 
     def __init__(self) -> None:
-        self.client: GoogleMapsClient = googlemaps.Client(key=GEOCODING_API_KEY)
+        self.client: Client = Client(key=GEOCODING_API_KEY)
 
     async def geocode_address(self, address: str) -> GeocodeResult:
         """Geocode a single address string using Google Maps Geocoding API"""
