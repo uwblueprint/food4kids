@@ -1,14 +1,15 @@
 import asyncio
 import os
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from pydantic import BaseModel
 
 GEOCODING_API_KEY = os.getenv("GEOCODING_API_KEY")
 
 
-class GeocodeResult(BaseModel):
+@dataclass
+class GeocodeResult:
     latitude: float
     longitude: float
 
