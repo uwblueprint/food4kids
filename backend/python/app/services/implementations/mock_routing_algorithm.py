@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class MockRoutingAlgorithm(RoutingAlgorithmProtocol):
     """Simple mock routing algorithm that uses the mock clustering algorithm."""
 
+<<<<<<< HEAD
     async def generate_routes(
         self,
         locations: list[Location],
@@ -37,4 +38,18 @@ class MockRoutingAlgorithm(RoutingAlgorithmProtocol):
             num_clusters=settings.num_routes,
             max_locations_per_cluster=settings.max_stops_per_route,
             timeout_seconds=timeout_seconds,
+=======
+    def generate_routes(
+        self,
+        locations: list[Location],
+        settings: RouteGenerationSettings,
+    ) -> list[list[Location]]:
+        """Split locations evenly across routes using the mock clustering algorithm."""
+
+        clustering_algorithm = MockClusteringAlgorithm()
+        return clustering_algorithm.cluster_locations(
+            locations=locations,
+            num_clusters=settings.num_routes,
+            max_locations_per_cluster=settings.max_stops_per_route,
+>>>>>>> e337400 (Add clustering and routing protocols)
         )
