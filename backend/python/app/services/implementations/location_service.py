@@ -116,7 +116,7 @@ class LocationService:
                     # TODO: create field mapper (another story)
                     location = {
                         "contact_name": row.get("Guardian Name"),
-                        "address": address,
+                        "address": geocode_result.formatted_address,
                         "phone_number": get_phone_number(str(row.get("Primary Phone"))),
                         "longitude": geocode_result.longitude,
                         "latitude": geocode_result.latitude,
