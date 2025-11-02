@@ -15,7 +15,7 @@ from app.models.location import (
     LocationRead,
     LocationUpdate,
 )
-from app.utilities.geocoding import GoogleMapsClient
+from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import get_phone_number
 
 
