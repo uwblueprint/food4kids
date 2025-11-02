@@ -9,12 +9,14 @@ from app.services.interfaces.job_service import IJobService
 
 
 class JobService(IJobService):
+    """Modern FastAPI-style job service"""
+
     def __init__(self, logger: logging.Logger, session: AsyncSession):
         self.logger = logger
         self.session = session
 
     async def get_jobs(self, progress: ProgressEnum | None = None) -> list[Job]:
-        """Get all jobs"""
+        """Get all jobs - optionally filtered by progress."""
         statement = select(Job)
         if progress:
             statement = statement.where(Job.progress == progress)
