@@ -13,6 +13,7 @@ from app.models.location import (
     LocationUpdate,
 )
 from app.services.implementations.location_service import LocationService
+from app.utilities.constants import CSV_FILE_TYPES, XLSX_FILE_TYPES
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -92,10 +93,10 @@ async def import_locations(
     Ingests location Apricot data (CSV or XLSX) into database
     """
     # validate file type (csv or xlsx)
-    if file.content_type not in ["text/csv", "application/csv"]:
+    if file.content_type not in CSV_FILE_TYPES + XLSX_FILE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file type. Only CSV files are allowed.",
+            detail="Invalid file type. Only CSV or XLSX files are allowed.",
         )
 
     try:

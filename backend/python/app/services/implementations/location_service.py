@@ -88,47 +88,52 @@ class LocationService:
         try:
             file_data = await file.read()
 
+            # read file into pandas df
+            df = pd.DataFrame()
             if file.filename.endswith(".csv"):
-                data = pd.read_csv(io.BytesIO(file_data))
+                df = pd.read_csv(io.BytesIO(file_data))
+            elif file.filename.endswith((".xlsx", ".xls")):
+                df = pd.read_excel(io.BytesIO(file_data))
 
-                successful_entries: list[LocationRead] = []
-                failed_entries: list[LocationImportError] = []
+            # parse df for locations
+            successful_locations: list[LocationRead] = []
+            failed_locations: list[LocationImportError] = []
 
-                for _, row in data.iterrows():
-                    try:
-                        # geocode address
-                        address = row.get("Address")
-                        geocode_result = await geocode(address)
+            for _, row in df.iterrows():
+                try:
+                    # geocode address
+                    address = row.get("Address")
+                    geocode_result = await geocode(address)
 
-                        # TODO: create field mapper (another story)
-                        location = {
-                            "contact_name": row.get("Guardian Name"),
-                            "address": address,
-                            "phone_number": get_phone_number(str(row.get("Primary Phone"))),
-                            "longitude": geocode_result.longitude,
-                            "latitude": geocode_result.latitude,
-                            "halal": row.get("Halal?") == "Yes",
-                            "dietary_restrictions": row.get("Specific Food Restrictions") or "",
-                            "num_boxes": row.get("Number of Boxes", 0),
-                        }
+                    # TODO: create field mapper (another story)
+                    location = {
+                        "contact_name": row.get("Guardian Name"),
+                        "address": address,
+                        "phone_number": get_phone_number(str(row.get("Primary Phone"))),
+                        "longitude": geocode_result.longitude,
+                        "latitude": geocode_result.latitude,
+                        "halal": row.get("Halal?") == "Yes",
+                        "dietary_restrictions": row.get("Specific Food Restrictions") or "",
+                        "num_boxes": row.get("Number of Boxes", 0),
+                    }
 
-                        # create location into db
-                        location_obj = LocationCreate(**location)
-                        created_location = await self.create_location(session, location_obj)
-                        successful_entries.append(
-                            LocationRead.model_validate(created_location))
-                    except Exception as row_error:
-                        failed_entries.append(LocationImportError(
-                            address=address,
-                            error=str(row_error)
-                        ))
+                    # create location into db
+                    location_obj = LocationCreate(**location)
+                    created_location = await self.create_location(session, location_obj)
+                    successful_locations.append(
+                        LocationRead.model_validate(created_location))
+                except Exception as row_error:
+                    failed_locations.append(LocationImportError(
+                        address=address,
+                        error=str(row_error)
+                    ))
 
             return LocationImportResponse(
-                total_entries=len(data),
-                successful_entries=len(successful_entries),
-                failed_entries=len(failed_entries),
-                successful_locations=successful_entries,
-                failed_locations=failed_entries
+                total_entries=len(df),
+                successful_entries=len(successful_locations),
+                failed_entries=len(failed_locations),
+                successful_locations=successful_locations,
+                failed_locations=failed_locations
             )
 
         except Exception as e:
