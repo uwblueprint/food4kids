@@ -83,7 +83,11 @@ async def create_location(
         ) from e
 
 
-@router.post("/import", response_model=LocationImportResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/import",
+    response_model=LocationImportResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def import_locations(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
