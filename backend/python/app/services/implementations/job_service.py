@@ -5,10 +5,9 @@ from sqlmodel import select
 
 from app.models.enum import ProgressEnum
 from app.models.job import Job
-from app.services.interfaces.job_service import IJobService
 
 
-class JobService(IJobService):
+class JobService:
     """Modern FastAPI-style job service"""
 
     def __init__(self, logger: logging.Logger, session: AsyncSession):
