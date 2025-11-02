@@ -31,7 +31,8 @@ class LocationService:
     ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -90,9 +91,10 @@ class LocationService:
 
             # read file into pandas df
             df = pd.DataFrame()
-            if file.filename.endswith(".csv"):
+            filename = str(file.filename)
+            if filename.endswith(".csv"):
                 df = pd.read_csv(io.BytesIO(file_data))
-            elif file.filename.endswith((".xlsx", ".xls")):
+            elif filename.endswith((".xlsx", ".xls")):
                 df = pd.read_excel(io.BytesIO(file_data))
 
             # parse df for locations
@@ -126,7 +128,8 @@ class LocationService:
                     )
                 except Exception as row_error:
                     failed_locations.append(
-                        LocationImportError(address=address, error=str(row_error))
+                        LocationImportError(
+                            address=address, error=str(row_error))
                     )
 
             return LocationImportResponse(
@@ -188,7 +191,8 @@ class LocationService:
     ) -> None:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            statement = select(Location).where(
+                Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 

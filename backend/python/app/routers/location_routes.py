@@ -104,8 +104,8 @@ async def import_locations(
         )
 
     try:
-        res = await location_service.import_locations(session, file)
-        return res
+        result = await location_service.import_locations(session, file)
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
