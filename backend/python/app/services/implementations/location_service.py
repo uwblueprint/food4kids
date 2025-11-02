@@ -103,7 +103,7 @@ class LocationService:
             for _, row in df.iterrows():
                 try:
                     # geocode address
-                    address = row.get("Address")
+                    address = str(row.get("Address"))
                     geocode_result = await self.google_maps_client.geocode_address(
                         address
                     )

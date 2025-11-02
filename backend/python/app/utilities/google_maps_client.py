@@ -2,7 +2,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from googlemaps import Client
+from googlemaps import Client  # type: ignore
 
 GEOCODING_API_KEY: str = os.getenv("GEOCODING_API_KEY")
 REGION_BIAS = "ca"
