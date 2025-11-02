@@ -22,9 +22,9 @@ from app.utilities.utils import get_phone_number
 class LocationService:
     """Modern FastAPI-style location service"""
 
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, google_maps_client: GoogleMapsClient):
         self.logger = logger
-        self.maps_client = GoogleMapsClient()
+        self.google_maps_client = google_maps_client
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -104,7 +104,9 @@ class LocationService:
                 try:
                     # geocode address
                     address = row.get("Address")
-                    geocode_result = await self.maps_client.geocode_address(address)
+                    geocode_result = await self.google_maps_client.geocode_address(
+                        address
+                    )
 
                     # TODO: create field mapper (another story)
                     location = {
