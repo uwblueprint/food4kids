@@ -5,7 +5,6 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
 
-
 if TYPE_CHECKING:
     from .location_group import LocationGroup
 

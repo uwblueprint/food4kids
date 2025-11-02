@@ -16,5 +16,6 @@ def validate_phone(v: str) -> str:
 def get_phone_number(v: str) -> str:
     parsed_number = phonenumbers.parse(v, "CA")
     formatted_number = phonenumbers.format_number(
-        parsed_number, phonenumbers.PhoneNumberFormat.E164)
+        parsed_number, phonenumbers.PhoneNumberFormat.E164
+    )
     return formatted_number
