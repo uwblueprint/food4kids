@@ -1,11 +1,11 @@
-import asyncio
 import os
+import re
 from dataclasses import dataclass
-from typing import Any
 
-import httpx
+import googlemaps
 
 GEOCODING_API_KEY = os.getenv("GEOCODING_API_KEY")
+REGION_BIAS = "ca"
 
 
 @dataclass
@@ -14,36 +14,35 @@ class GeocodeResult:
     longitude: float
 
 
-async def geocode(address: str) -> GeocodeResult:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://maps.googleapis.com/maps/api/geocode/json",
-            params={"address": address, "key": GEOCODING_API_KEY},
-        )
-        data: dict[str, Any] = response.json()
-        if data["status"] == "OK":
-            location = data["results"][0]["geometry"]["location"]
-            geocode_result = GeocodeResult(
+class GoogleMapsClient:
+    """Google Maps API client using official Python client"""
+
+    def __init__(self, api_key: str = GEOCODING_API_KEY) -> None:
+        self.client: GoogleMapsClient = googlemaps.Client(key=api_key)
+
+    async def geocode_address(self, address: str) -> GeocodeResult | None:
+        """Geocode a single address string using Google Maps Geocoding API"""
+        cleaned_address = self._clean_address(address)
+        geocode_result = self.client.geocode(
+            cleaned_address, region=REGION_BIAS)
+
+        if geocode_result:
+            location = geocode_result[0]["geometry"]["location"]
+            return GeocodeResult(
                 latitude=location["lat"],
                 longitude=location["lng"]
             )
-            await asyncio.sleep(0.2)  # TODO: fix rate limiting?
-            return geocode_result
-        raise Exception(
-            f"Geocoding failed for address: {address}")
+        return None
 
+    def _clean_address(self, address: str) -> str:
+        """Cleans address string to improve geocoding accuracy with Google Maps API"""
+        # remove whitespace, newlines, commas
+        address = address.strip().replace("\n", " ").replace("\r", "").replace(",", "")
 
-async def geocode_addresses(addresses: list[str]) -> list[dict[str, float] | None]:
-    """
-    Accepts a list of strings representing addresses
-    Returns a list of {"lat": ..., "lng": ...} one to one for each address
-    If address is invalid, there will be None instead
+        # remove unit/apartment/suite numbers
+        address = re.sub(r"\b(?:Unit|Apt|Suite|#)\s*\w+\b",
+                         "", address, flags=re.IGNORECASE)
 
-    Example Usage:
-    test = ["200 University Ave West, Waterloo, Ontario", "InvalidAddress"]
-    results = asyncio.run(geocode_addresses(test))
-    print(results)
-    Resulting output: [{'lat': 43.4729399, 'lng': -80.54007159999999}, None]
-    """
-    tasks = [geocode(address) for address in addresses]
-    return await asyncio.gather(*tasks)
+        # remove extra spaces
+        address = re.sub(r"\s+", " ", address)
+        return address

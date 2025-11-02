@@ -15,7 +15,7 @@ from app.models.location import (
     LocationRead,
     LocationUpdate,
 )
-from app.utilities.geocoding import geocode
+from app.utilities.geocoding import GoogleMapsClient
 from app.utilities.utils import get_phone_number
 
 
@@ -24,6 +24,7 @@ class LocationService:
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+        self.maps_client = GoogleMapsClient()
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -103,7 +104,7 @@ class LocationService:
                 try:
                     # geocode address
                     address = row.get("Address")
-                    geocode_result = await geocode(address)
+                    geocode_result = await self.maps_client.geocode_address(address)
 
                     # TODO: create field mapper (another story)
                     location = {
