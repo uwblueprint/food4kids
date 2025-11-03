@@ -42,7 +42,7 @@ async def create_generation_job(
     service: JobService = Depends(get_job_service),
 ) -> JobCreate:
     job = await service.create_generation_job(req)
-    # TODO: enqueue to worker/queue here (stub for skeleton)
+    await service.enqueue(job.id)
     return JobCreate(job_id=str(job.id), status=job.progress)
 
 
