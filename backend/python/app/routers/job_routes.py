@@ -23,15 +23,7 @@ def get_job_service(session: AsyncSession = Depends(get_session)) -> JobService:
 async def get_jobs(
     progress: ProgressEnum | None = Query(None, description="Filter by job status"),
     service: JobService = Depends(get_job_service),
-<<<<<<< HEAD
-<<<<<<< HEAD
 ) -> list[JobRead]:
-=======
-):
->>>>>>> 653b6fc (add route to get all routes)
-=======
-) -> list[JobRead]:
->>>>>>> 7c99254 (fix linter errors)
     """Get all jobs"""
     try:
         jobs = await service.get_jobs(progress=progress)
@@ -39,17 +31,7 @@ async def get_jobs(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-<<<<<<< HEAD
-<<<<<<< HEAD
         ) from e
-<<<<<<< HEAD
-=======
-        ) from e
->>>>>>> 653b6fc (add route to get all routes)
-=======
-        ) from e
->>>>>>> f642f68 (run formatter)
-=======
 
 
 @router.post(
@@ -74,4 +56,3 @@ async def get_job(
             status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
         )
     return JobRead.model_validate(job)
->>>>>>> 8fdc839 (create inital skeleton for generation service)
