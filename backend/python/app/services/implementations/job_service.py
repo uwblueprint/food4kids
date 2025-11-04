@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -26,11 +27,19 @@ class JobService:
 
     async def create_generation_job(self, req: RouteGenerationRequest) -> Job:
         """Create a job"""
-        job = Job(progress=ProgressEnum.PENDING, payload=req.model_dump())
-        self.session.add(job)
-        await self.session.commit()
-        await self.session.refresh(job)
-        return job
+        try:
+            job = Job(progress=ProgressEnum.PENDING)
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+            self.logger.info("Created job %s", job.job_id)
+            return job.job_id, job.progress
+        except IntegrityError:
+            self.logger.exception("Integrity error creating job")
+            await self.session.rollback()
+        except SQLAlchemyError:
+            self.logger.exception("Error in creating job")
+            await self.session.rollback()
 
     async def get_job(self, job_id: UUID) -> Job | None:
         """Get a job by job ID"""
@@ -38,10 +47,17 @@ class JobService:
         return result.scalar_one_or_none()
 
     async def enqueue(self, job_id: UUID) -> None:
-        self.logger.info("Route generation job enqueued", job_id)
+        try:
+            self.logger.info(f"Route generation job enqueued: {job_id}")
 
-        job = await self.get_job(job_id)
-        if job:
-            job.message = "queued"
-            self.session.add(job)
-            await self.session.commit()
+            job = await self.get_job(job_id)
+            if job:
+                job.message = "queued"
+                self.session.add(job)
+                await self.session.commit()
+        except Exception:
+            self.logger.exception("Enqueue failed for job %s", job_id)
+            try:
+                await self.update_progress(job_id, ProgressEnum.FAILED)
+            except Exception:
+                self.logger.exception("Failed to mark job %s as FAILED", job_id)

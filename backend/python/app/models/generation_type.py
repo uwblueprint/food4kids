@@ -1,6 +1,5 @@
 # one way of doing things
 
-# app/models/generation_types.py
 from uuid import UUID
 
 from pydantic import BaseModel
