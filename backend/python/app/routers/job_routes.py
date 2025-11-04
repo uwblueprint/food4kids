@@ -41,16 +41,24 @@ async def create_generation_job(
     req: RouteGenerationRequest,
     service: JobService = Depends(get_job_service),
 ) -> JobCreate:
-    job = await service.create_generation_job(req)
-    await service.enqueue(job.id)
-    return JobCreate(job_id=str(job.id), status=job.progress)
-
+    try:
+        job = await service.create_generation_job(req)
+        await service.enqueue(job.id)
+        return {"job_id": job.job_id, "progress": job.progress}
+    except Exception as e:
+        logger.exception("create_generation_job failed")
+        raise HTTPException(status_code=500, detail="Failed to enqueue job") from e
 
 @router.get("/{job_id}", response_model=JobRead)
 async def get_job(
     job_id: UUID, service: JobService = Depends(get_job_service)
 ) -> JobRead:
-    job = await service.get_job(job_id)
+    try:
+        job = await service.get_job(job_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
