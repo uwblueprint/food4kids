@@ -18,9 +18,13 @@ class LocationGroupService:
 
     async def get_location_groups(self, session: AsyncSession) -> list[LocationGroup]:
         """Get all location groups"""
-        statement = select(LocationGroup)
-        result = await session.execute(statement)
-        return list(result.scalars().all())
+        try:
+            statement = select(LocationGroup)
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+        except Exception as error:
+            self.logger.error(f"Failed to get location groups: {error!s}")
+            raise error
 
     async def get_location_group(
         self, session: AsyncSession, location_group_id: UUID
@@ -53,19 +57,23 @@ class LocationGroupService:
             await session.commit()
             await session.refresh(new_location_group)
 
-            # Update all locations' location_group_id foreign key in bulk
-            statement = select(Location).where(Location.location_id.in_(location_ids))
-            result = await session.execute(statement)
-            locations = result.scalars().all()
+            # Update each location's location_group_id foreign key
+            for location_id in location_ids:
+                statement = select(Location).where(Location.location_id == location_id)
+                result = await session.execute(statement)
+                location = result.scalars().first()
 
-            found_location_ids = {loc.location_id for loc in locations}
-            missing_ids = set(location_ids) - found_location_ids
+                if location:
+                    if location.location_group_id is not None:
+                        self.logger.warning(
+                            f"Location with id {location_id} already has a location group set"
+                        )
+                        location.location_group_id = (
+                            new_location_group.location_group_id
+                        )
+                else:
+                    self.logger.warning(f"Location with id {location_id} not found")
 
-            for location in locations:
-                location.location_group_id = new_location_group.location_group_id
-
-            for missing_id in missing_ids:
-                self.logger.warning(f"Location with id {missing_id} not found")
             await session.commit()
 
             # Reload with locations for accurate num_locations
@@ -73,7 +81,9 @@ class LocationGroupService:
                 session, new_location_group.location_group_id
             )
             if not reloaded_group:
-                raise Exception(f"Failed to reload created location group with id {new_location_group.location_group_id}")
+                raise Exception(
+                    f"Failed to reload created location group with id {new_location_group.location_group_id}"
+                )
             return reloaded_group
 
         except Exception as error:

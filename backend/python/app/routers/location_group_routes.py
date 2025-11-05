@@ -30,7 +30,8 @@ async def get_location_groups(
         return [LocationGroupRead.model_validate(lg) for lg in location_groups]
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
         ) from e
 
 
@@ -72,7 +73,8 @@ async def create_location_group(
         return LocationGroupRead.model_validate(new_location_group)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
         ) from e
 
 
