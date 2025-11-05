@@ -54,11 +54,6 @@ class GoogleMapsClient:
         # remove whitespace, newlines, commas
         address = address.strip().replace("\n", " ").replace("\r", "").replace(",", "")
 
-        # remove unit/apartment/suite numbers
-        address = re.sub(
-            r"\b(?:Unit|Apt|Suite|#)\s*\w+\b", "", address, flags=re.IGNORECASE
-        )
-
         # remove extra spaces
         address = re.sub(r"\s+", " ", address)
         return address
