@@ -8,7 +8,7 @@ from app.models import get_session
 from app.models.enum import ProgressEnum
 from app.models.job import JobRead
 from app.schemas.generation_responses import JobEnqueueResponse
-from app.schemas.route_generation import RouteGenerationRequest
+from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.job_service import JobService
 
 logger = logging.getLogger(__name__)
@@ -35,11 +35,9 @@ async def get_jobs(
         ) from e
 
 
-@router.post(
-    "/generate", response_model=JobEnqueueResponse, status_code=202
-)
+@router.post("/generate", response_model=JobEnqueueResponse, status_code=202)
 async def create_generation_job(
-    _req: RouteGenerationRequest,
+    _req: RouteGenerationGroupInput,
     service: JobService = Depends(get_job_service),
 ) -> JobEnqueueResponse:
     try:
@@ -49,6 +47,7 @@ async def create_generation_job(
     except Exception as e:
         logger.exception("Failed to create job")
         raise HTTPException(status_code=500, detail="Failed to enqueue job") from e
+
 
 @router.get("/{job_id}", response_model=JobRead)
 async def get_job(
