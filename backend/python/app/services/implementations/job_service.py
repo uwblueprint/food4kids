@@ -26,7 +26,9 @@ class JobService:
         result = await self.session.execute(statement)
         return list(result.scalars().all())
 
-    async def create_generation_job(self, _req: RouteGenerationRequest | None = None) -> UUID:
+    async def create_generation_job(
+        self, _req: RouteGenerationRequest | None = None
+    ) -> UUID:
         """Create a job"""
         try:
             job = Job(progress=ProgressEnum.PENDING)

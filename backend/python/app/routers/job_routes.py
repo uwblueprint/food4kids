@@ -35,9 +35,7 @@ async def get_jobs(
         ) from e
 
 
-@router.post(
-    "/generate", response_model=JobEnqueueResponse, status_code=202
-)
+@router.post("/generate", response_model=JobEnqueueResponse, status_code=202)
 async def create_generation_job(
     _req: RouteGenerationRequest,
     service: JobService = Depends(get_job_service),
@@ -49,6 +47,7 @@ async def create_generation_job(
     except Exception as e:
         logger.exception("Failed to create job")
         raise HTTPException(status_code=500, detail="Failed to enqueue job") from e
+
 
 @router.get("/{job_id}", response_model=JobRead)
 async def get_job(
