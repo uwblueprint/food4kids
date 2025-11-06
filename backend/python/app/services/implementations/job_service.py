@@ -25,8 +25,11 @@ class JobService:
             statement = statement.where(Job.progress == progress)
         result = await self.session.execute(statement)
         return list(result.scalars().all())
+    
+    def utc_now_naive(self) -> datetime:
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
-    async def create_generation_job(
+    async def generate_job(
         self, _req: RouteGenerationRequest | None = None
     ) -> UUID:
         """Create a job"""
@@ -35,7 +38,6 @@ class JobService:
             self.session.add(job)
             await self.session.commit()
             await self.session.refresh(job)
-            self.logger.info("Created job %s", job.job_id)
             return job.job_id
         except IntegrityError:
             self.logger.exception("Integrity error creating job")
@@ -49,15 +51,15 @@ class JobService:
         result = await self.session.execute(select(Job).where(Job.job_id == job_id))
         return result.scalar_one_or_none()
 
-    async def update_progress(self, job_id, progress: ProgressEnum):
+    async def update_progress(self, job_id: UUID, progress: ProgressEnum):
         try:
             job = await self.get_job(job_id)
             if not job:
                 return
             job.progress = progress
-            job.updated_at = datetime.now(timezone.utc)
-            if progress in (ProgressEnum.COMPLETED or ProgressEnum.FAILED):
-                job.finished_at = datetime.now(timezone.utc)
+            job.updated_at = self.utc_now_naive()
+            if progress in (ProgressEnum.COMPLETED, ProgressEnum.FAILED):
+                job.finished_at = self.utc_now_naive()
             self.session.add(job)
             await self.session.commit()
         except SQLAlchemyError:
@@ -67,13 +69,12 @@ class JobService:
 
     async def enqueue(self, job_id: UUID) -> None:
         try:
-            self.logger.info(f"Route generation job enqueued: {job_id}")
             job = await self.get_job(job_id)
             if not job:
                 self.logger.error("Job %s not found during enqueue", job_id)
                 return
 
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = self.utc_now_naive()
             self.session.add(job)
             await self.session.commit()
         except Exception:
