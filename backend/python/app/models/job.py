@@ -1,7 +1,6 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
@@ -25,15 +24,12 @@ class Job(JobBase, BaseModel, table=True):
     job_id: UUID = Field(default_factory=uuid4, primary_key=True)
     started_at: datetime | None = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     updated_at: datetime | None = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     finished_at: datetime | None = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
 
 

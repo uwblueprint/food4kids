@@ -36,12 +36,12 @@ async def get_jobs(
 
 
 @router.post("/generate", response_model=JobEnqueueResponse, status_code=202)
-async def create_generation_job(
+async def generate_job(
     _req: RouteGenerationGroupInput,
     service: JobService = Depends(get_job_service),
 ) -> JobEnqueueResponse:
     try:
-        job_id = await service.create_generation_job(_req)
+        job_id = await service.generate_job(_req)
         await service.enqueue(job_id)
         return JobEnqueueResponse(job_id=job_id)
     except Exception as e:
