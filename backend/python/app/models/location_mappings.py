@@ -26,6 +26,12 @@ class LocationMappingBase(SQLModel):
         default_factory=dict, sa_column=Column(JSON))
 
 
+class LocationMappingRead(LocationMappingBase):
+    """Read response model for location mappings"""
+
+    mapping_id: UUID
+
+
 class LocationMappingCreate(LocationMappingBase):
     """Create request model for location mappings"""
 
