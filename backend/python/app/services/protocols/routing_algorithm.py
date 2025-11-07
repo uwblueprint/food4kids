@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+import math
+
 if TYPE_CHECKING:
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
