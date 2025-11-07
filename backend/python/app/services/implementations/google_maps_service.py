@@ -22,9 +22,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
     def generate_routes(
         self,
         locations: list[Location],
-        settings: RouteGenerationSettings,
         warehouse_lat: float,
         warehouse_lng: float,
+        settings: RouteGenerationSettings,
     ) -> list[list[Location]]:
         """Split locations evenly across routes using the mock clustering algorithm."""
 
