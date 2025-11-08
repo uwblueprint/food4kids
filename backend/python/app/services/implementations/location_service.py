@@ -15,8 +15,8 @@ from app.models.location import (
 )
 from app.models.location_mappings import RequiredLocationField
 from app.services.implementations.mappings_service import MappingsService
-from app.utilities.df_utils import get_dataframe
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.import_utils import MAX_CSV_ROWS, get_df
 from app.utilities.utils import get_phone_number
 
 
@@ -89,7 +89,12 @@ class LocationService:
     ) -> LocationEntriesResponse:
         """Add locations from Apricot data source (CSV or XLSX)"""
         try:
-            df = await get_dataframe(file)
+            df = await get_df(file)
+
+            if len(df) > MAX_CSV_ROWS:
+                raise ValueError(
+                    f"Import file has too many rows ({len(df)}). Maximum allowed is {MAX_CSV_ROWS}."
+                )
 
             # TODO: use admin id to get mapping
             mappings = await self.mapping_service.get_mappings(session)

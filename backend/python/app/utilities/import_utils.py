@@ -3,6 +3,7 @@ import io
 import pandas as pd
 from fastapi import UploadFile
 
+MAX_CSV_ROWS = 250
 CSV_FILE_TYPES = ["text/csv", "application/csv"]
 XLSX_FILE_TYPES = [
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -10,7 +11,7 @@ XLSX_FILE_TYPES = [
 ]
 
 
-async def get_dataframe(file: UploadFile) -> pd.DataFrame:
+async def get_df(file: UploadFile) -> pd.DataFrame:
     file_data = await file.read()
 
     df = pd.DataFrame()

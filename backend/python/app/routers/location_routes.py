@@ -14,8 +14,8 @@ from app.models.location import (
 )
 from app.services.implementations.location_service import LocationService
 from app.services.implementations.mappings_service import MappingsService
-from app.utilities.df_utils import CSV_FILE_TYPES, XLSX_FILE_TYPES
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.import_utils import CSV_FILE_TYPES, XLSX_FILE_TYPES
 
 # Initialize service
 logger = logging.getLogger(__name__)
