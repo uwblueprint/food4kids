@@ -37,6 +37,8 @@ class MappingsService:
             session.add(mapping)
             await session.commit()
             await session.refresh(mapping)
+
+            # TODO: add mapping ID to admin table as FK
             return mapping
         except Exception as e:
             self.logger.error(f"Failed to create mapping: {e!s}")
