@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +23,24 @@ class MappingsService:
             return list(result.scalars().all())
         except Exception as e:
             self.logger.error(f"Failed to get mappings: {e!s}")
+            raise e
+
+    async def get_mapping_by_id(
+        self, session: AsyncSession, mapping_id: UUID
+    ) -> LocationMapping:
+        """Get mapping by ID - returns SQLModel instance"""
+        try:
+            statement = select(LocationMapping).where(
+                LocationMapping.mapping_id == mapping_id)
+            result = await session.execute(statement)
+            mapping = result.scalars().first()
+
+            if not mapping:
+                raise ValueError(f"Mapping with id {mapping_id} not found")
+
+            return mapping
+        except Exception as e:
+            self.logger.error(f"Failed to get mapping by id: {e!s}")
             raise e
 
     async def create_mapping(
