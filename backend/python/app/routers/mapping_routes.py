@@ -36,7 +36,7 @@ async def get_location_mappings(
         ) from e
 
 
-@router.post("/", response_model=LocationMappingCreate, status_code=status.HTTP_201_CREATED)
+@router.post("/submit", response_model=LocationMappingCreate, status_code=status.HTTP_201_CREATED)
 async def create_location_mapping(
     mapping: LocationMappingCreate,
     session: AsyncSession = Depends(get_session),
@@ -67,6 +67,23 @@ async def preview_location_mapping(
     try:
         preview = await mappings_service.preview_mapping(file)
         return LocationMappingPreview.model_validate(preview)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_location_mappings(
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> None:
+    """
+    Delete a location mapping
+    """
+    try:
+        await mappings_service.delete_mappings(session)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
