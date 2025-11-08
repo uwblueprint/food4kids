@@ -29,14 +29,23 @@ class LocationMappingBase(SQLModel):
     @field_validator("mapping")
     @classmethod
     def validate_mapping_keys(cls, v: dict[str, str]) -> dict[str, str]:
-        """Ensure mapping only contains valid location field keys"""
-        valid_keys = {field.value for field in RequiredLocationField}
-        invalid_keys = set(v.keys()) - valid_keys
+        """Ensure mapping strictly contains valid location field keys"""
+        required_keys = {field.value for field in RequiredLocationField}
 
+        # check for invalid keys
+        invalid_keys = set(v.keys()) - required_keys
         if invalid_keys:
             raise ValueError(
                 f"Invalid mapping keys: {invalid_keys}. "
-                f"Valid keys are: {valid_keys}"
+                f"Valid keys are: {required_keys}"
+            )
+
+        # check for missing required keys
+        missing_keys = required_keys - set(v.keys())
+        if missing_keys:
+            raise ValueError(
+                f"Missing required mapping keys: {missing_keys}. "
+                f"All of the following keys are required: {required_keys}"
             )
 
         return v
