@@ -8,11 +8,13 @@ from sqlmodel import select
 from app.models.location import (
     Location,
     LocationCreate,
-    LocationImportError,
-    LocationImportResponse,
-    LocationRead,
+    LocationEntriesResponse,
+    LocationEntry,
+    LocationEntryStatus,
     LocationUpdate,
 )
+from app.models.location_mappings import RequiredLocationField
+from app.services.implementations.mappings_service import MappingsService
 from app.utilities.df_utils import get_dataframe
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import get_phone_number
@@ -21,9 +23,10 @@ from app.utilities.utils import get_phone_number
 class LocationService:
     """Modern FastAPI-style location service"""
 
-    def __init__(self, logger: logging.Logger, google_maps_client: GoogleMapsClient):
+    def __init__(self, logger: logging.Logger, maps_service: GoogleMapsClient, mapping_service: MappingsService):
         self.logger = logger
-        self.google_maps_client = google_maps_client
+        self.maps_service = maps_service
+        self.mapping_service = mapping_service
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -83,63 +86,96 @@ class LocationService:
 
     async def import_locations(
         self, session: AsyncSession, file: UploadFile
-    ) -> LocationImportResponse:
+    ) -> LocationEntriesResponse:
         """Add locations from Apricot data source (CSV or XLSX)"""
         try:
             df = await get_dataframe(file)
 
-            # parse df for locations
-            successful_locations: list[LocationRead] = []
-            failed_locations: list[LocationImportError] = []
+            # TODO: use admin id to get mapping
+            mappings = await self.mapping_service.get_mappings(session)
+            mapping = mappings[0].mapping
 
-            for _, row in df.iterrows():
+            all_locations: list[LocationEntry] = []
+            successful_locations: list[LocationEntry] = []
+            failed_locations: list[LocationEntry] = []
+
+            # parse df for location data
+            for index, row in df.iterrows():
                 try:
-                    # geocode address
-                    address = str(row.get("Address"))
-                    geocode_result = await self.google_maps_client.geocode_address(
-                        address
-                    )
+                    location_data = {}
+                    for field in mapping:
+                        source_field = mapping[field]
+                        source_value: str = row.get(source_field)
+
+                        if field == RequiredLocationField.DIETARY_RESTRICTIONS:
+                            location_data[field] = "test"
+                            continue
+
+                        if not source_value:
+                            raise TypeError(
+                                f"Missing required field: {source_field} in row {index + 1}"
+                            )
+                        elif field == RequiredLocationField.PHONE_NUMBER:
+                            location_data[field] = get_phone_number(
+                                str(source_value))
+                        elif field == RequiredLocationField.HALAL:
+                            location_data[field] = source_value == "Yes"
+                        else:
+                            location_data[field] = source_value
+
+                    # handle address geocoding
+                    address = location_data.get(RequiredLocationField.ADDRESS)
+                    geocode_result = await self.maps_service.geocode_address(address)
 
                     if not geocode_result:
                         raise ValueError(
                             f"Geocoding failed for address: {address}")
 
-                    # TODO: create field mapper (another story)
-                    location = {
-                        "contact_name": row.get("Guardian Name"),
-                        "address": geocode_result.formatted_address,
-                        "phone_number": get_phone_number(str(row.get("Primary Phone"))),
-                        "longitude": geocode_result.longitude,
-                        "latitude": geocode_result.latitude,
-                        "halal": row.get("Halal?") == "Yes",
-                        "dietary_restrictions": row.get("Specific Food Restrictions")
-                        or "",
-                        "num_boxes": row.get("Number of Boxes", 0),
-                    }
+                    location_data[RequiredLocationField.ADDRESS] = geocode_result.formatted_address
+                    location_data["longitude"] = geocode_result.longitude
+                    location_data["latitude"] = geocode_result.latitude
+                    delivery_group = location_data.get(
+                        RequiredLocationField.DELIVERY_GROUP)
 
-                    # create location into db
-                    location_obj = LocationCreate(**location)
-                    created_location = await self.create_location(session, location_obj)
-                    successful_locations.append(
-                        LocationRead.model_validate(created_location)
-                    )
-                except Exception as row_error:
-                    failed_locations.append(
-                        LocationImportError(
-                            address=address, error=str(row_error))
+                    # save location into db
+                    location = LocationCreate(**location_data)
+                    created_location = await self.create_location(session, location)
+                    location_entry = LocationEntry(
+                        location=created_location,
+                        status=LocationEntryStatus.OK,
+                        row=index + 1,
+                        delivery_group=delivery_group
                     )
 
-            return LocationImportResponse(
+                    successful_locations.append(location_entry)
+                except TypeError as te:
+                    location_entry = LocationEntry(
+                        location=None,
+                        status=LocationEntryStatus.MISSING_FIELD,
+                        row=index + 1,
+                        delivery_group=delivery_group,
+                        error_message=str(te)
+                    )
+                    failed_locations.append(location_entry)
+                except ValueError as ve:
+                    location_entry = LocationEntry(
+                        location=created_location,
+                        status=LocationEntryStatus.UNKNOWN_ERROR,
+                        row=index + 1,
+                        delivery_group=delivery_group,
+                        error_message=str(ve)
+                    )
+                    failed_locations.append(location_entry)
+                all_locations.append(location_entry)
+            return LocationEntriesResponse(
                 total_entries=len(df),
                 successful_entries=len(successful_locations),
                 failed_entries=len(failed_locations),
-                successful_locations=successful_locations,
-                failed_locations=failed_locations,
+                entries=all_locations
             )
 
-        except Exception as e:
-            self.logger.error(f"Failed to import locations: {e!s}")
-            raise e
+        except Exception:
+            raise
 
     async def update_location_by_id(
         self,

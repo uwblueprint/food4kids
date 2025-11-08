@@ -16,7 +16,8 @@ class RequiredLocationField(str, Enum):
     DELIVERY_GROUP = "delivery_group"
     PHONE_NUMBER = "phone_number"
     NUM_BOXES = "num_boxes"
-    FOOD_RESTRICTIONS = "food_restrictions"
+    DIETARY_RESTRICTIONS = "dietary_restrictions"
+    HALAL = "halal"
 
 
 class LocationMappingBase(SQLModel):
