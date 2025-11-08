@@ -8,18 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import get_session
 from app.models.location import (
     LocationCreate,
-    LocationImportResponse,
+    LocationEntriesResponse,
     LocationRead,
     LocationUpdate,
 )
 from app.services.implementations.location_service import LocationService
+from app.services.implementations.mappings_service import MappingsService
 from app.utilities.df_utils import CSV_FILE_TYPES, XLSX_FILE_TYPES
 from app.utilities.google_maps_client import GoogleMapsClient
 
 # Initialize service
 logger = logging.getLogger(__name__)
 maps_service = GoogleMapsClient()
-location_service = LocationService(logger, maps_service)
+mappings_service = MappingsService(logger)
+location_service = LocationService(logger, maps_service, mappings_service)
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
@@ -86,14 +88,14 @@ async def create_location(
 
 @router.post(
     "/import",
-    response_model=LocationImportResponse,
+    response_model=LocationEntriesResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def import_locations(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
     # _: bool = Depends(require_driver),
-) -> LocationImportResponse:
+) -> LocationEntriesResponse:
     """
     Ingests location Apricot data (CSV or XLSX) into database
     """

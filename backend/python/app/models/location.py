@@ -83,24 +83,13 @@ class LocationUpdate(SQLModel):
     notes: str | None = None
 
 
-class LocationImportError(SQLModel):
-    address: str
-    error: str
-
-
-class LocationImportResponse(SQLModel):
-    total_entries: int
-    successful_entries: int
-    failed_entries: int
-    successful_locations: list[LocationRead]
-    failed_locations: list[LocationImportError]
-
-
-class LocationEntry(LocationBase):
-    location: LocationRead
+class LocationEntry(SQLModel):
+    """Entry result from location import/validation"""
+    location: LocationRead | None = None
     status: LocationEntryStatus
     row: int
-    delivery_group: str
+    delivery_group: str | None = None
+    error_message: str | None = None
 
 
 class LocationEntriesResponse(SQLModel):
