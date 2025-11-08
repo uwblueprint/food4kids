@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +30,30 @@ async def get_location_mappings(
     try:
         mappings = await mappings_service.get_mappings(session)
         return [LocationMappingRead.model_validate(mapping) for mapping in mappings]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.get("/{mapping_id}", response_model=LocationMappingRead)
+async def get_location_mapping(
+    mapping_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> LocationMappingRead:
+    """
+    Get a single location mapping by ID
+    """
+    try:
+        mapping = await mappings_service.get_mapping_by_id(session, mapping_id)
+        return LocationMappingRead.model_validate(mapping)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
