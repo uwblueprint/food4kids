@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location_mappings import LocationMapping, LocationMappingPreview
-from app.utilities.df_utils import get_dataframe
+from app.utilities.import_utils import get_df
 
 
 class MappingsService:
@@ -67,7 +67,7 @@ class MappingsService:
     async def preview_mapping(self, file: UploadFile) -> LocationMappingPreview:
         """Preview a location mapping from an uploaded file"""
         try:
-            df = await get_dataframe(file)
+            df = await get_df(file)
 
             headers = df.columns.tolist()
             return LocationMappingPreview(preview_headers=headers)
