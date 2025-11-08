@@ -49,8 +49,8 @@ class DriverHistoryRead(DriverHistoryBase):
 
 
 class DriverHistoryUpdate(SQLModel):
-    """Update request model - all optional"""
+    """Update request model, all fields are required for now since we are only updating km"""
 
-    driver_id: UUID | None = None
-    year: int | None = None
-    km: float | None = None
+    driver_id: UUID 
+    year: int
+    km: float
