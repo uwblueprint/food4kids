@@ -1,6 +1,7 @@
 from enum import Enum
 from uuid import UUID, uuid4
 
+from pydantic import field_validator
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
@@ -24,6 +25,21 @@ class LocationMappingBase(SQLModel):
     mapping_name: str = Field(default=DEFAULT_MAPPING_NAME)
     mapping: dict[str, str] = Field(
         default_factory=dict, sa_column=Column(JSON))
+
+    @field_validator("mapping")
+    @classmethod
+    def validate_mapping_keys(cls, v: dict[str, str]) -> dict[str, str]:
+        """Ensure mapping only contains valid location field keys"""
+        valid_keys = {field.value for field in RequiredLocationField}
+        invalid_keys = set(v.keys()) - valid_keys
+
+        if invalid_keys:
+            raise ValueError(
+                f"Invalid mapping keys: {invalid_keys}. "
+                f"Valid keys are: {valid_keys}"
+            )
+
+        return v
 
 
 class LocationMappingRead(LocationMappingBase):
