@@ -1,10 +1,11 @@
 import logging
 
-import pandas as pd
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.location_mappings import LocationMapping
+from app.models.location_mappings import LocationMapping, LocationMappingPreview
+from app.utilities.df_utils import get_dataframe
 
 
 class MappingsService:
@@ -49,4 +50,15 @@ class MappingsService:
         except Exception as e:
             self.logger.error(f"Failed to create mapping: {e!s}")
             await session.rollback()
+            raise e
+
+    async def preview_mapping(self, file: UploadFile) -> LocationMappingPreview:
+        """Preview a location mapping from an uploaded file"""
+        try:
+            df = await get_dataframe(file)
+
+            headers = df.columns.tolist()
+            return LocationMappingPreview(preview_headers=headers)
+        except Exception as e:
+            self.logger.error(f"Failed to preview mapping: {e!s}")
             raise e

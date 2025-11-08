@@ -1,12 +1,13 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.location_mappings import (
     LocationMappingCreate,
+    LocationMappingPreview,
     LocationMappingRead,
 )
 from app.services.implementations.mappings_service import MappingsService
@@ -47,6 +48,25 @@ async def create_location_mapping(
     try:
         created_mapping = await mappings_service.create_mapping(session, mapping)
         return LocationMappingRead.model_validate(created_mapping)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post("/preview", response_model=LocationMappingPreview, status_code=status.HTTP_200_OK)
+async def preview_location_mapping(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> LocationMappingPreview:
+    """
+    Preview a location mapping from an uploaded file
+    """
+    try:
+        preview = await mappings_service.preview_mapping(file)
+        return LocationMappingPreview.model_validate(preview)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

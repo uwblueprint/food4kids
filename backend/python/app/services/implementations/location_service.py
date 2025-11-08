@@ -1,8 +1,6 @@
-import io
 import logging
 from uuid import UUID
 
-import pandas as pd
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -15,6 +13,7 @@ from app.models.location import (
     LocationRead,
     LocationUpdate,
 )
+from app.utilities.df_utils import get_dataframe
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import get_phone_number
 
@@ -87,15 +86,7 @@ class LocationService:
     ) -> LocationImportResponse:
         """Add locations from Apricot data source (CSV or XLSX)"""
         try:
-            file_data = await file.read()
-
-            # read file into pandas df
-            df = pd.DataFrame()
-            filename = str(file.filename)
-            if filename.endswith(".csv"):
-                df = pd.read_csv(io.BytesIO(file_data))
-            elif filename.endswith((".xlsx", ".xls")):
-                df = pd.read_excel(io.BytesIO(file_data))
+            df = await get_dataframe(file)
 
             # parse df for locations
             successful_locations: list[LocationRead] = []
