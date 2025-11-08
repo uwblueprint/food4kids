@@ -13,7 +13,7 @@ from app.models.location import (
     LocationUpdate,
 )
 from app.services.implementations.location_service import LocationService
-from app.utilities.constants import CSV_FILE_TYPES, XLSX_FILE_TYPES
+from app.utilities.df_utils import CSV_FILE_TYPES, XLSX_FILE_TYPES
 from app.utilities.google_maps_client import GoogleMapsClient
 
 # Initialize service
