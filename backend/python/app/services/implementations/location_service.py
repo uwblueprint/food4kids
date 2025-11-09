@@ -66,6 +66,7 @@ class LocationService:
                 school_name=location_data.school_name,
                 contact_name=location_data.contact_name,
                 address=location_data.address,
+                place_id=location_data.place_id,
                 phone_number=location_data.phone_number,
                 longitude=location_data.longitude,
                 latitude=location_data.latitude,
@@ -130,6 +131,8 @@ class LocationService:
                         else:
                             location_data[field] = source_value
 
+                    # TODO: create relationship between delivery group and location
+
                     # handle address geocoding
                     address = location_data.get(RequiredLocationField.ADDRESS)
                     geocode_result = await self.maps_service.geocode_address(address)
@@ -141,6 +144,7 @@ class LocationService:
                     location_data[RequiredLocationField.ADDRESS] = geocode_result.formatted_address
                     location_data["longitude"] = geocode_result.longitude
                     location_data["latitude"] = geocode_result.latitude
+                    location_data["place_id"] = geocode_result.place_id
                     delivery_group = location_data.get(
                         RequiredLocationField.DELIVERY_GROUP)
 

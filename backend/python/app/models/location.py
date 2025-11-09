@@ -32,6 +32,7 @@ class LocationBase(SQLModel):
     state: str = Field(default=LocationState.ACTIVE.value, max_length=20)
     school_name: str | None = None
     contact_name: str
+    place_id: str
     address: str
     phone_number: str
     longitude: float | None = None

@@ -10,6 +10,7 @@ GEOCODING_API_KEY: str = os.getenv("GEOCODING_API_KEY")
 @dataclass
 class GeocodeResult:
     formatted_address: str
+    place_id: str
     latitude: float
     longitude: float
 
@@ -32,7 +33,9 @@ class GoogleMapsClient:
                 location = geocode_result[0]["geometry"]["location"]
                 return GeocodeResult(
                     formatted_address=geocode_result[0]["formatted_address"],
-                    latitude=location["lat"], longitude=location["lng"]
+                    place_id=geocode_result[0]["place_id"],
+                    latitude=location["lat"],
+                    longitude=location["lng"]
                 )
             return None
         except Exception as e:
