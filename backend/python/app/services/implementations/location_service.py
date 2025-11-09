@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+import pandas as pd
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -110,10 +111,11 @@ class LocationService:
                     location_data = {}
                     for field in mapping:
                         source_field = mapping[field]
-                        source_value: str = row.get(source_field)
+                        source_value = "" if pd.isna(
+                            row.get(source_field)) else str(row.get(source_field))
 
                         if field == RequiredLocationField.DIETARY_RESTRICTIONS:
-                            location_data[field] = "test"
+                            location_data[field] = source_value
                             continue
 
                         if not source_value:
@@ -122,7 +124,7 @@ class LocationService:
                             )
                         elif field == RequiredLocationField.PHONE_NUMBER:
                             location_data[field] = get_phone_number(
-                                str(source_value))
+                                source_value)
                         elif field == RequiredLocationField.HALAL:
                             location_data[field] = source_value == "Yes"
                         else:
@@ -151,7 +153,6 @@ class LocationService:
                         row=index + 1,
                         delivery_group=delivery_group
                     )
-
                     successful_locations.append(location_entry)
                 except TypeError as te:
                     location_entry = LocationEntry(
@@ -164,7 +165,7 @@ class LocationService:
                     failed_locations.append(location_entry)
                 except ValueError as ve:
                     location_entry = LocationEntry(
-                        location=created_location,
+                        location=None,
                         status=LocationEntryStatus.UNKNOWN_ERROR,
                         row=index + 1,
                         delivery_group=delivery_group,
@@ -179,7 +180,8 @@ class LocationService:
                 entries=all_locations
             )
 
-        except Exception:
+        except Exception as e:
+            self.logger.error(f"Failed to import locations: {e!s}")
             raise
 
     async def update_location_by_id(
