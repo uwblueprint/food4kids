@@ -12,6 +12,7 @@ from app.models.location import (
     LocationEntriesResponse,
     LocationEntry,
     LocationEntryStatus,
+    LocationState,
     LocationUpdate,
 )
 from app.models.location_mappings import RequiredLocationField
@@ -86,6 +87,18 @@ class LocationService:
             await session.rollback()
             raise e
 
+    async def find_duplicate_location(self, session: AsyncSession, place_id: str) -> Location | None:
+        """Find duplicate location by place ID"""
+        try:
+            statement = select(Location).where(
+                Location.place_id == place_id)
+            result = await session.execute(statement)
+            location = result.scalars().first()
+            return location
+        except Exception as e:
+            self.logger.error(f"Failed to find duplicate location: {e!s}")
+            raise e
+
     async def import_locations(
         self, session: AsyncSession, file: UploadFile
     ) -> LocationEntriesResponse:
@@ -140,6 +153,22 @@ class LocationService:
                     if not geocode_result:
                         raise ValueError(
                             f"Geocoding failed for address: {address}")
+
+                    # check if location already exists
+                    duplicate_location = await self.find_duplicate_location(
+                        session, geocode_result.place_id)
+                    if duplicate_location:
+                        # TODO: need to check for other field changes?
+                        location_entry = LocationEntry(
+                            location=duplicate_location,
+                            status=LocationEntryStatus.DUPLICATE,
+                            row=index + 1,
+                            delivery_group=location_data.get(
+                                RequiredLocationField.DELIVERY_GROUP)
+                        )
+                        failed_locations.append(location_entry)
+                        all_locations.append(location_entry)
+                        continue
 
                     location_data[RequiredLocationField.ADDRESS] = geocode_result.formatted_address
                     location_data["longitude"] = geocode_result.longitude
@@ -196,10 +225,34 @@ class LocationService:
     ) -> Location:
         """Update location by ID"""
         try:
-            # Get the existing location by ID
             location = await self.get_location_by_id(session, location_id)
 
-            # Update existing location with new data
+            # check for address change to create new location entry instead
+            if updated_location_data.address:
+                geocode_result = await self.maps_service.geocode_address(
+                    updated_location_data.address)
+
+                override_location_data = {
+                    "address": geocode_result.formatted_address,
+                    "longitude": geocode_result.longitude,
+                    "latitude": geocode_result.latitude,
+                    "place_id": geocode_result.place_id
+                }
+
+                # Create new location with updated geocoding, exclude database-only fields
+                new_location = LocationCreate(
+                    **location.model_dump(exclude=set(override_location_data.keys())),
+                    **override_location_data
+                )
+                created_location = await self.create_location(session, new_location)
+
+                # set old location to inactive
+                location.state = LocationState.ARCHIVED
+                await session.commit()
+                await session.refresh(location)
+                return created_location
+
+            # update existing location with new non-address data
             updated_data = updated_location_data.model_dump(exclude_unset=True)
             for field, value in updated_data.items():
                 setattr(location, field, value)
