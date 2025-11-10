@@ -2,6 +2,12 @@ from __future__ import annotations
 
 import requests
 import json
+import asyncio
+from sqlmodel import select
+import os
+
+from sqlalchemy.orm import Session
+import app.models as db
 
 from typing import TYPE_CHECKING
 
@@ -12,13 +18,15 @@ from app.services.protocols.routing_algorithm import (
     RoutingAlgorithmProtocol,
 )
 
+from app.models.location import Location
+
 if TYPE_CHECKING:
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
 
 
-API_KEY = "YOUR_GOOGLE_MAPS_API_KEY"  # <-- REQUIRED: Replace with your API Key
-PROJECT_ID = "your-gcp-project-id"  # <-- REQUIRED: Replace with your GCP Project ID
+API_KEY = os.getenv("ROUTE_OPTIMIZATION_KEY")  # <-- REQUIRED: Replace with your API Key
+PROJECT_ID = os.getenv("PROJECT_ID")  # <-- REQUIRED: Replace with your GCP Project ID
 
 ENDPOINT = f"https://routeoptimization.googleapis.com/v1/projects/{PROJECT_ID}/optimizeTours"
 
@@ -85,7 +93,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         headers = {
             "Content-Type": "application/json",
-            "X-Goog-Api-Key": self.API_KEY # Use the key defined in the class
+            "X-Goog-Api-Key": API_KEY # Use the key defined in the class
         }
 
         payload = {
@@ -123,3 +131,25 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         except requests.exceptions.RequestException as err:
             print(f"An unknown error occurred: {err}")
             raise
+
+
+test = GoogleMapsFleetRoutingAlgorithm()
+
+async def print_all_locations():
+    # Initialize database
+    db.init_app()
+
+
+    async with db.async_session_maker_instance() as session:
+        # Use SQLAlchemy select()
+        result = await session.execute(select(Location))
+        locations = result.scalars().all()
+
+        for loc in locations:
+            print(f"ID: {loc.id}, Name: {loc.name}, Lat: {loc.latitude}, Lng: {loc.longitude}")
+
+    return locations
+
+
+if __name__ == "__main__":
+    asyncio.run(print_all_locations())
