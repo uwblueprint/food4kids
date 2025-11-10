@@ -15,6 +15,7 @@ class RouteService:
     While currently only the delete operation is implemented, this class is intended to be extended
     with additional route-related operations in the future.
     """
+
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 

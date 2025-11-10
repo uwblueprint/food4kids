@@ -36,7 +36,7 @@ async def delete_route(
         None. Responds with HTTP 204 No Content on successful deletion.
 
     Raises:
-        HTTPException: 
+        HTTPException:
             - 404 Not Found: If the route with the specified ID does not exist.
     """
     success = await route_service.delete_route(session, route_id)
