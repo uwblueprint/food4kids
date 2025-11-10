@@ -9,6 +9,7 @@ from . import (
     location_group_routes,
     location_routes,
     route_group_routes,
+    route_routes,
     simple_entity_routes,
 )
 
@@ -22,5 +23,6 @@ def init_app(app: FastAPI) -> None:
     app.include_router(simple_entity_routes.router)
     app.include_router(location_group_routes.router)
     app.include_router(route_group_routes.router)
+    app.include_router(route_routes.router)
     app.include_router(location_routes.router)
     app.include_router(job_routes.router)
