@@ -34,6 +34,6 @@ class RouteService:
 
             return True
         except Exception as error:
-            self.logger.error(f"Failed to delete route: {error!s}")
+            self.logger.error(f"Failed to delete route {route_id}: {error!s}")
             await session.rollback()
             raise error
