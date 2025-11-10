@@ -8,8 +8,13 @@ from app.models.route import Route
 
 
 class RouteService:
-    """Route service for delete operation"""
+    """
+    Service class for handling route-related operations.
 
+    This class provides methods to manage Route entities, such as deleting routes by their ID.
+    While currently only the delete operation is implemented, this class is intended to be extended
+    with additional route-related operations in the future.
+    """
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
