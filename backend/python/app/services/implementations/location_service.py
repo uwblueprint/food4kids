@@ -128,10 +128,12 @@ class LocationService:
                         source_value = "" if pd.isna(
                             row.get(source_field)) else str(row.get(source_field))
 
+                        # edge case - dietary restrictions can be empty
                         if field == RequiredLocationField.DIETARY_RESTRICTIONS:
                             location_data[field] = source_value
                             continue
 
+                        # remaining fields are required
                         if not source_value:
                             raise TypeError(
                                 f"Missing required field: {source_field} in row {index + 1}"
@@ -161,7 +163,7 @@ class LocationService:
                         # TODO: need to check for other field changes?
                         location_entry = LocationEntry(
                             location=duplicate_location,
-                            status=LocationEntryStatus.DUPLICATE,
+                            status=LocationEntryStatus.DUPLICATE_ENTRY,
                             row=index + 1,
                             delivery_group=location_data.get(
                                 RequiredLocationField.DELIVERY_GROUP)
