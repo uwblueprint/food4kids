@@ -22,7 +22,22 @@ async def delete_route(
     _: bool = Depends(require_driver),
 ) -> None:
     """
-    Delete a route
+    Delete a route by its unique identifier.
+
+    Parameters:
+        route_id (UUID): The unique identifier of the route to delete.
+        session (AsyncSession): The database session dependency.
+        _ (bool): Indicates that the user is authenticated as a driver (injected by dependency).
+
+    Authentication:
+        Requires the user to be authenticated as a driver.
+
+    Returns:
+        None. Responds with HTTP 204 No Content on successful deletion.
+
+    Raises:
+        HTTPException: 
+            - 404 Not Found: If the route with the specified ID does not exist.
     """
     success = await route_service.delete_route(session, route_id)
     if not success:
