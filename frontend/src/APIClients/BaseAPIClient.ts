@@ -7,7 +7,7 @@ import { DecodedJWT } from "../types/AuthTypes";
 import { setLocalStorageObjProperty } from "../utils/LocalStorageUtils";
 
 const baseAPIClient = axios.create({
-  baseURL: process.env.REACT_APP_BACKEND_URL,
+  baseURL: import.meta.env.VITE_BACKEND_URL,
 });
 
 // Python API uses snake_case, frontend uses camelCase
@@ -43,7 +43,7 @@ baseAPIClient.interceptors.request.use(
           decodedToken.exp <= Math.round(new Date().getTime() / 1000))
       ) {
         const { data } = await axios.post(
-          `${process.env.REACT_APP_BACKEND_URL}/auth/refresh`,
+          `${import.meta.env.VITE_BACKEND_URL}/auth/refresh`,
           {},
           { withCredentials: true },
         );

@@ -49,6 +49,9 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         # Import models to register them with SQLModel
         # Import in dependency order to avoid relationship resolution issues
         from app.models.driver import Driver  # noqa: F401
+
+        # Import driver assignment model
+        from app.models.driver_assignment import DriverAssignment  # noqa: F401
         from app.models.location import Location  # noqa: F401
         from app.models.location_group import LocationGroup  # noqa: F401
         from app.models.route import Route  # noqa: F401
@@ -197,7 +200,7 @@ def sample_driver_data() -> dict[str, Any]:
     return {
         "name": "John Doe",
         "email": "john.doe@example.com",
-        "phone": "(555) 123-4567",
+        "phone": "+12125551234",  # Valid international format
         "address": "123 Main St, City, State 12345",
         "license_plate": "ABC123",
         "car_make_model": "Toyota Camry",
@@ -219,7 +222,6 @@ def sample_location_group_data() -> dict[str, Any]:
 def sample_location_data() -> dict[str, Any]:
     """Sample location data for testing."""
     return {
-        "is_school": True,
         "school_name": "Central Elementary",
         "contact_name": "Jane Smith",
         "address": "123 Main St, City, State 12345",
@@ -232,3 +234,41 @@ def sample_location_data() -> dict[str, Any]:
         "num_boxes": 25,
         "notes": "Main entrance on Main St",
     }
+
+
+@pytest.fixture
+def sample_route_data() -> dict[str, Any]:
+    """Sample route data for testing."""
+    return {
+        "name": "Downtown Route",
+        "notes": "Main downtown delivery route",
+        "length": 15.5,
+    }
+
+
+@pytest_asyncio.fixture
+async def test_driver(
+    test_session: AsyncSession, sample_driver_data: dict[str, Any]
+) -> Any:
+    """Create a test driver in the database."""
+    from app.models.driver import Driver
+
+    driver = Driver(**sample_driver_data)
+    test_session.add(driver)
+    await test_session.commit()
+    await test_session.refresh(driver)
+    return driver
+
+
+@pytest_asyncio.fixture
+async def test_route(
+    test_session: AsyncSession, sample_route_data: dict[str, Any]
+) -> Any:
+    """Create a test route in the database."""
+    from app.models.route import Route
+
+    route = Route(**sample_route_data)
+    test_session.add(route)
+    await test_session.commit()
+    await test_session.refresh(route)
+    return route
