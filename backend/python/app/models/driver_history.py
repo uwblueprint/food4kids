@@ -17,16 +17,8 @@ class DriverHistoryBase(SQLModel):
     """Shared fields between table and API models"""
 
     driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
-    year: int = Field(nullable=False)
+    year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR )
     km: float = Field(nullable=False)
-
-    @field_validator("year")
-    @classmethod
-    def validate_year(cls, v: int) -> int:
-        if not (MIN_YEAR <= v <= MAX_YEAR):
-            raise ValueError("Year must be between 2025 and 2100")
-        return v
-
 
 class DriverHistory(DriverHistoryBase, BaseModel, table=True):
     """Database table model"""
@@ -38,8 +30,9 @@ class DriverHistory(DriverHistoryBase, BaseModel, table=True):
 
 class DriverHistoryCreate(DriverHistoryBase):
     """Create request model"""
-
-    pass
+    driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
+    year: int = Field(nullable=False)
+    km: float = Field(nullable=False, default=0)
 
 
 class DriverHistoryRead(DriverHistoryBase):
@@ -50,7 +43,4 @@ class DriverHistoryRead(DriverHistoryBase):
 
 class DriverHistoryUpdate(SQLModel):
     """Update request model, all fields are required for now since we are only updating km"""
-
-    driver_id: UUID 
-    year: int
     km: float

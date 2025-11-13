@@ -28,43 +28,33 @@ class DriverHistoryService:
             raise e
 
     async def get_driver_history_by_id(
-        self, session: AsyncSession, driver_history_id: UUID
+        self, session: AsyncSession, driver_id: int
     ) -> DriverHistory:
         """Get a driver history by ID"""
         try:
             statement = select(DriverHistory).where(
-                DriverHistory.driver_history_id == driver_history_id
+                DriverHistory.driver_id == driver_id
             )
             result = await session.execute(statement)
             driver_history = result.scalars().all()
 
-            if not driver_history:
-                self.logger.error(
-                    f"Driver history with id {driver_history_id} not found"
-                )
-                return None
             return driver_history
         except Exception as e:
             self.logger.error(f"Failed to get driver history by id: {e!s}")
             raise e
 
     async def get_driver_history_by_id_and_year(
-        self, session: AsyncSession, driver_history_id: UUID, year: int
+        self, session: AsyncSession, driver_id: UUID, year: int
     ) -> DriverHistory:
         """Get a driver history by ID and year"""
         try:
             statement = select(DriverHistory).where(
-                DriverHistory.driver_history_id == driver_history_id,
+                DriverHistory.driver_id == driver_id,
                 DriverHistory.year == year,
             )
             result = await session.execute(statement)
             driver_history = result.scalars().first()
 
-            if not driver_history:
-                self.logger.error(
-                    f"Driver history with id {driver_history_id} and year {year} not found"
-                )
-                return None
             return driver_history
         except Exception as e:
             self.logger.error(f"Failed to get driver history by id and year: {e!s}")
@@ -74,22 +64,11 @@ class DriverHistoryService:
         self,
         session: AsyncSession,
         driver_id: UUID,
-        year: int = datetime.now().year(),
+        year: int = datetime.now().year,
         km: float = 0,
     ) -> DriverHistory:
         """Create a new driver history"""
         try:
-            # verify that there is no existing history for the driver and year
-            existing_history = await self.get_driver_history_by_id_and_year(
-                session, driver_id, year
-            )
-
-            if existing_history:
-                self.logger.error(
-                    f"Driver history with id {driver_id} and year {year} already exists, cannot create new history"
-                )
-                return None
-
             driver_history = DriverHistory(
                 driver_id=driver_id,
                 year=year,
@@ -108,24 +87,18 @@ class DriverHistoryService:
     async def update_driver_history_by_id_and_year(
         self,
         session: AsyncSession,
-        driver_history_id: UUID,
+        driver_id: UUID,
         year: int,
         km: float,
     ) -> DriverHistory:
         """Update a driver history by ID and year"""
         try:
-            # verify that there is an existing history for the driver and year
             existing_history = await self.get_driver_history_by_id_and_year(
-                session, driver_history_id, year
+                session, driver_id, year
             )
 
-            if not existing_history:
-                self.logger.error(
-                    f"Driver history with id {driver_history_id} and year {year} not found"
-                )
-                return None
-
             existing_history.km = km
+            existing_history.updated_at = datetime.now()
             await session.commit()
             await session.refresh(existing_history)
             return existing_history
@@ -135,15 +108,15 @@ class DriverHistoryService:
             raise e
 
     async def delete_driver_history_by_id(
-        self, session: AsyncSession, driver_history_id: UUID
+        self, session: AsyncSession, driver_history_id: int
     ) -> None:
-        """Delete a driver history by ID. In case we no longer want to keep records of a driver."""
+        """Delete a driver history by driver history id and year. In case we no longer want to keep records of a driver."""
         try:
             statement = select(DriverHistory).where(
-                DriverHistory.driver_history_id == driver_history_id
+                DriverHistory.driver_history_id == driver_history_id,
             )
             result = await session.execute(statement)
-            driver_history = result.scalars().all()
+            driver_history = result.scalars().first()
 
             if not driver_history:
                 self.logger.error(
