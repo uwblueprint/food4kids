@@ -17,7 +17,7 @@ class DriverHistoryBase(SQLModel):
     """Shared fields between table and API models"""
 
     driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
-    year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR )
+    year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
     km: float = Field(nullable=False)
 
 class DriverHistory(DriverHistoryBase, BaseModel, table=True):
@@ -30,9 +30,7 @@ class DriverHistory(DriverHistoryBase, BaseModel, table=True):
 
 class DriverHistoryCreate(DriverHistoryBase):
     """Create request model"""
-    driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
-    year: int = Field(nullable=False)
-    km: float = Field(nullable=False, default=0)
+    pass
 
 
 class DriverHistoryRead(DriverHistoryBase):
