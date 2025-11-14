@@ -98,6 +98,8 @@ class DriverHistoryService:
             )
 
             existing_history.km = km
+            existing_history.updated_at = datetime.now()
+
             await session.commit()
             await session.refresh(existing_history)
             return existing_history
