@@ -8,20 +8,120 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
+from typing import cast
 
-import faker  # type: ignore
-from sklearn.cluster import KMeans  # type: ignore
-from sqlalchemy import create_engine, text  # type: ignore
-from sqlmodel import Session  # type: ignore
+import faker
+import phonenumbers
+from phonenumbers import PhoneNumberFormat
+from sklearn.cluster import KMeans  # type: ignore[import-untyped]
+from sqlalchemy import create_engine, not_, text
+from sqlmodel import Session, select
+
+# Import all models to register them with SQLModel
+from app.models.admin import Admin
+from app.models.base import BaseModel
+from app.models.driver import Driver
+from app.models.driver_assignment import DriverAssignment
+from app.models.driver_history import DriverHistory
+from app.models.enum import ProgressEnum
+from app.models.job import Job
+from app.models.location import Location
+from app.models.location_group import LocationGroup
+from app.models.route import Route
+from app.models.route_group import RouteGroup
+from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_stop import RouteStop
 
 # Initialize Faker
 fake = faker.Faker()
 
 # Configuration constants
+# Percentage of locations that will be unassigned to any location group
 UNASSIGNED_LOCATION_PERCENTAGE = 0.05
+# Average number of stops per route (used to calculate number of clusters)
 AVG_STOPS_PER_ROUTE = 7.5
+# Number of months in the past to generate route groups for
 MONTHS_PAST = 2
+# Number of months in the future to generate route groups for
 MONTHS_FUTURE = 1
+
+# Probability constants
+# Probability that a route will have notes
+PROBABILITY_ROUTE_NOTES = 0.1
+# Probability that a location will have dietary restrictions
+PROBABILITY_DIETARY_RESTRICTIONS = 0.3
+# Probability that a location will have a number of children specified
+PROBABILITY_NUM_CHILDREN = 0.8
+# Probability that a location will have notes
+PROBABILITY_LOCATION_NOTES = 0.4
+# Probability that a driver will have notes
+PROBABILITY_DRIVER_NOTES = 0.3
+# Probability to skip creating driver history for the current year
+PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
+
+# Assignment ratio constants
+# Ratio of past routes that should be assigned to drivers (1.0 = 100%)
+ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
+# Ratio of routes in the next week that should be assigned to drivers
+ASSIGNMENT_RATIO_NEXT_WEEK = 0.8
+# Ratio of future routes (beyond next week) that should be assigned to drivers
+ASSIGNMENT_RATIO_FUTURE_ROUTES = 0.4
+
+# Numeric range constants
+# Earth's radius in kilometers (used for haversine distance calculations)
+EARTH_RADIUS_KM = 6371
+# Random state seed for KMeans clustering (for reproducibility)
+KMEANS_RANDOM_STATE = 42
+# Number of times KMeans will run with different centroid seeds
+KMEANS_N_INIT = 10
+# Approximate number of days per month (used for date calculations)
+DAYS_PER_MONTH = 30
+# Minimum number of drivers to create regardless of route count
+MIN_DRIVERS = 5
+# Number of days considered as "next week" for assignment strategy
+NEXT_WEEK_DAYS = 7
+# Number of years back to generate driver history for
+HISTORY_YEARS_BACK = 2
+# Maximum number of past route groups to fetch when creating jobs
+PAST_ROUTE_GROUPS_LIMIT = 5
+# Minimum number of jobs to create
+MIN_JOBS = 3
+# Maximum number of jobs to create
+MAX_JOBS = 5
+
+# Range constants
+# Minimum number of children at a location
+NUM_CHILDREN_MIN = 1
+# Maximum number of children at a location
+NUM_CHILDREN_MAX = 4
+# Minimum number of boxes at a location
+NUM_BOXES_MIN = 1
+# Maximum number of boxes at a location
+NUM_BOXES_MAX = 5
+# Minimum kilometers driven in driver history (per year)
+DRIVER_HISTORY_KM_MIN = 500
+# Maximum kilometers driven in driver history (per year)
+DRIVER_HISTORY_KM_MAX = 3000
+# Minimum hour of day for job start time (24-hour format)
+JOB_START_HOUR_MIN = 8
+# Maximum hour of day for job start time (24-hour format)
+JOB_START_HOUR_MAX = 16
+# Minimum hours after start time for job update time
+JOB_UPDATE_HOUR_MIN = 1
+# Maximum hours after start time for job update time
+JOB_UPDATE_HOUR_MAX = 3
+# Minimum hours after update time for job finish time
+JOB_FINISH_HOUR_MIN = 1
+# Maximum hours after update time for job finish time
+JOB_FINISH_HOUR_MAX = 4
+# Minimum default capacity for admin info
+DEFAULT_CAP_MIN = 10
+# Maximum default capacity for admin info
+DEFAULT_CAP_MAX = 20
+
+# Time constants
+# Default route start time (HH:MM:SS format)
+ROUTE_START_TIME = "08:00:00"
 
 # Location group schedule (weekday mapping)
 LOCATION_GROUP_SCHEDULE = {
@@ -41,19 +141,38 @@ SMALL_CITIES = ["cambridge", "elmira", "new hamburg"]
 WAREHOUSE_LAT, WAREHOUSE_LON = 43.402343, -80.464610
 WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 
-
-def get_database_url() -> str:
-    """Get database URL for seeding (synchronous connection)"""
-    return "postgresql://postgres:postgres@f4k_db:5432/f4k"
+# Database connection
+DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
 
 
-def execute_insert(session, table: str, data: dict) -> None:
-    """Helper function to execute INSERT statements with common patterns"""
-    columns = ", ".join(data)
-    placeholders = ", ".join(f":{key}" for key in data)
-    session.execute(
-        text(f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"), data
-    )
+def set_timestamps(instance: BaseModel) -> None:
+    """Set updated_at to match created_at for seed data"""
+    if instance.created_at is not None and instance.updated_at is None:
+        instance.updated_at = instance.created_at
+
+
+def generate_valid_phone() -> str:
+    """Generate a valid phone number in E164 format"""
+    # Valid Canadian area codes (Ontario and Quebec)
+    valid_area_codes = [416, 647, 437, 514, 613, 905, 289, 519, 226, 705, 807, 343, 365]
+
+    # Keep trying until we get a valid number
+    max_attempts = 100
+    for _ in range(max_attempts):
+        area_code = random.choice(valid_area_codes)
+        exchange = random.randint(200, 999)  # Exchange code (3 digits)
+        number = random.randint(1000, 9999)  # Last 4 digits
+        phone_str = f"+1{area_code}{exchange:03d}{number:04d}"
+
+        try:
+            parsed = phonenumbers.parse(phone_str, None)
+            if phonenumbers.is_valid_number(parsed):
+                return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+        except Exception:
+            continue
+
+    # Fallback: return a known valid number if we can't generate one
+    return "+14165551234"
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -68,7 +187,7 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     dlon = lon2 - lon1
     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     c = 2 * asin(sqrt(a))
-    r = 6371  # Earth's radius in km
+    r = EARTH_RADIUS_KM
     return c * r
 
 
@@ -105,17 +224,27 @@ def simple_tsp(
     return route
 
 
-def create_clusters(group_locations: list, num_clusters: int) -> list[list]:
+def create_clusters(
+    group_locations: list[Location], num_clusters: int
+) -> list[list[Location]]:
     """Create clusters from group locations using k-means or simple grouping"""
     if len(group_locations) <= num_clusters:
         return [group_locations]
 
+    # Assert that all locations have coordinates
+    for loc in group_locations:
+        assert loc.latitude is not None and loc.longitude is not None, (
+            f"Location {loc.location_id} is missing coordinates"
+        )
+
     coords = [(loc.latitude, loc.longitude) for loc in group_locations]
     # TODO: Eventually write our own implementation or different algorithm to avoid using scikit-learn
-    kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init=10)
+    kmeans = KMeans(
+        n_clusters=num_clusters, random_state=KMEANS_RANDOM_STATE, n_init=KMEANS_N_INIT
+    )
     cluster_labels = kmeans.fit_predict(coords)
 
-    clusters: list[list] = [[] for _ in range(num_clusters)]
+    clusters: list[list[Location]] = [[] for _ in range(num_clusters)]
     for i, location in enumerate(group_locations):
         clusters[cluster_labels[i]].append(location)
 
@@ -124,7 +253,7 @@ def create_clusters(group_locations: list, num_clusters: int) -> list[list]:
 
 def calculate_route_length(
     route_order: list[str],
-    cluster_locations: list,
+    cluster_locations: list[Location],
     warehouse_lat: float,
     warehouse_lon: float,
 ) -> float:
@@ -136,6 +265,8 @@ def calculate_route_length(
         location = next(
             loc for loc in cluster_locations if str(loc.location_id) == location_id
         )
+        if location.latitude is None or location.longitude is None:
+            continue
         dist = haversine_distance(
             prev_lat, prev_lon, location.latitude, location.longitude
         )
@@ -146,42 +277,33 @@ def calculate_route_length(
 
 
 def create_route_and_stops(
-    session,
+    session: Session,
     route_id: str,
     route_order: list[str],
     cluster_idx: int,
     total_length: float,
 ) -> None:
     """Create route and its stops in the database"""
-    execute_insert(
-        session,
-        "routes",
-        {
-            "route_id": route_id,
-            "name": f"Route {cluster_idx + 1}",
-            "notes": fake.sentence() if random.random() < 0.1 else "",
-            "length": round(total_length, 2),
-            "created_at": "NOW()",
-            "updated_at": "NOW()",
-        },
+    route = Route(
+        route_id=uuid.UUID(route_id),
+        name=f"Route {cluster_idx + 1}",
+        notes=fake.sentence() if random.random() < PROBABILITY_ROUTE_NOTES else "",
+        length=round(total_length, 2),
     )
+    set_timestamps(route)
+    session.add(route)
 
     for stop_num, location_id in enumerate(route_order, 1):
-        execute_insert(
-            session,
-            "route_stops",
-            {
-                "route_stop_id": str(uuid.uuid4()),
-                "route_id": route_id,
-                "location_id": location_id,
-                "stop_number": stop_num,
-                "created_at": "NOW()",
-                "updated_at": "NOW()",
-            },
+        route_stop = RouteStop(
+            route_id=uuid.UUID(route_id),
+            location_id=uuid.UUID(location_id),
+            stop_number=stop_num,
         )
+        set_timestamps(route_stop)
+        session.add(route_stop)
 
 
-def create_routes_for_group(session, group_locations: list) -> int:
+def create_routes_for_group(session: Session, group_locations: list[Location]) -> int:
     """Create routes for a location group using clustering and TSP"""
     if len(group_locations) < 2:
         return 0
@@ -194,10 +316,20 @@ def create_routes_for_group(session, group_locations: list) -> int:
         if not cluster_locations:
             continue
 
-        tsp_locations = [
-            (loc.latitude, loc.longitude, str(loc.location_id))
-            for loc in cluster_locations
-        ]
+        # All locations in seed script should have coordinates
+        for loc in cluster_locations:
+            assert loc.latitude is not None and loc.longitude is not None, (
+                f"Location {loc.location_id} is missing coordinates"
+            )
+
+        # Type narrowing: after assert, we know coordinates are not None
+        tsp_locations = cast(
+            "list[tuple[float, float, str]]",
+            [
+                (loc.latitude, loc.longitude, str(loc.location_id))
+                for loc in cluster_locations
+            ],
+        )
         route_order = simple_tsp(WAREHOUSE_LAT, WAREHOUSE_LON, tsp_locations)
         total_length = calculate_route_length(
             route_order, cluster_locations, WAREHOUSE_LAT, WAREHOUSE_LON
@@ -212,13 +344,12 @@ def create_routes_for_group(session, group_locations: list) -> int:
     return routes_created
 
 
-def main():
+def main() -> None:
     """Main seeding function"""
     print("Starting final database seeding...")
 
     # Create database connection
-    database_url = get_database_url()
-    engine = create_engine(database_url, echo=False)
+    engine = create_engine(DATABASE_URL, echo=False)
 
     with Session(engine) as session:
         try:
@@ -252,17 +383,14 @@ def main():
             group_names = list(LOCATION_GROUP_SCHEDULE.keys())
             group_ids = {}
             for name in group_names:
-                group_id = str(uuid.uuid4())
-                data = {
-                    "location_group_id": group_id,
-                    "name": name,
-                    "color": fake.hex_color(),
-                    "notes": "",
-                    "created_at": "NOW()",
-                    "updated_at": "NOW()",
-                }
-                execute_insert(session, "location_groups", data)
-                group_ids[name] = group_id
+                location_group = LocationGroup(
+                    name=name,
+                    color=fake.hex_color(),
+                    notes="",
+                )
+                set_timestamps(location_group)
+                session.add(location_group)
+                group_ids[name] = str(location_group.location_group_id)
 
             session.commit()
             print(f"Created {len(group_names)} location groups")
@@ -271,6 +399,10 @@ def main():
             print("Creating locations from CSV...")
             csv_path = "app/data/locations.csv"
             locations_created = 0
+
+            non_school_groups = [
+                gid for name, gid in group_ids.items() if name != "Schools"
+            ]
 
             if os.path.exists(csv_path):
                 with open(csv_path) as file:
@@ -283,6 +415,7 @@ def main():
                         )
 
                         # Determine location group
+                        group_id: str | None
                         if random.random() < UNASSIGNED_LOCATION_PERCENTAGE:
                             group_id = None
                         else:
@@ -293,11 +426,6 @@ def main():
 
                             if is_small_city:
                                 # Random assignment from non-school groups for small cities
-                                non_school_groups = [
-                                    gid
-                                    for name, gid in group_ids.items()
-                                    if name != "Schools"
-                                ]
                                 group_id = random.choice(non_school_groups)
                             else:
                                 # Random assignment for other locations
@@ -305,31 +433,32 @@ def main():
 
                         # Generate fake data for location insertion
                         is_school = random.choice([True, False])
-                        data = {
-                            "location_id": str(uuid.uuid4()),
-                            "location_group_id": group_id,
-                            "is_school": is_school,
-                            "school_name": fake.company() + " School"
+                        location = Location(
+                            location_group_id=uuid.UUID(group_id) if group_id else None,
+                            school_name=fake.company() + " School"
                             if is_school
                             else None,
-                            "contact_name": fake.name(),
-                            "address": address,
-                            "phone_number": fake.numerify("+1212#######"),
-                            "longitude": lon,
-                            "latitude": lat,
-                            "halal": random.choice([True, False]),
-                            "dietary_restrictions": fake.sentence()
-                            if random.random() < 0.3
+                            contact_name=fake.name(),
+                            address=address,
+                            phone_number=generate_valid_phone(),
+                            longitude=lon,
+                            latitude=lat,
+                            halal=random.choice([True, False]),
+                            dietary_restrictions=fake.sentence()
+                            if random.random() < PROBABILITY_DIETARY_RESTRICTIONS
+                            else "",
+                            num_children=random.randint(
+                                NUM_CHILDREN_MIN, NUM_CHILDREN_MAX
+                            )
+                            if random.random() < PROBABILITY_NUM_CHILDREN
                             else None,
-                            "num_children": random.randint(1, 4)
-                            if random.random() < 0.8
-                            else None,
-                            "num_boxes": random.randint(1, 5),
-                            "notes": fake.sentence() if random.random() < 0.4 else "",
-                            "created_at": "NOW()",
-                            "updated_at": "NOW()",
-                        }
-                        execute_insert(session, "locations", data)
+                            num_boxes=random.randint(NUM_BOXES_MIN, NUM_BOXES_MAX),
+                            notes=fake.sentence()
+                            if random.random() < PROBABILITY_LOCATION_NOTES
+                            else "",
+                        )
+                        set_timestamps(location)
+                        session.add(location)
                         locations_created += 1
             else:
                 raise FileNotFoundError(f"Locations CSV file not found at {csv_path}")
@@ -343,23 +472,22 @@ def main():
             print("Creating routes...")
             routes_created = 0
 
-            # Get all locations grouped by location group
-            location_groups = session.execute(
-                text("""
-                SELECT location_group_id, location_id, latitude, longitude 
-                FROM locations 
-                WHERE location_group_id IS NOT NULL
-                ORDER BY location_group_id
-            """)
-            ).fetchall()
+            # Get all locations with a location group assigned
+            locations_with_group = session.exec(
+                select(Location).where(
+                    not_(Location.location_group_id.is_(None))  # type: ignore[union-attr]
+                )
+            ).all()
 
             # Group locations by location group
-            locations_by_group: dict[str, list] = {}
-            for row in location_groups:
-                group_id = str(row.location_group_id)
+            locations_by_group: dict[str, list[Location]] = {}
+            for location in locations_with_group:
+                # Type narrowing: we filtered for non-None location_group_id in the query
+                assert location.location_group_id is not None
+                group_id = str(location.location_group_id)
                 if group_id not in locations_by_group:
                     locations_by_group[group_id] = []
-                locations_by_group[group_id].append(row)
+                locations_by_group[group_id].append(location)
 
             for _, group_locations in locations_by_group.items():
                 routes_created += create_routes_for_group(session, group_locations)
@@ -369,26 +497,26 @@ def main():
 
             # Create drivers
             print("Creating drivers...")
-            num_drivers = max(routes_created, 5)
+            num_drivers = max(routes_created, MIN_DRIVERS)
             drivers_created = 0
 
             for _ in range(num_drivers):
                 # Create a single driver with fake data
-                data = {
-                    "driver_id": str(uuid.uuid4()),
-                    "auth_id": f"seed_driver_{uuid.uuid4().hex[:8]}",
-                    "name": fake.name(),
-                    "email": fake.email(),
-                    "phone": fake.numerify("+1212#######"),
-                    "address": fake.address(),
-                    "license_plate": fake.license_plate(),
-                    "car_make_model": fake.word().title() + " " + fake.word().title(),
-                    "active": random.choice([True, False]),
-                    "notes": fake.sentence() if random.random() < 0.3 else "",
-                    "created_at": "NOW()",
-                    "updated_at": "NOW()",
-                }
-                execute_insert(session, "drivers", data)
+                driver = Driver(
+                    auth_id=f"seed_driver_{uuid.uuid4().hex[:8]}",
+                    name=fake.name(),
+                    email=fake.email(),
+                    phone=generate_valid_phone(),
+                    address=fake.address(),
+                    license_plate=fake.license_plate(),
+                    car_make_model=fake.word().title() + " " + fake.word().title(),
+                    active=random.choice([True, False]),
+                    notes=fake.sentence()
+                    if random.random() < PROBABILITY_DRIVER_NOTES
+                    else "",
+                )
+                set_timestamps(driver)
+                session.add(driver)
                 drivers_created += 1
 
             session.commit()
@@ -400,8 +528,8 @@ def main():
             today = datetime.now().date()
 
             # Generate dates for past and future months
-            start_date = today - timedelta(days=MONTHS_PAST * 30)
-            end_date = today + timedelta(days=MONTHS_FUTURE * 30)
+            start_date = today - timedelta(days=MONTHS_PAST * DAYS_PER_MONTH)
+            end_date = today + timedelta(days=MONTHS_FUTURE * DAYS_PER_MONTH)
 
             current_date = start_date
             while current_date <= end_date:
@@ -415,8 +543,8 @@ def main():
                 ]
 
                 for group_name in matching_groups:
-                    group_id = group_ids.get(group_name)
-                    if not group_id:
+                    loc_group_id_for_route: str | None = group_ids.get(group_name)
+                    if not loc_group_id_for_route:
                         continue
 
                     # Create route group for a specific date and location group
@@ -424,36 +552,28 @@ def main():
                         text(
                             "SELECT DISTINCT r.route_id FROM routes r JOIN route_stops rs ON r.route_id = rs.route_id JOIN locations l ON rs.location_id = l.location_id WHERE l.location_group_id = :group_id"
                         ),
-                        {"group_id": group_id},
+                        {"group_id": loc_group_id_for_route},
                     ).fetchall()
 
                     if not group_routes:
                         continue
 
-                    route_group_id = str(uuid.uuid4())
-                    execute_insert(
-                        session,
-                        "route_groups",
-                        {
-                            "route_group_id": route_group_id,
-                            "name": f"{group_name} - {current_date.strftime('%Y-%m-%d')}",
-                            "notes": f"Route group for {group_name} on {current_date}",
-                            "drive_date": datetime.combine(
-                                current_date, datetime.min.time()
-                            ),
-                        },
+                    route_group = RouteGroup(
+                        name=f"{group_name} - {current_date.strftime('%Y-%m-%d')}",
+                        notes=f"Route group for {group_name} on {current_date}",
+                        drive_date=datetime.combine(current_date, datetime.min.time()),
                     )
+                    set_timestamps(route_group)
+                    session.add(route_group)
+                    session.flush()  # Flush to get the route_group_id
 
                     for route in group_routes:
-                        execute_insert(
-                            session,
-                            "route_group_memberships",
-                            {
-                                "route_group_membership_id": str(uuid.uuid4()),
-                                "route_group_id": route_group_id,
-                                "route_id": route.route_id,
-                            },
+                        membership = RouteGroupMembership(
+                            route_group_id=route_group.route_group_id,
+                            route_id=route.route_id,
                         )
+                        set_timestamps(membership)
+                        session.add(membership)
                     route_groups_created += 1
 
                 current_date += timedelta(days=1)
@@ -464,11 +584,11 @@ def main():
             # Create driver assignments
             print("Creating driver assignments...")
             assignments_created = 0
-            active_drivers = session.execute(
+            active_drivers_result = session.execute(
                 text("SELECT driver_id FROM drivers WHERE active = TRUE")
             ).fetchall()
 
-            if not active_drivers:
+            if not active_drivers_result:
                 print("Warning: No active drivers found")
             else:
                 # Get all route groups with their routes
@@ -488,27 +608,24 @@ def main():
                     # Determine assignment strategy based on date
                     if drive_date_obj < today:
                         # Past routes: assign all
-                        assignment_ratio = 1.0
-                    elif drive_date_obj <= today + timedelta(days=7):
+                        assignment_ratio = ASSIGNMENT_RATIO_PAST_ROUTES
+                    elif drive_date_obj <= today + timedelta(days=NEXT_WEEK_DAYS):
                         # Next week: assign most
-                        assignment_ratio = 0.8
+                        assignment_ratio = ASSIGNMENT_RATIO_NEXT_WEEK
                     else:
                         # Future routes: partial assignment
-                        assignment_ratio = 0.4
+                        assignment_ratio = ASSIGNMENT_RATIO_FUTURE_ROUTES
 
                     if random.random() < assignment_ratio:
-                        driver = random.choice(active_drivers)
-                        execute_insert(
-                            session,
-                            "driver_assignments",
-                            {
-                                "driver_assignment_id": str(uuid.uuid4()),
-                                "driver_id": driver.driver_id,
-                                "route_id": route_id,
-                                "time": drive_date,
-                                "completed": drive_date_obj < today,
-                            },
+                        driver_row = random.choice(active_drivers_result)
+                        assignment = DriverAssignment(
+                            driver_id=driver_row[0],  # Access first column (driver_id)
+                            route_id=route_id,
+                            time=drive_date,
+                            completed=drive_date_obj < today,
                         )
+                        set_timestamps(assignment)
+                        session.add(assignment)
                         assignments_created += 1
 
             session.commit()
@@ -518,25 +635,37 @@ def main():
             print("Creating driver history...")
             history_entries = 0
             current_year = datetime.now().year
-            years = [current_year - 2, current_year - 1, current_year]
+            years = [current_year - HISTORY_YEARS_BACK, current_year - 1, current_year]
 
-            all_drivers = session.execute(
+            all_drivers_result = session.execute(
                 text("SELECT driver_id FROM drivers")
             ).fetchall()
-            for driver in all_drivers:
-                driver_years = random.sample(years, random.randint(1, len(years)))
+            for driver_row in all_drivers_result:
+                # Filter years to only include valid ones (2025-2100)
+                valid_years = [y for y in years if 2025 <= y <= 2100]
+                if not valid_years:
+                    valid_years = [current_year]  # At least use current year
+                driver_years = random.sample(
+                    valid_years, random.randint(1, len(valid_years))
+                )
                 for year in driver_years:
-                    if year == current_year and random.random() < 0.2:
+                    if (
+                        year == current_year
+                        and random.random() < PROBABILITY_SKIP_CURRENT_YEAR_HISTORY
+                    ):
                         continue
-                    execute_insert(
-                        session,
-                        "driver_history",
-                        {
-                            "driver_id": driver.driver_id,
-                            "year": year,
-                            "km": round(random.uniform(500, 3000), 2),
-                        },
+                    driver_history = DriverHistory(
+                        driver_id=driver_row[0],  # Access first column (driver_id)
+                        year=year,
+                        km=round(
+                            random.uniform(
+                                DRIVER_HISTORY_KM_MIN, DRIVER_HISTORY_KM_MAX
+                            ),
+                            2,
+                        ),
                     )
+                    set_timestamps(driver_history)
+                    session.add(driver_history)
                     history_entries += 1
 
             session.commit()
@@ -551,52 +680,57 @@ def main():
                     FROM route_groups 
                     WHERE drive_date < NOW()
                     ORDER BY drive_date DESC
-                    LIMIT 5
-                """)
+                    LIMIT :limit
+                """),
+                {"limit": PAST_ROUTE_GROUPS_LIMIT},
             ).fetchall()
 
             if past_route_groups:
-                num_jobs = random.randint(3, min(5, len(past_route_groups)))
+                num_jobs = random.randint(
+                    MIN_JOBS, min(MAX_JOBS, len(past_route_groups))
+                )
                 selected_groups = random.sample(past_route_groups, num_jobs)
 
                 for route_group_id, drive_date in selected_groups:
-                    started_at = drive_date + timedelta(hours=random.randint(8, 10))
-                    updated_at = started_at + timedelta(hours=random.randint(1, 3))
-                    finished_at = updated_at + timedelta(hours=random.randint(1, 4))
-
-                    execute_insert(
-                        session,
-                        "jobs",
-                        {
-                            "job_id": str(uuid.uuid4()),
-                            "route_group_id": route_group_id,
-                            "progress": "COMPLETED",
-                            "started_at": started_at,
-                            "updated_at": updated_at,
-                            "finished_at": finished_at,
-                        },
+                    started_at = drive_date + timedelta(
+                        hours=random.randint(JOB_START_HOUR_MIN, JOB_START_HOUR_MAX)
                     )
+                    updated_at = started_at + timedelta(
+                        hours=random.randint(JOB_UPDATE_HOUR_MIN, JOB_UPDATE_HOUR_MAX)
+                    )
+                    finished_at = updated_at + timedelta(
+                        hours=random.randint(JOB_FINISH_HOUR_MIN, JOB_FINISH_HOUR_MAX)
+                    )
+
+                    job = Job(
+                        route_group_id=route_group_id,
+                        progress=ProgressEnum.COMPLETED,
+                        started_at=started_at,
+                        updated_at=updated_at,
+                        finished_at=finished_at,
+                    )
+                    set_timestamps(job)
+                    session.add(job)
 
             session.commit()
             print(f"Created {len(past_route_groups) if past_route_groups else 0} jobs")
 
             # Create admin info
             print("Creating admin info...")
-            execute_insert(
-                session,
-                "admin_info",
-                {
-                    "admin_id": str(uuid.uuid4()),
-                    "admin_name": fake.name(),
-                    "default_cap": random.randint(20, 50),
-                    "admin_phone": fake.numerify("+1212#######"),
-                    "admin_email": fake.email(),
-                    "route_start_time": "08:00:00",
-                    "warehouse_location": WAREHOUSE_ADDRESS,
-                    "created_at": "NOW()",
-                    "updated_at": "NOW()",
-                },
+            # Parse route_start_time string to time object
+            route_start_time_obj = datetime.strptime(
+                ROUTE_START_TIME, "%H:%M:%S"
+            ).time()
+            admin = Admin(
+                admin_name=fake.name(),
+                default_cap=random.randint(DEFAULT_CAP_MIN, DEFAULT_CAP_MAX),
+                admin_phone=generate_valid_phone(),
+                admin_email=fake.email(),
+                route_start_time=route_start_time_obj,
+                warehouse_location=WAREHOUSE_ADDRESS,
             )
+            set_timestamps(admin)
+            session.add(admin)
 
             session.commit()
             print("Created admin info")
