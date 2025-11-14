@@ -28,7 +28,7 @@ class DriverHistoryService:
             raise e
 
     async def get_driver_history_by_id(
-        self, session: AsyncSession, driver_id: int
+        self, session: AsyncSession, driver_id: UUID
     ) -> DriverHistory:
         """Get a driver history by ID"""
         try:
@@ -98,7 +98,6 @@ class DriverHistoryService:
             )
 
             existing_history.km = km
-            existing_history.updated_at = datetime.now()
             await session.commit()
             await session.refresh(existing_history)
             return existing_history

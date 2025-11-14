@@ -90,23 +90,18 @@ async def create_driver_history(
 
     if not (MIN_YEAR <= year <= MAX_YEAR):
         raise HTTPException(
-            status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Year {year} is outside of the allowed range of {MIN_YEAR} to {MAX_YEAR}",
         )
 
     if validate_history:
         raise HTTPException(
-            status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+            status_code=status.HTTP_409_CONFLICT,
             detail=f"Driver history with id {driver_id} and year {year} already exists and cannot be created",
         )
     created_driver_history = await driver_history_service.create_driver_history(
         session, driver_id, year, create.km
     )
-    if not created_driver_history:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Driver history with id {driver_id} and year {year} cannot be created",
-        )
     return DriverHistoryRead.model_validate(created_driver_history)
 
 
@@ -126,7 +121,7 @@ async def update_driver_history(
         )
         if not existing_driver_history:
             raise HTTPException(
-                status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Driver history with id {driver_id} and year {year} not found, cannot update history not found",
             )
 
@@ -136,7 +131,7 @@ async def update_driver_history(
             )
         )
         logger.info(
-            f"Updated driver history with id {driver_id} and year {year} to type(updated_driver_history): {type(updated_driver_history)}"
+            f"Updated driver history for driver_id={driver_id}, year={year}, new_km={update.km}"
         )
         return DriverHistoryRead.model_validate(updated_driver_history)
     except HTTPException:
