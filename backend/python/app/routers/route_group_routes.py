@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
 
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
@@ -137,3 +138,16 @@ async def delete_route_group(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
+
+
+@router.get("/upcoming-unassigned", response_model=List[RouteGroupRead])
+async def get_upcoming_unassigned_routes(
+    from_date: datetime = Query(..., description="Get routes from this date onwards"),
+    session: AsyncSession = Depends(get_session),
+    route_group_service: RouteGroupService = Depends(get_route_group_service),
+) -> List[RouteGroupRead]:
+    """
+    Get route groups with routes that have no driver assignments for upcoming dates
+    """
+    route_groups = await route_group_service.get_upcoming_unassigned_routes(session, from_date)
+    return [RouteGroupRead.model_validate(rg) for rg in route_groups]

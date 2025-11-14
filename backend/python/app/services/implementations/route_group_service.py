@@ -2,10 +2,13 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.driver_assignment import DriverAssignment
 from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
+from app.models.route_group_membership import RouteGroupMembership
 
 
 class RouteGroupService:
@@ -97,3 +100,37 @@ class RouteGroupService:
         await session.commit()
 
         return True
+
+    async def get_upcoming_unassigned_routes(self, session: AsyncSession, from_date: datetime) -> list[RouteGroup]:
+        """Get route groups with routes that have no driver assignments for upcoming dates"""
+        # Convert timezone-aware datetime to naive datetime for comparison
+        if from_date.tzinfo is not None:
+            from_date = from_date.replace(tzinfo=None)
+
+        # Find route groups where NO driver is assigned on the drive date
+        # We check for the existence of a driver assignment with that route on the same day
+        statement = (
+            select(RouteGroup)
+            .where(RouteGroup.drive_date >= from_date)
+            .where(
+                ~exists(
+                    select(1)
+                    .select_from(DriverAssignment)
+                    .join(RouteGroupMembership, DriverAssignment.route_id == RouteGroupMembership.route_id)
+                    .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
+                    .where(
+                        func.date(DriverAssignment.time) == func.date(RouteGroup.drive_date)
+                    )
+                )
+            )
+            .order_by(RouteGroup.drive_date)
+        )
+
+        result = await session.execute(statement)
+        route_groups = result.scalars().all()
+
+        # Load route group memberships to avoid lazy loading issues
+        for route_group in route_groups:
+            await session.refresh(route_group, ["route_group_memberships"])
+
+        return list(route_groups)
