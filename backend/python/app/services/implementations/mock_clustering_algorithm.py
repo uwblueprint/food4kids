@@ -17,12 +17,11 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
     distributes locations evenly across the requested number of clusters.
     """
 
-    async def cluster_locations(
+    def cluster_locations(
         self,
         locations: list[Location],
         num_clusters: int,
         max_locations_per_cluster: int | None = None,
-        timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
         """Split locations evenly into clusters in sequential order.
 
@@ -32,8 +31,6 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
             max_locations_per_cluster: Optional maximum number of locations
                 per cluster. If provided, validates that the clustering is
                 possible and raises an error if violated.
-            timeout_seconds: Optional timeout in seconds. Not enforced in this
-                mock implementation.
 
         Returns:
             List of clusters, where each cluster is a list of locations

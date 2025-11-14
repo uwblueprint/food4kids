@@ -19,6 +19,9 @@ from app.services.implementations.location_group_service import LocationGroupSer
 from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
+from app.services.implementations.route_generation_service import (
+    RouteGenerationService,
+)
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
@@ -105,3 +108,16 @@ def get_routing_algorithm() -> RoutingAlgorithmProtocol:
     Swap this to use a different algorithm implementation.
     """
     return MockRoutingAlgorithm()
+
+
+@lru_cache
+def get_route_generation_service(
+    routing_algorithm: RoutingAlgorithmProtocol = Depends(get_routing_algorithm),
+) -> RouteGenerationService:
+    """Get route generation service instance.
+
+    The service handles persistence and data processing while the algorithm handles the routing logic.
+    Swap the algorithm implementation to use different routing strategies.
+    """
+    logger = get_logger()
+    return RouteGenerationService(logger, routing_algorithm)

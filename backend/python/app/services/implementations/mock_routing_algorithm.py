@@ -17,24 +17,16 @@ if TYPE_CHECKING:
 class MockRoutingAlgorithm(RoutingAlgorithmProtocol):
     """Simple mock routing algorithm that uses the mock clustering algorithm."""
 
-    async def generate_routes(
+    def generate_routes(
         self,
         locations: list[Location],
-        warehouse_lat: float,  # noqa: ARG002
-        warehouse_lon: float,  # noqa: ARG002
         settings: RouteGenerationSettings,
-        timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
-        """Split locations evenly across routes using the mock clustering algorithm.
-
-        Note: warehouse_lat and warehouse_lon are not used in this mock implementation.
-        Note: timeout_seconds is not enforced in this mock implementation.
-        """
+        """Split locations evenly across routes using the mock clustering algorithm."""
 
         clustering_algorithm = MockClusteringAlgorithm()
-        return await clustering_algorithm.cluster_locations(
+        return clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
             max_locations_per_cluster=settings.max_stops_per_route,
-            timeout_seconds=timeout_seconds,
         )
