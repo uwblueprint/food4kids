@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -38,7 +37,7 @@ class JobService:
             await self.session.refresh(job)
             return job.job_id
         except Exception as error:
-            self.logger.error(f"Error creating job")
+            self.logger.error("Error creating job")
             await self.session.rollback()
             raise error
 
@@ -59,7 +58,7 @@ class JobService:
             self.session.add(job)
             await self.session.commit()
         except Exception as error:
-            self.logger.error(f"Error creating job")
+            self.logger.error("Error creating job")
             await self.session.rollback()
             raise error
 
