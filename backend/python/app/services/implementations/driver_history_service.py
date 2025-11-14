@@ -108,21 +108,17 @@ class DriverHistoryService:
             raise e
 
     async def delete_driver_history_by_id(
-        self, session: AsyncSession, driver_history_id: int
+        self, session: AsyncSession, driver_id: UUID, year: int
     ) -> None:
         """Delete a driver history by driver history id and year. In case we no longer want to keep records of a driver."""
         try:
             statement = select(DriverHistory).where(
-                DriverHistory.driver_history_id == driver_history_id,
+                DriverHistory.driver_id == driver_id,
+                DriverHistory.year == year,
             )
             result = await session.execute(statement)
             driver_history = result.scalars().first()
 
-            if not driver_history:
-                self.logger.error(
-                    f"Driver history with id {driver_history_id} not found"
-                )
-                return None
             await session.delete(driver_history)
             await session.commit()
         except Exception as e:

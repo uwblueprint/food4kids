@@ -149,12 +149,23 @@ async def update_driver_history(
 
 @router.delete("/{year}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_driver_history(
-    driver_history_id: int, session: AsyncSession = Depends(get_session)
+    driver_id: UUID, year: int, session: AsyncSession = Depends(get_session)
 ) -> None:
     """Delete driver history"""
     try:
+        existing_driver_history = (
+            await driver_history_service.get_driver_history_by_id_and_year(
+                session, driver_id, year
+            )
+        )
+        if not existing_driver_history:
+            raise HTTPException(
+                status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+                detail=f"Driver history with id {driver_id} and year {year} not found, cannot update history not found",
+            )
+
         await driver_history_service.delete_driver_history_by_id(
-            session, driver_history_id
+            session, driver_id, year
         )
     except HTTPException:
         raise
