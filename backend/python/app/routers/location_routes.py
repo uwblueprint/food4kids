@@ -12,6 +12,9 @@ from app.models.location import (
     LocationRead,
     LocationUpdate,
 )
+from app.services.implementations.location_group_service import (
+    LocationGroupService,
+)
 from app.services.implementations.location_service import LocationService
 from app.services.implementations.mappings_service import MappingsService
 from app.utilities.google_maps_client import GoogleMapsClient
@@ -20,8 +23,10 @@ from app.utilities.import_utils import CSV_FILE_TYPES, XLSX_FILE_TYPES
 # Initialize service
 logger = logging.getLogger(__name__)
 maps_service = GoogleMapsClient()
+location_group_service = LocationGroupService(logger)
 mappings_service = MappingsService(logger)
-location_service = LocationService(logger, maps_service, mappings_service)
+location_service = LocationService(
+    logger, maps_service, mappings_service, location_group_service)
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
