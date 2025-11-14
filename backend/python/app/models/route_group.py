@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -55,6 +55,8 @@ class RouteGroupRead(RouteGroupBase):
     """Read response model"""
 
     route_group_id: UUID
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     num_routes: int
 
 
