@@ -1,11 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from datetime import datetime
+from typing import Any, TypedDict
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import text
-from datetime import datetime
 
 from app.models import get_session
 
+
+class TableErrorInfo(TypedDict):
+    error: str
+
+
+class TableDataInfo(TypedDict):
+    total_rows: int
+    columns: list[str]
+    data: list[dict[str, Any]]
+
+
+TableInfo = TableErrorInfo | TableDataInfo
+
 router = APIRouter(tags=["database"])
+
 
 @router.get("/table")
 async def get_all_tables(
@@ -16,15 +32,17 @@ async def get_all_tables(
     """
     try:
         # Get all table names
-        tables_result = await session.execute(text("""
+        tables_result = await session.execute(
+            text("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = 'public'
             ORDER BY table_name
-        """))
+        """)
+        )
         table_names = [row[0] for row in tables_result.fetchall()]
 
-        all_data = {}
+        all_data: dict[str, TableInfo] = {}
 
         for table_name in table_names:
             try:
@@ -33,31 +51,35 @@ async def get_all_tables(
                 rows = result.fetchall()
 
                 # Get column names
-                columns = list(result.keys()) if hasattr(result, 'keys') else []
+                columns: list[str] = (
+                    list(result.keys()) if hasattr(result, "keys") else []
+                )
 
                 # Convert rows to dictionaries
-                table_data = []
+                table_data: list[dict[str, Any]] = []
                 for row in rows:
-                    row_dict = {}
+                    row_dict: dict[str, Any] = {}
                     for i, value in enumerate(row):
                         if i < len(columns):
                             # Convert datetime/date objects to strings
-                            if hasattr(value, 'isoformat'):
+                            if hasattr(value, "isoformat"):
                                 row_dict[columns[i]] = value.isoformat()
                             else:
-                                row_dict[columns[i]] = str(value) if value is not None else None
+                                row_dict[columns[i]] = (
+                                    str(value) if value is not None else None
+                                )
                     table_data.append(row_dict)
 
-                all_data[table_name] = {
-                    "total_rows": len(table_data),
-                    "columns": columns,
-                    "data": table_data
-                }
+                all_data[table_name] = TableDataInfo(
+                    total_rows=len(table_data),
+                    columns=columns,
+                    data=table_data,
+                )
 
             except Exception as e:
-                all_data[table_name] = {
-                    "error": f"Could not read table: {str(e)}"
-                }
+                all_data[table_name] = TableErrorInfo(
+                    error=f"Could not read table: {e!s}",
+                )
 
         # Generate HTML output
         html_content = f"""
@@ -85,51 +107,54 @@ async def get_all_tables(
         <body>
             <div class="header">
                 <h1>Database Tables</h1>
-                <p>{len(table_names)} tables • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p>{len(table_names)} tables • {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
             </div>
         """
 
         # Generate HTML for each table
         for table_name, table_info in all_data.items():
             if "error" in table_info:
+                error_info: TableErrorInfo = table_info  # type: ignore[assignment]
                 html_content += f"""
                 <div class="table-container">
                     <div class="table-header error-header">
                         {table_name}
                     </div>
-                    <div class="columns">Error: {table_info['error']}</div>
-                </div>
-                """
-            elif table_info["total_rows"] == 0:
-                html_content += f"""
-                <div class="table-container">
-                    <div class="table-header empty-header">
-                        {table_name} (empty)
-                    </div>
-                    <div class="columns">Columns: {', '.join(table_info['columns'])}</div>
+                    <div class="columns">Error: {error_info["error"]}</div>
                 </div>
                 """
             else:
-                html_content += f"""
-                <div class="table-container">
-                    <div class="table-header">
-                        {table_name} ({table_info['total_rows']} rows)
+                data_info: TableDataInfo = table_info
+                if data_info["total_rows"] == 0:
+                    html_content += f"""
+                    <div class="table-container">
+                        <div class="table-header empty-header">
+                            {table_name} (empty)
+                        </div>
+                        <div class="columns">Columns: {", ".join(data_info["columns"])}</div>
                     </div>
-                    <div class="columns">Columns: {', '.join(table_info['columns'])}</div>
-                    <div class="data-container">
-                """
+                    """
+                else:
+                    html_content += f"""
+                    <div class="table-container">
+                        <div class="table-header">
+                            {table_name} ({data_info["total_rows"]} rows)
+                        </div>
+                        <div class="columns">Columns: {", ".join(data_info["columns"])}</div>
+                        <div class="data-container">
+                    """
 
-                for row in table_info["data"]:
-                    row_html = '<div class="row">'
-                    for key, value in row.items():
-                        row_html += f'<span class="key">{key}</span>=<span class="value">{value}</span> '
-                    row_html += '</div>'
-                    html_content += row_html
+                    for row_data in data_info["data"]:
+                        row_html = '<div class="row">'
+                        for key, value in row_data.items():
+                            row_html += f'<span class="key">{key}</span>=<span class="value">{value}</span> '
+                        row_html += "</div>"
+                        html_content += row_html
 
-                html_content += """
+                    html_content += """
+                        </div>
                     </div>
-                </div>
-                """
+                    """
 
         html_content += """
         </body>
@@ -138,11 +163,11 @@ async def get_all_tables(
 
         return Response(
             content=html_content,
-            media_type="text/html"
+            media_type="text/html",
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching database data: {str(e)}"
-        )
+            detail=f"Error fetching database data: {e!s}",
+        ) from e
