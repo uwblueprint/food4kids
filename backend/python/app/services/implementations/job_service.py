@@ -37,12 +37,10 @@ class JobService:
             await self.session.commit()
             await self.session.refresh(job)
             return job.job_id
-        except IntegrityError:
-            self.logger.exception("Integrity error creating job")
+        except Exception as error:
+            self.logger.error(f"Error creating job")
             await self.session.rollback()
-        except SQLAlchemyError:
-            self.logger.exception("Error in creating job")
-            await self.session.rollback()
+            raise error
 
     async def get_job(self, job_id: UUID) -> Job | None:
         """Get a job by job ID"""
@@ -60,10 +58,10 @@ class JobService:
                 job.finished_at = self.utc_now_naive()
             self.session.add(job)
             await self.session.commit()
-        except SQLAlchemyError:
+        except Exception as error:
+            self.logger.error(f"Error creating job")
             await self.session.rollback()
-            self.logger.exception("DB error updating progress for job %s", job_id)
-            raise
+            raise error
 
     async def enqueue(self, job_id: UUID) -> None:
         try:
