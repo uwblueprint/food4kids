@@ -55,6 +55,8 @@ class RouteGroupRead(RouteGroupBase):
     """Read response model"""
 
     route_group_id: UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     num_routes: int
 
 

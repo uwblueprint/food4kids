@@ -135,6 +135,13 @@ docker-compose exec db psql -U postgres -d f4k_test
 SELECT * FROM users; # Run SQL queries
 ```
 
+### Database Seeding
+
+```bash
+# Populate database with randomized test data
+docker-compose exec backend python app/seed_database.py
+```
+
 ## Version Control Guide
 
 ### Branching
