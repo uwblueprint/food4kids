@@ -12,10 +12,12 @@ from app.models.location import (
     LocationEntriesResponse,
     LocationEntry,
     LocationEntryStatus,
-    LocationState,
+    LocationRead,
     LocationUpdate,
 )
+from app.models.location_group import LocationGroupCreate
 from app.models.location_mappings import RequiredLocationField
+from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.mappings_service import MappingsService
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.import_utils import MAX_CSV_ROWS, get_df
@@ -25,10 +27,11 @@ from app.utilities.utils import get_phone_number
 class LocationService:
     """Modern FastAPI-style location service"""
 
-    def __init__(self, logger: logging.Logger, maps_service: GoogleMapsClient, mapping_service: MappingsService):
+    def __init__(self, logger: logging.Logger, maps_service: GoogleMapsClient, mapping_service: MappingsService, location_group_service: LocationGroupService) -> None:
         self.logger = logger
         self.maps_service = maps_service
         self.mapping_service = mapping_service
+        self.location_group_service = location_group_service
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -119,102 +122,107 @@ class LocationService:
             successful_locations: list[LocationEntry] = []
             failed_locations: list[LocationEntry] = []
 
-            # parse df for location data
-            for index, row in df.iterrows():
-                try:
-                    location_data = {}
-                    for field in mapping:
-                        source_field = mapping[field]
-                        source_value = "" if pd.isna(
-                            row.get(source_field)) else str(row.get(source_field))
+            grouped_df = df.groupby(mapping[RequiredLocationField.DELIVERY_GROUP]).apply(
+                lambda row: row.to_dict(orient="records"))
 
-                        # edge case - dietary restrictions can be empty
-                        if field == RequiredLocationField.DIETARY_RESTRICTIONS:
-                            location_data[field] = source_value
-                            continue
+            for delivery_group, group_rows in grouped_df.items():
+                # parse df for location data
 
-                        # remaining fields are required
-                        if not source_value:
-                            raise TypeError(
-                                f"Missing required field: {source_field} in row {index + 1}"
-                            )
-                        elif field == RequiredLocationField.PHONE_NUMBER:
-                            location_data[field] = get_phone_number(
-                                source_value)
-                        elif field == RequiredLocationField.HALAL:
-                            location_data[field] = source_value == "Yes"
-                        else:
-                            location_data[field] = source_value
+                grouped_locations_ids = []
+                for index, row in enumerate(group_rows):
+                    try:
+                        location_data = {}
+                        for field in mapping:
+                            source_field = mapping[field]
+                            source_value = "" if pd.isna(
+                                row.get(source_field)) else str(row.get(source_field))
 
-                    # TODO: create relationship between delivery group and location
+                            # edge case - dietary restrictions can be empty
+                            if field == RequiredLocationField.DIETARY_RESTRICTIONS:
+                                location_data[field] = source_value
+                                continue
 
-                    # handle address geocoding
-                    address = location_data.get(RequiredLocationField.ADDRESS)
-                    geocode_result = await self.maps_service.geocode_address(address)
+                            # remaining fields are required
+                            if not source_value:
+                                raise TypeError(
+                                    f"Missing required field: {source_field} in row {index + 1}"
+                                )
+                            elif field == RequiredLocationField.PHONE_NUMBER:
+                                location_data[field] = get_phone_number(
+                                    source_value)
+                            elif field == RequiredLocationField.HALAL:
+                                location_data[field] = source_value == "Yes"
+                            else:
+                                location_data[field] = source_value
 
-                    if not geocode_result:
-                        raise ValueError(
-                            f"Geocoding failed for address: {address}")
+                        # handle address geocoding
+                        address = location_data.get(
+                            RequiredLocationField.ADDRESS)
+                        geocode_result = await self.maps_service.geocode_address(address)
 
-                    # check if location already exists
-                    duplicate_location = await self.find_duplicate_location(
-                        session, geocode_result.place_id)
-                    if duplicate_location:
-                        # TODO: need to check for other field changes?
+                        if not geocode_result:
+                            raise ValueError(
+                                f"Geocoding failed for address: {address}")
+
+                        location_data[RequiredLocationField.ADDRESS] = geocode_result.formatted_address
+                        location_data["longitude"] = geocode_result.longitude
+                        location_data["latitude"] = geocode_result.latitude
+                        location_data["place_id"] = geocode_result.place_id
+
+                        # create location into db
+                        location = LocationCreate(**location_data)
+                        created_location = await self.create_location(session, location)
+                        grouped_locations_ids.append(
+                            created_location.location_id)
+
                         location_entry = LocationEntry(
-                            location=duplicate_location,
-                            status=LocationEntryStatus.DUPLICATE_ENTRY,
+                            location=created_location,
+                            status=LocationEntryStatus.OK,
                             row=index + 1,
-                            delivery_group=location_data.get(
-                                RequiredLocationField.DELIVERY_GROUP)
+                            delivery_group=delivery_group
+                        )
+                        successful_locations.append(location_entry)
+                    except TypeError as te:
+                        location_entry = LocationEntry(
+                            location=None,
+                            status=LocationEntryStatus.MISSING_FIELD,
+                            row=index + 1,
+                            delivery_group=delivery_group,
+                            error_message=str(te)
                         )
                         failed_locations.append(location_entry)
-                        all_locations.append(location_entry)
-                        continue
+                    except ValueError as ve:
+                        location_entry = LocationEntry(
+                            location=None,
+                            status=LocationEntryStatus.UNKNOWN_ERROR,
+                            row=index + 1,
+                            delivery_group=delivery_group,
+                            error_message=str(ve)
+                        )
+                        failed_locations.append(location_entry)
 
-                    location_data[RequiredLocationField.ADDRESS] = geocode_result.formatted_address
-                    location_data["longitude"] = geocode_result.longitude
-                    location_data["latitude"] = geocode_result.latitude
-                    location_data["place_id"] = geocode_result.place_id
-                    delivery_group = location_data.get(
-                        RequiredLocationField.DELIVERY_GROUP)
+                    all_locations.append(location_entry)
 
-                    # save location into db
-                    location = LocationCreate(**location_data)
-                    created_location = await self.create_location(session, location)
-                    location_entry = LocationEntry(
-                        location=created_location,
-                        status=LocationEntryStatus.OK,
-                        row=index + 1,
-                        delivery_group=delivery_group
+                # create location group for batch
+                if grouped_locations_ids:
+                    location_group = await self.location_group_service.create_location_group(
+                        session,
+                        location_group_data=LocationGroupCreate(
+                            name=delivery_group,
+                            color="TODO",
+                            location_ids=grouped_locations_ids,
+                            notes=delivery_group)
                     )
-                    successful_locations.append(location_entry)
-                except TypeError as te:
-                    location_entry = LocationEntry(
-                        location=None,
-                        status=LocationEntryStatus.MISSING_FIELD,
-                        row=index + 1,
-                        delivery_group=delivery_group,
-                        error_message=str(te)
-                    )
-                    failed_locations.append(location_entry)
-                except ValueError as ve:
-                    location_entry = LocationEntry(
-                        location=None,
-                        status=LocationEntryStatus.UNKNOWN_ERROR,
-                        row=index + 1,
-                        delivery_group=delivery_group,
-                        error_message=str(ve)
-                    )
-                    failed_locations.append(location_entry)
-                all_locations.append(location_entry)
-            return LocationEntriesResponse(
-                total_entries=len(df),
-                successful_entries=len(successful_locations),
-                failed_entries=len(failed_locations),
-                entries=all_locations
-            )
 
+                    # update location entries with location group info
+                    for location_entry in successful_locations:
+                        updated_location = await self.update_location_by_id(
+                            session,
+                            location_entry.location.location_id,
+                            {"location_group_id": location_group.location_group_id}
+                        )
+                        location_entry.location = LocationRead.model_validate(
+                            updated_location)
         except Exception as e:
             self.logger.error(f"Failed to import locations: {e!s}")
             raise
@@ -228,31 +236,6 @@ class LocationService:
         """Update location by ID"""
         try:
             location = await self.get_location_by_id(session, location_id)
-
-            # check for address change to create new location entry instead
-            if updated_location_data.address:
-                geocode_result = await self.maps_service.geocode_address(
-                    updated_location_data.address)
-
-                override_location_data = {
-                    "address": geocode_result.formatted_address,
-                    "longitude": geocode_result.longitude,
-                    "latitude": geocode_result.latitude,
-                    "place_id": geocode_result.place_id
-                }
-
-                # Create new location with updated geocoding, exclude database-only fields
-                new_location = LocationCreate(
-                    **location.model_dump(exclude=set(override_location_data.keys())),
-                    **override_location_data
-                )
-                created_location = await self.create_location(session, new_location)
-
-                # set old location to inactive
-                location.state = LocationState.ARCHIVED
-                await session.commit()
-                await session.refresh(location)
-                return created_location
 
             # update existing location with new non-address data
             updated_data = updated_location_data.model_dump(exclude_unset=True)
