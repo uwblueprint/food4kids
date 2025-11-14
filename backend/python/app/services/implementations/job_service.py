@@ -25,13 +25,11 @@ class JobService:
             statement = statement.where(Job.progress == progress)
         result = await self.session.execute(statement)
         return list(result.scalars().all())
-    
+
     def utc_now_naive(self) -> datetime:
         return datetime.now(timezone.utc).replace(tzinfo=None)
 
-    async def generate_job(
-        self, _req: RouteGenerationRequest | None = None
-    ) -> UUID:
+    async def generate_job(self, _req: RouteGenerationRequest | None = None) -> UUID:
         """Create a job"""
         try:
             job = Job(progress=ProgressEnum.PENDING)
