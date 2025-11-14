@@ -20,6 +20,7 @@ class DriverHistoryBase(SQLModel):
     year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
     km: float = Field(nullable=False)
 
+
 class DriverHistory(DriverHistoryBase, BaseModel, table=True):
     """Database table model"""
 
@@ -30,6 +31,7 @@ class DriverHistory(DriverHistoryBase, BaseModel, table=True):
 
 class DriverHistoryCreate(DriverHistoryBase):
     """Create request model"""
+
     pass
 
 
@@ -41,4 +43,5 @@ class DriverHistoryRead(DriverHistoryBase):
 
 class DriverHistoryUpdate(SQLModel):
     """Update request model, all fields are required for now since we are only updating km"""
+
     km: float
