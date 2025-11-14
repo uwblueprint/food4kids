@@ -1,7 +1,9 @@
 from uuid import UUID
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
 
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
@@ -43,3 +45,16 @@ async def update_route_group(
             detail=f"RouteGroup with id {route_group_id} not found",
         )
     return RouteGroupRead.model_validate(updated_route_group)
+
+
+@router.get("/upcoming-unassigned", response_model=List[RouteGroupRead])
+async def get_upcoming_unassigned_routes(
+    from_date: datetime = Query(..., description="Get routes from this date onwards"),
+    session: AsyncSession = Depends(get_session),
+    route_group_service: RouteGroupService = Depends(get_route_group_service),
+) -> List[RouteGroupRead]:
+    """
+    Get route groups with routes that have no driver assignments for upcoming dates
+    """
+    route_groups = await route_group_service.get_upcoming_unassigned_routes(session, from_date)
+    return [RouteGroupRead.model_validate(rg) for rg in route_groups]
