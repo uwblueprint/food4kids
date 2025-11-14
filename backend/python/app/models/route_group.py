@@ -57,6 +57,7 @@ class RouteGroupRead(RouteGroupBase):
     route_group_id: UUID
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    num_routes: int
 
 
 class RouteGroupUpdate(SQLModel):
