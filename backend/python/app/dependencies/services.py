@@ -19,9 +19,6 @@ from app.services.implementations.location_group_service import LocationGroupSer
 from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
-from app.services.implementations.route_generation_service import (
-    RouteGenerationService,
-)
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol

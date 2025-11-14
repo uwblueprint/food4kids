@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime  # ruff: noqa: TCH002
 from typing import TYPE_CHECKING
 
 from sqlmodel import SQLModel
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from app.models.location_group import LocationGroup
 
 
