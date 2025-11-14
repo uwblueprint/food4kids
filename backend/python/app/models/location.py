@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -9,14 +10,29 @@ if TYPE_CHECKING:
     from .location_group import LocationGroup
 
 
+class LocationState(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ARCHIVED = "archived"
+
+
+class LocationEntryStatus(str, Enum):
+    OK = "ok"
+    MISSING_FIELD = "missing_field"
+    DUPLICATE_ENTRY = "duplicate_entry"
+    UNKNOWN_ERROR = "unknown_error"
+
+
 class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
     location_group_id: UUID | None = Field(
         default=None, foreign_key="location_groups.location_group_id", nullable=True
     )
+    state: str = Field(default=LocationState.ACTIVE.value, max_length=20)
     school_name: str | None = None
     contact_name: str
+    place_id: str
     address: str
     phone_number: str
     longitude: float | None = None
@@ -53,7 +69,7 @@ class LocationRead(LocationBase):
 
 class LocationUpdate(SQLModel):
     """Update request model with all fields optional"""
-
+    state: str | None = None
     location_group_id: UUID | None = None
     school_name: str | None = None
     contact_name: str | None = None
@@ -66,3 +82,19 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+
+
+class LocationEntry(SQLModel):
+    """Entry result from location import/validation"""
+    location: LocationRead | None = None
+    status: LocationEntryStatus
+    row: int
+    delivery_group: str | None = None
+    error_message: str | None = None
+
+
+class LocationEntriesResponse(SQLModel):
+    total_entries: int
+    successful_entries: int
+    failed_entries: int
+    entries: list[LocationEntry]

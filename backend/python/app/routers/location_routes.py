@@ -1,18 +1,27 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # from app.dependencies.auth import require_driver
 from app.models import get_session
-from app.models.location import LocationCreate, LocationRead, LocationUpdate
+from app.models.location import (
+    LocationCreate,
+    LocationEntriesResponse,
+    LocationRead,
+    LocationUpdate,
+)
 from app.services.implementations.location_service import LocationService
+from app.services.implementations.mappings_service import MappingsService
+from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.import_utils import CSV_FILE_TYPES, XLSX_FILE_TYPES
 
 # Initialize service
 logger = logging.getLogger(__name__)
-location_service = LocationService(logger)
-
+maps_service = GoogleMapsClient()
+mappings_service = MappingsService(logger)
+location_service = LocationService(logger, maps_service, mappings_service)
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
@@ -70,6 +79,36 @@ async def create_location(
     try:
         created_location = await location_service.create_location(session, location)
         return LocationRead.model_validate(created_location)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/import",
+    response_model=LocationEntriesResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_locations(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> LocationEntriesResponse:
+    """
+    Ingests location Apricot data (CSV or XLSX) into database
+    """
+    # validate file type (csv or xlsx)
+    if file.content_type not in CSV_FILE_TYPES + XLSX_FILE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only CSV or XLSX files are allowed.",
+        )
+
+    try:
+        result = await location_service.import_locations(session, file)
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
