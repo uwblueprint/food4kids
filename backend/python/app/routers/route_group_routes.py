@@ -1,6 +1,4 @@
-import logging
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,8 +14,12 @@ router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
 @router.get("")
 async def get_route_groups(
-    start_date: Optional[datetime] = Query(None, description="Filter route groups from this date"),
-    end_date: Optional[datetime] = Query(None, description="Filter route groups until this date"),
+    start_date: datetime | None = Query(
+        None, description="Filter route groups from this date"
+    ),
+    end_date: datetime | None = Query(
+        None, description="Filter route groups until this date"
+    ),
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
@@ -37,10 +39,16 @@ async def get_route_groups(
             if include_routes:
                 data["routes"] = [
                     {
-                        "route_id": membership.route.route_id if membership.route else None,
-                        "name": membership.route.name if membership.route else "No route",
-                        "notes": membership.route.notes if membership.route else "No notes",
-                        "length": membership.route.length if membership.route else 0
+                        "route_id": membership.route.route_id
+                        if membership.route
+                        else None,
+                        "name": membership.route.name
+                        if membership.route
+                        else "No route",
+                        "notes": membership.route.notes
+                        if membership.route
+                        else "No notes",
+                        "length": membership.route.length if membership.route else 0,
                     }
                     for membership in route_group.route_group_memberships
                 ]
@@ -68,11 +76,15 @@ async def create_route_group(
         created_route_group = await route_group_service.create_route_group(
             session, route_group
         )
-        return {
-            **RouteGroupRead.model_validate(created_route_group).model_dump(),
-            "num_routes": 0,
-            "routes": []
-        }
+        return RouteGroupRead(
+            route_group_id=created_route_group.route_group_id,
+            name=created_route_group.name,
+            notes=created_route_group.notes,
+            drive_date=created_route_group.drive_date,
+            created_at=created_route_group.created_at,
+            updated_at=created_route_group.updated_at,
+            num_routes=0,
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

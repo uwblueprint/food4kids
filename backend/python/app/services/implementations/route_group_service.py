@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,8 +53,8 @@ class RouteGroupService:
     async def get_route_groups(
         self,
         session: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         include_routes: bool = False,
     ) -> list[RouteGroup]:
         """Get route groups with optional date filtering"""
@@ -66,18 +65,18 @@ class RouteGroupService:
         if end_date:
             statement = statement.where(RouteGroup.drive_date <= end_date)
 
-        statement = statement.order_by(RouteGroup.drive_date)
-        
+        statement = statement.order_by(RouteGroup.drive_date)  # type: ignore[arg-type]
+
         result = await session.execute(statement)
         route_groups = result.scalars().all()
-        
+
         # Load relationships for all route groups to avoid lazy loading issues
         for route_group in route_groups:
             await session.refresh(route_group, ["route_group_memberships"])
             if include_routes:
                 for membership in route_group.route_group_memberships:
                     await session.refresh(membership, ["route"])
-        
+
         return list(route_groups)
 
     async def delete_route_group(
@@ -96,5 +95,5 @@ class RouteGroupService:
 
         await session.delete(route_group)
         await session.commit()
-        
+
         return True
