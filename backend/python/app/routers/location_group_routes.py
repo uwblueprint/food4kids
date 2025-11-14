@@ -19,8 +19,9 @@ router = APIRouter(prefix="/location-groups", tags=["location-groups"])
 @router.get("/", response_model=list[LocationGroupRead])
 async def get_location_groups(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
-    location_group_service: LocationGroupService = Depends(get_location_group_service),
+    # _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(
+        get_location_group_service),
 ) -> list[LocationGroupRead]:
     """
     Get all location groups
@@ -39,8 +40,9 @@ async def get_location_groups(
 async def get_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
-    location_group_service: LocationGroupService = Depends(get_location_group_service),
+    # _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(
+        get_location_group_service),
 ) -> LocationGroupRead:
     """
     Get a single location group by ID
@@ -60,8 +62,9 @@ async def get_location_group(
 async def create_location_group(
     location_group: LocationGroupCreate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
-    location_group_service: LocationGroupService = Depends(get_location_group_service),
+    # _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(
+        get_location_group_service),
 ) -> LocationGroupRead:
     """
     Create a new location group
@@ -83,8 +86,9 @@ async def update_location_group(
     location_group_id: UUID,
     location_group: LocationGroupUpdate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
-    location_group_service: LocationGroupService = Depends(get_location_group_service),
+    # _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(
+        get_location_group_service),
 ) -> LocationGroupRead:
     """
     Update an existing location group
@@ -104,8 +108,9 @@ async def update_location_group(
 async def delete_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
-    location_group_service: LocationGroupService = Depends(get_location_group_service),
+    # _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(
+        get_location_group_service),
 ) -> None:
     """
     Delete a location group by ID
