@@ -20,7 +20,11 @@ class DriverHistoryCSVGenerator:
     async def generate_all_drivers_csv(
         self, year: int
     ) -> tuple[list[dict[str, Any]], str]:
-        """Generate CSV data for all drivers for a given year."""
+        """Generate CSV data for all drivers for a given year.
+
+        Drivers with history in the current year appear first, sorted alphabetically.
+        Drivers with only previous year history appear after, also sorted alphabetically.
+        """
         driver_history_current_year = await self.service.get_driver_history_by_year(
             self.session, year
         )
@@ -52,17 +56,20 @@ class DriverHistoryCSVGenerator:
                 continue
 
             driver = driver_lookup[driver_id]
-            name_parts = driver.name.split(" ", 1)
+            name_parts = driver.name.split(" ", 1)  # Split on first space only
             first_name = name_parts[0]
             last_name = name_parts[1] if len(name_parts) > 1 else ""
 
+            has_current_year = driver_id in current_year_lookup
+
             csv_data.append(
                 {
-                    "First Name": first_name,
-                    "Last Name": last_name,
-                    "Email": driver.email,
-                    f"{year} Distance (km)": current_year_lookup.get(driver_id, 0),
-                    f"{year - 1} Distance (km)": past_year_lookup.get(driver_id, 0),
+                    "first": first_name,
+                    "last": last_name,
+                    "email": driver.email,
+                    f"distance (km) in {year}": current_year_lookup.get(driver_id, 0),
+                    f"distance (km) in {year - 1}": past_year_lookup.get(driver_id, 0),
+                    "_has_current_year": has_current_year,  # Internal field for sorting
                 }
             )
 
@@ -71,6 +78,18 @@ class DriverHistoryCSVGenerator:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"No valid driver data found for years {year} and {year - 1}",
             )
+
+        # Sort: current year drivers first (descending), then by last name, then first name
+        csv_data.sort(
+            key=lambda x: (
+                not x["_has_current_year"],
+                x["last"].lower(),
+                x["first"].lower(),
+            )
+        )
+
+        for row in csv_data:
+            del row["_has_current_year"]
 
         filename = f"driver_history_all_drivers_{year}.csv"
         return csv_data, filename
