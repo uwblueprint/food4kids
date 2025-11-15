@@ -1,17 +1,21 @@
+import csv
+import io
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
 from app.models.driver_history import (
+    MAX_YEAR,
+    MIN_YEAR,
     DriverHistoryCreate,
     DriverHistoryRead,
     DriverHistoryUpdate,
-    MIN_YEAR,
-    MAX_YEAR,
 )
+from app.routers.driver_routes import get_driver, get_drivers
 from app.services.implementations.driver_history_service import DriverHistoryService
 
 # Initialize service
@@ -19,6 +23,87 @@ logger = logging.getLogger(__name__)
 driver_history_service = DriverHistoryService(logger)
 
 router = APIRouter(prefix="/drivers/{driver_id}/history", tags=["driver-history"])
+
+
+@router.get("/{year}/export", response_class=StreamingResponse)
+async def get_driver_history_csv(
+    driver_id: str | UUID,
+    year: int,
+    session: AsyncSession = Depends(get_session),
+) -> str:
+    """Get a driver history csv. will export all driver history for a given year if the string 'all' is passed in as the driver_id. Else it will export the history for the given driver_id"""
+    try:
+        if driver_id == "all":
+            driver_history = await driver_history_service.get_driver_history_by_year(
+                session, year
+            )
+            if not driver_history:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Driver history with year {year} not found",
+                )
+            driver_data = await get_drivers(session, driver_id=None, email=None)
+
+            driver_lookup = {driver.driver_id: driver for driver in driver_data}
+
+            csv_data = []
+            for history in driver_history:
+                driver = driver_lookup.get(history.driver_id)
+                csv_data.append(
+                    {
+                        "name": driver.name,
+                        "email": driver.email,
+                        "distance (km)": history.km,
+                        "tax year": history.year,
+                    }
+                )
+
+            filename = f"driver_history_all_drivers_{year}.csv"
+        else:
+            driver_history = await driver_history_service.get_driver_history_by_id(
+                session, driver_id
+            )
+            if not driver_history:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Driver history with id {driver_id} and year {year} not found",
+                )
+
+            driver = await get_driver(session, driver_id=driver_id)
+            csv_data = []
+
+            for history in driver_history:
+                csv_data.append(
+                    {
+                        "name": driver.name,
+                        "email": driver.email,
+                        "distance (km)": history.km,
+                        "tax year": history.year,
+                    }
+                )
+            filename = f"driver_history_{driver.name}_all_years.csv"
+
+        field_names = ["name", "email", "distance (km)", "tax year"]
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, field_names)
+
+        writer.writeheader()
+        writer.writerows(csv_data)
+
+        output.seek(0)
+
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={f"Content-Disposition": "attachment; filename={filename}"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
 
 
 @router.get("/", response_model=list[DriverHistoryRead])
