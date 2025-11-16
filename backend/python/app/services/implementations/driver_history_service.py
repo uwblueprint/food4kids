@@ -139,14 +139,14 @@ class DriverHistoryService:
 
     async def get_driver_history_by_year(
         self, session: AsyncSession, year: int
-    ) -> Sequence[DriverHistory]:
+    ) -> list[DriverHistory]:
         """Get all driver histories by year"""
         try:
             statement = select(DriverHistory).where(DriverHistory.year == year)
             result = await session.execute(statement)
             driver_history = result.scalars().all()
 
-            return driver_history
+            return list(driver_history)
         except Exception as e:
             self.logger.error(f"Failed to get driver history by year: {e!s}")
             raise e
