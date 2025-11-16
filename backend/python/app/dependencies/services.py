@@ -12,13 +12,13 @@ from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
-from app.services.implementations.driver_history_service import DriverHistoryService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.entity_service import EntityService
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.simple_entity_service import SimpleEntityService
+from app.services.implementations.scheduler_service import SchedulerService
 
 
 @lru_cache
@@ -93,3 +93,10 @@ def get_route_group_service() -> RouteGroupService:
     """Get route group service instance"""
     logger = get_logger()
     return RouteGroupService(logger)
+
+
+@lru_cache
+def get_scheduler_service() -> SchedulerService:
+    """Get scheduler service instance"""
+    logger = get_logger()
+    return SchedulerService(logger)
