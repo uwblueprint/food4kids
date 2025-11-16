@@ -16,9 +16,13 @@ from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.entity_service import EntityService
 from app.services.implementations.location_group_service import LocationGroupService
+from app.services.implementations.mock_routing_algorithm import (
+    MockRoutingAlgorithm,
+)
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.implementations.scheduler_service import SchedulerService
+from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 
 
 @lru_cache
@@ -93,6 +97,15 @@ def get_route_group_service() -> RouteGroupService:
     """Get route group service instance"""
     logger = get_logger()
     return RouteGroupService(logger)
+
+
+@lru_cache
+def get_routing_algorithm() -> RoutingAlgorithmProtocol:
+    """Get routing algorithm instance (mock).
+
+    Swap this to use a different algorithm implementation.
+    """
+    return MockRoutingAlgorithm()
 
 
 @lru_cache
