@@ -123,3 +123,22 @@ async def delete_location_group(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Location group with id {location_group_id} not found",
         )
+
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_location_groups(
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+    location_group_service: LocationGroupService = Depends(
+        get_location_group_service),
+) -> None:
+    """
+    Delete all location groups
+    """
+    try:
+        await location_group_service.delete_all_location_groups(session)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) from e

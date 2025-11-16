@@ -37,7 +37,8 @@ class LocationGroupService:
         location_group = result.scalars().first()
 
         if not location_group:
-            self.logger.error(f"Location group with id {location_group_id} not found")
+            self.logger.error(
+                f"Location group with id {location_group_id} not found")
             return None
 
         return location_group
@@ -59,7 +60,8 @@ class LocationGroupService:
 
             # Update each location's location_group_id foreign key
             for location_id in location_ids:
-                statement = select(Location).where(Location.location_id == location_id)
+                statement = select(Location).where(
+                    Location.location_id == location_id)
                 result = await session.execute(statement)
                 location = result.scalars().first()
 
@@ -72,7 +74,8 @@ class LocationGroupService:
                             new_location_group.location_group_id
                         )
                 else:
-                    self.logger.warning(f"Location with id {location_id} not found")
+                    self.logger.warning(
+                        f"Location with id {location_id} not found")
 
             await session.commit()
 
@@ -159,5 +162,34 @@ class LocationGroupService:
 
         except Exception as error:
             self.logger.error(f"Failed to delete location group: {error!s}")
+            await session.rollback()
+            raise error
+
+    async def delete_all_location_groups(self, session: AsyncSession) -> None:
+        """Delete all location groups"""
+        try:
+            # delete all locations with a location group FK
+            locations_statement = select(Location).where(
+                Location.location_group_id.is_not(None)
+            )
+            locations_result = await session.execute(locations_statement)
+            locations = locations_result.scalars().all()
+
+            for location in locations:
+                location.location_group_id = None
+
+            # delete all location groups
+            delete_statement = select(LocationGroup)
+            result = await session.execute(delete_statement)
+            location_groups = result.scalars().all()
+
+            for location_group in location_groups:
+                await session.delete(location_group)
+
+            await session.commit()
+
+        except Exception as error:
+            self.logger.error(
+                f"Failed to delete all location groups: {error!s}")
             await session.rollback()
             raise error
