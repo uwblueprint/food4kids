@@ -82,8 +82,8 @@ class DriverHistoryCSVGenerator:
         csv_data.sort(
             key=lambda x: (
                 not x["_has_current_year"],
-                x["last"].lower(),
-                x["first"].lower(),
+                str(x["last"]).lower(),
+                str(x["first"]).lower(),
             )
         )
 

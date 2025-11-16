@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import Sequence, select
 
 from app.models.driver_history import DriverHistory
 
@@ -139,7 +139,7 @@ class DriverHistoryService:
 
     async def get_driver_history_by_year(
         self, session: AsyncSession, year: int
-    ) -> list[DriverHistory]:
+    ) -> Sequence[DriverHistory]:
         """Get all driver histories by year"""
         try:
             statement = select(DriverHistory).where(DriverHistory.year == year)
