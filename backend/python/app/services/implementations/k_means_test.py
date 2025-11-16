@@ -59,8 +59,8 @@ def main():
         
         # Run clustering
         clustering_algo = KMeansClusteringAlgorithm()
-        num_clusters = 4
-        max_per_cluster = 8
+        num_clusters = 3
+        max_per_cluster = 10
         
         print(f"Running K-Means clustering:")
         print(f"  - Number of clusters: {num_clusters}")

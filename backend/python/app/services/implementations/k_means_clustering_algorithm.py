@@ -24,7 +24,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_locations_per_cluster: int,
+        max_locations_per_cluster: int | None = None,
         timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
         """Split locations evenly into clusters in sequential order.
@@ -51,12 +51,13 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         # Extract lat and long coords into a numpy array
         coordinates = np.array([[location.latitude, location.longitude] for location in locations])
 
-        # Check if it is mathematically possible to meet the constraints on num of clusters + max locations per cluster
-        total_locations = len(locations)
-        max_possible = num_clusters * max_locations_per_cluster
+        if max_locations_per_cluster:
+            # Check if it is mathematically possible to meet the constraints on num of clusters + max locations per cluster
+            total_locations = len(locations)
+            max_possible = num_clusters * max_locations_per_cluster
 
-        if total_locations > max_possible:
-            raise ValueError("Clustering parameters cannot be satisfied")
+            if total_locations > max_possible:
+                raise ValueError("Clustering parameters cannot be satisfied")
         
         try:
             # Run with timeout
@@ -65,12 +66,24 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             # kmeans!
             kmeans = KMeans(
                     n_clusters = num_clusters,
+                    random_state = 42,
+                    n_init = 10,
             )
             kmeans.fit(coordinates)
 
-            # Distrance matrix representing the distance form each point to each centroid
-            distances = kmeans.transform(coordinates)
-            clusters = self._assign_with_constraints(locations, distances, num_clusters, max_locations_per_cluster)
+            if max_locations_per_cluster:
+                # Distrance matrix representing the distance form each point to each centroid
+                distances = kmeans.transform(coordinates)
+                clusters = self._assign_with_constraints(locations, distances, num_clusters, max_locations_per_cluster)
+            else:
+                # No constraints
+                cluster_labels = kmeans.predict(coordinates)
+                
+                # Build result lists (each list corresponds to locations in a different cluster)
+                clusters = [[] for _ in range(num_clusters)]
+                for i, location in enumerate(locations):
+                    cluster_id = int(cluster_labels[i])
+                    clusters[cluster_id].append(location)
 
             # Check time elapsed
             elapsed = time.time() - start_time
