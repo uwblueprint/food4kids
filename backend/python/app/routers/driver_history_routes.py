@@ -127,7 +127,7 @@ async def update_driver_history(
 
         updated_driver_history = (
             await driver_history_service.update_driver_history_by_id_and_year(
-                session, driver_id, year, update.km
+                session, driver_id, year
             )
         )
         logger.info(

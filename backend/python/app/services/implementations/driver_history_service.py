@@ -89,8 +89,8 @@ class DriverHistoryService:
         session: AsyncSession,
         driver_id: UUID,
         year: int,
-        km: float,
-    ) -> DriverHistory:
+        # km: float,
+    ) -> DriverHistory | None:
         """Update a driver history by ID and year"""
         try:
             existing_history = await self.get_driver_history_by_id_and_year(
