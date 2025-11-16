@@ -1,10 +1,9 @@
 from typing import Any
-from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.routers.driver_routes import get_driver, get_drivers
+from app.routers.driver_routes import get_drivers
 from app.services.implementations.driver_history_service import DriverHistoryService
 
 

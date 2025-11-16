@@ -142,7 +142,7 @@ def generate_csv_from_list(dict_list: list[dict[str, Any]], **kwargs: Any) -> st
 
     output = io.StringIO()
     field_names = (
-        list(dict.fromkeys(key for d in dict_list for key in d.keys()))
+        list(dict.fromkeys(key for d in dict_list for key in d))
         if not kwargs.get("field")
         else kwargs["field"]
     )
