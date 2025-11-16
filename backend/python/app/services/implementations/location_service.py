@@ -116,6 +116,8 @@ class LocationService:
 
             # TODO: use admin id to get mapping
             mappings = await self.mapping_service.get_mappings(session)
+            if not mappings:
+                raise ValueError("No mappings found for location import")
             mapping = mappings[0].mapping
 
             all_locations: list[LocationEntry] = []
@@ -128,7 +130,7 @@ class LocationService:
             for delivery_group, group_rows in grouped_df.items():
                 # parse df for location data
 
-                grouped_locations_ids = []
+                grouped_locations: list[LocationEntry] = []
                 for index, row in enumerate(group_rows):
                     try:
                         location_data = {}
@@ -171,9 +173,7 @@ class LocationService:
 
                         # create location into db
                         location = LocationCreate(**location_data)
-                        created_location = await self.create_location(session, location)
-                        grouped_locations_ids.append(
-                            created_location.location_id)
+                        created_location = await self.create_location(session=session, location_data=location)
 
                         location_entry = LocationEntry(
                             location=created_location,
@@ -181,7 +181,8 @@ class LocationService:
                             row=index + 1,
                             delivery_group=delivery_group
                         )
-                        successful_locations.append(location_entry)
+
+                        grouped_locations.append(location_entry)
                     except TypeError as te:
                         location_entry = LocationEntry(
                             location=None,
@@ -191,6 +192,7 @@ class LocationService:
                             error_message=str(te)
                         )
                         failed_locations.append(location_entry)
+                        all_locations.append(location_entry)
                     except ValueError as ve:
                         location_entry = LocationEntry(
                             location=None,
@@ -200,29 +202,39 @@ class LocationService:
                             error_message=str(ve)
                         )
                         failed_locations.append(location_entry)
-
-                    all_locations.append(location_entry)
+                        all_locations.append(location_entry)
 
                 # create location group for batch
-                if grouped_locations_ids:
+                if grouped_locations:
                     location_group = await self.location_group_service.create_location_group(
-                        session,
+                        session=session,
                         location_group_data=LocationGroupCreate(
                             name=delivery_group,
                             color="TODO",
-                            location_ids=grouped_locations_ids,
+                            location_ids=[
+                                location_entry.location.location_id for location_entry in grouped_locations],
                             notes=delivery_group)
                     )
 
-                    # update location entries with location group info
-                    for location_entry in successful_locations:
+                    # update location entries with location group id
+                    for location_entry in grouped_locations:
                         updated_location = await self.update_location_by_id(
-                            session,
-                            location_entry.location.location_id,
-                            {"location_group_id": location_group.location_group_id}
+                            session=session,
+                            location_id=location_entry.location.location_id,
+                            updated_location_data=LocationUpdate(
+                                location_group_id=location_group.location_group_id
+                            )
                         )
-                        location_entry.location = LocationRead.model_validate(
-                            updated_location)
+                        location_entry.location = updated_location
+                        successful_locations.append(location_entry)
+                        all_locations.append(location_entry)
+
+            return LocationEntriesResponse(
+                total_entries=len(all_locations),
+                successful_entries=len(successful_locations),
+                failed_entries=len(failed_locations),
+                entries=all_locations,
+            )
         except Exception as e:
             self.logger.error(f"Failed to import locations: {e!s}")
             raise
