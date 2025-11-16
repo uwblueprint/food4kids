@@ -9,7 +9,6 @@ from . import (
     location_group_routes,
     location_routes,
     mapping_routes,
-    mapping_routes,
     route_group_routes,
     route_routes,
     simple_entity_routes,
