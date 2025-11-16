@@ -1,18 +1,17 @@
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 
 from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
+from app.models.user import User
+
 
 class DriverBase(SQLModel):
-    name: str = Field(min_length=1, max_length=255)
-    email: EmailStr = Field(unique=True, index=True, max_length=254)
     phone: str = Field(min_length=1, max_length=20)
-    address: str = Field(min_length=1, max_length=255)
     license_plate: str = Field(min_length=1, max_length=20)
     car_make_model: str = Field(min_length=1, max_length=255)
     active: bool = Field(default=True)
@@ -29,16 +28,22 @@ class Driver(DriverBase, BaseModel, table=True):
     __tablename__ = "drivers"
 
     driver_id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    auth_id: str = Field(nullable=False, unique=True, index=True)
+    user_id: UUID = Field(foreign_key="users.user_id", unique=True, nullable=False)
+    user: User = Relationship()
 
 
 class DriverCreate(DriverBase):
-    password: str = Field(min_length=8, max_length=100)
+    user_id: UUID  # link to created User
 
 
 class DriverRead(DriverBase):
     driver_id: UUID
     auth_id: str
+    user_id: UUID
+    name: str
+    email: EmailStr
+    address: str
+    role: str  # comes from User
 
 
 class DriverUpdate(SQLModel):
@@ -54,14 +59,16 @@ class DriverUpdate(SQLModel):
 
 class DriverRegister(SQLModel):
     """Driver registration request"""
-
+    # User fields
     name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=254)
-    phone: str = Field(min_length=1, max_length=20)
     address: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=8, max_length=100)
+
+    # Driver fields
+    phone: str = Field(min_length=1, max_length=20)
     license_plate: str = Field(min_length=1, max_length=20)
     car_make_model: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=8, max_length=100)
 
     @field_validator("phone")
     @classmethod
