@@ -22,7 +22,7 @@ from app.models.driver_assignment import (
 from app.models.driver_history import (
     DriverHistory,
     DriverHistoryRead,
-    # DriverHistoryUpdate,
+    DriverHistoryUpdate,
 )
 from app.models.enum import EntityEnum, ProgressEnum, RoleEnum, SimpleEntityEnum
 from app.models.job import Job, JobUpdate
