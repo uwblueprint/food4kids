@@ -38,14 +38,14 @@ class DriverHistoryService:
             result = await session.execute(statement)
             driver_history = result.scalars().all()
 
-            return driver_history
+            return list(driver_history)
         except Exception as e:
             self.logger.error(f"Failed to get driver history by id: {e!s}")
             raise e
 
     async def get_driver_history_by_id_and_year(
         self, session: AsyncSession, driver_id: UUID, year: int
-    ) -> DriverHistory:
+    ) -> DriverHistory | None:
         """Get a driver history by ID and year"""
         try:
             statement = select(DriverHistory).where(
@@ -97,6 +97,11 @@ class DriverHistoryService:
                 session, driver_id, year
             )
 
+            if existing_history is None:
+                raise ValueError(
+                    f"Driver history with id {driver_id} and year {year} not found"
+                )
+
             existing_history.km = km
             existing_history.updated_at = datetime.now()
 
@@ -119,6 +124,11 @@ class DriverHistoryService:
             )
             result = await session.execute(statement)
             driver_history = result.scalars().first()
+
+            if driver_history is None:
+                raise ValueError(
+                    f"Driver history with id {driver_id} and year {year} not found"
+                )
 
             await session.delete(driver_history)
             await session.commit()

@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING  # noqa: F401
 from uuid import UUID
 
-from pydantic import field_validator
 from sqlmodel import Field, Relationship, SQLModel  # noqa: F401
 
 from .base import BaseModel
