@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import Sequence, select
+from sqlmodel import select
 
 from app.models.driver_history import DriverHistory
 
