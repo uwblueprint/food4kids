@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 from pydantic import EmailStr, field_validator
 from sqlmodel import Field, SQLModel
 
-# from app.utilities.utils import validate_phone
+from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
@@ -18,11 +18,11 @@ class DriverBase(SQLModel):
     active: bool = Field(default=True)
     notes: str = Field(default="", max_length=1024)
 
-    # @field_validator("phone")
-    # @classmethod
-    # def validate_phone(cls, v: str) -> str:
-    #     """Validate phone number using phonenumbers library"""
-    #     return validate_phone(v)
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        """Validate phone number using phonenumbers library"""
+        return validate_phone(v)
 
 
 class Driver(DriverBase, BaseModel, table=True):
@@ -63,8 +63,8 @@ class DriverRegister(SQLModel):
     car_make_model: str = Field(min_length=1, max_length=255)
     password: str = Field(min_length=8, max_length=100)
 
-    # @field_validator("phone")
-    # @classmethod
-    # def validate_phone(cls, v: str) -> str:
-    #     """Validate phone number using phonenumbers library"""
-    #     return validate_phone(v)
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        """Validate phone number using phonenumbers library"""
+        return validate_phone(v)
