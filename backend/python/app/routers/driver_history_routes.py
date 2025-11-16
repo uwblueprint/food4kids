@@ -1,16 +1,16 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
 from app.models.driver_history import (
+    MAX_YEAR,
+    MIN_YEAR,
     DriverHistoryCreate,
     DriverHistoryRead,
     DriverHistoryUpdate,
-    MIN_YEAR,
-    MAX_YEAR,
 )
 from app.services.implementations.driver_history_service import DriverHistoryService
 
