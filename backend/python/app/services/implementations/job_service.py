@@ -46,10 +46,11 @@ class JobService:
         result = await self.session.execute(select(Job).where(Job.job_id == job_id))
         return result.scalar_one_or_none()
 
-    async def update_progress(self, job_id: UUID, progress: ProgressEnum):
+    async def update_progress(self, job_id: UUID, progress: ProgressEnum) -> None:
         try:
             job = await self.get_job(job_id)
             if not job:
+                self.logger.error("No job with corresponding job ID")
                 return
             job.progress = progress
             job.updated_at = self.utc_now_naive()
@@ -65,10 +66,20 @@ class JobService:
     async def enqueue(self, job_id: UUID) -> None:
         try:
             job = await self.get_job(job_id)
+
             if not job:
                 self.logger.error("Job %s not found during enqueue", job_id)
                 return
 
+            if job.progress != ProgressEnum.PENDING:
+                self.logger.warning(
+                    "Cannot enqueue job %s: current state is %s, expected PENDING",
+                    job_id,
+                    job.progress,
+                )
+                return
+
+            job.progress = ProgressEnum.RUNNING
             job.started_at = self.utc_now_naive()
             self.session.add(job)
             await self.session.commit()

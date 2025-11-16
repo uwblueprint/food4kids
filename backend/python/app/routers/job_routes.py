@@ -45,8 +45,10 @@ async def generate_job(
         await service.enqueue(job_id)
         return JobEnqueueResponse(job_id=job_id)
     except Exception as e:
-        logger.exception("Failed to create job")
-        raise HTTPException(status_code=500, detail="Failed to enqueue job") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to enqueue job",
+        ) from e
 
 
 @router.get("/{job_id}", response_model=JobRead)
