@@ -35,7 +35,7 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
 class LocationGroupCreate(LocationGroupBase):
     """Location group creation request"""
 
-    pass
+    location_ids: list[UUID] = Field(min_length=1)
 
 
 class LocationGroupRead(LocationGroupBase):
