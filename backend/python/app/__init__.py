@@ -6,12 +6,12 @@ import firebase_admin
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.dependencies.services import get_scheduler_service
+from app.services.jobs import init_jobs
+
 from .config import settings
 from .models import init_app as init_models
 from .routers import init_app as init_routers
-
-from app.dependencies.services import get_scheduler_service
-from app.services.jobs import init_jobs
 
 
 def configure_logging() -> None:

@@ -19,5 +19,3 @@ def init_jobs(scheduler_service) -> None:
         hour=23,
         minute=59,
     )
-
-

@@ -67,6 +67,7 @@ class SchedulerService:
 
         # Wrap async functions to run in event loop
         if asyncio.iscoroutinefunction(func):
+
             def async_wrapper():
                 # Create new event loop for the background thread
                 loop = asyncio.new_event_loop()
@@ -122,4 +123,3 @@ class SchedulerService:
             }
             for job in self.scheduler.get_jobs()
         ]
-

@@ -1,7 +1,10 @@
 """Driver history scheduled jobs"""
-import logging
+
 from datetime import date, datetime
-from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 from sqlalchemy import and_
 from sqlmodel import select
@@ -84,15 +87,19 @@ async def process_daily_driver_history() -> None:
             for driver_id, total_distance in driver_distances.items():
                 # Check if history entry exists for this driver and year
                 existing_history = (
-                    await session.execute(
-                        select(DriverHistory).where(
-                            and_(
-                                DriverHistory.driver_id == driver_id,
-                                DriverHistory.year == current_year,
+                    (
+                        await session.execute(
+                            select(DriverHistory).where(
+                                and_(
+                                    DriverHistory.driver_id == driver_id,
+                                    DriverHistory.year == current_year,
+                                )
                             )
                         )
                     )
-                ).scalars().first()
+                    .scalars()
+                    .first()
+                )
 
                 if existing_history:
                     # Update existing entry

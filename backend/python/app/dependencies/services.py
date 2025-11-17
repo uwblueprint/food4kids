@@ -20,8 +20,8 @@ from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
 from app.services.implementations.route_group_service import RouteGroupService
-from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.implementations.scheduler_service import SchedulerService
+from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 
 
