@@ -2,9 +2,12 @@ import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+
+from app.config import settings
 
 
 class SchedulerService:
@@ -14,6 +17,8 @@ class SchedulerService:
         self.logger = logger
         self.scheduler: BackgroundScheduler | None = None
         self._is_running = False
+        # Get timezone from settings
+        self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     def start(self) -> None:
         """Start the scheduler"""
@@ -21,10 +26,11 @@ class SchedulerService:
             self.logger.warning("Scheduler is already running")
             return
 
-        self.scheduler = BackgroundScheduler()
+        # Pass timezone to scheduler (applies to all jobs)
+        self.scheduler = BackgroundScheduler(timezone=self.timezone)
         self.scheduler.start()
         self._is_running = True
-        self.logger.info("Scheduler started")
+        self.logger.info(f"Scheduler started with timezone: {self.timezone}")
 
     def stop(self) -> None:
         """Stop the scheduler"""
@@ -50,7 +56,7 @@ class SchedulerService:
         Args:
             func: The function to execute (can be sync or async)
             job_id: Unique identifier for the job
-            hour: Hour (0-23) or '*' for every hour
+            hour: Hour (0-23) or '*' for every hour (in configured timezone)
             minute: Minute (0-59) or '*' for every minute
             day_of_week: Day of week (0-6, 0=Monday) or '*' for every day
             day: Day of month (1-31) or '*' for every day
@@ -74,12 +80,14 @@ class SchedulerService:
         else:
             wrapped_func = func
 
+        # Don't need to pass timezone to CronTrigger - it inherits from scheduler
         trigger = CronTrigger(
             hour=hour,
             minute=minute,
             day_of_week=day_of_week,
             day=day,
             month=month,
+            timezone=self.timezone,
         )
 
         self.scheduler.add_job(
@@ -89,7 +97,7 @@ class SchedulerService:
             replace_existing=True,
         )
         self.logger.info(
-            f"Registered job '{job_id}' - schedule: {month}/{day} {hour}:{minute} (day_of_week={day_of_week})"
+            f"Registered job '{job_id}' - schedule: {month}/{day} {hour}:{minute} (day_of_week={day_of_week}) in {self.timezone}"
         )
 
     def remove_job(self, job_id: str) -> None:
