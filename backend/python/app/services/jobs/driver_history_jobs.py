@@ -46,12 +46,12 @@ async def process_daily_driver_history() -> None:
                     DriverAssignment.driver_assignment_id,
                     Route.length,
                 )
-                .join(Route, DriverAssignment.route_id == Route.route_id)
+                .join(Route, DriverAssignment.route_id == Route.route_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        DriverAssignment.completed == False,  # noqa: E712
-                        DriverAssignment.time >= start_of_day,
-                        DriverAssignment.time <= end_of_day,
+                        DriverAssignment.completed.is_(False),  # type: ignore[attr-defined]
+                        DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
+                        DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
                     )
                 )
             )
@@ -91,8 +91,8 @@ async def process_daily_driver_history() -> None:
                         await session.execute(
                             select(DriverHistory).where(
                                 and_(
-                                    DriverHistory.driver_id == driver_id,
-                                    DriverHistory.year == current_year,
+                                    DriverHistory.driver_id == driver_id,  # type: ignore[arg-type]
+                                    DriverHistory.year == current_year,  # type: ignore[arg-type]
                                 )
                             )
                         )

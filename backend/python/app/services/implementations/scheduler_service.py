@@ -4,8 +4,10 @@ from collections.abc import Callable
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.background import (  # type: ignore[import-untyped]
+    BackgroundScheduler,
+)
+from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped]
 
 from app.config import settings
 
@@ -68,7 +70,7 @@ class SchedulerService:
         # Wrap async functions to run in event loop
         if asyncio.iscoroutinefunction(func):
 
-            def async_wrapper():
+            def async_wrapper() -> None:
                 # Create new event loop for the background thread
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
