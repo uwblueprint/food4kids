@@ -57,14 +57,14 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         coordinates = np.array([[location.latitude, location.longitude] for location in locations])
 
         # Check that clustering is possible for the given locations
-        if max_locations_per_cluster:
+        if max_locations_per_cluster is not None:
             # Check if it is mathematically possible to meet the constraints on num of clusters + max locations per cluster
             total_locations = len(locations)
             max_possible = num_clusters * max_locations_per_cluster
 
             if total_locations > max_possible:
                 raise ValueError("Max locations per cluster + number of clusters clustering parameters cannot be simultaneously satisfied")
-        if max_boxes_per_cluster:
+        if max_boxes_per_cluster is not None:
             # Check if it is mathematically possible to meet the constraints on num of clusters + max boxes per cluster
             total_boxes = sum(loc.num_boxes for loc in locations)
 
@@ -85,7 +85,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             )
             kmeans.fit(coordinates)
 
-            if max_locations_per_cluster or max_boxes_per_cluster:
+            if max_locations_per_cluster is not None or max_boxes_per_cluster is not None:
                 # Distrance matrix representing the distance form each point to each centroid
                 distances = kmeans.transform(coordinates)
                 clusters = self._assign_with_constraints(locations, distances, num_clusters, max_locations_per_cluster, max_boxes_per_cluster)
