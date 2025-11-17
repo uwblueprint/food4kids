@@ -45,6 +45,9 @@ def main():
         if len(locations) < 2:
             print("Not enough locations with coordinates to cluster!")
             return
+
+        # Count total number of boxes
+        total_boxes = 0
         
         # Print the locations
         print("Locations to cluster:")
@@ -56,22 +59,29 @@ def main():
             print(f"    Coords: ({loc.latitude}, {loc.longitude})")
             print(f"    Boxes: {loc.num_boxes}")
             print()
+            total_boxes = sum(loc.num_boxes for loc in locations)
+        
+        print("Total number of boxes: ", total_boxes)
+        print("Total locations: ", len(locations))
         
         # Run clustering
         clustering_algo = KMeansClusteringAlgorithm()
         num_clusters = 3
-        max_per_cluster = 10
+        max_locations_per_cluster = 1
+        max_boxes_per_cluster = None
         
         print(f"Running K-Means clustering:")
         print(f"  - Number of clusters: {num_clusters}")
-        print(f"  - Max locations per cluster: {max_per_cluster}")
+        print(f"  - Max locations per cluster: {max_locations_per_cluster}")
+        print(f"  - Max boxes per cluster: {max_boxes_per_cluster}")
         print("-" * 60)
         
         try:
             clusters = clustering_algo.cluster_locations(
                 locations=locations,
                 num_clusters=num_clusters,
-                max_locations_per_cluster=max_per_cluster,
+                max_locations_per_cluster=max_locations_per_cluster,
+                max_boxes_per_cluster=max_boxes_per_cluster,
                 timeout_seconds=30.0
             )
             
@@ -101,7 +111,7 @@ def main():
             print("\n" + "=" * 60)
             print("Summary:")
             print(f"  Total clusters: {len(clusters)}")
-            print(f"  Cluster sizes: {[len(c) for c in clusters]}")
+            print(f"  Number of locations in each cluster: {[len(c) for c in clusters]}")
             print(f"  Total locations clustered: {sum(len(c) for c in clusters)}")
             
         except ValueError as e:
