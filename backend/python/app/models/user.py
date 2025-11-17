@@ -9,7 +9,6 @@ from .base import BaseModel
 class UserBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(unique=True, index=True, max_length=254)
-    address: str = Field(min_length=1, max_length=255)
 
 
 class User(UserBase, BaseModel, table=True):
@@ -33,13 +32,10 @@ class UserRead(UserBase):
 class UserUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=254)
-    address: str | None = Field(default=None, min_length=1, max_length=255)
-
 
 class UserRegister(SQLModel):
     """User registration request"""
 
     name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=254)
-    address: str = Field(min_length=1, max_length=255)
     password: str = Field(min_length=8, max_length=100)

@@ -16,6 +16,7 @@ class DriverBase(SQLModel):
     car_make_model: str = Field(min_length=1, max_length=255)
     active: bool = Field(default=True)
     notes: str = Field(default="", max_length=1024)
+    address: str = Field(min_length=1, max_length=255)
 
     @field_validator("phone")
     @classmethod
@@ -42,7 +43,6 @@ class DriverRead(DriverBase):
     user_id: UUID
     name: str
     email: EmailStr
-    address: str
     role: str  # comes from User
 
 
@@ -62,13 +62,13 @@ class DriverRegister(SQLModel):
     # User fields
     name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=254)
-    address: str = Field(min_length=1, max_length=255)
     password: str = Field(min_length=8, max_length=100)
 
     # Driver fields
     phone: str = Field(min_length=1, max_length=20)
     license_plate: str = Field(min_length=1, max_length=20)
     car_make_model: str = Field(min_length=1, max_length=255)
+    address: str = Field(min_length=1, max_length=255)
 
     @field_validator("phone")
     @classmethod
