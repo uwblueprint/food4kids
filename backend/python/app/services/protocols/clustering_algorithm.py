@@ -27,6 +27,7 @@ class ClusteringAlgorithmProtocol(Protocol):
         locations: list[Location],
         num_clusters: int,
         max_locations_per_cluster: int | None = None,
+        max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:  # pragma: no cover - interface only
         """Cluster locations into groups.

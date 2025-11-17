@@ -22,6 +22,7 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
         locations: list[Location],
         num_clusters: int,
         max_locations_per_cluster: int | None = None,
+        max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
         """Split locations evenly into clusters in sequential order.
