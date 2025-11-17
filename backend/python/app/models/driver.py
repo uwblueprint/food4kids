@@ -45,8 +45,16 @@ class DriverRead(DriverBase):
     email: EmailStr
     role: str  # comes from User
 
-
 class DriverUpdate(SQLModel):
+    phone: str | None = Field(default=None, min_length=1, max_length=20)
+    address: str | None = Field(default=None, min_length=1, max_length=255)
+    license_plate: str | None = Field(default=None, min_length=1, max_length=20)
+    car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
+    active: bool | None = Field(default=None)
+    notes: str | None = Field(default=None, max_length=1024)
+
+
+class DriverUpdatePayload(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=254)
     phone: str | None = Field(default=None, min_length=1, max_length=20)
