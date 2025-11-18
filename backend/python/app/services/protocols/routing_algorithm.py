@@ -3,11 +3,10 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Protocol
 
-from backend.python.app.services.protocols import clustering_algorithm
-
 if TYPE_CHECKING:
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
+    from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProtocol
 
 
 class RoutingAlgorithmProtocol(Protocol):
@@ -23,13 +22,15 @@ class RoutingAlgorithmProtocol(Protocol):
     concurrent operations.
     """
 
-    def generate_routes(
+    clustering_algorithm: ClusteringAlgorithmProtocol
+
+    async def generate_routes(
         self,
         locations: list[Location],
         warehouse_lat: float,
         warehouse_lon: float,
         settings: RouteGenerationSettings,
-        timeout_seconds: float | None = None,
+        timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:  # pragma: no cover - interface only
         """Generate routes from a list of locations.
 
@@ -44,9 +45,14 @@ class RoutingAlgorithmProtocol(Protocol):
 
         Returns:
             List of routes, where each route is a list of locations in order
+
+        Raises:
+            TimeoutError: If timeout_seconds is provided and execution exceeds
+            the timeout duration
         """
+
         # Step 1: Cluster the locations
-        clusters = clustering_algorithm.cluster_locations(
+        clusters = await self.clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
             max_locations_per_cluster=getattr(settings, "max_stops_per_route", None),
@@ -55,7 +61,7 @@ class RoutingAlgorithmProtocol(Protocol):
         # Step 2: Generate a route for each cluster
         routes = []
         for cluster in clusters:
-            route = self._generate_single_route(cluster, depot)
+            route = self._generate_single_route(cluster, warehouse_lat, warehouse_lon)
             routes.append(route)
 
         return routes
@@ -63,24 +69,44 @@ class RoutingAlgorithmProtocol(Protocol):
     def _generate_single_route(
         self,
         locations: list[Location],
-        depot,
+        warehouse_lat: float,
+        warehouse_lon: float,
     ) -> list[Location]:
         """Generate a single route from a cluster of locations.
 
+        Uses angular sweep sorting: sorts locations by their angle from the
+        warehouse, then by distance for locations at the same angle.
+
         Args:
             locations: List of locations in the cluster
-            depot: The depot/warehouse location (tuple of x, y coordinates)
+            warehouse_lat: Latitude of the warehouse
+            warehouse_lon: Longitude of the warehouse
 
         Returns:
             List of locations in route order
         """
-        wx, wy = depot
         tau = math.tau
 
-        def angle(p):
-            return math.atan2(p[1] - wy, p[0] - wx) % tau
+        def calculate_angle_from_warehouse(location: Location) -> float | None:
+            """Calculate the angle of a location relative to the warehouse"""
+            if location.latitude is None or location.longitude is None:
+                return None
+            lat_difference = location.latitude - warehouse_lat
+            lon_difference = location.longitude - warehouse_lon
+            return math.atan2(lat_difference, lon_difference) % tau
+
+        def calculate_distance_squared(location: Location) -> float | None:
+            """Calculate squared distance from warehouse"""
+            if location.latitude is None or location.longitude is None:
+                return None
+            lat_difference = location.latitude - warehouse_lat
+            lon_difference = location.longitude - warehouse_lon
+            return lon_difference**2 + lat_difference**2
 
         return sorted(
             locations,
-            key=lambda p: (angle(p), (p[0] - wx) ** 2 + (p[1] - wy) ** 2),
+            key=lambda location: (
+                calculate_angle_from_warehouse(location),
+                calculate_distance_squared(location),
+            ),
         )
