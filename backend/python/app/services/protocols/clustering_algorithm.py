@@ -38,7 +38,7 @@ class ClusteringAlgorithmProtocol(Protocol):
             max_locations_per_cluster: Optional maximum number of locations
                 per cluster. If provided and cannot be satisfied with the given
                 number of clusters, the algorithm should raise an error.
-            max_boxes_per_cluster: Optional maximum number of boxes per cluster. 
+            max_boxes_per_cluster: Optional maximum number of boxes per cluster.
                 If provided and cannot be satisfied with the given
                 number of clusters, the algorithm should raise an error.
             timeout_seconds: Optional timeout in seconds. If provided, the
