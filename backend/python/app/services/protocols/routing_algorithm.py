@@ -88,7 +88,6 @@ class RoutingAlgorithmProtocol(Protocol):
         tau = math.tau
 
         def calculate_angle_from_warehouse(location: Location) -> float | None:
-            """Calculate the angle of a location relative to the warehouse"""
             if location.latitude is None or location.longitude is None:
                 return None
             lat_difference = location.latitude - warehouse_lat
@@ -96,7 +95,6 @@ class RoutingAlgorithmProtocol(Protocol):
             return math.atan2(lat_difference, lon_difference) % tau
 
         def calculate_distance_squared(location: Location) -> float | None:
-            """Calculate squared distance from warehouse"""
             if location.latitude is None or location.longitude is None:
                 return None
             lat_difference = location.latitude - warehouse_lat
