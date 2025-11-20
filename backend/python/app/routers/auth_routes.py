@@ -9,12 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies.auth import get_current_database_driver_id, get_current_user_email
-from app.dependencies.services import get_auth_service, get_driver_service
+from app.dependencies.services import get_auth_service, get_driver_service, get_user_service
 from app.models import get_session
 from app.models.driver import DriverCreate, DriverRegister
+from app.models.user import UserCreate
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
+from app.services.implementations.user_service import UserService
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -90,16 +92,24 @@ async def register(
     session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
     driver_service: DriverService = Depends(get_driver_service),
+    user_service: UserService = Depends(get_user_service)
 ) -> AuthResponse:
     """
     Returns access token and driver info in response body and sets refreshToken as an httpOnly cookie
     """
     try:
-        # Create driver
-        driver_data = register_request.model_dump()
+        #Create user first
+        user_data = register_request.model_dump(include=UserCreate.model_fields.keys())
+        user_create = UserCreate(**user_data)
+        user = await user_service.create_user(session, user_create)
+        # Create driver after
+        driver_data = register_request.model_dump(include=DriverCreate.model_fields.keys())
+        driver_data["user_id"] = user.user_id
         driver = DriverCreate(**driver_data)
-
         await driver_service.create_driver(session, driver)
+
+        #please work
+
         auth_dto, refresh_token = await auth_service.generate_token(
             session, register_request.email, register_request.password
         )

@@ -11,11 +11,13 @@ from app.config import settings
 from app.models import get_session
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
+from app.services.implementations.user_service import UserService
 from app.services.implementations.email_service import EmailService
 
 # Initialize services
 logger = logging.getLogger(__name__)
 driver_service = DriverService(logger)
+user_service = UserService(logger)
 email_service = EmailService(
     logger,
     {
@@ -27,7 +29,7 @@ email_service = EmailService(
     settings.mailer_user,
     "Food4Kids",
 )
-auth_service = AuthService(logger, driver_service, email_service)
+auth_service = AuthService(logger, user_service, driver_service, email_service)
 
 # Security scheme
 security = HTTPBearer()
