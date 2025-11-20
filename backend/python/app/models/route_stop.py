@@ -31,8 +31,7 @@ class RouteStop(RouteStopBase, BaseModel, table=True):
 class RouteStopCreate(RouteStopBase):
     """Create request model"""
 
-    pass
-
+    pass 
 
 class RouteStopRead(RouteStopBase):
     """Read response model"""

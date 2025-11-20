@@ -1,7 +1,7 @@
 """Fix location model
 
 Revision ID: 7af7d4689b08
-Revises: 002_initial_db_migration
+Revises: 003_add_polylines
 Create Date: 2025-10-14 20:57:24.833586
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '7af7d4689b08'
-down_revision = '002_initial_db_migration'
+down_revision = '003_add_polylines'
 branch_labels = None
 depends_on = None
 
