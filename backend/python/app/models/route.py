@@ -8,7 +8,7 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .route_group_membership import RouteGroupMembership
     from .route_stop import RouteStop
-
+    from .polyline import Polyline
 
 class RouteBase(SQLModel):
     """Shared fields between table and API models"""
@@ -32,12 +32,15 @@ class Route(RouteBase, BaseModel, table=True):
     route_stops: list["RouteStop"] = Relationship(
         back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-
     # Relationship to route group memberships
     route_group_memberships: list["RouteGroupMembership"] = Relationship(
         back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
+    # Relationship to polylines
+    polylines: list["Polyline"] = Relationship(
+        back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 class RouteCreate(RouteBase):
     """Create request model"""
