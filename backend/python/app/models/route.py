@@ -33,7 +33,7 @@ class Route(RouteBase, BaseModel, table=True):
         back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     # Relationship to route group memberships
-    route_group_membersments: list["RouteGroupMembership"] = Relationship(
+    route_group_memberships: list["RouteGroupMembership"] = Relationship(
         back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 

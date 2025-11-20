@@ -26,7 +26,7 @@ class Polyline(PolylineBase, BaseModel, table=True):
 
     __tablename__ = "polylines"
 
-    polyline_id: UUID = Field(default=uuid4, primary_key=True, nullable=False)
+    polyline_id: UUID = Field(default_factory=uuid4, primary_key=True, nullable=False)
 
     # Relationship back to route
     route: "Route" = Relationship(back_populates="polylines")

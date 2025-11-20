@@ -90,8 +90,8 @@ def init_app(_app: Any | None = None) -> None:
 
     # Updated imports
     from .polyline import Polyline  # noqa: F401
-    from .route_stops import RouteStop  # noqa: F401
-    from .routes import Route  # noqa: F401
+    from .route_stop import RouteStop  # noqa: F401
+    from .route import Route  # noqa: F401
 
     from .route_group import RouteGroup  # noqa: F401
     from .route_group_membership import RouteGroupMembership  # noqa: F401
