@@ -65,7 +65,7 @@ class RoutingAlgorithmProtocol(Protocol):
                 elapsed = time.time() - start_time
                 if elapsed > timeout_seconds:
                     raise TimeoutError(
-                        f"Sweep clustering exceeded timeout of {timeout_seconds}s "
+                        f"Route generation exceeded timeout of {timeout_seconds}s "
                         f"(elapsed: {elapsed:.2f}s)"
                     )
 
