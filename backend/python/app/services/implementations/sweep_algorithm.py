@@ -72,7 +72,7 @@ class SweepAlgorithm(RoutingAlgorithmProtocol):
 
         start_time = time.time()
 
-        def check_timeout():
+        def check_timeout() -> None:
             if timeout_seconds is not None:
                 elapsed = time.time() - start_time
                 if elapsed > timeout_seconds:
@@ -122,11 +122,11 @@ class SweepAlgorithm(RoutingAlgorithmProtocol):
         def calculate_angle_from_warehouse(location: Location) -> float | None:
             if location.latitude is None:
                 raise LocationLatitudeError(
-                    f"Location {location.id} is missing latitude."
+                    f"Location {location.location_id} is missing latitude."
                 )
             if location.longitude is None:
                 raise LocationLongitudeError(
-                    f"Location {location.id} is missing longitude."
+                    f"Location {location.location_id} is missing longitude."
                 )
             lat_difference = location.latitude - warehouse_lat
             lon_difference = location.longitude - warehouse_lon
@@ -135,11 +135,11 @@ class SweepAlgorithm(RoutingAlgorithmProtocol):
         def calculate_distance_squared(location: Location) -> float | None:
             if location.latitude is None:
                 raise LocationLatitudeError(
-                    f"Location {location.id} is missing latitude."
+                    f"Location {location.location_id} is missing latitude."
                 )
             if location.longitude is None:
                 raise LocationLongitudeError(
-                    f"Location {location.id} is missing longitude."
+                    f"Location {location.location_id} is missing longitude."
                 )
             lat_difference = location.latitude - warehouse_lat
             lon_difference = location.longitude - warehouse_lon
