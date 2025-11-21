@@ -15,10 +15,12 @@ class TimeoutError(Exception):
 
     pass
 
+
 class LocationLatitudeError(Exception):
     """Raised when a location doesn't have a latitude."""
 
     pass
+
 
 class LocationLongitudeError(Exception):
     """Raised when a location doesn't have a longitude."""
