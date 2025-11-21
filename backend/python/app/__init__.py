@@ -119,12 +119,36 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     initialize_firebase()
     init_models()
 
+    await handle_orphaned_jobs()
+
     yield
 
     # Shutdown
     # Add any cleanup code here if needed
     pass
 
+async def handle_orphaned_jobs() -> None:
+    """Terminate any orphaned jobs left in RUNNING state on startup and mark them as FAILED"""
+    from app.models import async_session_maker_instance
+    from app.models.job import Job
+    from app.models.enum import ProgressEnum
+    from sqlmodel import select
+
+    if async session_maker_instance is None:
+        return
+    
+    async with async_session_maker_instance() as session:
+        statement = select(Job).where(Job.progress == ProgressEnum.RUNNING)
+        result = await session.execute(statement)
+        orphaned_jobs = result.scalars().all()
+        for job in orphaned_jobs:
+            job.progress = ProgressEnum.FAILED
+            session.add(job)
+        await session.commit()
+
+        if orphaned_jobs:
+            logger.info(f"Marked {len(orphaned_jobs)} orphaned jobs as FAILED.")
+        
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
