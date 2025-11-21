@@ -127,16 +127,18 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     # Add any cleanup code here if needed
     pass
 
+
 async def handle_orphaned_jobs() -> None:
     """Terminate any orphaned jobs left in RUNNING state on startup and mark them as FAILED"""
-    from app.models import async_session_maker_instance
-    from app.models.job import Job
-    from app.models.enum import ProgressEnum
     from sqlmodel import select
 
-    if async session_maker_instance is None:
+    from app.models import async_session_maker_instance
+    from app.models.enum import ProgressEnum
+    from app.models.job import Job
+
+    if async_session_maker_instance is None:
         return
-    
+
     async with async_session_maker_instance() as session:
         statement = select(Job).where(Job.progress == ProgressEnum.RUNNING)
         result = await session.execute(statement)
@@ -146,9 +148,6 @@ async def handle_orphaned_jobs() -> None:
             session.add(job)
         await session.commit()
 
-        if orphaned_jobs:
-            logger.info(f"Marked {len(orphaned_jobs)} orphaned jobs as FAILED.")
-        
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
