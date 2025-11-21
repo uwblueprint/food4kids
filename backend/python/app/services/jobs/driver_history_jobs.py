@@ -2,9 +2,7 @@
 
 from datetime import date, datetime
 from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from uuid import UUID
+from uuid import UUID
 
 from sqlalchemy import and_
 from sqlmodel import select
@@ -131,11 +129,4 @@ async def process_daily_driver_history() -> None:
         logger.error(
             f"Failed to process daily driver history: {error!s}", exc_info=True
         )
-        # Rollback if we have a session
-        if async_session_maker_instance:
-            try:
-                async with async_session_maker_instance() as session:
-                    await session.rollback()
-            except Exception:
-                pass  # Session might already be closed
         raise error

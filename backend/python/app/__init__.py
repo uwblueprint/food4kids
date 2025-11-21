@@ -129,7 +129,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    # Shutdown
+    # Cleanup: stop the scheduler service during application shutdown
     scheduler_service.stop()
 
 

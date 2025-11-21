@@ -83,7 +83,8 @@ class SchedulerService:
         else:
             wrapped_func = func
 
-        # Don't need to pass timezone to CronTrigger - it inherits from scheduler
+        # Explicitly pass timezone to CronTrigger to ensure the trigger uses the intended timezone,
+        # even though the scheduler also has a timezone setting.
         trigger = CronTrigger(
             hour=hour,
             minute=minute,
