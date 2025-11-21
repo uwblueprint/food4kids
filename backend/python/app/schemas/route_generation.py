@@ -6,6 +6,7 @@ from sqlmodel import SQLModel
 
 if TYPE_CHECKING:
     from datetime import datetime
+
     from app.models.location_group import LocationGroup
 
 
