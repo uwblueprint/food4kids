@@ -8,7 +8,7 @@ from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import get_current_database_driver_id, get_current_user_email
+from app.dependencies.auth import get_current_database_user_id, get_current_user_email
 from app.dependencies.services import get_auth_service, get_driver_service, get_user_service
 from app.models import get_session
 from app.models.driver import DriverCreate, DriverRegister
@@ -181,25 +181,25 @@ async def refresh(
         ) from e
 
 
-@router.post("/logout/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    driver_id: UUID,
+    user_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_database_driver_id: UUID = Depends(get_current_database_driver_id),
+    current_database_user_id: UUID = Depends(get_current_database_user_id),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
     Revokes all of the specified driver's refresh tokens
     """
     # Check if the driver is authorized to logout this driver_id
-    if driver_id != current_database_driver_id:
+    if user_id != current_database_user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="You are not authorized to logout this driver",
         )
 
     try:
-        await auth_service.revoke_tokens(session, driver_id)
+        await auth_service.revoke_tokens(session, user_id)
     except Exception as e:
         error_message = getattr(e, "message", None)
         raise HTTPException(

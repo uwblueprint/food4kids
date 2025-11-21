@@ -172,16 +172,16 @@ def get_current_user_email(access_token: str = Depends(get_access_token)) -> str
         ) from e
 
 
-async def get_current_database_driver_id(
+async def get_current_database_user_id(
     access_token: str = Depends(get_access_token),
     session: AsyncSession = Depends(get_session),
 ) -> UUID:
     """
-    Get the current database driver ID from the access token
+    Get the current database user ID from the access token
 
     :param access_token: JWT access token
     :param session: Database session
-    :return: Database driver ID (UUID)
+    :return: Database user ID (UUID)
     """
     try:
         decoded_token: dict[str, str] = firebase_admin.auth.verify_id_token(
@@ -190,16 +190,16 @@ async def get_current_database_driver_id(
         firebase_uid = decoded_token["uid"]
 
         # Convert Firebase UID to database driver ID
-        database_driver_id = await driver_service.get_driver_id_by_auth_id(
+        database_user_id = await user_service.get_user_id_by_auth_id(
             session, firebase_uid
         )
-        if database_driver_id is None:
+        if database_user_id is None:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Driver not found"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
             )
-        return database_driver_id
+        return database_user_id
     except Exception as e:
-        logger.error(f"Failed to get database driver ID from access token: {e}")
+        logger.error(f"Failed to get database user ID from access token: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         ) from e
