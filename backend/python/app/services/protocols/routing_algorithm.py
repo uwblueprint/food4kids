@@ -15,6 +15,16 @@ class TimeoutError(Exception):
 
     pass
 
+class LocationLatitudeError(Exception):
+    """Raised when a location doesn't have a latitude."""
+
+    pass
+
+class LocationLongitudeError(Exception):
+    """Raised when a location doesn't have a longitude."""
+
+    pass
+
 
 class RoutingAlgorithmProtocol(Protocol):
     """Protocol for routing algorithms.
@@ -108,15 +118,27 @@ class RoutingAlgorithmProtocol(Protocol):
         tau = math.tau
 
         def calculate_angle_from_warehouse(location: Location) -> float | None:
-            if location.latitude is None or location.longitude is None:
-                return None
+            if location.latitude is None:
+                raise LocationLatitudeError(
+                    f"Location {location.id} is missing latitude."
+                )
+            if location.longitude is None:
+                raise LocationLongitudeError(
+                    f"Location {location.id} is missing longitude."
+                )
             lat_difference = location.latitude - warehouse_lat
             lon_difference = location.longitude - warehouse_lon
             return math.atan2(lat_difference, lon_difference) % tau
 
         def calculate_distance_squared(location: Location) -> float | None:
-            if location.latitude is None or location.longitude is None:
-                return None
+            if location.latitude is None:
+                raise LocationLatitudeError(
+                    f"Location {location.id} is missing latitude."
+                )
+            if location.longitude is None:
+                raise LocationLongitudeError(
+                    f"Location {location.id} is missing longitude."
+                )
             lat_difference = location.latitude - warehouse_lat
             lon_difference = location.longitude - warehouse_lon
             return lon_difference**2 + lat_difference**2
