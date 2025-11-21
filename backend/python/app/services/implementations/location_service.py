@@ -20,7 +20,7 @@ from app.models.location_mappings import RequiredLocationField
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.mappings_service import MappingsService
 from app.utilities.google_maps_client import GoogleMapsClient
-from app.utilities.import_utils import MAX_CSV_ROWS, get_df
+from app.utilities.import_utils import get_df
 from app.utilities.utils import get_phone_number
 
 
@@ -109,12 +109,7 @@ class LocationService:
         try:
             df = await get_df(file)
 
-            if len(df) > MAX_CSV_ROWS:
-                raise ValueError(
-                    f"Import file has too many rows ({len(df)}). Maximum allowed is {MAX_CSV_ROWS}."
-                )
-
-            # TODO: use admin id to get mapping
+            # TODO: USE ADMIN_ID TO RETRIEVE MAPPING
             mappings = await self.mapping_service.get_mappings(session)
             if not mappings:
                 raise ValueError("No mappings found for location import")

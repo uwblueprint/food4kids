@@ -22,4 +22,8 @@ async def get_df(file: UploadFile) -> pd.DataFrame:
         df = pd.read_excel(io.BytesIO(file_data))
     else:
         raise ValueError("Unsupported file type")
+
+    if len(df) > MAX_CSV_ROWS:
+        raise ValueError(
+            f"Import file has too many rows ({len(df)}). Maximum allowed is {MAX_CSV_ROWS}.")
     return df
