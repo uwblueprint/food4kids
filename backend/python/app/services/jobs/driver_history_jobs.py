@@ -1,8 +1,12 @@
 """Driver history scheduled jobs"""
 
+from __future__ import annotations
+
 from datetime import date, datetime
 from typing import TYPE_CHECKING
-from uuid import UUID
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 from sqlalchemy import and_
 from sqlmodel import select
