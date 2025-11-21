@@ -17,10 +17,10 @@ class LocationState(str, Enum):
 
 
 class LocationEntryStatus(str, Enum):
-    OK = "ok"
-    MISSING_FIELD = "missing_field"
-    DUPLICATE_ENTRY = "duplicate_entry"
-    UNKNOWN_ERROR = "unknown_error"
+    OK = "OK"
+    MISSING_FIELD = "Missing Field"
+    DUPLICATE_ENTRY = "Duplicate Entry"
+    UNKNOWN_ERROR = "Unknown Error"
 
 
 class LocationBase(SQLModel):
@@ -32,7 +32,7 @@ class LocationBase(SQLModel):
     state: str = Field(default=LocationState.ACTIVE.value, max_length=20)
     school_name: str | None = None
     contact_name: str
-    place_id: str
+    place_id: str | None = None
     address: str
     phone_number: str
     longitude: float | None = None
@@ -84,13 +84,24 @@ class LocationUpdate(SQLModel):
     notes: str | None = None
 
 
+class UploadedLocationBase(SQLModel):
+    # TODO: eventuall refactor
+    """Required fields for uploaded location data"""
+    contact_name: str | None = None
+    address: str | None = None
+    phone_number: str | None = None
+    num_boxes: int | None = None
+    dietary_restrictions: str | None = None
+    halal: bool | None = None
+    delivery_group: str | None = None
+
+
 class LocationEntry(SQLModel):
     """Entry result from location import/validation"""
-    location: LocationRead | None = None
+    location: UploadedLocationBase
     status: LocationEntryStatus
+    missing_fields: list[str]
     row: int
-    delivery_group: str | None = None
-    error_message: str | None = None
 
 
 class LocationEntriesResponse(SQLModel):

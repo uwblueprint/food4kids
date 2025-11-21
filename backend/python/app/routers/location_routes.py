@@ -92,11 +92,11 @@ async def create_location(
 
 
 @router.post(
-    "/import",
+    "/validate",
     response_model=LocationEntriesResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
 )
-async def import_locations(
+async def validate_locations(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
     # _: bool = Depends(require_driver),
@@ -112,7 +112,7 @@ async def import_locations(
         )
 
     try:
-        result = await location_service.import_locations(session, file)
+        result = await location_service.validate_locations(session, file)
         return result
     except Exception as e:
         raise HTTPException(
