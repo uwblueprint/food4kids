@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import math
+import time
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
     from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProtocol
+
+
+class TimeoutError(Exception):
+    """Raised when an operation exceeds its timeout limit."""
+
+    pass
 
 
 class RoutingAlgorithmProtocol(Protocol):
@@ -30,7 +37,7 @@ class RoutingAlgorithmProtocol(Protocol):
         warehouse_lat: float,
         warehouse_lon: float,
         settings: RouteGenerationSettings,
-        timeout_seconds: float | None = None,  # noqa: ARG002
+        timeout_seconds: float | None = None,
     ) -> list[list[Location]]:  # pragma: no cover - interface only
         """Generate routes from a list of locations.
 
@@ -51,17 +58,30 @@ class RoutingAlgorithmProtocol(Protocol):
             the timeout duration
         """
 
+        start_time = time.time()
+
+        def check_timeout():
+            if timeout_seconds is not None:
+                elapsed = time.time() - start_time
+                if elapsed > timeout_seconds:
+                    raise TimeoutError(
+                        f"Sweep clustering exceeded timeout of {timeout_seconds}s "
+                        f"(elapsed: {elapsed:.2f}s)"
+                    )
+
         # Step 1: Cluster the locations
         clusters = await self.clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
             max_locations_per_cluster=getattr(settings, "max_stops_per_route", None),
         )
+        check_timeout()
 
         # Step 2: Generate a route for each cluster
         routes = []
         for cluster in clusters:
             route = self._generate_single_route(cluster, warehouse_lat, warehouse_lon)
+            check_timeout()
             routes.append(route)
 
         return routes
