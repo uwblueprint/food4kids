@@ -48,7 +48,6 @@ class AdminRead(AdminBase):
     # pulled from User
     name: str
     email: EmailStr
-    address: str
     auth_id: str
     role: str
 
@@ -61,4 +60,3 @@ class AdminUpdate(SQLModel):
     # user fields
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None)
-    address: str | None = Field(default=None, min_length=1, max_length=255)
