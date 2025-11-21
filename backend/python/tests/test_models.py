@@ -480,9 +480,8 @@ class TestCoreModels:
         assert history_read.driver_history_id == 1
 
         # Update
-        history_update = DriverHistoryUpdate(year=2028, km=2500.0)
-        assert history_update.year == 2028
-        assert history_update.driver_id is None
+        history_update = DriverHistoryUpdate(km=2500.0)
+        assert history_update.km == 2500.0
 
     def test_job_core_operations(self) -> None:
         """Test Job model core operations."""
