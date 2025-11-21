@@ -104,7 +104,6 @@ async def validate_locations(
     """
     Ingests location Apricot data (CSV or XLSX) into database
     """
-    # validate file type (csv or xlsx)
     if file.content_type not in CSV_FILE_TYPES + XLSX_FILE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
