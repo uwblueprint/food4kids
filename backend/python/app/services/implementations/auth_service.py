@@ -231,10 +231,14 @@ class AuthService:
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
             )
-            firebase_user: UserRecord = firebase_admin.auth.get_user(
-                decoded_id_token["uid"]
-            )
-            return bool(firebase_user.email_verified)
+            user_role = decoded_id_token.get("role")
+            if not user_role:
+                self.logger.warning(
+                    f"User {decoded_id_token['uid']} has no role claim set"
+                )
+                return False
+            # Allow if role is in the authorized set
+            return user_role in _roles
         except Exception as e:
             self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
             return False

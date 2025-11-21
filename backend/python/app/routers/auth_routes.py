@@ -2,6 +2,7 @@ import logging
 import traceback
 from typing import Literal, cast
 from uuid import UUID
+import firebase_admin.auth
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
@@ -102,6 +103,8 @@ async def register(
         user_data = register_request.model_dump(include=UserCreate.model_fields.keys())
         user_create = UserCreate(**user_data)
         user = await user_service.create_user(session, user_create)
+        firebase_admin.auth.set_custom_user_claims(user.auth_id, {"role": user.role})
+
         # Create driver after
         driver_data = register_request.model_dump(include=DriverCreate.model_fields.keys())
         driver_data["user_id"] = user.user_id
