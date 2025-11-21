@@ -7,8 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.location import (
+    LinkLocationsResponse,
     LocationCreate,
     LocationEntriesResponse,
+    LocationLinkPayload,
     LocationRead,
     LocationUpdate,
 )
@@ -92,7 +94,7 @@ async def create_location(
 
 
 @router.post(
-    "/validation",
+    "/validate",
     response_model=LocationEntriesResponse,
     status_code=status.HTTP_200_OK,
 )
@@ -102,7 +104,7 @@ async def validate_locations(
     # _: bool = Depends(require_driver),
 ) -> LocationEntriesResponse:
     """
-    Ingests location Apricot data (CSV or XLSX) into database
+    Validate location Apricot data (no missing fields or local duplicates)
     """
     if file.content_type not in CSV_FILE_TYPES + XLSX_FILE_TYPES:
         raise HTTPException(
@@ -112,6 +114,29 @@ async def validate_locations(
 
     try:
         result = await location_service.validate_locations(session, file)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/link",
+    response_model=LinkLocationsResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def link_locations(
+    locations: LocationLinkPayload,
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> LinkLocationsResponse:
+    """
+    Link locations from local import and database
+    """
+    try:
+        result = await location_service.link_locations(session, locations)
         return result
     except Exception as e:
         raise HTTPException(

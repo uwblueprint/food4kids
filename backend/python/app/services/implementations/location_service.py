@@ -7,15 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import (
+    LinkLocationsResponse,
     Location,
     LocationCreate,
     LocationEntriesResponse,
     LocationEntry,
     LocationEntryStatus,
+    LocationLinkEntry,
+    LocationLinkPayload,
     LocationUpdate,
     UploadedLocationBase,
 )
-from app.models.location_group import LocationGroupCreate
 from app.models.location_mappings import RequiredLocationField
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.mappings_service import MappingsService
@@ -173,6 +175,28 @@ class LocationService:
             total_entries=len(all_locations),
             successful_entries=len(successful_locations),
             failed_entries=len(failed_locations),
+            entries=all_locations,
+        )
+
+    async def link_locations(
+        self, session: AsyncSession, locations: LocationLinkPayload
+    ) -> LinkLocationsResponse:
+        """Add locations from Apricot data source (CSV or XLSX)"""
+        all_locations: list[LocationLinkEntry] = []
+        duplicate_locations: list[LocationLinkEntry] = []
+        similar_locations: list[LocationLinkEntry] = []
+
+        for location_entry in locations.entries:
+            # invariant: all fields exist at this point
+
+            # TODO: implement linking logic
+            #
+            print("hello")
+
+        return LinkLocationsResponse(
+            total_entries=len(all_locations),
+            duplicate_entries=len(duplicate_locations),
+            similar_entries=len(similar_locations),
             entries=all_locations,
         )
 

@@ -19,6 +19,13 @@ class LocationState(str, Enum):
 class LocationEntryStatus(str, Enum):
     OK = "OK"
     MISSING_FIELD = "Missing Field"
+    DUPLICATE_ENTRY = "Local Duplicate Entry"
+    UNKNOWN_ERROR = "Unknown Error"
+
+
+class LocationLinkEntryStatus(str, Enum):
+    OK = "OK"
+    SIMILAR_ENTRY = "Similar Entry"
     DUPLICATE_ENTRY = "Duplicate Entry"
     UNKNOWN_ERROR = "Unknown Error"
 
@@ -85,7 +92,7 @@ class LocationUpdate(SQLModel):
 
 
 class UploadedLocationBase(SQLModel):
-    # TODO: eventuall refactor
+    # TODO: eventually refactor
     """Required fields for uploaded location data"""
     contact_name: str | None = None
     address: str | None = None
@@ -98,10 +105,14 @@ class UploadedLocationBase(SQLModel):
 
 class LocationEntry(SQLModel):
     """Entry result from location import/validation"""
-    location: UploadedLocationBase
-    status: LocationEntryStatus
-    missing_fields: list[str]
     row: int
+    location: UploadedLocationBase
+    missing_fields: list[str]
+    status: LocationEntryStatus
+
+
+class LocationLinkPayload(SQLModel):
+    entries: list[LocationEntry]
 
 
 class LocationEntriesResponse(SQLModel):
@@ -109,3 +120,19 @@ class LocationEntriesResponse(SQLModel):
     successful_entries: int
     failed_entries: int
     entries: list[LocationEntry]
+
+
+class LocationLinkEntry(SQLModel):
+    location: LocationCreate
+    status: LocationLinkEntryStatus
+    duplicate_location_id: UUID | None = None
+    similar_location_id: UUID | None = None
+    row: int
+
+
+class LinkLocationsResponse(SQLModel):
+    total_entries: int
+    successful_entries: int
+    duplicate_entries: int
+    similiar_entries: int
+    entries: list[LocationLinkEntry]
