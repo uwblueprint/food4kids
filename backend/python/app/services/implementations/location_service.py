@@ -120,60 +120,55 @@ class LocationService:
         self, session: AsyncSession, file: UploadFile
     ) -> LocationEntriesResponse:
         """Add locations from Apricot data source (CSV or XLSX)"""
-        try:
-            df = await get_df(file)
+        df = await get_df(file)
 
-            mapping = await self._get_location_mapping(session)
+        mapping = await self._get_location_mapping(session)
 
-            all_locations: list[LocationEntry] = []
-            successful_locations: list[LocationEntry] = []
-            failed_locations: list[LocationEntry] = []
-            seen_entries = set()
+        all_locations: list[LocationEntry] = []
+        successful_locations: list[LocationEntry] = []
+        failed_locations: list[LocationEntry] = []
+        seen_entries = set()
 
-            for index, row in df.iterrows():
-                # extract location data and missing fields
-                location, missing_fields = self._construct_location(
-                    mapping, row)
+        for index, row in df.iterrows():
+            # extract location data and missing fields
+            location, missing_fields = self._construct_location(
+                mapping, row)
 
-                # missing fields detected
-                if missing_fields:
-                    location_entry = LocationEntry(
-                        location=location,
-                        status=LocationEntryStatus.MISSING_FIELD,
-                        missing_fields=missing_fields,
-                        row=index + 1,
-                    )
-                    failed_locations.append(location_entry)
-                    all_locations.append(location_entry)
-                    continue
-
-                # detect local duplicates
-                hash_key = f"{location.address}|{location.phone_number}"
-                if hash_key in seen_entries:
-                    location_entry = LocationEntry(
-                        location=location,
-                        status=LocationEntryStatus.DUPLICATE_ENTRY,
-                        missing_fields=missing_fields,
-                        row=index + 1,
-                    )
-                    failed_locations.append(location_entry)
-                    all_locations.append(location_entry)
-                    continue
-                seen_entries.add(hash_key)
-
-                # successful location entry
+            # missing fields detected
+            if missing_fields:
                 location_entry = LocationEntry(
                     location=location,
-                    status=LocationEntryStatus.OK,
+                    status=LocationEntryStatus.MISSING_FIELD,
                     missing_fields=missing_fields,
                     row=index + 1,
                 )
-                successful_locations.append(location_entry)
+                failed_locations.append(location_entry)
                 all_locations.append(location_entry)
-        except Exception as e:
-            self.logger.error(f"Failed to import locations: {e!s}")
-            raise
+                continue
 
+            # detect local duplicates
+            hash_key = f"{location.address}|{location.phone_number}"
+            if hash_key in seen_entries:
+                location_entry = LocationEntry(
+                    location=location,
+                    status=LocationEntryStatus.DUPLICATE_ENTRY,
+                    missing_fields=missing_fields,
+                    row=index + 1,
+                )
+                failed_locations.append(location_entry)
+                all_locations.append(location_entry)
+                continue
+            seen_entries.add(hash_key)
+
+            # successful location entry
+            location_entry = LocationEntry(
+                location=location,
+                status=LocationEntryStatus.OK,
+                missing_fields=missing_fields,
+                row=index + 1,
+            )
+            successful_locations.append(location_entry)
+            all_locations.append(location_entry)
         return LocationEntriesResponse(
             total_entries=len(all_locations),
             successful_entries=len(successful_locations),

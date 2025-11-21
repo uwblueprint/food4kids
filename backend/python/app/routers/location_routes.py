@@ -92,7 +92,7 @@ async def create_location(
 
 
 @router.post(
-    "/validate",
+    "/validation",
     response_model=LocationEntriesResponse,
     status_code=status.HTTP_200_OK,
 )
