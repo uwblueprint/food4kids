@@ -5,10 +5,11 @@ Run with: python -m app.services.implementations.k_means_test
 """
 
 import os
-import seaborn as sns
+import sys
+
 import matplotlib.pyplot as plt
 import pandas as pd  # Often useful for data handling
-import sys
+import seaborn as sns
 
 sys.path.insert(0, "/app")
 
