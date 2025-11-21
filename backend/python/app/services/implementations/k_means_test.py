@@ -12,11 +12,11 @@ from sqlmodel import Session, create_engine, select
 
 # Import all models to register them with SQLModel
 from app.models.location import Location
-from app.models.location_group import LocationGroup
-from app.models.route import Route
-from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
-from app.models.route_stop import RouteStop
+from app.models.location_group import LocationGroup  # noqa: F401
+from app.models.route import Route  # noqa: F401
+from app.models.route_group import RouteGroup  # noqa: F401
+from app.models.route_group_membership import RouteGroupMembership  # noqa: F401
+from app.models.route_stop import RouteStop  # noqa: F401
 from app.services.implementations.k_means_clustering_algorithm import (
     KMeansClusteringAlgorithm,
 )
