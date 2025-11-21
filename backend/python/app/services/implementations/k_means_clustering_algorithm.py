@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import numpy as np
-from sklearn.cluster import KMeans # type: ignore[import-untyped]
+from sklearn.cluster import KMeans  # type: ignore[import-untyped]
 
 from app.services.protocols.clustering_algorithm import (
     ClusteringAlgorithmProtocol,
@@ -96,7 +96,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 max_locations_per_cluster is not None
                 or max_boxes_per_cluster is not None
             ):
-                # Distrance matrix representing the distance form each point to each centroid
+                # Distance matrix representing the distance from each point to each centroid
                 distances = kmeans.transform(coordinates)
                 clusters = self._assign_with_constraints(
                     locations,
@@ -149,7 +149,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         cluster_counts: dict[int, int] = defaultdict(int)
 
         # Hold actual location cluster assignments
-        assignments: list[int | None] = [0] * len(locations)
+        assignments: list[int] = [0] * len(locations)
 
         # Build candidate list: (location_index, preferred_cluster (by cluster number), distance_to_preferred, all_distances)
         candidates = []
@@ -163,8 +163,6 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         # Helper to check if we can place a location into a cluster w.r.t. constraints + place it if yes
         def can_place_and_put(location_index: int, cluster_id: int) -> bool:
-            loc = locations[location_index]
-
             # Look at each cluster, see if num of locations or num of boxes (depending on constraints) assigned to that cluster is still within max limit
             # Because using defaultdict, "not-yet-touched" clusters have num locations/boxes = 0 by default
             loc = locations[location_index]
@@ -186,8 +184,8 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     cluster_counts[cluster_id] += need
                     return True
                 return False
-            
-            # If no constraints, always allow placement (should never run this function is there are no constraints, but added for mypy's happiness!)
+
+            # If no constraints, always allow placement (should never run this function if there are no constraints, but added for mypy's happiness!)
             return True
 
         # Assign each location "greedily" - assign location to closest cluster with space

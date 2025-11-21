@@ -9,22 +9,17 @@ import sys
 sys.path.insert(0, "/app")
 
 from sqlmodel import Session, create_engine, select
-from app.services.implementations.k_means_clustering_algorithm import KMeansClusteringAlgorithm
 
 # Import all models to register them with SQLModel
-from app.models.admin import Admin
-from app.models.base import BaseModel
-from app.models.driver import Driver
-from app.models.driver_assignment import DriverAssignment
-from app.models.driver_history import DriverHistory
-from app.models.enum import ProgressEnum
-from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
+from app.services.implementations.k_means_clustering_algorithm import (
+    KMeansClusteringAlgorithm,
+)
 
 # Use the same connection string as seed_database.py
 DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
@@ -37,10 +32,7 @@ def main() -> None:
         # Fetch locations that have coordinates
         statement = (
             select(Location)
-            .where(
-                Location.latitude != None, # noqa: E711
-                Location.longitude != None # noqa: E711
-                )
+            .where(Location.latitude is not None, Location.longitude is not None)
             .limit(20)
         )
 
