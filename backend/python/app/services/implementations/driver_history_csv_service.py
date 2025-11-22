@@ -72,9 +72,11 @@ class DriverHistoryCSVGenerator:
         # Sort: current year drivers first (descending), then by last name, then first name
         csv_data.sort(
             key=lambda x: (
-                int(x[f"distance (km) in {year}"]) > 0,
-                str(x["last"]).lower(),
+                not (
+                    int(x[f"distance (km) in {year}"]) > 0
+                ),  # current year drivers first
                 str(x["first"]).lower(),
+                str(x["last"]).lower(),
             )
         )
 
