@@ -72,14 +72,11 @@ class DriverHistoryCSVGenerator:
         # Sort: current year drivers first (descending), then by last name, then first name
         csv_data.sort(
             key=lambda x: (
-                x[f"distance (km) in {year}"] > 0,
+                int(x[f"distance (km) in {year}"]) > 0,
                 str(x["last"]).lower(),
                 str(x["first"]).lower(),
             )
         )
-
-        for row in csv_data:
-            del row["_has_current_year"]
 
         filename = f"driver_history_all_drivers_{year}.csv"
         return csv_data, filename
