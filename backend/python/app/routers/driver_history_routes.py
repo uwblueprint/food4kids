@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
@@ -12,7 +13,12 @@ from app.models.driver_history import (
     DriverHistoryRead,
     DriverHistoryUpdate,
 )
+from app.routers.driver_routes import get_drivers
+from app.services.implementations.driver_history_csv_service import (
+    DriverHistoryCSVGenerator,
+)
 from app.services.implementations.driver_history_service import DriverHistoryService
+from app.utilities.csv_utils import generate_csv_from_list
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -21,30 +27,60 @@ driver_history_service = DriverHistoryService(logger)
 router = APIRouter(prefix="/drivers/{driver_id}/history", tags=["driver-history"])
 
 
-@router.get("/", response_model=list[DriverHistoryRead])
-async def get_driver_histories(
-    driver_id: UUID,
+@router.get("/{year}/export", response_class=StreamingResponse)
+async def export_all_drivers_history(
+    driver_id: str,
+    year: int,
     session: AsyncSession = Depends(get_session),
-) -> list[DriverHistoryRead]:
-    """Get all driver histories"""
+) -> StreamingResponse:
+    """
+    Export history for all drivers for a specific year. Includes data from that year and the previous year.
+
+    - driver_id: Must be "all"
+    - year: The year to export data for
+    """
     try:
-        driver_histories = await driver_history_service.get_driver_history_by_id(
-            session, driver_id
+        if driver_id != "all":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid driver_id: {driver_id}. Must be 'all' for year-based export",
+            )
+
+        driver_history_current_year = (
+            await driver_history_service.get_driver_history_by_year(session, year)
         )
-        if not driver_histories:
+        driver_history_past_year = (
+            await driver_history_service.get_driver_history_by_year(session, year - 1)
+        )
+
+        if not driver_history_current_year and not driver_history_past_year:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver history with id {driver_id} not found",
+                detail=f"No driver history found for year {year} or {year - 1}",
             )
-        return [
-            DriverHistoryRead.model_validate(driver_history)
-            for driver_history in driver_histories
-        ]
+
+        driver_data = await get_drivers(session, driver_id=None, email=None)
+
+        generator = DriverHistoryCSVGenerator(
+            session, driver_history_current_year, driver_history_past_year, driver_data
+        )
+
+        csv_data, filename = await generator.generate_all_drivers_csv(year)
+        csv_output = generate_csv_from_list(csv_data, header=True)
+
+        return StreamingResponse(
+            iter([csv_output]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"Unexpected error exporting driver history: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while exporting driver history",
         ) from e
 
 
