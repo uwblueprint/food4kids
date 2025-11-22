@@ -29,6 +29,11 @@ class LocationMatchStatus(str, Enum):
     NET_NEW = "Net New"
 
 
+class LocationSimilarAction(str, Enum):
+    LINK_SIMILAR = "Link Similar"
+    CREATE_NEW = "Create New"
+
+
 class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
@@ -129,9 +134,28 @@ class LocationLinkEntry(SQLModel):
     row: int
 
 
+class IngestLocationEntry(LocationLinkEntry):
+    action: LocationSimilarAction | None = None
+
+
 class LinkLocationsResponse(SQLModel):
     total_entries: int
     new_entries: int
     duplicate_entries: int
     similar_entries: int
     entries: list[LocationLinkEntry]
+
+
+class IngestLocationsPayload(SQLModel):
+    entries: list[IngestLocationEntry]
+
+
+class IngestedLocation(SQLModel):
+    row: int
+    location: LocationRead
+    status: LocationEntryStatus
+
+
+class IngestLocationsResponse(SQLModel):
+    total_entries: int
+    entries: list[IngestedLocation]

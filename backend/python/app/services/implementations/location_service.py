@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import and_, or_, select
 
 from app.models.location import (
+    IngestedLocation,
+    IngestLocationsPayload,
+    IngestLocationsResponse,
     LinkLocationsResponse,
     Location,
     LocationCreate,
@@ -17,6 +20,7 @@ from app.models.location import (
     LocationLinkPayload,
     LocationMatchStatus,
     LocationRead,
+    LocationSimilarAction,
     LocationUpdate,
     UploadedLocationBase,
 )
@@ -234,6 +238,71 @@ class LocationService:
             duplicate_entries=len(duplicate_locations),
             similar_entries=len(similar_locations),
             entries=all_locations,
+        )
+
+    async def ingest_locations(
+        self, session: AsyncSession, locations: IngestLocationsPayload
+    ) -> IngestLocationsResponse:
+        """Add locations from Apricot data source (CSV or XLSX)"""
+        # return IngestLocationsResponse(
+        #     total_entries=0,
+        #     entries=[]
+        # )
+        all_locations: list[IngestedLocation] = []
+
+        try:
+            for location_entry in locations.entries:
+                if location_entry.status == LocationMatchStatus.DUPLICATE_MATCH:
+                    # DO NOT INGEST DUPLICATE
+                    print("hei")
+
+                elif location_entry.status == LocationMatchStatus.NET_NEW:
+                    # INGEST NEW LOCATION
+                    created_location = await self.create_location(
+                        session, LocationCreate.model_validate(
+                            location_entry.location)
+                    )
+                    ingested_location = IngestedLocation(
+                        row=location_entry.row,
+                        location=LocationRead.model_validate(created_location),
+                        status=LocationEntryStatus.OK,
+                    )
+                    all_locations.append(ingested_location)
+                elif location_entry.status == LocationMatchStatus.SIMILAR:
+                    # INGEST BASED ON ACTION
+                    if location_entry.action == LocationSimilarAction.LINK_SIMILAR:
+                        new_location = LocationCreate.model_validate(
+                            **location_entry.location.model_dump(), notes=location_entry.similar_location.notes)
+                        created_location = await self.create_location(
+                            session, new_location
+                        )
+                        ingested_location = IngestedLocation(
+                            row=location_entry.row,
+                            location=LocationRead.model_validate(
+                                created_location),
+                            status=LocationEntryStatus.OK,
+                        )
+                        all_locations.append(ingested_location)
+                    elif location_entry.action == LocationSimilarAction.CREATE_NEW:
+                        created_location = await self.create_location(
+                            session, LocationCreate.model_validate(
+                                location_entry.location)
+                        )
+                        ingested_location = IngestedLocation(
+                            row=location_entry.row,
+                            location=LocationRead.model_validate(
+                                created_location),
+                            status=LocationEntryStatus.OK,
+                        )
+                        all_locations.append(ingested_location)
+        except Exception as e:
+            self.logger.error(f"Failed to ingest locations: {e!s}")
+            await session.rollback()
+            raise e
+
+        return IngestLocationsResponse(
+            total_entries=len(all_locations),
+            entries=all_locations
         )
 
     async def update_location_by_id(

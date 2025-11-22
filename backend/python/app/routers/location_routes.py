@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.location import (
+    IngestLocationsPayload,
+    IngestLocationsResponse,
     LinkLocationsResponse,
     LocationCreate,
     LocationEntriesResponse,
@@ -137,6 +139,29 @@ async def link_locations(
     """
     try:
         result = await location_service.link_locations(session, locations)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/ingest",
+    response_model=IngestLocationsResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def ingest_locations(
+    locations: IngestLocationsPayload,
+    session: AsyncSession = Depends(get_session),
+    # _: bool = Depends(require_driver),
+) -> IngestLocationsResponse:
+    """
+    Ingest locations into the database
+    """
+    try:
+        result = await location_service.ingest_locations(session, locations)
         return result
     except Exception as e:
         raise HTTPException(
