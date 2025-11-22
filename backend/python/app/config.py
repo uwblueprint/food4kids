@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     port: int = Field(default=8080)
     host: str = Field(default="0.0.0.0")
 
+    # Scheduler
+    scheduler_timezone: str = Field(default="America/New_York")
+
     # Preview deploy
     preview_deploy: bool = Field(default=False)
 
