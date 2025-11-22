@@ -27,6 +27,7 @@ class ClusteringAlgorithmProtocol(Protocol):
         locations: list[Location],
         num_clusters: int,
         max_locations_per_cluster: int | None = None,
+        max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:  # pragma: no cover - interface only
         """Cluster locations into groups.
@@ -36,7 +37,14 @@ class ClusteringAlgorithmProtocol(Protocol):
             num_clusters: Target number of clusters to create
             max_locations_per_cluster: Optional maximum number of locations
                 per cluster. If provided and cannot be satisfied with the given
-                number of clusters, the algorithm should raise an error.
+                number of clusters, the algorithm should raise an error. Can
+                assert that at most one of the max_locations_per_cluster
+                and max_boxes_per_cluster args are non-null (at least for now).
+            max_boxes_per_cluster: Optional maximum number of boxes per cluster.
+                If provided and cannot be satisfied with the given
+                number of clusters, the algorithm should raise an error. Can
+                assert that at most one of the max_locations_per_cluster
+                and max_boxes_per_cluster args are non-null (at least for now).
             timeout_seconds: Optional timeout in seconds. If provided, the
                 algorithm should raise TimeoutError if execution exceeds this
                 duration. If None, no timeout is enforced.

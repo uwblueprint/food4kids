@@ -12,10 +12,16 @@ from app.services.protocols.routing_algorithm import (
 if TYPE_CHECKING:
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
+    from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProtocol
 
 
 class MockRoutingAlgorithm(RoutingAlgorithmProtocol):
     """Simple mock routing algorithm that uses the mock clustering algorithm."""
+
+    clustering_algorithm: ClusteringAlgorithmProtocol
+
+    def __init__(self) -> None:
+        self.clustering_algorithm = MockClusteringAlgorithm()
 
     async def generate_routes(
         self,
