@@ -13,6 +13,7 @@ from app.models.driver_history import (
     DriverHistoryRead,
     DriverHistoryUpdate,
 )
+from app.routers.driver_routes import get_drivers
 from app.services.implementations.driver_history_csv_service import (
     DriverHistoryCSVGenerator,
 )
@@ -45,10 +46,26 @@ async def export_all_drivers_history(
                 detail=f"Invalid driver_id: {driver_id}. Must be 'all' for year-based export",
             )
 
-        generator = DriverHistoryCSVGenerator(session, driver_history_service)
+        driver_history_current_year = (
+            await driver_history_service.get_driver_history_by_year(session, year)
+        )
+        driver_history_past_year = (
+            await driver_history_service.get_driver_history_by_year(session, year - 1)
+        )
+
+        if not driver_history_current_year and not driver_history_past_year:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No driver history found for year {year} or {year - 1}",
+            )
+
+        driver_data = await get_drivers(session, driver_id=None, email=None)
+
+        generator = DriverHistoryCSVGenerator(
+            session, driver_history_current_year, driver_history_past_year, driver_data
+        )
 
         csv_data, filename = await generator.generate_all_drivers_csv(year)
-
         csv_output = generate_csv_from_list(csv_data, header=True)
 
         return StreamingResponse(
