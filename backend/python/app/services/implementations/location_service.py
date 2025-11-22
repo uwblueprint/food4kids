@@ -24,6 +24,7 @@ from app.models.location import (
     LocationUpdate,
     UploadedLocationBase,
 )
+from app.models.location_group import LocationGroupCreate
 from app.models.location_mappings import RequiredLocationField
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.mappings_service import MappingsService
@@ -244,57 +245,78 @@ class LocationService:
         self, session: AsyncSession, locations: IngestLocationsPayload
     ) -> IngestLocationsResponse:
         """Add locations from Apricot data source (CSV or XLSX)"""
-        # return IngestLocationsResponse(
-        #     total_entries=0,
-        #     entries=[]
-        # )
-        all_locations: list[IngestedLocation] = []
+        # group by delivery group
+        location_groups = {}
+        for location_entry in locations.entries:
+            delivery_group = location_entry.location.delivery_group
+            location_groups.setdefault(
+                delivery_group, []).append(location_entry)
 
         try:
-            for location_entry in locations.entries:
-                if location_entry.status == LocationMatchStatus.DUPLICATE_MATCH:
-                    # DO NOT INGEST DUPLICATE
-                    print("hei")
+            all_locations: list[IngestedLocation] = []
+            for delivery_group, location_entries in location_groups.items():
+                grouped_locations: list[LocationRead] = []
 
-                elif location_entry.status == LocationMatchStatus.NET_NEW:
-                    # INGEST NEW LOCATION
-                    created_location = await self.create_location(
-                        session, LocationCreate.model_validate(
-                            location_entry.location)
-                    )
-                    ingested_location = IngestedLocation(
-                        row=location_entry.row,
-                        location=LocationRead.model_validate(created_location),
-                        status=LocationEntryStatus.OK,
-                    )
-                    all_locations.append(ingested_location)
-                elif location_entry.status == LocationMatchStatus.SIMILAR:
-                    # INGEST BASED ON ACTION
-                    if location_entry.action == LocationSimilarAction.LINK_SIMILAR:
-                        new_location = LocationCreate.model_validate(
-                            **location_entry.location.model_dump(), notes=location_entry.similar_location.notes)
+                for location_entry in location_entries:
+                    created_location = None
+
+                    if location_entry.status == LocationMatchStatus.DUPLICATE_MATCH:
+                        continue
+
+                    elif location_entry.status == LocationMatchStatus.NET_NEW:
                         created_location = await self.create_location(
-                            session, new_location
-                        )
-                        ingested_location = IngestedLocation(
-                            row=location_entry.row,
-                            location=LocationRead.model_validate(
-                                created_location),
-                            status=LocationEntryStatus.OK,
-                        )
-                        all_locations.append(ingested_location)
-                    elif location_entry.action == LocationSimilarAction.CREATE_NEW:
-                        created_location = await self.create_location(
-                            session, LocationCreate.model_validate(
+                            session,
+                            LocationCreate.model_validate(
                                 location_entry.location)
                         )
-                        ingested_location = IngestedLocation(
-                            row=location_entry.row,
-                            location=LocationRead.model_validate(
-                                created_location),
-                            status=LocationEntryStatus.OK,
+
+                    elif location_entry.status == LocationMatchStatus.SIMILAR_MATCH:
+                        if location_entry.action == LocationSimilarAction.LINK_SIMILAR:
+                            location_data = location_entry.location.model_dump(
+                                exclude_unset=True)
+                            location_data["notes"] = location_entry.similar_location.notes
+                            created_location = await self.create_location(
+                                session,
+                                LocationCreate.model_validate(location_data)
+                            )
+                        elif location_entry.action == LocationSimilarAction.CREATE_NEW:
+                            created_location = await self.create_location(
+                                session,
+                                LocationCreate.model_validate(
+                                    location_entry.location)
+                            )
+
+                    if created_location:
+                        grouped_locations.append(created_location)
+
+                # Create location group for this delivery group
+                if grouped_locations:
+                    location_group = await self.location_group_service.create_location_group(
+                        session=session,
+                        location_group_data=LocationGroupCreate(
+                            name=delivery_group,
+                            color="TODO",
+                            location_ids=[
+                                loc.location_id for loc in grouped_locations],
+                            notes=delivery_group
                         )
-                        all_locations.append(ingested_location)
+                    )
+
+                # Link locations to location group
+                for location in grouped_locations:
+                    updated_location = await self.update_location_by_id(
+                        session,
+                        location.location_id,
+                        LocationUpdate(
+                            location_group_id=location_group.location_group_id)
+                    )
+                    all_locations.append(IngestedLocation(
+                        row=location_entry.row,
+                        location=LocationRead.model_validate(
+                            updated_location),
+                        status=LocationEntryStatus.OK,
+                    ))
+
         except Exception as e:
             self.logger.error(f"Failed to ingest locations: {e!s}")
             await session.rollback()
