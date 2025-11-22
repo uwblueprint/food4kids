@@ -4,7 +4,7 @@ from uuid import UUID
 import pandas as pd
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import and_, or_, select
 
 from app.models.location import (
     LinkLocationsResponse,
@@ -15,6 +15,8 @@ from app.models.location import (
     LocationEntryStatus,
     LocationLinkEntry,
     LocationLinkPayload,
+    LocationMatchStatus,
+    LocationRead,
     LocationUpdate,
     UploadedLocationBase,
 )
@@ -185,16 +187,50 @@ class LocationService:
         all_locations: list[LocationLinkEntry] = []
         duplicate_locations: list[LocationLinkEntry] = []
         similar_locations: list[LocationLinkEntry] = []
+        new_locations: list[LocationLinkEntry] = []
 
         for location_entry in locations.entries:
-            # invariant: all fields exist at this point
+            location = location_entry.location
 
-            # TODO: implement linking logic
-            #
-            print("hello")
+            duplicate_location = await self._get_duplicate_location(session, location)
+            if duplicate_location:
+                location_link_entry = LocationLinkEntry(
+                    location=location,
+                    status=LocationMatchStatus.DUPLICATE,
+                    duplicate_location=duplicate_location,
+                    similar_location=None,
+                    row=location_entry.row,
+                )
+                duplicate_locations.append(location_link_entry)
+                all_locations.append(location_link_entry)
+                continue
+
+            similar_location = await self._get_similar_location(session, location)
+            if similar_location:
+                location_link_entry = LocationLinkEntry(
+                    location=location,
+                    status=LocationMatchStatus.SIMILAR,
+                    duplicate_location=None,
+                    similar_location=similar_location,
+                    row=location_entry.row,
+                )
+                similar_locations.append(location_link_entry)
+                all_locations.append(location_link_entry)
+                continue
+
+            location_link_entry = LocationLinkEntry(
+                location=location,
+                status=LocationMatchStatus.NET_NEW,
+                duplicate_location=None,
+                similar_location=None,
+                row=location_entry.row,
+            )
+            new_locations.append(location_link_entry)
+            all_locations.append(location_link_entry)
 
         return LinkLocationsResponse(
             total_entries=len(all_locations),
+            new_entries=len(new_locations),
             duplicate_entries=len(duplicate_locations),
             similar_entries=len(similar_locations),
             entries=all_locations,
@@ -296,3 +332,83 @@ class LocationService:
             else:
                 location_data[field] = source_value
         return UploadedLocationBase(**location_data), missing_fields
+
+    async def _detect_location_match(self, session: AsyncSession, location: UploadedLocationBase) -> LocationRead | None:
+        """Find similar/duplicate location"""
+
+        # try to find exact duplicate first
+        duplicate_location = await self._get_duplicate_location(session, location)
+
+        if duplicate_location:
+            return duplicate_location
+
+        # try to find similar location
+        similar_location = await self._get_similar_location(session, location)
+
+        if similar_location:
+            return similar_location
+
+        return None
+
+    async def _get_duplicate_location(self, session: AsyncSession, new_location: UploadedLocationBase) -> LocationRead | None:
+        """Find duplicate location"""
+        statement = select(Location).where(
+            and_(
+                Location.phone_number == new_location.phone_number,
+                Location.address == new_location.address,
+                Location.phone_number == new_location.phone_number,
+            )
+        )
+        result = await session.execute(statement)
+        duplicate_location = result.scalars().first()
+        return duplicate_location
+
+    async def _get_similar_location(self, session: AsyncSession, new_location: UploadedLocationBase) -> LocationRead | None:
+        """Filter locations from database based on number, place id, contact name"""
+
+        # find potential similar location
+        statement = select(Location).where(
+            or_(
+                Location.phone_number == new_location.phone_number,
+                Location.address == new_location.address,
+                Location.contact_name == new_location.contact_name,
+            )
+        )
+        result = await session.execute(statement)
+        locations = result.scalars().all()
+
+        if not locations:
+            return None
+
+        # TODO: apply similar function
+        most_similar_location = None
+        highest_similarity_score = 0.0
+
+        for existing_location in locations:
+            similarity_score = await self._get_location_similiarity_score(
+                new_location, existing_location)
+            if similarity_score > highest_similarity_score:
+                highest_similarity_score = similarity_score
+                most_similar_location = existing_location
+
+        if highest_similarity_score < 0.5:
+            return None
+        return most_similar_location
+
+    async def _get_location_similiarity_score(self, new_location: UploadedLocationBase, existing_location: LocationRead) -> float:
+        """Compute similarity score between two locations"""
+        # TODO: temporarily using weighted scoring
+        score = (
+            self._get_field_similarity_score(new_location.address, existing_location.address) * 0.5 +
+            self._get_field_similarity_score(new_location.phone_number, existing_location.phone_number) * 0.2 +
+            self._get_field_similarity_score(new_location.contact_name, existing_location.contact_name) * 0.2 +
+            self._get_field_similarity_score(
+                new_location.num_boxes, existing_location.num_boxes) * 0.1
+        )
+        return score
+
+    def _get_field_similarity_score(self, field1: any, field2: any) -> float:
+        # TODO: enhance with fuzzy matching
+        if field1 == field2:
+            return 1
+        return 0

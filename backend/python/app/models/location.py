@@ -23,11 +23,10 @@ class LocationEntryStatus(str, Enum):
     UNKNOWN_ERROR = "Unknown Error"
 
 
-class LocationLinkEntryStatus(str, Enum):
-    OK = "OK"
-    SIMILAR_ENTRY = "Similar Entry"
-    DUPLICATE_ENTRY = "Duplicate Entry"
-    UNKNOWN_ERROR = "Unknown Error"
+class LocationMatchStatus(str, Enum):
+    SIMILAR_MATCH = "Similar Match"
+    DUPLICATE_MATCH = "Duplicate Match"
+    NET_NEW = "Net New"
 
 
 class LocationBase(SQLModel):
@@ -124,15 +123,15 @@ class LocationEntriesResponse(SQLModel):
 
 class LocationLinkEntry(SQLModel):
     location: LocationCreate
-    status: LocationLinkEntryStatus
-    duplicate_location_id: UUID | None = None
-    similar_location_id: UUID | None = None
+    status: LocationMatchStatus
+    duplicate_location: LocationRead | None = None
+    similar_location: LocationRead | None = None
     row: int
 
 
 class LinkLocationsResponse(SQLModel):
     total_entries: int
-    successful_entries: int
+    new_entries: int
     duplicate_entries: int
-    similiar_entries: int
+    similar_entries: int
     entries: list[LocationLinkEntry]
