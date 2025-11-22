@@ -122,7 +122,7 @@ class LocationEntriesResponse(SQLModel):
 
 
 class LocationLinkEntry(SQLModel):
-    location: LocationCreate
+    location: UploadedLocationBase
     status: LocationMatchStatus
     duplicate_location: LocationRead | None = None
     similar_location: LocationRead | None = None
