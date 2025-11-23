@@ -31,6 +31,7 @@ location_group_service = LocationGroupService(logger)
 mappings_service = MappingsService(logger)
 location_service = LocationService(
     logger, maps_service, mappings_service, location_group_service)
+location_group_service.location_service = location_service
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 

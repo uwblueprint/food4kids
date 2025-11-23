@@ -7,7 +7,7 @@ from .base import BaseModel
 
 # temporary import to avoid circular dependency
 if TYPE_CHECKING:
-    from .location import Location
+    from .location import Location, LocationRead
 
 
 class LocationGroupBase(SQLModel):
@@ -24,7 +24,8 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
     __tablename__ = "location_groups"
     location_group_id: UUID = Field(default_factory=uuid4, primary_key=True)
     # Relationship to locations
-    locations: list["Location"] = Relationship(back_populates="location_group")
+    locations: list["Location"] = Relationship(
+        back_populates="location_group")
 
     @property
     def num_locations(self) -> int:
@@ -43,6 +44,7 @@ class LocationGroupRead(LocationGroupBase):
 
     location_group_id: UUID
     num_locations: int
+    locations: list["LocationRead"] = []
 
 
 class LocationGroupUpdate(SQLModel):
@@ -51,3 +53,8 @@ class LocationGroupUpdate(SQLModel):
     name: str | None = Field(default=None)
     color: str | None = Field(default=None)
     notes: str | None = Field(default=None)
+
+
+# Rebuild models after LocationRead is imported to resolve forward references
+from .location import LocationRead  # noqa: E402
+LocationGroupRead.model_rebuild()

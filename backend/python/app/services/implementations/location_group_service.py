@@ -1,27 +1,41 @@
 import logging
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.location import Location
 from app.models.location_group import (
     LocationGroup,
     LocationGroupCreate,
+    LocationGroupRead,
     LocationGroupUpdate,
 )
 
+if TYPE_CHECKING:
+    from app.services.implementations.location_service import LocationService
+
 
 class LocationGroupService:
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, location_service: "LocationService | None" = None):
         self.logger = logger
+        self.location_service = location_service
 
-    async def get_location_groups(self, session: AsyncSession) -> list[LocationGroup]:
+    async def get_location_groups(self, session: AsyncSession) -> list[LocationGroupRead]:
         """Get all location groups"""
         try:
-            statement = select(LocationGroup)
+            statement = select(LocationGroup).options(
+                selectinload(LocationGroup.locations)
+            )
             result = await session.execute(statement)
-            return list(result.scalars().all())
+            groups = result.scalars().unique().all()
+
+            return [
+                LocationGroupRead.model_validate(group)
+                for group in groups
+            ]
         except Exception as error:
             self.logger.error(f"Failed to get location groups: {error!s}")
             raise error
@@ -30,7 +44,7 @@ class LocationGroupService:
         self, session: AsyncSession, location_group_id: UUID
     ) -> LocationGroup | None:
         """Get location group by ID"""
-        statement = select(LocationGroup).where(
+        statement = select(LocationGroup).options(selectinload(LocationGroup.locations)).where(
             LocationGroup.location_group_id == location_group_id
         )
         result = await session.execute(statement)
@@ -52,27 +66,20 @@ class LocationGroupService:
         try:
             data = location_group_data.model_dump()
             location_ids = data.pop("location_ids")
+            location_group = LocationGroup(
+                **data)
 
-            new_location_group = LocationGroup(**data)
-            session.add(new_location_group)
+            session.add(location_group)
             await session.commit()
-            await session.refresh(new_location_group)
+            await session.refresh(location_group)
 
             # Update each location's location_group_id foreign key
             for location_id in location_ids:
-                statement = select(Location).where(
-                    Location.location_id == location_id)
-                result = await session.execute(statement)
-                location = result.scalars().first()
+                location = await self.location_service.get_location_by_id(session, location_id)
 
                 if location:
-                    if location.location_group_id is not None:
-                        self.logger.warning(
-                            f"Location with id {location_id} already has a location group set"
-                        )
-                        location.location_group_id = (
-                            new_location_group.location_group_id
-                        )
+                    location.location_group_id = (
+                        location_group.location_group_id)
                 else:
                     self.logger.warning(
                         f"Location with id {location_id} not found")
@@ -81,11 +88,11 @@ class LocationGroupService:
 
             # Reload with locations for accurate num_locations
             reloaded_group = await self.get_location_group(
-                session, new_location_group.location_group_id
+                session, location_group.location_group_id
             )
             if not reloaded_group:
                 raise Exception(
-                    f"Failed to reload created location group with id {new_location_group.location_group_id}"
+                    f"Failed to reload created location group with id {location_group.location_group_id}"
                 )
             return reloaded_group
 
