@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003
+from typing import TYPE_CHECKING
 
 from sqlmodel import SQLModel
 
-from app.models.location_group import LocationGroup  # noqa: TC001
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from app.models.location_group import LocationGroup
 
 
 class RouteGenerationSettings(SQLModel):

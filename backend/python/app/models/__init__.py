@@ -79,6 +79,7 @@ def create_db_and_tables() -> None:
 
 def init_app(_app: Any | None = None) -> None:
     """Initialize database for the application"""
+    # Import models to register them with SQLModel
     from .admin import Admin  # noqa: F401
     from .driver import Driver  # noqa: F401
     from .driver_assignment import DriverAssignment  # noqa: F401
@@ -87,11 +88,10 @@ def init_app(_app: Any | None = None) -> None:
     from .job import Job  # noqa: F401
     from .location import Location  # noqa: F401
     from .location_group import LocationGroup  # noqa: F401
-    from .route_stop import RouteStop  # noqa: F401
     from .route import Route  # noqa: F401
-
     from .route_group import RouteGroup  # noqa: F401
     from .route_group_membership import RouteGroupMembership  # noqa: F401
+    from .route_stop import RouteStop  # noqa: F401
     from .simple_entity import SimpleEntity  # noqa: F401
 
     init_database()

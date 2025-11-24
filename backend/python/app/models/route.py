@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 from datetime import datetime
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -17,8 +18,11 @@ class RouteBase(SQLModel):
     notes: str = Field(default="", max_length=1000)  # can change this later
     length: float = Field(ge=0.0)  # in km, must be non-negative
     encoded_polyline: str | None = Field(default=None, max_length=10000)
+    polyline_updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     expires_at: datetime | None = Field(default=None)
-    last_refreshed: datetime | None = Field(default=None)
 
 
 class Route(RouteBase, BaseModel, table=True):
@@ -62,5 +66,5 @@ class RouteUpdate(SQLModel):
     notes: str | None = None
     length: float | None = None
     encoded_polyline: str | None = None
+    polyline_updated_at: datetime | None = None
     expires_at: datetime | None = None
-    last_refreshed: datetime | None = None

@@ -103,7 +103,7 @@ def run_migrations_online() -> None:
                 logger.info("No changes in schema detected.")
 
     from sqlalchemy import create_engine
-
+    
     connectable = create_engine(get_database_url())
 
     with connectable.connect() as connection:
