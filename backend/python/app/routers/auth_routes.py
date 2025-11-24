@@ -2,15 +2,19 @@ import logging
 import traceback
 from typing import Literal, cast
 from uuid import UUID
-import firebase_admin.auth
 
+import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies.auth import get_current_database_user_id, get_current_user_email
-from app.dependencies.services import get_auth_service, get_driver_service, get_user_service
+from app.dependencies.services import (
+    get_auth_service,
+    get_driver_service,
+    get_user_service,
+)
 from app.models import get_session
 from app.models.driver import DriverCreate, DriverRegister
 from app.models.user import UserCreate

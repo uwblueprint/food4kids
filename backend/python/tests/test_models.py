@@ -3,14 +3,13 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
-import pytest
-from pydantic import ValidationError        
 from uuid import uuid4
+
+import pytest
+from pydantic import ValidationError
 
 # Initialize all models to ensure proper relationship resolution
 from app.models import init_app
-from app.models.user import User, UserCreate
-from app.models.system_settings import SystemSettings
 from app.models.admin import Admin
 from app.models.driver import (
     Driver,
@@ -40,6 +39,8 @@ from app.models.route_group import (
 )
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
+from app.models.system_settings import SystemSettings
+from app.models.user import User, UserCreate
 
 init_app()
 
@@ -622,7 +623,7 @@ class TestEnumsAndSerialization:
         assert "created_at" in driver_dict
         # updated_at should be None and might be excluded
         assert driver_dict["active"] is True  # Default value
-        assert user_dict["role"] is "driver"
+        assert user_dict["role"] == "driver"
 
         # Test default values across models
         location = Location(

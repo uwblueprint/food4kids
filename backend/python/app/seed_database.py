@@ -17,9 +17,6 @@ from sklearn.cluster import KMeans  # type: ignore[import-untyped]
 from sqlalchemy import create_engine, not_, text
 from sqlmodel import Session, select
 
-# Import all models to register them with SQLModel
-from app.models.user import User
-from app.models.system_settings import SystemSettings
 from app.models.admin import Admin
 from app.models.base import BaseModel
 from app.models.driver import Driver
@@ -33,6 +30,10 @@ from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
+from app.models.system_settings import SystemSettings
+
+# Import all models to register them with SQLModel
+from app.models.user import User
 
 # Initialize Faker
 fake = faker.Faker()

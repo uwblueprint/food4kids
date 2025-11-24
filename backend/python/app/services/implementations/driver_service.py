@@ -1,5 +1,4 @@
 import logging
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +6,6 @@ from sqlmodel import select
 
 from app.models.driver import Driver, DriverCreate, DriverUpdate
 from app.models.user import User
-
 
 
 class DriverService:

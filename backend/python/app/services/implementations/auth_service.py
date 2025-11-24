@@ -14,8 +14,8 @@ if TYPE_CHECKING:
     from firebase_admin.auth import UserRecord
 
     from app.services.implementations.driver_service import DriverService
-    from app.services.implementations.user_service import UserService
     from app.services.implementations.email_service import EmailService
+    from app.services.implementations.user_service import UserService
 
 
 class AuthService:

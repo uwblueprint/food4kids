@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator
+from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel

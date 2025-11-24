@@ -11,8 +11,8 @@ from app.config import settings
 from app.models import get_session
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
-from app.services.implementations.user_service import UserService
 from app.services.implementations.email_service import EmailService
+from app.services.implementations.user_service import UserService
 
 # Initialize services
 logger = logging.getLogger(__name__)

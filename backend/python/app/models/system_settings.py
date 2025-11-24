@@ -1,10 +1,7 @@
 import datetime
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator
 from sqlmodel import Field, SQLModel
-
-from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
