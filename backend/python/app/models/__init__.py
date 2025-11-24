@@ -87,9 +87,6 @@ def init_app(_app: Any | None = None) -> None:
     from .job import Job  # noqa: F401
     from .location import Location  # noqa: F401
     from .location_group import LocationGroup  # noqa: F401
-
-    # Updated imports
-    from .polyline import Polyline  # noqa: F401
     from .route_stop import RouteStop  # noqa: F401
     from .route import Route  # noqa: F401
 
