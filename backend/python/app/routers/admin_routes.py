@@ -19,7 +19,7 @@ router = APIRouter(prefix="/admins", tags=["admins"])
 @router.get("/test", response_model=str)
 async def test(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_authorization_by_role({"driver"})),
+    _: bool = Depends(require_authorization_by_role({"admin"})),
 ) -> str:
     """
     Admin only route example

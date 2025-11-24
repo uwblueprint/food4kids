@@ -1,4 +1,5 @@
 import datetime
+
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
@@ -14,6 +15,7 @@ from .base import BaseModel
 class AdminBase(SQLModel):
     """Shared fields between table and API models"""
 
+    receive_email_notifications: bool = Field(default=True, nullable=False)
     admin_phone: str = Field(min_length=1, max_length=100, nullable=False)
 
     @field_validator("admin_phone")
