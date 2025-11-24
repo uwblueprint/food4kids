@@ -65,6 +65,8 @@ pluggy>=0.13.1
 toml>=0.10.2
 typing-extensions>=4.0.0,<5.0.0
 phonenumbers>=8.13.0
+apscheduler>=3.10.0
+polyline>=2.0.2
 
 # Data generation and mathematical optimization
 faker>=20.0.0

@@ -6,6 +6,7 @@
 - [Repo Structure](#repo-structure)
 - [Development Setup](#development-setup)
 - [Application Execution](#application-execution)
+- [API Testing with Postman](#api-testing-with-postman)
 - [Database Interactions](#database-interactions)
 - [Version Control Guide](#version-control-guide)
   - [Branching](#branching)
@@ -95,6 +96,19 @@ docker-compose up -d --build
 - Backend API: http://localhost:8080
 - API Documentation: http://localhost:8080/docs (development only)
 - ReDoc Documentation: http://localhost:8080/redoc (development only)
+
+## API Testing with Postman
+
+Postman is a powerful tool for testing API endpoints during development. For detailed setup instructions and best practices, see our [Postman Setup Guide](https://www.notion.so/uwblueprintexecs/Postman-Setup-28410f3fb1dc80f8b1e8c414c4a21802?source=copy_link).
+
+**Quick Start:**
+
+1. Ensure the backend container is running (`docker-compose up`)
+2. Import the Postman collection (if available) or manually configure requests
+3. Set the base URL to `http://localhost:8080`
+4. Configure authentication headers as needed (see the Notion guide for details)
+
+**Alternative:** You can also test endpoints using the interactive Swagger UI at http://localhost:8080/docs
 
 ## Database Interactions
 
@@ -280,7 +294,7 @@ _Note: CI/CD pipeline for automated testing will be added in future updates._
 - Ensure the backend container is running
 - Visit http://localhost:8080/docs for interactive API documentation
 - Use the "Authorize" button to add your Firebase auth token
-- Test endpoints directly in the Swagger UI
+- Test endpoints in Postman or directly in the Swagger UI
 
 </details>
 
