@@ -251,9 +251,22 @@ async def test_driver(
     test_session: AsyncSession, sample_driver_data: dict[str, Any]
 ) -> Any:
     """Create a test driver in the database."""
+    from app.models.user import User
     from app.models.driver import Driver
 
-    driver = Driver(**sample_driver_data)
+    user = User(
+        name=sample_driver_data["name"],
+        email=sample_driver_data['email'],
+        auth_id=sample_driver_data['auth_id'],
+    )
+    test_session.add(user)
+    driver = Driver(
+        user_id=user.user_id,
+        phone=sample_driver_data["phone"],
+        address=sample_driver_data["address"],
+        license_plate=sample_driver_data["license_plate"],
+        car_make_model=sample_driver_data["car_make_model"],
+    )
     test_session.add(driver)
     await test_session.commit()
     await test_session.refresh(driver)

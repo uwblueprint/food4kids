@@ -4,10 +4,13 @@ Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core b
 """
 
 import pytest
-from pydantic import ValidationError
+from pydantic import ValidationError        
+from uuid import uuid4
 
 # Initialize all models to ensure proper relationship resolution
 from app.models import init_app
+from app.models.user import User, UserCreate
+from app.models.system_settings import SystemSettings
 from app.models.admin import Admin
 from app.models.driver import (
     Driver,
@@ -50,23 +53,30 @@ class TestCoreBusinessValidation:
         valid_phone = "+12125551234"
 
         # Test Driver phone validation
-        driver = Driver(
+        driver_user = User(
             name="Test Driver",
             email="test@example.com",
+            auth_id="test-123",
+        )
+        driver = Driver(
+            user_id = driver_user.user_id,
             phone=valid_phone,
             address="123 Main St",
             license_plate="ABC123",
             car_make_model="Toyota Camry",
-            auth_id="test-123",
         )
         # Phone gets formatted to E164 format
         assert driver.phone.startswith("+")
 
         # Test Admin phone validation
+        admin_user = User(
+            name="Test Admin",
+            email="admin@example.com",
+            auth_id="test-1234",
+        )
         admin = Admin(
-            admin_name="Test Admin",
+            user_id=admin_user.user_id,
             admin_phone=valid_phone,
-            admin_email="admin@example.com",
         )
         assert admin.admin_phone.startswith("+")
 
@@ -96,29 +106,21 @@ class TestCoreBusinessValidation:
         ]
 
         for email in valid_emails:
-            driver = Driver(
+            driver_user = User(
                 name="Test Driver",
                 email=email,
-                phone="+12125551234",
-                address="123 Main St",
-                license_plate="ABC123",
-                car_make_model="Toyota Camry",
                 auth_id="test-123",
             )
-            assert driver.email == email
+            assert driver_user.email == email
 
         # Test invalid emails
         invalid_emails = ["invalid-email", "@domain.com", "user@", "user.domain.com"]
 
         for email in invalid_emails:
             with pytest.raises(ValidationError) as exc_info:
-                Driver(
+                driver_user = User(
                     name="Test Driver",
                     email=email,
-                    phone="+12125551234",
-                    address="123 Main St",
-                    license_plate="ABC123",
-                    car_make_model="Toyota Camry",
                     auth_id="test-123",
                 )
             assert "email" in str(exc_info.value)
@@ -292,35 +294,42 @@ class TestCoreModels:
     def test_driver_core_operations(self) -> None:
         """Test Driver model core operations."""
         # Create
-        driver = Driver(
+        driver_user = User(
             name="John Doe",
             email="john.doe@example.com",
+            auth_id="auth-123",
+        )
+        driver = Driver(
+            user_id=driver_user.user_id,
             phone="+12125551234",
             address="123 Main St, City, State 12345",
             license_plate="ABC123",
             car_make_model="Toyota Camry",
-            auth_id="auth-123",
         )
-        assert driver.name == "John Doe"
+        assert driver_user.name == "John Doe"
         assert driver.active is True  # Default value
         assert driver.created_at is not None
 
         # Create model
-        driver_create = DriverCreate(
+        user_create = UserCreate(
             name="Jane Doe",
             email="jane.doe@example.com",
+            password="securepassword123",
+        )
+        driver_create = DriverCreate(
+            user_id=uuid4(),
             phone="+12125551234",
             address="456 Oak Ave, City, State 12345",
             license_plate="XYZ789",
             car_make_model="Honda Civic",
-            password="securepassword123",
         )
-        assert driver_create.name == "Jane Doe"
+        assert user_create.name == "Jane Doe"
+        assert driver_create.license_plate == "XYZ789"
 
         # Update model
-        driver_update = DriverUpdate(name="Updated Name")
-        assert driver_update.name == "Updated Name"
-        assert driver_update.email is None
+        driver_update = DriverUpdate(address="456 Oak Ave, City, State 12345")
+        assert driver_update.address == "456 Oak Ave, City, State 12345"
+        assert driver_update.license_plate is None
 
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
@@ -355,8 +364,6 @@ class TestCoreModels:
         assert location_minimal.notes == ""  # Default value
 
         # Read model
-        from uuid import uuid4
-
         location_read = LocationRead(
             location_id=uuid4(),
             contact_name="Jane Smith",
@@ -563,7 +570,6 @@ class TestEnumsAndSerialization:
         assert SimpleEntityEnum.D.value == "D"
 
         # Test enum serialization in models
-        from uuid import uuid4
 
         # Test ProgressEnum serialization
         job = Job(
@@ -574,37 +580,49 @@ class TestEnumsAndSerialization:
         assert job_dict["progress"] == "Running"
 
         # Test RoleEnum serialization (if used in models)
-        driver = Driver(
+        user = User(
             name="Test Driver",
             email="test@example.com",
+            auth_id="test-123",
+        )
+        driver = Driver(
+            user_id=user.user_id,
             phone="+12125551234",
             address="123 Main St",
             license_plate="ABC123",
             car_make_model="Toyota Camry",
-            auth_id="test-123",
         )
+        user_dict = user.model_dump()
         driver_dict = driver.model_dump()
-        assert driver_dict["name"] == "Test Driver"
-        assert driver_dict["email"] == "test@example.com"
+        assert user_dict["name"] == "Test Driver"
+        assert user_dict["email"] == "test@example.com"
+        assert driver_dict["phone"] == "+12125551234"
+        assert driver_dict["license_plate"] == "ABC123"
+
 
     def test_model_serialization_and_defaults(self) -> None:
         """Test model serialization and default value handling."""
         # Test that model_dump works correctly
-        driver = Driver(
+        user = User(
             name="Test Driver",
             email="test@example.com",
+            auth_id="test-123",
+        )
+        driver = Driver(
+            user_id = user.user_id,
             phone="+12125551234",
             address="123 Main St",
             license_plate="ABC123",
             car_make_model="Toyota Camry",
-            auth_id="test-123",
         )
 
+        user_dict = user.model_dump()
         driver_dict = driver.model_dump()
-        assert "name" in driver_dict
+        assert "name" in user_dict
         assert "created_at" in driver_dict
         # updated_at should be None and might be excluded
         assert driver_dict["active"] is True  # Default value
+        assert user_dict["role"] is "driver"
 
         # Test default values across models
         location = Location(
@@ -664,14 +682,21 @@ class TestModelValidation:
     def test_optional_field_handling(self) -> None:
         """Test that optional fields work correctly."""
         # Test Admin with only required fields
-        admin = Admin(
-            admin_name="Jane Admin",
-            admin_phone="+12125551234",
-            admin_email="jane@example.com",
+        user = User(
+            name="Jane Admin",
+            email="jane@example.com",
+            auth_id="test-123",
+            role="admin",
         )
-        assert admin.default_cap is None
-        assert admin.route_start_time is None
-        assert admin.warehouse_location is None
+        admin = Admin(
+            user_id=user.user_id,
+            admin_phone="+12125551234",
+        )
+        system_settings = SystemSettings()
+        assert admin.receive_email_notifications is True
+        assert system_settings.default_cap is None
+        assert system_settings.route_start_time is None
+        assert system_settings.warehouse_location is None
 
         # Test Job without route_group_id
         job = Job(
