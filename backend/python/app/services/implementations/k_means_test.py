@@ -29,6 +29,14 @@ from app.services.implementations.k_means_clustering_algorithm import (
 # Use the same connection string as seed_database.py
 DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
 
+# Configure number of locations pulled from csv for testing
+LOCATIONS_COUNT = 18
+
+# Configure number of clusters + locations per cluster and max boxes per cluster limits
+NUM_CLUSTERS = 10
+MAX_LOCATIONS_PER_CLUSTER = 10
+MAX_BOXES_PER_CLUSTER = None
+
 
 def main() -> None:
     engine = create_engine(DATABASE_URL, echo=False)
@@ -39,7 +47,7 @@ def main() -> None:
             select(Location)
             .where(Location.latitude is not None, Location.longitude is not None)
             .order_by(func.random())
-            .limit(20)
+            .limit(LOCATIONS_COUNT)
         )
 
         locations = list(session.exec(statement).all())
@@ -70,22 +78,19 @@ def main() -> None:
 
         # Run clustering
         clustering_algo = KMeansClusteringAlgorithm()
-        num_clusters = 9
-        max_locations_per_cluster = 10
-        max_boxes_per_cluster = None
 
         print("Running K-Means clustering:")
-        print(f"  - Number of clusters: {num_clusters}")
-        print(f"  - Max locations per cluster: {max_locations_per_cluster}")
-        print(f"  - Max boxes per cluster: {max_boxes_per_cluster}")
+        print(f"  - Number of clusters: {NUM_CLUSTERS}")
+        print(f"  - Max locations per cluster: {MAX_LOCATIONS_PER_CLUSTER}")
+        print(f"  - Max boxes per cluster: {MAX_BOXES_PER_CLUSTER}")
         print("-" * 60)
 
         try:
             clusters = clustering_algo.cluster_locations(
                 locations=locations,
-                num_clusters=num_clusters,
-                max_locations_per_cluster=max_locations_per_cluster,
-                max_boxes_per_cluster=max_boxes_per_cluster,
+                num_clusters=NUM_CLUSTERS,
+                max_locations_per_cluster=MAX_LOCATIONS_PER_CLUSTER,
+                max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
                 timeout_seconds=30.0,
             )
 

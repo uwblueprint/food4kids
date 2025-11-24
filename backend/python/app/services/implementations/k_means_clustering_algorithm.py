@@ -36,9 +36,9 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             num_clusters: Target number of clusters to create
             max_locations_per_cluster: Maximum number of locations
                 per cluster. Validates that the clustering is
-                possible and raises an error if violated.
-            timeout_seconds: Not enforced in this
-                implementation, as seems to not be a problem.
+                possible and raises an error if violated
+            timeout_seconds: Raise an error if it takes longer than
+                timeout_seconds to run the algorithm
 
         Returns:
             List of clusters, where each cluster is a list of locations
@@ -49,6 +49,16 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         """
         # Assert that only one AT MOST of the limiting max params is set to a value
         assert max_boxes_per_cluster is None or max_locations_per_cluster is None
+
+        # If any of num_clusters, max_locations_per_cluster, or max_boxes_per_cluster is negative (or equal to 0) raise an error
+        if (
+            num_clusters <= 0
+            or (max_locations_per_cluster and max_locations_per_cluster <= 0)
+            or (max_boxes_per_cluster and max_boxes_per_cluster <= 0)
+        ):
+            raise ValueError(
+                "At least one of the given num_clusters, max_locations_per_cluster, and max_boxes_per_cluster param values given to the algorithm is <= 0 (invalid)"
+            )
 
         # If no locations to cluster, return empty list
         if not locations:
@@ -104,6 +114,8 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     num_clusters,
                     max_locations_per_cluster,
                     max_boxes_per_cluster,
+                    start_time,
+                    timeout_seconds,
                 )
             else:
                 # No constraints
@@ -118,14 +130,13 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             # Check time elapsed
             elapsed = time.time() - start_time
             print("Time:", elapsed)
-            if timeout_seconds and elapsed > timeout_seconds:
-                print(
-                    f"Warning: Clustering took {elapsed:.2f}s (exceeded {timeout_seconds}s)"
-                )
-                return []
+            if timeout_seconds is not None and elapsed > timeout_seconds:
+                raise TimeoutError("K-Means clustering algorithm timed out")
 
             return clusters
-
+        except TimeoutError:
+            # Let callers handle explicit timeouts
+            raise
         except Exception as e:
             print(f"Constrained k-means clustering failed: {e}")
             return []
@@ -137,6 +148,8 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         num_clusters: int,
         max_locations_per_cluster: int | None,
         max_boxes_per_cluster: int | None,
+        start_time: float,
+        timeout_seconds: float | None,
     ) -> list[list[Location]]:
         """
         Assign locations to clusters respecting size constraints
@@ -148,8 +161,8 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         # Count number of locations in each cluster
         cluster_counts: dict[int, int] = defaultdict(int)
 
-        # Hold actual location cluster assignments
-        assignments: list[int] = [0] * len(locations)
+        # Hold actual location cluster assignments (None until assigned)
+        assignments: list[int | None] = [None] * len(locations)
 
         # Build candidate list: (location_index, preferred_cluster (by cluster number), distance_to_preferred, all_distances)
         candidates = []
@@ -195,13 +208,26 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             _distance_to_preferred,
             all_distances,
         ) in candidates:
+            # Check runtime and timeout if needed
+            if timeout_seconds is not None:
+                now = time.time()
+                if now - start_time > timeout_seconds:
+                    raise TimeoutError("K-Means assignment step timed out")
+
             # Try the location's preferred cluster first
             if can_place_and_put(location_index, preferred_cluster):
                 continue
 
             sorted_clusters = np.argsort(all_distances)
             placed = False
+            # Try other clusters
             for cluster_id in sorted_clusters:
+                # Check runtime and timeout if needed
+                if timeout_seconds is not None:
+                    now = time.time()
+                    if now - start_time > timeout_seconds:
+                        raise TimeoutError("K-Means assignment step timed out")
+
                 cluster_id = int(cluster_id)
                 if can_place_and_put(location_index, cluster_id):
                     placed = True
