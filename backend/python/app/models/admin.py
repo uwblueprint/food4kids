@@ -1,4 +1,3 @@
-
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
@@ -36,12 +35,14 @@ class Admin(AdminBase, BaseModel, table=True):
 
 class AdminCreate(AdminBase):
     """Create request model"""
+
     user_id: UUID
     pass
 
 
 class AdminRead(AdminBase):
     """Read response model"""
+
     admin_id: UUID
     user_id: UUID
 
@@ -54,6 +55,7 @@ class AdminRead(AdminBase):
 
 class AdminUpdate(SQLModel):
     """Update request model - all optional"""
+
     # admin-specific
     admin_phone: str | None = Field(default=None, min_length=1, max_length=100)
 

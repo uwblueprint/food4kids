@@ -33,6 +33,7 @@ class UserUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=254)
 
+
 class UserRegister(SQLModel):
     """User registration request"""
 

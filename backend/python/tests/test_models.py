@@ -60,7 +60,7 @@ class TestCoreBusinessValidation:
             auth_id="test-123",
         )
         driver = Driver(
-            user_id = driver_user.user_id,
+            user_id=driver_user.user_id,
             phone=valid_phone,
             address="123 Main St",
             license_plate="ABC123",
@@ -600,7 +600,6 @@ class TestEnumsAndSerialization:
         assert driver_dict["phone"] == "+12125551234"
         assert driver_dict["license_plate"] == "ABC123"
 
-
     def test_model_serialization_and_defaults(self) -> None:
         """Test model serialization and default value handling."""
         # Test that model_dump works correctly
@@ -610,7 +609,7 @@ class TestEnumsAndSerialization:
             auth_id="test-123",
         )
         driver = Driver(
-            user_id = user.user_id,
+            user_id=user.user_id,
             phone="+12125551234",
             address="123 Main St",
             license_plate="ABC123",

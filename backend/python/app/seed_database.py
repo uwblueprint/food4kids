@@ -518,8 +518,8 @@ def main() -> None:
                 set_timestamps(user)
                 session.add(user)
 
-                driver = Driver(      
-                    user_id = user.user_id,
+                driver = Driver(
+                    user_id=user.user_id,
                     phone=generate_valid_phone(),
                     address=fake.address(),
                     license_plate=fake.license_plate(),

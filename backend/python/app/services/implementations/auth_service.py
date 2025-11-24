@@ -118,9 +118,9 @@ class AuthService:
                     password="",
                 ),
                 auth_id=user_id,
-                signup_method="GOOGLE"
+                signup_method="GOOGLE",
             )
-            driver = await self.driver_service.create_driver(
+            await self.driver_service.create_driver(
                 session,
                 DriverCreate(
                     phone="",  # OAuth users don't have phone initially
@@ -128,7 +128,7 @@ class AuthService:
                     license_plate="",  # OAuth users don't have license plate initially
                     car_make_model="",  # OAuth users don't have car info initially
                     user_id=user.user_id,
-                )
+                ),
             )
             return AuthResponse(
                 access_token=id_token,
@@ -145,9 +145,7 @@ class AuthService:
 
     async def revoke_tokens(self, session: AsyncSession, user_id: UUID) -> None:
         try:
-            auth_id = await self.user_service.get_auth_id_by_user_id(
-                session, user_id
-            )
+            auth_id = await self.user_service.get_auth_id_by_user_id(session, user_id)
             firebase_admin.auth.revoke_refresh_tokens(auth_id)
         except Exception as e:
             reason = getattr(e, "message", None)

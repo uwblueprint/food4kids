@@ -93,7 +93,7 @@ def init_app(_app: Any | None = None) -> None:
     from .route_group_membership import RouteGroupMembership  # noqa: F401
     from .route_stop import RouteStop  # noqa: F401
     from .simple_entity import SimpleEntity  # noqa: F401
-    from .system_settings import SystemSettings  #noqa: F401
+    from .system_settings import SystemSettings  # noqa: F401
     from .user import User  # noqa: F401
 
     init_database()

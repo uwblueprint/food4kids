@@ -18,9 +18,7 @@ class UserService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_user_by_id(
-        self, session: AsyncSession, user_id: UUID
-    ) -> User | None:
+    async def get_user_by_id(self, session: AsyncSession, user_id: UUID) -> User | None:
         """Get user by ID - returns SQLModel instance"""
         try:
             statement = select(User).where(User.user_id == user_id)
@@ -36,9 +34,7 @@ class UserService:
             self.logger.error(f"Failed to get user by id: {e!s}")
             raise e
 
-    async def get_user_by_email(
-        self, session: AsyncSession, email: str
-    ) -> User | None:
+    async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
         """Get user by email using Firebase"""
         try:
             firebase_user: UserRecord = firebase_admin.auth.get_user_by_email(email)
@@ -160,9 +156,7 @@ class UserService:
             # Update Firebase email
             try:
                 if user_data.email is not None:
-                    firebase_admin.auth.update_user(
-                        user.auth_id, email=user_data.email
-                    )
+                    firebase_admin.auth.update_user(user.auth_id, email=user_data.email)
                 await session.refresh(user)
                 return user
 

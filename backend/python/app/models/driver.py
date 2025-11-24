@@ -44,6 +44,7 @@ class DriverRead(DriverBase):
     email: EmailStr
     role: str  # comes from User
 
+
 class DriverUpdate(SQLModel):
     phone: str | None = Field(default=None, min_length=1, max_length=20)
     address: str | None = Field(default=None, min_length=1, max_length=255)
@@ -66,6 +67,7 @@ class DriverUpdatePayload(SQLModel):
 
 class DriverRegister(SQLModel):
     """Driver registration request"""
+
     # User fields
     name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=254)

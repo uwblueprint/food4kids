@@ -26,6 +26,7 @@ class SystemSettings(SystemSettingsBase, BaseModel, table=True):
 
 class SystemSettingsCreate(SystemSettingsBase):
     """Create request model"""
+
     pass
 
 
@@ -37,4 +38,5 @@ class SystemSettingsRead(SystemSettingsBase):
 
 class SystemSettingsUpdate(SystemSettingsBase):
     """Update request model - all optional"""
+
     pass
