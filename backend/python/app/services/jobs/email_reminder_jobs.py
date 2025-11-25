@@ -1,8 +1,8 @@
-"""Email reminder Scheduled jobs"""
+"""Email reminder cheduled jobs"""
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import and_
 from sqlmodel import select
@@ -29,7 +29,7 @@ async def process_daily_reminder_emails() -> None:
         logger.error("Database session maker not initialized")
         return
 
-    tomorrow = date.today() + datetime.timedelta(days=1)
+    tomorrow = date.today() + timedelta(days=1)
     start_of_day = datetime.combine(tomorrow, datetime.min.time())
     end_of_day = datetime.combine(tomorrow, datetime.max.time())
 
@@ -57,7 +57,7 @@ async def process_daily_reminder_emails() -> None:
 
             result = await session.execute(statement)
             upcoming_routes = result.all()
-            logger.info(upcoming_routes)
+            logger.info(f"Successfully retrieved upcoming routes: {upcoming_routes}")
 
             if not upcoming_routes:
                 logger.info("No Upcoming Routes found for today, skipping emails")
