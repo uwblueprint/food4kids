@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <title>Food4Kids - Review Your Upcoming Route</title>
+  <style>
+    /* Reset styles */
+    @import url("https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css");
+
+    * {
+      -webkit-font-smoothing: antialiased;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0px;
+      height: 100%;
+    }
+
+    button:focus-visible {
+      outline: 2px solid #4a90e2 !important;
+      outline: -webkit-focus-ring-color auto 5px !important;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    /* CSS Variables */
+    :root {
+      --gray-200: rgba(233, 234, 235, 1);
+      --gray-700: rgba(65, 70, 81, 1);
+      --black: rgba(0, 0, 0, 1);
+      --white: rgba(255, 255, 255, 1);
+      --primitives-grey-100: rgba(255, 255, 255, 1);
+      --primitives-blue-100: rgba(190, 211, 233, 1);
+      --primitives-grey-200: rgba(239, 243, 246, 1);
+      --primitives-grey-300: rgba(224, 231, 237, 1);
+      --primitives-grey-400: rgba(112, 117, 129, 1);
+      --primitives-grey-500: rgba(28, 27, 31, 1);
+      --primitives-blue-300: rgba(34, 108, 167, 1);
+      --primitives-blue-200: rgba(9, 167, 223, 1);
+      --primitives-pink: rgba(179, 63, 147, 1);
+      --primitives-orange: rgba(235, 85, 49, 1);
+      --primitives-green: rgba(39, 178, 141, 1);
+      --primitives-success-stroke: rgba(3, 152, 85, 1);
+      --primitives-success-fill: rgba(236, 253, 243, 1);
+    }
+
+    /* Main styles */
+    .desktop {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 30px;
+      position: relative;
+      background-color: var(--gray-200);
+    }
+
+    .desktop .frame {
+      display: flex;
+      flex-direction: column;
+      width: 540px;
+      align-items: center;
+      gap: 32px;
+      position: relative;
+    }
+
+    .desktop .frame-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 32px 0px;
+      position: relative;
+      align-self: stretch;
+      width: 100%;
+      flex: 0 0 auto;
+      background-color: var(--white);
+      border-radius: 8px;
+    }
+
+    .desktop .div {
+      display: flex;
+      flex-direction: column;
+      width: 540px;
+      align-items: center;
+      gap: 32px;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .desktop .image {
+      position: relative;
+      width: 276px;
+      height: 71px;
+      mix-blend-mode: multiply;
+      background-blend-mode: multiply;
+      aspect-ratio: 3.9;
+      object-fit: cover;
+    }
+
+    .desktop .line {
+      position: relative;
+      align-self: stretch;
+      width: 100%;
+      height: 4px;
+    }
+
+    .desktop .frame-2 {
+      display: flex;
+      flex-direction: column;
+      width: 520px;
+      align-items: center;
+      gap: 32px;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .desktop .text-wrapper {
+      position: relative;
+      align-self: stretch;
+      margin-top: -1.00px;
+      font-family: "Nunito-SemiBold", Helvetica;
+      font-weight: 600;
+      color: #000000;
+      font-size: 30px;
+      text-align: center;
+      letter-spacing: 0;
+      line-height: 38px;
+    }
+
+    .desktop .flexcontainer {
+      display: flex;
+      flex-direction: column;
+      height: 176px;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .desktop .p {
+      position: relative;
+      align-self: stretch;
+      font-family: "Nunito-Regular", Helvetica;
+      font-weight: 400;
+      color: #000000;
+      font-size: 16px;
+      letter-spacing: 0;
+      line-height: 24px;
+    }
+
+    .desktop .span {
+      font-family: "Nunito-Regular", Helvetica;
+      font-weight: 400;
+      color: #000000;
+      font-size: 16px;
+      letter-spacing: 0;
+      line-height: 24px;
+    }
+
+    .desktop .text-wrapper-2 {
+      font-family: "Nunito-Bold", Helvetica;
+      font-weight: 700;
+    }
+
+    .desktop .button {
+      all: unset;
+      box-sizing: border-box;
+      display: inline-flex;
+      flex-direction: column;
+      height: 48px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 16px;
+      position: relative;
+      background-color: var(--black);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .desktop .button:hover {
+      opacity: 0.9;
+    }
+
+    .desktop .button:focus {
+      outline: 2px solid #4a90e2;
+      outline-offset: 2px;
+    }
+
+    .desktop .div-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      position: relative;
+      align-self: stretch;
+      width: 100%;
+      flex: 0 0 auto;
+    }
+
+    .desktop .text-wrapper-3 {
+      position: relative;
+      width: fit-content;
+      margin-top: -1.00px;
+      font-family: "Nunito-SemiBold", Helvetica;
+      font-weight: 600;
+      color: #ffffff;
+      font-size: 14px;
+      letter-spacing: 0;
+      line-height: 20px;
+      white-space: nowrap;
+    }
+
+    .desktop .frame-3 {
+      display: flex;
+      flex-direction: column;
+      width: 301px;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .desktop .frame-4 {
+      display: inline-flex;
+      align-items: center;
+      gap: 23px;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .desktop .social-icon {
+      position: relative;
+      width: 29px;
+      height: 29.82px;
+      background-image: url(./img/vector.svg);
+      background-size: 100% 100%;
+      display: block;
+      transition: opacity 0.2s ease;
+    }
+
+    .desktop .social-icon:hover {
+      opacity: 0.7;
+    }
+
+    .desktop .social-icon:focus {
+      outline: 2px solid #4a90e2;
+      outline-offset: 2px;
+    }
+
+    .desktop .frame-4 a {
+      display: inline-block;
+      transition: opacity 0.2s ease;
+    }
+
+    .desktop .frame-4 a:hover {
+      opacity: 0.7;
+    }
+
+    .desktop .frame-4 a:focus {
+      outline: 2px solid #4a90e2;
+      outline-offset: 2px;
+    }
+
+    .desktop .img {
+      position: relative;
+      width: 30px;
+      height: 30px;
+    }
+
+    .desktop .twitter {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      aspect-ratio: 1;
+    }
+
+    .desktop .frame-5 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      position: relative;
+      align-self: stretch;
+      width: 100%;
+      flex: 0 0 auto;
+    }
+
+    .desktop .text-wrapper-4 {
+      position: relative;
+      align-self: stretch;
+      margin-top: -1.00px;
+      font-family: "Nunito-Regular", Helvetica;
+      font-weight: 400;
+      color: var(--gray-700);
+      font-size: 16px;
+      text-align: center;
+      letter-spacing: 0;
+      line-height: 24px;
+    }
+
+    .desktop .text-wrapper-4 a {
+      color: var(--gray-700);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .desktop .text-wrapper-4 a:hover {
+      color: var(--black);
+      text-decoration: underline;
+    }
+
+    .desktop .text-wrapper-4 a:focus {
+      outline: 2px solid #4a90e2;
+      outline-offset: 2px;
+    }
+
+    .desktop .text-wrapper-5 {
+      position: relative;
+      align-self: stretch;
+      font-family: "Nunito-Regular", Helvetica;
+      font-weight: 400;
+      color: var(--gray-700);
+      font-size: 14px;
+      letter-spacing: 0;
+      line-height: 20px;
+      font-style: normal;
+      text-align: center;
+    }
+
+    .desktop .favicon {
+      position: relative;
+      width: 59px;
+      height: 32.03px;
+      aspect-ratio: 1.84;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="desktop">
+    <article class="frame">
+      <section class="frame-wrapper">
+        <div class="div">
+          <img class="image" src="https://food4kidswr.ca/wp-content/uploads/2022/08/food4kids-waterloo-region.png"
+            alt="Food4Kids Waterloo Region Logo" />
+          <img class="line" src="img/line-14.svg" alt="" role="presentation" />
+          <div class="frame-2">
+            <h1 class="text-wrapper">Review Your Upcoming Route</h1>
+            <div class="flexcontainer">
+              <p class="p">
+                <span class="span">This is a reminder that you have an upcoming delivery route scheduled:</span>
+              </p>
+              <p class="p">
+                <span class="text-wrapper-2">Date:</span> <span class="span"> Date_To_Replace </span>
+              </p>
+              <p class="p"><span class="text-wrapper-2">Start Time:</span> <span class="span"> Time_To_Replace </span></p>
+              <p class="p"><span class="text-wrapper-2">Route Duration:</span> <span class="span"> Length_To_Replace </span></p>
+              <p class="p">
+                <span class="span">You can review all stops, instructions, and contact details using the button
+                  below.</span>
+              </p>
+            </div>
+            <button class="button" type="button" aria-label="View Route Details">
+              <span class="div-wrapper"><span class="text-wrapper-3">View Route</span></span>
+            </button>
+            <p class="p">Thank you for delivering with Food4Kids!</p>
+          </div>
+        </div>
+      </section>
+      <footer class="frame-3">
+        <nav class="frame-4" aria-label="Social Media Links">
+          <a href="https://www.facebook.com/food4kidswr" class="social-icon" aria-label="Visit our Facebook page"
+            target="_blank" rel="noopener noreferrer">
+            <img class="img"
+              src="https://static.vecteezy.com/system/resources/previews/018/930/476/non_2x/facebook-logo-facebook-icon-transparent-free-png.png"
+              alt="Instagram" />
+          </a>
+          <a href="https://www.instagram.com/food4kidswr" aria-label="Visit our Instagram page" target="_blank"
+            rel="noopener noreferrer">
+            <img class="img"
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8lv-iEOWtRxGDqsOR-Pa1kIiqN298569zVA&s"
+              alt="Instagram" />
+          </a>
+          <a href="https://twitter.com/food4kidswr" aria-label="Visit our Twitter page" target="_blank"
+            rel="noopener noreferrer">
+            <img class="twitter" src="https://images.seeklogo.com/logo-png/27/2/twitter-logo-png_seeklogo-274043.png"
+              alt="Twitter" />
+          </a>
+        </nav>
+        <div class="frame-5">
+          <p class="text-wrapper-4">
+            <a href="https://food4kidswr.ca" target="_blank" rel="noopener noreferrer">food4kidswr.ca</a>
+          </p>
+          <address class="text-wrapper-5">330 Trillium Dr., Unit B Kitchener ON N2E 3J2</address>
+        </div>
+        <img class="favicon" src="https://food4kidswr.ca/wp-content/uploads/2022/08/food4kids-waterloo-region.png"
+          alt="Food4Kids favicon" />
+      </footer>
+    </article>
+  </main>
+</body>
+
+</html>
