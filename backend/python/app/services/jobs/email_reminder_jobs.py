@@ -35,7 +35,6 @@ async def process_daily_reminder_emails() -> None:
     tomorrow = date.today() + timedelta(days=1)
     start_of_day = datetime.combine(tomorrow, datetime.min.time())
     end_of_day = datetime.combine(tomorrow, datetime.max.time())
-    logger.info(f"{start_of_day}, {end_of_day}")
     try:
         async with async_session_maker_instance() as session:
             # Get all drivers assigned to routes tomorrow
@@ -60,7 +59,6 @@ async def process_daily_reminder_emails() -> None:
 
             result = await session.execute(statement)
             upcoming_routes = result.all()
-            logger.info(f"Successfully retrieved upcoming routes: {upcoming_routes}")
 
             if not upcoming_routes:
                 logger.info("No Upcoming Routes found for today, skipping emails")
