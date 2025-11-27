@@ -93,7 +93,7 @@ async def process_daily_reminder_emails() -> None:
                 formatted_email = formatted_email.replace(
                     "Length_To_Replace", rounded_distance
                 )
-                logger.info(f"Sent Email to {recipient_email}")
+                logger.info(f"Sending Email to {recipient_email}")
                 email_service.send_email(
                     to=recipient_email,
                     subject="Upcoming Route Reminder",
