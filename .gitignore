@@ -14,3 +14,4 @@
 switch_github.sh
 CLAUDE.md
 backend/python/app/data/
+.mypy_cache
