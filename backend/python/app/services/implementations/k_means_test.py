@@ -38,7 +38,7 @@ MAX_LOCATIONS_PER_CLUSTER = 10
 MAX_BOXES_PER_CLUSTER = None
 
 
-def main() -> None:
+async def main() -> None:
     engine = create_engine(DATABASE_URL, echo=False)
 
     with Session(engine) as session:
@@ -86,7 +86,7 @@ def main() -> None:
         print("-" * 60)
 
         try:
-            clusters = clustering_algo.cluster_locations(
+            clusters = await clustering_algo.cluster_locations(
                 locations=locations,
                 num_clusters=NUM_CLUSTERS,
                 max_locations_per_cluster=MAX_LOCATIONS_PER_CLUSTER,
@@ -154,4 +154,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+
+    asyncio.run(main())

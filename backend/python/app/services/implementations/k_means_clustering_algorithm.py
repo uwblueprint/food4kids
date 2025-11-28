@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import defaultdict
 from typing import TYPE_CHECKING
@@ -21,7 +22,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
     Includes max locations per cluster handling via "greedy-esque algorithm"
     """
 
-    def cluster_locations(
+    async def cluster_locations(
         self,
         locations: list[Location],
         num_clusters: int,
@@ -29,24 +30,23 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
-        """Split locations evenly into clusters in sequential order.
+        return await asyncio.to_thread(
+            self._cluster_locations_sync,
+            locations,
+            num_clusters,
+            max_locations_per_cluster,
+            max_boxes_per_cluster,
+            timeout_seconds,
+        )
 
-        Args:
-            locations: List of locations to cluster
-            num_clusters: Target number of clusters to create
-            max_locations_per_cluster: Maximum number of locations
-                per cluster. Validates that the clustering is
-                possible and raises an error if violated
-            timeout_seconds: Raise an error if it takes longer than
-                timeout_seconds to run the algorithm
-
-        Returns:
-            List of clusters, where each cluster is a list of locations
-
-        Raises:
-            ValueError: If the clustering parameters are invalid or cannot
-                be satisfied
-        """
+    def _cluster_locations_sync(
+        self,
+        locations: list[Location],
+        num_clusters: int,
+        max_locations_per_cluster: int | None = None,
+        max_boxes_per_cluster: int | None = None,
+        timeout_seconds: float | None = None,
+    ) -> list[list[Location]]:
         # Assert that only one AT MOST of the limiting max params is set to a value
         assert max_boxes_per_cluster is None or max_locations_per_cluster is None
 
@@ -154,6 +154,36 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         """
         Assign locations to clusters respecting size constraints
         Greedy approach: assign closest points first
+
+        Args:
+            locations: List of locations to cluster
+            distances: Distance matrix between each location and the clusters
+            num_clusters: Target number of clusters to create
+            max_locations_per_cluster: Optional maximum number of locations
+                per cluster. If provided and cannot be satisfied with the given
+                number of clusters, the algorithm should raise an error. Can
+                assert that at most one of the max_locations_per_cluster
+                and max_boxes_per_cluster args are non-null (at least for now).
+            max_boxes_per_cluster: Optional maximum number of boxes per cluster.
+                If provided and cannot be satisfied with the given
+                number of clusters, the algorithm should raise an error. Can
+                assert that at most one of the max_locations_per_cluster
+                and max_boxes_per_cluster args are non-null (at least for now).
+            start_time: Time the algorithm began running. Used for timekeeping
+                purposes to ensure time limit is not exceeded (and to ensure
+                proper handling when the time limit is exceeded)
+            timeout_seconds: Optional timeout in seconds. If provided, the
+                algorithm should raise TimeoutError if execution exceeds this
+                duration. If None, no timeout is enforced.
+
+        Returns:
+            List of clusters, where each cluster is a list of locations
+
+        Raises:
+            ValueError: If the clustering parameters are invalid or cannot
+                be satisfied
+            TimeoutError: If a timeout limit is provided and execution exceeds
+                this duration.
         """
         # Assert that only one AT MOST of the limiting max params is set to a value
         assert max_boxes_per_cluster is None or max_locations_per_cluster is None
