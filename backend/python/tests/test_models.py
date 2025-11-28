@@ -86,14 +86,17 @@ class TestCoreBusinessValidation:
 
         for phone in invalid_phones:
             with pytest.raises(ValidationError) as exc_info:
-                Driver(
+                user = User(
                     name="Test Driver",
                     email="test@example.com",
+                    auth_id="test-123",
+                )
+                Driver(
+                    user_id=user.user_id,
                     phone=phone,
                     address="123 Main St",
                     license_plate="ABC123",
                     car_make_model="Toyota Camry",
-                    auth_id="test-123",
                 )
             assert "phone" in str(exc_info.value)
 
@@ -647,24 +650,31 @@ class TestModelValidation:
         """Test string field validation across models."""
         # Test empty string validation
         with pytest.raises(ValidationError) as exc_info:
-            Driver(
+            user = User(
                 name="",  # Empty name should fail
                 email="test@example.com",
+                auth_id="test-123",
+            )
+            Driver(
+                user_id=user.user_id,
                 phone="+12125551234",
                 address="123 Main St",
                 license_plate="ABC123",
                 car_make_model="Toyota Camry",
-                auth_id="test-123",
             )
         assert "name" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            Admin(
-                admin_name="",  # Empty name should fail
-                admin_phone="+12125551234",
-                admin_email="admin@example.com",
+            user = User(
+                name="test-admin",
+                email="admin@example.com",
+                auth_id="test-123",
             )
-        assert "admin_name" in str(exc_info.value)
+            Admin(
+                user_id=user.user_id,
+                admin_phone="",  # Empty phone fails
+            )
+        assert "admin_phone" in str(exc_info.value)
 
     def test_numeric_field_validation(self) -> None:
         """Test numeric field validation."""

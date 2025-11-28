@@ -37,7 +37,7 @@ class DriverService:
     ) -> Driver | None:
         """Get driver by email using Firebase"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.email == email)
+            statement = select(Driver).join(Driver.user).where(User.email == email)  # type: ignore[arg-type]
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -55,7 +55,7 @@ class DriverService:
     ) -> Driver | None:
         """Get driver by auth_id"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.auth_id == auth_id)
+            statement = select(Driver).join(Driver.user).where(User.auth_id == auth_id)  # type: ignore[arg-type]
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -144,9 +144,12 @@ class DriverService:
                 driver.notes = driver_data.notes
 
             await session.commit()
+            await session.refresh(driver)
+            return driver
 
         except Exception as e:
             # Rollback database changes
+            assert driver is not None
             driver.phone = old_phone
             driver.address = old_address
             driver.license_plate = old_license_plate
@@ -198,7 +201,7 @@ class DriverService:
     ) -> UUID | None:
         """Get driver_id by auth_id"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.auth_id == auth_id)
+            statement = select(Driver).join(Driver.user).where(User.auth_id == auth_id)  # type: ignore[arg-type]
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -214,7 +217,7 @@ class DriverService:
     async def delete_driver_by_email(self, session: AsyncSession, email: str) -> None:
         """Delete driver by email"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.email == email)
+            statement = select(Driver).join(Driver.user).where(User.email == email)  # type: ignore[arg-type]
             result = await session.execute(statement)
             driver = result.scalars().first()
 

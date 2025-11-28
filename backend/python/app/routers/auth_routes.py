@@ -104,14 +104,16 @@ async def register(
     """
     try:
         # Create user first
-        user_data = register_request.model_dump(include=UserCreate.model_fields.keys())
+        user_data = register_request.model_dump(
+            include=set(UserCreate.model_fields.keys())
+        )
         user_create = UserCreate(**user_data)
         user = await user_service.create_user(session, user_create)
         firebase_admin.auth.set_custom_user_claims(user.auth_id, {"role": user.role})
 
         # Create driver after
         driver_data = register_request.model_dump(
-            include=DriverCreate.model_fields.keys()
+            include=set(DriverCreate.model_fields.keys())
         )
         driver_data["user_id"] = user.user_id
         driver = DriverCreate(**driver_data)
