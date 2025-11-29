@@ -47,6 +47,7 @@ class JobService:
         return result.scalar_one_or_none()
 
     async def update_progress(self, job_id: UUID, progress: ProgressEnum) -> None:
+        """Update job progress and set timestamps appropriately"""
         try:
             job = await self.get_job(job_id)
             if not job:
@@ -54,16 +55,22 @@ class JobService:
                 return
             job.progress = progress
             job.updated_at = self.utc_now_naive()
+            
+            if progress == ProgressEnum.RUNNING and job.started_at is None:
+                job.started_at = self.utc_now_naive()
+            
             if progress in (ProgressEnum.COMPLETED, ProgressEnum.FAILED):
                 job.finished_at = self.utc_now_naive()
+            
             self.session.add(job)
             await self.session.commit()
         except Exception as error:
-            self.logger.error("Error creating job")
+            self.logger.error("Error updating job progress")
             await self.session.rollback()
             raise error
 
     async def enqueue(self, job_id: UUID) -> None:
+        """Move job from PENDING to QUEUED (ready for worker to pick up)"""
         try:
             job = await self.get_job(job_id)
 
@@ -79,8 +86,8 @@ class JobService:
                 )
                 return
 
-            job.progress = ProgressEnum.RUNNING
-            job.started_at = self.utc_now_naive()
+            job.progress = ProgressEnum.QUEUED
+            job.updated_at = self.utc_now_naive()
             self.session.add(job)
             await self.session.commit()
         except Exception:
