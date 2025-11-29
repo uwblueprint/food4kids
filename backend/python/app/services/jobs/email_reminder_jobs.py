@@ -79,7 +79,6 @@ async def process_daily_reminder_emails() -> None:
             with open("./app/templates/route_reminder.html") as file:
                 formatted_email = file.read()
 
-
             for row in upcoming_routes:
                 recipient_email = row.email
                 route_date: datetime = row.time
