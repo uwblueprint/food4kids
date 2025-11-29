@@ -76,6 +76,10 @@ async def process_daily_reminder_emails() -> None:
                 "Food4Kids",
             )
 
+            with open("./app/templates/route_reminder.html") as file:
+                formatted_email = file.read()
+
+
             for row in upcoming_routes:
                 recipient_email = row.email
                 route_date: datetime = row.time
@@ -84,9 +88,6 @@ async def process_daily_reminder_emails() -> None:
                 date_only = route_date.date().strftime("%A, %B %d, %Y")
                 time_only = route_date.time().strftime("%I:%M %p")
                 rounded_distance = str(round(route_distance))
-
-                with open("./app/templates/route_reminder.html") as file:
-                    formatted_email = file.read()
 
                 formatted_email = formatted_email.replace("Date_To_Replace", date_only)
                 formatted_email = formatted_email.replace("Time_To_Replace", time_only)
