@@ -1,4 +1,4 @@
-"""Email reminder cheduled jobs"""
+"""Email reminder scheduled jobs"""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ async def process_daily_reminder_emails() -> None:
             upcoming_routes = result.all()
 
             if not upcoming_routes:
-                logger.info("No Upcoming Routes found for today, skipping emails")
+                logger.info("No Upcoming Routes found for tomorrow, skipping emails")
                 return
 
             email_service = EmailService(
