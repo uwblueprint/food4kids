@@ -27,5 +27,5 @@ def init_jobs(scheduler_service: SchedulerService) -> None:
         process_daily_reminder_emails,
         job_id="daily_reminder_emails",
         hour=12,
-        minute=00,
+        minute=0,
     )
