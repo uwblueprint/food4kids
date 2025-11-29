@@ -55,13 +55,13 @@ class JobService:
                 return
             job.progress = progress
             job.updated_at = self.utc_now_naive()
-            
+
             if progress == ProgressEnum.RUNNING and job.started_at is None:
                 job.started_at = self.utc_now_naive()
-            
+
             if progress in (ProgressEnum.COMPLETED, ProgressEnum.FAILED):
                 job.finished_at = self.utc_now_naive()
-            
+
             self.session.add(job)
             await self.session.commit()
         except Exception as error:
