@@ -103,13 +103,26 @@ The `add_cron_job()` method accepts these parameters:
 
 ### Testing
 
-To test your job manually, you can call it directly:
+To test your job manually, you can call it directly using a test file:
 
 ```python
-from app.services.jobs.your_job_file import your_job_function
 import asyncio
+import logging
 
-asyncio.run(your_job_function())
+from app.models import init_app
+
+from app.services.jobs.email_reminder_jobs import your_job
+
+if __name__ == "__main__":
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    init_app()
+    asyncio.run(your_job())
+
 ```
 
 You can also create a test endpoint in development to trigger jobs manually.
