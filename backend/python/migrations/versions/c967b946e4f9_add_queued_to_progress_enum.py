@@ -16,12 +16,12 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
+def upgrade() -> None:
     try:
         op.execute("ALTER TYPE progressenum ADD VALUE 'QUEUED'")
     except Exception:
         pass
 
 
-def downgrade():
+def downgrade() -> None:
     pass
