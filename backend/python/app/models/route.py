@@ -1,6 +1,6 @@
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-from datetime import datetime
 
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
