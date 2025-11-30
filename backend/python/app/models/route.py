@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .route_group_membership import RouteGroupMembership
     from .route_stop import RouteStop
 
+
 class RouteBase(SQLModel):
     """Shared fields between table and API models"""
 
@@ -19,8 +20,7 @@ class RouteBase(SQLModel):
     length: float = Field(ge=0.0)  # in km, must be non-negative
     encoded_polyline: str | None = Field(default=None, max_length=10000)
     polyline_updated_at: datetime | None = Field(
-        default=None,
-        sa_column=Column(DateTime(timezone=True), nullable=True)
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
     expires_at: datetime | None = Field(default=None)
 
@@ -43,6 +43,7 @@ class Route(RouteBase, BaseModel, table=True):
     route_group_memberships: list["RouteGroupMembership"] = Relationship(
         back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+
 
 class RouteCreate(RouteBase):
     """Create request model"""
