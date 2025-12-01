@@ -16,7 +16,9 @@ class GeocodeResult:
 class GoogleMapsClient:
     """Google Maps API client using official Python client"""
 
-    def __init__(self, logger: logging.Logger, api_key: str, region_bias: str = "ca") -> None:
+    def __init__(
+        self, logger: logging.Logger, api_key: str, region_bias: str = "ca"
+    ) -> None:
         self.logger = logger
         self.client: Client = Client(key=api_key)
         self.region_bias = region_bias
@@ -26,7 +28,8 @@ class GoogleMapsClient:
         try:
             cleaned_address = self._clean_address(address)
             geocode_result = self.client.geocode(
-                cleaned_address, region=self.region_bias)
+                cleaned_address, region=self.region_bias
+            )
 
             if geocode_result:
                 location = geocode_result[0]["geometry"]["location"]
@@ -34,13 +37,15 @@ class GoogleMapsClient:
                     formatted_address=geocode_result[0]["formatted_address"],
                     place_id=geocode_result[0]["place_id"],
                     latitude=location["lat"],
-                    longitude=location["lng"]
+                    longitude=location["lng"],
                 )
             return None
         except Exception as e:
             raise e
 
-    async def geocode_addresses(self, addresses: list[str]) -> list[GeocodeResult | None]:
+    async def geocode_addresses(
+        self, addresses: list[str]
+    ) -> list[GeocodeResult | None]:
         """
         Accepts a list of strings representing addresses
         Returns a list of GeocodeResult for each address

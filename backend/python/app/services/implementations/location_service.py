@@ -20,8 +20,7 @@ class LocationService:
     ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -54,8 +53,7 @@ class LocationService:
                 geocode_result = await self.google_maps_service.geocode_address(address)
 
                 if not geocode_result:
-                    raise ValueError(
-                        f"Geocoding failed for address: {address}")
+                    raise ValueError(f"Geocoding failed for address: {address}")
 
                 location_data.address = geocode_result.formatted_address
                 location_data.longitude = geocode_result.longitude
@@ -133,8 +131,7 @@ class LocationService:
     ) -> None:
         """Delete location by ID"""
         try:
-            statement = select(Location).where(
-                Location.location_id == location_id)
+            statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
             location = result.scalars().first()
 
