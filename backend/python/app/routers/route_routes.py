@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_driver
@@ -13,6 +13,20 @@ logger = logging.getLogger(__name__)
 route_service = RouteService(logger)
 
 router = APIRouter(prefix="/routes", tags=["routes"])
+
+
+@router.get("")
+async def get_routes(
+    unassigned: bool = Query(False, description="Filter for unassigned routes"),
+    start_date: str = Query(None, description="Filter route groups from this date"),
+    end_date: str = Query(None, description="Filter route groups until this date"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get routes with optional filtering for unassigned routes and date range
+    """
+    routes = await route_service.get_routes(session, unassigned, start_date, end_date)
+    return routes
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
