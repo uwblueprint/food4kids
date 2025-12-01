@@ -23,6 +23,7 @@ class LocationBase(SQLModel):
     latitude: float | None = None
     halal: bool
     dietary_restrictions: str = Field(default="")
+    place_id: str | None = None
     num_children: int | None = None
     num_boxes: int
     notes: str = Field(default="")
@@ -63,6 +64,7 @@ class LocationUpdate(SQLModel):
     latitude: float | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
+    place_id: str | None = None
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None

@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # Scheduler
     scheduler_timezone: str = Field(default="America/New_York")
 
+    # Google Maps
+    google_maps_api_key: str = Field(default="")
+
     # Preview deploy
     preview_deploy: bool = Field(default=False)
 
@@ -95,6 +98,7 @@ class DevelopmentSettings(Settings):
     firebase_svc_account_token_uri: str = Field(default="")
     firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
     firebase_svc_account_client_x509_cert_url: str = Field(default="")
+    google_maps_api_key: str = Field(default="")
 
 
 class ProductionSettings(Settings):
@@ -116,6 +120,7 @@ class ProductionSettings(Settings):
     firebase_svc_account_token_uri: str = Field(default="")
     firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
     firebase_svc_account_client_x509_cert_url: str = Field(default="")
+    google_maps_api_key: str = Field(default="")
 
 
 class TestingSettings(Settings):
@@ -138,6 +143,7 @@ class TestingSettings(Settings):
     firebase_svc_account_token_uri: str = Field(default="")
     firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
     firebase_svc_account_client_x509_cert_url: str = Field(default="")
+    google_maps_api_key: str = Field(default="")
 
 
 def get_settings() -> Settings:
