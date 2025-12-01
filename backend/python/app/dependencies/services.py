@@ -113,3 +113,12 @@ def get_scheduler_service() -> SchedulerService:
     """Get scheduler service instance"""
     logger = get_logger()
     return SchedulerService(logger)
+
+
+@lru_cache
+def get_google_maps_client():
+    """Get Google Maps client instance"""
+    logger = get_logger()
+    from app.utilities.google_maps_client import GoogleMapsClient
+
+    return GoogleMapsClient(logger, settings.google_maps_api_key)

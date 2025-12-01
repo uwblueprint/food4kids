@@ -4,6 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.services import get_google_maps_client
+
 # from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.location import LocationCreate, LocationRead, LocationUpdate
@@ -11,7 +13,8 @@ from app.services.implementations.location_service import LocationService
 
 # Initialize service
 logger = logging.getLogger(__name__)
-location_service = LocationService(logger)
+google_maps_client = get_google_maps_client()
+location_service = LocationService(logger, google_maps_client)
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
