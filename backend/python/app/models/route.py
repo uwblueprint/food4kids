@@ -23,6 +23,7 @@ class RouteBase(SQLModel):
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
     expires_at: datetime | None = Field(default=None)
+    ends_at_warehouse: bool = Field(default=False)
 
 
 class Route(RouteBase, BaseModel, table=True):
@@ -79,3 +80,4 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
+    ends_at_warehouse: bool | None = None
