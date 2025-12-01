@@ -16,6 +16,7 @@ class RouteBase(SQLModel):
     name: str = Field(default="", min_length=1, max_length=255)  # can change this later
     notes: str = Field(default="", max_length=1000)  # can change this later
     length: float = Field(ge=0.0)  # in km, must be non-negative
+    ends_at_warehouse: bool = Field(default=False)
 
 
 class Route(RouteBase, BaseModel, table=True):
@@ -60,3 +61,4 @@ class RouteUpdate(SQLModel):
     name: str | None = None
     notes: str | None = None
     length: float | None = None
+    ends_at_warehouse: bool | None = None
