@@ -70,6 +70,7 @@ class RouteUpdate(SQLModel):
     encoded_polyline: str | None = None
     polyline_updated_at: datetime | None = None
     expires_at: datetime | None = None
+    ends_at_warehouse: bool | None = None
 
 
 class RouteWithDateRead(SQLModel):
@@ -80,4 +81,3 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
-    ends_at_warehouse: bool | None = None
