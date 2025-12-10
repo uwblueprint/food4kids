@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-from googlemaps import Client
+import googlemaps
 
 
 @dataclass
@@ -20,7 +20,7 @@ class GoogleMapsClient:
         self, logger: logging.Logger, api_key: str, region_bias: str = "ca"
     ) -> None:
         self.logger = logger
-        self.client: Client = Client(key=api_key)
+        self.client: googlemaps.Client = googlemaps.Client(key=api_key)
         self.region_bias = region_bias
 
     async def geocode_address(self, address: str) -> GeocodeResult | None:
