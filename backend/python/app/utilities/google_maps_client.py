@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-import googlemaps
+import googlemaps  # type: ignore[import-untyped]
 
 
 @dataclass
