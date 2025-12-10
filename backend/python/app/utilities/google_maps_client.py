@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-from googlemaps import Client  # type: ignore
+from googlemaps import Client
 
 
 @dataclass
@@ -25,23 +25,18 @@ class GoogleMapsClient:
 
     async def geocode_address(self, address: str) -> GeocodeResult | None:
         """Geocode a single address string using Google Maps Geocoding API"""
-        try:
-            cleaned_address = self._clean_address(address)
-            geocode_result = self.client.geocode(
-                cleaned_address, region=self.region_bias
-            )
+        cleaned_address = self._clean_address(address)
+        geocode_result = self.client.geocode(cleaned_address, region=self.region_bias)
 
-            if geocode_result:
-                location = geocode_result[0]["geometry"]["location"]
-                return GeocodeResult(
-                    formatted_address=geocode_result[0]["formatted_address"],
-                    place_id=geocode_result[0]["place_id"],
-                    latitude=location["lat"],
-                    longitude=location["lng"],
-                )
-            return None
-        except Exception as e:
-            raise e
+        if geocode_result:
+            location = geocode_result[0]["geometry"]["location"]
+            return GeocodeResult(
+                formatted_address=geocode_result[0]["formatted_address"],
+                place_id=geocode_result[0]["place_id"],
+                latitude=location["lat"],
+                longitude=location["lng"],
+            )
+        return None
 
     async def geocode_addresses(
         self, addresses: list[str]
