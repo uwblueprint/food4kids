@@ -5,13 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import Location, LocationCreate, LocationUpdate
+from app.utilities.google_maps_client import GoogleMapsClient
 
 
 class LocationService:
     """Modern FastAPI-style location service"""
 
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, google_maps_client: GoogleMapsClient):
         self.logger = logger
+        self.google_maps_service = google_maps_client
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -45,6 +47,19 @@ class LocationService:
     ) -> Location:
         """Create a new location - returns SQLModel instance"""
         try:
+            if not location_data.longitude or not location_data.latitude:
+                address = location_data.address
+
+                geocode_result = await self.google_maps_service.geocode_address(address)
+
+                if not geocode_result:
+                    raise ValueError(f"Geocoding failed for address: {address}")
+
+                location_data.address = geocode_result.formatted_address
+                location_data.longitude = geocode_result.longitude
+                location_data.latitude = geocode_result.latitude
+                location_data.place_id = geocode_result.place_id
+
             location = Location(
                 school_name=location_data.school_name,
                 contact_name=location_data.contact_name,
@@ -52,6 +67,7 @@ class LocationService:
                 phone_number=location_data.phone_number,
                 longitude=location_data.longitude,
                 latitude=location_data.latitude,
+                place_id=location_data.place_id,
                 halal=location_data.halal,
                 dietary_restrictions=location_data.dietary_restrictions,
                 num_children=location_data.num_children,
