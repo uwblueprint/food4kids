@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -60,3 +61,13 @@ class RouteUpdate(SQLModel):
     name: str | None = None
     notes: str | None = None
     length: float | None = None
+
+
+class RouteWithDateRead(SQLModel):
+    """Read response model for routes with drive date information"""
+
+    route_id: UUID
+    name: str
+    notes: str
+    length: float
+    drive_date: datetime

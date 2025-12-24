@@ -35,11 +35,14 @@ class TestDriverAssignmentService:
     """Test suite for DriverAssignmentService CRUD operations using real database."""
 
     @pytest.fixture
-    def sample_driver_assignment_data(self, test_driver: Any, test_route: Any) -> dict:
+    def sample_driver_assignment_data(
+        self, test_driver: Any, test_route: Any, test_route_group: Any
+    ) -> dict:
         """Sample driver assignment data for testing."""
         return {
             "driver_id": test_driver.driver_id,
             "route_id": test_route.route_id,
+            "route_group_id": test_route_group.route_group_id,
             "time": datetime(2024, 1, 15, 8, 0),
             "completed": False,
         }
@@ -109,12 +112,14 @@ class TestDriverAssignmentIntegration:
         test_session: AsyncSession,
         test_driver: Any,
         test_route: Any,
+        test_route_group: Any,
     ) -> None:
         """Test complete CRUD workflow with real database."""
         # Create
         assignment_data = DriverAssignmentCreate(
             driver_id=test_driver.driver_id,
             route_id=test_route.route_id,
+            route_group_id=test_route_group.route_group_id,
             time=datetime(2024, 1, 15, 8, 0),
             completed=False,
         )
