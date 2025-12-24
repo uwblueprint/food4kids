@@ -1,7 +1,7 @@
 """Add route group id to driver assignments
 
 Revision ID: b1c2d3e4f5a6
-Revises: afbf8fe1a1a3
+Revises: 8574dd773368
 Create Date: 2025-12-01 12:00:00.000000
 
 """
@@ -12,7 +12,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision = 'b1c2d3e4f5a6'
-down_revision = 'afbf8fe1a1a3'
+down_revision = '8574dd773368'
 branch_labels = None
 depends_on = None
 
