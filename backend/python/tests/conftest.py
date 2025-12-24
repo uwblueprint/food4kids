@@ -260,6 +260,18 @@ async def test_driver(
     return driver
 
 
+@pytest.fixture
+def sample_route_group_data() -> dict[str, Any]:
+    """Sample route group data for testing."""
+    from datetime import datetime
+
+    return {
+        "name": "Test Route Group",
+        "notes": "Test route group for testing",
+        "drive_date": datetime(2024, 1, 15, 8, 0),
+    }
+
+
 @pytest_asyncio.fixture
 async def test_route(
     test_session: AsyncSession, sample_route_data: dict[str, Any]
@@ -272,3 +284,17 @@ async def test_route(
     await test_session.commit()
     await test_session.refresh(route)
     return route
+
+
+@pytest_asyncio.fixture
+async def test_route_group(
+    test_session: AsyncSession, sample_route_group_data: dict[str, Any]
+) -> Any:
+    """Create a test route group in the database."""
+    from app.models.route_group import RouteGroup
+
+    route_group = RouteGroup(**sample_route_group_data)
+    test_session.add(route_group)
+    await test_session.commit()
+    await test_session.refresh(route_group)
+    return route_group

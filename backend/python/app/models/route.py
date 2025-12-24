@@ -69,3 +69,13 @@ class RouteUpdate(SQLModel):
     encoded_polyline: str | None = None
     polyline_updated_at: datetime | None = None
     expires_at: datetime | None = None
+
+
+class RouteWithDateRead(SQLModel):
+    """Read response model for routes with drive date information"""
+
+    route_id: UUID
+    name: str
+    notes: str
+    length: float
+    drive_date: datetime

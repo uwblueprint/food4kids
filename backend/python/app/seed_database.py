@@ -602,7 +602,7 @@ def main() -> None:
                     """)
                 ).fetchall()
 
-                for _, drive_date, route_id in route_group_data:
+                for route_group_id, drive_date, route_id in route_group_data:
                     drive_date_obj = drive_date.date()
 
                     # Determine assignment strategy based on date
@@ -621,6 +621,7 @@ def main() -> None:
                         assignment = DriverAssignment(
                             driver_id=driver_row[0],  # Access first column (driver_id)
                             route_id=route_id,
+                            route_group_id=route_group_id,
                             time=drive_date,
                             completed=drive_date_obj < today,
                         )
