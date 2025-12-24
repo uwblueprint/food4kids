@@ -13,6 +13,7 @@ def init_jobs(scheduler_service: SchedulerService) -> None:
     3. Import and register it here
     """
     from .driver_history_jobs import process_daily_driver_history
+    from .email_reminder_jobs import process_daily_reminder_emails
 
     # Driver history mark daily routes as complete
     scheduler_service.add_cron_job(
@@ -20,4 +21,11 @@ def init_jobs(scheduler_service: SchedulerService) -> None:
         job_id="daily_driver_history",
         hour=23,
         minute=59,
+    )
+
+    scheduler_service.add_cron_job(
+        process_daily_reminder_emails,
+        job_id="daily_reminder_emails",
+        hour=12,
+        minute=0,
     )
