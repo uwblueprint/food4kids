@@ -1,8 +1,8 @@
 """Utility functions for encoding and decoding polylines using the polyline library."""
 
-from typing import TypeAlias, cast
+from typing import TypeAlias
 
-import polyline  # type: ignore[import-untyped]
+import polyline
 
 # Type aliases for coordinate representations
 # Google Maps API uses (lat, lon) order
@@ -30,7 +30,5 @@ def decode_polyline(polyline_str: str, precision: int = 5) -> CoordinateList:
     Returns:
         CoordinateList: List of (latitude, longitude) tuples.
     """
-    result: CoordinateList = cast(
-        "CoordinateList", polyline.decode(polyline_str, precision=precision)
-    )
+    result: CoordinateList = polyline.decode(polyline_str, precision=precision)
     return result

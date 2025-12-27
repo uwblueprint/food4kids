@@ -37,7 +37,8 @@ food4kids/
 │       │   ├── schemas/            # Pydantic schemas for API
 │       │   ├── services/           # Business logic layer
 │       │   │   ├── implementations/ # Concrete service implementations
-│       │   │   └── interfaces/     # Service interfaces
+│       │   │   └── jobs/           # Scheduled Cron Jobs
+│       │   │   └── protocols/      # Algorithms and how the server handles data
 │       │   ├── templates/          # Email/HTML templates
 │       │   └── utilities/          # Shared utility functions
 │       ├── tests/                  # Unit and functional tests
