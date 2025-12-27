@@ -11,6 +11,7 @@ class DriverAssignmentBase(SQLModel):
 
     driver_id: UUID = Field(foreign_key="drivers.driver_id")
     route_id: UUID = Field(foreign_key="routes.route_id")
+    route_group_id: UUID = Field(foreign_key="route_groups.route_group_id")
     time: datetime = Field()
     completed: bool = Field(default=False)
 
