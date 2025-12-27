@@ -122,7 +122,7 @@ class TestCoreBusinessValidation:
 
         for email in invalid_emails:
             with pytest.raises(ValidationError) as exc_info:
-                driver_user = User(
+                User(
                     name="Test Driver",
                     email=email,
                     auth_id="test-123",
