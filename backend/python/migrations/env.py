@@ -29,6 +29,8 @@ from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 from app.models.simple_entity import SimpleEntity
+from app.models.system_settings import SystemSettings
+from app.models.user import User
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
