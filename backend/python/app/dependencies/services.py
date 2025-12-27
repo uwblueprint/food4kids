@@ -23,6 +23,7 @@ from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.utilities.google_maps_client import GoogleMapsClient
 
 
 @lru_cache
@@ -113,3 +114,10 @@ def get_scheduler_service() -> SchedulerService:
     """Get scheduler service instance"""
     logger = get_logger()
     return SchedulerService(logger)
+
+
+@lru_cache
+def get_google_maps_client() -> GoogleMapsClient:
+    """Get Google Maps client instance"""
+    logger = get_logger()
+    return GoogleMapsClient(logger, settings.google_maps_api_key)
