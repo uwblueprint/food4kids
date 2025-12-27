@@ -8,6 +8,10 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true, // Allow external connections (for Docker)
+    watch: {
+      usePolling: true, // Enable polling for file changes in Docker
+      interval: 1000, // Poll every 1 second
+    },
     proxy: {
       // Proxy API requests to the backend
       '/api': {

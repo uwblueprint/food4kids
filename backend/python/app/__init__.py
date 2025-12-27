@@ -6,6 +6,9 @@ import firebase_admin
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.dependencies.services import get_scheduler_service
+from app.services.jobs import init_jobs
+
 from .config import settings
 from .models import init_app as init_models
 from .routers import init_app as init_routers
@@ -119,11 +122,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     initialize_firebase()
     init_models()
 
+    # Initialize scheduler
+    scheduler_service = get_scheduler_service()
+    scheduler_service.start()
+    init_jobs(scheduler_service)
+
     yield
 
-    # Shutdown
-    # Add any cleanup code here if needed
-    pass
+    # Cleanup: stop the scheduler service during application shutdown
+    scheduler_service.stop()
 
 
 def create_app() -> FastAPI:

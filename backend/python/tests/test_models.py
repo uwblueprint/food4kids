@@ -226,7 +226,6 @@ class TestCoreBusinessValidation:
         # Test Location required fields
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
-                is_school=True,
                 contact_name="Jane Smith",
                 # Missing: address, phone_number, longitude, latitude, halal, num_boxes
             )
@@ -266,7 +265,6 @@ class TestCoreBusinessValidation:
         # Test Location rejects extra fields
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
-                is_school=True,
                 contact_name="Jane Smith",
                 address="123 Main St",
                 phone_number="(555) 123-4567",
@@ -328,7 +326,6 @@ class TestCoreModels:
         """Test Location model core operations."""
         # Create with all fields
         location = Location(
-            is_school=True,
             school_name="Central Elementary",
             contact_name="Jane Smith",
             address="123 Main St, City, State 12345",
@@ -341,13 +338,11 @@ class TestCoreModels:
             num_boxes=25,
             notes="Main entrance on Main St",
         )
-        assert location.is_school is True
         assert location.school_name == "Central Elementary"
         assert location.created_at is not None
 
         # Create with minimal fields
         location_minimal = Location(
-            is_school=False,
             contact_name="John Doe",
             address="456 Oak Ave, City, State 12345",
             phone_number="(555) 987-6543",
@@ -356,7 +351,6 @@ class TestCoreModels:
             halal=True,
             num_boxes=10,
         )
-        assert location_minimal.is_school is False
         assert location_minimal.school_name is None
         assert location_minimal.notes == ""  # Default value
 
@@ -365,7 +359,6 @@ class TestCoreModels:
 
         location_read = LocationRead(
             location_id=uuid4(),
-            is_school=True,
             contact_name="Jane Smith",
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
@@ -442,6 +435,7 @@ class TestCoreModels:
         assignment = DriverAssignment(
             driver_id=uuid4(),
             route_id=uuid4(),
+            route_group_id=uuid4(),
             time=datetime(2024, 1, 15, 8, 0),
             completed=False,
         )
@@ -452,6 +446,7 @@ class TestCoreModels:
         assignment_default = DriverAssignment(
             driver_id=uuid4(),
             route_id=uuid4(),
+            route_group_id=uuid4(),
             time=datetime(2024, 1, 15, 8, 0),
         )
         assert assignment_default.completed is False  # Default value
@@ -487,9 +482,8 @@ class TestCoreModels:
         assert history_read.driver_history_id == 1
 
         # Update
-        history_update = DriverHistoryUpdate(year=2028, km=2500.0)
-        assert history_update.year == 2028
-        assert history_update.driver_id is None
+        history_update = DriverHistoryUpdate(km=2500.0)
+        assert history_update.km == 2500.0
 
     def test_job_core_operations(self) -> None:
         """Test Job model core operations."""
@@ -616,7 +610,6 @@ class TestEnumsAndSerialization:
 
         # Test default values across models
         location = Location(
-            is_school=False,
             contact_name="John Doe",
             address="456 Oak Ave",
             phone_number="(555) 987-6543",
@@ -627,7 +620,7 @@ class TestEnumsAndSerialization:
         )
         assert location.notes == ""  # Default value
         assert location.school_name is None  # Default value
-        assert location.dietary_restrictions is None  # Default value
+        assert location.dietary_restrictions == ""  # Default value
         assert location.num_children is None  # Default value
 
 
