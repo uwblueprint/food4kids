@@ -45,11 +45,114 @@ food4kids/
 │       ├── alembic.ini            # Alembic configuration
 │       ├── requirements.txt       # Python dependencies
 │       └── server.py              # Application entry point
-├── frontend/                      # Frontend (TBD)
+├── frontend/
+│   └── src/
+│       ├── APIClients/          # API client implementations
+│       │   ├── AuthAPIClient.ts         # Authentication API calls
+│       │   ├── BaseAPIClient.ts         # Base API client with common functionality
+│       │   ├── EntityAPIClient.ts       # Generic entity CRUD operations
+│       │   └── SimpleEntityAPIClient.ts # Simplified entity operations
+│       ├── components/          # React components
+│       │   ├── auth/            # Authentication components
+│       │   │   ├── Login.tsx            # User login form
+│       │   │   ├── Signup.tsx           # User registration form
+│       │   │   ├── Logout.tsx           # Logout handler
+│       │   │   ├── PrivateRoute.tsx     # Protected route wrapper
+│       │   │   ├── RefreshCredentials.tsx  # Token refresh logic
+│       │   │   └── ResetPassword.tsx    # Password reset form
+│       │   ├── common/          # Reusable components
+│       │   │   └── MainPageButton.tsx   # Common button component
+│       │   ├── crud/            # CRUD operation components
+│       │   │   ├── CreateForm.tsx       # Generic create form
+│       │   │   ├── UpdateForm.tsx       # Generic update form
+│       │   │   ├── DisplayTableContainer.tsx  # Data display table
+│       │   │   ├── SimpleEntityCreateForm.tsx
+│       │   │   ├── SimpleEntityUpdateForm.tsx
+│       │   │   └── SimpleEntityDisplayTableContainer.tsx
+│       │   └── pages/           # Page-level components
+│       │       ├── Default.tsx          # Default/home page
+│       │       ├── NotFound.tsx         # 404 error page
+│       │       ├── CreatePage.tsx       # Entity creation page
+│       │       ├── UpdatePage.tsx       # Entity update page
+│       │       ├── DisplayPage.tsx      # Entity display page
+│       │       ├── EditTeamPage.tsx     # Team editing page
+│       │       ├── HooksDemo/           # Demo components for React hooks
+│       │       ├── SimpleEntityCreatePage.tsx
+│       │       ├── SimpleEntityUpdatePage.tsx
+│       │       └── SimpleEntityDisplayPage.tsx
+│       ├── constants/           # Application constants
+│       │   ├── AuthConstants.ts         # Authentication-related constants
+│       │   └── Routes.ts                # Route path definitions
+│       ├── contexts/            # React Context API providers
+│       │   ├── AuthContext.ts           # Authentication state context
+│       │   ├── SampleContext.ts         # Sample context implementation
+│       │   └── SampleContextDispatcherContext.ts
+│       ├── reducers/            # State management reducers
+│       │   └── SampleContextReducer.ts  # Sample reducer for context
+│       ├── types/               # TypeScript type definitions
+│       │   ├── AuthTypes.ts             # Authentication types
+│       │   └── SampleContextTypes.ts    # Sample context types
+│       ├── utils/               # Utility functions
+│       │   └── LocalStorageUtils.ts     # Local storage helpers
+│       ├── App.tsx              # Main application component
+│       ├── index.tsx            # Application entry point
+│       └── index.css            # Global styles
 ├── db-init/                       # Database initialization scripts
 ├── docker-compose.yml             # Multi-container Docker setup
 └── README.md
 ```
+
+## Frontend Architecture
+
+The frontend is built with React and TypeScript, following a component-based architecture with clear separation of concerns.
+
+### Directory Organization
+
+**APIClients/**
+Contains all API communication logic, abstracting HTTP requests to the backend:
+- `BaseAPIClient.ts`: Foundation class with common HTTP methods and error handling
+- `AuthAPIClient.ts`: Handles authentication endpoints (login, signup, password reset)
+- `EntityAPIClient.ts`: Generic CRUD operations for complex entities
+- `SimpleEntityAPIClient.ts`: Simplified API client for basic entities
+
+**Components/**
+React components organized by functionality:
+- `auth/`: Authentication flow components (login, signup, logout, protected routes)
+- `common/`: Reusable UI components shared across the application
+- `crud/`: Generic forms and tables for Create, Read, Update, Delete operations
+- `pages/`: Top-level page components that compose smaller components
+
+**State Management**
+The application uses React Context API for global state:
+- `contexts/`: Context providers for shared state (authentication, sample data)
+- `reducers/`: Reducer functions for complex state updates
+- `types/`: TypeScript interfaces and types for type-safe state management
+
+**Routing & Constants**
+- `constants/Routes.ts`: Centralized route path definitions
+- `constants/AuthConstants.ts`: Authentication-related configuration
+
+**Utilities**
+- `utils/LocalStorageUtils.ts`: Helper functions for browser storage operations
+- Includes type-safe wrappers around localStorage
+
+### Key Patterns
+
+**Authentication Flow**
+- Firebase Authentication integration via `AuthContext`
+- Protected routes using `PrivateRoute` component wrapper
+- Automatic token refresh with `RefreshCredentials` component
+- Persistent session management through localStorage
+
+**CRUD Operations**
+The application provides two levels of CRUD abstractions:
+1. **Generic Entity**: Full-featured CRUD with complex validation (`EntityAPIClient`, `CreateForm`, `UpdateForm`)
+2. **Simple Entity**: Streamlined CRUD for basic data models (`SimpleEntityAPIClient`, `SimpleEntityCreateForm`)
+
+**Type Safety**
+- Strong TypeScript typing throughout the application
+- Type definitions in `types/` directory
+- API response types matching backend schemas
 
 ## Development Setup
 
