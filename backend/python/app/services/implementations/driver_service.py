@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.driver import Driver, DriverCreate, DriverUpdate
@@ -19,7 +20,11 @@ class DriverService:
     ) -> Driver | None:
         """Get driver by ID - returns SQLModel instance"""
         try:
-            statement = select(Driver).where(Driver.driver_id == driver_id)
+            statement = (
+                select(Driver)
+                .options(selectinload(Driver.user))  # type: ignore[arg-type]
+                .where(Driver.driver_id == driver_id)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -37,7 +42,12 @@ class DriverService:
     ) -> Driver | None:
         """Get driver by email using Firebase"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.email == email)  # type: ignore[arg-type]
+            statement = (
+                select(Driver)
+                .options(selectinload(Driver.user))  # type: ignore[arg-type]
+                .join(Driver.user)  # type: ignore[arg-type]
+                .where(User.email == email)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -55,7 +65,11 @@ class DriverService:
     ) -> Driver | None:
         """Get driver by auth_id"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.auth_id == auth_id)  # type: ignore[arg-type]
+            statement = (
+                select(Driver)
+                .join(Driver.user)  # type: ignore[arg-type]
+                .where(User.auth_id == auth_id)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -71,7 +85,7 @@ class DriverService:
     async def get_drivers(self, session: AsyncSession) -> list[Driver]:
         """Get all drivers - returns SQLModel instances"""
         try:
-            statement = select(Driver)
+            statement = select(Driver).options(selectinload(Driver.user))  # type: ignore[arg-type]
             result = await session.execute(statement)
             return list(result.scalars().all())
         except Exception as e:
@@ -98,7 +112,7 @@ class DriverService:
             try:
                 session.add(driver)
                 await session.commit()
-                await session.refresh(driver)
+                await session.refresh(driver, attribute_names=["user"])
                 return driver
 
             except Exception as db_error:
@@ -113,7 +127,11 @@ class DriverService:
     ) -> Driver | None:
         """Update driver by ID"""
         try:
-            statement = select(Driver).where(Driver.driver_id == driver_id)
+            statement = (
+                select(Driver)
+                .options(selectinload(Driver.user))  # type: ignore[arg-type]
+                .where(Driver.driver_id == driver_id)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -144,7 +162,7 @@ class DriverService:
                 driver.notes = driver_data.notes
 
             await session.commit()
-            await session.refresh(driver)
+            await session.refresh(driver, attribute_names=["user"])
             return driver
 
         except Exception as e:
@@ -201,7 +219,11 @@ class DriverService:
     ) -> UUID | None:
         """Get driver_id by auth_id"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.auth_id == auth_id)  # type: ignore[arg-type]
+            statement = (
+                select(Driver)
+                .join(Driver.user)  # type: ignore[arg-type]
+                .where(User.auth_id == auth_id)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -217,7 +239,11 @@ class DriverService:
     async def delete_driver_by_email(self, session: AsyncSession, email: str) -> None:
         """Delete driver by email"""
         try:
-            statement = select(Driver).join(Driver.user).where(User.email == email)  # type: ignore[arg-type]
+            statement = (
+                select(Driver)
+                .join(Driver.user)  # type: ignore[arg-type]
+                .where(User.email == email)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 

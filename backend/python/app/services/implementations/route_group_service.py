@@ -21,7 +21,7 @@ class RouteGroupService:
         route_group = RouteGroup.model_validate(route_group_data)
         session.add(route_group)
         await session.commit()
-        await session.refresh(route_group)
+        await session.refresh(route_group, ["route_group_memberships"])
         return route_group
 
     async def update_route_group(
@@ -46,7 +46,7 @@ class RouteGroupService:
             setattr(route_group, field, value)
 
         await session.commit()
-        await session.refresh(route_group)
+        await session.refresh(route_group, ["route_group_memberships"])
 
         return route_group
 
