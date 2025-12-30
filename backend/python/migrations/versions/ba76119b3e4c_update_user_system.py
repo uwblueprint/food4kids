@@ -1,7 +1,7 @@
 """update_user_system
 
 Revision ID: ba76119b3e4c
-Revises: 7af7d4689b08
+Revises: b1c2d3e4f5a6
 Create Date: 2025-11-24 01:25:48.941556
 
 """
@@ -12,7 +12,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision = 'ba76119b3e4c'
-down_revision = '7af7d4689b08'
+down_revision = 'b1c2d3e4f5a6'
 branch_labels = None
 depends_on = None
 
