@@ -27,7 +27,7 @@ async def get_driver_assignments(
     ),
 ) -> list[DriverAssignmentRead]:
     """
-    Get all driver assignments - Modern FastAPI approach
+    Retrieve all driver assignments
     """
     try:
         driver_assignments = await driver_assignment_service.get_driver_assignments(

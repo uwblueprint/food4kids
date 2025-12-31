@@ -25,7 +25,8 @@ async def get_route_groups(
     route_group_service: RouteGroupService = Depends(get_route_group_service),
 ) -> list[dict]:
     """
-    Get all route groups - Modern FastAPI approach
+    Retrieve all route groups, optionally filtered by date range.
+    Can include associated routes in the response.
     """
     try:
         route_groups = await route_group_service.get_route_groups(

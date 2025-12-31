@@ -11,7 +11,7 @@ from app.models.simple_entity import (
 
 
 class SimpleEntityService:
-    """Modern FastAPI-style simple entity service"""
+    """Service for managing simple entities"""
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
