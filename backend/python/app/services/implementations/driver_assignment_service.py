@@ -12,7 +12,7 @@ from app.models.driver_assignment import (
 
 
 class DriverAssignmentService:
-    """Modern FastAPI-style driver assignment service"""
+    """Service for managing driver assignments to routes"""
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
