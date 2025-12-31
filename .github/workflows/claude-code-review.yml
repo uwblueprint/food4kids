@@ -12,9 +12,6 @@ on:
 
 jobs:
   claude-review:
-    if: |
-      github.actor == 'ludavidca'
-      
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -405,7 +405,8 @@ def main() -> None:
 
             # Create locations from CSV
             print("Creating locations from CSV...")
-            csv_path = "app/data/locations.csv"
+            # Allow CSV path to be overridden via environment variable for testing
+            csv_path = os.getenv("LOCATIONS_CSV_PATH", "app/data/locations.csv")
             locations_created = 0
 
             non_school_groups = [
@@ -507,12 +508,22 @@ def main() -> None:
             print("Creating drivers...")
             num_drivers = max(routes_created, MIN_DRIVERS)
             drivers_created = 0
+            used_emails: set[str] = set()
 
             for _ in range(num_drivers):
                 # Create a single driver with fake data
+                # Ensure unique email
+                email = fake.email()
+                max_email_attempts = 100
+                email_attempts = 0
+                while email in used_emails and email_attempts < max_email_attempts:
+                    email = fake.email()
+                    email_attempts += 1
+                used_emails.add(email)
+
                 user = User(
                     name=fake.name(),
-                    email=fake.email(),
+                    email=email,
                     auth_id=f"seed_driver_{uuid.uuid4().hex[:8]}",
                 )
                 set_timestamps(user)

@@ -7,7 +7,7 @@ from app.models.entity import Entity, EntityCreate, EntityUpdate
 
 
 class EntityService:
-    """Modern FastAPI-style entity service"""
+    """Service for managing generic entities"""
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger

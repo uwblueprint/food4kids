@@ -25,7 +25,8 @@ async def get_route_groups(
     route_group_service: RouteGroupService = Depends(get_route_group_service),
 ) -> list[dict]:
     """
-    Get all route groups - Modern FastAPI approach
+    Retrieve all route groups, optionally filtered by date range.
+    Can include associated routes in the response.
     """
     try:
         route_groups = await route_group_service.get_route_groups(
@@ -33,9 +34,9 @@ async def get_route_groups(
         )
         result = []
         for route_group in route_groups:
-            data = RouteGroupRead.model_validate(route_group).model_dump()
-            membership_count = len(route_group.route_group_memberships)
-            data["num_routes"] = membership_count
+            data = RouteGroupRead.model_validate(
+                route_group, from_attributes=True
+            ).model_dump()
             if include_routes:
                 data["routes"] = [
                     {
@@ -76,15 +77,7 @@ async def create_route_group(
         created_route_group = await route_group_service.create_route_group(
             session, route_group
         )
-        return RouteGroupRead(
-            route_group_id=created_route_group.route_group_id,
-            name=created_route_group.name,
-            notes=created_route_group.notes,
-            drive_date=created_route_group.drive_date,
-            created_at=created_route_group.created_at,
-            updated_at=created_route_group.updated_at,
-            num_routes=0,
-        )
+        return RouteGroupRead.model_validate(created_route_group, from_attributes=True)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -110,7 +103,9 @@ async def update_route_group(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"RouteGroup with id {route_group_id} not found",
             )
-        return RouteGroupRead.model_validate(updated_route_group)
+        return RouteGroupRead.model_validate(updated_route_group, from_attributes=True)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -133,6 +128,8 @@ async def delete_route_group(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"RouteGroup with id {route_group_id} not found",
             )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

@@ -11,7 +11,7 @@ from app.schemas.route_generation import RouteGenerationGroupInput
 
 
 class JobService:
-    """Modern FastAPI-style job service"""
+    """Service for managing route generation jobs and their progress"""
 
     def __init__(self, logger: logging.Logger, session: AsyncSession):
         self.logger = logger

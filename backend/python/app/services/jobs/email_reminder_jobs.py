@@ -12,6 +12,7 @@ from app.dependencies.services import get_logger
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
 from app.models.route import Route
+from app.models.user import User
 from app.services.implementations.email_service import EmailService
 
 
@@ -40,21 +41,21 @@ async def process_daily_reminder_emails() -> None:
             # Get all drivers assigned to routes tomorrow
             statement = (
                 select(
-                    Driver.email,
+                    User.email,
                     DriverAssignment.time,
                     Route.length,
                 )
                 .join(Route, DriverAssignment.route_id == Route.route_id)  # type: ignore[arg-type]
                 .join(Driver, DriverAssignment.driver_id == Driver.driver_id)  # type: ignore[arg-type]
+                .join(User, Driver.user_id == User.user_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        Driver.email is not None,  # type: ignore[arg-type]
                         DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
                         DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
                         DriverAssignment.completed.is_(False),  # type: ignore[attr-defined]
                     )
                 )
-                .order_by(Driver.email)
+                .order_by(User.email)
             )
 
             result = await session.execute(statement)

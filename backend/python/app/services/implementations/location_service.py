@@ -9,7 +9,7 @@ from app.utilities.google_maps_client import GoogleMapsClient
 
 
 class LocationService:
-    """Modern FastAPI-style location service"""
+    """Service for managing delivery locations with geocoding support"""
 
     def __init__(self, logger: logging.Logger, google_maps_client: GoogleMapsClient):
         self.logger = logger
