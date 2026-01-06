@@ -1,3 +1,4 @@
+import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -27,6 +28,7 @@ class LocationBase(SQLModel):
     num_children: int | None = None
     num_boxes: int
     notes: str = Field(default="")
+    geocoded_at: datetime.datetime | None = None
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -68,3 +70,4 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+    geocoded_at: datetime.datetime | None = None
