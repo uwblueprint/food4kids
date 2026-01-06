@@ -40,7 +40,7 @@ async def process_daily_reminder_emails() -> None:
             # Get all drivers assigned to routes tomorrow
             statement = (
                 select(
-                    Driver.email,
+                    Driver.user.email,
                     DriverAssignment.time,
                     Route.length,
                 )
@@ -48,13 +48,13 @@ async def process_daily_reminder_emails() -> None:
                 .join(Driver, DriverAssignment.driver_id == Driver.driver_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        Driver.email is not None,  # type: ignore[arg-type]
+                        Driver.user.email is not None,  # type: ignore[arg-type]
                         DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
                         DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
                         DriverAssignment.completed.is_(False),  # type: ignore[attr-defined]
                     )
                 )
-                .order_by(Driver.email)
+                .order_by(Driver.user.email)
             )
 
             result = await session.execute(statement)

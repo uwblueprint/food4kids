@@ -17,7 +17,6 @@ from sklearn.cluster import KMeans  # type: ignore[import-untyped]
 from sqlalchemy import create_engine, not_, text
 from sqlmodel import Session, select
 
-# Import all models to register them with SQLModel
 from app.models.admin import Admin
 from app.models.base import BaseModel
 from app.models.driver import Driver
@@ -31,9 +30,16 @@ from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
+from app.models.system_settings import SystemSettings
+
+# Import all models to register them with SQLModel
+from app.models.user import User
 
 # Initialize Faker
 fake = faker.Faker()
+
+# Seeding sample admin with real Firebase
+ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
 
 # Configuration constants
 # Percentage of locations that will be unassigned to any location group
@@ -367,6 +373,8 @@ def main() -> None:
                 "location_groups",
                 "drivers",
                 "admin_info",
+                "system_settings",
+                "users",
             ]
 
             for table in tables_to_clear:
@@ -502,10 +510,16 @@ def main() -> None:
 
             for _ in range(num_drivers):
                 # Create a single driver with fake data
-                driver = Driver(
-                    auth_id=f"seed_driver_{uuid.uuid4().hex[:8]}",
+                user = User(
                     name=fake.name(),
                     email=fake.email(),
+                    auth_id=f"seed_driver_{uuid.uuid4().hex[:8]}",
+                )
+                set_timestamps(user)
+                session.add(user)
+
+                driver = Driver(
+                    user_id=user.user_id,
                     phone=generate_valid_phone(),
                     address=fake.address(),
                     license_plate=fake.license_plate(),
@@ -716,19 +730,40 @@ def main() -> None:
             session.commit()
             print(f"Created {len(past_route_groups) if past_route_groups else 0} jobs")
 
-            # Create admin info
-            print("Creating admin info...")
+            # Create system settings
+            print("Creating system settings info...")
             # Parse route_start_time string to time object
             route_start_time_obj = datetime.strptime(
                 ROUTE_START_TIME, "%H:%M:%S"
             ).time()
-            admin = Admin(
-                admin_name=fake.name(),
+            system_settings = SystemSettings(
                 default_cap=random.randint(DEFAULT_CAP_MIN, DEFAULT_CAP_MAX),
-                admin_phone=generate_valid_phone(),
-                admin_email=fake.email(),
                 route_start_time=route_start_time_obj,
                 warehouse_location=WAREHOUSE_ADDRESS,
+                warehouse_longitude=WAREHOUSE_LON,
+                warehouse_latitude=WAREHOUSE_LAT,
+            )
+            set_timestamps(system_settings)
+            session.add(system_settings)
+
+            session.commit()
+            print("Created system settings info")
+
+            # Create admin info
+            print("Creating admin info...")
+            # Parse route_start_time string to time object
+            user = User(
+                name="Dev",
+                email="food4kids@uwblueprint.org",
+                auth_id=ADMIN_AUTH_ID,
+                role="admin",
+            )
+            set_timestamps(user)
+            session.add(user)
+
+            admin = Admin(
+                admin_phone=generate_valid_phone(),
+                user_id=user.user_id,
             )
             set_timestamps(admin)
             session.add(admin)
