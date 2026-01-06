@@ -104,6 +104,7 @@ async def register(
     """
     try:
         # Create user first
+        user = None
         user_data = register_request.model_dump(
             include=set(UserCreate.model_fields.keys())
         )
@@ -118,8 +119,6 @@ async def register(
         driver_data["user_id"] = user.user_id
         driver = DriverCreate(**driver_data)
         await driver_service.create_driver(session, driver)
-
-        # please work
 
         auth_dto, refresh_token = await auth_service.generate_token(
             session, register_request.email, register_request.password
@@ -141,6 +140,8 @@ async def register(
 
         return auth_dto
     except Exception as e:
+        if user:
+            await user_service.delete_user_by_id(session=session, user_id=user.user_id)
         logger.error(f"Error registering driver: {e}")
         # Stack trace
         logger.error(traceback.format_exc())
