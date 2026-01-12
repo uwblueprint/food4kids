@@ -18,6 +18,7 @@ class AdminBase(SQLModel):
     admin_email: EmailStr = Field(nullable=False)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
+    route_archive_after: int = Field(default=30, nullable=False)
 
     @field_validator("admin_phone")
     @classmethod
@@ -55,3 +56,4 @@ class AdminUpdate(SQLModel):
     admin_email: EmailStr | None = Field(default=None)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
+    route_archive_after: int | None = Field(default=None)
