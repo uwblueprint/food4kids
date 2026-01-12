@@ -8,7 +8,6 @@
 - [Application Execution](#application-execution)
 - [API Testing with Postman](#api-testing-with-postman)
 - [Database Interactions](#database-interactions)
-- [Geocoding Update](#geocoding-update)
 - [Version Control Guide](#version-control-guide)
   - [Branching](#branching)
   - [Docker Commands](#docker-commands)
@@ -156,44 +155,6 @@ SELECT * FROM users; # Run SQL queries
 ```bash
 # Populate database with randomized test data
 docker-compose exec backend python app/seed_database.py
-```
-
-## Geocoding Update
-
-The system includes an automated geocoding refresh cron job that updates location coordinates using the Google Maps Geocoding API.
-
-### Features
-
-- **Automatic refresh** of location coordinates that are NULL or older than 30 days
-- **Respects `route_archive_after`** setting in admin_info (default: 30 days)
-- **Scheduled job** that runs daily at midnight EST
-- **Manual trigger** via API endpoint
-
-### Test Data
-
-Seed the database with test locations for geocoding:
-
-```bash
-docker-compose exec backend python -w /app app/seed_geocoding_test_data.py
-```
-
-### Before Update
-
-Locations with NULL coordinates or stale geocoding data:
-
-![Before Geocoding Update](assets/screanshots/before_test.png)
-
-### After Update
-
-Locations with refreshed coordinates from Google Geocoding API:
-
-![After Geocoding Update](assets/screanshots/after_test.png)
-
-### Manual Trigger
-
-```bash
-# Trigger geocoding refresh job manually
-docker-compose exec backend python -c "from app.services.jobs.geocoding_refresh import run_geocoding_refresh_job; import asyncio; asyncio.run(run_geocoding_refresh_job())"
 ```
 
 ## Version Control Guide
