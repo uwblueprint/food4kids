@@ -1,13 +1,17 @@
 export type AuthenticatedUser = {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
-  role: "Admin" | "User";
   accessToken: string;
 } | null;
 
-export type DecodedJWT =
-  | string
-  | null
-  | { [key: string]: unknown; exp: number };
+export type AuthError = {
+  code: string;
+  message: string;
+};
+
+export type AuthState = {
+  user: AuthenticatedUser;
+  loading: boolean;
+  error: AuthError | null;
+};
