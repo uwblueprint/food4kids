@@ -1,22 +1,26 @@
-import React, { useContext } from "react";
-
-import authAPIClient from "../../APIClients/AuthAPIClient";
-import AuthContext from "../../contexts/AuthContext";
+import React, { useState } from 'react';
+import { Button } from 'react-bootstrap';
+import { useAuth } from '../../hooks/useAuth';
 
 const Logout = (): React.ReactElement => {
-  const { authenticatedUser, setAuthenticatedUser } = useContext(AuthContext);
+  const { signOut } = useAuth();
+  const [loading, setLoading] = useState(false);
 
-  const onLogOutClick = async () => {
-    const success = await authAPIClient.logout(authenticatedUser?.id);
-    if (success) {
-      setAuthenticatedUser(null);
+  const handleLogout = async () => {
+    setLoading(true);
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <button type="button" className="btn btn-primary" onClick={onLogOutClick}>
-      Log Out
-    </button>
+    <Button variant="danger" onClick={handleLogout} disabled={loading}>
+      {loading ? 'Logging out...' : 'Logout'}
+    </Button>
   );
 };
 

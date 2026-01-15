@@ -1,73 +1,24 @@
-import React, { useContext } from "react";
-import { useNavigate } from "react-router-dom";
-import * as Routes from "../../constants/Routes";
-import SampleContext from "../../contexts/SampleContext";
-
-import Logout from "../auth/Logout";
-import RefreshCredentials from "../auth/RefreshCredentials";
-import ResetPassword from "../auth/ResetPassword";
-
-type ButtonProps = { text: string; path: string };
-
-const Button = ({ text, path }: ButtonProps) => {
-  const navigate = useNavigate();
-  const navigateTo = () => navigate(path);
-  return (
-    <button className="btn btn-primary" onClick={navigateTo} type="button">
-      {text}
-    </button>
-  );
-};
-
-const TeamInfoDisplay = () => {
-  const { teamName, numTerms, members, isActive } = useContext(SampleContext);
-  return (
-    <div>
-      <h2>Team Info</h2>
-      <div>Name: {teamName}</div>
-      <div># terms: {numTerms}</div>
-      <div>
-        Members:{" "}
-        {members.map(
-          (name, i) => ` ${name}${i === members.length - 1 ? "" : ","}`,
-        )}
-      </div>
-      <div>Active: {isActive ? "Yes" : "No"}</div>
-    </div>
-  );
-};
+import React from 'react';
+import { Container, Card } from 'react-bootstrap';
+import { useAuth } from '../../hooks/useAuth';
+import Logout from '../auth/Logout';
 
 const Default = (): React.ReactElement => {
+  const { user } = useAuth();
+
   return (
-    <div style={{ textAlign: "center", paddingTop: "20px" }}>
-      <h1>Default Page</h1>
-      <div className="btn-group" style={{ paddingRight: "10px" }}>
-        <Logout />
-        <RefreshCredentials />
-        <ResetPassword />
-        <Button text="Create Entity" path={Routes.CREATE_ENTITY_PAGE} />
-        <Button text="Update Entity" path={Routes.UPDATE_ENTITY_PAGE} />
-        <Button text="Display Entities" path={Routes.DISPLAY_ENTITY_PAGE} />
-        <Button
-          text="Create Simple Entity"
-          path={Routes.CREATE_SIMPLE_ENTITY_PAGE}
-        />
-        <Button
-          text="Update Simple Entity"
-          path={Routes.UPDATE_SIMPLE_ENTITY_PAGE}
-        />
-        <Button
-          text="Display Simple Entities"
-          path={Routes.DISPLAY_SIMPLE_ENTITY_PAGE}
-        />
-        <Button text="Edit Team" path={Routes.EDIT_TEAM_PAGE} />
-        <Button text="Hooks Demo" path={Routes.HOOKS_PAGE} />
-      </div>
-
-      <div style={{ height: "2rem" }} />
-
-      <TeamInfoDisplay />
-    </div>
+    <Container className="mt-5">
+      <Card>
+        <Card.Body>
+          <h1>Welcome to Food4Kids</h1>
+          <p>Hello, {user?.name || 'Driver'}!</p>
+          <p>Email: {user?.email}</p>
+          <div className="mt-4">
+            <Logout />
+          </div>
+        </Card.Body>
+      </Card>
+    </Container>
   );
 };
 

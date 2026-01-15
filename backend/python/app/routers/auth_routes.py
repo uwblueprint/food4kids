@@ -223,3 +223,34 @@ async def reset_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_message if error_message else str(e),
         ) from e
+
+
+@router.post("/oauth", response_model=AuthResponse)
+async def oauth_login(
+    id_token_request: dict,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> AuthResponse:
+    """
+    OAuth login endpoint - validates Firebase ID token and returns user data
+    """
+    try:
+        id_token = id_token_request.get("id_token")
+        if not id_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="ID token is required",
+            )
+
+        # Use existing generate_token_for_oauth method
+        auth_dto = await auth_service.generate_token_for_oauth(session, id_token)
+
+        return auth_dto
+    except Exception as e:
+        logger.error(f"OAuth login failed: {e}")
+        error_message = getattr(e, "message", None)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_message if error_message else str(e),
+        ) from e
