@@ -6,6 +6,7 @@ import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.driver import DriverCreate
+from app.models.user import UserCreate
 from app.schemas.auth import AuthResponse, TokenResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 
     from app.services.implementations.driver_service import DriverService
     from app.services.implementations.email_service import EmailService
+    from app.services.implementations.user_service import UserService
 
 
 class AuthService:
@@ -24,6 +26,7 @@ class AuthService:
     def __init__(
         self,
         logger: Logger,
+        user_service: "UserService",
         driver_service: "DriverService",
         email_service: "EmailService | None" = None,
     ) -> None:
@@ -32,12 +35,13 @@ class AuthService:
 
         :param logger: application's logger instance
         :type logger: Logger
-        :param driver_service: a driver_service instance
-        :type driver_service: IDriverService
+        :param user_service: a user_service instance
+        :type user_service: IUserService
         :param email_service: an email_service instance
         :type email_service: Optional[IEmailService]
         """
         self.logger: Logger = logger
+        self.user_service: UserService = user_service
         self.driver_service: DriverService = driver_service
         self.email_service: EmailService | None = email_service
         self.firebase_rest_client: FirebaseRestClient = FirebaseRestClient(logger)
@@ -49,10 +53,10 @@ class AuthService:
             # Always attempt Firebase authentication first
             token = self.firebase_rest_client.sign_in_with_password(email, password)
 
-            # If Firebase auth succeeds, get driver from database
-            driver = await self.driver_service.get_driver_by_email(session, email)
+            # If Firebase auth succeeds, get user from database
+            user = await self.user_service.get_user_by_email(session, email)
 
-            if driver is None:
+            if user is None:
                 self.logger.warning(
                     f"Firebase user {email} exists but not found in database - potential data inconsistency"
                 )
@@ -61,9 +65,9 @@ class AuthService:
             # Create AuthResponse with all required fields (refresh_token excluded - it goes in httpOnly cookie)
             auth_response = AuthResponse(
                 access_token=token.access_token,
-                id=driver.driver_id,
-                name=driver.name,
-                email=driver.email,
+                id=user.user_id,
+                name=user.name,
+                email=user.email,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -83,12 +87,12 @@ class AuthService:
             user_id = decoded_token["uid"]
             email = decoded_token["email"]
 
-            # If driver already has a login with this email, just return the token
+            # If user already has a login with this email, just return the token
             try:
-                # Note: an error message will be logged from DriverService if this lookup fails.
-                # You may want to silence the logger for this special OAuth driver lookup case
-                driver = await self.driver_service.get_driver_by_email(session, email)
-                if driver is None:
+                # Note: an error message will be logged from UserService if this lookup fails.
+                # You may want to silence the logger for this special OAuth user lookup case
+                user = await self.user_service.get_user_by_email(session, email)
+                if user is None:
                     self.logger.warning(
                         f"Firebase user {email} exists but not found in database - potential data inconsistency"
                     )
@@ -96,35 +100,41 @@ class AuthService:
 
                 return AuthResponse(
                     access_token=id_token,
-                    id=driver.driver_id,
-                    name=driver.name,
-                    email=driver.email,
+                    id=user.user_id,
+                    name=user.name,
+                    email=user.email,
                 )
             except Exception:
                 pass
 
-            # Create new driver for OAuth
-            driver = await self.driver_service.create_driver(
+            # Create new user and driver for OAuth
+            user = await self.user_service.create_user(
                 session,
-                DriverCreate(
+                UserCreate(
                     name=decoded_token.get("name", "")
                     if decoded_token.get("name")
                     else "",
                     email=email,
-                    phone="",  # OAuth users don't have phone initially
-                    address="",  # OAuth users don't have address initially
-                    license_plate="",  # OAuth users don't have license plate initially
-                    car_make_model="",  # OAuth users don't have car info initially
-                    password="",
+                    password="placeholder",  # TODO: How to handle this?
                 ),
                 auth_id=user_id,
                 signup_method="GOOGLE",
             )
+            await self.driver_service.create_driver(
+                session,
+                DriverCreate(
+                    phone="",  # OAuth users don't have phone initially
+                    address="",  # OAuth users don't have address initially
+                    license_plate="",  # OAuth users don't have license plate initially
+                    car_make_model="",  # OAuth users don't have car info initially
+                    user_id=user.user_id,
+                ),
+            )
             return AuthResponse(
                 access_token=id_token,
-                id=driver.driver_id,
-                name=driver.name,
-                email=driver.email,
+                id=user.user_id,
+                name=user.name,
+                email=user.email,
             )
         except Exception as e:
             reason = getattr(e, "message", None)
@@ -133,16 +143,14 @@ class AuthService:
             )
             raise e
 
-    async def revoke_tokens(self, session: AsyncSession, driver_id: UUID) -> None:
+    async def revoke_tokens(self, session: AsyncSession, user_id: UUID) -> None:
         try:
-            auth_id = await self.driver_service.get_auth_id_by_driver_id(
-                session, driver_id
-            )
+            auth_id = await self.user_service.get_auth_id_by_user_id(session, user_id)
             firebase_admin.auth.revoke_refresh_tokens(auth_id)
         except Exception as e:
             reason = getattr(e, "message", None)
             error_message = [
-                f"Failed to revoke refresh tokens of driver with id {driver_id}",
+                f"Failed to revoke refresh tokens of user with id {user_id}",
                 "Reason =",
                 (reason if reason else str(e)),
             ]
@@ -216,15 +224,20 @@ class AuthService:
     async def is_authorized_by_role(
         self, _session: AsyncSession, access_token: str, _roles: set[str]
     ) -> bool:
-        # Since we removed roles, all drivers are authorized
+        # TODO: Maybe add db role check for extra security? I highly doubt users will switch roles though...
+        # Also would have to deal with performance bottlenecks
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
             )
-            firebase_user: UserRecord = firebase_admin.auth.get_user(
-                decoded_id_token["uid"]
-            )
-            return bool(firebase_user.email_verified)
+            user_role = decoded_id_token.get("role")
+            if not user_role:
+                self.logger.warning(
+                    f"User {decoded_id_token['uid']} has no role claim set"
+                )
+                return False
+            # Allow if role is in the authorized set
+            return user_role in _roles
         except Exception as e:
             self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
             return False

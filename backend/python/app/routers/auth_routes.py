@@ -3,18 +3,25 @@ import traceback
 from typing import Literal, cast
 from uuid import UUID
 
+import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import get_current_database_driver_id, get_current_user_email
-from app.dependencies.services import get_auth_service, get_driver_service
+from app.dependencies.auth import get_current_database_user_id, get_current_user_email
+from app.dependencies.services import (
+    get_auth_service,
+    get_driver_service,
+    get_user_service,
+)
 from app.models import get_session
 from app.models.driver import DriverCreate, DriverRegister
+from app.models.user import UserCreate
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
+from app.services.implementations.user_service import UserService
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -90,16 +97,29 @@ async def register(
     session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
     driver_service: DriverService = Depends(get_driver_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> AuthResponse:
     """
     Returns access token and driver info in response body and sets refreshToken as an httpOnly cookie
     """
     try:
-        # Create driver
-        driver_data = register_request.model_dump()
-        driver = DriverCreate(**driver_data)
+        # Create user first
+        user = None
+        user_data = register_request.model_dump(
+            include=set(UserCreate.model_fields.keys())
+        )
+        user_create = UserCreate(**user_data)
+        user = await user_service.create_user(session, user_create)
+        firebase_admin.auth.set_custom_user_claims(user.auth_id, {"role": user.role})
 
+        # Create driver after
+        driver_data = register_request.model_dump(
+            include=set(DriverCreate.model_fields.keys())
+        )
+        driver_data["user_id"] = user.user_id
+        driver = DriverCreate(**driver_data)
         await driver_service.create_driver(session, driver)
+
         auth_dto, refresh_token = await auth_service.generate_token(
             session, register_request.email, register_request.password
         )
@@ -120,6 +140,8 @@ async def register(
 
         return auth_dto
     except Exception as e:
+        if user:
+            await user_service.delete_user_by_id(session=session, user_id=user.user_id)
         logger.error(f"Error registering driver: {e}")
         # Stack trace
         logger.error(traceback.format_exc())
@@ -171,25 +193,25 @@ async def refresh(
         ) from e
 
 
-@router.post("/logout/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    driver_id: UUID,
+    user_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_database_driver_id: UUID = Depends(get_current_database_driver_id),
+    current_database_user_id: UUID = Depends(get_current_database_user_id),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
     Revokes all of the specified driver's refresh tokens
     """
     # Check if the driver is authorized to logout this driver_id
-    if driver_id != current_database_driver_id:
+    if user_id != current_database_user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="You are not authorized to logout this driver",
         )
 
     try:
-        await auth_service.revoke_tokens(session, driver_id)
+        await auth_service.revoke_tokens(session, user_id)
     except Exception as e:
         error_message = getattr(e, "message", None)
         raise HTTPException(
