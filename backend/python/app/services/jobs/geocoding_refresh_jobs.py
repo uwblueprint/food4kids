@@ -11,11 +11,10 @@ if TYPE_CHECKING:
 from sqlalchemy import and_, or_
 from sqlmodel import select
 
-from app.dependencies.services import get_logger
+from app.dependencies.services import get_google_maps_client, get_logger
 from app.models import async_session_maker_instance
 from app.models.admin import Admin
 from app.models.location import Location
-from app.utilities.geocoding import geocode_addresses
 
 
 async def _get_archive_threshold(session) -> int:
@@ -57,19 +56,20 @@ async def _refresh_locations(session, locations: list[Location]) -> int:
         logger.info("No locations need geocoding refresh")
         return 0
 
+    google_maps_client = get_google_maps_client()
     addresses = [loc.address for loc in locations]
-    geocoding_results = await geocode_addresses(addresses)
+    geocoding_results = await google_maps_client.geocode_addresses(addresses)
 
     refreshed_count = 0
-    for location, coords in zip(locations, geocoding_results):
-        if coords:
-            location.latitude = coords["lat"]
-            location.longitude = coords["lng"]
+    for location, geocode_result in zip(locations, geocoding_results):
+        if geocode_result:
+            location.latitude = geocode_result.latitude
+            location.longitude = geocode_result.longitude
             location.geocoded_at = datetime.now()
             refreshed_count += 1
             logger.info(
                 f"Refreshed geocoding for location {location.location_id} "
-                f"({location.address}): {coords}"
+                f"({location.address}): lat={geocode_result.latitude}, lng={geocode_result.longitude}"
             )
         else:
             logger.warning(
