@@ -75,8 +75,28 @@ class SchedulerService:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
+                    # Reinitialize database connection for this event loop
+                    # This is necessary because asyncpg connections are tied to a specific event loop
+                    import app.models as models_module
+                    models_module.init_database()
+                    
+                    # Update the session maker reference in job modules that import it
+                    # This is needed because 'from module import name' creates a reference
+                    # that doesn't update when the original module's global is reassigned
+                    import sys
+                    for module_name, module in sys.modules.items():
+                        if module_name.startswith('app.services.jobs') and hasattr(module, 'async_session_maker_instance'):
+                            module.async_session_maker_instance = models_module.async_session_maker_instance
+                    
+                    # Run the async function
                     loop.run_until_complete(func())
                 finally:
+                    # Clean up: close all pending tasks and the loop
+                    pending = asyncio.all_tasks(loop)
+                    for task in pending:
+                        task.cancel()
+                    if pending:
+                        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
                     loop.close()
 
             wrapped_func = async_wrapper

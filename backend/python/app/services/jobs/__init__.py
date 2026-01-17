@@ -14,6 +14,7 @@ def init_jobs(scheduler_service: SchedulerService) -> None:
     """
     from .driver_history_jobs import process_daily_driver_history
     from .email_reminder_jobs import process_daily_reminder_emails
+    from .geocoding_refresh_jobs import refresh_geocoding
 
     # Driver history mark daily routes as complete
     scheduler_service.add_cron_job(
@@ -23,9 +24,18 @@ def init_jobs(scheduler_service: SchedulerService) -> None:
         minute=59,
     )
 
+    # Email reminders - runs daily at 12 PM
     scheduler_service.add_cron_job(
         process_daily_reminder_emails,
         job_id="daily_reminder_emails",
         hour=12,
+        minute=0,
+    )
+
+    # Geocoding refresh - runs daily at 2 AM
+    scheduler_service.add_cron_job(
+        refresh_geocoding,
+        job_id="daily_geocoding_refresh",
+        hour=2,
         minute=0,
     )
