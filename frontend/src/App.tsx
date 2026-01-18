@@ -1,139 +1,35 @@
-import "bootstrap/dist/css/bootstrap.min.css";
-import React, { useState, useReducer } from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
+import './App.css'
 
-import Login from "./components/auth/Login";
-import Signup from "./components/auth/Signup";
-import PrivateRoute from "./components/auth/PrivateRoute";
-import CreatePage from "./components/pages/CreatePage";
-import Default from "./components/pages/Default";
-import DisplayPage from "./components/pages/DisplayPage";
-import SimpleEntityCreatePage from "./components/pages/SimpleEntityCreatePage";
-import SimpleEntityDisplayPage from "./components/pages/SimpleEntityDisplayPage";
-import NotFound from "./components/pages/NotFound";
-import UpdatePage from "./components/pages/UpdatePage";
-import SimpleEntityUpdatePage from "./components/pages/SimpleEntityUpdatePage";
-import * as AppRoutes from "./constants/Routes";
-import AUTHENTICATED_USER_KEY from "./constants/AuthConstants";
-import AuthContext from "./contexts/AuthContext";
-import { getLocalStorageObj } from "./utils/LocalStorageUtils";
-import SampleContext, {
-  DEFAULT_SAMPLE_CONTEXT,
-} from "./contexts/SampleContext";
-import sampleContextReducer from "./reducers/SampleContextReducer";
-import SampleContextDispatcherContext from "./contexts/SampleContextDispatcherContext";
-import EditTeamInfoPage from "./components/pages/EditTeamPage";
-import HooksDemo from "./components/pages/HooksDemo";
-
-import { AuthenticatedUser } from "./types/AuthTypes";
-
-const App = (): React.ReactElement => {
-  const currentUser: AuthenticatedUser = getLocalStorageObj<AuthenticatedUser>(
-    AUTHENTICATED_USER_KEY,
-  );
-
-  const [authenticatedUser, setAuthenticatedUser] =
-    useState<AuthenticatedUser>(currentUser);
-
-  // Some sort of global state. Context API replaces redux.
-  // Split related states into different contexts as necessary.
-  // Split dispatcher and state into separate contexts as necessary.
-  const [sampleContext, dispatchSampleContextUpdate] = useReducer(
-    sampleContextReducer,
-    DEFAULT_SAMPLE_CONTEXT,
-  );
+function App() {
+  const [count, setCount] = useState(0)
 
   return (
-    <SampleContext.Provider value={sampleContext}>
-      <SampleContextDispatcherContext.Provider
-        value={dispatchSampleContextUpdate}
-      >
-        <AuthContext.Provider
-          value={{ authenticatedUser, setAuthenticatedUser }}
-        >
-          <Router>
-            <Routes>
-              <Route path={AppRoutes.LOGIN_PAGE} element={<Login />} />
-              <Route path={AppRoutes.SIGNUP_PAGE} element={<Signup />} />
-              <Route
-                path={AppRoutes.HOME_PAGE}
-                element={
-                  <PrivateRoute>
-                    <Default />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.CREATE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <CreatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.UPDATE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <UpdatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.DISPLAY_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <DisplayPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.CREATE_SIMPLE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <SimpleEntityCreatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.UPDATE_SIMPLE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <SimpleEntityUpdatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.DISPLAY_SIMPLE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <SimpleEntityDisplayPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.EDIT_TEAM_PAGE}
-                element={
-                  <PrivateRoute>
-                    <EditTeamInfoPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.HOOKS_PAGE}
-                element={
-                  <PrivateRoute>
-                    <HooksDemo />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Router>
-        </AuthContext.Provider>
-      </SampleContextDispatcherContext.Provider>
-    </SampleContext.Provider>
-  );
-};
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
+  )
+}
 
-export default App;
+export default App
