@@ -1,6 +1,6 @@
 ## JIRA ticket link
 <!-- Please replace with your ticket's URL -->
-[Ticket Name](https://f4kblueprint.atlassian.net/browse/F4KRP-21)
+[Ticket Name](https://f4kblueprint.atlassian.net/browse/F4KRP)
 
 
 <!-- Give a quick summary of the implementation details, provide design justifications if necessary -->
