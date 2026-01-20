@@ -2,16 +2,19 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    types: [labeled]
+  issue_comment:
+    types: [created]
+  # Automatic trigger disabled - workflow runs when you:
+  # 1. Add the 'claude-review' label to a PR, OR
+  # 2. Comment '@claude review' or '/claude-review' on a PR
 
 jobs:
   claude-review:
+    if: |
+      (github.event_name == 'pull_request' && github.event.label.name == 'claude-review') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+       (contains(github.event.comment.body, '@claude review') || contains(github.event.comment.body, '/claude-review')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
 
       - name: Run Claude Code Review
         id: claude-review
@@ -32,7 +36,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event.issue.number }}
 
             Please review this pull request and provide feedback on:
             - Code quality and best practices
