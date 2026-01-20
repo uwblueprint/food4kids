@@ -7,7 +7,6 @@ import react from 'eslint-plugin-react'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 import importPlugin from 'eslint-plugin-import'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
-import tailwindcss from 'eslint-plugin-tailwindcss'
 import prettier from 'eslint-config-prettier'
 
 export default [
@@ -50,7 +49,6 @@ export default [
     plugins: {
       'simple-import-sort': simpleImportSort,
       import: importPlugin,
-      tailwindcss: tailwindcss,
       'react-refresh': reactRefresh,
     },
     rules: {
@@ -63,7 +61,6 @@ export default [
       'import/first': 'error',
       'import/newline-after-import': 'error',
       'import/no-duplicates': 'error',
-      ...tailwindcss.configs.recommended.rules,
     },
   },
   prettier, // Must be last
