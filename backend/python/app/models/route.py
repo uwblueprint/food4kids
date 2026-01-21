@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 class RouteBase(SQLModel):
     """Shared fields between table and API models"""
-
     name: str = Field(default="", min_length=1, max_length=255)  # can change this later
     notes: str = Field(default="", max_length=1000)  # can change this later
     length: float = Field(ge=0.0)  # in km, must be non-negative
@@ -70,6 +69,7 @@ class RouteUpdate(SQLModel):
     encoded_polyline: str | None = None
     polyline_updated_at: datetime | None = None
     expires_at: datetime | None = None
+    ends_at_warehouse: bool | None = None
 
 
 class RouteWithDateRead(SQLModel):
@@ -80,4 +80,3 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
-    ends_at_warehouse: bool | None = None
