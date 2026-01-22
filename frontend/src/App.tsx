@@ -1,139 +1,52 @@
-import "bootstrap/dist/css/bootstrap.min.css";
-import React, { useState, useReducer } from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { useState } from 'react';
 
-import Login from "./components/auth/Login";
-import Signup from "./components/auth/Signup";
-import PrivateRoute from "./components/auth/PrivateRoute";
-import CreatePage from "./components/pages/CreatePage";
-import Default from "./components/pages/Default";
-import DisplayPage from "./components/pages/DisplayPage";
-import SimpleEntityCreatePage from "./components/pages/SimpleEntityCreatePage";
-import SimpleEntityDisplayPage from "./components/pages/SimpleEntityDisplayPage";
-import NotFound from "./components/pages/NotFound";
-import UpdatePage from "./components/pages/UpdatePage";
-import SimpleEntityUpdatePage from "./components/pages/SimpleEntityUpdatePage";
-import * as AppRoutes from "./constants/Routes";
-import AUTHENTICATED_USER_KEY from "./constants/AuthConstants";
-import AuthContext from "./contexts/AuthContext";
-import { getLocalStorageObj } from "./utils/LocalStorageUtils";
-import SampleContext, {
-  DEFAULT_SAMPLE_CONTEXT,
-} from "./contexts/SampleContext";
-import sampleContextReducer from "./reducers/SampleContextReducer";
-import SampleContextDispatcherContext from "./contexts/SampleContextDispatcherContext";
-import EditTeamInfoPage from "./components/pages/EditTeamPage";
-import HooksDemo from "./components/pages/HooksDemo";
+import viteLogo from '/vite.svg';
 
-import { AuthenticatedUser } from "./types/AuthTypes";
+import reactLogo from './assets/react.svg';
 
-const App = (): React.ReactElement => {
-  const currentUser: AuthenticatedUser = getLocalStorageObj<AuthenticatedUser>(
-    AUTHENTICATED_USER_KEY,
-  );
-
-  const [authenticatedUser, setAuthenticatedUser] =
-    useState<AuthenticatedUser>(currentUser);
-
-  // Some sort of global state. Context API replaces redux.
-  // Split related states into different contexts as necessary.
-  // Split dispatcher and state into separate contexts as necessary.
-  const [sampleContext, dispatchSampleContextUpdate] = useReducer(
-    sampleContextReducer,
-    DEFAULT_SAMPLE_CONTEXT,
-  );
+function App() {
+  const [count, setCount] = useState(0);
 
   return (
-    <SampleContext.Provider value={sampleContext}>
-      <SampleContextDispatcherContext.Provider
-        value={dispatchSampleContextUpdate}
-      >
-        <AuthContext.Provider
-          value={{ authenticatedUser, setAuthenticatedUser }}
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white">
+      <div className="mb-8 flex gap-12">
+        <a
+          href="https://vite.dev"
+          target="_blank"
+          className="transition-all duration-300 hover:drop-shadow-[0_0_2em_#646cffaa]"
         >
-          <Router>
-            <Routes>
-              <Route path={AppRoutes.LOGIN_PAGE} element={<Login />} />
-              <Route path={AppRoutes.SIGNUP_PAGE} element={<Signup />} />
-              <Route
-                path={AppRoutes.HOME_PAGE}
-                element={
-                  <PrivateRoute>
-                    <Default />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.CREATE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <CreatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.UPDATE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <UpdatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.DISPLAY_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <DisplayPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.CREATE_SIMPLE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <SimpleEntityCreatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.UPDATE_SIMPLE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <SimpleEntityUpdatePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.DISPLAY_SIMPLE_ENTITY_PAGE}
-                element={
-                  <PrivateRoute>
-                    <SimpleEntityDisplayPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.EDIT_TEAM_PAGE}
-                element={
-                  <PrivateRoute>
-                    <EditTeamInfoPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path={AppRoutes.HOOKS_PAGE}
-                element={
-                  <PrivateRoute>
-                    <HooksDemo />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Router>
-        </AuthContext.Provider>
-      </SampleContextDispatcherContext.Provider>
-    </SampleContext.Provider>
+          <img src={viteLogo} className="h-24 p-6" alt="Vite logo" />
+        </a>
+        <a
+          href="https://react.dev"
+          target="_blank"
+          className="transition-all duration-300 hover:drop-shadow-[0_0_2em_#61dafbaa]"
+        >
+          <img
+            src={reactLogo}
+            className="h-24 p-6 animate-[spin_20s_linear_infinite]"
+            alt="React logo"
+          />
+        </a>
+      </div>
+      <h1 className="text-6xl font-bold leading-tight">Vite + React</h1>
+      <div className="flex flex-col items-center rounded-lg p-8">
+        <button
+          onClick={() => setCount((count) => count + 1)}
+          className="mb-4 rounded-lg border border-transparent bg-gray-800 px-5 py-2.5 text-base font-medium transition-colors hover:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/50"
+        >
+          count is {count}
+        </button>
+        <p className="text-gray-400">
+          Edit <code className="font-mono">src/App.tsx</code> and save to test
+          HMR
+        </p>
+      </div>
+      <p className="mt-8 text-gray-500">
+        Click on the Vite and React logos to learn more
+      </p>
+    </div>
   );
-};
+}
 
 export default App;
