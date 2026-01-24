@@ -115,7 +115,7 @@ class AuthService:
                     if decoded_token.get("name")
                     else "",
                     email=email,
-                    password="",
+                    password="placeholder",  # TODO: How to handle this?
                 ),
                 auth_id=user_id,
                 signup_method="GOOGLE",
@@ -224,7 +224,8 @@ class AuthService:
     async def is_authorized_by_role(
         self, _session: AsyncSession, access_token: str, _roles: set[str]
     ) -> bool:
-        # Since we removed roles, all users are authorized
+        # TODO: Maybe add db role check for extra security? I highly doubt users will switch roles though...
+        # Also would have to deal with performance bottlenecks
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
