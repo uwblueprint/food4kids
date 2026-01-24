@@ -1,7 +1,7 @@
 import pytest
 from uuid import uuid4
 from app.models.location import Location
-from app.dependencies.google_maps import get_google_maps_client
+from app.dependencies.services import get_google_maps_client
 
 @pytest.mark.asyncio
 async def test_fetch_route_polyline_with_return():
