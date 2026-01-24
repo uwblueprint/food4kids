@@ -21,7 +21,7 @@ async def get_simple_entities(
     simple_entity_service: SimpleEntityService = Depends(get_simple_entity_service),
 ) -> list[SimpleEntityRead]:
     """
-    Get all simple entities - Modern FastAPI approach
+    Retrieve all simple entities
     """
     try:
         simple_entities = await simple_entity_service.get_simple_entities(session)

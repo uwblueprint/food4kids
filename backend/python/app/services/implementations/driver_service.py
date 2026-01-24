@@ -9,7 +9,7 @@ from app.models.user import User
 
 
 class DriverService:
-    """Modern FastAPI-style driver service"""
+    """Service for managing drivers with Firebase authentication integration"""
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
