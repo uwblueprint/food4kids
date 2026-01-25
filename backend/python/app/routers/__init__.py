@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from . import (
+    admin_routes,
     auth_routes,
     database_routes,
     driver_assignment_routes,
@@ -18,6 +19,7 @@ from . import (
 
 def init_app(app: FastAPI) -> None:
     """Initialize all routers with the FastAPI app"""
+    app.include_router(admin_routes.router)
     app.include_router(database_routes.router)
     app.include_router(driver_assignment_routes.router)
     app.include_router(auth_routes.router)
