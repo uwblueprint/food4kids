@@ -465,7 +465,7 @@ SELECT * FROM users; # Run SQL queries
 
 ```bash
 # Populate database with randomized test data
-docker-compose exec backend python app/seed_database.py
+docker-compose exec backend python -m app.seed_database
 ```
 
 ## Version Control Guide

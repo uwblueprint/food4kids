@@ -102,14 +102,19 @@ async def register(
     """
     Returns access token and driver info in response body and sets refreshToken as an httpOnly cookie
     """
+    user = None
+    firebase_auth_id = None
+
     try:
         # Create user first
-        user = None
         user_data = register_request.model_dump(
             include=set(UserCreate.model_fields.keys())
         )
         user_create = UserCreate(**user_data)
         user = await user_service.create_user(session, user_create)
+        firebase_auth_id = user.auth_id
+
+        # Set custom claims on Firebase user
         firebase_admin.auth.set_custom_user_claims(user.auth_id, {"role": user.role})
 
         # Create driver after
@@ -120,10 +125,12 @@ async def register(
         driver = DriverCreate(**driver_data)
         await driver_service.create_driver(session, driver)
 
+        # Generate authentication tokens
         auth_dto, refresh_token = await auth_service.generate_token(
             session, register_request.email, register_request.password
         )
 
+        # Send email verification link
         auth_service.send_email_verification_link(register_request.email)
 
         # Set refresh token as httpOnly cookie
@@ -140,11 +147,28 @@ async def register(
 
         return auth_dto
     except Exception as e:
-        if user:
-            await user_service.delete_user_by_id(session=session, user_id=user.user_id)
+        # Compensating transaction: rollback all changes
         logger.error(f"Error registering driver: {e}")
-        # Stack trace
         logger.error(traceback.format_exc())
+
+        # Attempt to clean up database user (which also attempts Firebase cleanup)
+        db_cleanup_failed = False
+        if user:
+            try:
+                await user_service.delete_user_by_id(session=session, user_id=user.user_id)
+            except Exception as db_error:
+                logger.error(f"Failed to rollback database user: {db_error}")
+                db_cleanup_failed = True
+
+        # If database cleanup failed and we have a Firebase auth_id, attempt direct Firebase cleanup
+        # This ensures Firebase user is deleted even if database cleanup failed
+        if db_cleanup_failed and firebase_auth_id:
+            try:
+                firebase_admin.auth.delete_user(firebase_auth_id)
+                logger.info(f"Successfully deleted Firebase user {firebase_auth_id} via direct cleanup")
+            except Exception as firebase_error:
+                logger.error(f"Failed to rollback Firebase user via direct cleanup: {firebase_error}")
+
         error_message = getattr(e, "message", None)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
