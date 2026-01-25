@@ -155,7 +155,9 @@ async def register(
         db_cleanup_failed = False
         if user:
             try:
-                await user_service.delete_user_by_id(session=session, user_id=user.user_id)
+                await user_service.delete_user_by_id(
+                    session=session, user_id=user.user_id
+                )
             except Exception as db_error:
                 logger.error(f"Failed to rollback database user: {db_error}")
                 db_cleanup_failed = True
@@ -165,9 +167,13 @@ async def register(
         if db_cleanup_failed and firebase_auth_id:
             try:
                 firebase_admin.auth.delete_user(firebase_auth_id)
-                logger.info(f"Successfully deleted Firebase user {firebase_auth_id} via direct cleanup")
+                logger.info(
+                    f"Successfully deleted Firebase user {firebase_auth_id} via direct cleanup"
+                )
             except Exception as firebase_error:
-                logger.error(f"Failed to rollback Firebase user via direct cleanup: {firebase_error}")
+                logger.error(
+                    f"Failed to rollback Firebase user via direct cleanup: {firebase_error}"
+                )
 
         error_message = getattr(e, "message", None)
         raise HTTPException(
