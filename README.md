@@ -4,23 +4,41 @@
 
 - [Tech Stack](#tech-stack)
 - [Repo Structure](#repo-structure)
+- [Frontend Development](#frontend-development)
+  - [Project Structure](#project-structure)
+  - [Component Development Guidelines](#component-development-guidelines)
+  - [Tailwind CSS v4 Setup and Usage](#tailwind-css-v4-setup-and-usage)
+  - [TypeScript Conventions](#typescript-conventions)
+  - [Development Workflow](#development-workflow)
+  - [Code Quality and Formatting](#code-quality-and-formatting)
 - [Development Setup](#development-setup)
+- [Recommended VSCode Settings](#recommended-vscode-settings)
 - [Application Execution](#application-execution)
 - [API Testing with Postman](#api-testing-with-postman)
 - [Database Interactions](#database-interactions)
 - [Version Control Guide](#version-control-guide)
   - [Branching](#branching)
   - [Docker Commands](#docker-commands)
+- [Claude Code Integration](#claude-code-integration)
 - [Formatting and Linting](#formatting-and-linting)
+  - [Package Manager Requirements](#package-manager-requirements)
+  - [CI/CD Tasks](#cicd-tasks)
 - [Testing](#testing)
 - [FAQ & Debugging](#faq--debugging)
 
 ## Tech Stack
 
-**Frontend:** React, TypeScript
+**Frontend:**
+- React 19.2.0
+- TypeScript 5.9.3
+- Vite 7.2.4 (build tool)
+- React Router v7.12.0 (routing)
+- Tailwind CSS v4.1.18 (styling)
+- pnpm (package manager)
+
 **Backend:** Python, FastAPI, SQLModel
-**Database:** PostgreSQL  
-**Authentication:** Firebase Auth  
+**Database:** PostgreSQL
+**Authentication:** Firebase Auth
 **Containerization:** Docker & Docker Compose
 
 ## Repo Structure
@@ -45,11 +63,238 @@ food4kids/
 │       ├── alembic.ini            # Alembic configuration
 │       ├── requirements.txt       # Python dependencies
 │       └── server.py              # Application entry point
-├── frontend/                      # Frontend (TBD)
+├── frontend/                      # React + TypeScript frontend (see Frontend Development section)
 ├── db-init/                       # Database initialization scripts
 ├── docker-compose.yml             # Multi-container Docker setup
 └── README.md
 ```
+
+## Frontend Development
+
+The frontend is built with React 19, TypeScript, and Vite, using modern development practices and tooling. This section covers the project structure, coding conventions, and development workflow.
+
+### Project Structure
+
+```
+frontend/
+├── src/
+│   ├── api/                    # API client configuration
+│   ├── assets/
+│   │   ├── fonts/             # Custom web fonts
+│   │   └── images/            # Images, logos, icons
+│   ├── components/
+│   │   ├── common/            # Reusable UI components (buttons, inputs, cards, modals)
+│   │   └── features/          # Feature-specific components with business logic
+│   ├── constants/             # Application constants and configuration values
+│   ├── contexts/              # React Context providers for state management
+│   ├── hooks/                 # Custom React hooks (useAuth, useFetch, etc.)
+│   ├── layouts/               # Layout wrapper components (navigation, sidebars, footers)
+│   ├── pages/                 # Page-level components for routing
+│   ├── types/                 # TypeScript type definitions and interfaces
+│   ├── utils/                 # Utility helper functions
+│   ├── main.tsx               # Application entry point
+│   ├── App.tsx                # Root component
+│   └── index.css              # Global styles (Tailwind imports)
+├── public/                    # Static assets served directly
+├── vite.config.ts             # Vite configuration
+├── tsconfig.json              # TypeScript configuration
+├── eslint.config.js           # ESLint rules
+├── .prettierrc                # Prettier formatting rules
+└── package.json               # Dependencies and scripts
+```
+
+**Architecture:** The frontend uses a feature-based modular architecture with separation of concerns between reusable UI components and feature-specific business logic.
+
+### Component Development Guidelines
+
+**When to use `components/common/`:**
+- Reusable UI elements that can be used across multiple features
+- Generic components: buttons, inputs, cards, modals, dropdowns, tooltips
+- No business logic or feature-specific knowledge
+- Examples: `Button.tsx`, `Input.tsx`, `Card.tsx`, `Modal.tsx`
+
+**When to use `components/features/`:**
+- Components tied to specific business logic or features
+- Feature-specific functionality that won't be reused elsewhere
+- Examples: `UserProfileCard.tsx`, `OrderSummary.tsx`, `DonationForm.tsx`
+
+**Naming Conventions:**
+- Use PascalCase for component files and names: `UserCard.tsx`, `LoginForm.tsx`
+- Use descriptive names that clearly indicate the component's purpose
+- Avoid generic names like `Component1.tsx` or `Temp.tsx`
+
+**Best Practices:**
+- One component per file
+- Always define TypeScript interfaces for props
+- Colocate component-specific types with the component file
+- Export components using named exports (not default exports)
+- Keep components focused and single-purpose
+
+### Tailwind CSS v4 Setup and Usage
+
+The project uses **Tailwind CSS v4**, which introduces a CSS-first approach without a `tailwind.config.js` file.
+
+**Setup:**
+```css
+/* src/index.css */
+@import 'tailwindcss';
+```
+
+**Utility-First Methodology:**
+- Use Tailwind utility classes directly in JSX
+- Compose utilities to build complex designs
+- Avoid custom CSS unless absolutely necessary
+
+**Class Sorting:**
+- Prettier automatically sorts Tailwind classes using `prettier-plugin-tailwindcss`
+- Classes are ordered by function (layout → spacing → colors → typography, etc.)
+
+### TypeScript Conventions
+
+The project uses **TypeScript strict mode** for maximum type safety.
+
+**Where to Define Types:**
+
+1. **Global/Shared Types** → `src/types/`
+   ```typescript
+   // src/types/user.ts
+   export interface User {
+     id: string;
+     name: string;
+     email: string;
+     role: 'admin' | 'user' | 'donor';
+   }
+   ```
+
+2. **Component-Specific Types** → Inline or in component file
+   ```typescript
+   // src/components/UserCard.tsx
+   interface UserCardProps {
+     user: User;
+     onEdit?: () => void;
+   }
+   ```
+
+3. **API Response Types** → `src/api/types/` (when implemented)
+   ```typescript
+   // src/api/types/responses.ts
+   export interface ApiResponse<T> {
+     data: T;
+     message: string;
+     success: boolean;
+   }
+   ```
+
+**Props Typing Pattern:**
+```typescript
+// Always define props interface
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+  disabled?: boolean;
+}
+
+export const Button = ({ label, onClick, variant = 'primary', disabled = false }: ButtonProps) => {
+  // Component implementation
+};
+```
+
+**Best Practices:**
+- Avoid `any` type - use `unknown` with type guards when type is unclear
+- Use union types for string literals: `type Status = 'pending' | 'approved' | 'rejected'`
+- Leverage TypeScript utility types:
+  - `Partial<T>` - Make all properties optional
+  - `Pick<T, K>` - Pick specific properties
+  - `Omit<T, K>` - Omit specific properties
+  - `Record<K, V>` - Object with specific key-value types
+
+**Example with Utility Types:**
+```typescript
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+}
+```
+
+### Development Workflow
+
+**Running the Frontend Locally (not recommended, use docker instead):**
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies (first time only)
+pnpm install
+
+# Start development server
+pnpm dev
+
+# Access at http://localhost:3000
+```
+
+**Building for Production:**
+
+```bash
+# TypeScript type-check and build
+pnpm build
+
+# Preview production build locally
+pnpm preview
+```
+
+**Port Configuration:**
+- Default port: `3000` (configured in [vite.config.ts:7](frontend/vite.config.ts#L7))
+- Automatically opens in browser
+- Supports HMR (Hot Module Replacement) for instant updates
+
+**Development Features:**
+- **Fast Refresh:** React components update instantly without losing state
+- **TypeScript Checking:** Vite shows TypeScript errors in the terminal
+- **ESLint Integration:** Code quality issues highlighted in real-time
+- **Auto-Import Sorting:** Imports automatically organized on save
+
+### Code Quality and Formatting
+
+**ESLint Configuration:**
+- TypeScript ESLint with strict rules
+- React plugin with recommended settings
+- React Hooks rules for proper hook usage
+- JSX Accessibility (a11y) rules for inclusive design
+- Import plugin with auto-sorting
+
+**Prettier Configuration:**
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 80,
+  "tabWidth": 2
+}
+```
+
+**Running Code Quality Checks:**
+
+```bash
+# Check for linting issues
+pnpm lint
+
+# Auto-fix linting issues
+pnpm lint:fix
+
+# Format code with Prettier
+pnpm format
+```
+
+**Recommended Workflow:**
+1. Install recommended VSCode extensions (see [Recommended VSCode Settings](#recommended-vscode-settings))
+2. Enable format on save and auto-fix ESLint
+3. Code is automatically formatted and linted as you work
+4. Run `pnpm lint` before committing changes
 
 ## Development Setup
 
@@ -65,7 +310,13 @@ cd food4kids
 
 ### Environment Configuration
 
-You will need to create environment files: `.env` and `frontend/.env`. Talk to the PL to obtain these.
+You will need to create environment files: `.env` (backend) and `frontend/.env` (frontend). Talk to the PL to obtain these.
+
+**Frontend Environment Variables:**
+- A `frontend/.env.example` file is provided as a template
+- Copy it to `frontend/.env` and fill in the required values
+- Common variables include API endpoints, Firebase configuration, and feature flags
+- **Never commit `.env` files** - they are gitignored for security
 
 ### Installation
 
@@ -80,6 +331,66 @@ This will start:
 - **Frontend**: React development server on port 3000
 - **Backend**: FastAPI server on port 8080
 - **Database**: PostgreSQL on port 5432
+
+## Recommended VSCode Settings
+
+To ensure consistent code formatting and linting across the team, configure VSCode with these settings.
+
+### Setup Instructions
+
+1. Create a `.vscode/settings.json` file in the project root (if it doesn't exist)
+2. Add the configuration below
+3. Install the required VSCode extensions
+
+### Configuration
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}
+```
+
+### Setting Explanations
+
+- **`formatOnSave`**: Automatically formats code with Prettier when you save a file
+- **`defaultFormatter`**: Sets Prettier as the default code formatter for all file types
+- **`source.fixAll.eslint`**: Automatically fixes ESLint errors on save (imports, spacing, etc.)
+
+### Required VSCode Extensions
+
+Install these extensions for the best development experience:
+
+1. **Prettier - Code formatter** (`esbenp.prettier-vscode`)
+   - Formats code according to `.prettierrc` configuration
+   - Install: [Prettier Extension](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+
+2. **ESLint** (`dbaeumer.vscode-eslint`)
+   - Highlights linting errors and warnings in real-time
+   - Auto-fixes issues on save
+   - Install: [ESLint Extension](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+
+### Optional but Recommended Extensions
+
+- **Tailwind CSS IntelliSense** (`bradlc.vscode-tailwindcss`)
+  - Autocomplete for Tailwind CSS classes
+  - Shows CSS preview on hover
+  - Install: [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)
+
+- **TypeScript Error Translator** (`mattpocock.ts-error-translator`)
+  - Makes TypeScript errors easier to understand
+  - Install: [TS Error Translator](https://marketplace.visualstudio.com/items?itemName=mattpocock.ts-error-translator)
+
+### Verification
+
+After setup, test that everything works:
+1. Open a `.tsx` file in the frontend
+2. Make a formatting change (e.g., remove a semicolon)
+3. Save the file - Prettier should auto-format it
+4. Add an unused import - ESLint should highlight it and remove it on save
 
 ## Application Execution
 
@@ -154,7 +465,7 @@ SELECT * FROM users; # Run SQL queries
 
 ```bash
 # Populate database with randomized test data
-docker-compose exec backend python app/seed_database.py
+docker-compose exec backend python -m app.seed_database
 ```
 
 ## Version Control Guide
@@ -206,6 +517,47 @@ docker ps
 docker system prune -a --volumes
 ```
 
+### When Claude Code  AuRunstomatically
+
+Claude Code is integrated into the CI/CD pipeline via GitHub Actions:
+
+**Workflow:** `.github/workflows/claude-code-review.yml`
+
+**Triggered on:**
+1. **Pull Request Ready for Review** - Automatically runs when a PR is marked as ready
+2. **@claude Comment** - Manually trigger by commenting `@claude review` on any PR
+
+**What it Reviews:**
+- Code quality and adherence to best practices
+- Potential bugs and edge cases
+- Performance considerations
+- Security vulnerabilities
+- Test coverage and quality
+- TypeScript/Python type safety
+- Documentation completeness
+
+**Benefits:**
+- Catches issues before human review
+- Provides consistent, objective feedback
+- Suggests concrete improvements with examples
+- Saves review time by flagging common mistakes
+- Helps maintain code quality standards
+
+**Example Usage:**
+```bash
+# In a pull request comment, trigger a review:
+@claude review
+
+# Claude Code will respond with:
+# - Code quality analysis
+# - Bug reports with severity levels
+# - Performance recommendations
+# - Security concerns
+# - Suggested fixes with code examples
+```
+
+For more details on CI/CD workflows, see [CI/CD Tasks](#cicd-tasks) below.
+
 ## Formatting and Linting
 
 ### Backend (Python)
@@ -251,14 +603,120 @@ docker-compose exec backend ruff check . && docker-compose exec backend ruff for
 
 ```bash
 # Check linting issues
-docker-compose exec frontend npm run lint
+docker-compose exec frontend pnpm lint
 
 # Auto-fix linting issues
-docker-compose exec frontend npm run fix
+docker-compose exec frontend pnpm lint:fix
 
-# Combined format and lint (when available)
-docker-compose exec frontend npm run format
+# Format code with Prettier
+docker-compose exec frontend pnpm format
 ```
+
+**Configuration Files:**
+- ESLint: `frontend/eslint.config.js`
+- Prettier: `frontend/.prettierrc`
+- TypeScript: `frontend/tsconfig.json`
+
+### Package Manager Requirements
+
+**IMPORTANT:** This project uses **pnpm** as the package manager, not npm or yarn.
+
+**Why pnpm?**
+- **Faster installs:** Up to 2x faster than npm
+- **Efficient disk usage:** Hard links save space by sharing packages across projects
+- **Strict dependency resolution:** Prevents phantom dependencies and ensures consistency
+- **CI/CD compatibility:** All workflows use pnpm exclusively
+
+**Installation:**
+
+```bash
+# Option 1: Via npm (recommended)
+npm install -g pnpm
+
+# Option 2: Via Homebrew (macOS)
+brew install pnpm
+
+# Option 3: Via Corepack (Node.js 16.13+)
+corepack enable
+corepack prepare pnpm@latest --activate
+
+# Verify installation
+pnpm --version
+```
+
+**Usage:**
+
+```bash
+# Install dependencies
+cd frontend
+pnpm install
+
+# Add a new package
+pnpm add <package-name>
+
+# Add a dev dependency
+pnpm add -D <package-name>
+
+# Remove a package
+pnpm remove <package-name>
+
+# Update dependencies
+pnpm update
+```
+
+**Important Notes:**
+- `pnpm-lock.yaml` must be committed to version control
+- Do NOT use `npm install` or `yarn install` - this will cause dependency conflicts
+- CI workflows will fail if you don't use pnpm
+- Docker containers are configured to use pnpm
+
+### CI/CD Tasks
+
+The project uses **GitHub Actions** for continuous integration. All workflows are located in `.github/workflows/`.
+
+**Active Workflows:**
+
+1. **`lint.yml`** - Code Quality Checks
+   - **Triggers:** Push or PR to `main` branch (frontend and backend paths)
+   - **Frontend:**
+     - Runs `pnpm install --frozen-lockfile`
+     - Executes `pnpm lint`
+     - Uses Node.js 20.11.1 with pnpm 9
+   - **Backend:**
+     - Runs Ruff linter: `ruff check .`
+     - Runs Ruff formatter check: `ruff format --check .`
+     - Runs MyPy type checker: `mypy .`
+
+2. **`pytest.yml`** - Backend Testing
+   - **Triggers:** Push or PR to `main` for `backend/python/**` paths
+   - Sets up PostgreSQL service container
+   - Runs `pytest -q --disable-warnings -ra`
+   - Python 3.10
+
+3. **`claude-code-review.yml`** - Automated Code Review
+   - **Triggers:** PR ready for review, or `@claude review` comment
+   - Reviews code quality, bugs, performance, security, and test coverage
+   - See [Claude Code Integration](#claude-code-integration) for details
+
+**Running CI Checks Locally:**
+
+Before pushing changes, run the same checks that CI will run:
+
+```bash
+# Frontend checks
+cd frontend
+pnpm lint           # ESLint check
+pnpm format         # Prettier format
+pnpm build          # TypeScript compilation check
+
+# Backend checks
+docker-compose exec backend ruff check .
+docker-compose exec backend ruff format --check .
+docker-compose exec backend mypy .
+docker-compose exec backend pytest
+```
+
+**Note:** Frontend testing framework is not yet configured. This will be added in a future update.
 
 ## Testing
 
@@ -274,18 +732,6 @@ docker-compose exec backend python -m pytest tests/unit/test_models.py
 # Run with coverage
 docker-compose exec backend python -m pytest --cov=app
 ```
-
-### Frontend Tests
-
-```bash
-# Run frontend tests
-docker-compose exec frontend npm test
-
-# Run tests in CI mode
-docker-compose exec frontend npm test -- --ci --coverage --watchAll=false
-```
-
-_Note: CI/CD pipeline for automated testing will be added in future updates._
 
 ## FAQ & Debugging
 
