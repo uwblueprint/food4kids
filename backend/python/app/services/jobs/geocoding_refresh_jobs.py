@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from uuid import UUID
-
-from sqlalchemy import and_, or_
+from sqlalchemy import or_
 from sqlmodel import select
 
 from app.dependencies.services import get_google_maps_client, get_logger
@@ -61,7 +57,7 @@ async def _refresh_locations(session, locations: list[Location]) -> int:
     geocoding_results = await google_maps_client.geocode_addresses(addresses)
 
     refreshed_count = 0
-    for location, geocode_result in zip(locations, geocoding_results):
+    for location, geocode_result in zip(locations, geocoding_results, strict=True):
         if geocode_result:
             location.latitude = geocode_result.latitude
             location.longitude = geocode_result.longitude
@@ -99,10 +95,6 @@ async def refresh_geocoding() -> None:
 
     try:
         async with async_session_maker_instance() as session:
-            admin_statement = select(Admin)
-            admin_result = await session.execute(admin_statement)
-            admin_record = admin_result.scalars().first()
-
             archive_threshold_days = await _get_archive_threshold(session)
             cutoff_date = datetime.now() - timedelta(days=archive_threshold_days)
 

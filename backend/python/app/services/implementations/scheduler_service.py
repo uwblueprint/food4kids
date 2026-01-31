@@ -85,7 +85,7 @@ class SchedulerService:
                     # that doesn't update when the original module's global is reassigned
                     import sys
                     for module_name, module in sys.modules.items():
-                        if module_name.startswith('app.services.jobs') and hasattr(module, 'async_session_maker_instance'):
+                        if module_name.startswith("app.services.jobs") and hasattr(module, "async_session_maker_instance"):
                             module.async_session_maker_instance = models_module.async_session_maker_instance
                     
                     # Run the async function
