@@ -1,6 +1,6 @@
 ## JIRA ticket link
 <!-- Please replace with your ticket's URL -->
-[Ticket Name](https://www.notion.so/uwblueprintexecs/Task-Board-db95cd7b93f245f78ee85e3a8a6a316d)
+[Ticket Name](https://f4kblueprint.atlassian.net/browse/F4KRP)
 
 
 <!-- Give a quick summary of the implementation details, provide design justifications if necessary -->

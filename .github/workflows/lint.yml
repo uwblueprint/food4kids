@@ -31,22 +31,29 @@ jobs:
             python-backend:
               - "backend/python/**"
       
+      - name: Set up pnpm
+        if: steps.changes.outputs.frontend == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Set up Node.js
         if: steps.changes.outputs.frontend == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20.11.1"
-          cache: "yarn"
-          cache-dependency-path: frontend/yarn.lock
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install Node.js dependencies
         if: steps.changes.outputs.frontend == 'true'
-        run: yarn --cwd ./frontend --prefer-offline
+        run: pnpm install --frozen-lockfile
+        working-directory: ./frontend
 
       - name: Lint frontend
         if: steps.changes.outputs.frontend == 'true'
         working-directory: ./frontend
-        run: yarn lint
+        run: pnpm lint
 
       
       - name: Set up Python

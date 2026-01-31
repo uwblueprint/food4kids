@@ -22,7 +22,9 @@ from app.services.implementations.mock_routing_algorithm import (
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
+from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.utilities.google_maps_client import GoogleMapsClient
 
 
 @lru_cache
@@ -49,6 +51,13 @@ def get_email_service() -> EmailService:
 
 
 @lru_cache
+def get_user_service() -> UserService:
+    """Get user service instance"""
+    logger = get_logger()
+    return UserService(logger)
+
+
+@lru_cache
 def get_driver_service() -> DriverService:
     """Get driver service instance"""
     logger = get_logger()
@@ -56,12 +65,13 @@ def get_driver_service() -> DriverService:
 
 
 def get_auth_service(
+    user_service: UserService = Depends(get_user_service),
     driver_service: DriverService = Depends(get_driver_service),
     email_service: EmailService = Depends(get_email_service),
 ) -> AuthService:
     """Get auth service instance"""
     logger = get_logger()
-    return AuthService(logger, driver_service, email_service)
+    return AuthService(logger, user_service, driver_service, email_service)
 
 
 @lru_cache
@@ -113,3 +123,10 @@ def get_scheduler_service() -> SchedulerService:
     """Get scheduler service instance"""
     logger = get_logger()
     return SchedulerService(logger)
+
+
+@lru_cache
+def get_google_maps_client() -> GoogleMapsClient:
+    """Get Google Maps client instance"""
+    logger = get_logger()
+    return GoogleMapsClient(logger, settings.google_maps_api_key)
