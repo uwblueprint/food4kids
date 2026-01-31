@@ -12,6 +12,7 @@ from app.models.driver_history import (
     DriverHistoryCreate,
     DriverHistoryRead,
     DriverHistoryUpdate,
+    DriverHistorySummary,
 )
 from app.routers.driver_routes import get_drivers
 from app.services.implementations.driver_history_csv_service import (
@@ -108,6 +109,18 @@ async def get_driver_history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
 
+@router.get("/summary", response_model=DriverHistorySummary)
+async def get_driver_history_summary(
+    driver_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> DriverHistorySummary:
+    """Get lifetime and current year KM summary for a driver"""
+    try:
+        return await driver_history_service.get_driver_history_summary(session, driver_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 @router.post(
     "/{year}", response_model=DriverHistoryRead, status_code=status.HTTP_201_CREATED

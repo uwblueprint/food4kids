@@ -44,3 +44,9 @@ class DriverHistoryUpdate(SQLModel):
     """Update request model, all fields are required for now since we are only updating km"""
 
     km: float
+
+class DriverHistorySummary(SQLModel):
+    """Summary of driver's lifetime and current year kilometers"""
+
+    lifetime_km: float
+    current_year_km: float
