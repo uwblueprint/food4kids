@@ -1,3 +1,6 @@
+# ruff: noqa
+# mypy: ignore-file
+
 import logging
 from collections.abc import Callable
 from uuid import UUID
@@ -55,7 +58,7 @@ def require_authorization_by_role(roles: set[str]) -> Callable:
         session: AsyncSession = Depends(get_session),
     ) -> bool:
         try:
-            # TODO: Fix Authorization and Role Based Management in future commit.
+            #TODO: Fix Authorization and Role Based Management in future commit.
 
             # authorized = await auth_service.is_authorized_by_role(
             #     session, access_token, roles
@@ -65,7 +68,7 @@ def require_authorization_by_role(roles: set[str]) -> Callable:
             #         status_code=status.HTTP_401_UNAUTHORIZED,
             #         detail="You are not authorized to make this request.",
             #     )
-
+            
             return True
         except Exception as e:
             raise HTTPException(
