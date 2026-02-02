@@ -1,5 +1,5 @@
 # ruff: noqa
-# mypy: ignore-file
+# mypy: ignore-errors
 
 import logging
 from collections.abc import Callable
