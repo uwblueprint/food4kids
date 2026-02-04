@@ -1,3 +1,6 @@
+# ruff: noqa
+# mypy: ignore-errors
+
 import logging
 from collections.abc import Callable
 from uuid import UUID

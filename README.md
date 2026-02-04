@@ -584,14 +584,14 @@ docker-compose exec backend ruff format --check .
 
 ```bash
 # Run type checking
-docker-compose exec backend mypy .
+docker-compose exec backend mypy . --config-file mypy.ini
 ```
 
 #### Combined Quality Checks
 
 ```bash
 # Run all quality checks (linting, formatting, type checking)
-docker-compose exec backend ruff check . && docker-compose exec backend ruff format --check . && docker-compose exec backend mypy .
+docker-compose exec backend ruff check . && docker-compose exec backend ruff format --check . && docker-compose exec backend mypy . --config-file mypy.ini
 ```
 
 **Configuration Files:**
@@ -712,7 +712,7 @@ pnpm build          # TypeScript compilation check
 # Backend checks
 docker-compose exec backend ruff check .
 docker-compose exec backend ruff format --check .
-docker-compose exec backend mypy .
+docker-compose exec backend mypy . --config-file mypy.ini
 docker-compose exec backend pytest
 ```
 

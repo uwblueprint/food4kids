@@ -57,9 +57,44 @@ def upgrade() -> None:
     admin_info_columns = [col['name'] for col in inspector.get_columns('admin_info')]
 
     if 'receive_email_notifications' not in admin_info_columns:
-        op.add_column('admin_info', sa.Column('receive_email_notifications', sa.Boolean(), nullable=False))
+        op.add_column('admin_info', sa.Column('receive_email_notifications', sa.Boolean(), nullable=False, server_default='true'))
+
     if 'user_id' not in admin_info_columns:
-        op.add_column('admin_info', sa.Column('user_id', sa.Uuid(), nullable=False))
+        # Migrate existing admin_info records to users table
+        connection = op.get_bind()
+
+        # Get existing admin records that need migration
+        if 'admin_email' in admin_info_columns and 'admin_name' in admin_info_columns:
+            existing_admins = connection.execute(sa.text("""
+                SELECT admin_id, admin_name, admin_email, auth_id
+                FROM admin_info
+            """)).fetchall()
+
+            # Create user records for existing admins
+            for admin in existing_admins:
+                user_id = admin[0]  # Use admin_id as user_id for consistency
+                connection.execute(sa.text("""
+                    INSERT INTO users (user_id, name, email, auth_id, role, created_at, updated_at)
+                    VALUES (:user_id, :name, :email, :auth_id, 'admin', NOW(), NOW())
+                    ON CONFLICT DO NOTHING
+                """), {
+                    'user_id': user_id,
+                    'name': admin[1],
+                    'email': admin[2],
+                    'auth_id': admin[3] if admin[3] else f'admin_{user_id}'
+                })
+
+        # Add user_id column as nullable first
+        op.add_column('admin_info', sa.Column('user_id', sa.Uuid(), nullable=True))
+
+        # Populate user_id with admin_id for existing records
+        connection.execute(sa.text("""
+            UPDATE admin_info SET user_id = admin_id WHERE user_id IS NULL
+        """))
+
+        # Now make it NOT NULL
+        op.alter_column('admin_info', 'user_id', nullable=False)
+
     op.create_unique_constraint(None, 'admin_info', ['user_id'])
     op.create_foreign_key(None, 'admin_info', 'users', ['user_id'], ['user_id'])
 
@@ -79,7 +114,40 @@ def upgrade() -> None:
     drivers_columns = [col['name'] for col in inspector.get_columns('drivers')]
 
     if 'user_id' not in drivers_columns:
-        op.add_column('drivers', sa.Column('user_id', sa.Uuid(), nullable=False))
+        # Migrate existing driver records to users table
+        connection = op.get_bind()
+
+        # Get existing driver records that need migration
+        if 'email' in drivers_columns and 'name' in drivers_columns:
+            existing_drivers = connection.execute(sa.text("""
+                SELECT driver_id, name, email, auth_id
+                FROM drivers
+            """)).fetchall()
+
+            # Create user records for existing drivers
+            for driver in existing_drivers:
+                user_id = driver[0]  # Use driver_id as user_id for consistency
+                connection.execute(sa.text("""
+                    INSERT INTO users (user_id, name, email, auth_id, role, created_at, updated_at)
+                    VALUES (:user_id, :name, :email, :auth_id, 'driver', NOW(), NOW())
+                    ON CONFLICT DO NOTHING
+                """), {
+                    'user_id': user_id,
+                    'name': driver[1],
+                    'email': driver[2],
+                    'auth_id': driver[3] if driver[3] else f'driver_{user_id}'
+                })
+
+        # Add user_id column as nullable first
+        op.add_column('drivers', sa.Column('user_id', sa.Uuid(), nullable=True))
+
+        # Populate user_id with driver_id for existing records
+        connection.execute(sa.text("""
+            UPDATE drivers SET user_id = driver_id WHERE user_id IS NULL
+        """))
+
+        # Now make it NOT NULL
+        op.alter_column('drivers', 'user_id', nullable=False)
 
     # Drop indexes only if they exist
     existing_indexes = [idx['name'] for idx in inspector.get_indexes('drivers')]

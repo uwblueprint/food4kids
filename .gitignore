@@ -3,6 +3,7 @@
 **/build
 **/venv
 **/__pycache__
+**/.mypy_cache
 **/*.log
 **/firebaseServiceAccount.json
 **/.DS_Store

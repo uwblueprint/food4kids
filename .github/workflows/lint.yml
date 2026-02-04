@@ -88,6 +88,15 @@ jobs:
         working-directory: ./backend/python
         run: ruff format --check . --config pyproject.toml
 
+      - name: Cache mypy cache
+        if: steps.changes.outputs.python-backend == 'true'
+        uses: actions/cache@v3
+        with:
+          path: backend/python/.mypy_cache
+          key: ${{ runner.os }}-mypy-${{ hashFiles('backend/python/**/*.py') }}
+          restore-keys: |
+            ${{ runner.os }}-mypy-
+
       - name: Run MyPy type checker
         if: steps.changes.outputs.python-backend == 'true'
         working-directory: ./backend/python
