@@ -66,7 +66,7 @@ def upgrade() -> None:
         # Get existing admin records that need migration
         if 'admin_email' in admin_info_columns and 'admin_name' in admin_info_columns:
             existing_admins = connection.execute(sa.text("""
-                SELECT admin_id, admin_name, admin_email, auth_id
+                SELECT admin_id, admin_name, admin_email
                 FROM admin_info
             """)).fetchall()
 
@@ -81,7 +81,7 @@ def upgrade() -> None:
                     'user_id': user_id,
                     'name': admin[1],
                     'email': admin[2],
-                    'auth_id': admin[3] if admin[3] else f'admin_{user_id}'
+                    'auth_id': f'admin_{user_id}'
                 })
 
         # Add user_id column as nullable first
