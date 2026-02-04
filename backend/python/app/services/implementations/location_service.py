@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,6 +74,7 @@ class LocationService:
                 num_children=location_data.num_children,
                 num_boxes=location_data.num_boxes,
                 notes=location_data.notes,
+                geocoded_at=datetime.now() if (location_data.latitude and location_data.longitude) else None,
             )
 
             session.add(location)
