@@ -81,7 +81,7 @@ def upgrade() -> None:
                     'user_id': user_id,
                     'name': admin[1],
                     'email': admin[2],
-                    'auth_id': f'admin_{user_id}' # THIS DOESN'T WORK LOL, THIS DOES NOT CORRESPOND TO THE FIREBASE AUTH_ID
+                    'auth_id': f'admin_{user_id}'
                 })
 
         # Add user_id column as nullable first
