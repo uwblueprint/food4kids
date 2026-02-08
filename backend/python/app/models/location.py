@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -68,3 +69,33 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+
+
+class LocationImportStatus(str, Enum):
+    """Status for each row in a location import."""
+
+    OK = "OK"
+    MISSING_ENTRY = "MISSING_ENTRY"
+    DUPLICATE = "DUPLICATE"
+
+
+class LocationImportEntry(SQLModel):
+    contact_name: str | None = None
+    address: str | None = None
+    delivery_group: str | None = None
+    phone_number: str | None = None
+    num_boxes: int | None = None
+    dietary_restrictions: str | None = None
+
+
+class LocationImportRow(SQLModel):
+    row: int
+    location: LocationImportEntry
+    status: LocationImportStatus
+
+
+class LocationImportResponse(SQLModel):
+    rows: list[LocationImportRow]
+    total_rows: int
+    successful_rows: int
+    unsuccessful_rows: int
