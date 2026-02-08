@@ -22,6 +22,7 @@ google-api-core>=2.0.0
 google-cloud-core>=1.6.0
 google-cloud-firestore>=2.1.0
 google-cloud-storage>=1.37.1
+google-maps-routing>=0.1.0
 googleapis-common-protos>=1.70.0
 firebase-admin>=6.0.0
 
