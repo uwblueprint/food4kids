@@ -65,6 +65,7 @@ def upgrade() -> None:
 
         # Get existing admin records that need migration
         if 'admin_email' in admin_info_columns and 'admin_name' in admin_info_columns:
+            # admin_info has admin_id, admin_name, admin_email (no auth_id - generate it)
             existing_admins = connection.execute(sa.text("""
                 SELECT admin_id, admin_name, admin_email
                 FROM admin_info
@@ -73,6 +74,7 @@ def upgrade() -> None:
             # Create user records for existing admins
             for admin in existing_admins:
                 user_id = admin[0]  # Use admin_id as user_id for consistency
+                auth_id = f'admin_{user_id}'  # admin_info never had auth_id
                 connection.execute(sa.text("""
                     INSERT INTO users (user_id, name, email, auth_id, role, created_at, updated_at)
                     VALUES (:user_id, :name, :email, :auth_id, 'admin', NOW(), NOW())
@@ -81,7 +83,7 @@ def upgrade() -> None:
                     'user_id': user_id,
                     'name': admin[1],
                     'email': admin[2],
-                    'auth_id': f'admin_{user_id}'
+                    'auth_id': auth_id,
                 })
 
         # Add user_id column as nullable first
