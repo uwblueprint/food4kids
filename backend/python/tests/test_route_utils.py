@@ -1,8 +1,10 @@
-import pytest
 from uuid import uuid4
+
+import pytest
+
 from app.models.location import Location
-from app.models.route_stop import RouteStop
 from app.utilities.routes_utils import fetch_route_polyline
+
 
 @pytest.mark.asyncio
 async def test_fetch_route_polyline_with_return():
@@ -46,4 +48,3 @@ async def test_fetch_route_polyline_with_return():
     assert distance_km > 0.0
     assert len(polyline) > 0
     print(f"Encoded Polyline: {polyline}")
-
