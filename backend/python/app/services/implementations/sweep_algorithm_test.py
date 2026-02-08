@@ -12,30 +12,19 @@ Or run this file directly (from any directory):
 import os
 import sys
 
-# Ensure the backend root is on path so "app" is importable (works when run as script or -m)
-_backend_root = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
-)
-if _backend_root not in sys.path:
-    sys.path.insert(0, _backend_root)
+sys.path.insert(0, "/app")
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-
 from sqlmodel import Session, create_engine, func, select
 
 from app.models.location import Location
-from app.models.location_group import LocationGroup  # noqa: F401
-from app.models.route import Route  # noqa: F401
-from app.models.route_group import RouteGroup  # noqa: F401
-from app.models.route_group_membership import RouteGroupMembership  # noqa: F401
 from app.models.route_stop import RouteStop  # noqa: F401
 from app.models.system_settings import SystemSettings
 from app.services.implementations.sweep_clustering import (
     SweepClusteringAlgorithm,
 )
-from app.utilities.geocoding import geocode
 
 # Use the same connection string as seed_database.py
 DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
@@ -43,10 +32,9 @@ DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
 # Configure number of locations pulled from csv for testing
 LOCATIONS_COUNT = 18
 
-# Sweep clustering uses these in the loop; both must be set (use high box limit to avoid splitting by boxes).
 NUM_CLUSTERS = 10
-MAX_LOCATIONS_PER_CLUSTER = 10
-MAX_BOXES_PER_CLUSTER = 9999
+MAX_LOCATIONS_PER_CLUSTER = 5
+MAX_BOXES_PER_CLUSTER = 50
 
 
 async def main() -> None:
@@ -69,32 +57,14 @@ async def main() -> None:
             print("Not enough locations with coordinates to cluster!")
             return
 
-        # Warehouse coordinates: from SystemSettings (lat/lon or geocode address) or centroid fallback
         warehouse_lat: float
         warehouse_lon: float
         system_settings = session.exec(select(SystemSettings).limit(1)).first()
-        if (
-            system_settings
-            and system_settings.warehouse_latitude is not None
-            and system_settings.warehouse_longitude is not None
-        ):
-            warehouse_lat = system_settings.warehouse_latitude
-            warehouse_lon = system_settings.warehouse_longitude
-            print(f"Using warehouse from system settings: ({warehouse_lat}, {warehouse_lon})\n")
-        elif system_settings and system_settings.warehouse_location:
-            coords = await geocode(system_settings.warehouse_location)
-            if coords is not None:
-                warehouse_lat = coords["lat"]
-                warehouse_lon = coords["lng"]
-                print(f"Geocoded warehouse: ({warehouse_lat}, {warehouse_lon})\n")
-            else:
-                warehouse_lat = sum(loc.latitude for loc in locations) / len(locations)
-                warehouse_lon = sum(loc.longitude for loc in locations) / len(locations)
-                print(f"Geocode failed; using centroid: ({warehouse_lat}, {warehouse_lon})\n")
-        else:
-            warehouse_lat = sum(loc.latitude for loc in locations) / len(locations)
-            warehouse_lon = sum(loc.longitude for loc in locations) / len(locations)
-            print(f"No warehouse in system settings; using centroid: ({warehouse_lat}, {warehouse_lon})\n")
+        warehouse_lat = system_settings.warehouse_latitude
+        warehouse_lon = system_settings.warehouse_longitude
+        print(
+            f"Using warehouse from system settings: ({warehouse_lat}, {warehouse_lon})\n"
+        )
 
         total_boxes = sum(loc.num_boxes for loc in locations)
 
@@ -151,7 +121,12 @@ async def main() -> None:
                     print(f"    Boxes: {loc.num_boxes}")
                     cluster_boxes += loc.num_boxes
                     df_rows.append(
-                        {"name": name, "long": loc.longitude, "lat": loc.latitude, "group": i}
+                        {
+                            "name": name,
+                            "long": loc.longitude,
+                            "lat": loc.latitude,
+                            "group": i,
+                        }
                     )
 
                 print(f"\n  Total boxes in cluster: {cluster_boxes}")
@@ -176,7 +151,9 @@ async def main() -> None:
             print("\n" + "=" * 60)
             print("Summary:")
             print(f"  Total clusters: {len(clusters)}")
-            print(f"  Number of locations in each cluster: {[len(c) for c in clusters]}")
+            print(
+                f"  Number of locations in each cluster: {[len(c) for c in clusters]}"
+            )
             print(f"  Total locations clustered: {sum(len(c) for c in clusters)}")
 
         except ValueError as e:
