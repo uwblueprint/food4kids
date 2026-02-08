@@ -76,73 +76,6 @@ class AuthService:
             # Always return the same generic error message to prevent enumeration
             raise ValueError("Invalid email or password") from e
 
-    async def generate_token_for_oauth(
-        self, session: AsyncSession, id_token: str
-    ) -> AuthResponse:
-        try:
-            # Verify the ID token with Firebase
-            decoded_token: dict[str, str] = firebase_admin.auth.verify_id_token(
-                id_token
-            )
-            user_id = decoded_token["uid"]
-            email = decoded_token["email"]
-
-            # If user already has a login with this email, just return the token
-            try:
-                # Note: an error message will be logged from UserService if this lookup fails.
-                # You may want to silence the logger for this special OAuth user lookup case
-                user = await self.user_service.get_user_by_email(session, email)
-                if user is None:
-                    self.logger.warning(
-                        f"Firebase user {email} exists but not found in database - potential data inconsistency"
-                    )
-                    raise ValueError("Invalid email or password")
-
-                return AuthResponse(
-                    access_token=id_token,
-                    id=user.user_id,
-                    name=user.name,
-                    email=user.email,
-                )
-            except Exception:
-                pass
-
-            # Create new user and driver for OAuth
-            user = await self.user_service.create_user(
-                session,
-                UserCreate(
-                    name=decoded_token.get("name", "")
-                    if decoded_token.get("name")
-                    else "",
-                    email=email,
-                    password="placeholder",  # TODO: How to handle this?
-                ),
-                auth_id=user_id,
-                signup_method="GOOGLE",
-            )
-            await self.driver_service.create_driver(
-                session,
-                DriverCreate(
-                    phone="",  # OAuth users don't have phone initially
-                    address="",  # OAuth users don't have address initially
-                    license_plate="",  # OAuth users don't have license plate initially
-                    car_make_model="",  # OAuth users don't have car info initially
-                    user_id=user.user_id,
-                ),
-            )
-            return AuthResponse(
-                access_token=id_token,
-                id=user.user_id,
-                name=user.name,
-                email=user.email,
-            )
-        except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                f"Failed to generate token for user with OAuth id token. Reason = {reason if reason else str(e)}"
-            )
-            raise e
-
     async def revoke_tokens(self, session: AsyncSession, user_id: UUID) -> None:
         try:
             auth_id = await self.user_service.get_auth_id_by_user_id(session, user_id)
@@ -224,8 +157,6 @@ class AuthService:
     async def is_authorized_by_role(
         self, _session: AsyncSession, access_token: str, _roles: set[str]
     ) -> bool:
-        # TODO: Maybe add db role check for extra security? I highly doubt users will switch roles though...
-        # Also would have to deal with performance bottlenecks
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
