@@ -5,8 +5,6 @@ from uuid import UUID
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.driver import DriverCreate
-from app.models.user import UserCreate
 from app.schemas.auth import AuthResponse, TokenResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
