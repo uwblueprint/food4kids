@@ -153,7 +153,7 @@ class AuthService:
             raise e
 
     async def is_authorized_by_role(
-        self, _session: AsyncSession, access_token: str, _roles: set[str]
+        self, _session: AsyncSession, access_token: str, roles: set[str]
     ) -> bool:
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
@@ -166,7 +166,7 @@ class AuthService:
                 )
                 return False
             # Allow if role is in the authorized set
-            return user_role in _roles
+            return user_role in roles
         except Exception as e:
             self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
             return False
