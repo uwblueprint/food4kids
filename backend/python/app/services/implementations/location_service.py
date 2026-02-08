@@ -1,19 +1,37 @@
 import logging
 from uuid import UUID
 
+import pandas as pd
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.location import Location, LocationCreate, LocationUpdate
+from app.models.location import (
+    Location,
+    LocationCreate,
+    LocationImportEntry,
+    LocationImportResponse,
+    LocationImportRow,
+    LocationImportStatus,
+    LocationUpdate,
+)
+from app.services.implementations.location_mapping_service import LocationMappingService
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.utils import get_phone_number, validate_phone
 
 
 class LocationService:
     """Service for managing delivery locations with geocoding support"""
 
-    def __init__(self, logger: logging.Logger, google_maps_client: GoogleMapsClient):
+    def __init__(
+        self,
+        logger: logging.Logger,
+        google_maps_client: GoogleMapsClient,
+        location_mapping_service: LocationMappingService,
+    ):
         self.logger = logger
         self.google_maps_service = google_maps_client
+        self.location_mapping_service = location_mapping_service
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -144,3 +162,74 @@ class LocationService:
             self.logger.error(f"Failed to delete location by id: {e!s}")
             await session.rollback()
             raise e
+
+    async def validate_locations(self, file: UploadFile) -> LocationImportResponse:
+        """Validate location import data (no missing fields or local duplicates)"""
+        try:
+            df = pd.read_csv(file.file)
+            rows = []
+            loc_keys = set[tuple[str, str]]()
+
+            for index, row in df.iterrows():
+                location = await self._parse_row(row)
+
+                location_row = LocationImportRow(
+                    row=index + 1,
+                    location=location,
+                    status=LocationImportStatus.OK,
+                )
+
+                # case 1: missing fields
+                if await self._has_missing_fields(location):
+                    location_row.status = LocationImportStatus.MISSING_ENTRY
+                    rows.append(location_row)
+                    continue
+
+                # case 2: detect local duplicates based on duplicate address/phone number
+                dup_key = (location.address, location.phone_number)
+                if dup_key in loc_keys:
+                    location_row.status = LocationImportStatus.DUPLICATE
+                    rows.append(location_row)
+                    continue
+
+                # case 3: valid non-duplicate location
+                loc_keys.add(dup_key)
+                rows.append(location_row)
+
+            # return metadata about import result
+            return LocationImportResponse(
+                rows=rows,
+                total_rows=len(rows),
+                successful_rows=len(
+                    [r for r in rows if r.status == LocationImportStatus.OK]
+                ),
+                unsuccessful_rows=len(
+                    [r for r in rows if r.status != LocationImportStatus.OK]
+                ),
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to validate locations: {e!s}")
+            raise e
+
+    async def _parse_row(self, row: pd.Series) -> LocationImportEntry:
+        """Parse a row into a LocationImportEntry"""
+        # TODO: getting location field mapping based on user id
+
+        try:
+            location_entry = LocationImportEntry(
+                contact_name=row.get("Guardian Name", "None"),
+                address=row.get("Address", "None"),
+                delivery_group=row.get("Delivery Day", "None"),
+                phone_number=str(row.get("Primary Phone", "None")),
+                num_boxes=int(row.get("Number of Boxes", "None")),
+                dietary_restrictions=row.get("Halal?", "None"),
+            )
+            return location_entry
+
+        except Exception as e:
+            self.logger.error(f"Failed to parse row: {e!s}")
+            raise e
+
+    async def _has_missing_fields(self, location_entry: LocationImportEntry) -> bool:
+        """Check if a location entry has missing fields"""
+        return any(value is None for value in location_entry.model_dump().values())
