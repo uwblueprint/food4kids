@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+import math
+import time
 from typing import TYPE_CHECKING
 
 from app.services.protocols.clustering_algorithm import (
     ClusteringAlgorithmProtocol,
 )
 
-import math
-import time
-
 if TYPE_CHECKING:
     from app.models.location import Location
+
 
 class LocationLatitudeError(Exception):
     """Raised when a location doesn't have a latitude."""
@@ -23,10 +23,12 @@ class LocationLongitudeError(Exception):
 
     pass
 
+
 class TimeoutError(Exception):
     """Raised when an operation exceeds its timeout limit."""
 
     pass
+
 
 class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     """Simple mock clustering algorithm that splits locations into clusters.
@@ -104,6 +106,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             lat_difference = location.latitude - warehouse_lat
             lon_difference = location.longitude - warehouse_lon
             return lon_difference**2 + lat_difference**2
+
         if len(locations) == 0:
             raise ValueError("locations list cannot be empty")
 
@@ -142,20 +145,25 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             distance_squared = calculate_distance_squared(location)
             locations_with_angles.append((location, angle, distance_squared))
 
-        sorted_locations = sorted(locations_with_angles, key=lambda location: (location[1], location[2]))
-        
+        sorted_locations = sorted(
+            locations_with_angles, key=lambda location: (location[1], location[2])
+        )
 
-        for loc, angle, distance in sorted_locations:
+        for loc, _angle, _distance in sorted_locations:
             check_timeout()
-            would_exceed_locations = current_location_count + 1 > max_locations_per_cluster
-            would_exceed_boxes = current_box_count + loc.num_boxes > max_boxes_per_cluster
-            
+            would_exceed_locations = (
+                current_location_count + 1 > max_locations_per_cluster
+            )
+            would_exceed_boxes = (
+                current_box_count + loc.num_boxes > max_boxes_per_cluster
+            )
+
             if current_cluster and (would_exceed_locations or would_exceed_boxes):
                 clusters.append(current_cluster)
                 current_cluster = []
                 current_location_count = 0
                 current_box_count = 0
-            
+
             current_cluster.append(loc)
             current_location_count += 1
             current_box_count += loc.num_boxes
