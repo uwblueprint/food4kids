@@ -29,7 +29,7 @@ class Driver(DriverBase, BaseModel, table=True):
     __tablename__ = "drivers"
 
     driver_id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    user_id: UUID = Field(foreign_key="users.user_id", unique=True, nullable=False)
+    user_id: UUID = Field(foreign_key="users.user_id", unique=True, nullable=False, ondelete="CASCADE")
     user: User = Relationship()
 
 
