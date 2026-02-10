@@ -37,6 +37,7 @@ async def get_routes(
     )
     return routes
 
+
 @router.get("/{route_id}", response_model=Route, status_code=status.HTTP_200_OK)
 async def get_route(
     route_id: UUID,
@@ -58,7 +59,7 @@ async def get_route(
     Raises:
         HTTPException:
             - 404 Not Found: If the route with the specified ID does not exist.
-            - 500 Server Error      
+            - 500 Server Error
     """
 
     # TODO: the auth here does not work, I think this is an auth issue

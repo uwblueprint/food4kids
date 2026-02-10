@@ -109,10 +109,8 @@ class RouteService:
             self.logger.exception("Failed to get route %s", route_id)
             await session.rollback()
             raise HTTPException(
-                status_code=500,
-                detail="Failed to retrieve route."
+                status_code=500, detail="Failed to retrieve route."
             ) from error
-
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""
