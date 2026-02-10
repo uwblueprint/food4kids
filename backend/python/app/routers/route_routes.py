@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_driver
 from app.models import get_session
-from app.models.route import RouteWithDateRead
+from app.models.route import RouteWithDateRead, Route
 from app.services.implementations.route_service import RouteService
 
 # Initialize service
@@ -36,6 +36,31 @@ async def get_routes(
         session, unassigned_only, start_date, end_date
     )
     return routes
+
+@router.get("/{route_id}", response_model=Route, status_code=status.HTTP_200_OK)
+async def get_route(
+    route_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Route:
+    """
+    Get a route by its unique identifier.
+
+    Parameters:
+        route_id (UUID): The unique identifier of the route to delete.
+        session (AsyncSession): The database session dependency.
+
+    Authentication:
+        Requires the user to be authenticated as a driver.
+
+    Returns:
+        None. Responds with HTTP 200 OK on successful get.
+
+    Raises:
+        HTTPException:
+            - 404 Not Found: If the route with the specified ID does not exist.      
+    """
+    route = await route_service.get_route(session, route_id)
+    return route
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

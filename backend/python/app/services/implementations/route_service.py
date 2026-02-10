@@ -92,6 +92,24 @@ class RouteService:
             for row in rows
         ]
 
+    async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
+        try:
+            """Get route by ID"""
+            statement = select(Route).where(Route.route_id == route_id)
+            result = await session.execute(statement)
+            route = result.scalars().first()
+
+            if not route:
+                self.logger.error(f"Route with id {route_id} not found")
+                raise ValueError(f"Route with id {route_id} not found")
+
+            return route
+        except Exception as error:
+            self.logger.error(f"Failed to get route {route_id}: {error!s}")
+            await session.rollback()
+            # TODO: do we really want to return the raw error to the user
+            raise error
+
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""
         try:
