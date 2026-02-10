@@ -57,8 +57,11 @@ async def get_route(
 
     Raises:
         HTTPException:
-            - 404 Not Found: If the route with the specified ID does not exist.      
+            - 404 Not Found: If the route with the specified ID does not exist.
+            - 500 Server Error      
     """
+
+    # TODO: the auth here does not work, I think this is an auth issue
     route = await route_service.get_route(session, route_id)
     return route
 
