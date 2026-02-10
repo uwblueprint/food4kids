@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_driver
 from app.models import get_session
-from app.models.route import RouteWithDateRead, Route
+from app.models.route import Route, RouteWithDateRead
 from app.services.implementations.route_service import RouteService
 
 # Initialize service

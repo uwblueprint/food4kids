@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import and_, exists
 from sqlalchemy import select as sql_select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,9 +106,13 @@ class RouteService:
 
             return route
         except Exception as error:
-            self.logger.error(f"Failed to get route {route_id}: {error!s}")
+            self.logger.exception("Failed to get route %s", route_id)
             await session.rollback()
-            raise HTTPException(status_code=500, detail="Failed to retrieve route.")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to retrieve route."
+            ) from error
+
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""
