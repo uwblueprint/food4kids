@@ -195,7 +195,7 @@ async def deduplicate_locations(
     Deduplicate import rows against existing DB locations as net new, similar, or duplicate. Also return stale entries in the db.
     """
     try:
-        return await location_service.classify_locations(session, rows)
+        return await location_service.deduplicate_locations(session, rows)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

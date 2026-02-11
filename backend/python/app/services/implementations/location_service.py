@@ -9,8 +9,8 @@ from sqlmodel import select
 from app.models.location import (
     ImportStatus,
     Location,
-    LocationClassificationResponse,
     LocationCreate,
+    LocationDeduplicationResponse,
     LocationEntry,
     LocationImportEntry,
     LocationImportResponse,
@@ -19,7 +19,6 @@ from app.models.location import (
     LocationRead,
     LocationUpdate,
 )
-from app.models.location_mappings import LocationMapping
 from app.services.implementations.location_mapping_service import LocationMappingService
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import get_phone_number
@@ -245,10 +244,10 @@ class LocationService:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
 
-    async def classify_locations(
+    async def deduplicate_locations(
         self, session: AsyncSession, rows: list[LocationImportRow]
-    ) -> LocationClassificationResponse:
-        """Classify import rows against existing DB locations."""
+    ) -> LocationDeduplicationResponse:
+        """Deduplicate import rows against existing DB locations."""
         try:
             db_locations = await self.get_locations(session)
 
@@ -305,7 +304,7 @@ class LocationService:
                 if db_loc.location_id not in matched_db_ids
             ]
 
-            return LocationClassificationResponse(
+            return LocationDeduplicationResponse(
                 net_new=net_new,
                 similar=similar,
                 duplicate=duplicate,
