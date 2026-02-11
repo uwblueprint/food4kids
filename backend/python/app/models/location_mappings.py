@@ -12,8 +12,10 @@ class LocationMappingBase(SQLModel):
     address: str
     location_delivery_group: str
     phone_number: str
-    num_boxes: int
-    dietary_restrictions: str = Field(default="")
+    num_boxes: str
+    mapping_name: str
+    halal: str
+    dietary_restrictions: str
 
 
 class LocationMapping(LocationMappingBase, BaseModel, table=True):
@@ -43,5 +45,6 @@ class LocationMappingUpdate(SQLModel):
     address: str | None = None
     location_delivery_group: str | None = None
     phone_number: str | None = None
-    num_boxes: int | None = None
+    num_boxes: str | None = None
+    halal: str | None = None
     dietary_restrictions: str | None = None

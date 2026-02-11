@@ -162,6 +162,7 @@ async def delete_location(
 )
 async def validate_locations(
     file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
     # _: bool = Depends(require_driver),
 ) -> LocationImportResponse:
@@ -169,7 +170,7 @@ async def validate_locations(
     Validate location import data (no missing fields or local duplicates)
     """
     try:
-        result = await location_service.validate_locations(file)
+        result = await location_service.validate_locations(session, file)
         return result
     except Exception as e:
         raise HTTPException(

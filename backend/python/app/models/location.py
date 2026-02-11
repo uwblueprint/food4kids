@@ -77,6 +77,7 @@ class LocationImportStatus(str, Enum):
     OK = "OK"
     MISSING_ENTRY = "MISSING_ENTRY"
     DUPLICATE = "DUPLICATE"
+    INVALID_FORMAT = "INVALID_FORMAT"
 
 
 class LocationImportEntry(SQLModel):
@@ -85,6 +86,7 @@ class LocationImportEntry(SQLModel):
     delivery_group: str | None = None
     phone_number: str | None = None
     num_boxes: int | None = None
+    halal: bool | None = None
     dietary_restrictions: str | None = None
 
 

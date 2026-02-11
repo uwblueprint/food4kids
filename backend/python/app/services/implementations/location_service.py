@@ -15,9 +15,21 @@ from app.models.location import (
     LocationImportStatus,
     LocationUpdate,
 )
+from app.models.location_mappings import LocationMapping
 from app.services.implementations.location_mapping_service import LocationMappingService
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import get_phone_number, validate_phone
+
+# Default CSV column names when no LocationMapping is configured
+DEFAULT_COLUMN_MAP = {
+    "contact_name": "Guardian Name",
+    "address": "Address",
+    "delivery_group": "Delivery Day",
+    "phone_number": "Primary Phone",
+    "num_boxes": "Number of Boxes",
+    "halal": "Halal?",
+    "dietary_restrictions": "Specific Food Restrictions",
+}
 
 
 class LocationService:
@@ -163,15 +175,20 @@ class LocationService:
             await session.rollback()
             raise e
 
-    async def validate_locations(self, file: UploadFile) -> LocationImportResponse:
+    async def validate_locations(
+        self, session: AsyncSession, file: UploadFile
+    ) -> LocationImportResponse:
         """Validate location import data (no missing fields or local duplicates)"""
         try:
+            # resolve CSV column mapping from DB, fall back to defaults
+            column_map = await self._get_column_map(session)
+
             df = pd.read_csv(file.file)
-            rows = []
-            loc_keys = set[tuple[str, str]]()
+            rows: list[LocationImportRow] = []
+            loc_keys: set[tuple[str, str]] = set()
 
             for index, row in df.iterrows():
-                location = await self._parse_row(row)
+                location = self._parse_row(row, column_map)
 
                 location_row = LocationImportRow(
                     row=index + 1,
@@ -179,24 +196,31 @@ class LocationService:
                     status=LocationImportStatus.OK,
                 )
 
-                # case 1: missing fields
-                if await self._has_missing_fields(location):
+                # case 1: missing required fields
+                if self._has_missing_fields(location):
                     location_row.status = LocationImportStatus.MISSING_ENTRY
                     rows.append(location_row)
                     continue
 
-                # case 2: detect local duplicates based on duplicate address/phone number
+                # case 2: invalid phone number format
+                try:
+                    location.phone_number = get_phone_number(location.phone_number)
+                except (ValueError, Exception):
+                    location_row.status = LocationImportStatus.INVALID_FORMAT
+                    rows.append(location_row)
+                    continue
+
+                # case 3: detect local duplicates based on (address, phone_number)
                 dup_key = (location.address, location.phone_number)
                 if dup_key in loc_keys:
                     location_row.status = LocationImportStatus.DUPLICATE
                     rows.append(location_row)
                     continue
 
-                # case 3: valid non-duplicate location
+                # case 4: valid non-duplicate location
                 loc_keys.add(dup_key)
                 rows.append(location_row)
 
-            # return metadata about import result
             return LocationImportResponse(
                 rows=rows,
                 total_rows=len(rows),
@@ -211,25 +235,76 @@ class LocationService:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
 
-    async def _parse_row(self, row: pd.Series) -> LocationImportEntry:
-        """Parse a row into a LocationImportEntry"""
-        # TODO: getting location field mapping based on user id
-
+    async def _get_column_map(self, session: AsyncSession) -> dict[str, str]:
+        """Get CSV column name mapping from the LocationMapping table, or use defaults."""
         try:
-            location_entry = LocationImportEntry(
-                contact_name=row.get("Guardian Name", "None"),
-                address=row.get("Address", "None"),
-                delivery_group=row.get("Delivery Day", "None"),
-                phone_number=str(row.get("Primary Phone", "None")),
-                num_boxes=int(row.get("Number of Boxes", "None")),
-                dietary_restrictions=row.get("Halal?", "None"),
+            mappings = await self.location_mapping_service.get_location_mappings(
+                session
             )
-            return location_entry
+            if not mappings:
+                return DEFAULT_COLUMN_MAP
 
+            # TODO: fetch mapping for user
+            mapping = mappings[0]
+            return {
+                "contact_name": mapping.contact_name,
+                "address": mapping.address,
+                "delivery_group": mapping.location_delivery_group,
+                "phone_number": mapping.phone_number,
+                "num_boxes": mapping.num_boxes,
+                "halal": mapping.halal,
+                "dietary_restrictions": mapping.dietary_restrictions,
+            }
         except Exception as e:
-            self.logger.error(f"Failed to parse row: {e!s}")
-            raise e
+            self.logger.warning(f"Failed to load column mapping, using defaults: {e!s}")
+            return DEFAULT_COLUMN_MAP
 
-    async def _has_missing_fields(self, location_entry: LocationImportEntry) -> bool:
-        """Check if a location entry has missing fields"""
-        return any(value is None for value in location_entry.model_dump().values())
+    def _parse_row(
+        self, row: pd.Series, column_map: dict[str, str]
+    ) -> LocationImportEntry:
+        """Parse a CSV row into a LocationImportEntry using the column mapping."""
+
+        def get_value(field: str) -> str | None:
+            csv_col = column_map.get(field, "")
+            if not csv_col:
+                return None
+            val = row.get(csv_col)
+            if pd.isna(val):
+                return None
+            return str(val).strip() or None
+
+        def parse_bool(field: str) -> bool | None:
+            val = get_value(field)
+            if not val:
+                return None
+            return val.lower() in ("yes", "y")
+
+        def parse_int(field: str) -> int | None:
+            val = get_value(field)
+            if not val:
+                return None
+            try:
+                return int(float(val))
+            except (ValueError, TypeError):
+                return None
+
+        return LocationImportEntry(
+            contact_name=get_value("contact_name"),
+            address=get_value("address"),
+            delivery_group=get_value("delivery_group"),
+            phone_number=get_value("phone_number"),
+            num_boxes=parse_int("num_boxes"),
+            halal=parse_bool("halal"),
+            dietary_restrictions=get_value("dietary_restrictions"),
+        )
+
+    def _has_missing_fields(self, entry: LocationImportEntry) -> bool:
+        """Check if any required fields are missing."""
+        required = [
+            entry.contact_name,
+            entry.address,
+            entry.delivery_group,
+            entry.phone_number,
+            entry.num_boxes,
+        ]
+        return any(not val for val in required)

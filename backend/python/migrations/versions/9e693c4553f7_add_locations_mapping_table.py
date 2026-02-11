@@ -26,7 +26,8 @@ def upgrade():
     sa.Column('address', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('location_delivery_group', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('phone_number', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('num_boxes', sa.Integer(), nullable=False),
+    sa.Column('num_boxes', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('halal', sqlmodel.sql.sqltypes.AutoString(), nullable=False, server_default=''),
     sa.Column('dietary_restrictions', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('location_mapping_id', sa.Uuid(), nullable=False),
     sa.PrimaryKeyConstraint('location_mapping_id')

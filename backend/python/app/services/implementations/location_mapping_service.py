@@ -61,6 +61,7 @@ class LocationMappingService:
                 location_delivery_group=location_mapping_data.location_delivery_group,
                 phone_number=location_mapping_data.phone_number,
                 num_boxes=location_mapping_data.num_boxes,
+                halal=location_mapping_data.halal,
                 dietary_restrictions=location_mapping_data.dietary_restrictions,
             )
 
