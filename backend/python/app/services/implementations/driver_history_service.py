@@ -162,7 +162,7 @@ class DriverHistoryService:
         (across all years, etc.), as well as the kilometers driven by the driver during the current year"""
         try:
             # Get driver's info
-            driver_history = self.get_driver_history_by_id(session, driver_id)
+            driver_history = await self.get_driver_history_by_id(session, driver_id)
 
             # Var to hold sum of the driver's driven kms
             total_kms = 0

@@ -27,6 +27,18 @@ driver_history_service = DriverHistoryService(logger)
 
 router = APIRouter(prefix="/drivers/{driver_id}/history", tags=["driver-history"])
 
+@router.get("/summary", response_model=DriverHistorySummary)
+async def get_driver_history_summary(
+    driver_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> DriverHistorySummary:
+    """Get lifetime and current year KM summary for a driver"""
+    try:
+        return await driver_history_service.get_driver_history_summary(session, driver_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 @router.get("/{year}/export", response_class=StreamingResponse)
 async def export_all_drivers_history(
@@ -108,19 +120,6 @@ async def get_driver_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
-
-@router.get("/summary", response_model=DriverHistorySummary)
-async def get_driver_history_summary(
-    driver_id: UUID,
-    session: AsyncSession = Depends(get_session),
-) -> DriverHistorySummary:
-    """Get lifetime and current year KM summary for a driver"""
-    try:
-        return await driver_history_service.get_driver_history_summary(session, driver_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
 
 @router.post(
     "/{year}", response_model=DriverHistoryRead, status_code=status.HTTP_201_CREATED
