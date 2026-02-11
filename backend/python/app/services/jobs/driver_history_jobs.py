@@ -24,8 +24,7 @@ async def process_daily_driver_history() -> None:
     This job:
     1. Finds all incomplete driver assignments from today
     2. Calculates total distance for each driver by joining with routes
-    3. Marks assignments as completed
-    4. Updates or creates driver history entries with the total distance
+    3. Updates or creates driver history entries with the total distance
     """
     logger = get_logger()
 
@@ -51,7 +50,6 @@ async def process_daily_driver_history() -> None:
                 .join(Route, DriverAssignment.route_id == Route.route_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        DriverAssignment.completed.is_(False),  # type: ignore[attr-defined]
                         DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
                         DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
                     )
@@ -78,12 +76,6 @@ async def process_daily_driver_history() -> None:
                     driver_distances.get(driver_id, 0.0) + distance
                 )
                 assignment_ids_to_complete.append(assignment_id)
-
-            # Mark all assignments as completed
-            for assignment_id in assignment_ids_to_complete:
-                assignment = await session.get(DriverAssignment, assignment_id)
-                if assignment:
-                    assignment.completed = True
 
             # Update or create driver history entries
             for driver_id, total_distance in driver_distances.items():

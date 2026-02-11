@@ -448,9 +448,7 @@ class TestCoreModels:
             route_id=uuid4(),
             route_group_id=uuid4(),
             time=datetime(2024, 1, 15, 8, 0),
-            completed=False,
         )
-        assert assignment.completed is False
         assert assignment.created_at is not None
 
         # Create with defaults
