@@ -464,10 +464,9 @@ class TestCoreModels:
 
         # Update
         assignment_update = DriverAssignmentUpdate(
-            completed=True,
             time=datetime(2024, 1, 15, 9, 0),
         )
-        assert assignment_update.completed is True
+        assert assignment_update.time == datetime(2024, 1, 15, 9, 0)
 
     def test_driver_history_core_operations(self) -> None:
         """Test DriverHistory model core operations."""

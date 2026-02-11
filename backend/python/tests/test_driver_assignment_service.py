@@ -141,12 +141,12 @@ class TestDriverAssignmentIntegration:
         )
 
         # Update
-        update_data = DriverAssignmentUpdate(completed=True)
+        update_data = DriverAssignmentUpdate(time=None)
         updated_assignment = await driver_assignment_service.update_driver_assignment(
             test_session, created_assignment.driver_assignment_id, update_data
         )
         assert updated_assignment is not None
-        assert updated_assignment.completed is True
+        assert updated_assignment.time is None
 
         # Delete
         delete_result = await driver_assignment_service.delete_driver_assignment(
