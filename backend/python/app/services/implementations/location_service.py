@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import (
+    ImportStatus,
     Location,
     LocationCreate,
     LocationImportEntry,
@@ -221,15 +222,21 @@ class LocationService:
                 loc_keys.add(dup_key)
                 rows.append(location_row)
 
+            successful_rows = len(
+                [r for r in rows if r.status == LocationImportStatus.OK]
+            )
+            status = (
+                ImportStatus.SUCCESS
+                if successful_rows == len(rows)
+                else ImportStatus.FAILURE
+            )
+
             return LocationImportResponse(
+                status=status,
                 rows=rows,
                 total_rows=len(rows),
-                successful_rows=len(
-                    [r for r in rows if r.status == LocationImportStatus.OK]
-                ),
-                unsuccessful_rows=len(
-                    [r for r in rows if r.status != LocationImportStatus.OK]
-                ),
+                successful_rows=successful_rows,
+                unsuccessful_rows=len(rows) - successful_rows,
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")

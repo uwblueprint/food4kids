@@ -96,8 +96,14 @@ class LocationImportRow(SQLModel):
     status: LocationImportStatus
 
 
+class ImportStatus(str, Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
 class LocationImportResponse(SQLModel):
-    rows: list[LocationImportRow]
+    status: ImportStatus
     total_rows: int
     successful_rows: int
     unsuccessful_rows: int
+    rows: list[LocationImportRow]
