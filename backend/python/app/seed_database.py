@@ -638,7 +638,6 @@ def main() -> None:
                             route_id=route_id,
                             route_group_id=route_group_id,
                             time=drive_date,
-                            completed=drive_date_obj < today,
                         )
                         set_timestamps(assignment)
                         session.add(assignment)
