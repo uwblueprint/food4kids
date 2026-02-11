@@ -62,7 +62,7 @@ def require_authorization_by_role(roles: set[str]) -> Callable:
         )
         if not authorized:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to make this request.",
             )
         return True
