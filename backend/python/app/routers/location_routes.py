@@ -9,9 +9,12 @@ from app.dependencies.services import get_location_service
 from app.models import get_session
 from app.models.location import (
     LocationCreate,
+    LocationDeduplicationRequest,
     LocationDeduplicationResponse,
     LocationImportResponse,
     LocationImportRow,
+    LocationIngestRequest,
+    LocationIngestResponse,
     LocationRead,
     LocationUpdate,
 )
@@ -187,7 +190,7 @@ async def validate_locations(
     status_code=status.HTTP_200_OK,
 )
 async def deduplicate_locations(
-    rows: list[LocationImportRow],
+    request: LocationDeduplicationRequest,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
 ) -> LocationDeduplicationResponse:
@@ -195,7 +198,35 @@ async def deduplicate_locations(
     Deduplicate import rows against existing DB locations as net new, similar, or duplicate. Also return stale entries in the db.
     """
     try:
-        return await location_service.deduplicate_locations(session, rows)
+        return await location_service.deduplicate_locations(session, request)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/ingest",
+    response_model=LocationIngestResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def ingest_locations(
+    request: LocationIngestRequest,
+    session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
+) -> LocationIngestResponse:
+    """
+    Ingest locations: create net new entries, resolve conflicts (accept/deny),
+    and archive stale entries.
+    """
+    try:
+        return await location_service.ingest_locations(session, request)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

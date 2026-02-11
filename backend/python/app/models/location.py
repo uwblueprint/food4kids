@@ -2,12 +2,18 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import String
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
+
+
+class LocationState(str, Enum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
 
 
 class LocationBase(SQLModel):
@@ -28,6 +34,7 @@ class LocationBase(SQLModel):
     num_children: int | None = None
     num_boxes: int
     notes: str = Field(default="")
+    state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -69,6 +76,12 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+    state: LocationState | None = None
+
+
+class ImportStatus(str, Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
 
 
 class LocationImportStatus(str, Enum):
@@ -96,11 +109,6 @@ class LocationImportRow(SQLModel):
     status: LocationImportStatus
 
 
-class ImportStatus(str, Enum):
-    SUCCESS = "success"
-    FAILURE = "failure"
-
-
 class LocationImportResponse(SQLModel):
     status: ImportStatus
     total_rows: int
@@ -109,13 +117,41 @@ class LocationImportResponse(SQLModel):
     rows: list[LocationImportRow]
 
 
-class LocationEntry(SQLModel):
+class LocationDeduplicationRequest(SQLModel):
+    rows: list[LocationImportRow]
+
+
+class LocationDeduplicationEntry(SQLModel):
     location: LocationImportRow
     matched_location: list[LocationRead] = []
 
 
 class LocationDeduplicationResponse(SQLModel):
-    net_new: list[LocationEntry]
-    similar: list[LocationEntry]
-    duplicate: list[LocationEntry]
+    net_new: list[LocationDeduplicationEntry]
+    similar: list[LocationDeduplicationEntry]
+    duplicate: list[LocationDeduplicationEntry]
     stale: list[LocationRead]
+
+
+class ConflictResolution(str, Enum):
+    ACCEPT = "ACCEPT"
+    DENY = "DENY"
+
+
+class ResolvedConflictEntry(SQLModel):
+    location: LocationImportRow
+    matched_location_id: UUID
+    matched_location_notes: str = ""
+    resolution: ConflictResolution
+
+
+class LocationIngestRequest(SQLModel):
+    net_new: list[LocationImportRow]
+    resolved_conflicts: list[ResolvedConflictEntry]
+    stale_location_ids: list[UUID]
+
+
+class LocationIngestResponse(SQLModel):
+    # TODO: should be list of location objects instead
+    created_locations: list[LocationRead]
+    archived_locations: list[LocationRead]
