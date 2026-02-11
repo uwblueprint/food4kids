@@ -107,3 +107,15 @@ class LocationImportResponse(SQLModel):
     successful_rows: int
     unsuccessful_rows: int
     rows: list[LocationImportRow]
+
+
+class LocationEntry(SQLModel):
+    location: LocationImportRow
+    matched_location: list[LocationRead] = []
+
+
+class LocationDeduplicationResponse(SQLModel):
+    net_new: list[LocationEntry]
+    similar: list[LocationEntry]
+    duplicate: list[LocationEntry]
+    stale: list[LocationRead]

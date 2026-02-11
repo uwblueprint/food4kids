@@ -9,7 +9,9 @@ from app.dependencies.services import get_location_service
 from app.models import get_session
 from app.models.location import (
     LocationCreate,
+    LocationDeduplicationResponse,
     LocationImportResponse,
+    LocationImportRow,
     LocationRead,
     LocationUpdate,
 )
@@ -172,6 +174,28 @@ async def validate_locations(
     try:
         result = await location_service.validate_locations(session, file)
         return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/deduplicate",
+    response_model=LocationDeduplicationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def deduplicate_locations(
+    rows: list[LocationImportRow],
+    session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
+) -> LocationDeduplicationResponse:
+    """
+    Deduplicate import rows against existing DB locations as net new, similar, or duplicate. Also return stale entries in the db.
+    """
+    try:
+        return await location_service.classify_locations(session, rows)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

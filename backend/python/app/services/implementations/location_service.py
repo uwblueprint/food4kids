@@ -9,17 +9,20 @@ from sqlmodel import select
 from app.models.location import (
     ImportStatus,
     Location,
+    LocationClassificationResponse,
     LocationCreate,
+    LocationEntry,
     LocationImportEntry,
     LocationImportResponse,
     LocationImportRow,
     LocationImportStatus,
+    LocationRead,
     LocationUpdate,
 )
 from app.models.location_mappings import LocationMapping
 from app.services.implementations.location_mapping_service import LocationMappingService
 from app.utilities.google_maps_client import GoogleMapsClient
-from app.utilities.utils import get_phone_number, validate_phone
+from app.utilities.utils import get_phone_number
 
 # Default CSV column names when no LocationMapping is configured
 DEFAULT_COLUMN_MAP = {
@@ -240,6 +243,76 @@ class LocationService:
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
+            raise e
+
+    async def classify_locations(
+        self, session: AsyncSession, rows: list[LocationImportRow]
+    ) -> LocationClassificationResponse:
+        """Classify import rows against existing DB locations."""
+        try:
+            db_locations = await self.get_locations(session)
+
+            # Build lookup: list of (db_location, normalized_address, phone)
+            db_lookup: list[tuple[Location, str, str | None]] = []
+            for db_loc in db_locations:
+                db_lookup.append(
+                    (
+                        db_loc,
+                        db_loc.address,
+                        db_loc.phone_number,
+                    )
+                )
+
+            net_new: list[LocationEntry] = []
+            similar: list[LocationEntry] = []
+            duplicate: list[LocationEntry] = []
+            matched_db_ids: set = set()
+
+            for row in rows:
+                import_addr = row.location.address
+                import_phone = row.location.phone_number
+
+                dup_matches: list[LocationRead] = []
+                sim_matches: list[LocationRead] = []
+
+                for db_loc, db_addr, db_phone in db_lookup:
+                    addr_match = import_addr == db_addr
+                    phone_match = import_phone == db_phone
+
+                    if addr_match and phone_match:  # duplicate match
+                        db_read = LocationRead.model_validate(db_loc)
+                        dup_matches.append(db_read)
+                        matched_db_ids.add(db_loc.location_id)
+                    elif addr_match or phone_match:  # similar match
+                        db_read = LocationRead.model_validate(db_loc)
+                        sim_matches.append(db_read)
+                        matched_db_ids.add(db_loc.location_id)
+
+                if dup_matches:  # case 1: duplicate match
+                    duplicate.append(
+                        LocationEntry(location=row, matched_location=dup_matches)
+                    )
+                if sim_matches:  # case 2: similar match
+                    similar.append(
+                        LocationEntry(location=row, matched_location=sim_matches)
+                    )
+                if not dup_matches and not sim_matches:  # case 3: net new entry
+                    net_new.append(LocationEntry(location=row))
+
+            stale = [  # case 4: stale entries
+                LocationRead.model_validate(db_loc)
+                for db_loc in db_locations
+                if db_loc.location_id not in matched_db_ids
+            ]
+
+            return LocationClassificationResponse(
+                net_new=net_new,
+                similar=similar,
+                duplicate=duplicate,
+                stale=stale,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to classify locations: {e!s}")
             raise e
 
     async def _get_column_map(self, session: AsyncSession) -> dict[str, str]:
