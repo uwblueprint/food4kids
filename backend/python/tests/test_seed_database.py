@@ -263,13 +263,3 @@ async def test_seed_database_execution(test_session: AsyncSession) -> None:
     assert hasattr(first_admin, "user_id"), "Admin missing 'user_id' field"
     assert hasattr(first_admin, "admin_phone"), "Admin missing 'admin_phone' field"
     assert first_admin.admin_phone is not None
-
-
-@pytest.mark.asyncio
-async def test_seed_database_creates_relationships(test_session: AsyncSession) -> None:
-    """
-    Test that the seeding script properly creates relationships between entities.
-    """
-    # This test depends on test_seed_database_execution running first
-    # For now, we'll skip this as the main test above covers the basic relationships
-    pass

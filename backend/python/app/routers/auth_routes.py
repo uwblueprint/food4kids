@@ -102,6 +102,9 @@ async def register(
     """
     Returns access token and driver info in response body and sets refreshToken as an httpOnly cookie
     """
+    user = None
+    firebase_auth_id = None
+
     try:
         # Create user first
         user_data = register_request.model_dump(
@@ -109,6 +112,9 @@ async def register(
         )
         user_create = UserCreate(**user_data)
         user = await user_service.create_user(session, user_create)
+        firebase_auth_id = user.auth_id
+
+        # Set custom claims on Firebase user
         firebase_admin.auth.set_custom_user_claims(user.auth_id, {"role": user.role})
 
         # Create driver after
@@ -119,8 +125,7 @@ async def register(
         driver = DriverCreate(**driver_data)
         await driver_service.create_driver(session, driver)
 
-        # please work
-
+        # Generate authentication tokens
         auth_dto, refresh_token = await auth_service.generate_token(
             session, register_request.email, register_request.password
         )
