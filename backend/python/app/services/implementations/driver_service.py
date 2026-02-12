@@ -163,7 +163,7 @@ class DriverService:
                 driver.notes = driver_data.notes
 
             await session.commit()
-            await session.refresh(driver)
+            await session.refresh(driver, attribute_names=["user"])
             return driver
 
         except Exception as e:

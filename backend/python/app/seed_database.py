@@ -508,7 +508,6 @@ def main() -> None:
             print("Creating drivers...")
             num_drivers = max(routes_created, MIN_DRIVERS)
             drivers_created = 0
-            used_emails: set[str] = set()
 
             for _ in range(num_drivers):
                 # Create a single driver with fake data
