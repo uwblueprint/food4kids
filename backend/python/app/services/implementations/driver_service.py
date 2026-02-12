@@ -67,6 +67,7 @@ class DriverService:
         try:
             statement = (
                 select(Driver)
+                .options(selectinload(Driver.user))  # type: ignore[arg-type]
                 .join(Driver.user)  # type: ignore[arg-type]
                 .where(User.auth_id == auth_id)
             )
@@ -162,7 +163,7 @@ class DriverService:
                 driver.notes = driver_data.notes
 
             await session.commit()
-            await session.refresh(driver, attribute_names=["user"])
+            await session.refresh(driver)
             return driver
 
         except Exception as e:
@@ -201,7 +202,11 @@ class DriverService:
     ) -> str | None:
         """Get auth_id by driver_id"""
         try:
-            statement = select(Driver).where(Driver.driver_id == driver_id)
+            statement = (
+                select(Driver)
+                .options(selectinload(Driver.user))  # type: ignore[arg-type]
+                .where(Driver.driver_id == driver_id)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -221,6 +226,7 @@ class DriverService:
         try:
             statement = (
                 select(Driver)
+                .options(selectinload(Driver.user))  # type: ignore[arg-type]
                 .join(Driver.user)  # type: ignore[arg-type]
                 .where(User.auth_id == auth_id)
             )
@@ -239,11 +245,7 @@ class DriverService:
     async def delete_driver_by_email(self, session: AsyncSession, email: str) -> None:
         """Delete driver by email"""
         try:
-            statement = (
-                select(Driver)
-                .join(Driver.user)  # type: ignore[arg-type]
-                .where(User.email == email)
-            )
+            statement = select(Driver).join(Driver.user).where(User.email == email)  # type: ignore[arg-type]
             result = await session.execute(statement)
             driver = result.scalars().first()
 

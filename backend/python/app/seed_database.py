@@ -512,18 +512,9 @@ def main() -> None:
 
             for _ in range(num_drivers):
                 # Create a single driver with fake data
-                # Ensure unique email
-                email = fake.email()
-                max_email_attempts = 100
-                email_attempts = 0
-                while email in used_emails and email_attempts < max_email_attempts:
-                    email = fake.email()
-                    email_attempts += 1
-                used_emails.add(email)
-
                 user = User(
                     name=fake.name(),
-                    email=email,
+                    email=fake.email(),
                     auth_id=f"seed_driver_{uuid.uuid4().hex[:8]}",
                 )
                 set_timestamps(user)
