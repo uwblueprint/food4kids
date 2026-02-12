@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +14,25 @@ logger = logging.getLogger(__name__)
 driver_service = DriverService(logger)
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
+
+
+def driver_to_driver_read(driver: Any) -> DriverRead:
+    """Convert a Driver model instance to DriverRead."""
+    return DriverRead(
+        driver_id=driver.driver_id,
+        user_id=driver.user_id,
+        phone=driver.phone,
+        license_plate=driver.license_plate,
+        car_make_model=driver.car_make_model,
+        active=driver.active,
+        notes=driver.notes,
+        address=driver.address,
+        # User fields
+        auth_id=driver.user.auth_id,
+        name=driver.user.name,
+        email=driver.user.email,
+        role=driver.user.role,
+    )
 
 
 @router.get("/", response_model=list[DriverRead])
@@ -39,7 +59,7 @@ async def get_drivers(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Driver with id {driver_id} not found",
                 )
-            return [DriverRead.model_validate(driver)]
+            return [driver_to_driver_read(driver)]
 
         elif email:
             driver = await driver_service.get_driver_by_email(session, email)
@@ -48,11 +68,11 @@ async def get_drivers(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Driver with email {email} not found",
                 )
-            return [DriverRead.model_validate(driver)]
+            return [driver_to_driver_read(driver)]
 
         else:
             drivers = await driver_service.get_drivers(session)
-            return [DriverRead.model_validate(driver) for driver in drivers]
+            return [driver_to_driver_read(driver) for driver in drivers]
 
     except HTTPException:
         raise
@@ -77,7 +97,7 @@ async def get_driver(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Driver with id {driver_id} not found",
         )
-    return DriverRead.model_validate(driver)
+    return driver_to_driver_read(driver)
 
 
 @router.post("/", response_model=DriverRead, status_code=status.HTTP_201_CREATED)
@@ -91,7 +111,7 @@ async def create_driver(
     """
     try:
         created_driver = await driver_service.create_driver(session, driver)
-        return DriverRead.model_validate(created_driver)
+        return driver_to_driver_read(created_driver)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -116,7 +136,7 @@ async def update_driver(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Driver with id {driver_id} not found",
         )
-    return DriverRead.model_validate(updated_driver)
+    return driver_to_driver_read(updated_driver)
 
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)

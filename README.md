@@ -691,7 +691,7 @@ The project uses **GitHub Actions** for continuous integration. All workflows ar
    - **Triggers:** Push or PR to `main` for `backend/python/**` paths
    - Sets up PostgreSQL service container
    - Runs `pytest -q --disable-warnings -ra`
-   - Python 3.10
+   - Python 3.11
 
 3. **`claude-code-review.yml`** - Automated Code Review
    - **Triggers:** PR ready for review, or `@claude review` comment

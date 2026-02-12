@@ -405,7 +405,8 @@ def main() -> None:
 
             # Create locations from CSV
             print("Creating locations from CSV...")
-            csv_path = "app/data/locations.csv"
+            # Allow CSV path to be overridden via environment variable for testing
+            csv_path = os.getenv("LOCATIONS_CSV_PATH", "app/data/locations.csv")
             locations_created = 0
 
             non_school_groups = [
