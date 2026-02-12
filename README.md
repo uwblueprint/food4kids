@@ -793,7 +793,3 @@ docker-compose up --build
 3. Make your changes following the coding standards
 4. Run tests and linting
 5. Submit a pull request with a clear description
-
-## License
-
-[Add license information here]
