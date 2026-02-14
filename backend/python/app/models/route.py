@@ -23,6 +23,7 @@ class RouteBase(SQLModel):
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
     expires_at: datetime | None = Field(default=None)
+    ends_at_warehouse: bool = Field(default=False)
 
 
 class Route(RouteBase, BaseModel, table=True):
@@ -69,6 +70,7 @@ class RouteUpdate(SQLModel):
     encoded_polyline: str | None = None
     polyline_updated_at: datetime | None = None
     expires_at: datetime | None = None
+    ends_at_warehouse: bool | None = None
 
 
 class RouteWithDateRead(SQLModel):
