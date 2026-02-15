@@ -193,7 +193,7 @@ class LocationService:
     ) -> LocationImportResponse:
         """Validate location import data (no missing fields or local duplicates)"""
         try:
-            # resolve CSV column mapping from DB, fall back to defaults
+            # resolve CSV column mapping from DB -> fall back to defaults
             column_map = await self._get_column_map(session)
 
             df = pd.read_csv(file.file)
@@ -234,21 +234,16 @@ class LocationService:
                 loc_keys.add(dup_key)
                 rows.append(location_row)
 
-            successful_rows = len(
-                [r for r in rows if r.status == LocationImportStatus.OK]
-            )
-            status = (
-                ImportStatus.SUCCESS
-                if successful_rows == len(rows)
-                else ImportStatus.FAILURE
-            )
+            successful_rows = [r for r in rows if r.status == LocationImportStatus.OK]
 
             return LocationImportResponse(
-                status=status,
+                status=ImportStatus.SUCCESS
+                if successful_rows
+                else ImportStatus.FAILURE,
                 rows=rows,
                 total_rows=len(rows),
-                successful_rows=successful_rows,
-                unsuccessful_rows=len(rows) - successful_rows,
+                successful_rows=len(successful_rows),
+                unsuccessful_rows=len(rows) - len(successful_rows),
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
