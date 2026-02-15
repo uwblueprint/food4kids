@@ -1,7 +1,12 @@
-import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
-import {AdminLayout, DriverLayout} from './layouts';
-import { AdminDriversPage, AdminHomePage, AdminRoutesPage, AdminSettingsPage } from './pages/admin';
+import { AdminLayout, DriverLayout } from './layouts';
+import {
+  AdminDriversPage,
+  AdminHomePage,
+  AdminRoutesPage,
+  AdminSettingsPage,
+} from './pages/admin';
 import { DriverHomePage } from './pages/driver';
 
 function App() {
