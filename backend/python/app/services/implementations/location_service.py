@@ -118,6 +118,7 @@ class LocationService:
             location_data.place_id = geocode_result.place_id
 
         return Location(
+            location_group_id=location_data.location_group_id,
             school_name=location_data.school_name,
             contact_name=location_data.contact_name,
             address=location_data.address,
@@ -345,7 +346,9 @@ class LocationService:
 
             # case 1 - create net new locations from import
             for row in request.net_new:
-                location_create = self._to_location_create(row.location, group_map)
+                location_create = await self._to_location_create(
+                    session, row.location, group_map
+                )
                 location = await self._build_location(location_create)
                 session.add(location)
                 created_locations.append(location)
@@ -367,8 +370,8 @@ class LocationService:
                 )
 
                 # create net new location from import entry
-                location_create = self._to_location_create(
-                    conflict.location.location, group_map, notes=notes
+                location_create = await self._to_location_create(
+                    session, conflict.location.location, group_map, notes=notes
                 )
                 location = await self._build_location(location_create)
                 session.add(location)
@@ -391,8 +394,9 @@ class LocationService:
             await session.rollback()
             raise e
 
-    def _to_location_create(
+    async def _to_location_create(
         self,
+        session: AsyncSession,
         entry: LocationImportEntry,
         group_map: dict[str, UUID],
         notes: str = "",
@@ -401,6 +405,14 @@ class LocationService:
         location_group_id = (
             group_map.get(entry.delivery_group) if entry.delivery_group else None
         )
+
+        # create a new location group if delivery group is not in the map
+        if entry.delivery_group and not location_group_id:
+            group = LocationGroup(name=entry.delivery_group, color="red")
+            session.add(group)
+            await session.flush()
+            group_map[entry.delivery_group] = group.location_group_id
+            location_group_id = group.location_group_id
 
         return LocationCreate(
             contact_name=entry.contact_name,
