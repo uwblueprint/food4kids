@@ -402,12 +402,10 @@ class LocationService:
         notes: str = "",
     ) -> LocationCreate:
         """Convert a LocationImportEntry to a LocationCreate."""
-        location_group_id = (
-            group_map.get(entry.delivery_group) if entry.delivery_group else None
-        )
+        location_group_id = group_map.get(entry.delivery_group)
 
         # create a new location group if delivery group is not in the map
-        if entry.delivery_group and not location_group_id:
+        if not location_group_id:
             group = LocationGroup(name=entry.delivery_group, color="red")
             session.add(group)
             await session.flush()
