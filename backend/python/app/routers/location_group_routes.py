@@ -3,7 +3,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_driver
 from app.dependencies.services import get_location_group_service
 from app.models import get_session
 from app.models.location_group import (
@@ -19,7 +18,6 @@ router = APIRouter(prefix="/location-groups", tags=["location-groups"])
 @router.get("/", response_model=list[LocationGroupRead])
 async def get_location_groups(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> list[LocationGroupRead]:
     """
@@ -39,7 +37,6 @@ async def get_location_groups(
 async def get_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> LocationGroupRead:
     """
@@ -60,7 +57,6 @@ async def get_location_group(
 async def create_location_group(
     location_group: LocationGroupCreate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> LocationGroupRead:
     """
@@ -83,7 +79,6 @@ async def update_location_group(
     location_group_id: UUID,
     location_group: LocationGroupUpdate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> LocationGroupRead:
     """
@@ -104,7 +99,6 @@ async def update_location_group(
 async def delete_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> None:
     """

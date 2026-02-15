@@ -128,7 +128,7 @@ def require_authorization_by_email(email: str) -> Callable:
 
 
 # Common authorization dependencies
-require_driver = require_authorization_by_role({"driver"})
+require_admin = require_authorization_by_role({"admin"})
 
 
 def get_current_user_id(access_token: str = Depends(get_access_token)) -> str:
