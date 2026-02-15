@@ -1,4 +1,6 @@
 import logging
+import os
+from io import BytesIO
 from uuid import UUID
 
 import pandas as pd
@@ -28,6 +30,9 @@ from app.models.location_group import LocationGroup
 from app.services.implementations.location_mapping_service import LocationMappingService
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import get_phone_number
+
+# Allowed file extensions for location import files
+ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 
 # Default CSV column names when no LocationMapping is configured
 DEFAULT_COLUMN_MAP = {
@@ -196,7 +201,7 @@ class LocationService:
             # resolve CSV column mapping from DB -> fall back to defaults
             column_map = await self._get_column_map(session)
 
-            df = pd.read_csv(file.file)
+            df = self._read_upload_file(file)
             rows: list[LocationImportRow] = []
             loc_keys: set[tuple[str, str]] = set()
 
@@ -257,7 +262,7 @@ class LocationService:
             rows = request.rows
             db_locations = await self.get_locations(session)
 
-            # Build lookup: list of (db_location, normalized_address, phone)
+            # Build lookup: list of (db location entry, address, phone)
             db_lookup: list[tuple[Location, str, str | None]] = []
             for db_loc in db_locations:
                 db_lookup.append(
@@ -299,15 +304,13 @@ class LocationService:
                             location=row, matched_location=dup_matches
                         )
                     )
-                if sim_matches:  # case 2: similar entry
+                elif sim_matches:  # case 2: similar entry
                     similar.append(
                         LocationDeduplicationEntry(
                             location=row, matched_location=sim_matches
                         )
                     )
-                if (
-                    not dup_matches and not sim_matches
-                ):  # case 3: net new location entry
+                else:  # case 3: net new location entry
                     net_new.append(
                         LocationDeduplicationEntry(location=row, matched_location=[])
                     )
@@ -408,6 +411,20 @@ class LocationService:
             location_group_id=location_group_id,
             notes=notes,
         )
+
+    def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
+        """Validate file type and read into a DataFrame."""
+        filename = file.filename or ""
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise ValueError(
+                f"Unsupported file type '{ext}'. Must be one of: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+            )
+
+        # return dataframe using appropriate reader based on file extension
+        if ext == ".xlsx":
+            return pd.read_excel(BytesIO(file.file.read()), engine="openpyxl")
+        return pd.read_csv(file.file)
 
     async def _get_location_group_map(self, session: AsyncSession) -> dict[str, UUID]:
         """Build a delivery group name -> location_group_id lookup."""
