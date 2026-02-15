@@ -141,7 +141,6 @@ class ConflictResolution(str, Enum):
 class ResolvedConflictEntry(SQLModel):
     location: LocationImportRow
     matched_location_id: UUID
-    matched_location_notes: str = ""
     resolution: ConflictResolution
 
 
@@ -152,6 +151,5 @@ class LocationIngestRequest(SQLModel):
 
 
 class LocationIngestResponse(SQLModel):
-    # TODO: should be list of location objects instead
     created_locations: list[LocationRead]
     archived_locations: list[LocationRead]

@@ -286,6 +286,7 @@ class LocationService:
                 sim_matches: list[LocationRead] = []
 
                 for db_loc, db_addr, db_phone in db_lookup:
+                    # TODO: using string equality - need to use place_id instead (earlier geocoding step)?
                     addr_match = import_addr == db_addr
                     phone_match = import_phone == db_phone
 
@@ -339,7 +340,7 @@ class LocationService:
             created_locations: list[Location] = []
             archived_locations: list[Location] = []
 
-            # build delivery group name -> location group id map lookup
+            # build lookup: delivery group name -> location group id
             group_map = await self._get_location_group_map(session)
 
             # case 1 - create net new locations from import
@@ -349,7 +350,7 @@ class LocationService:
                 session.add(location)
                 created_locations.append(location)
 
-            # case 2 -handle resolved similar/duplicate conflicts
+            # case 2 - handle resolved similar/duplicate conflicts
             for conflict in request.resolved_conflicts:
                 # archive the matched DB location
                 matched_location = await self.get_location_by_id(
@@ -427,7 +428,7 @@ class LocationService:
         return pd.read_csv(file.file)
 
     async def _get_location_group_map(self, session: AsyncSession) -> dict[str, UUID]:
-        """Build a delivery group name -> location_group_id lookup."""
+        """Build lookup: delivery group name -> location group id"""
         statement = select(LocationGroup)
         result = await session.execute(statement)
         groups = result.scalars().all()
