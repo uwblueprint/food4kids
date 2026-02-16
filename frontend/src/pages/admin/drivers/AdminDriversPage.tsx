@@ -1,3 +1,5 @@
+import { PlaceholderPage } from "../../../common/components/PlaceHolderPage";
+
 export const AdminDriversPage = () => {
-  return null;
+  return <PlaceholderPage pageName="Admin Drivers Page" />;
 };
