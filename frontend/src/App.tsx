@@ -8,6 +8,7 @@ import {
   AdminSettingsPage,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 function App() {
   return (
@@ -34,7 +35,7 @@ function App() {
         {/* Shared Routes */}
 
         {/* 404 Not Found */}
-        <Route path="*" element={<Navigate to="/admin/home" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );
