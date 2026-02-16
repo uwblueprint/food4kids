@@ -82,18 +82,28 @@ frontend/
 │   ├── assets/
 │   │   ├── fonts/             # Custom web fonts
 │   │   └── images/            # Images, logos, icons
-│   ├── components/
-│   │   ├── common/            # Reusable UI components (buttons, inputs, cards, modals)
-│   │   └── features/          # Feature-specific components with business logic
+│   ├── common/                # Shared reusable code
+│   │   ├── components/        # Reusable UI components (buttons, inputs, cards, modals)
+│   │   │   └── skeletons/     # Loading skeleton components
+│   │   ├── hooks/             # Custom React hooks (useAuth, useFetch, etc.)
+│   │   └── utils/             # Utility helper functions
 │   ├── constants/             # Application constants and configuration values
 │   ├── contexts/              # React Context providers for state management
-│   ├── hooks/                 # Custom React hooks (useAuth, useFetch, etc.)
-│   ├── layouts/               # Layout wrapper components (navigation, sidebars, footers)
-│   ├── pages/                 # Page-level components for routing
+│   ├── layouts/               # Role-specific layout wrapper components
+│   │   ├── AdminLayout.tsx    # Layout for admin pages
+│   │   └── DriverLayout.tsx   # Layout for driver pages
+│   ├── pages/                 # Page-level components organized by user role
+│   │   ├── admin/             # Admin portal pages
+│   │   │   ├── drivers/       # Driver management
+│   │   │   ├── home/          # Admin dashboard
+│   │   │   ├── routes/        # Route management
+│   │   │   └── settings/      # Admin settings
+│   │   ├── driver/            # Driver portal pages
+│   │   │   └── home/          # Driver dashboard
+│   │   └── shared/            # Shared pages (login, 404, etc.)
 │   ├── types/                 # TypeScript type definitions and interfaces
-│   ├── utils/                 # Utility helper functions
 │   ├── main.tsx               # Application entry point
-│   ├── App.tsx                # Root component
+│   ├── App.tsx                # Root component with routing
 │   └── index.css              # Global styles (Tailwind imports)
 ├── public/                    # Static assets served directly
 ├── vite.config.ts             # Vite configuration
@@ -103,31 +113,41 @@ frontend/
 └── package.json               # Dependencies and scripts
 ```
 
-**Architecture:** The frontend uses a feature-based modular architecture with separation of concerns between reusable UI components and feature-specific business logic.
+**Architecture:** The frontend uses a role-based modular architecture with separation by user type (admin, driver). Reusable components and utilities are centralized in `common/`, while page-specific components are colocated with their respective pages.
 
 ### Component Development Guidelines
 
-**When to use `components/common/`:**
-- Reusable UI elements that can be used across multiple features
-- Generic components: buttons, inputs, cards, modals, dropdowns, tooltips
-- No business logic or feature-specific knowledge
-- Examples: `Button.tsx`, `Input.tsx`, `Card.tsx`, `Modal.tsx`
+**When to use `common/components/`:**
+- Reusable UI elements that can be used across multiple roles and features
+- Generic components: buttons, inputs, cards, modals, dropdowns, tooltips, skeletons
+- No business logic or role-specific knowledge
+- Examples: `Button.tsx`, `Input.tsx`, `Card.tsx`, `Modal.tsx`, `PlaceholderPage.tsx`
+- Subdirectories for component categories (e.g., `skeletons/` for loading states)
 
-**When to use `components/features/`:**
-- Components tied to specific business logic or features
-- Feature-specific functionality that won't be reused elsewhere
-- Examples: `UserProfileCard.tsx`, `OrderSummary.tsx`, `DonationForm.tsx`
+**When to use `pages/[role]/[feature]/components/`:**
+- Components tied to a specific page or feature
+- Role-specific or feature-specific functionality
+- Business logic that won't be reused in other roles/features
+- Examples: Components in `pages/admin/drivers/components/`, `pages/driver/home/components/`
+- Colocate with the page they belong to for better organization
+
+**When to use `layouts/`:**
+- Role-specific wrapper components (navigation, sidebars, headers, footers)
+- Components that define the overall page structure for a user role
+- Examples: `AdminLayout.tsx`, `DriverLayout.tsx`
 
 **Naming Conventions:**
 - Use PascalCase for component files and names: `UserCard.tsx`, `LoginForm.tsx`
 - Use descriptive names that clearly indicate the component's purpose
 - Avoid generic names like `Component1.tsx` or `Temp.tsx`
+- Page components should be prefixed with their role: `AdminDriversPage.tsx`, `DriverHomePage.tsx`
 
 **Best Practices:**
 - One component per file
 - Always define TypeScript interfaces for props
 - Colocate component-specific types with the component file
 - Export components using named exports (not default exports)
+- Use barrel exports (`index.ts`) in component directories for cleaner imports
 - Keep components focused and single-purpose
 
 ### Tailwind CSS v4 Setup and Usage
