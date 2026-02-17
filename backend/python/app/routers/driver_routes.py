@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
-from app.models.driver import DriverCreate, DriverRead, DriverUpdate
+from app.models.driver import DriverCreate, DriverRead, DriverUpdate, Driver
 from app.services.implementations.driver_service import DriverService
 
 # Initialize service

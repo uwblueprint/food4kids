@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator
+from pydantic import EmailStr, field_validator, ConfigDict, computed_field, AliasPath
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.user import User
@@ -37,12 +37,17 @@ class DriverCreate(DriverBase):
 
 
 class DriverRead(DriverBase):
+    model_config = ConfigDict(from_attributes=True)
+
     driver_id: UUID
-    auth_id: str
     user_id: UUID
-    name: str
-    email: EmailStr
-    role: str  # comes from User
+
+    # TODO: This needs to be added, currently auth is being changes so awaiting those changes
+    auth_id: str = Field("")
+    # These are from the User
+    name: str = Field(validation_alias=AliasPath("user", "name"))
+    email: EmailStr = Field(validation_alias=AliasPath("user", "email"))
+    role: str = Field(validation_alias=AliasPath("user", "role"))
 
 
 class DriverUpdate(SQLModel):
