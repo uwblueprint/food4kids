@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
-from app.models.driver import Driver, DriverCreate, DriverUpdate
+from app.models.driver import Driver, DriverCreate, DriverUpdate, DriverRead
 from app.models.user import User
 
 
@@ -60,6 +60,7 @@ class DriverService:
             self.logger.error(f"Failed to get driver by email: {e!s}")
             raise e
 
+    # TODO: auth is being changed right now, make sure this still works/is relevant
     async def get_driver_by_auth_id(
         self, session: AsyncSession, auth_id: str
     ) -> Driver | None:
