@@ -38,12 +38,14 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     max_boxes_per_cluster constraints.
     """
 
+    def __init__(self, warehouse_lat: float, warehouse_lon: float) -> None:
+        self._warehouse_lat = warehouse_lat
+        self._warehouse_lon = warehouse_lon
+
     async def cluster_locations(
         self,
         locations: list[Location],
         num_clusters: int,
-        warehouse_lat: float,
-        warehouse_lon: float,
         max_locations_per_cluster: int | None = None,
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
@@ -81,7 +83,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                         f"(elapsed: {elapsed:.2f}s)"
                     )
 
-        def calculate_angle_from_warehouse(location: Location) -> float | None:
+        def calculate_angle_from_warehouse(location: Location) -> float:
             if location.latitude is None:
                 raise LocationLatitudeError(
                     f"Location {location.location_id} is missing latitude."
@@ -90,11 +92,11 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 raise LocationLongitudeError(
                     f"Location {location.location_id} is missing longitude."
                 )
-            lat_difference = location.latitude - warehouse_lat
-            lon_difference = location.longitude - warehouse_lon
+            lat_difference = location.latitude - self._warehouse_lat
+            lon_difference = location.longitude - self._warehouse_lon
             return math.atan2(lat_difference, lon_difference) % math.tau
 
-        def calculate_distance_squared(location: Location) -> float | None:
+        def calculate_distance_squared(location: Location) -> float:
             if location.latitude is None:
                 raise LocationLatitudeError(
                     f"Location {location.location_id} is missing latitude."
@@ -103,8 +105,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 raise LocationLongitudeError(
                     f"Location {location.location_id} is missing longitude."
                 )
-            lat_difference = location.latitude - warehouse_lat
-            lon_difference = location.longitude - warehouse_lon
+            lat_difference = location.latitude - self._warehouse_lat
+            lon_difference = location.longitude - self._warehouse_lon
             return lon_difference**2 + lat_difference**2
 
         if len(locations) == 0:
@@ -125,7 +127,10 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         # The largest cluster will have base_cluster_size + 1 if remainder > 0
         max_cluster_size = base_cluster_size + (1 if remainder > 0 else 0)
-        if max_locations_per_cluster and max_cluster_size > max_locations_per_cluster:
+        if (
+            max_locations_per_cluster is not None
+            and max_cluster_size > max_locations_per_cluster
+        ):
             raise ValueError(
                 f"Cannot create {num_clusters} clusters with max "
                 f"{max_locations_per_cluster} locations per cluster. "
@@ -136,9 +141,9 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         clusters: list[list[Location]] = []
         current_location_count = 0
         current_box_count = 0
-        current_cluster = []
+        current_cluster: list[Location] = []
 
-        locations_with_angles = []
+        locations_with_angles: list[tuple[Location, float, float]] = []
         for location in locations:
             check_timeout()
             angle = calculate_angle_from_warehouse(location)
@@ -152,10 +157,12 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         for loc, _angle, _distance in sorted_locations:
             check_timeout()
             would_exceed_locations = (
-                current_location_count + 1 > max_locations_per_cluster
+                max_locations_per_cluster is not None
+                and current_location_count + 1 > max_locations_per_cluster
             )
             would_exceed_boxes = (
-                current_box_count + loc.num_boxes > max_boxes_per_cluster
+                max_boxes_per_cluster is not None
+                and current_box_count + loc.num_boxes > max_boxes_per_cluster
             )
 
             if current_cluster and (would_exceed_locations or would_exceed_boxes):
