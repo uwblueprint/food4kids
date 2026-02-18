@@ -90,13 +90,13 @@ class TestBuildPayload:
         shipments = model["shipments"]
         assert len(shipments) == 4  # 2 forced pickups + 2 deliveries
 
-        # forced pickups
+        # forced pickups (no loadDemands — demand is 0 to preserve capacity)
         for i in range(2):
             fp = shipments[i]
             assert fp["displayName"] == f"initial_load_driver_{i}"
             pickup = fp["pickups"][0]
             assert pickup["arrivalLocation"] == {"latitude": 43.0, "longitude": -79.0}
-            assert pickup["loadDemands"] == {"load": {"amount": "5"}}
+            assert "loadDemands" not in pickup
             assert fp["allowedVehicleIndices"] == [i]
 
         # deliveries
@@ -109,6 +109,39 @@ class TestBuildPayload:
                 "longitude": loc.longitude,
             }
             assert delivery["loadDemands"] == {"load": {"amount": "1"}}
+
+    def test_return_to_warehouse_sets_end_location(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """When return_to_warehouse is True, vehicles get endLocation."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            max_stops_per_route=5,
+            route_start_time=datetime(2025, 1, 1, 9, 0),
+            return_to_warehouse=True,
+        )
+        locs = [make_location()]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
+
+        vehicle = payload["model"]["vehicles"][0]
+        assert vehicle["endLocation"] == {"latitude": 43.0, "longitude": -79.0}
+
+    def test_no_return_to_warehouse_omits_end_location(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """When return_to_warehouse is False (default), no endLocation."""
+        locs = [make_location()]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
+
+        vehicle = payload["model"]["vehicles"][0]
+        assert "endLocation" not in vehicle
 
     def test_no_max_stops_omits_load_fields(
         self,
