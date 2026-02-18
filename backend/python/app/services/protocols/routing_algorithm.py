@@ -25,7 +25,7 @@ class RoutingAlgorithmProtocol(Protocol):
         locations: list[Location],
         warehouse_lat: float,
         warehouse_lon: float,
-        settings: RouteGenerationSettings,
+        route_settings: RouteGenerationSettings,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:  # pragma: no cover - interface only
         """Generate routes from a list of locations.
@@ -34,7 +34,7 @@ class RoutingAlgorithmProtocol(Protocol):
             locations: List of locations to route
             warehouse_lat: Latitude of the warehouse
             warehouse_lon: Longitude of the warehouse
-            settings: Route generation settings (num_routes, etc.)
+            route_settings: Route generation settings (num_routes, etc.)
             timeout_seconds: Optional timeout in seconds. If provided, the
                 algorithm should raise TimeoutError if execution exceeds this
                 duration. If None, no timeout is enforced.
