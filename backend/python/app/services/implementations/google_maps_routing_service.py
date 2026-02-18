@@ -9,7 +9,7 @@ import google.auth.transport.requests
 import requests
 from google.oauth2 import service_account
 
-from app.config import settings
+from app.config import settings as app_settings
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         locations: list[Location],
         warehouse_lat: float,
         warehouse_lon: float,
-        route_settings: RouteGenerationSettings,
+        settings: RouteGenerationSettings,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
         """Call the Fleet Routing API and parse the response into routes."""
@@ -44,7 +44,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             return []
 
         payload = self._build_payload(
-            locations, warehouse_lat, warehouse_lon, route_settings
+            locations, warehouse_lat, warehouse_lon, settings
         )
 
         response_json = await asyncio.wait_for(
@@ -52,19 +52,19 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             timeout=timeout_seconds,
         )
 
-        return self._parse_response(response_json, locations, route_settings.num_routes)
+        return self._parse_response(response_json, locations, settings.num_routes)
 
     def _build_payload(
         self,
         locations: list[Location],
         warehouse_lat: float,
         warehouse_lon: float,
-        route_settings: RouteGenerationSettings,
+        settings: RouteGenerationSettings,
     ) -> dict:
         """Build the optimizeTours request payload using v1 API field names."""
 
         warehouse = {"latitude": warehouse_lat, "longitude": warehouse_lon}
-        max_stops = route_settings.max_stops_per_route
+        max_stops = settings.max_stops_per_route
 
         load_limit = (
             {"loadLimits": {"load": {"maxLoad": str(max_stops)}}}
@@ -78,12 +78,12 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 "startLocation": warehouse,
                 **(
                     {"endLocation": warehouse}
-                    if route_settings.return_to_warehouse
+                    if settings.return_to_warehouse
                     else {}
                 ),
                 **load_limit,
             }
-            for i in range(route_settings.num_routes)
+            for i in range(settings.num_routes)
         ]
 
         # Force every vehicle to be used by giving each a mandatory pickup.
@@ -100,10 +100,10 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 ],
                 "allowedVehicleIndices": [i],
             }
-            for i in range(route_settings.num_routes)
+            for i in range(settings.num_routes)
         ]
 
-        service_duration = f"{route_settings.service_time_minutes * 60}s"
+        service_duration = f"{settings.service_time_minutes * 60}s"
 
         deliveries = [
             {
@@ -122,10 +122,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             for i, loc in enumerate(locations)
         ]
 
-        # TODO: use route_settings.route_start_time to set
+        # TODO: use settings.route_start_time to set
         # globalStartTime / globalEndTime or per-shipment timeWindows
-
-        assert len(forced_pickups) == route_settings.num_routes
 
         return {
             "model": {"vehicles": vehicles, "shipments": forced_pickups + deliveries}
@@ -139,17 +137,17 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         """
         with self._credentials_lock:
             if self._credentials is None or not self._credentials.valid:
-                if not settings.route_opt_client_email:
+                if not app_settings.route_opt_client_email:
                     raise RuntimeError(
                         "Fleet Routing service account credentials are not configured. "
                         "Set the ROUTE_OPT_* environment variables."
                     )
                 info = {
                     "type": "service_account",
-                    "project_id": settings.route_opt_project_id,
-                    "private_key_id": settings.route_opt_private_key_id,
-                    "private_key": settings.route_opt_private_key.replace("\\n", "\n"),
-                    "client_email": settings.route_opt_client_email,
+                    "project_id": app_settings.route_opt_project_id,
+                    "private_key_id": app_settings.route_opt_private_key_id,
+                    "private_key": app_settings.route_opt_private_key.replace("\\n", "\n"),
+                    "client_email": app_settings.route_opt_client_email,
                     "token_uri": "https://oauth2.googleapis.com/token",
                 }
                 self._credentials = (
@@ -165,7 +163,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         credentials = self._ensure_credentials()
 
-        url = ENDPOINT.format(settings.route_opt_project_id)
+        url = ENDPOINT.format(app_settings.route_opt_project_id)
         response = requests.post(
             url,
             headers={"Authorization": f"Bearer {credentials.token}"},
@@ -244,7 +242,7 @@ if __name__ == "__main__":
         FakeLocation(43.4380, -80.5050, "Homer Watson Park"),
     ]
 
-    route_settings = RouteGenerationSettings(
+    settings = RouteGenerationSettings(
         num_routes=2,
         max_stops_per_route=4,
         route_start_time=datetime(2025, 6, 1, 9, 0),
@@ -262,7 +260,7 @@ if __name__ == "__main__":
             locations,  # type: ignore[arg-type]
             warehouse_lat,
             warehouse_lon,
-            route_settings,
+            settings,
         )
     )
 
