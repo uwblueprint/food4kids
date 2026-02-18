@@ -35,9 +35,17 @@ async def get_driver_history_summary(
 ) -> DriverHistorySummary:
     """Get lifetime and current year KM summary for a driver"""
     try:
-        return await driver_history_service.get_driver_history_summary(
+        driver_history_summary = await driver_history_service.get_driver_history_summary(
             session, driver_id
         )
+        if not driver_history_summary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver history with id {driver_id} not found",
+            )
+        return driver_history_summary
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
