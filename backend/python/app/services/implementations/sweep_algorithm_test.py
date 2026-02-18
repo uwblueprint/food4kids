@@ -64,9 +64,6 @@ async def main() -> None:
         warehouse_lat = system_settings.warehouse_latitude
         warehouse_lon = system_settings.warehouse_longitude
 
-        warehouse_lat = system_settings.warehouse_latitude
-        warehouse_lon = system_settings.warehouse_longitude
-
         if warehouse_lat is None or warehouse_lon is None:
             raise RuntimeError(
                 "Warehouse latitude/longitude is missing in SystemSettings."
