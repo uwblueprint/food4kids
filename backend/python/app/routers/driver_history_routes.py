@@ -35,8 +35,8 @@ async def get_driver_history_summary(
 ) -> DriverHistorySummary:
     """Get lifetime and current year KM summary for a driver"""
     try:
-        driver_history_summary = await driver_history_service.get_driver_history_summary(
-            session, driver_id
+        driver_history_summary = (
+            await driver_history_service.get_driver_history_summary(session, driver_id)
         )
         if not driver_history_summary:
             raise HTTPException(
