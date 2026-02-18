@@ -45,6 +45,7 @@ class DriverHistoryUpdate(SQLModel):
 
     km: float
 
+
 class DriverHistorySummary(SQLModel):
     """Summary of driver's lifetime and current year kilometers"""
 
