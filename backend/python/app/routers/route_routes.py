@@ -50,19 +50,10 @@ async def get_route(
         route_id (UUID): The unique identifier of the route to delete.
         session (AsyncSession): The database session dependency.
 
-    Authentication:
-        Requires the user to be authenticated as a driver.
-
     Returns:
         None. Responds with HTTP 200 OK on successful get.
-
-    Raises:
-        HTTPException:
-            - 404 Not Found: If the route with the specified ID does not exist.
-            - 500 Server Error
     """
 
-    # TODO: the auth here does not work, I think this is an auth issue
     route = await route_service.get_route(session, route_id)
     return route
 
@@ -81,15 +72,8 @@ async def delete_route(
         session (AsyncSession): The database session dependency.
         _ (bool): Indicates that the user is authenticated as a driver (injected by dependency).
 
-    Authentication:
-        Requires the user to be authenticated as a driver.
-
     Returns:
         None. Responds with HTTP 204 No Content on successful deletion.
-
-    Raises:
-        HTTPException:
-            - 404 Not Found: If the route with the specified ID does not exist.
     """
     success = await route_service.delete_route(session, route_id)
     if not success:

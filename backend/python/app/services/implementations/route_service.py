@@ -101,12 +101,11 @@ class RouteService:
             route = result.scalars().first()
 
             if not route:
-                self.logger.error(f"Route with id {route_id} not found")
-                raise ValueError(f"Route with id {route_id} not found")
+                raise HTTPException(status_code=404, detail="Route with id {route_id} not found")
 
             return route
         except Exception as error:
-            self.logger.exception("Failed to get route %s", route_id)
+            self.logger.exception("Failed to get route " + str(route_id))
             await session.rollback()
             raise HTTPException(
                 status_code=500, detail="Failed to retrieve route."
@@ -130,5 +129,4 @@ class RouteService:
         except Exception as error:
             self.logger.error(f"Failed to delete route {route_id}: {error!s}")
             await session.rollback()
-            # TODO: do we really want to return the raw error
             raise error
