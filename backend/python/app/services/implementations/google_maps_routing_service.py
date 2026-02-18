@@ -121,7 +121,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         # TODO: use route_settings.route_start_time to set
         # globalStartTime / globalEndTime or per-shipment timeWindows
 
-        return {"model": {"vehicles": vehicles, "shipments": forced_pickups + deliveries}}
+        return {
+            "model": {"vehicles": vehicles, "shipments": forced_pickups + deliveries}
+        }
 
     def _ensure_credentials(self) -> service_account.Credentials:
         """Return cached credentials, refreshing only when expired."""
@@ -161,7 +163,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             timeout=API_TIMEOUT_SECONDS,
         )
         if not response.ok:
-            logger.error("Fleet Routing API error %s: %s", response.status_code, response.text)
+            logger.error(
+                "Fleet Routing API error %s: %s", response.status_code, response.text
+            )
         response.raise_for_status()
         return response.json()
 
