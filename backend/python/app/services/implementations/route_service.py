@@ -101,7 +101,9 @@ class RouteService:
             route = result.scalars().first()
 
             if not route:
-                raise HTTPException(status_code=404, detail="Route with id {route_id} not found")
+                raise HTTPException(
+                    status_code=404, detail="Route with id {route_id} not found"
+                )
 
             return route
         except Exception as error:
