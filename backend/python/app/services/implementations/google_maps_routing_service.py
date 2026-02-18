@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
+import threading
 from typing import TYPE_CHECKING
 
 import google.auth.transport.requests
@@ -28,6 +28,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
     def __init__(self) -> None:
         self._credentials: service_account.Credentials | None = None
+        self._credentials_lock = threading.Lock()
 
     async def generate_routes(
         self,
@@ -102,6 +103,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             for i in range(route_settings.num_routes)
         ]
 
+        service_duration = f"{route_settings.service_time_minutes * 60}s"
+
         deliveries = [
             {
                 "displayName": f"ship_{i}",
@@ -111,6 +114,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                             "latitude": loc.latitude,
                             "longitude": loc.longitude,
                         },
+                        "duration": service_duration,
                         "loadDemands": {"load": {"amount": "1"}},
                     }
                 ],
@@ -121,31 +125,40 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         # TODO: use route_settings.route_start_time to set
         # globalStartTime / globalEndTime or per-shipment timeWindows
 
+        assert len(forced_pickups) == route_settings.num_routes
+
         return {
             "model": {"vehicles": vehicles, "shipments": forced_pickups + deliveries}
         }
 
     def _ensure_credentials(self) -> service_account.Credentials:
-        """Return cached credentials, refreshing only when expired."""
-        if self._credentials is None or not self._credentials.valid:
-            if not settings.route_opt_client_email:
-                raise RuntimeError(
-                    "Fleet Routing service account credentials are not configured. "
-                    "Set the ROUTE_OPT_* environment variables."
+        """Return cached credentials, refreshing only when expired.
+
+        Thread-safe: _call_api runs in asyncio.to_thread, so concurrent
+        requests could race here without the lock.
+        """
+        with self._credentials_lock:
+            if self._credentials is None or not self._credentials.valid:
+                if not settings.route_opt_client_email:
+                    raise RuntimeError(
+                        "Fleet Routing service account credentials are not configured. "
+                        "Set the ROUTE_OPT_* environment variables."
+                    )
+                info = {
+                    "type": "service_account",
+                    "project_id": settings.route_opt_project_id,
+                    "private_key_id": settings.route_opt_private_key_id,
+                    "private_key": settings.route_opt_private_key.replace("\\n", "\n"),
+                    "client_email": settings.route_opt_client_email,
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+                self._credentials = (
+                    service_account.Credentials.from_service_account_info(
+                        info, scopes=SCOPES
+                    )
                 )
-            info = {
-                "type": "service_account",
-                "project_id": settings.route_opt_project_id,
-                "private_key_id": settings.route_opt_private_key_id,
-                "private_key": settings.route_opt_private_key.replace("\\n", "\n"),
-                "client_email": settings.route_opt_client_email,
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-            self._credentials = service_account.Credentials.from_service_account_info(
-                info, scopes=SCOPES
-            )
-            self._credentials.refresh(google.auth.transport.requests.Request())
-        return self._credentials
+                self._credentials.refresh(google.auth.transport.requests.Request())
+            return self._credentials
 
     def _call_api(self, payload: dict) -> dict:
         """Make the HTTP request to the Fleet Routing API (runs in a thread)."""
@@ -155,11 +168,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         url = ENDPOINT.format(settings.route_opt_project_id)
         response = requests.post(
             url,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {credentials.token}",
-            },
-            data=json.dumps(payload),
+            headers={"Authorization": f"Bearer {credentials.token}"},
+            json=payload,
             timeout=API_TIMEOUT_SECONDS,
         )
         if not response.ok:
@@ -206,3 +216,56 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                     routes[vehicle_index].append(locations[location_index])
 
         return routes
+
+
+if __name__ == "__main__":
+    from dataclasses import dataclass, field
+    from datetime import datetime
+    from uuid import UUID, uuid4
+
+    from app.schemas.route_generation import RouteGenerationSettings
+
+    logging.basicConfig(level=logging.INFO)
+
+    @dataclass
+    class FakeLocation:
+        latitude: float
+        longitude: float
+        address: str = ""
+        location_id: UUID = field(default_factory=uuid4)
+
+    locations = [
+        FakeLocation(43.4516, -80.4925, "Kitchener City Hall"),
+        FakeLocation(43.4643, -80.5204, "Waterloo Town Square"),
+        FakeLocation(43.4506, -80.4983, "Victoria Park"),
+        FakeLocation(43.4738, -80.5280, "Uptown Waterloo"),
+        FakeLocation(43.4455, -80.4862, "Fairview Park Mall"),
+        FakeLocation(43.4380, -80.5050, "Homer Watson Park"),
+    ]
+
+    route_settings = RouteGenerationSettings(
+        num_routes=2,
+        max_stops_per_route=4,
+        route_start_time=datetime(2025, 6, 1, 9, 0),
+        return_to_warehouse=True,
+    )
+
+    warehouse_lat = 43.4500
+    warehouse_lon = -80.4900
+
+    algo = GoogleMapsFleetRoutingAlgorithm()
+
+    print("Generating routes...")
+    routes = asyncio.run(
+        algo.generate_routes(
+            locations,  # type: ignore[arg-type]
+            warehouse_lat,
+            warehouse_lon,
+            route_settings,
+        )
+    )
+
+    for i, route in enumerate(routes):
+        print(f"\nRoute {i + 1} ({len(route)} stops):")
+        for stop in route:
+            print(f"  - {stop.address} ({stop.latitude}, {stop.longitude})")
