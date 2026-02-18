@@ -43,9 +43,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         if not locations:
             return []
 
-        payload = self._build_payload(
-            locations, warehouse_lat, warehouse_lon, settings
-        )
+        payload = self._build_payload(locations, warehouse_lat, warehouse_lon, settings)
 
         response_json = await asyncio.wait_for(
             asyncio.to_thread(self._call_api, payload),
@@ -76,11 +74,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             {
                 "displayName": f"driver_{i}",
                 "startLocation": warehouse,
-                **(
-                    {"endLocation": warehouse}
-                    if settings.return_to_warehouse
-                    else {}
-                ),
+                **({"endLocation": warehouse} if settings.return_to_warehouse else {}),
                 **load_limit,
             }
             for i in range(settings.num_routes)
@@ -146,7 +140,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                     "type": "service_account",
                     "project_id": app_settings.route_opt_project_id,
                     "private_key_id": app_settings.route_opt_private_key_id,
-                    "private_key": app_settings.route_opt_private_key.replace("\\n", "\n"),
+                    "private_key": app_settings.route_opt_private_key.replace(
+                        "\\n", "\n"
+                    ),
                     "client_email": app_settings.route_opt_client_email,
                     "token_uri": "https://oauth2.googleapis.com/token",
                 }
