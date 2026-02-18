@@ -72,7 +72,10 @@ class TestBuildPayload:
         sample_settings: RouteGenerationSettings,
     ) -> None:
         """2 locations, 2 routes, max_stops=5 — verify v1 field names."""
-        locs = [make_location(latitude=43.1, longitude=-79.1), make_location(latitude=43.2, longitude=-79.2)]
+        locs = [
+            make_location(latitude=43.1, longitude=-79.1),
+            make_location(latitude=43.2, longitude=-79.2),
+        ]
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
@@ -305,9 +308,7 @@ class TestGenerateRoutes:
 
         mocker.patch.object(algorithm, "_call_api", return_value=fake_response)
 
-        routes = await algorithm.generate_routes(
-            locs, 43.0, -79.0, sample_settings
-        )
+        routes = await algorithm.generate_routes(locs, 43.0, -79.0, sample_settings)
 
         assert len(routes) == 2
         assert routes[0] == [locs[0]]
