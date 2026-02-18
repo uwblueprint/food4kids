@@ -42,8 +42,6 @@ class DriverRead(DriverBase):
     driver_id: UUID
     user_id: UUID
 
-    # TODO: This needs to be added, currently auth is being changes so awaiting those changes
-    auth_id: str = Field("")
     # These are from the User
     auth_id: str = Field(validation_alias=AliasPath("user", "auth_id"))
     name: str = Field(validation_alias=AliasPath("user", "name"))
