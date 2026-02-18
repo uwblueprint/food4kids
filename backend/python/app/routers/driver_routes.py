@@ -1,12 +1,11 @@
 import logging
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
-from app.models.driver import DriverCreate, DriverRead, DriverUpdate, Driver
+from app.models.driver import DriverCreate, DriverRead, DriverUpdate
 from app.services.implementations.driver_service import DriverService
 
 # Initialize service
@@ -14,6 +13,7 @@ logger = logging.getLogger(__name__)
 driver_service = DriverService(logger)
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
+
 
 @router.get("/", response_model=list[DriverRead])
 async def get_drivers(

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
-from app.models.driver import Driver, DriverCreate, DriverUpdate, DriverRead
+from app.models.driver import Driver, DriverCreate, DriverUpdate
 from app.models.user import User
 
 

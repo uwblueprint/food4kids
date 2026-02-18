@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator, ConfigDict, AliasPath
+from pydantic import AliasPath, ConfigDict, EmailStr, field_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.user import User
