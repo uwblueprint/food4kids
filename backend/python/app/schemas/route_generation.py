@@ -17,6 +17,7 @@ class RouteGenerationSettings(SQLModel):
     route_start_time: datetime
     num_routes: int
     max_stops_per_route: int | None = None
+    service_time_minutes: int = 15
 
 
 class RouteGenerationGroupInput(SQLModel):
