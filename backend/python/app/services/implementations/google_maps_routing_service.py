@@ -177,7 +177,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 "Fleet Routing API error %s: %s", response.status_code, response.text
             )
         response.raise_for_status()
-        return response.json()
+        result: dict = response.json()
+        return result
 
     def _parse_response(
         self,
