@@ -4,10 +4,11 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.location import Location
+from app.models.location import Location, LocationRead
 from app.models.location_group import (
     LocationGroup,
     LocationGroupCreate,
+    LocationGroupRead,
     LocationGroupUpdate,
 )
 
@@ -16,12 +17,38 @@ class LocationGroupService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_location_groups(self, session: AsyncSession) -> list[LocationGroup]:
-        """Get all location groups"""
+    async def get_location_groups(
+        self, session: AsyncSession
+    ) -> list[LocationGroupRead]:
+        """Get all location groups with their locations"""
         try:
-            statement = select(LocationGroup)
-            result = await session.execute(statement)
-            return list(result.scalars().all())
+            groups_result = await session.execute(select(LocationGroup))
+            location_groups = list(groups_result.scalars().all())
+
+            result = []
+            for lg in location_groups:
+                # fetch all locations for location group
+                locations_result = await session.execute(
+                    select(Location).where(
+                        Location.location_group_id == lg.location_group_id
+                    )
+                )
+                locations = list(locations_result.scalars().all())
+
+                result.append(
+                    LocationGroupRead(
+                        location_group_id=lg.location_group_id,
+                        name=lg.name,
+                        color=lg.color,
+                        notes=lg.notes,
+                        num_locations=len(locations),
+                        locations=[
+                            LocationRead.model_validate(loc) for loc in locations
+                        ],
+                    )
+                )
+
+            return result
         except Exception as error:
             self.logger.error(f"Failed to get location groups: {error!s}")
             raise error

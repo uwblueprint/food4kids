@@ -19,7 +19,7 @@ router = APIRouter(prefix="/location-groups", tags=["location-groups"])
 @router.get("/", response_model=list[LocationGroupRead])
 async def get_location_groups(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
+    # _: bool = Depends(require_driver),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
 ) -> list[LocationGroupRead]:
     """
@@ -27,7 +27,7 @@ async def get_location_groups(
     """
     try:
         location_groups = await location_group_service.get_location_groups(session)
-        return [LocationGroupRead.model_validate(lg) for lg in location_groups]
+        return location_groups
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
