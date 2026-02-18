@@ -30,7 +30,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         locations: list[Location],
         warehouse_lat: float,
         warehouse_lon: float,
-        settings: RouteGenerationSettings,
+        route_settings: RouteGenerationSettings,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
         """Call the Fleet Routing API and parse the response into routes."""
@@ -39,7 +39,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             return []
 
         payload = self._build_payload(
-            locations, warehouse_lat, warehouse_lon, settings
+            locations, warehouse_lat, warehouse_lon, route_settings
         )
 
         response_json = await asyncio.wait_for(
@@ -47,14 +47,14 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             timeout=timeout_seconds,
         )
 
-        return self._parse_response(response_json, locations, settings.num_routes)
+        return self._parse_response(response_json, locations, route_settings.num_routes)
 
     def _build_payload(
         self,
         locations: list[Location],
         warehouse_lat: float,
         warehouse_lon: float,
-        settings: RouteGenerationSettings,
+        route_settings: RouteGenerationSettings,
     ) -> dict:
         """Build the optimizeTours request payload using v1 API field names."""
 
@@ -65,12 +65,12 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 "displayName": f"driver_{i}",
                 "startLocation": warehouse,
                 **(
-                    {"loadLimits": {"load": {"maxLoad": str(settings.max_stops_per_route)}}}
-                    if settings.max_stops_per_route is not None
+                    {"loadLimits": {"load": {"maxLoad": str(route_settings.max_stops_per_route)}}}
+                    if route_settings.max_stops_per_route is not None
                     else {}
                 ),
             }
-            for i in range(settings.num_routes)
+            for i in range(route_settings.num_routes)
         ]
 
         # Force every vehicle to be used by giving each a mandatory pickup, without this some drivers may be left idle
@@ -81,15 +81,15 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                     {
                         "arrivalLocation": warehouse,
                         **(
-                            {"loadDemands": {"load": {"amount": str(settings.max_stops_per_route)}}}
-                            if settings.max_stops_per_route is not None
+                            {"loadDemands": {"load": {"amount": str(route_settings.max_stops_per_route)}}}
+                            if route_settings.max_stops_per_route is not None
                             else {}
                         ),
                     }
                 ],
                 "allowedVehicleIndices": [i],
             }
-            for i in range(settings.num_routes)
+            for i in range(route_settings.num_routes)
         ]
 
         deliveries = [
