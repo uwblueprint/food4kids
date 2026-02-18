@@ -57,11 +57,20 @@ async def main() -> None:
             print("Not enough locations with coordinates to cluster!")
             return
 
-        warehouse_lat: float
-        warehouse_lon: float
         system_settings = session.exec(select(SystemSettings).limit(1)).first()
+        if system_settings is None:
+            raise RuntimeError("No SystemSettings row found in the database.")
+
         warehouse_lat = system_settings.warehouse_latitude
         warehouse_lon = system_settings.warehouse_longitude
+
+        warehouse_lat = system_settings.warehouse_latitude
+        warehouse_lon = system_settings.warehouse_longitude
+
+        if warehouse_lat is None or warehouse_lon is None:
+            raise RuntimeError(
+                "Warehouse latitude/longitude is missing in SystemSettings."
+            )
         print(
             f"Using warehouse from system settings: ({warehouse_lat}, {warehouse_lon})\n"
         )
@@ -81,7 +90,10 @@ async def main() -> None:
         print("Total number of boxes: ", total_boxes)
         print("Total locations: ", len(locations))
 
-        clustering_algo = SweepClusteringAlgorithm()
+        clustering_algo = SweepClusteringAlgorithm(
+            warehouse_lat=warehouse_lat,
+            warehouse_lon=warehouse_lon,
+        )
 
         print("Running Sweep clustering:")
         print(f"  - Number of clusters: {NUM_CLUSTERS}")
@@ -93,8 +105,6 @@ async def main() -> None:
             clusters = await clustering_algo.cluster_locations(
                 locations=locations,
                 num_clusters=NUM_CLUSTERS,
-                warehouse_lat=warehouse_lat,
-                warehouse_lon=warehouse_lon,
                 max_locations_per_cluster=MAX_LOCATIONS_PER_CLUSTER,
                 max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
                 timeout_seconds=30.0,
