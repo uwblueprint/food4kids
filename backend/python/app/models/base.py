@@ -29,6 +29,9 @@ class BaseModel(sm.SQLModel):
         default=None,
     )
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, **data: Any) -> None:
         if self.model_config.get("table", False) and not _ONGOING_MODEL_VALIDATE.get(
             False

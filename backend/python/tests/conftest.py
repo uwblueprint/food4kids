@@ -36,7 +36,7 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
 
     # Use PostgreSQL for testing to support ARRAY types
     database_url = os.getenv(
-        "TEST_DATABASE_URL", "postgresql+asyncpg://postgres:postgres@db:5432/f4k"
+        "TEST_DATABASE_URL", "postgresql+asyncpg://postgres:postgres@db:5432/f4k_test"
     )
 
     engine = create_async_engine(
@@ -105,11 +105,8 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
     app = create_app()
 
     # Override the database session dependency
-    def override_get_session() -> AsyncGenerator[AsyncSession, None]:
-        async def _get_session() -> AsyncGenerator[AsyncSession, None]:
-            yield test_session
-
-        return _get_session()
+    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+        yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
 
@@ -125,11 +122,8 @@ async def async_client(
     app = create_app()
 
     # Override the database session dependency
-    def override_get_session() -> AsyncGenerator[AsyncSession, None]:
-        async def _get_session() -> AsyncGenerator[AsyncSession, None]:
-            yield test_session
-
-        return _get_session()
+    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+        yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
 
