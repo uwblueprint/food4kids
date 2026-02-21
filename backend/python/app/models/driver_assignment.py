@@ -36,7 +36,7 @@ class DriverAssignmentRead(DriverAssignmentBase):
 
 
 class DriverAssignmentUpdate(SQLModel):
-    """Update request model - all optional"""
+    """Update request model"""
 
     time: datetime | None = Field(default=None)
 
