@@ -52,7 +52,11 @@ class DriverRead(DriverBase):
     @model_validator(mode="before")
     @classmethod
     def extract_user_fields(cls, data: Any) -> Any:
-        if not isinstance(data, dict) and hasattr(data, "user") and data.user is not None:
+        if (
+            not isinstance(data, dict)
+            and hasattr(data, "user")
+            and data.user is not None
+        ):
             user = data.user
             return {
                 "driver_id": data.driver_id,
