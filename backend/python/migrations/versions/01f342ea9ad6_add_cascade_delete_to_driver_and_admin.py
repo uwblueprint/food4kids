@@ -1,7 +1,7 @@
 """Add cascade delete to Driver and Admin
 
 Revision ID: 01f342ea9ad6
-Revises: ba76119b3e4c
+Revises: eb010a6ed5ad
 Create Date: 2026-02-08 00:31:30.165149
 
 """
@@ -9,7 +9,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '01f342ea9ad6'
-down_revision = 'ba76119b3e4c'
+down_revision = 'eb010a6ed5ad'
 branch_labels = None
 depends_on = None
 
