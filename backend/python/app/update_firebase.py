@@ -13,6 +13,11 @@ def update_all_users_role(role_name: str) -> None:
     Iterates through all Firebase users and sets a custom 'role' claim.
     Always ensures the admin only has the role 'admin'
     """
+    if not admin_email:
+        raise ValueError(
+            "ENVIRONMENT ERROR: ADMIN_EMAIL is not set. Check your .env file."
+        )
+
     print(f"Starting update: Setting all non admin users to role: {role_name}")
 
     # List all users (paginated)
