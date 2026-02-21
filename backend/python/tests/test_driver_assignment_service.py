@@ -144,7 +144,7 @@ class TestDriverAssignmentIntegration:
             test_session, created_assignment.driver_assignment_id, update_data
         )
         assert updated_assignment is not None
-        assert updated_assignment.time is datetime(2024, 1, 16, 8, 0)
+        assert updated_assignment.time == datetime(2024, 1, 16, 8, 0)
 
         # Delete
         delete_result = await driver_assignment_service.delete_driver_assignment(
