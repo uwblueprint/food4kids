@@ -171,7 +171,7 @@ class LocationService:
 
                 # case 1: missing required fields
                 if self._has_missing_fields(location):
-                    location_row.status = LocationRowStatus.MISSING_ENTRY
+                    location_row.status = LocationRowStatus.MISSING_FIELDS
                     rows.append(location_row)
                     continue
 
@@ -211,6 +211,7 @@ class LocationService:
 
     def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
+
         filename = file.filename or ""
         ext = os.path.splitext(filename)[1].lower()
         if ext not in ALLOWED_EXTENSIONS:
@@ -220,8 +221,15 @@ class LocationService:
 
         # return dataframe using appropriate reader based on file extension
         if ext == ".xlsx":
-            return pd.read_excel(BytesIO(file.file.read()), engine="openpyxl")
-        return pd.read_csv(file.file)
+            return pd.read_excel(
+                BytesIO(file.file.read()),
+                engine="openpyxl",
+                dtype=str,
+            )
+        return pd.read_csv(
+            BytesIO(file.file.read()),
+            dtype=str,
+        )
 
     def _parse_row(
         self, row: pd.Series, column_map: dict[str, str]
@@ -232,10 +240,11 @@ class LocationService:
             csv_col = column_map.get(field, "")
             if not csv_col:
                 return None
+
             val = row.get(csv_col)
             if pd.isna(val):
                 return None
-            return str(val).strip() or None
+            return str(val).strip()
 
         def parse_bool(field: str) -> bool | None:
             val = get_value(field)
@@ -264,11 +273,11 @@ class LocationService:
 
     def _has_missing_fields(self, entry: LocationImportEntry) -> bool:
         """Check if any required fields are missing."""
-        required = [
+        required_fields = [
             entry.contact_name,
             entry.address,
             entry.delivery_group,
             entry.phone_number,
             entry.num_boxes,
         ]
-        return any(not val for val in required)
+        return any(not val for val in required_fields)
