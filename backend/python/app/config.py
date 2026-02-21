@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     # Google Maps
     google_maps_api_key: str = Field(default="")
 
+    # Route Optimization (service account for Fleet Routing API)
+    route_opt_project_id: str = Field(default="")
+    route_opt_private_key_id: str = Field(default="")
+    route_opt_private_key: str = Field(default="")
+    route_opt_client_email: str = Field(default="")
+
     # Preview deploy
     preview_deploy: bool = Field(default=False)
 
