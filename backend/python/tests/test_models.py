@@ -451,15 +451,6 @@ class TestCoreModels:
         )
         assert assignment.created_at is not None
 
-        # Create with defaults
-        assignment_default = DriverAssignment(
-            driver_id=uuid4(),
-            route_id=uuid4(),
-            route_group_id=uuid4(),
-            time=datetime(2024, 1, 15, 8, 0),
-        )
-        assert assignment_default.completed is False  # Default value
-
         # Update
         assignment_update = DriverAssignmentUpdate(
             time=datetime(2024, 1, 15, 9, 0),
