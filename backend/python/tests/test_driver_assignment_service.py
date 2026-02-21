@@ -44,7 +44,6 @@ class TestDriverAssignmentService:
             "route_id": test_route.route_id,
             "route_group_id": test_route_group.route_group_id,
             "time": datetime(2024, 1, 15, 8, 0),
-            "completed": False,
         }
 
     @pytest.fixture
@@ -121,14 +120,13 @@ class TestDriverAssignmentIntegration:
             route_id=test_route.route_id,
             route_group_id=test_route_group.route_group_id,
             time=datetime(2024, 1, 15, 8, 0),
-            completed=False,
         )
 
         created_assignment = await driver_assignment_service.create_driver_assignment(
             test_session, assignment_data
         )
         assert created_assignment is not None
-        assert created_assignment.completed is False
+        assert created_assignment.time == datetime(2024, 1, 15, 8, 0)
 
         # Read
         assignments = await driver_assignment_service.get_driver_assignments(
@@ -141,12 +139,12 @@ class TestDriverAssignmentIntegration:
         )
 
         # Update
-        update_data = DriverAssignmentUpdate(completed=True)
+        update_data = DriverAssignmentUpdate(time=datetime(2024, 1, 16, 8, 0))
         updated_assignment = await driver_assignment_service.update_driver_assignment(
             test_session, created_assignment.driver_assignment_id, update_data
         )
         assert updated_assignment is not None
-        assert updated_assignment.completed is True
+        assert updated_assignment.time == datetime(2024, 1, 16, 8, 0)
 
         # Delete
         delete_result = await driver_assignment_service.delete_driver_assignment(
