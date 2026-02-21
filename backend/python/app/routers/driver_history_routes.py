@@ -11,6 +11,7 @@ from app.models.driver_history import (
     MIN_YEAR,
     DriverHistoryCreate,
     DriverHistoryRead,
+    DriverHistorySummary,
     DriverHistoryUpdate,
 )
 from app.routers.driver_routes import get_drivers
@@ -25,6 +26,30 @@ logger = logging.getLogger(__name__)
 driver_history_service = DriverHistoryService(logger)
 
 router = APIRouter(prefix="/drivers/{driver_id}/history", tags=["driver-history"])
+
+
+@router.get("/summary", response_model=DriverHistorySummary)
+async def get_driver_history_summary(
+    driver_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> DriverHistorySummary:
+    """Get lifetime and current year KM summary for a driver"""
+    try:
+        driver_history_summary = (
+            await driver_history_service.get_driver_history_summary(session, driver_id)
+        )
+        if not driver_history_summary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver history with id {driver_id} not found",
+            )
+        return driver_history_summary
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
 
 
 @router.get("/{year}/export", response_class=StreamingResponse)
