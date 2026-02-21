@@ -208,9 +208,6 @@ async def test_seed_database_execution(test_session: AsyncSession) -> None:
     assert hasattr(first_assignment, "route_group_id"), (
         "DriverAssignment missing 'route_group_id' field"
     )
-    assert hasattr(first_assignment, "completed"), (
-        "DriverAssignment missing 'completed' field"
-    )
 
     # Verify driver history was created
     history = await test_session.execute(select(DriverHistory))
