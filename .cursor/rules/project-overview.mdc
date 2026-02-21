@@ -68,7 +68,7 @@ docker-compose exec backend ruff format .       # Format code
 docker-compose exec backend mypy .              # Type checking
 
 # Combined quality check
-docker-compose exec backend ruff check . && docker-compose exec backend ruff format --check . && docker-compose exec backend mypy .
+docker-compose exec backend ruff check . && docker-compose exec backend ruff format --check . && docker-compose exec backend mypy . --config-file mypy.ini
 ```
 
 ## Container Commands
