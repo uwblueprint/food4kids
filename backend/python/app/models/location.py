@@ -58,7 +58,7 @@ class LocationRowStatus(str, Enum):
     """Status for each row in a location import."""
 
     OK = "OK"
-    MISSING_ENTRY = "MISSING_ENTRY"
+    MISSING_FIELDS = "MISSING_FIELDS"
     DUPLICATE = "DUPLICATE"
     INVALID_FORMAT = "INVALID_FORMAT"
 
