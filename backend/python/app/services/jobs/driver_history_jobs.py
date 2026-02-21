@@ -65,17 +65,16 @@ async def process_daily_driver_history() -> None:
 
             # Group by driver_id and sum distances
             driver_distances: dict[UUID, float] = {}
-            assignment_ids_to_complete: list[UUID] = []
+            assignment_ids_to_complete: int = 0
 
             for row in assignments_with_distances:
                 driver_id = row.driver_id
-                assignment_id = row.driver_assignment_id
                 distance = row.length
 
                 driver_distances[driver_id] = (
                     driver_distances.get(driver_id, 0.0) + distance
                 )
-                assignment_ids_to_complete.append(assignment_id)
+                assignment_ids_to_complete += 1
 
             # Update or create driver history entries
             for driver_id, total_distance in driver_distances.items():
@@ -117,7 +116,7 @@ async def process_daily_driver_history() -> None:
 
             await session.commit()
             logger.info(
-                f"Successfully processed {len(assignment_ids_to_complete)} assignments "
+                f"Successfully processed {assignment_ids_to_complete} assignments "
                 f"for {len(driver_distances)} drivers"
             )
 
