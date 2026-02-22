@@ -60,6 +60,7 @@ class DriverService:
             self.logger.error(f"Failed to get driver by email: {e!s}")
             raise e
 
+    # TODO: auth is being changed right now, make sure this still works/is relevant
     async def get_driver_by_auth_id(
         self, session: AsyncSession, auth_id: str
     ) -> Driver | None:
@@ -113,7 +114,7 @@ class DriverService:
             try:
                 session.add(driver)
                 await session.commit()
-                await session.refresh(driver)
+                await session.refresh(driver, attribute_names=["user"])
                 return driver
 
             except Exception as db_error:
@@ -128,7 +129,11 @@ class DriverService:
     ) -> Driver | None:
         """Update driver by ID"""
         try:
-            statement = select(Driver).where(Driver.driver_id == driver_id)
+            statement = (
+                select(Driver)
+                .options(selectinload(Driver.user))  # type: ignore[arg-type]
+                .where(Driver.driver_id == driver_id)
+            )
             result = await session.execute(statement)
             driver = result.scalars().first()
 
@@ -159,7 +164,7 @@ class DriverService:
                 driver.notes = driver_data.notes
 
             await session.commit()
-            await session.refresh(driver)
+            await session.refresh(driver, attribute_names=["user"])
             return driver
 
         except Exception as e:
