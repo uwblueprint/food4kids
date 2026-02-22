@@ -172,12 +172,12 @@ class LocationService:
                 )
 
                 # case 1: missing required fields
-                if self._has_missing_fields(location):
+                if not self._required_fields_present(location):
                     location_row.status = LocationRowStatus.MISSING_FIELDS
                     rows.append(location_row)
                     continue
 
-                # case 2: invalid phone number format (location is ValidatedLocationImportEntry here)
+                # case 2: invalid phone number format
                 try:
                     location.phone_number = validate_phone(location.phone_number)
                 except ValueError:
@@ -273,7 +273,7 @@ class LocationService:
             dietary_restrictions=get_value("dietary_restrictions"),
         )
 
-    def _has_missing_fields(
+    def _required_fields_present(
         self, entry: LocationImportEntry
     ) -> TypeGuard[ValidatedLocationImportEntry]:
         required_fields = [
@@ -283,7 +283,7 @@ class LocationService:
             entry.phone_number,
             entry.num_boxes,
         ]
-        return any(not val for val in required_fields)
+        return not any(not val for val in required_fields)
 
     async def _build_location(self, location_data: LocationCreate) -> Location:
         """Geocode and build a Location object (does not add to session or commit)."""
