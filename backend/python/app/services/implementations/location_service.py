@@ -27,6 +27,8 @@ from app.utilities.utils import validate_phone
 # Allowed file extensions for location import files
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
 # Default CSV column names
 DEFAULT_COLUMN_MAP = {
     "contact_name": "Guardian Name",
@@ -153,12 +155,10 @@ class LocationService:
             await session.rollback()
             raise e
 
-    async def validate_locations(
-        self, _: AsyncSession, file: UploadFile
-    ) -> LocationImportResponse:
+    async def validate_locations(self, file: UploadFile) -> LocationImportResponse:
         """Validate location import data (no missing fields or local duplicates)"""
         try:
-            df = self._read_upload_file(file)
+            df = await self._read_upload_file(file)
             rows: list[LocationImportRow] = []
             loc_keys: set[tuple[str, str]] = set()
 
@@ -211,7 +211,7 @@ class LocationService:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
 
-    def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
+    async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
 
         filename = file.filename or ""
@@ -222,14 +222,19 @@ class LocationService:
             )
 
         # return dataframe using appropriate reader based on file extension
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise ValueError(f"File size exceeds {MAX_FILE_SIZE} bytes")
+        bytes_io = BytesIO(content)
+
         if ext == ".xlsx":
             return pd.read_excel(
-                BytesIO(file.file.read()),
+                bytes_io,
                 engine="openpyxl",
                 dtype=str,
             )
         return pd.read_csv(
-            BytesIO(file.file.read()),
+            bytes_io,
             dtype=str,
         )
 
@@ -283,7 +288,7 @@ class LocationService:
             entry.phone_number,
             entry.num_boxes,
         ]
-        return not any(not val for val in required_fields)
+        return not any(val is None for val in required_fields)
 
     async def _build_location(self, location_data: LocationCreate) -> Location:
         """Geocode and build a Location object (does not add to session or commit)."""
