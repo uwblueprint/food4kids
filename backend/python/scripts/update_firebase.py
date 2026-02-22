@@ -1,3 +1,16 @@
+"""
+Developer utility for syncing Firebase user roles with your local database.
+
+Use this when your Firebase custom claims are out of sync with the local DB
+(e.g. after a database reset or when onboarding a new dev account).
+
+Run from backend/python/:
+    python scripts/update_firebase.py
+
+Requires ADMIN_EMAIL set in your .env and Firebase credentials configured.
+Edit the variables at the bottom of this file before running.
+"""
+
 import os
 
 from firebase_admin import auth

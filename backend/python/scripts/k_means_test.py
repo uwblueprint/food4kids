@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-Test script for KMeans clustering with real database locations.
-Run with: python -m app.services.implementations.k_means_test
+Developer script for visually testing the KMeans clustering algorithm against
+real database locations. Fetches locations from the DB, runs clustering, and
+saves a scatter plot to app/data/kmeans_test.png.
+
+Run from backend/python/:
+    python scripts/k_means_test.py
+
+Requires a running database (e.g. via docker compose).
+Configure the parameters below before running.
 """
 
 import os
