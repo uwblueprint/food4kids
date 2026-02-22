@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel, String
@@ -64,6 +64,8 @@ class LocationRowStatus(str, Enum):
 
 
 class LocationImportEntry(SQLModel):
+    """Parsed row from import file; all fields optional until validated."""
+
     contact_name: str | None = None
     address: str | None = None
     delivery_group: str | None = None
@@ -71,6 +73,18 @@ class LocationImportEntry(SQLModel):
     num_boxes: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
+
+
+class ValidatedLocationImportEntry(Protocol):
+    """Type view of LocationImportEntry after required-fields check. Use with TypeGuard."""
+
+    contact_name: str
+    address: str
+    delivery_group: str
+    phone_number: str
+    num_boxes: int
+    halal: bool | None
+    dietary_restrictions: str | None
 
 
 class LocationImportRow(SQLModel):
