@@ -222,7 +222,7 @@ class LocationService:
             )
 
         # check file size
-        if file.size > MAX_FILE_SIZE:
+        if file.size and file.size > MAX_FILE_SIZE:
             raise ValueError(f"File size exceeds {MAX_FILE_SIZE} bytes")
 
         # read file into bytes io
