@@ -14,6 +14,7 @@ class AdminBase(SQLModel):
 
     receive_email_notifications: bool = Field(default=True, nullable=False)
     admin_phone: str = Field(min_length=1, max_length=100, nullable=False)
+    route_archive_after: int = Field(default=30, nullable=False)
 
     @field_validator("admin_phone")
     @classmethod
@@ -62,3 +63,4 @@ class AdminUpdate(SQLModel):
     # user fields
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None)
+    route_archive_after: int | None = Field(default=None)
