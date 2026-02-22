@@ -1,12 +1,19 @@
+from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import String
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
+
+
+class LocationState(str, Enum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
 
 
 class LocationBase(SQLModel):
@@ -27,6 +34,7 @@ class LocationBase(SQLModel):
     num_children: int | None = None
     num_boxes: int
     notes: str = Field(default="")
+    state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -68,3 +76,80 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+    state: LocationState | None = None
+
+
+class ImportStatus(str, Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
+class LocationImportStatus(str, Enum):
+    """Status for each row in a location import."""
+
+    OK = "OK"
+    MISSING_ENTRY = "MISSING_ENTRY"
+    DUPLICATE = "DUPLICATE"
+    INVALID_FORMAT = "INVALID_FORMAT"
+
+
+class LocationImportEntry(SQLModel):
+    contact_name: str | None = None
+    address: str | None = None
+    delivery_group: str | None = None
+    phone_number: str | None = None
+    num_boxes: int | None = None
+    halal: bool | None = None
+    dietary_restrictions: str | None = None
+
+
+class LocationImportRow(SQLModel):
+    row: int
+    location: LocationImportEntry
+    status: LocationImportStatus
+
+
+class LocationImportResponse(SQLModel):
+    status: ImportStatus
+    total_rows: int
+    successful_rows: int
+    unsuccessful_rows: int
+    rows: list[LocationImportRow]
+
+
+class LocationDeduplicationRequest(SQLModel):
+    rows: list[LocationImportRow]
+
+
+class LocationDeduplicationEntry(SQLModel):
+    location: LocationImportRow
+    matched_location: list[LocationRead] = []
+
+
+class LocationDeduplicationResponse(SQLModel):
+    net_new: list[LocationDeduplicationEntry]
+    similar: list[LocationDeduplicationEntry]
+    duplicate: list[LocationDeduplicationEntry]
+    stale: list[LocationRead]
+
+
+class ConflictResolution(str, Enum):
+    ACCEPT = "ACCEPT"
+    DENY = "DENY"
+
+
+class ResolvedConflictEntry(SQLModel):
+    location: LocationImportRow
+    matched_location_id: UUID
+    resolution: ConflictResolution
+
+
+class LocationIngestRequest(SQLModel):
+    net_new: list[LocationImportRow]
+    resolved_conflicts: list[ResolvedConflictEntry]
+    stale_location_ids: list[UUID]
+
+
+class LocationIngestResponse(SQLModel):
+    created_locations: list[LocationRead]
+    archived_locations: list[LocationRead]

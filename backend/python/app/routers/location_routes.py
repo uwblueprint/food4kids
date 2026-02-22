@@ -1,20 +1,24 @@
-import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.services import get_google_maps_client
+from app.dependencies.services import get_location_service
 
 # from app.dependencies.auth import require_driver
 from app.models import get_session
-from app.models.location import LocationCreate, LocationRead, LocationUpdate
+from app.models.location import (
+    LocationCreate,
+    LocationDeduplicationRequest,
+    LocationDeduplicationResponse,
+    LocationImportResponse,
+    LocationImportRow,
+    LocationIngestRequest,
+    LocationIngestResponse,
+    LocationRead,
+    LocationUpdate,
+)
 from app.services.implementations.location_service import LocationService
-
-# Initialize service
-logger = logging.getLogger(__name__)
-google_maps_client = get_google_maps_client()
-location_service = LocationService(logger, google_maps_client)
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -22,6 +26,7 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 @router.get("/", response_model=list[LocationRead])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
     # _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """
@@ -41,6 +46,7 @@ async def get_locations(
 async def get_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
     # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
@@ -65,6 +71,7 @@ async def get_location(
 async def create_location(
     location: LocationCreate,
     session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
     # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
@@ -87,6 +94,7 @@ async def update_location(
     location_id: UUID,
     updated_location_data: LocationUpdate,
     session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
     # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
@@ -113,6 +121,7 @@ async def update_location(
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_locations(
     session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
     # _: bool = Depends(require_driver),
 ) -> None:
     """
@@ -131,6 +140,7 @@ async def delete_all_locations(
 async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
     # _: bool = Depends(require_driver),
 ) -> None:
     """
@@ -138,6 +148,80 @@ async def delete_location(
     """
     try:
         await location_service.delete_location_by_id(session, location_id)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/validate",
+    response_model=LocationImportResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_locations(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
+    # _: bool = Depends(require_driver),
+) -> LocationImportResponse:
+    """
+    Validate location import data (no missing fields or local duplicates)
+    """
+    try:
+        result = await location_service.validate_locations(session, file)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/deduplicate",
+    response_model=LocationDeduplicationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def deduplicate_locations(
+    request: LocationDeduplicationRequest,
+    session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
+) -> LocationDeduplicationResponse:
+    """
+    Deduplicate import rows against existing DB locations as net new, similar, or duplicate. Also return stale entries in the db.
+    """
+    try:
+        return await location_service.deduplicate_locations(session, request)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/ingest",
+    response_model=LocationIngestResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def ingest_locations(
+    request: LocationIngestRequest,
+    session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
+) -> LocationIngestResponse:
+    """
+    Ingest locations: create net new entries, resolve conflicts (accept/deny),
+    and archive stale entries.
+    """
+    try:
+        return await location_service.ingest_locations(session, request)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
