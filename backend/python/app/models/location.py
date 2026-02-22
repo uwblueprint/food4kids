@@ -50,8 +50,8 @@ class Location(LocationBase, BaseModel, table=True):
 
 
 class LocationImportStatus(str, Enum):
-    SUCCESS = "success"
-    FAILURE = "failure"
+    SUCCESS = "SUCESS"
+    FAILURE = "FAILURE"
 
 
 class LocationRowStatus(str, Enum):
