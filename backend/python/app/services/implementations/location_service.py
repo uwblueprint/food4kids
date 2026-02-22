@@ -221,12 +221,12 @@ class LocationService:
                 f"Unsupported file type '{ext}'. Must be one of: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
             )
 
-        # return dataframe using appropriate reader based on file extension
-        content = await file.read()
-        if len(content) > MAX_FILE_SIZE:
+        # check file size
+        if file.size > MAX_FILE_SIZE:
             raise ValueError(f"File size exceeds {MAX_FILE_SIZE} bytes")
-        bytes_io = BytesIO(content)
 
+        # read file into bytes io
+        bytes_io = BytesIO(await file.read())
         if ext == ".xlsx":
             return pd.read_excel(
                 bytes_io,
