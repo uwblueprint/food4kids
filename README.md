@@ -59,6 +59,7 @@ food4kids/
 │       │   │   └── protocols/      # Algorithms and how the server handles data
 │       │   ├── templates/          # Email/HTML templates
 │       │   └── utilities/          # Shared utility functions
+│       ├── scripts/                # Developer scripts (not run by CI — run manually to test/troubleshoot)
 │       ├── tests/                  # Unit and functional tests
 │       ├── alembic.ini            # Alembic configuration
 │       ├── requirements.txt       # Python dependencies
@@ -751,6 +752,22 @@ docker-compose exec backend python -m pytest tests/unit/test_models.py
 
 # Run with coverage
 docker-compose exec backend python -m pytest --cov=app
+```
+
+### Developer Scripts
+
+Scripts for manually testing or troubleshooting specific functionality live in `backend/python/scripts/`. These are **not** run by CI — developers run them locally as needed.
+
+| Script | Purpose |
+|---|---|
+| `scripts/k_means_test.py` | Run K-Means clustering against real DB locations and save a scatter plot to `app/data/kmeans_test.png` |
+| `scripts/update_firebase.py` | Sync Firebase custom role claims to match your local database |
+
+Run from inside the backend container or from `backend/python/` with the venv active:
+
+```bash
+docker-compose exec backend python scripts/k_means_test.py
+docker-compose exec backend python scripts/update_firebase.py
 ```
 
 ## FAQ & Debugging
