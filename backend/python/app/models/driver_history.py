@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING  # noqa: F401
 from uuid import UUID
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel  # noqa: F401
 
 from .base import BaseModel
@@ -13,10 +14,16 @@ MAX_YEAR = 2100
 
 
 class DriverHistoryBase(SQLModel):
+    __table_args__ = (
+        UniqueConstraint("driver_id", "year", "month"),
+    )
+
     """Shared fields between table and API models"""
 
     driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
     year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
+    # The month is an int 1-12
+    month: int = Field(nullable=False, ge=1, le=12)
     km: float = Field(nullable=False)
 
 

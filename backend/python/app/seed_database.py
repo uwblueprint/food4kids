@@ -656,33 +656,44 @@ def main() -> None:
             all_drivers_result = session.execute(
                 text("SELECT driver_id FROM drivers")
             ).fetchall()
+
             for driver_row in all_drivers_result:
-                # Filter years to only include valid ones (2025-2100)
                 valid_years = [y for y in years if 2025 <= y <= 2100]
                 if not valid_years:
-                    valid_years = [current_year]  # At least use current year
+                    valid_years = [current_year]
+
                 driver_years = random.sample(
                     valid_years, random.randint(1, len(valid_years))
                 )
+
                 for year in driver_years:
+
                     if (
                         year == current_year
                         and random.random() < PROBABILITY_SKIP_CURRENT_YEAR_HISTORY
                     ):
                         continue
-                    driver_history = DriverHistory(
-                        driver_id=driver_row[0],  # Access first column (driver_id)
-                        year=year,
-                        km=round(
-                            random.uniform(
-                                DRIVER_HISTORY_KM_MIN, DRIVER_HISTORY_KM_MAX
+
+                    # ⭐ NEW: create entries for random months
+                    months = random.sample(range(1, 13), random.randint(3, 12))
+
+                    for month in months:
+                        driver_history = DriverHistory(
+                            driver_id=driver_row[0],
+                            year=year,
+                            month=month,  # ⭐ REQUIRED NOW
+                            km=round(
+                                random.uniform(
+                                    DRIVER_HISTORY_KM_MIN,
+                                    DRIVER_HISTORY_KM_MAX,
+                                ),
+                                2,
                             ),
-                            2,
-                        ),
-                    )
-                    set_timestamps(driver_history)
-                    session.add(driver_history)
-                    history_entries += 1
+                        )
+
+                        set_timestamps(driver_history)
+                        session.add(driver_history)
+                        history_entries += 1
 
             session.commit()
             print(f"Created {history_entries} driver history entries")

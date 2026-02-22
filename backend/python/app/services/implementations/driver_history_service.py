@@ -27,38 +27,52 @@ class DriverHistoryService:
             self.logger.error(f"Failed to get driver histories: {e!s}")
             raise e
 
-    async def get_driver_history_by_id(
-        self, session: AsyncSession, driver_id: UUID
-    ) -> list[DriverHistory]:
-        """Get a driver history by ID"""
-        try:
-            statement = select(DriverHistory).where(
-                DriverHistory.driver_id == driver_id
-            )
-            result = await session.execute(statement)
-            driver_history = result.scalars().all()
-
-            return list(driver_history)
-        except Exception as e:
-            self.logger.error(f"Failed to get driver history by id: {e!s}")
-            raise e
+    async def get_driver_history_by_id_year_and_month(
+        self, session: AsyncSession, driver_id: UUID, year: int, month: int
+    ) -> DriverHistory | None:
+        """Return a single driver history for a specific month"""
+        statement = select(DriverHistory).where(
+            DriverHistory.driver_id == driver_id,
+            DriverHistory.year == year,
+            DriverHistory.month == month
+        )
+        result = await session.execute(statement)
+        return result.scalars().first()
 
     async def get_driver_history_by_id_and_year(
         self, session: AsyncSession, driver_id: UUID, year: int
-    ) -> DriverHistory | None:
-        """Get a driver history by ID and year"""
-        try:
-            statement = select(DriverHistory).where(
-                DriverHistory.driver_id == driver_id,
-                DriverHistory.year == year,
-            )
-            result = await session.execute(statement)
-            driver_history = result.scalars().first()
+    ) -> list[DriverHistory]:
+        """Return all driver histories for a driver for a specific year"""
+        # Fetch all 12 months using the month-specific service
+        histories = []
+        for month in range(1, 13):
+            history = await self.get_driver_history_by_id_year_and_month(session, driver_id, year, month)
+            if history:
+                histories.append(history)
 
-            return driver_history
-        except Exception as e:
-            self.logger.error(f"Failed to get driver history by id and year: {e!s}")
-            raise e
+        # Sort by month (ascending)
+        histories.sort(key=lambda h: h.month)
+        return histories
+
+    async def get_driver_history_by_id(
+        self, session: AsyncSession, driver_id: UUID
+    ) -> list[DriverHistory]:
+        """Return all driver histories for a driver"""
+        # Fetch all years by first getting distinct years from DB
+        statement = select(DriverHistory.year).where(
+            DriverHistory.driver_id == driver_id
+        ).distinct()
+        result = await session.execute(statement)
+        years = [row[0] for row in result.fetchall()]
+
+        histories = []
+        for year in sorted(years):
+            year_histories = await self.get_driver_history_by_id_and_year(session, driver_id, year)
+            histories.extend(year_histories)
+
+        # Sort overall by year then month
+        histories.sort(key=lambda h: (h.year, h.month))
+        return histories
 
     async def create_driver_history(
         self,

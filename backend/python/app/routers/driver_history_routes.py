@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -106,6 +106,60 @@ async def get_driver_history(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+
+@router.get("/", response_model=list[DriverHistoryRead])
+async def get_driver_history(
+    driver_id: UUID,
+    year: int | None = Query(default=None, ge=2025, le=2100),
+    month: int | None = Query(default=None, ge=1, le=12),
+    session: AsyncSession = Depends(get_session),
+) -> list[DriverHistoryRead]:
+    """
+    Get driver history with optional year and month.
+    Rules:
+    - No year, no month: return all histories
+    - Year only: return all months for that year
+    - Year + month: return specific month
+    - Month without year: 400 error
+    """
+    if month is not None and year is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot provide month without year"
+        )
+
+    try:
+        if year is None:
+            # No filters → return all histories
+            histories = await driver_history_service.get_driver_history_by_id(session, driver_id)
+        elif month is None:
+            # Year only → all months for that year
+            histories = await driver_history_service.get_driver_history_by_id_and_year(session, driver_id, year)
+            # Ensure list
+            if not isinstance(histories, list):
+                histories = [histories] if histories else []
+        else:
+            # Year + month → single month
+            driver_history = await driver_history_service.get_driver_history_by_id_year_and_month(session, driver_id, year, month)
+            histories = [driver_history] if driver_history else []
+
+        if not histories:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No driver history found for the provided filters"
+            )
+
+        # Convert to response model
+        return [DriverHistoryRead.model_validate(h) for h in histories]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         ) from e
 
 
