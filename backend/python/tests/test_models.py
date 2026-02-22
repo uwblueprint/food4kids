@@ -554,8 +554,8 @@ class TestEnumsAndSerialization:
     def test_all_enum_values_and_serialization(self) -> None:
         """Comprehensive test for all enums and their serialization."""
         # Test RoleEnum
-        assert RoleEnum.USER.value == "User"
-        assert RoleEnum.ADMIN.value == "Admin"
+        assert RoleEnum.DRIVER.value == "driver"
+        assert RoleEnum.ADMIN.value == "admin"
 
         # Test ProgressEnum
         assert ProgressEnum.PENDING.value == "Pending"

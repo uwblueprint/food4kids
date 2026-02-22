@@ -57,24 +57,15 @@ def require_authorization_by_role(roles: set[str]) -> Callable:
         access_token: str = Depends(get_access_token),
         session: AsyncSession = Depends(get_session),
     ) -> bool:
-        try:
-            # TODO: Fix Authorization and Role Based Management in future commit.
-
-            # authorized = await auth_service.is_authorized_by_role(
-            #     session, access_token, roles
-            # )
-            # if not authorized:
-            #     raise HTTPException(
-            #         status_code=status.HTTP_401_UNAUTHORIZED,
-            #         detail="You are not authorized to make this request.",
-            #     )
-
-            return True
-        except Exception as e:
+        authorized = await auth_service.is_authorized_by_role(
+            session, access_token, roles
+        )
+        if not authorized:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to make this request.",
-            ) from e
+            )
+        return True
 
     return check_role
 
@@ -137,7 +128,7 @@ def require_authorization_by_email(email: str) -> Callable:
 
 
 # Common authorization dependencies
-require_driver = require_authorization_by_role({"Driver"})
+require_admin = require_authorization_by_role({"admin"})
 
 
 def get_current_user_id(access_token: str = Depends(get_access_token)) -> str:

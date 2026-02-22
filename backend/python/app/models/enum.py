@@ -22,8 +22,8 @@ class SimpleEntityEnum(str, Enum):
 class RoleEnum(str, Enum):
     """User role enum with string values"""
 
-    USER = "User"
-    ADMIN = "Admin"
+    DRIVER = "driver"
+    ADMIN = "admin"
 
 
 class ProgressEnum(str, Enum):

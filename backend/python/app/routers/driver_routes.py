@@ -20,7 +20,6 @@ async def get_drivers(
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Query(None, description="Filter by driver ID"),
     email: str | None = Query(None, description="Filter by email"),
-    # _: bool = Depends(require_driver),
 ) -> list[DriverRead]:
     """
     Get all drivers, optionally filter by driver_id or email
@@ -66,7 +65,6 @@ async def get_drivers(
 async def get_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> DriverRead:
     """
     Get a single driver by ID
@@ -84,7 +82,6 @@ async def get_driver(
 async def create_driver(
     driver: DriverCreate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_user_or_admin),  # Temporarily disabled for testing
 ) -> DriverRead:
     """
     Create a new driver
@@ -103,7 +100,6 @@ async def update_driver(
     driver_id: UUID,
     driver: DriverUpdate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> DriverRead:
     """
     Update an existing driver
@@ -123,7 +119,6 @@ async def update_driver(
 async def delete_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a driver by ID

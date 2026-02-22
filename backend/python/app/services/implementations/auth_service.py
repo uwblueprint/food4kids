@@ -5,8 +5,6 @@ from uuid import UUID
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.driver import DriverCreate
-from app.models.user import UserCreate
 from app.schemas.auth import AuthResponse, TokenResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
@@ -75,73 +73,6 @@ class AuthService:
             self.logger.error(f"Authentication failed for email {email}: {e!s}")
             # Always return the same generic error message to prevent enumeration
             raise ValueError("Invalid email or password") from e
-
-    async def generate_token_for_oauth(
-        self, session: AsyncSession, id_token: str
-    ) -> AuthResponse:
-        try:
-            # Verify the ID token with Firebase
-            decoded_token: dict[str, str] = firebase_admin.auth.verify_id_token(
-                id_token
-            )
-            user_id = decoded_token["uid"]
-            email = decoded_token["email"]
-
-            # If user already has a login with this email, just return the token
-            try:
-                # Note: an error message will be logged from UserService if this lookup fails.
-                # You may want to silence the logger for this special OAuth user lookup case
-                user = await self.user_service.get_user_by_email(session, email)
-                if user is None:
-                    self.logger.warning(
-                        f"Firebase user {email} exists but not found in database - potential data inconsistency"
-                    )
-                    raise ValueError("Invalid email or password")
-
-                return AuthResponse(
-                    access_token=id_token,
-                    id=user.user_id,
-                    name=user.name,
-                    email=user.email,
-                )
-            except Exception:
-                pass
-
-            # Create new user and driver for OAuth
-            user = await self.user_service.create_user(
-                session,
-                UserCreate(
-                    name=decoded_token.get("name", "")
-                    if decoded_token.get("name")
-                    else "",
-                    email=email,
-                    password="placeholder",  # TODO: How to handle this?
-                ),
-                auth_id=user_id,
-                signup_method="GOOGLE",
-            )
-            await self.driver_service.create_driver(
-                session,
-                DriverCreate(
-                    phone="",  # OAuth users don't have phone initially
-                    address="",  # OAuth users don't have address initially
-                    license_plate="",  # OAuth users don't have license plate initially
-                    car_make_model="",  # OAuth users don't have car info initially
-                    user_id=user.user_id,
-                ),
-            )
-            return AuthResponse(
-                access_token=id_token,
-                id=user.user_id,
-                name=user.name,
-                email=user.email,
-            )
-        except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                f"Failed to generate token for user with OAuth id token. Reason = {reason if reason else str(e)}"
-            )
-            raise e
 
     async def revoke_tokens(self, session: AsyncSession, user_id: UUID) -> None:
         try:
@@ -222,10 +153,8 @@ class AuthService:
             raise e
 
     async def is_authorized_by_role(
-        self, _session: AsyncSession, access_token: str, _roles: set[str]
+        self, _session: AsyncSession, access_token: str, roles: set[str]
     ) -> bool:
-        # TODO: Maybe add db role check for extra security? I highly doubt users will switch roles though...
-        # Also would have to deal with performance bottlenecks
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
                 access_token, check_revoked=True
@@ -237,7 +166,7 @@ class AuthService:
                 )
                 return False
             # Allow if role is in the authorized set
-            return user_role in _roles
+            return user_role in roles
         except Exception as e:
             self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
             return False
