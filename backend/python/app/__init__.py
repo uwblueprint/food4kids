@@ -1,5 +1,6 @@
+import asyncio
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from logging.config import dictConfig
 
 import firebase_admin
@@ -8,10 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.dependencies.services import get_scheduler_service
 from app.services.jobs import init_jobs
+from app.workers.job_worker import JobWorker
 
 from .config import settings
 from .models import init_app as init_models
 from .routers import init_app as init_routers
+
+job_worker: JobWorker | None = None
 
 
 def configure_logging() -> None:
@@ -117,6 +121,8 @@ def initialize_firebase() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan management"""
+    global job_worker
+
     # Startup
     configure_logging()
     initialize_firebase()
@@ -127,10 +133,23 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     scheduler_service.start()
     init_jobs(scheduler_service)
 
+    job_worker = JobWorker(
+        poll_interval=5, job_timeout_minutes=30, enable_orphan_recovery=True
+    )
+
+    worker_task = asyncio.create_task(job_worker.start())
+
     yield
 
-    # Cleanup: stop the scheduler service during application shutdown
     scheduler_service.stop()
+
+    if job_worker:
+        job_worker.stop()
+
+    worker_task.cancel()
+    with suppress(asyncio.CancelledError):
+        # Expected during shutdown - task was cancelled gracefully
+        await worker_task
 
 
 def create_app() -> FastAPI:

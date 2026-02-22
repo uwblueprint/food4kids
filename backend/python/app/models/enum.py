@@ -28,6 +28,7 @@ class RoleEnum(str, Enum):
 
 class ProgressEnum(str, Enum):
     PENDING = "Pending"
+    QUEUED = "Queued"
     RUNNING = "Running"
     COMPLETED = "Completed"
     FAILED = "Failed"
