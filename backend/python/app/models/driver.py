@@ -1,6 +1,7 @@
+from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator
+from pydantic import EmailStr, field_validator, model_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.user import User
@@ -37,12 +38,41 @@ class DriverCreate(DriverBase):
 
 
 class DriverRead(DriverBase):
+    model_config = {"from_attributes": True}
+
     driver_id: UUID
-    auth_id: str
     user_id: UUID
+
+    # These are from the User
+    auth_id: str
     name: str
     email: EmailStr
-    role: str  # comes from User
+    role: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_user_fields(cls, data: Any) -> Any:
+        if (
+            not isinstance(data, dict)
+            and hasattr(data, "user")
+            and data.user is not None
+        ):
+            user = data.user
+            return {
+                "driver_id": data.driver_id,
+                "user_id": data.user_id,
+                "phone": data.phone,
+                "license_plate": data.license_plate,
+                "car_make_model": data.car_make_model,
+                "active": data.active,
+                "notes": data.notes,
+                "address": data.address,
+                "auth_id": user.auth_id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role,
+            }
+        return data
 
 
 class DriverUpdate(SQLModel):
