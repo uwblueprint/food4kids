@@ -15,7 +15,7 @@ from app.utilities.routes_utils import fetch_route_polyline
 
 
 @pytest.mark.asyncio
-async def test_fetch_route_polyline_with_return():
+async def test_fetch_route_polyline_with_return() -> None:
     """Test fetching polyline with return to warehouse."""
 
     # Create mock locations
