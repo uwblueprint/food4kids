@@ -4,8 +4,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_location_service
-
-# from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.location import (
     LocationCreate,
@@ -22,7 +20,6 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-    # _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """
     Get all locations
@@ -42,7 +39,6 @@ async def get_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-    # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Get a single location by ID
@@ -67,7 +63,6 @@ async def create_location(
     location: LocationCreate,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-    # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Create a new location
@@ -90,7 +85,6 @@ async def update_location(
     updated_location_data: LocationUpdate,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-    # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Update a location by ID
@@ -117,7 +111,6 @@ async def update_location(
 async def delete_all_locations(
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-    # _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete all locations
@@ -136,7 +129,6 @@ async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-    # _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a location by ID
@@ -162,15 +154,13 @@ async def delete_location(
 )
 async def validate_locations(
     file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-    # _: bool = Depends(require_driver),
 ) -> LocationImportResponse:
     """
     Validate location import data (no missing fields or local duplicates)
     """
     try:
-        result = await location_service.validate_locations(session, file)
+        result = await location_service.validate_locations(file)
         return result
     except Exception as e:
         raise HTTPException(
