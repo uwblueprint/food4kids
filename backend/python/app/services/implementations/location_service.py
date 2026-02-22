@@ -1,6 +1,7 @@
 import logging
 import os
 from io import BytesIO
+from typing import TypeGuard
 from uuid import UUID
 
 import pandas as pd
@@ -18,6 +19,7 @@ from app.models.location import (
     LocationRowStatus,
     LocationState,
     LocationUpdate,
+    ValidatedLocationImportEntry,
 )
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import validate_phone
@@ -164,7 +166,7 @@ class LocationService:
                 location = self._parse_row(row, DEFAULT_COLUMN_MAP)
 
                 location_row = LocationImportRow(
-                    row=index + 1,
+                    row=int(index) + 1,
                     location=location,
                     status=LocationRowStatus.OK,
                 )
@@ -175,10 +177,10 @@ class LocationService:
                     rows.append(location_row)
                     continue
 
-                # case 2: invalid phone number format
+                # case 2: invalid phone number format (location is ValidatedLocationImportEntry here)
                 try:
                     location.phone_number = validate_phone(location.phone_number)
-                except (ValueError, Exception):
+                except ValueError:
                     location_row.status = LocationRowStatus.INVALID_FORMAT
                     rows.append(location_row)
                     continue
@@ -271,8 +273,9 @@ class LocationService:
             dietary_restrictions=get_value("dietary_restrictions"),
         )
 
-    def _has_missing_fields(self, entry: LocationImportEntry) -> bool:
-        """Check if any required fields are missing."""
+    def _has_missing_fields(
+        self, entry: LocationImportEntry
+    ) -> TypeGuard[ValidatedLocationImportEntry]:
         required_fields = [
             entry.contact_name,
             entry.address,
@@ -281,3 +284,35 @@ class LocationService:
             entry.num_boxes,
         ]
         return any(not val for val in required_fields)
+
+    async def _build_location(self, location_data: LocationCreate) -> Location:
+        """Geocode and build a Location object (does not add to session or commit)."""
+        if not location_data.longitude or not location_data.latitude:
+            address = location_data.address
+
+            # geocode address to get location metadata
+            geocode_result = await self.google_maps_service.geocode_address(address)
+
+            if not geocode_result:
+                raise ValueError(f"Geocoding failed for address: {address}")
+
+            location_data.address = geocode_result.formatted_address
+            location_data.longitude = geocode_result.longitude
+            location_data.latitude = geocode_result.latitude
+            location_data.place_id = geocode_result.place_id
+
+        return Location(
+            location_group_id=location_data.location_group_id,
+            school_name=location_data.school_name,
+            contact_name=location_data.contact_name,
+            address=location_data.address,
+            phone_number=location_data.phone_number,
+            longitude=location_data.longitude,
+            latitude=location_data.latitude,
+            place_id=location_data.place_id,
+            halal=location_data.halal,
+            dietary_restrictions=location_data.dietary_restrictions,
+            num_children=location_data.num_children,
+            num_boxes=location_data.num_boxes,
+            notes=location_data.notes,
+        )
