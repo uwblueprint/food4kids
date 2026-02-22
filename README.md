@@ -762,12 +762,15 @@ Scripts for manually testing or troubleshooting specific functionality live in `
 |---|---|
 | `scripts/k_means_test.py` | Run K-Means clustering against real DB locations and save a scatter plot to `app/data/kmeans_test.png` |
 | `scripts/update_firebase.py` | Sync Firebase custom role claims to match your local database |
+| `scripts/fetch_route_polyline_test.py` | Test `fetch_route_polyline` with mock locations and print the encoded polyline + distance |
 
 Run from inside the backend container or from `backend/python/` with the venv active:
 
 ```bash
 docker-compose exec backend python scripts/k_means_test.py
 docker-compose exec backend python scripts/update_firebase.py
+# pytest-based scripts need pytest to run:
+docker-compose exec backend pytest scripts/fetch_route_polyline_test.py -v -s
 ```
 
 ## FAQ & Debugging
