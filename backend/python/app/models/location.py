@@ -1,12 +1,20 @@
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, String
 
 from .base import BaseModel
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
+
+
+class LocationState(str, Enum):
+    """State of a location"""
+
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
 
 
 class LocationBase(SQLModel):
@@ -27,6 +35,7 @@ class LocationBase(SQLModel):
     num_children: int | None = None
     num_boxes: int
     notes: str = Field(default="")
+    state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -38,6 +47,58 @@ class Location(LocationBase, BaseModel, table=True):
 
     # Relationship back to location group
     location_group: "LocationGroup" = Relationship(back_populates="locations")
+
+
+class LocationImportStatus(str, Enum):
+    SUCCESS = "SUCESS"
+    FAILURE = "FAILURE"
+
+
+class LocationRowStatus(str, Enum):
+    """Status for each row in a location import."""
+
+    OK = "OK"
+    MISSING_FIELDS = "MISSING_FIELDS"
+    DUPLICATE = "DUPLICATE"
+    INVALID_FORMAT = "INVALID_FORMAT"
+
+
+class LocationImportEntry(SQLModel):
+    """Parsed row from import file; all fields optional until validated."""
+
+    contact_name: str | None = None
+    address: str | None = None
+    delivery_group: str | None = None
+    phone_number: str | None = None
+    num_boxes: int | None = None
+    halal: bool | None = None
+    dietary_restrictions: str | None = None
+
+
+class ValidatedLocationImportEntry(Protocol):
+    """Type view of LocationImportEntry after required-fields check. Use with TypeGuard."""
+
+    contact_name: str
+    address: str
+    delivery_group: str
+    phone_number: str
+    num_boxes: int
+    halal: bool | None
+    dietary_restrictions: str | None
+
+
+class LocationImportRow(SQLModel):
+    row: int
+    location: LocationImportEntry
+    status: LocationRowStatus
+
+
+class LocationImportResponse(SQLModel):
+    status: LocationImportStatus
+    total_rows: int
+    successful_rows: int
+    unsuccessful_rows: int
+    rows: list[LocationImportRow]
 
 
 class LocationCreate(LocationBase):

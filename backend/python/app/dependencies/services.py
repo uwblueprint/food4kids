@@ -16,6 +16,7 @@ from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.entity_service import EntityService
 from app.services.implementations.location_group_service import LocationGroupService
+from app.services.implementations.location_service import LocationService
 from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
@@ -130,3 +131,11 @@ def get_google_maps_client() -> GoogleMapsClient:
     """Get Google Maps client instance"""
     logger = get_logger()
     return GoogleMapsClient(logger, settings.google_maps_api_key)
+
+
+@lru_cache
+def get_location_service() -> LocationService:
+    """Get location service instance"""
+    logger = get_logger()
+    google_maps_client = get_google_maps_client()
+    return LocationService(logger, google_maps_client)
