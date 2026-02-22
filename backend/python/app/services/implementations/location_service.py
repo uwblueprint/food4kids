@@ -166,7 +166,7 @@ class LocationService:
                 location = self._parse_row(row, DEFAULT_COLUMN_MAP)
 
                 location_row = LocationImportRow(
-                    row=int(index) + 1,
+                    row=int(index) + 1,  # type: ignore[call-overload]
                     location=location,
                     status=LocationRowStatus.OK,
                 )
