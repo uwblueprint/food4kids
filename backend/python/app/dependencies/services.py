@@ -15,6 +15,7 @@ from app.services.implementations.driver_assignment_service import (
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.entity_service import EntityService
+from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
@@ -86,6 +87,13 @@ def get_simple_entity_service() -> SimpleEntityService:
     """Get simple entity service instance"""
     logger = get_logger()
     return SimpleEntityService(logger)
+
+
+@lru_cache
+def get_note_chain_service() -> NoteChainService:
+    """Get note chain service instance"""
+    logger = get_logger()
+    return NoteChainService(logger)
 
 
 @lru_cache

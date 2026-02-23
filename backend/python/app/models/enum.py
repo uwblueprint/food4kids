@@ -31,3 +31,10 @@ class ProgressEnum(str, Enum):
     RUNNING = "Running"
     COMPLETED = "Completed"
     FAILED = "Failed"
+
+
+class NotePermission(str, Enum):
+    """Controls who can read/write on a note chain"""
+
+    ADMIN = "Admin"
+    ALL = "All"

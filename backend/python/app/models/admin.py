@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
@@ -8,12 +9,18 @@ from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
+if TYPE_CHECKING:
+    from .note_chain import NoteChain
+
 
 class AdminBase(SQLModel):
     """Shared fields between table and API models"""
 
     receive_email_notifications: bool = Field(default=True, nullable=False)
     admin_phone: str = Field(min_length=1, max_length=100, nullable=False)
+    global_note_chain_id: UUID | None = Field(
+        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+    )
 
     @field_validator("admin_phone")
     @classmethod
@@ -31,6 +38,7 @@ class Admin(AdminBase, BaseModel, table=True):
     user_id: UUID = Field(foreign_key="users.user_id", unique=True, nullable=False)
 
     user: User = Relationship()
+    global_note_chain: "NoteChain" = Relationship()
 
 
 class AdminCreate(AdminBase):

@@ -4,7 +4,9 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.enum import NotePermission
 from app.models.location import Location, LocationCreate, LocationUpdate
+from app.models.note_chain import NoteChain
 from app.utilities.google_maps_client import GoogleMapsClient
 
 
@@ -60,6 +62,14 @@ class LocationService:
                 location_data.latitude = geocode_result.latitude
                 location_data.place_id = geocode_result.place_id
 
+            # Auto-create a note chain for the location
+            note_chain = NoteChain(
+                read_permission=NotePermission.ALL,
+                write_permission=NotePermission.ALL,
+            )
+            session.add(note_chain)
+            await session.flush()
+
             location = Location(
                 school_name=location_data.school_name,
                 contact_name=location_data.contact_name,
@@ -73,6 +83,7 @@ class LocationService:
                 num_children=location_data.num_children,
                 num_boxes=location_data.num_boxes,
                 notes=location_data.notes,
+                note_chain_id=note_chain.note_chain_id,
             )
 
             session.add(location)

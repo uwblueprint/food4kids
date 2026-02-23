@@ -48,12 +48,18 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
     async with engine.begin() as conn:
         # Import models to register them with SQLModel
         # Import in dependency order to avoid relationship resolution issues
+        from app.models.admin import Admin  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
 
         # Import driver assignment model
         from app.models.driver_assignment import DriverAssignment  # noqa: F401
+        from app.models.driver_history import DriverHistory  # noqa: F401
+        from app.models.job import Job  # noqa: F401
         from app.models.location import Location  # noqa: F401
         from app.models.location_group import LocationGroup  # noqa: F401
+        from app.models.note import Note  # noqa: F401
+        from app.models.note_chain import NoteChain  # noqa: F401
+        from app.models.note_chain_read import NoteChainReadModel  # noqa: F401
         from app.models.route import Route  # noqa: F401
 
         # Import relationship models after their dependencies
@@ -61,6 +67,8 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.route_group import RouteGroup  # noqa: F401
         from app.models.route_group_membership import RouteGroupMembership  # noqa: F401
         from app.models.route_stop import RouteStop  # noqa: F401
+        from app.models.system_settings import SystemSettings  # noqa: F401
+        from app.models.user import User  # noqa: F401
 
         # Drop all tables first to ensure clean state
         await conn.run_sync(SQLModel.metadata.drop_all)
@@ -277,6 +285,48 @@ def sample_route_group_data() -> dict[str, Any]:
         "notes": "Test route group for testing",
         "drive_date": datetime(2024, 1, 15, 8, 0),
     }
+
+
+@pytest_asyncio.fixture
+async def test_admin_user(test_session: AsyncSession) -> Any:
+    """Create an admin user for note chain tests."""
+    from app.models.user import User
+
+    user = User(
+        name="Admin User",
+        email="admin@food4kids.org",
+        auth_id="admin-auth-001",
+        role="admin",
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def authed_async_client(
+    test_session: AsyncSession, test_admin_user: Any,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Async client with auth overridden to the admin user."""
+    from httpx import ASGITransport
+
+    from app.dependencies.auth import get_current_database_user_id
+
+    app = create_app()
+
+    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+        yield test_session
+
+    async def override_auth() -> Any:
+        return test_admin_user.user_id
+
+    app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_current_database_user_id] = override_auth
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
 
 
 @pytest_asyncio.fixture
