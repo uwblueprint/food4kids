@@ -82,7 +82,9 @@ async def delete_note_chain(
 ) -> None:
     """Delete a note chain and all its notes (admin only)"""
     try:
-        await note_chain_service.delete_note_chain(session, note_chain_id, current_user_id)
+        await note_chain_service.delete_note_chain(
+            session, note_chain_id, current_user_id
+        )
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -224,7 +226,9 @@ async def delete_note(
 ) -> None:
     """Delete a note (author or admin only)"""
     try:
-        await note_chain_service.delete_note(session, note_chain_id, note_id, current_user_id)
+        await note_chain_service.delete_note(
+            session, note_chain_id, note_id, current_user_id
+        )
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

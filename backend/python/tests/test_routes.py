@@ -410,7 +410,8 @@ class TestNoteChainRoutes:
 
         # Update
         resp = await authed_async_client.patch(
-            f"/note-chains/{chain_id}", json={"read_permission": "Admin"},
+            f"/note-chains/{chain_id}",
+            json={"read_permission": "Admin"},
         )
         assert resp.status_code == 200
         assert resp.json()["read_permission"] == "Admin"
@@ -418,7 +419,9 @@ class TestNoteChainRoutes:
         # Delete
         delete_resp = await authed_async_client.delete(f"/note-chains/{chain_id}")
         assert delete_resp.status_code == 204
-        get_after_delete_resp = await authed_async_client.get(f"/note-chains/{chain_id}")
+        get_after_delete_resp = await authed_async_client.get(
+            f"/note-chains/{chain_id}"
+        )
         assert get_after_delete_resp.status_code == 404
 
     @pytest.mark.asyncio
@@ -430,7 +433,8 @@ class TestNoteChainRoutes:
 
         # Create
         note_resp = await authed_async_client.post(
-            f"/note-chains/{chain_id}/notes", json={"message": "Hello"},
+            f"/note-chains/{chain_id}/notes",
+            json={"message": "Hello"},
         )
         assert note_resp.status_code == 201
         note_id = note_resp.json()["note_id"]
@@ -450,7 +454,8 @@ class TestNoteChainRoutes:
 
         # Update
         patch_resp = await authed_async_client.patch(
-            f"/note-chains/{chain_id}/notes/{note_id}", json={"message": "Edited"},
+            f"/note-chains/{chain_id}/notes/{note_id}",
+            json={"message": "Edited"},
         )
         assert patch_resp.status_code == 200
         assert patch_resp.json()["message"] == "Edited"

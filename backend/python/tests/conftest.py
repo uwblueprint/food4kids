@@ -306,7 +306,8 @@ async def test_admin_user(test_session: AsyncSession) -> Any:
 
 @pytest_asyncio.fixture
 async def authed_async_client(
-    test_session: AsyncSession, test_admin_user: Any,
+    test_session: AsyncSession,
+    test_admin_user: Any,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Async client with auth overridden to the admin user."""
     from httpx import ASGITransport

@@ -140,7 +140,9 @@ class NoteChainService:
             user_role = await self._get_user_role(session, user_id)
 
             if not self._check_permission(note_chain.read_permission, user_role):
-                raise PermissionError("You do not have permission to read this note chain")
+                raise PermissionError(
+                    "You do not have permission to read this note chain"
+                )
 
             statement = (
                 select(Note)
@@ -217,7 +219,9 @@ class NoteChainService:
         try:
             note = await self.get_note_by_id(session, note_id)
             if note.note_chain_id != note_chain_id:
-                raise ValueError(f"Note {note_id} does not belong to chain {note_chain_id}")
+                raise ValueError(
+                    f"Note {note_id} does not belong to chain {note_chain_id}"
+                )
             user_role = await self._get_user_role(session, user_id)
 
             is_author = note.user_id == user_id
@@ -242,14 +246,18 @@ class NoteChainService:
         try:
             note = await self.get_note_by_id(session, note_id)
             if note.note_chain_id != note_chain_id:
-                raise ValueError(f"Note {note_id} does not belong to chain {note_chain_id}")
+                raise ValueError(
+                    f"Note {note_id} does not belong to chain {note_chain_id}"
+                )
             user_role = await self._get_user_role(session, user_id)
 
             is_author = note.user_id == user_id
             is_admin = user_role is not None and user_role.lower() == "admin"
 
             if not (is_author or is_admin):
-                raise PermissionError("Only the author or an admin can delete this note")
+                raise PermissionError(
+                    "Only the author or an admin can delete this note"
+                )
 
             await session.delete(note)
             await session.commit()
@@ -318,9 +326,7 @@ class NoteChainService:
                 Note.note_chain_id == note_chain_id
             )
             if last_read_at is not None:
-                count_statement = count_statement.where(
-                    Note.created_at > last_read_at
-                )
+                count_statement = count_statement.where(Note.created_at > last_read_at)
 
             count_result = await session.execute(count_statement)
             return count_result.scalar_one()

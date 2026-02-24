@@ -885,13 +885,17 @@ def main() -> None:
                 session.add(note)
 
             session.commit()
-            print(f"Created admin info with global note chain ({num_global_notes} announcements)")
+            print(
+                f"Created admin info with global note chain ({num_global_notes} announcements)"
+            )
 
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")
             read_entries_created = 0
             all_driver_users = session.execute(
-                text("SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id")
+                text(
+                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
+                )
             ).fetchall()
 
             # Get a sample of note chains to mark as read
@@ -908,9 +912,8 @@ def main() -> None:
                         read_entry = NoteChainReadModel(
                             note_chain_id=chain_row[0],
                             user_id=driver_user_row[0],
-                            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
-                                hours=random.randint(0, 72)
-                            ),
+                            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                            - timedelta(hours=random.randint(0, 72)),
                         )
                         set_timestamps(read_entry)
                         session.add(read_entry)
