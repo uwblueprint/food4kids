@@ -26,15 +26,24 @@ from app.models.driver_history import (
     DriverHistoryRead,
     DriverHistoryUpdate,
 )
-from app.models.enum import EntityEnum, NotePermission, ProgressEnum, RoleEnum, SimpleEntityEnum
+from app.models.enum import (
+    EntityEnum,
+    NotePermission,
+    ProgressEnum,
+    RoleEnum,
+    SimpleEntityEnum,
+)
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
+from app.models.location_group import LocationGroup
 from app.models.note import Note, NoteCreate, NoteListResponse, NoteRead, NoteUpdate
-from app.models.note_chain import NoteChain, NoteChainCreate, NoteChainRead, NoteChainUpdate
-from app.models.note_chain_read import NoteChainReadModel, NoteChainReadResponse
-from app.models.location_group import (
-    LocationGroup,
+from app.models.note_chain import (
+    NoteChain,
+    NoteChainCreate,
+    NoteChainRead,
+    NoteChainUpdate,
 )
+from app.models.note_chain_read import NoteChainReadModel, NoteChainReadResponse
 from app.models.route import Route, RouteUpdate
 from app.models.route_group import (
     RouteGroup,

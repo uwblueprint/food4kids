@@ -405,7 +405,8 @@ class TestNoteChainRoutes:
         assert resp.json()["note_chain_id"] == chain_id
 
         # Get 404
-        assert (await authed_async_client.get(f"/note-chains/{uuid4()}")).status_code == 404
+        not_found_resp = await authed_async_client.get(f"/note-chains/{uuid4()}")
+        assert not_found_resp.status_code == 404
 
         # Update
         resp = await authed_async_client.patch(
@@ -415,8 +416,10 @@ class TestNoteChainRoutes:
         assert resp.json()["read_permission"] == "Admin"
 
         # Delete
-        assert (await authed_async_client.delete(f"/note-chains/{chain_id}")).status_code == 204
-        assert (await authed_async_client.get(f"/note-chains/{chain_id}")).status_code == 404
+        delete_resp = await authed_async_client.delete(f"/note-chains/{chain_id}")
+        assert delete_resp.status_code == 204
+        get_after_delete_resp = await authed_async_client.get(f"/note-chains/{chain_id}")
+        assert get_after_delete_resp.status_code == 404
 
     @pytest.mark.asyncio
     async def test_notes_crud_and_read_tracking(
@@ -440,9 +443,10 @@ class TestNoteChainRoutes:
         assert data["unread_count"] == 1
 
         # List again - unread_count=0
-        assert (await authed_async_client.get(
+        list_again_resp = await authed_async_client.get(
             f"/note-chains/{chain_id}/notes"
-        )).json()["unread_count"] == 0
+        )
+        assert list_again_resp.json()["unread_count"] == 0
 
         # Update
         patch_resp = await authed_async_client.patch(
@@ -452,9 +456,10 @@ class TestNoteChainRoutes:
         assert patch_resp.json()["message"] == "Edited"
 
         # Delete
-        assert (await authed_async_client.delete(
+        delete_note_resp = await authed_async_client.delete(
             f"/note-chains/{chain_id}/notes/{note_id}"
-        )).status_code == 204
+        )
+        assert delete_note_resp.status_code == 204
 
 
 class TestValidationErrors:

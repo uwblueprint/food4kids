@@ -24,7 +24,7 @@ router = APIRouter(prefix="/note-chains", tags=["note-chains"])
 async def get_note_chain(
     note_chain_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user_id: UUID = Depends(get_current_database_user_id),
+    current_user_id: UUID = Depends(get_current_database_user_id),  # noqa: ARG001
 ) -> NoteChainRead:
     """Get a note chain by ID"""
     try:
