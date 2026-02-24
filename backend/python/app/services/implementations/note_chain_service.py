@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.models.enum import NotePermission
 from app.models.note import Note, NoteCreate, NoteUpdate
@@ -147,7 +147,7 @@ class NoteChainService:
             statement = (
                 select(Note)
                 .where(Note.note_chain_id == note_chain_id)
-                .order_by(Note.created_at.asc())
+                .order_by(col(Note.created_at).asc())
                 .offset(offset)
                 .limit(limit)
             )
@@ -322,11 +322,13 @@ class NoteChainService:
             last_read_at = read_result.scalar_one_or_none()
 
             # Count notes after last_read_at (or all notes if never read)
-            count_statement = select(func.count(Note.note_id)).where(
+            count_statement = select(func.count(col(Note.note_id))).where(
                 Note.note_chain_id == note_chain_id
             )
             if last_read_at is not None:
-                count_statement = count_statement.where(Note.created_at > last_read_at)
+                count_statement = count_statement.where(
+                    col(Note.created_at) > last_read_at
+                )
 
             count_result = await session.execute(count_statement)
             return count_result.scalar_one()

@@ -675,10 +675,10 @@ def main() -> None:
                     session.add(route_group)
                     session.flush()  # Flush to get the route_group_id
 
-                    for route in group_routes:
+                    for route_row in group_routes:
                         membership = RouteGroupMembership(
                             route_group_id=route_group.route_group_id,
-                            route_id=route.route_id,
+                            route_id=route_row.route_id,
                         )
                         set_timestamps(membership)
                         session.add(membership)
