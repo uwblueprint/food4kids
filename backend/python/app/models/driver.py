@@ -121,5 +121,6 @@ class DriverRegister(SQLModel):
 
 class DriverRegisterResponse(SQLModel):
     "Driver registration response"
+
     driver: DriverRead
     auth: AuthResponse

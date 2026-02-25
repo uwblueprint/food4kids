@@ -1,22 +1,29 @@
 import logging
 import traceback
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
+
 import firebase_admin.auth
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_session
-from app.models.driver import DriverCreate, DriverRead, DriverUpdate, DriverRegister, DriverRegisterResponse
-from app.models.user import UserCreate
-from app.services.implementations.driver_service import DriverService
 from app.dependencies.services import (
     get_auth_service,
     get_user_service,
 )
-from app.services.implementations.auth_service import AuthService
-from app.services.implementations.user_service import UserService
+from app.models import get_session
+from app.models.driver import (
+    DriverCreate,
+    DriverRead,
+    DriverRegister,
+    DriverRegisterResponse,
+    DriverUpdate,
+)
+from app.models.user import UserCreate
 from app.routers.auth_routes import get_cookie_options
+from app.services.implementations.auth_service import AuthService
+from app.services.implementations.driver_service import DriverService
+from app.services.implementations.user_service import UserService
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -105,7 +112,9 @@ async def get_driver(
 #         ) from e
 
 
-@router.post("/", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_driver(
     register_request: DriverRegister,
     response: Response,
@@ -159,8 +168,10 @@ async def create_driver(
             secure=bool(cookie_options["secure"]),
         )
 
-        return DriverRegisterResponse(driver=DriverRead.model_validate(created_driver), auth=auth_dto)
-    
+        return DriverRegisterResponse(
+            driver=DriverRead.model_validate(created_driver), auth=auth_dto
+        )
+
     except Exception as e:
         # Compensating transaction: rollback all changes
         logger.error(f"Error registering driver: {e}")
