@@ -3,7 +3,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_driver
 from app.dependencies.services import get_driver_assignment_service
 from app.models import get_session
 from app.models.driver_assignment import (
@@ -21,7 +20,6 @@ router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 @router.get("/", response_model=list[DriverAssignmentRead])
 async def get_driver_assignments(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
@@ -49,7 +47,6 @@ async def get_driver_assignments(
 async def create_driver_assignment(
     driver_assignment: DriverAssignmentCreate,  # Auto-validated by FastAPI
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
@@ -75,7 +72,6 @@ async def update_driver_assignment(
     driver_assignment_id: UUID,
     driver_assignment: DriverAssignmentUpdate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
@@ -100,7 +96,6 @@ async def update_driver_assignment(
 async def delete_driver_assignment(
     driver_assignment_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
