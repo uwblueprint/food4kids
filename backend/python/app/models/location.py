@@ -97,6 +97,18 @@ class LocationImportEntry(SQLModel):
     dietary_restrictions: str | None = None
 
 
+class ValidatedLocationImportEntry(LocationImportEntry):
+    """LocationImportEntry with required fields guaranteed non-None after validation."""
+
+    contact_name: str
+    address: str
+    phone_number: str
+    delivery_group: str | None = None
+    num_boxes: int | None = None
+    halal: bool | None = None
+    dietary_restrictions: str | None = None
+
+
 class LocationImportRow(SQLModel):
     row: int
     location: LocationImportEntry
