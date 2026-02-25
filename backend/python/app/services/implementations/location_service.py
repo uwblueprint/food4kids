@@ -1,6 +1,7 @@
 import logging
 import os
 from io import BytesIO
+from typing import TypeGuard
 from uuid import UUID
 
 import pandas as pd
@@ -20,6 +21,7 @@ from app.models.location import (
     LocationImportStatus,
     LocationState,
     LocationUpdate,
+    ValidatedLocationImportEntry,
 )
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import validate_phone
@@ -171,9 +173,8 @@ class LocationService:
                 location = self._parse_row(row, DEFAULT_COLUMN_MAP)
                 alerts: list[LocationImportAlert] = []
 
-                # ERROR: missing required fields
-                missing = self._missing_required_fields(location)
-                if missing:
+                # ERROR: missing required fields — also narrows type to ValidatedLocationImportEntry
+                if not self._missing_required_fields(location):
                     alerts.append(
                         self._alert(
                             AlertType.ERROR,
@@ -342,14 +343,17 @@ class LocationService:
             dietary_restrictions=get_value("dietary_restrictions"),
         )
 
-    def _missing_required_fields(self, entry: LocationImportEntry) -> list[str]:
-        """Returns a list of missing required field names, or empty list if all present."""
-        required: dict[str, str | None] = {
-            "contact name": entry.contact_name,
-            "address": entry.address,
-            "phone number": entry.phone_number,
-        }
-        return [name for name, val in required.items() if not val]
+    @staticmethod
+    def _missing_required_fields(
+        entry: LocationImportEntry,
+    ) -> TypeGuard[ValidatedLocationImportEntry]:
+        """Returns True (and narrows to ValidatedLocationImportEntry) when all required
+        fields are present; False when any are missing."""
+        return (
+            entry.contact_name is not None
+            and entry.address is not None
+            and entry.phone_number is not None
+        )
 
     async def _build_location(self, location_data: LocationCreate) -> Location:
         """Geocode and build a Location object (does not add to session or commit)."""
