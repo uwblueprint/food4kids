@@ -1,19 +1,24 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
+from backend.python.app.models.location import Location
+from backend.python.app.models.route_stop import RouteStop
+from backend.python.app.models.system_settings import SystemSettings
 from sqlalchemy import and_, exists
 from sqlalchemy import select as sql_select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver_assignment import DriverAssignment
-from app.models.route import Route, RouteWithDateRead
+from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.pagination import paginate_query
+
+from app.utilities.routes_utils import fetch_route_polyline
 
 
 class RouteService:
@@ -145,3 +150,108 @@ class RouteService:
             self.logger.error(f"Failed to delete route {route_id}: {error!s}")
             await session.rollback()
             raise error
+    
+    async def update_route(
+        self,
+        session: AsyncSession,
+        route_id: UUID,
+        patch: RoutePatchRequest,
+    ) -> Route | None:
+        """Update a route's metadata and/or stops.
+
+        If location_ids are provided:
+        - Existing route stops are deleted and replaced with the new ordered list.
+        - fetch_route_polyline is called to get the new encoded polyline + distance.
+        - Route.length and Route.encoded_polyline are updated accordingly.
+
+        Metadata fields (name, notes) are updated independently if provided.
+
+        Since routes can be shared across multiple route groups, all route groups
+        that reference this route will automatically see the updated version.
+
+        Args:
+            session: Database session
+            route_id: ID of the route to update
+            patch: Patch request body (RoutePatchRequest)
+
+        Returns:
+            The updated Route, or None if not found.
+        """
+
+        # Fetch the route
+        result = await session.execute(select(Route).where(Route.route_id == route_id))
+        route = result.scalars().first()
+
+        if not route:
+            self.logger.error(f"Route with id {route_id} not found for update")
+            return None
+        
+        # Update metadata fields if provided
+        if patch.name is not None:
+            route.name = patch.name
+        if patch.notes is not None:
+            route.notes = patch.notes
+        
+        # Update stops + re-run routing if location_ids provided
+        if patch.location_ids is not None:
+            location_results = await session.execute(
+                select(Location).where(Location.location_id.in_(patch.location_ids))
+            )
+            locations_by_id = {loc.location_id: loc for loc in location_results.scalars().all()}
+
+            # Validate all requested location IDs exist
+            missing = [str(loc_id) for loc_id in patch.location_ids if loc_id not in locations_by_id]
+            if missing:
+                raise ValueError(f"Location IDs not found: {', '.join(missing)}")
+            
+            # Preserve the caller-specified order
+            ordered_locations = [locations_by_id[loc_id] for loc_id in patch.location_ids]
+
+            # Fetch warehouse coordinates from system_settings
+            settings_result = await session.execute(select(SystemSettings))
+            system_settings = settings_result.scalars().first()
+
+            if not system_settings:
+                raise ValueError("System settings not found - cannot fetch warehouse coordinates for routing")
+            if system_settings.warehouse_lattitude is None or system_settings.warehouse_longitude is None:
+                raise ValueError("Warehouse coordinates not set in system settings - cannot perform routing")
+            
+            warehouse_lat = system_settings.warehouse_lattitude
+            warehouse_lon = system_settings.warehouse_longitude
+
+            # Call fetch route polylinefor new polyline + distance
+            encoded_polyline, distance_km = await fetch_route_polyline(
+                locations=ordered_locations,
+                warehouse_lat=warehouse_lat,
+                warehouse_lon=warehouse_lon,
+                ends_at_warehouse=route.ends_at_warehouse,
+            )
+
+            # Delete existing route stops 
+            existing_stops_result = await session.execute(
+                select(RouteStop).where(RouteStop.route_id == route_id)
+            )
+            for stop in existing_stops_result.scalars().all():
+                await session.delete(stop)
+            
+            # Create new route stops in the given order
+            for stop_number, location in enumerate(ordered_locations, start=1):
+                new_stop = RouteStop(
+                    route_id=route_id,
+                    location_id=location.location_id,
+                    stop_number=stop_number,
+                )
+                session.add(new_stop)
+            
+            # Update route polyline and mileage
+            route.encoded_polyline = encoded_polyline
+            route.polyline_updated_at = datetime.now(timezone.utc)
+            route.length = distance_km
+
+        # Persist
+        session.add(route)
+        await session.commit()
+        await session.refresh(route)
+
+        return route
+         

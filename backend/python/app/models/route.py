@@ -87,3 +87,15 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
+
+class RoutePatchRequest(SQLModel):
+    """Request body for PATCH /routes/{route_id}.
+
+    All fields are optional - only provided fields will be updated.
+    If location_ids is provided, the route stops will be fully replaced
+    and the routing algorithm will be re-run to update polyline + mileage.
+    """
+
+    name: str | None = None
+    notes: str | None = None
+    location_ids: list[UUID] | None = None  # new ordered list of location IDs

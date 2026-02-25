@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
-from app.models.route import Route, RouteWithDateRead
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
+from app.models.route import Route, RoutePatchRequest, RouteRead, RouteWithDateRead
 from app.services.implementations.route_service import RouteService
 
 # Initialize service
@@ -80,3 +80,27 @@ async def delete_route(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Route with id {route_id} not found",
         )
+
+@router.patch("/{route_id}", response_model=RouteRead)
+async def update_route(
+    route_id: UUID,
+    patch: RoutePatchRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Update a route's metadata (name, notes) and/or its stop order/locations.
+
+    If location_ids is provided in the request body:
+    - The route's stops are fully replaced with the new ordered list.
+    - The routing algorithm is re-run to compute the new polyline and mileage.
+    - This will affect ALL route groups that share this route.
+
+    If only name/notes are provided, stops and mileage are left unchanged.
+    """
+    updated_route = await route_service.update_route(session, route_id, patch)
+    if not updated_route:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Route with id {route_id} not found",
+        )
+    return RouteRead.model_validate(updated_route, from_attributes=True)
