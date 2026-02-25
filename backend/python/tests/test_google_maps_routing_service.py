@@ -12,6 +12,7 @@ import pytest
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GoogleMapsFleetRoutingAlgorithm,
+    MANDATORY_DELIVERY_PENALTY,
 )
 
 
@@ -93,25 +94,44 @@ class TestBuildPayload:
         shipments = model["shipments"]
         assert len(shipments) == 4  # 2 forced pickups + 2 deliveries
 
-        # forced pickups (no loadDemands — demand is 0 to preserve capacity)
+        # forced pickups (explicit loadDemands of 0 to preserve capacity)
         for i in range(2):
             fp = shipments[i]
             assert fp["displayName"] == f"initial_load_driver_{i}"
             pickup = fp["pickups"][0]
             assert pickup["arrivalLocation"] == {"latitude": 43.0, "longitude": -79.0}
-            assert "loadDemands" not in pickup
+            assert pickup["loadDemands"] == {"load": {"amount": "0"}}
             assert fp["allowedVehicleIndices"] == [i]
 
         # deliveries
         for idx, loc in enumerate(locs):
             d = shipments[2 + idx]
             assert d["displayName"] == f"ship_{idx}"
+            assert d["penaltyCost"] == MANDATORY_DELIVERY_PENALTY
             delivery = d["deliveries"][0]
             assert delivery["arrivalLocation"] == {
                 "latitude": loc.latitude,
                 "longitude": loc.longitude,
             }
             assert delivery["loadDemands"] == {"load": {"amount": "1"}}
+
+    def test_service_duration_on_deliveries(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """Deliveries include duration based on service_time_minutes."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2025, 1, 1, 9, 0),
+            service_time_minutes=10,
+        )
+        locs = [make_location()]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
+
+        delivery = payload["model"]["shipments"][1]["deliveries"][0]
+        assert delivery["duration"] == "600s"  # 10 min * 60
 
     def test_return_to_warehouse_sets_end_location(
         self,
@@ -146,12 +166,16 @@ class TestBuildPayload:
         vehicle = payload["model"]["vehicles"][0]
         assert "endLocation" not in vehicle
 
-    def test_no_max_stops_omits_load_fields(
+    def test_no_max_stops_omits_load_limits(
         self,
         algorithm: GoogleMapsFleetRoutingAlgorithm,
         make_location: Any,
     ) -> None:
-        """When max_stops_per_route is None, loadLimits / loadDemands are omitted."""
+        """When max_stops_per_route is None, loadLimits is omitted on vehicles.
+
+        Deliveries still carry loadDemands (1 per stop) — harmless without a
+        cap but keeps the payload consistent.
+        """
         settings = RouteGenerationSettings(
             num_routes=2,
             max_stops_per_route=None,
@@ -163,14 +187,41 @@ class TestBuildPayload:
 
         model = payload["model"]
 
-        # vehicles should NOT have loadLimits
         for v in model["vehicles"]:
             assert "loadLimits" not in v
 
-        # forced pickups should NOT have loadDemands
-        for fp in model["shipments"][:2]:
-            pickup = fp["pickups"][0]
-            assert "loadDemands" not in pickup
+    def test_route_duration_limit(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """When route_duration_limit_minutes is set, vehicles get routeDurationLimit."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2025, 1, 1, 9, 0),
+            route_duration_limit_minutes=120,
+        )
+        locs = [make_location()]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
+
+        vehicle = payload["model"]["vehicles"][0]
+        assert vehicle["routeDurationLimit"]["softMaxDuration"] == "7200s"
+        assert vehicle["routeDurationLimit"]["costPerHourAfterSoftMax"] > 0
+
+    def test_no_route_duration_limit_omits_field(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """When route_duration_limit_minutes is None, no routeDurationLimit."""
+        locs = [make_location()]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
+
+        vehicle = payload["model"]["vehicles"][0]
+        assert "routeDurationLimit" not in vehicle
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +303,23 @@ class TestParseResponse:
         routes = algorithm._parse_response({}, locs, num_routes)
 
         assert routes == [[], []]
+
+    def test_skipped_shipments_raises(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """If the API skips any shipments, raise RuntimeError."""
+        locs = [make_location()]
+        num_routes = 1
+
+        response = {
+            "routes": [],
+            "skippedShipments": [{"index": 1, "label": "ship_0"}],
+        }
+
+        with pytest.raises(RuntimeError, match="skipped 1 shipments"):
+            algorithm._parse_response(response, locs, num_routes)
 
 
 # ---------------------------------------------------------------------------

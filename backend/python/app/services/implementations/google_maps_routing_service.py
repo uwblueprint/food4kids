@@ -22,6 +22,13 @@ ENDPOINT = "https://routeoptimization.googleapis.com/v1/projects/{}:optimizeTour
 SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 API_TIMEOUT_SECONDS = 60
 
+# Penalty cost high enough that the optimizer will never skip a delivery.
+MANDATORY_DELIVERY_PENALTY = 1_000_000
+
+# Cost per hour the optimizer charges when a route exceeds its soft duration
+# limit. Higher values spread deliveries more aggressively across drivers.
+DURATION_OVERRUN_COST_PER_HOUR = 100
+
 
 class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
     """Routes locations using the Google Cloud Fleet Routing (optimizeTours) API."""
@@ -70,26 +77,45 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             else {}
         )
 
+        # routeDurationLimit: soft cap on total route time. The optimizer
+        # penalises routes that exceed this, spreading deliveries more evenly
+        # across drivers without hard-blocking longer routes.
+        duration_limit = (
+            {
+                "routeDurationLimit": {
+                    "softMaxDuration": f"{settings.route_duration_limit_minutes * 60}s",
+                    "costPerHourAfterSoftMax": DURATION_OVERRUN_COST_PER_HOUR,
+                }
+            }
+            if settings.route_duration_limit_minutes is not None
+            else {}
+        )
+
+        # endLocation controls whether drivers return to the warehouse.
+        # During school term drivers return; during summer they end at their
+        # last delivery to save time.
         vehicles = [
             {
                 "displayName": f"driver_{i}",
                 "startLocation": warehouse,
                 **({"endLocation": warehouse} if settings.return_to_warehouse else {}),
                 **load_limit,
+                **duration_limit,
             }
             for i in range(settings.num_routes)
         ]
 
         # Force every vehicle to be used by giving each a mandatory pickup.
         # Without this some drivers may be left idle.
-        # Load demand is set to 0 so it doesn't consume capacity meant for
-        # actual deliveries (each delivery adds 1 to the load).
+        # loadDemands is explicitly 0 so it doesn't consume capacity meant
+        # for actual deliveries (each delivery adds 1 to the load).
         forced_pickups = [
             {
                 "displayName": f"initial_load_driver_{i}",
                 "pickups": [
                     {
                         "arrivalLocation": warehouse,
+                        "loadDemands": {"load": {"amount": "0"}},
                     }
                 ],
                 "allowedVehicleIndices": [i],
@@ -102,6 +128,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         deliveries = [
             {
                 "displayName": f"ship_{i}",
+                # High penalty ensures the API never skips a delivery —
+                # every location must be served.
+                "penaltyCost": MANDATORY_DELIVERY_PENALTY,
                 "deliveries": [
                     {
                         "arrivalLocation": {
@@ -188,6 +217,16 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         locations using: location_index = shipment_index - num_routes.
         """
 
+        # Every delivery is mandatory — if the API skipped any, something is
+        # misconfigured (e.g. not enough vehicles or capacity).
+        skipped = result.get("skippedShipments", [])
+        if skipped:
+            skipped_names = [s.get("label", s.get("index", "?")) for s in skipped]
+            raise RuntimeError(
+                f"Fleet Routing API skipped {len(skipped)} shipments: {skipped_names}. "
+                "All deliveries must be served — check vehicle count and capacity."
+            )
+
         routes: list[list[Location]] = [[] for _ in range(num_routes)]
 
         for route_data in result.get("routes", []):
@@ -204,6 +243,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 if visit.get("isPickup", False):
                     continue
                 shipment_index = visit.get("shipmentIndex", 0)
+                # Offset by num_routes because forced-pickup shipments occupy
+                # indices 0..num_routes-1 in the shipments array.
                 location_index = shipment_index - num_routes
                 # Guard also protects against missing shipmentIndex
                 # (defaults to 0, yielding a negative location_index)
@@ -211,56 +252,3 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                     routes[vehicle_index].append(locations[location_index])
 
         return routes
-
-
-if __name__ == "__main__":
-    from dataclasses import dataclass, field
-    from datetime import datetime
-    from uuid import UUID, uuid4
-
-    from app.schemas.route_generation import RouteGenerationSettings
-
-    logging.basicConfig(level=logging.INFO)
-
-    @dataclass
-    class FakeLocation:
-        latitude: float
-        longitude: float
-        address: str = ""
-        location_id: UUID = field(default_factory=uuid4)
-
-    locations = [
-        FakeLocation(43.4516, -80.4925, "Kitchener City Hall"),
-        FakeLocation(43.4643, -80.5204, "Waterloo Town Square"),
-        FakeLocation(43.4506, -80.4983, "Victoria Park"),
-        FakeLocation(43.4738, -80.5280, "Uptown Waterloo"),
-        FakeLocation(43.4455, -80.4862, "Fairview Park Mall"),
-        FakeLocation(43.4380, -80.5050, "Homer Watson Park"),
-    ]
-
-    settings = RouteGenerationSettings(
-        num_routes=2,
-        max_stops_per_route=4,
-        route_start_time=datetime(2025, 6, 1, 9, 0),
-        return_to_warehouse=True,
-    )
-
-    warehouse_lat = 43.4500
-    warehouse_lon = -80.4900
-
-    algo = GoogleMapsFleetRoutingAlgorithm()
-
-    print("Generating routes...")
-    routes = asyncio.run(
-        algo.generate_routes(
-            locations,  # type: ignore[arg-type]
-            warehouse_lat,
-            warehouse_lon,
-            settings,
-        )
-    )
-
-    for i, route in enumerate(routes):
-        print(f"\nRoute {i + 1} ({len(route)} stops):")
-        for stop in route:
-            print(f"  - {stop.address} ({stop.latitude}, {stop.longitude})")
