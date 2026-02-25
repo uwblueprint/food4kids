@@ -11,8 +11,8 @@ import pytest
 
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
-    GoogleMapsFleetRoutingAlgorithm,
     MANDATORY_DELIVERY_PENALTY,
+    GoogleMapsFleetRoutingAlgorithm,
 )
 
 
