@@ -1,7 +1,6 @@
 import logging
 import os
 from io import BytesIO
-from typing import TypeGuard
 from uuid import UUID
 
 import pandas as pd
@@ -10,16 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import (
+    AlertCode,
+    AlertType,
     Location,
     LocationCreate,
+    LocationImportAlert,
     LocationImportEntry,
     LocationImportResponse,
     LocationImportRow,
     LocationImportStatus,
-    LocationRowStatus,
     LocationState,
     LocationUpdate,
-    ValidatedLocationImportEntry,
 )
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.utils import validate_phone
@@ -156,60 +156,124 @@ class LocationService:
             raise e
 
     async def validate_locations(self, file: UploadFile) -> LocationImportResponse:
-        """Validate location import data (no missing fields or local duplicates)"""
+        """Validate location import data and return per-row alerts."""
         try:
             df = await self._read_upload_file(file)
             rows: list[LocationImportRow] = []
-            loc_keys: set[tuple[str, str]] = set()
+
+            # track local duplicates
+            full_dup_keys: dict[tuple[str, str, str], int] = {}
+            address_keys: dict[str, int] = {}  # track partial duplicates by address
+            phone_keys: dict[str, int] = {}  # track partial duplicates by phone
 
             for index, row in df.iterrows():
+                row_num = int(index) + 1  # type: ignore[call-overload]
                 location = self._parse_row(row, DEFAULT_COLUMN_MAP)
+                alerts: list[LocationImportAlert] = []
 
-                location_row = LocationImportRow(
-                    row=int(index) + 1,  # type: ignore[call-overload]
-                    location=location,
-                    status=LocationRowStatus.OK,
-                )
-
-                # case 1: missing required fields
-                if not self._required_fields_present(location):
-                    location_row.status = LocationRowStatus.MISSING_FIELDS
-                    rows.append(location_row)
+                # ERROR: missing required fields
+                missing = self._missing_required_fields(location)
+                if missing:
+                    alerts.append(
+                        self._alert(
+                            AlertType.ERROR,
+                            AlertCode.MISSING_FIELDS,
+                            "Missing Field(s)",
+                        )
+                    )
+                    rows.append(
+                        LocationImportRow(row=row_num, location=location, alerts=alerts)
+                    )
                     continue
 
-                # case 2: invalid phone number format
+                # ERROR: invalid phone number format
                 try:
                     location.phone_number = validate_phone(location.phone_number)
                 except ValueError:
-                    location_row.status = LocationRowStatus.INVALID_FORMAT
-                    rows.append(location_row)
+                    alerts.append(
+                        self._alert(
+                            AlertType.ERROR,
+                            AlertCode.INVALID_FORMAT,
+                            "Invalid Phone Number",
+                        )
+                    )
+                    rows.append(
+                        LocationImportRow(row=row_num, location=location, alerts=alerts)
+                    )
                     continue
 
-                # case 3: detect local duplicates based on (address, phone_number)
-                dup_key = (location.address, location.phone_number)
-                if dup_key in loc_keys:
-                    location_row.status = LocationRowStatus.DUPLICATE
-                    rows.append(location_row)
-                    continue
+                # WARNING: missing delivery group
+                if not location.delivery_group:
+                    alerts.append(
+                        self._alert(
+                            AlertType.WARNING,
+                            AlertCode.MISSING_DELIVERY_GROUP,
+                            "Missing Delivery Group",
+                        )
+                    )
 
-                # case 4: valid non-duplicate location
-                loc_keys.add(dup_key)
-                rows.append(location_row)
+                # ERROR: full duplicate (same contact name, address, and phone)
+                full_key = (
+                    location.contact_name,
+                    location.address,
+                    location.phone_number,
+                )
 
-            successful_rows = [r for r in rows if r.status == LocationRowStatus.OK]
+                if full_key in full_dup_keys:
+                    alerts.append(
+                        self._alert(
+                            AlertType.ERROR,
+                            AlertCode.LOCAL_DUPLICATE,
+                            f"Local Duplicate to Row #{full_dup_keys[full_key]}",
+                        )
+                    )
+                else:
+                    full_dup_keys[full_key] = row_num
+
+                    # WARNING: partial duplicate — same address or same phone
+                    if location.address in address_keys:
+                        alerts.append(
+                            self._alert(
+                                AlertType.WARNING,
+                                AlertCode.PARTIAL_DUPLICATE,
+                                f"Address matches Row #{address_keys[location.address]}",
+                            )
+                        )
+                    else:
+                        address_keys[location.address] = row_num
+
+                    if location.phone_number in phone_keys:
+                        alerts.append(
+                            self._alert(
+                                AlertType.WARNING,
+                                AlertCode.PARTIAL_DUPLICATE,
+                                f"Phone matches Row #{phone_keys[location.phone_number]}",
+                            )
+                        )
+                    else:
+                        phone_keys[location.phone_number] = row_num
+
+                rows.append(
+                    LocationImportRow(row=row_num, location=location, alerts=alerts)
+                )
 
             return LocationImportResponse(
-                status=LocationImportStatus.SUCCESS
-                if len(successful_rows) == len(rows)
-                else LocationImportStatus.FAILURE,
-                rows=rows,
+                status=self._get_import_status(rows),
                 total_rows=len(rows),
-                successful_rows=len(successful_rows),
-                unsuccessful_rows=len(rows) - len(successful_rows),
+                rows=rows,
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
+
+    def _get_import_status(self, rows: list[LocationImportRow]) -> LocationImportStatus:
+        """Get the most severe status across all rows."""
+        all_alerts = [a for r in rows for a in r.alerts]
+        if any(a.type == AlertType.ERROR for a in all_alerts):
+            return LocationImportStatus.ERROR
+        if any(a.type == AlertType.WARNING for a in all_alerts):
+            return LocationImportStatus.WARNING
+        return LocationImportStatus.SUCCESS
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
@@ -278,17 +342,14 @@ class LocationService:
             dietary_restrictions=get_value("dietary_restrictions"),
         )
 
-    def _required_fields_present(
-        self, entry: LocationImportEntry
-    ) -> TypeGuard[ValidatedLocationImportEntry]:
-        required_fields = [
-            entry.contact_name,
-            entry.address,
-            entry.delivery_group,
-            entry.phone_number,
-            entry.num_boxes,
-        ]
-        return not any(val is None for val in required_fields)
+    def _missing_required_fields(self, entry: LocationImportEntry) -> list[str]:
+        """Returns a list of missing required field names, or empty list if all present."""
+        required: dict[str, str | None] = {
+            "contact name": entry.contact_name,
+            "address": entry.address,
+            "phone number": entry.phone_number,
+        }
+        return [name for name, val in required.items() if not val]
 
     async def _build_location(self, location_data: LocationCreate) -> Location:
         """Geocode and build a Location object (does not add to session or commit)."""
@@ -321,3 +382,7 @@ class LocationService:
             num_boxes=location_data.num_boxes,
             notes=location_data.notes,
         )
+
+    @staticmethod
+    def _alert(type: AlertType, code: AlertCode, message: str) -> LocationImportAlert:
+        return LocationImportAlert(type=type, code=code, message=message)
