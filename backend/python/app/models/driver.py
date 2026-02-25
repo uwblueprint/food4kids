@@ -5,6 +5,7 @@ from pydantic import EmailStr, field_validator, model_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.user import User
+from app.schemas.auth import AuthResponse
 from app.utilities.utils import validate_phone
 
 from .base import BaseModel
@@ -116,3 +117,9 @@ class DriverRegister(SQLModel):
     def validate_phone(cls, v: str) -> str:
         """Validate phone number using phonenumbers library"""
         return validate_phone(v)
+
+
+class DriverRegisterResponse(SQLModel):
+    "Driver registration response"
+    driver: DriverRead
+    auth: AuthResponse
