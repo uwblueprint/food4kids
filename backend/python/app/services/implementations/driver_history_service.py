@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime
 from uuid import UUID
+from fastapi import HTTPException
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
 
 
@@ -14,6 +16,13 @@ class DriverHistoryService:
     def __init__(self, logger: logging.Logger) -> None:
         """Initialize service"""
         self.logger = logger
+
+    async def driver_exists(
+        self, session: AsyncSession, driver_id: UUID
+    ) -> bool:
+        statement = select(Driver.driver_id).where(Driver.driver_id == driver_id)
+        result = await session.execute(statement)
+        return result.scalar_one_or_none() is not None
 
     async def get_all_driver_histories(
         self, session: AsyncSession
@@ -53,24 +62,31 @@ class DriverHistoryService:
         # Sort by month (ascending)
         histories.sort(key=lambda h: h.month)
         return histories
-
+    
     async def get_driver_history_by_id(
         self, session: AsyncSession, driver_id: UUID
     ) -> list[DriverHistory]:
         """Return all driver histories for a driver"""
-        # Fetch all years by first getting distinct years from DB
+
+        # Check if driver exists 
+        if not await self.driver_exists(session, driver_id):
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        # Fetch histories
         statement = select(DriverHistory.year).where(
             DriverHistory.driver_id == driver_id
         ).distinct()
+
         result = await session.execute(statement)
         years = [row[0] for row in result.fetchall()]
 
         histories = []
         for year in sorted(years):
-            year_histories = await self.get_driver_history_by_id_and_year(session, driver_id, year)
+            year_histories = await self.get_driver_history_by_id_and_year(
+                session, driver_id, year
+            )
             histories.extend(year_histories)
 
-        # Sort overall by year then month
         histories.sort(key=lambda h: (h.year, h.month))
         return histories
 
