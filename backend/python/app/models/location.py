@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel, String
@@ -50,17 +50,39 @@ class Location(LocationBase, BaseModel, table=True):
 
 
 class LocationImportStatus(str, Enum):
-    SUCCESS = "SUCESS"
-    FAILURE = "FAILURE"
+    """Status of the import"""
+
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
 
 
-class LocationRowStatus(str, Enum):
-    """Status for each row in a location import."""
+class AlertType(str, Enum):
+    """Severity of an import alert — drives icon/colour on the frontend."""
 
-    OK = "OK"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+
+class AlertCode(str, Enum):
+    """Machine-readable reason code for an import alert."""
+
+    # ERROR TYPES
     MISSING_FIELDS = "MISSING_FIELDS"
-    DUPLICATE = "DUPLICATE"
     INVALID_FORMAT = "INVALID_FORMAT"
+    LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
+
+    # WARNING TYPES
+    MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
+    PARTIAL_DUPLICATE = "PARTIAL_DUPLICATE"
+
+
+class LocationImportAlert(SQLModel):
+    """A single alert attached to an import row."""
+
+    type: AlertType
+    code: AlertCode
+    message: str
 
 
 class LocationImportEntry(SQLModel):
@@ -75,29 +97,15 @@ class LocationImportEntry(SQLModel):
     dietary_restrictions: str | None = None
 
 
-class ValidatedLocationImportEntry(Protocol):
-    """Type view of LocationImportEntry after required-fields check. Use with TypeGuard."""
-
-    contact_name: str
-    address: str
-    delivery_group: str
-    phone_number: str
-    num_boxes: int
-    halal: bool | None
-    dietary_restrictions: str | None
-
-
 class LocationImportRow(SQLModel):
     row: int
     location: LocationImportEntry
-    status: LocationRowStatus
+    alerts: list[LocationImportAlert]
 
 
 class LocationImportResponse(SQLModel):
     status: LocationImportStatus
     total_rows: int
-    successful_rows: int
-    unsuccessful_rows: int
     rows: list[LocationImportRow]
 
 
