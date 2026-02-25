@@ -3,7 +3,7 @@ Developer script for manually testing the Fleet Routing (optimizeTours) API
 with mock locations around Kitchener-Waterloo.
 
 Run from backend/python/:
-    docker-compose exec backend pytest scripts/fleet_routing_test.py -v -s
+    docker-compose exec backend pytest scripts/fleet_routing_manual.py -v -s
 
 NOTE: This hits the live Google API and will incur charges.
 """
@@ -45,6 +45,10 @@ WAREHOUSE_LON = -80.4900
 @pytest.mark.asyncio
 async def test_fleet_routing_live() -> None:
     """Hit the live Fleet Routing API and print the resulting routes."""
+    from app.config import settings as app_settings
+
+    if not app_settings.route_opt_client_email:
+        pytest.skip("ROUTE_OPT_* env vars not configured")
 
     settings = RouteGenerationSettings(
         num_routes=2,
