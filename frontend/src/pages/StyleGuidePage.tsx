@@ -274,6 +274,87 @@ export const StyleGuidePage = () => {
           </div>
         </div>
       </section>
+
+      {/* ===== ICONOGRAPHY ===== */}
+      <section className="mb-16">
+        <SectionHeader>Iconography</SectionHeader>
+
+        <IconGroup title="Action">
+          {[
+            'clock', 'more-vertical', 'more-horizontal', 'x', 'phone', 'megaphone', 'search',
+            'home', 'map', 'users', 'settings', 'printer', 'edit', 'mail',
+            'trash-2', 'plus', 'minus', 'expand-content', 'collapse-content',
+            'chevron-up', 'chevron-down', 'chevron-left', 'chevron-right',
+            'filter-lines', 'copy', 'share', 'right-panel-close',
+            'external-link', 'undo',
+          ].map((name) => (
+            <IconTile key={name} name={name} />
+          ))}
+        </IconGroup>
+
+        <IconGroup title="Metadata">
+          {[
+            'map', 'calendar', 'users', 'map-pin', 'box', 'clock',
+            'instagram', 'facebook', 'globe', 'twitter', 'heart',
+            'award', 'package',
+          ].map((name) => (
+            <IconTile key={`meta-${name}`} name={name} />
+          ))}
+        </IconGroup>
+
+        <IconGroup title="Status">
+          {[
+            'check', 'alert-circle', 'alert-triangle', 'wifi-off',
+            'check-circle',
+          ].map((name) => (
+            <IconTile key={`status-${name}`} name={name} />
+          ))}
+        </IconGroup>
+      </section>
+
+      {/* ===== ILLUSTRATIONS ===== */}
+      <section className="mb-16">
+        <SectionHeader>Illustrations</SectionHeader>
+
+        <h3 className="mb-3 text-p2 font-bold text-dark">For Use in Cards</h3>
+        <div className="mb-8 flex flex-wrap gap-8">
+          <IllustrationTile name="Granny" src="/illustrations/granny.png" />
+          <IllustrationTile name="Boy" src="/illustrations/boy.png" />
+        </div>
+
+        <h3 className="mb-3 text-p2 font-bold text-dark">Edge Case States</h3>
+        <div className="mb-8 flex flex-wrap gap-8">
+          <IllustrationTile name="Girl — Confused" src="/illustrations/girl-confused.png" />
+          <IllustrationTile name="Girl — Edge Case" src="/illustrations/girl-edge-case.png" />
+        </div>
+
+        <h3 className="mb-3 text-p2 font-bold text-dark">Error Pages</h3>
+        <div className="flex flex-wrap gap-8">
+          <IllustrationTile name="Girl — 403" src="/illustrations/girl-403.png" />
+        </div>
+      </section>
+
+      {/* ===== LOGOS ===== */}
+      <section className="mb-16">
+        <SectionHeader>Logos</SectionHeader>
+
+        <div className="flex flex-wrap items-end gap-12">
+          <div className="text-center">
+            <div className="mb-3 flex h-24 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-6">
+              <img src="/logos/logo_one_line.png" alt="F4K Logo — One Line" className="h-16 w-auto object-contain" />
+            </div>
+            <p className="text-p3 font-semibold text-dark">One Line</p>
+            <p className="text-p3 text-light">logo_one_line.png</p>
+          </div>
+          <div className="text-center">
+            <div className="mb-3 flex h-24 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-6">
+              <img src="/logos/logo_two_lines.png" alt="F4K Logo — Two Lines" className="h-16 w-auto object-contain" />
+            </div>
+            <p className="text-p3 font-semibold text-dark">Two Lines</p>
+            <p className="text-p3 text-light">logo_two_lines.png</p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
@@ -344,6 +425,41 @@ function TypeRow({
     <div className="flex items-baseline gap-6">
       <p className={className}>{label}</p>
       <p className="text-p3 text-light">{spec}</p>
+    </div>
+  );
+}
+
+function IconGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-8">
+      <h3 className="mb-3 text-p2 font-bold text-dark">{title}</h3>
+      <div className="flex flex-wrap gap-4">{children}</div>
+    </div>
+  );
+}
+
+function IconTile({ name }: { name: string }) {
+  return (
+    <div className="flex w-24 flex-col items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-3">
+      <img src={`/icons/${name}.svg`} alt={name} className="size-6" />
+      <p className="text-center text-[10px] leading-tight text-light">{name}</p>
+    </div>
+  );
+}
+
+function IllustrationTile({ name, src }: { name: string; src: string }) {
+  return (
+    <div className="text-center">
+      <div className="mb-2 flex h-40 w-32 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-2">
+        <img src={src} alt={name} className="max-h-full max-w-full object-contain" />
+      </div>
+      <p className="text-p3 font-semibold text-dark">{name}</p>
     </div>
   );
 }
