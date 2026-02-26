@@ -9,6 +9,7 @@ import {
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { StyleGuidePage } from './pages/StyleGuidePage';
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
         </Route>
 
         {/* Shared Routes */}
+        <Route path="/style-guide" element={<StyleGuidePage />} />
 
         {/* 404 Not Found */}
         <Route path="*" element={<NotFoundPage />} />
