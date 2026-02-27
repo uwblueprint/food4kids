@@ -386,6 +386,79 @@ export const StyleGuidePage = () => {
           </div>
         </div>
       </section>
+
+      {/* ===== ILLUSTRATIONS ===== */}
+      <section className="mb-16">
+        <SectionHeader>Illustrations</SectionHeader>
+        <div className="flex flex-wrap gap-6">
+          {[
+            { file: 'boy.png', label: 'boy' },
+            { file: 'boy-edge-case-no-question-mark.png', label: 'boy-edge-case-no-question-mark' },
+            { file: 'boy-edge-case-with-questions.png', label: 'boy-edge-case-with-questions' },
+            { file: 'girl-403.png', label: 'girl-403' },
+            { file: 'girl-confused.png', label: 'girl-confused' },
+            { file: 'granny.png', label: 'granny' },
+          ].map(({ file, label }) => (
+            <div key={file} className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4">
+              <img src={`/illustrations/${file}`} alt={label} className="h-32 w-auto object-contain" />
+              <p className="text-grey-400 text-center text-[10px] leading-tight">{label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===== LOGOS ===== */}
+      <section className="mb-16">
+        <SectionHeader>Logos</SectionHeader>
+        <div className="flex flex-wrap gap-6">
+          {[
+            { file: 'logo_desktop_two_lines.png', label: 'logo_desktop_two_lines' },
+            { file: 'logo_mobile_one_line.png', label: 'logo_mobile_one_line' },
+          ].map(({ file, label }) => (
+            <div key={file} className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4">
+              <img src={`/logos/${file}`} alt={label} className="h-16 w-auto object-contain" />
+              <p className="text-grey-400 text-center text-[10px] leading-tight">{label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===== ICONOGRAPHY ===== */}
+      <section className="mb-16">
+        <SectionHeader>Iconography</SectionHeader>
+
+        <IconGroup title="Action">
+          {[
+            'clock', 'more-vertical', 'more-horizontal', 'x', 'phone', 'megaphone', 'search',
+            'home', 'map', 'users', 'settings', 'printer', 'edit', 'mail',
+            'trash', 'plus', 'minus', 'expand-content', 'collapse-content',
+            'chevron-up', 'chevron-down', 'chevron-left', 'chevron-right',
+            'filter-lines', 'copy', 'share', 'right-panel-close',
+            'external-link', 'undo',
+          ].map((name) => (
+            <IconTile key={name} name={name} />
+          ))}
+        </IconGroup>
+
+        <IconGroup title="Metadata">
+          {[
+            'calendar', 'map-pin', 'box',
+            'instagram', 'facebook', 'globe', 'twitter', 'heart',
+            'award', 'package',
+          ].map((name) => (
+            <IconTile key={`meta-${name}`} name={name} />
+          ))}
+        </IconGroup>
+
+        <IconGroup title="Status">
+          {[
+            'check', 'alert-circle', 'alert-triangle', 'wifi-off',
+            'check-circle',
+          ].map((name) => (
+            <IconTile key={`status-${name}`} name={name} />
+          ))}
+        </IconGroup>
+      </section>
     </div>
   );
 };
@@ -459,6 +532,30 @@ function TypekitRow({
       <code className="bg-grey-200 text-p3 mt-1 inline-block rounded px-2 py-0.5 font-mono text-blue-300">
         {code}
       </code>
+    </div>
+  );
+}
+
+function IconGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mb-8">
+      <h3 className="text-p2 text-grey-500 mb-3 font-bold">{title}</h3>
+      <div className="flex flex-wrap gap-4">{children}</div>
+    </div>
+  );
+}
+
+function IconTile({ name }: { name: string }) {
+  return (
+    <div className="border-grey-300 bg-grey-150 flex w-24 flex-col items-center gap-2 rounded-lg border px-2 py-3">
+      <img src={`/icons/${name}.svg`} alt={name} className="size-6" />
+      <p className="text-grey-400 text-center text-[10px] leading-tight">{name}</p>
     </div>
   );
 }
