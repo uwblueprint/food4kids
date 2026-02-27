@@ -33,8 +33,10 @@ function App() {
           <Route path="home" element={<DriverHomePage />} />
         </Route>
 
-        {/* Shared Routes */}
-        <Route path="/style-guide" element={<StyleGuidePage />} />
+        {/* Dev-only: style guide is not accessible in production */}
+        {import.meta.env.DEV && (
+          <Route path="/style-guide" element={<StyleGuidePage />} />
+        )}
 
         {/* 404 Not Found */}
         <Route path="*" element={<NotFoundPage />} />

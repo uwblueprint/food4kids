@@ -1,140 +1,167 @@
+import type { ReactNode } from 'react';
+
 export const StyleGuidePage = () => {
   return (
-    <div className="min-h-screen bg-white p-8 font-nunito-sans text-dark md:p-16">
-      <h1 className="mb-2 font-nunito text-[2.5rem] font-bold leading-tight text-blue-300">
+    <div className="min-h-screen page-margins pb-16">
+      <h1 className="mb-2 text-blue-300">
         F4K Design System
       </h1>
-      <p className="mb-12 text-p1 text-light">
-        Tailwind CSS v4 theme tokens — fonts, colors, shadows, and spacing.
+      <p className="text-p2 text-grey-400 mb-2">
+        Tailwind CSS v4 theme — typography, colors, shadows, and spacing.
       </p>
 
-      <hr className="mb-12 border-gray-300" />
+      <hr className="border-grey-300 mb-12" />
 
-      {/* ===== FONTS ===== */}
+      {/* ===== TYPEKIT ===== */}
       <section className="mb-16">
-        <SectionHeader>Fonts</SectionHeader>
+        <SectionHeader>Typekit</SectionHeader>
 
-        <div className="flex flex-wrap gap-12">
-          <div>
-            <p className="mb-2 text-p3 font-semibold uppercase tracking-wider text-grey-400">
-              Nunito
-            </p>
-            <p className="font-nunito text-[2.5rem] font-bold">Nunito Bold</p>
-            <p className="font-nunito text-[2.5rem] font-semibold">
-              Nunito SemiBold
-            </p>
-            <p className="font-nunito text-[2.5rem]">Nunito Regular</p>
+        <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
+          <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
+            {/* Column 1: Typeface & Weights */}
+            <div className="p-6">
+              <p className="text-p3 mb-3 font-semibold tracking-wider text-blue-300 uppercase">
+                Typeface & Weights
+              </p>
+              <p className="text-p3 text-grey-400 mb-6">
+                Nunito is used for Heading text (except H3) and Button UI.
+                Nunito Sans is used for Paragraph text.
+              </p>
+              <div className="space-y-3">
+                <p className="font-nunito text-grey-500 text-xl font-extrabold">
+                  Nunito ExtraBold
+                </p>
+                <p className="font-nunito text-grey-500 text-xl font-bold">
+                  Nunito Bold
+                </p>
+                <p className="font-nunito text-grey-500 text-xl font-semibold">
+                  Nunito SemiBold
+                </p>
+                <p className="font-nunito text-grey-500 text-xl font-medium">
+                  Nunito Medium
+                </p>
+                <p className="font-nunito-sans text-grey-500 text-xl">
+                  Nunito Sans Regular
+                </p>
+                <p className="font-nunito-sans text-grey-500 text-xl font-light">
+                  Nunito Sans Light
+                </p>
+              </div>
+            </div>
+
+            {/* Column 2: Desktop & Tablet Text Styles */}
+            <div className="p-6">
+              <p className="text-p3 mb-3 font-semibold tracking-wider text-blue-300 uppercase">
+                Desktop & Tablet Text Styles
+              </p>
+              <div className="space-y-5">
+                <TypekitRow
+                  label="Desktop/Heading/H1"
+                  className="font-nunito text-h1 text-grey-500 font-bold"
+                  spec="Nunito | Text size: 32px | Line height: 44px"
+                  code="<h1>"
+                />
+                <TypekitRow
+                  label="Desktop/Heading/H2"
+                  className="font-nunito text-h2 text-grey-500 font-semibold"
+                  spec="Nunito | Text size: 20px | Line height: 28px"
+                  code="<h2>"
+                />
+                <TypekitRow
+                  label="Desktop/Heading/H3"
+                  className="font-nunito-sans text-h3 text-grey-500 font-bold"
+                  spec="Nunito Sans | Text size: 16px | Line height: 20px"
+                  code="<h3>"
+                />
+                <TypekitRow
+                  label="Desktop/Paragraph/P1"
+                  className="font-nunito-sans text-p1 text-grey-500"
+                  spec="Nunito Sans | Text size: 16px | Line height: 20px"
+                  code="text-p1"
+                />
+                <TypekitRow
+                  label="Desktop/Paragraph/P2"
+                  className="font-nunito-sans text-p2 text-grey-500"
+                  spec="Nunito Sans | Text size: 14px | Line height: 18px"
+                  code="text-p2"
+                />
+                <TypekitRow
+                  label="Desktop/Paragraph/P3"
+                  className="font-nunito-sans text-p3 text-grey-500"
+                  spec="Nunito Sans | Text size: 12px | Line height: 18px"
+                  code="text-p3"
+                />
+                <TypekitRow
+                  label="UI/Button"
+                  className="font-nunito text-h3 text-grey-500 font-bold"
+                  spec="Nunito | Text size: 16px | Line height: 20px"
+                  code="font-nunito font-bold"
+                />
+              </div>
+            </div>
+
+            {/* Column 3: Mobile Text Styles */}
+            {/* NOTE: text-m-* tokens are used here intentionally to display
+                static mobile sizes for documentation purposes. They must NOT
+                be used directly in any other component — use text-p1/p2/p3
+                or h1/h2/h3 (which apply mobile sizes automatically via
+                @layer base/@layer utilities). */}
+            <div className="p-6">
+              <p className="text-p3 mb-3 font-semibold tracking-wider text-blue-300 uppercase">
+                Mobile Text Styles
+              </p>
+              <div className="space-y-5">
+                <TypekitRow
+                  label="Mobile/Heading/H1"
+                  className="font-nunito text-m-h1 text-grey-500 font-bold"
+                  spec="Nunito | Text size: 24px | Line height: 32px"
+                  code="<h1>"
+                />
+                <TypekitRow
+                  label="Mobile/Heading/H2"
+                  className="font-nunito text-m-h2 text-grey-500 font-semibold"
+                  spec="Nunito | Text size: 20px | Line height: 24px"
+                  code="<h2>"
+                />
+                <TypekitRow
+                  label="Mobile/Heading/H2/ExtraBold"
+                  className="font-nunito text-m-h2 text-grey-500 font-extrabold"
+                  spec="Nunito | Text size: 20px | Line height: 24px"
+                  code="<h2> + font-extrabold"
+                />
+                <TypekitRow
+                  label="Mobile/Heading/H3"
+                  className="font-nunito-sans text-m-h3 text-grey-500 font-bold"
+                  spec="Nunito Sans | Text size: 18px | Line height: 24px"
+                  code="<h3>"
+                />
+                <TypekitRow
+                  label="Mobile/Paragraph/P1"
+                  className="font-nunito-sans text-m-p1 text-grey-500"
+                  spec="Nunito Sans | Text size: 18px | Line height: 24px"
+                  code="text-p1"
+                />
+                <TypekitRow
+                  label="Mobile/Paragraph/P2"
+                  className="font-nunito-sans text-m-p2 text-grey-500"
+                  spec="Nunito Sans | Text size: 16px | Line height: 24px"
+                  code="text-p2"
+                />
+                <TypekitRow
+                  label="Mobile/Paragraph/P3"
+                  className="font-nunito-sans text-m-p3 text-grey-500"
+                  spec="Nunito Sans | Text size: 14px | Line height: 18px"
+                  code="text-p3"
+                />
+                <TypekitRow
+                  label="UI/Button"
+                  className="font-nunito text-h3 text-grey-500 font-bold"
+                  spec="Nunito | Text size: 16px | Line height: 20px"
+                  code="font-nunito font-bold"
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="mb-2 text-p3 font-semibold uppercase tracking-wider text-grey-400">
-              Nunito Sans
-            </p>
-            <p className="font-nunito-sans text-[2.5rem] font-bold">
-              Nunito Sans Bold
-            </p>
-            <p className="font-nunito-sans text-[2.5rem]">
-              Nunito Sans Regular
-            </p>
-          </div>
-          <div>
-            <p className="mb-2 text-p3 font-semibold uppercase tracking-wider text-grey-400">
-              Titillium Web
-            </p>
-            <p className="font-titillium text-[2.5rem] font-semibold">
-              Titillium Web SemiBold
-            </p>
-            <p className="font-titillium text-[2.5rem]">
-              Titillium Web Regular
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== TYPOGRAPHY: DESKTOP ===== */}
-      <section className="mb-16">
-        <SectionHeader>Typography — Desktop / Tablet</SectionHeader>
-        <p className="mb-6 text-p2 text-light">
-          Uses <code className="text-blue-300">font-titillium</code>
-        </p>
-
-        <div className="space-y-4">
-          <TypeRow
-            label="H1 — Page Header"
-            spec="32px / 40px · SemiBold"
-            className="font-titillium text-h1 font-semibold"
-          />
-          <TypeRow
-            label="H2 — Subheader"
-            spec="24px / 32px · SemiBold"
-            className="font-titillium text-h2 font-semibold"
-          />
-          <TypeRow
-            label="H3 — Labels, Links & Buttons"
-            spec="14px / 22px · SemiBold"
-            className="font-titillium text-h3 font-semibold"
-          />
-          <TypeRow
-            label="H4 — Table Header"
-            spec="12px / 18px · SemiBold · Uppercase"
-            className="font-titillium text-h4 font-semibold uppercase"
-          />
-          <TypeRow
-            label="P1 — Body Large"
-            spec="16px / 28px · Regular"
-            className="font-titillium text-p1"
-          />
-          <TypeRow
-            label="P2 — Body Medium"
-            spec="14px / 22px · Regular"
-            className="font-titillium text-p2"
-          />
-          <TypeRow
-            label="P3 — Body Small"
-            spec="12px / 18px · Regular"
-            className="font-titillium text-p3"
-          />
-        </div>
-      </section>
-
-      {/* ===== TYPOGRAPHY: MOBILE ===== */}
-      <section className="mb-16">
-        <SectionHeader>Typography — Mobile</SectionHeader>
-        <p className="mb-6 text-p2 text-light">
-          Headings use <code className="text-blue-300">font-nunito</code>, body
-          uses <code className="text-blue-300">font-nunito-sans</code>
-        </p>
-
-        <div className="space-y-4">
-          <TypeRow
-            label="M H1 — Page Header"
-            spec="24px / 32px · Bold · Nunito"
-            className="font-nunito text-m-h1 font-bold"
-          />
-          <TypeRow
-            label="M H2 — Subheader"
-            spec="20px / 24px · SemiBold · Nunito"
-            className="font-nunito text-m-h2 font-semibold"
-          />
-          <TypeRow
-            label="M H3 — Labels, Links & Buttons"
-            spec="18px / 24px · Bold · Nunito Sans"
-            className="font-nunito-sans text-m-h3 font-bold"
-          />
-          <TypeRow
-            label="M P1 — Body Large"
-            spec="18px / 24px · Regular · Nunito Sans"
-            className="font-nunito-sans text-m-p1"
-          />
-          <TypeRow
-            label="M P2 — Body Medium"
-            spec="16px / 24px · Regular · Nunito Sans"
-            className="font-nunito-sans text-m-p2"
-          />
-          <TypeRow
-            label="M P3 — Body Small"
-            spec="14px / 18px · Regular · Nunito Sans"
-            className="font-nunito-sans text-m-p3"
-          />
         </div>
       </section>
 
@@ -143,48 +170,130 @@ export const StyleGuidePage = () => {
         <SectionHeader>Colors</SectionHeader>
 
         <div className="space-y-10">
-          <ColorGroup title="Neutrals">
-            <Swatch name="dark" color="bg-dark" hex="#1C1B1F" usage="Default text" />
-            <Swatch name="light" color="bg-light" hex="#757575" usage="Light text" />
-            <Swatch name="white" color="bg-white border border-gray-200" hex="#FFFFFF" usage="Background" />
+          <ColorGroup title="Primary Colours">
+            <Swatch
+              name="Grey/500"
+              color="bg-grey-500"
+              hex="#1C1B1F"
+              usage="Global text color"
+            />
+            <Swatch
+              name="Blue/300"
+              color="bg-blue-300"
+              hex="#226CA7"
+              usage="Interactive elements"
+            />
+            <Swatch
+              name="Grey/100"
+              color="bg-grey-100 border border-grey-300"
+              hex="#FFFFFF"
+              usage="Global white color"
+            />
           </ColorGroup>
 
-          <ColorGroup title="Grey (Semantic)">
-            <Swatch name="grey-200" color="bg-grey-200" hex="#EFF3F6" usage="Subtle bg" />
-            <Swatch name="grey-300" color="bg-grey-300" hex="#E0E7ED" usage="Border, tags" />
-            <Swatch name="grey-400" color="bg-grey-400" hex="#707581" usage="Muted text" />
+          <ColorGroup title="Secondary Colours">
+            <Swatch
+              name="Blue/50"
+              color="bg-blue-50"
+              hex="#E9F4FF"
+              usage="Hover states"
+            />
+            <Swatch
+              name="Blue/400"
+              color="bg-blue-400"
+              hex="#195586"
+              usage="Polylines"
+            />
+            <Swatch
+              name="Grey/150"
+              color="bg-grey-150"
+              hex="#F8F8F8"
+              usage="Form fields (uneditable)"
+            />
+            <Swatch
+              name="Grey/200"
+              color="bg-grey-200"
+              hex="#EFF3F6"
+              usage="Secondary buttons"
+            />
+            <Swatch
+              name="Grey/300"
+              color="bg-grey-300"
+              hex="#E0E7ED"
+              usage="Strokes"
+            />
+            <Swatch
+              name="Grey/400"
+              color="bg-grey-400"
+              hex="#707581"
+              usage="Metadata, archived data"
+            />
           </ColorGroup>
 
-          <ColorGroup title="Gray (Neutral)">
-            <Swatch name="gray-50" color="bg-gray-50 border border-gray-200" hex="#FAFAFA" usage="Page bg" />
-            <Swatch name="gray-100" color="bg-gray-100 border border-gray-200" hex="#F2F2F2" usage="Bg" />
-            <Swatch name="gray-200" color="bg-gray-200" hex="#E8E8E8" usage="Border & bg" />
-            <Swatch name="gray-300" color="bg-gray-300" hex="#E0E0E0" usage="Border & bg" />
+          <ColorGroup title="Alerts">
+            <Swatch
+              name="Red"
+              color="bg-red"
+              hex="#EB3131"
+              usage="Critical error stroke"
+            />
+            <Swatch
+              name="Light Red"
+              color="bg-light-red"
+              hex="#FEF3F2"
+              usage="Critical error fill"
+            />
+            <Swatch
+              name="Dark Yellow"
+              color="bg-dark-yellow"
+              hex="#FDB022"
+              usage="Warning stroke"
+            />
+            <Swatch
+              name="Light Yellow"
+              color="bg-light-yellow"
+              hex="#FFFAEB"
+              usage="Warning fill"
+            />
+            <Swatch
+              name="Success/Stroke"
+              color="bg-success-stroke"
+              hex="#039855"
+              usage="Success stroke"
+            />
+            <Swatch
+              name="Success/Fill"
+              color="bg-success-fill"
+              hex="#ECFDF3"
+              usage="Success fill"
+            />
           </ColorGroup>
 
-          <ColorGroup title="Blues">
-            <Swatch name="blue-50" color="bg-blue-50" hex="#E9F4FF" usage="Selection states" />
-            <Swatch name="blue-100" color="bg-blue-100" hex="#BED3E9" usage="Stroke complement" />
-            <Swatch name="blue-300" color="bg-blue-300" hex="#226CA7" usage="Primary / clickable" light />
-            <Swatch name="blue-400" color="bg-blue-400" hex="#195586" usage="Hover states" light />
-          </ColorGroup>
-
-          <ColorGroup title="Status">
-            <Swatch name="success-fill" color="bg-success-fill" hex="#ECFDF3" usage="Success bg" />
-            <Swatch name="success-stroke" color="bg-success-stroke" hex="#039855" usage="Success border" light />
-            <Swatch name="error-fill" color="bg-error-fill" hex="#FEF3F2" usage="Error bg" />
-            <Swatch name="error-stroke" color="bg-error-stroke" hex="#D92D20" usage="Error border" light />
-            <Swatch name="warning-50" color="bg-warning-50" hex="#FFFAEB" usage="Warning bg" />
-            <Swatch name="warning-400" color="bg-warning-400" hex="#FDB022" usage="Warning border" />
-            <Swatch name="progress" color="bg-progress" hex="#1570EF" usage="Progress indicator" light />
-            <Swatch name="progress-bar" color="bg-progress-bar" hex="#0086C9" usage="Progress bar fill" light />
-          </ColorGroup>
-
-          <ColorGroup title="Brand">
-            <Swatch name="brand-pink" color="bg-brand-pink" hex="#B33F93" usage="Cosmetic" light />
-            <Swatch name="brand-orange" color="bg-brand-orange" hex="#EB5531" usage="Cosmetic" light />
-            <Swatch name="brand-green" color="bg-brand-green" hex="#27B28D" usage="Cosmetic" light />
-            <Swatch name="brand-light-blue" color="bg-brand-light-blue" hex="#09A7DF" usage="Cosmetic" light />
+          <ColorGroup title="Supporting Colours">
+            <Swatch
+              name="Brand/Green"
+              color="bg-brand-green"
+              hex="#27B28D"
+              usage="Cards, graphs"
+            />
+            <Swatch
+              name="Brand/Light Blue"
+              color="bg-brand-light-blue"
+              hex="#09A7DF"
+              usage="Cards, graphs"
+            />
+            <Swatch
+              name="Brand/Orange"
+              color="bg-brand-orange"
+              hex="#EB5531"
+              usage="Cards, graphs"
+            />
+            <Swatch
+              name="Brand/Pink"
+              color="bg-brand-pink"
+              hex="#B33F93"
+              usage="Cards, graphs"
+            />
           </ColorGroup>
         </div>
       </section>
@@ -194,10 +303,10 @@ export const StyleGuidePage = () => {
         <SectionHeader>Shadows</SectionHeader>
 
         <div className="flex gap-8">
-          <div className="flex h-32 w-64 items-center justify-center rounded-2xl bg-white shadow-card">
+          <div className="shadow-card flex h-32 w-64 items-center justify-center rounded-2xl bg-white">
             <div className="text-center">
-              <p className="font-semibold text-dark">shadow-card</p>
-              <p className="text-p3 text-light">
+              <p className="text-grey-500 font-semibold">shadow-card</p>
+              <p className="text-p3 text-grey-400">
                 0px 4px 10px rgba(0,0,0,0.05)
               </p>
             </div>
@@ -208,9 +317,10 @@ export const StyleGuidePage = () => {
       {/* ===== SPACING ===== */}
       <section className="mb-16">
         <SectionHeader>Spacing Scale (8px Grid)</SectionHeader>
-        <p className="mb-6 text-p2 text-light">
-          Based on an 8px grid with 4px minor grid fallback. Maps to standard
-          Tailwind utilities.
+        <p className="text-p2 text-grey-400 mb-6">
+          Illustrates Tailwind&apos;s underlying doubling scale — not a list of
+          approved design values. For the design&apos;s actual spacing increments
+          (4, 8, 12, 16, 20, 24, 40, 80px) see the README spacing table.
         </p>
 
         <div className="space-y-3">
@@ -226,14 +336,16 @@ export const StyleGuidePage = () => {
             { step: 8, px: 512, tw: '128' },
           ].map(({ step, px, tw }) => (
             <div key={step} className="flex items-center gap-4">
-              <span className="w-6 text-right text-p3 text-light">{step}</span>
+              <span className="text-p3 text-grey-400 w-6 text-right">
+                {step}
+              </span>
               <div
-                className="h-2 rounded-sm bg-brand-pink"
-                style={{ width: Math.min(px, 512) }}
+                className="bg-brand-pink h-2 rounded-sm"
+                style={{ width: Math.min(px, 512) + 'px' }}
               />
-              <span className="text-p3 text-light">
+              <span className="text-p3 text-grey-400">
                 {px}px{' '}
-                <code className="text-dark">
+                <code className="text-grey-500">
                   p-{tw} / m-{tw}
                 </code>
               </span>
@@ -242,33 +354,33 @@ export const StyleGuidePage = () => {
         </div>
       </section>
 
-      {/* ===== BANNER EXAMPLES ===== */}
+      {/* ===== BANNERS ===== */}
       <section className="mb-16">
         <SectionHeader>Banners (Token Usage Examples)</SectionHeader>
 
         <div className="space-y-6">
-          <div className="flex items-start gap-2.5 rounded-2xl border border-success-800 bg-success-fill px-4 py-6">
+          <div className="border-success-stroke bg-success-fill flex items-start gap-2.5 rounded-2xl border px-4 py-6">
             <span className="text-success-stroke">&#10003;</span>
             <div>
-              <p className="font-semibold text-success-stroke">
+              <p className="text-success-stroke font-semibold">
                 Routes generated successfully!
               </p>
-              <p className="text-p2 text-success-900">
+              <p className="text-p2 text-success-stroke opacity-80">
                 Generated on Oct 20, 2025 at 10:42 AM
               </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 rounded-2xl border border-error-stroke bg-error-fill px-4 py-6">
-            <span className="text-error-stroke">&#9888;</span>
-            <p className="text-p2 font-semibold text-error-stroke">
+          <div className="bg-light-red flex items-start gap-2.5 rounded-2xl border border-red px-4 py-6">
+            <span className="text-red">&#9888;</span>
+            <p className="text-p2 font-semibold text-red">
               Unsupported format — please upload an Excel (.xlsx) file
             </p>
           </div>
 
-          <div className="flex items-start gap-2.5 rounded-2xl border border-warning-400 bg-warning-50 px-4 py-6">
-            <span className="text-warning-900">&#9888;</span>
-            <p className="text-p2 font-semibold text-warning-900">
+          <div className="border-dark-yellow bg-light-yellow flex items-start gap-2.5 rounded-2xl border px-4 py-6">
+            <span className="text-dark-yellow">&#9888;</span>
+            <p className="text-p2 text-dark-yellow font-semibold">
               Warning — These entries will be skipped unless corrected.
             </p>
           </div>
@@ -311,63 +423,19 @@ export const StyleGuidePage = () => {
           ))}
         </IconGroup>
       </section>
-
-      {/* ===== ILLUSTRATIONS ===== */}
-      <section className="mb-16">
-        <SectionHeader>Illustrations</SectionHeader>
-
-        <h3 className="mb-3 text-p2 font-bold text-dark">For Use in Cards</h3>
-        <div className="mb-8 flex flex-wrap gap-8">
-          <IllustrationTile name="Granny" src="/illustrations/granny.png" />
-          <IllustrationTile name="Boy" src="/illustrations/boy.png" />
-        </div>
-
-        <h3 className="mb-3 text-p2 font-bold text-dark">Edge Case States</h3>
-        <div className="mb-8 flex flex-wrap gap-8">
-          <IllustrationTile name="Girl — Confused" src="/illustrations/girl-confused.png" />
-          <IllustrationTile name="Girl — Edge Case" src="/illustrations/girl-edge-case.png" />
-        </div>
-
-        <h3 className="mb-3 text-p2 font-bold text-dark">Error Pages</h3>
-        <div className="flex flex-wrap gap-8">
-          <IllustrationTile name="Girl — 403" src="/illustrations/girl-403.png" />
-        </div>
-      </section>
-
-      {/* ===== LOGOS ===== */}
-      <section className="mb-16">
-        <SectionHeader>Logos</SectionHeader>
-
-        <div className="flex flex-wrap items-end gap-12">
-          <div className="text-center">
-            <div className="mb-3 flex h-24 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-6">
-              <img src="/logos/logo_one_line.png" alt="F4K Logo — One Line" className="h-16 w-auto object-contain" />
-            </div>
-            <p className="text-p3 font-semibold text-dark">One Line</p>
-            <p className="text-p3 text-light">logo_one_line.png</p>
-          </div>
-          <div className="text-center">
-            <div className="mb-3 flex h-24 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-6">
-              <img src="/logos/logo_two_lines.png" alt="F4K Logo — Two Lines" className="h-16 w-auto object-contain" />
-            </div>
-            <p className="text-p3 font-semibold text-dark">Two Lines</p>
-            <p className="text-p3 text-light">logo_two_lines.png</p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };
 
-/* --- Helper Components --- */
+/* ============================================== */
+/* Helper Components                              */
+/* ============================================== */
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionHeader({ children }: { children: ReactNode }) {
   return (
     <>
-      <h2 className="mb-1 font-nunito text-h2 font-semibold text-dark">
-        {children}
-      </h2>
-      <hr className="mb-6 border-gray-300" />
+      <h2 className="mb-1">{children}</h2>
+      <hr className="border-grey-300 mb-6" />
     </>
   );
 }
@@ -377,11 +445,11 @@ function ColorGroup({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div>
-      <h3 className="mb-3 text-p2 font-bold text-dark">{title}</h3>
+      <p className="text-p2 text-grey-500 mb-3 font-bold">{title}</p>
       <div className="flex flex-wrap gap-4">{children}</div>
     </div>
   );
@@ -392,39 +460,42 @@ function Swatch({
   color,
   hex,
   usage,
-  light = false,
 }: {
   name: string;
   color: string;
   hex: string;
   usage: string;
-  light?: boolean;
 }) {
   return (
     <div className="w-36">
       <div className={`mb-2 h-16 rounded-md ${color}`} />
-      <p className={`text-p3 font-semibold ${light ? '' : 'text-dark'}`}>
+      <p className="text-p3 text-grey-500 font-semibold">
         {name}
       </p>
-      <p className="font-mono text-p3 text-light">{hex}</p>
-      <p className="text-p3 text-light">{usage}</p>
+      <p className="text-p3 text-grey-400 font-mono">{hex}</p>
+      <p className="text-p3 text-grey-400">{usage}</p>
     </div>
   );
 }
 
-function TypeRow({
+function TypekitRow({
   label,
-  spec,
   className,
+  spec,
+  code,
 }: {
   label: string;
-  spec: string;
   className: string;
+  spec: string;
+  code: string;
 }) {
   return (
-    <div className="flex items-baseline gap-6">
+    <div>
       <p className={className}>{label}</p>
-      <p className="text-p3 text-light">{spec}</p>
+      <p className="text-p3 text-grey-400 mt-0.5">{spec}</p>
+      <code className="bg-grey-200 text-p3 mt-1 inline-block rounded px-2 py-0.5 font-mono text-blue-300">
+        {code}
+      </code>
     </div>
   );
 }
@@ -434,11 +505,11 @@ function IconGroup({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="mb-8">
-      <h3 className="mb-3 text-p2 font-bold text-dark">{title}</h3>
+      <h3 className="text-p2 text-grey-500 mb-3 font-bold">{title}</h3>
       <div className="flex flex-wrap gap-4">{children}</div>
     </div>
   );
@@ -446,20 +517,9 @@ function IconGroup({
 
 function IconTile({ name }: { name: string }) {
   return (
-    <div className="flex w-24 flex-col items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-3">
+    <div className="border-grey-300 bg-grey-150 flex w-24 flex-col items-center gap-2 rounded-lg border px-2 py-3">
       <img src={`/icons/${name}.svg`} alt={name} className="size-6" />
-      <p className="text-center text-[10px] leading-tight text-light">{name}</p>
-    </div>
-  );
-}
-
-function IllustrationTile({ name, src }: { name: string; src: string }) {
-  return (
-    <div className="text-center">
-      <div className="mb-2 flex h-40 w-32 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-2">
-        <img src={src} alt={name} className="max-h-full max-w-full object-contain" />
-      </div>
-      <p className="text-p3 font-semibold text-dark">{name}</p>
+      <p className="text-grey-400 text-center text-[10px] leading-tight">{name}</p>
     </div>
   );
 }
