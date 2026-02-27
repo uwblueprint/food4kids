@@ -174,4 +174,26 @@
       line-height: var(--text-p3--line-height);
     }
   }
+
+  /* Page-level margins from the F4K design system.
+   * Apply to top-level page wrapper elements.
+   * Mobile: 20px · Tablet (md): 40px · Desktop (lg): 80px left/right, 40px top */
+  .page-margins {
+    padding-left: 1.25rem;   /* 20px */
+    padding-right: 1.25rem;
+    padding-top: 1.25rem;
+  }
+  @media (min-width: 48rem) {
+    .page-margins {
+      padding-left: 2.5rem;  /* 40px */
+      padding-right: 2.5rem;
+    }
+  }
+  @media (min-width: 64rem) {
+    .page-margins {
+      padding-left: 5rem;    /* 80px */
+      padding-right: 5rem;
+      padding-top: 2.5rem;   /* 40px */
+    }
+  }
 }
