@@ -10,34 +10,32 @@
   --font-nunito: 'Nunito', sans-serif;
   --font-nunito-sans: 'Nunito Sans', sans-serif;
 
-  
-
   /* --- Colors: Primary --- */
-  --color-grey-500: #1C1B1F; /* Global text color */
-  --color-grey-100: #FFFFFF; /* Global white color */
-  --color-blue-300: #226CA7; /* Interactive elements */
+  --color-grey-500: #1c1b1f; /* Global text color */
+  --color-grey-100: #ffffff; /* Global white color */
+  --color-blue-300: #226ca7; /* Interactive elements */
 
   /* --- Colors: Secondary --- */
-  --color-blue-50: #E9F4FF;  /* Hover states */
+  --color-blue-50: #e9f4ff; /* Hover states */
   --color-blue-400: #195586; /* Polylines */
-  --color-grey-150: #F8F8F8; /* Form fields that are uneditable */
-  --color-grey-200: #EFF3F6; /* Secondary buttons */
-  --color-grey-300: #E0E7ED; /* Strokes */
+  --color-grey-150: #f8f8f8; /* Form fields that are uneditable */
+  --color-grey-200: #eff3f6; /* Secondary buttons */
+  --color-grey-300: #e0e7ed; /* Strokes */
   --color-grey-400: #707581; /* Metadata, archived data */
 
   /* --- Colors: Alerts --- */
-  --color-red: #EB3131;           /* Alerts or critical error banner stroke */
-  --color-light-red: #FEF3F2;     /* Critical error banner fill */
-  --color-dark-yellow: #FDB022;   /* Warning text or banner stroke */
-  --color-light-yellow: #FFFAEB;  /* Warning banner fill */
+  --color-red: #eb3131; /* Alerts or critical error banner stroke */
+  --color-light-red: #fef3f2; /* Critical error banner fill */
+  --color-dark-yellow: #fdb022; /* Warning text or banner stroke */
+  --color-light-yellow: #fffaeb; /* Warning banner fill */
   --color-success-stroke: #039855; /* Successful text or banner stroke */
-  --color-success-fill: #ECFDF3;  /* Successful banner fill */
+  --color-success-fill: #ecfdf3; /* Successful banner fill */
 
   /* --- Colors: Supporting --- */
-  --color-brand-green: #27B28D;      /* Card Background, Statistics Graph */
-  --color-brand-light-blue: #09A7DF; /* Card Background, Statistics Graph */
-  --color-brand-orange: #EB5531;     /* Card Background, Statistics Graph */
-  --color-brand-pink: #B33F93;
+  --color-brand-green: #27b28d; /* Card Background, Statistics Graph */
+  --color-brand-light-blue: #09a7df; /* Card Background, Statistics Graph */
+  --color-brand-orange: #eb5531; /* Card Background, Statistics Graph */
+  --color-brand-pink: #b33f93;
 
   /* --- Shadows --- */
   --shadow-card: 0px 4px 10px rgba(0, 0, 0, 0.05);
@@ -96,7 +94,7 @@
 @layer base {
   body {
     background-color: var(--color-grey-100); /* #FFFFFF */
-    color: var(--color-grey-500);            /* #1C1B1F */
+    color: var(--color-grey-500); /* #1C1B1F */
     font-family: var(--font-nunito-sans);
   }
 
