@@ -1,7 +1,7 @@
 export const StyleGuidePage = () => {
   return (
-    <div className="min-h-screen p-8 md:p-16">
-      <h1 className="font-nunito mb-2 text-[2.5rem] leading-tight font-bold text-blue-300">
+    <div className="min-h-screen page-margins pb-16">
+      <h1 className="mb-2 text-blue-300">
         F4K Design System
       </h1>
       <p className="text-p2 text-grey-400 mb-12">
@@ -84,6 +84,12 @@ export const StyleGuidePage = () => {
                   code="text-p2"
                 />
                 <TypekitRow
+                  label="Desktop/Paragraph/P3"
+                  className="font-nunito-sans text-p3 text-grey-500"
+                  spec="Nunito Sans | Text size: 12px | Line height: 18px"
+                  code="text-p3"
+                />
+                <TypekitRow
                   label="UI/Button"
                   className="font-nunito text-h3 text-grey-500 font-bold"
                   spec="Nunito | Text size: 16px | Line height: 20px"
@@ -163,14 +169,12 @@ export const StyleGuidePage = () => {
               color="bg-grey-500"
               hex="#1C1B1F"
               usage="Global text color"
-              light
             />
             <Swatch
               name="Blue/300"
               color="bg-blue-300"
               hex="#226CA7"
               usage="Interactive elements"
-              light
             />
             <Swatch
               name="Grey/100"
@@ -192,7 +196,6 @@ export const StyleGuidePage = () => {
               color="bg-blue-400"
               hex="#195586"
               usage="Polylines"
-              light
             />
             <Swatch
               name="Grey/150"
@@ -217,17 +220,15 @@ export const StyleGuidePage = () => {
               color="bg-grey-400"
               hex="#707581"
               usage="Metadata, archived data"
-              light
             />
           </ColorGroup>
 
           <ColorGroup title="Alerts">
             <Swatch
               name="Red"
-              color="bg-[var(--color-red)]"
+              color="bg-red"
               hex="#EB3131"
               usage="Critical error stroke"
-              light
             />
             <Swatch
               name="Light Red"
@@ -252,7 +253,6 @@ export const StyleGuidePage = () => {
               color="bg-success-stroke"
               hex="#039855"
               usage="Success stroke"
-              light
             />
             <Swatch
               name="Success/Fill"
@@ -268,28 +268,24 @@ export const StyleGuidePage = () => {
               color="bg-brand-green"
               hex="#27B28D"
               usage="Cards, graphs"
-              light
             />
             <Swatch
               name="Brand/Light Blue"
               color="bg-brand-light-blue"
               hex="#09A7DF"
               usage="Cards, graphs"
-              light
             />
             <Swatch
               name="Brand/Orange"
               color="bg-brand-orange"
               hex="#EB5531"
               usage="Cards, graphs"
-              light
             />
             <Swatch
               name="Brand/Pink"
               color="bg-brand-pink"
               hex="#B33F93"
               usage="Cards, graphs"
-              light
             />
           </ColorGroup>
         </div>
@@ -367,9 +363,9 @@ export const StyleGuidePage = () => {
             </div>
           </div>
 
-          <div className="bg-light-red flex items-start gap-2.5 rounded-2xl border border-[var(--color-red)] px-4 py-6">
-            <span className="text-[var(--color-red)]">&#9888;</span>
-            <p className="text-p2 font-semibold text-[var(--color-red)]">
+          <div className="bg-light-red flex items-start gap-2.5 rounded-2xl border border-red px-4 py-6">
+            <span className="text-red">&#9888;</span>
+            <p className="text-p2 font-semibold text-red">
               Unsupported format — please upload an Excel (.xlsx) file
             </p>
           </div>
@@ -419,18 +415,16 @@ function Swatch({
   color,
   hex,
   usage,
-  light = false,
 }: {
   name: string;
   color: string;
   hex: string;
   usage: string;
-  light?: boolean;
 }) {
   return (
     <div className="w-36">
       <div className={`mb-2 h-16 rounded-md ${color}`} />
-      <p className={`text-p3 font-semibold ${light ? 'text-grey-500' : ''}`}>
+      <p className="text-p3 text-grey-500 font-semibold">
         {name}
       </p>
       <p className="text-p3 text-grey-400 font-mono">{hex}</p>
