@@ -67,7 +67,8 @@
   --text-p3--line-height: 1.5;
 
   /* --- Typography Scale: Mobile (internal — consumed by @layer base & utilities below)
-   * Do not use text-m-* classes directly in components.
+   * Do not use text-m-* classes directly in components (StyleGuidePage is the sole exception,
+   * where they are used to render static mobile size previews for documentation).
    * M-H1: Nunito Bold         24px / 32px  → 32/24 = 1.333
    * M-H2: Nunito Bold         20px / 24px  → 24/20 = 1.2
    * M-H3: Nunito Sans Bold    18px / 24px  → 24/18 = 1.333
@@ -123,7 +124,7 @@
     h1 {
       font-size: var(--text-h1);
       line-height: var(--text-h1--line-height);
-      font-weight: 700; /* Bold on desktop */
+      font-weight: 800; /* ExtraBold on desktop */
     }
     h2 {
       font-size: var(--text-h2);

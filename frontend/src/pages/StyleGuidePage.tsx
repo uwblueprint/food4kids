@@ -4,7 +4,7 @@ export const StyleGuidePage = () => {
       <h1 className="mb-2 text-blue-300">
         F4K Design System
       </h1>
-      <p className="text-p2 text-grey-400 mb-12">
+      <p className="text-p2 text-grey-400 mb-2">
         Tailwind CSS v4 theme — typography, colors, shadows, and spacing.
       </p>
 
@@ -99,6 +99,11 @@ export const StyleGuidePage = () => {
             </div>
 
             {/* Column 3: Mobile Text Styles */}
+            {/* NOTE: text-m-* tokens are used here intentionally to display
+                static mobile sizes for documentation purposes. They must NOT
+                be used directly in any other component — use text-p1/p2/p3
+                or h1/h2/h3 (which apply mobile sizes automatically via
+                @layer base/@layer utilities). */}
             <div className="p-6">
               <p className="text-p3 mb-3 font-semibold tracking-wider text-blue-300 uppercase">
                 Mobile Text Styles
@@ -333,7 +338,7 @@ export const StyleGuidePage = () => {
               </span>
               <div
                 className="bg-brand-pink h-2 rounded-sm"
-                style={{ width: Math.min(px, 512) }}
+                style={{ width: Math.min(px, 512) + 'px' }}
               />
               <span className="text-p3 text-grey-400">
                 {px}px{' '}

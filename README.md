@@ -205,7 +205,7 @@ All colors, fonts, shadows, spacing, and typography scale values are declared as
 
 | Element | Mobile                     | Desktop                    |
 | ------- | -------------------------- | -------------------------- |
-| `h1`    | Nunito Bold 24px/32px      | Nunito Bold 32px/44px      |
+| `h1`    | Nunito Bold 24px/32px      | Nunito ExtraBold 32px/44px |
 | `h2`    | Nunito SemiBold 20px/24px  | Nunito SemiBold 20px/28px  |
 | `h3`    | Nunito Sans Bold 18px/24px | Nunito Sans Bold 16px/20px |
 
@@ -220,6 +220,10 @@ Three body-text classes handle mobile→desktop sizing automatically. Use these 
 | `text-p3` | 14px / 1.286 | 12px / 1.5   |
 
 **4. Spacing & page margins**
+
+> **Two spacing tables exist in this codebase — they describe different things:**
+> - This table (below) maps the **design's padding increments** (from Figma) to their Tailwind equivalents. Use it when choosing a spacing class.
+> - The [`/style-guide`](frontend/src/pages/StyleGuidePage.tsx) Spacing section shows the **mathematical doubling grid** (0→4→8→16→32…512px) to illustrate Tailwind's underlying scale. It is not a list of approved design values.
 
 Tailwind's default 4px grid covers all design padding increments natively — no custom tokens needed:
 
