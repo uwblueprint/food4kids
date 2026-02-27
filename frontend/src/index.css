@@ -70,7 +70,7 @@
    * Do not use text-m-* classes directly in components (StyleGuidePage is the sole exception,
    * where they are used to render static mobile size previews for documentation).
    * M-H1: Nunito Bold         24px / 32px  → 32/24 = 1.333
-   * M-H2: Nunito Bold         20px / 24px  → 24/20 = 1.2
+   * M-H2: Nunito SemiBold     20px / 24px  → 24/20 = 1.2
    * M-H3: Nunito Sans Bold    18px / 24px  → 24/18 = 1.333
    * M-P1: Nunito Sans         18px / 24px  → 24/18 = 1.333
    * M-P2: Nunito Sans         16px / 24px  → 24/16 = 1.5

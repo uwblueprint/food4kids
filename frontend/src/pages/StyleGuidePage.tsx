@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 export const StyleGuidePage = () => {
   return (
     <div className="min-h-screen page-margins pb-16">
@@ -316,8 +318,9 @@ export const StyleGuidePage = () => {
       <section className="mb-16">
         <SectionHeader>Spacing Scale (8px Grid)</SectionHeader>
         <p className="text-p2 text-grey-400 mb-6">
-          Based on an 8px grid with 4px minor fallback. Maps to standard
-          Tailwind utilities.
+          Illustrates Tailwind&apos;s underlying doubling scale — not a list of
+          approved design values. For the design&apos;s actual spacing increments
+          (4, 8, 12, 16, 20, 24, 40, 80px) see the README spacing table.
         </p>
 
         <div className="space-y-3">
@@ -391,7 +394,7 @@ export const StyleGuidePage = () => {
 /* Helper Components                              */
 /* ============================================== */
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionHeader({ children }: { children: ReactNode }) {
   return (
     <>
       <h2 className="mb-1">{children}</h2>
@@ -405,7 +408,7 @@ function ColorGroup({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div>
