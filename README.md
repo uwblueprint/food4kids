@@ -170,6 +170,66 @@ The project uses **Tailwind CSS v4**, which introduces a CSS-first approach with
 - Prettier automatically sorts Tailwind classes using `prettier-plugin-tailwindcss`
 - Classes are ordered by function (layout → spacing → colors → typography, etc.)
 
+### F4K Design System
+
+The design system is defined entirely in [`frontend/src/index.css`](frontend/src/index.css) using Tailwind CSS v4's CSS-first config, with no `tailwind.config.js`. A live reference is available at `/style-guide` ([StyleGuidePage.tsx](frontend/src/pages/StyleGuidePage.tsx)).
+
+#### How it's structured
+
+**1. Design tokens — `@theme` block**
+
+All colors, fonts, shadows, spacing, and typography scale values are declared as CSS custom properties inside `@theme`. Tailwind v4 automatically generates utility classes from them.
+
+```css
+@theme {
+  --font-nunito: 'Nunito', sans-serif;
+  --color-blue-300: #226CA7;   /* → bg-blue-300, text-blue-300, border-blue-300 */
+  --shadow-card: 0px 4px 10px rgba(0,0,0,0.05);  /* → shadow-card */
+  --text-h1: 2rem;             /* → text-h1 */
+  --text-h1--line-height: 1.375;
+}
+```
+
+**2. Preconfigured heading elements — `@layer base`**
+
+`h1`–`h3` are styled globally so no className is needed on headings. They use a mobile-first scale that switches at the `md` breakpoint (768px).
+
+| Element | Mobile | Desktop |
+|---------|--------|---------|
+| `h1` | Nunito Bold 24px/32px | Nunito Bold 32px/44px |
+| `h2` | Nunito SemiBold 20px/24px | Nunito SemiBold 20px/28px |
+| `h3` | Nunito Sans Bold 18px/24px | Nunito Sans Bold 16px/20px |
+
+**3. Responsive paragraph utilities — `@layer utilities`**
+
+Three body-text classes handle mobile→desktop sizing automatically. Use these directly in `className` — no breakpoint prefix needed.
+
+| Class | Mobile | Desktop |
+|-------|--------|---------|
+| `text-p1` | 18px / 1.333 | 16px / 1.25 |
+| `text-p2` | 16px / 1.5 | 14px / 1.286 |
+| `text-p3` | 14px / 1.286 | 12px / 1.5 |
+
+**4. Fonts**
+
+Loaded via Google Fonts in [`frontend/index.html`](frontend/index.html). Use `font-nunito` for headings and buttons, `font-nunito-sans` for body text.
+
+#### Example — a status card using the full system
+
+```tsx
+// Uses: semantic h2 (auto-styled), text-p2 (responsive body), design tokens
+<div className="rounded-2xl border border-grey-300 bg-grey-150 p-6 shadow-card">
+  <h2 className="mb-1 text-grey-500">Route Generated</h2>
+  <p className="text-p2 text-grey-400">Oct 20, 2025 at 10:42 AM</p>
+  <div className="mt-4 flex items-center gap-2 rounded-xl border border-success-stroke bg-success-fill px-4 py-3">
+    <span className="text-success-stroke">✓</span>
+    <p className="text-p2 font-semibold text-success-stroke">All 12 stops assigned successfully.</p>
+  </div>
+</div>
+```
+
+This renders at mobile sizes by default and steps up at 768px — no manual responsive classes needed on the text.
+
 ### TypeScript Conventions
 
 The project uses **TypeScript strict mode** for maximum type safety.
