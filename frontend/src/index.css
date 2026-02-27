@@ -137,3 +137,43 @@
     }
   }
 }
+
+/* ==============================================
+ * Responsive paragraph utilities
+ * Use text-p1, text-p2, text-p3 directly in className.
+ * Mobile size is the default; desktop kicks in at md (768px).
+ * ============================================== */
+@layer utilities {
+  .text-p1 {
+    font-size: var(--text-m-p1);
+    line-height: var(--text-m-p1--line-height);
+  }
+  @media (min-width: 48rem) {
+    .text-p1 {
+      font-size: var(--text-p1);
+      line-height: var(--text-p1--line-height);
+    }
+  }
+
+  .text-p2 {
+    font-size: var(--text-m-p2);
+    line-height: var(--text-m-p2--line-height);
+  }
+  @media (min-width: 48rem) {
+    .text-p2 {
+      font-size: var(--text-p2);
+      line-height: var(--text-p2--line-height);
+    }
+  }
+
+  .text-p3 {
+    font-size: var(--text-m-p3);
+    line-height: var(--text-m-p3--line-height);
+  }
+  @media (min-width: 48rem) {
+    .text-p3 {
+      font-size: var(--text-p3);
+      line-height: var(--text-p3--line-height);
+    }
+  }
+}
