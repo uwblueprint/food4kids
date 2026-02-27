@@ -655,7 +655,7 @@ docker ps
 docker system prune -a --volumes
 ```
 
-### When Claude Code AuRunstomatically
+### When Claude Code Runs Automatically
 
 Claude Code is integrated into the CI/CD pipeline via GitHub Actions:
 
@@ -663,8 +663,7 @@ Claude Code is integrated into the CI/CD pipeline via GitHub Actions:
 
 **Triggered on:**
 
-1. **Pull Request Ready for Review** - Automatically runs when a PR is marked as ready
-2. **@claude Comment** - Manually trigger by commenting `@claude review` on any PR
+**@claude Comment** - Manually trigger by commenting `@claude review` on any PR
 
 **What it Reviews:**
 
