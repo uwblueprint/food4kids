@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Test script for Sweep clustering with real database locations.
+Developer script for visually testing the Sweep algorithm against
+real database locations. Fetches locations from the DB, runs clustering, and
+saves a scatter plot to app/data/sweep_clustering_test.png.
 
-Run from backend/python (or from repo root with PYTHONPATH=backend/python):
-  python -m app.services.implementations.sweep_algorithm_test
+Run from backend/python/:
+    python scripts/sweep_clustering_test.py
 
-Or run this file directly (from any directory):
-  python backend/python/app/services/implementations/sweep_algorithm_test.py
+Requires a running database (e.g. via docker compose).
+Configure the parameters below before running.
 """
 
 import os
@@ -211,7 +213,7 @@ async def main() -> None:
                     "Sweep clustering (packed) for "
                     f"{len(locations)} locations with {len(clusters_packed)} clusters"
                 ),
-                filename="sweep_clustering_test_packed.png",
+                filename="sweep_clustering_test.png",
             )
 
             print("\n" + "=" * 60)
