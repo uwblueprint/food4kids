@@ -172,12 +172,9 @@ class DriverHistoryService:
             # Calculate the current year in the local timezone to determine which year to get data for
             current_year = datetime.now(self.timezone).year
 
-            # Go through list and calculate total kms driven + record current kms driven this year
-            for entry in driver_history:
-                if current_year == entry.year:
-                    current_year_km += entry.km
-
-                total_kms += entry.km
+            # Calculate total kms driven + record current kms driven this year
+            current_year_km = sum([entry.km for entry in driver_history if current_year == entry.year])
+            total_kms = sum([entry.km for entry in driver_history])
 
             driver_history_summary = DriverHistorySummary(
                 lifetime_km=total_kms, current_year_km=current_year_km
