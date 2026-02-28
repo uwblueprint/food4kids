@@ -29,6 +29,7 @@
 ## Tech Stack
 
 **Frontend:**
+
 - React 19.2.0
 - TypeScript 5.9.3
 - Vite 7.2.4 (build tool)
@@ -59,6 +60,7 @@ food4kids/
 │       │   │   └── protocols/      # Algorithms and how the server handles data
 │       │   ├── templates/          # Email/HTML templates
 │       │   └── utilities/          # Shared utility functions
+│       ├── scripts/                # Developer scripts (not run by CI — run manually to test/troubleshoot)
 │       ├── tests/                  # Unit and functional tests
 │       ├── alembic.ini            # Alembic configuration
 │       ├── requirements.txt       # Python dependencies
@@ -118,6 +120,7 @@ frontend/
 ### Component Development Guidelines
 
 **When to use `common/components/`:**
+
 - Reusable UI elements that can be used across multiple roles and features
 - Generic components: buttons, inputs, cards, modals, dropdowns, tooltips, skeletons
 - No business logic or role-specific knowledge
@@ -125,6 +128,7 @@ frontend/
 - Subdirectories for component categories (e.g., `skeletons/` for loading states)
 
 **When to use `pages/[role]/[feature]/components/`:**
+
 - Components tied to a specific page or feature
 - Role-specific or feature-specific functionality
 - Business logic that won't be reused in other roles/features
@@ -132,17 +136,20 @@ frontend/
 - Colocate with the page they belong to for better organization
 
 **When to use `layouts/`:**
+
 - Role-specific wrapper components (navigation, sidebars, headers, footers)
 - Components that define the overall page structure for a user role
 - Examples: `AdminLayout.tsx`, `DriverLayout.tsx`
 
 **Naming Conventions:**
+
 - Use PascalCase for component files and names: `UserCard.tsx`, `LoginForm.tsx`
 - Use descriptive names that clearly indicate the component's purpose
 - Avoid generic names like `Component1.tsx` or `Temp.tsx`
 - Page components should be prefixed with their role: `AdminDriversPage.tsx`, `DriverHomePage.tsx`
 
 **Best Practices:**
+
 - One component per file
 - Always define TypeScript interfaces for props
 - Colocate component-specific types with the component file
@@ -155,19 +162,117 @@ frontend/
 The project uses **Tailwind CSS v4**, which introduces a CSS-first approach without a `tailwind.config.js` file.
 
 **Setup:**
+
 ```css
 /* src/index.css */
-@import 'tailwindcss';
+@import "tailwindcss";
 ```
 
 **Utility-First Methodology:**
+
 - Use Tailwind utility classes directly in JSX
 - Compose utilities to build complex designs
 - Avoid custom CSS unless absolutely necessary
 
 **Class Sorting:**
+
 - Prettier automatically sorts Tailwind classes using `prettier-plugin-tailwindcss`
 - Classes are ordered by function (layout → spacing → colors → typography, etc.)
+
+### F4K Design System
+
+The design system is defined entirely in [`frontend/src/index.css`](frontend/src/index.css) using Tailwind CSS v4's CSS-first config, with no `tailwind.config.js`. A live reference is available at `/style-guide` ([StyleGuidePage.tsx](frontend/src/pages/StyleGuidePage.tsx)).
+
+#### How it's structured
+
+**1. Design tokens — `@theme` block**
+
+All colors, fonts, shadows, spacing, and typography scale values are declared as CSS custom properties inside `@theme`. Tailwind v4 automatically generates utility classes from them.
+
+```css
+@theme {
+  --font-nunito: "Nunito", sans-serif;
+  --color-blue-300: #226ca7; /* → bg-blue-300, text-blue-300, border-blue-300 */
+  --shadow-card: 0px 4px 10px rgba(0, 0, 0, 0.05); /* → shadow-card */
+  --text-h1: 2rem; /* → text-h1 */
+  --text-h1--line-height: 1.375;
+}
+```
+
+**2. Preconfigured heading elements — `@layer base`**
+
+`h1`–`h3` are styled globally so no className is needed on headings. They use a mobile-first scale that switches at the `md` breakpoint (768px).
+
+| Element | Mobile                     | Desktop                    |
+| ------- | -------------------------- | -------------------------- |
+| `h1`    | Nunito Bold 24px/32px      | Nunito ExtraBold 32px/44px |
+| `h2`    | Nunito SemiBold 20px/24px  | Nunito SemiBold 20px/28px  |
+| `h3`    | Nunito Sans Bold 18px/24px | Nunito Sans Bold 16px/20px |
+
+**3. Responsive paragraph utilities — `@layer utilities`**
+
+Three body-text classes handle mobile→desktop sizing automatically. Use these directly in `className` — no breakpoint prefix needed.
+
+| Class     | Mobile       | Desktop      |
+| --------- | ------------ | ------------ |
+| `text-p1` | 18px / 1.333 | 16px / 1.25  |
+| `text-p2` | 16px / 1.5   | 14px / 1.286 |
+| `text-p3` | 14px / 1.286 | 12px / 1.5   |
+
+**4. Spacing & page margins**
+
+> **Two spacing tables exist in this codebase — they describe different things:**
+> - This table (below) maps the **design's padding increments** (from Figma) to their Tailwind equivalents. Use it when choosing a spacing class.
+> - The [`/style-guide`](frontend/src/pages/StyleGuidePage.tsx) Spacing section shows the **mathematical doubling grid** (0→4→8→16→32…512px) to illustrate Tailwind's underlying scale. It is not a list of approved design values.
+
+Tailwind's default 4px grid covers all design padding increments natively — no custom tokens needed:
+
+| Design value | Tailwind class  |
+| ------------ | --------------- |
+| 4px          | `p-1` / `m-1`   |
+| 8px          | `p-2` / `m-2`   |
+| 12px         | `p-3` / `m-3`   |
+| 16px         | `p-4` / `m-4`   |
+| 20px         | `p-5` / `m-5`   |
+| 24px         | `p-6` / `m-6`   |
+| 40px         | `p-10` / `m-10` |
+| 80px         | `p-20` / `m-20` |
+
+For consistent page-level margins use the `.page-margins` utility class (defined in `index.css`) on top-level page wrappers:
+
+| Breakpoint            | Left / Right | Top  |
+| --------------------- | ------------ | ---- |
+| Mobile (default)      | 20px         | 20px |
+| Tablet `md` (768px)   | 40px         | 20px |
+| Desktop `lg` (1024px) | 80px         | 40px |
+
+```tsx
+<main className="page-margins">...</main>
+```
+
+> **Note:** The full design spacing table from Figma (F4K-Designs → Margins and Padding) should be kept in sync with this table when the design system is updated.
+
+**5. Fonts**
+
+Loaded via Google Fonts in [`frontend/index.html`](frontend/index.html). Use `font-nunito` for headings and buttons, `font-nunito-sans` for body text.
+
+#### Example — a page wrapper and status card using the full system
+
+```tsx
+// Uses: semantic h2 (auto-styled), text-p2 (responsive body), design tokens
+<div className="rounded-2xl border border-grey-300 bg-grey-150 p-6 shadow-card">
+  <h2 className="mb-1 text-grey-500">Route Generated</h2>
+  <p className="text-p2 text-grey-400">Oct 20, 2025 at 10:42 AM</p>
+  <div className="mt-4 flex items-center gap-2 rounded-xl border border-success-stroke bg-success-fill px-4 py-3">
+    <span className="text-success-stroke">✓</span>
+    <p className="text-p2 font-semibold text-success-stroke">
+      All 12 stops assigned successfully.
+    </p>
+  </div>
+</div>
+```
+
+This renders at mobile sizes by default and steps up at 768px — no manual responsive classes needed on the text.
 
 ### TypeScript Conventions
 
@@ -176,17 +281,19 @@ The project uses **TypeScript strict mode** for maximum type safety.
 **Where to Define Types:**
 
 1. **Global/Shared Types** → `src/types/`
+
    ```typescript
    // src/types/user.ts
    export interface User {
      id: string;
      name: string;
      email: string;
-     role: 'admin' | 'user' | 'donor';
+     role: "admin" | "user" | "donor";
    }
    ```
 
 2. **Component-Specific Types** → Inline or in component file
+
    ```typescript
    // src/components/UserCard.tsx
    interface UserCardProps {
@@ -206,21 +313,28 @@ The project uses **TypeScript strict mode** for maximum type safety.
    ```
 
 **Props Typing Pattern:**
+
 ```typescript
 // Always define props interface
 interface ButtonProps {
   label: string;
   onClick: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: "primary" | "secondary";
   disabled?: boolean;
 }
 
-export const Button = ({ label, onClick, variant = 'primary', disabled = false }: ButtonProps) => {
+export const Button = ({
+  label,
+  onClick,
+  variant = "primary",
+  disabled = false,
+}: ButtonProps) => {
   // Component implementation
 };
 ```
 
 **Best Practices:**
+
 - Avoid `any` type - use `unknown` with type guards when type is unclear
 - Use union types for string literals: `type Status = 'pending' | 'approved' | 'rejected'`
 - Leverage TypeScript utility types:
@@ -230,6 +344,7 @@ export const Button = ({ label, onClick, variant = 'primary', disabled = false }
   - `Record<K, V>` - Object with specific key-value types
 
 **Example with Utility Types:**
+
 ```typescript
 interface User {
   id: string;
@@ -267,11 +382,13 @@ pnpm preview
 ```
 
 **Port Configuration:**
+
 - Default port: `3000` (configured in [vite.config.ts:7](frontend/vite.config.ts#L7))
 - Automatically opens in browser
 - Supports HMR (Hot Module Replacement) for instant updates
 
 **Development Features:**
+
 - **Fast Refresh:** React components update instantly without losing state
 - **TypeScript Checking:** Vite shows TypeScript errors in the terminal
 - **ESLint Integration:** Code quality issues highlighted in real-time
@@ -280,6 +397,7 @@ pnpm preview
 ### Code Quality and Formatting
 
 **ESLint Configuration:**
+
 - TypeScript ESLint with strict rules
 - React plugin with recommended settings
 - React Hooks rules for proper hook usage
@@ -287,6 +405,7 @@ pnpm preview
 - Import plugin with auto-sorting
 
 **Prettier Configuration:**
+
 ```json
 {
   "semi": true,
@@ -311,6 +430,7 @@ pnpm format
 ```
 
 **Recommended Workflow:**
+
 1. Install recommended VSCode extensions (see [Recommended VSCode Settings](#recommended-vscode-settings))
 2. Enable format on save and auto-fix ESLint
 3. Code is automatically formatted and linted as you work
@@ -333,6 +453,7 @@ cd food4kids
 You will need to create environment files: `.env` (backend) and `frontend/.env` (frontend). Talk to the PL to obtain these.
 
 **Frontend Environment Variables:**
+
 - A `frontend/.env.example` file is provided as a template
 - Copy it to `frontend/.env` and fill in the required values
 - Common variables include API endpoints, Firebase configuration, and feature flags
@@ -407,6 +528,7 @@ Install these extensions for the best development experience:
 ### Verification
 
 After setup, test that everything works:
+
 1. Open a `.tsx` file in the frontend
 2. Make a formatting change (e.g., remove a semicolon)
 3. Save the file - Prettier should auto-format it
@@ -537,17 +659,18 @@ docker ps
 docker system prune -a --volumes
 ```
 
-### When Claude Code  AuRunstomatically
+### When Claude Code Runs Automatically
 
 Claude Code is integrated into the CI/CD pipeline via GitHub Actions:
 
 **Workflow:** `.github/workflows/claude-code-review.yml`
 
 **Triggered on:**
-1. **Pull Request Ready for Review** - Automatically runs when a PR is marked as ready
-2. **@claude Comment** - Manually trigger by commenting `@claude review` on any PR
+
+**@claude Comment** - Manually trigger by commenting `@claude review` on any PR
 
 **What it Reviews:**
+
 - Code quality and adherence to best practices
 - Potential bugs and edge cases
 - Performance considerations
@@ -557,6 +680,7 @@ Claude Code is integrated into the CI/CD pipeline via GitHub Actions:
 - Documentation completeness
 
 **Benefits:**
+
 - Catches issues before human review
 - Provides consistent, objective feedback
 - Suggests concrete improvements with examples
@@ -564,6 +688,7 @@ Claude Code is integrated into the CI/CD pipeline via GitHub Actions:
 - Helps maintain code quality standards
 
 **Example Usage:**
+
 ```bash
 # In a pull request comment, trigger a review:
 @claude review
@@ -633,6 +758,7 @@ docker-compose exec frontend pnpm format
 ```
 
 **Configuration Files:**
+
 - ESLint: `frontend/eslint.config.js`
 - Prettier: `frontend/.prettierrc`
 - TypeScript: `frontend/tsconfig.json`
@@ -642,6 +768,7 @@ docker-compose exec frontend pnpm format
 **IMPORTANT:** This project uses **pnpm** as the package manager, not npm or yarn.
 
 **Why pnpm?**
+
 - **Faster installs:** Up to 2x faster than npm
 - **Efficient disk usage:** Hard links save space by sharing packages across projects
 - **Strict dependency resolution:** Prevents phantom dependencies and ensures consistency
@@ -685,6 +812,7 @@ pnpm update
 ```
 
 **Important Notes:**
+
 - `pnpm-lock.yaml` must be committed to version control
 - Do NOT use `npm install` or `yarn install` - this will cause dependency conflicts
 - CI workflows will fail if you don't use pnpm
@@ -751,6 +879,25 @@ docker-compose exec backend python -m pytest tests/unit/test_models.py
 
 # Run with coverage
 docker-compose exec backend python -m pytest --cov=app
+```
+
+### Developer Scripts
+
+Scripts for manually testing or troubleshooting specific functionality live in `backend/python/scripts/`. These are **not** run by CI — developers run them locally as needed.
+
+| Script                                 | Purpose                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `scripts/k_means_test.py`              | Run K-Means clustering against real DB locations and save a scatter plot to `app/data/kmeans_test.png` |
+| `scripts/update_firebase.py`           | Sync Firebase custom role claims to match your local database                                          |
+| `scripts/fetch_route_polyline_test.py` | Test `fetch_route_polyline` with mock locations and print the encoded polyline + distance              |
+
+Run from inside the backend container or from `backend/python/` with the venv active:
+
+```bash
+docker-compose exec backend python scripts/k_means_test.py
+docker-compose exec backend python scripts/update_firebase.py
+# pytest-based scripts need pytest to run:
+docker-compose exec backend pytest scripts/fetch_route_polyline_test.py -v -s
 ```
 
 ## FAQ & Debugging

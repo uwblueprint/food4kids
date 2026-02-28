@@ -15,7 +15,9 @@ MAX_YEAR = 2100
 class DriverHistoryBase(SQLModel):
     """Shared fields between table and API models"""
 
-    driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
+    driver_id: UUID = Field(
+        foreign_key="drivers.driver_id", ondelete="CASCADE", index=True
+    )
     year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
     km: float = Field(nullable=False)
 

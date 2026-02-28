@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_driver
 from app.dependencies.services import get_entity_service
 from app.models import get_session
 from app.models.entity import EntityCreate, EntityRead, EntityUpdate
@@ -13,7 +12,6 @@ router = APIRouter(prefix="/entities", tags=["entities"])
 @router.get("/", response_model=list[EntityRead])
 async def get_entities(
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     entity_service: EntityService = Depends(get_entity_service),
 ) -> list[EntityRead]:
     """
@@ -32,7 +30,6 @@ async def get_entities(
 async def get_entity(
     entity_id: int,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     entity_service: EntityService = Depends(get_entity_service),
 ) -> EntityRead:
     """
@@ -51,7 +48,6 @@ async def get_entity(
 async def create_entity(
     entity: EntityCreate,  # Auto-validated by FastAPI
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     entity_service: EntityService = Depends(get_entity_service),
 ) -> EntityRead:
     """
@@ -71,7 +67,6 @@ async def update_entity(
     entity_id: int,
     entity: EntityUpdate,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     entity_service: EntityService = Depends(get_entity_service),
 ) -> EntityRead:
     """
@@ -90,7 +85,6 @@ async def update_entity(
 async def delete_entity(
     entity_id: int,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
     entity_service: EntityService = Depends(get_entity_service),
 ) -> None:
     """

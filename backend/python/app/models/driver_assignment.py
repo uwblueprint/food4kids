@@ -9,7 +9,7 @@ from .base import BaseModel
 class DriverAssignmentBase(SQLModel):
     """Shared fields between table and API models"""
 
-    driver_id: UUID = Field(foreign_key="drivers.driver_id")
+    driver_id: UUID = Field(foreign_key="drivers.driver_id", ondelete="CASCADE")
     route_id: UUID = Field(foreign_key="routes.route_id")
     route_group_id: UUID = Field(foreign_key="route_groups.route_group_id")
     time: datetime = Field()

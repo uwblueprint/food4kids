@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,31 +15,11 @@ driver_service = DriverService(logger)
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
 
-def driver_to_driver_read(driver: Any) -> DriverRead:
-    """Convert a Driver model instance to DriverRead."""
-    return DriverRead(
-        driver_id=driver.driver_id,
-        user_id=driver.user_id,
-        phone=driver.phone,
-        license_plate=driver.license_plate,
-        car_make_model=driver.car_make_model,
-        active=driver.active,
-        notes=driver.notes,
-        address=driver.address,
-        # User fields
-        auth_id=driver.user.auth_id,
-        name=driver.user.name,
-        email=driver.user.email,
-        role=driver.user.role,
-    )
-
-
 @router.get("/", response_model=list[DriverRead])
 async def get_drivers(
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Query(None, description="Filter by driver ID"),
     email: str | None = Query(None, description="Filter by email"),
-    # _: bool = Depends(require_driver),
 ) -> list[DriverRead]:
     """
     Get all drivers, optionally filter by driver_id or email
@@ -59,7 +38,7 @@ async def get_drivers(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Driver with id {driver_id} not found",
                 )
-            return [driver_to_driver_read(driver)]
+            return [DriverRead.model_validate(driver)]
 
         elif email:
             driver = await driver_service.get_driver_by_email(session, email)
@@ -68,11 +47,11 @@ async def get_drivers(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Driver with email {email} not found",
                 )
-            return [driver_to_driver_read(driver)]
+            return [DriverRead.model_validate(driver)]
 
         else:
             drivers = await driver_service.get_drivers(session)
-            return [driver_to_driver_read(driver) for driver in drivers]
+            return [DriverRead.model_validate(driver) for driver in drivers]
 
     except HTTPException:
         raise
@@ -86,7 +65,6 @@ async def get_drivers(
 async def get_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> DriverRead:
     """
     Get a single driver by ID
@@ -97,21 +75,20 @@ async def get_driver(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Driver with id {driver_id} not found",
         )
-    return driver_to_driver_read(driver)
+    return DriverRead.model_validate(driver)
 
 
 @router.post("/", response_model=DriverRead, status_code=status.HTTP_201_CREATED)
 async def create_driver(
     driver: DriverCreate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_user_or_admin),  # Temporarily disabled for testing
 ) -> DriverRead:
     """
     Create a new driver
     """
     try:
         created_driver = await driver_service.create_driver(session, driver)
-        return driver_to_driver_read(created_driver)
+        return DriverRead.model_validate(created_driver)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -123,7 +100,6 @@ async def update_driver(
     driver_id: UUID,
     driver: DriverUpdate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> DriverRead:
     """
     Update an existing driver
@@ -136,14 +112,13 @@ async def update_driver(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Driver with id {driver_id} not found",
         )
-    return driver_to_driver_read(updated_driver)
+    return DriverRead.model_validate(updated_driver)
 
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a driver by ID
