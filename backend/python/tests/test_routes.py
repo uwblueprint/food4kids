@@ -400,11 +400,11 @@ class TestValidationErrors:
         invalid_data = {
             "name": "Test Driver",
             "email": "test@example.com",
+            "password": "testing123",
             "phone": "invalid-phone",  # Invalid phone format
             "address": "123 Main St",
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
-            "auth_id": "test-auth-123",
         }
         response = await async_client.post("/drivers/", json=invalid_data)
         assert response.status_code == 422

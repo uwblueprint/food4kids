@@ -106,7 +106,7 @@ async def register_driver(
     user_service: UserService = Depends(get_user_service),
 ) -> DriverRegisterResponse:
     """
-    Create a new driver
+    Register a new driver, creates a User and Driver object, returns Driver and AuthResponse
     """
     user = None
     firebase_auth_id = None
