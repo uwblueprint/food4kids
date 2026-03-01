@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.driver_history import DriverHistory
+from app.config import settings
+from app.models.driver_history import DriverHistory, DriverHistorySummary
 
 
 class DriverHistoryService:
@@ -14,6 +16,7 @@ class DriverHistoryService:
     def __init__(self, logger: logging.Logger) -> None:
         """Initialize service"""
         self.logger = logger
+        self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     async def get_all_driver_histories(
         self, session: AsyncSession
@@ -149,4 +152,36 @@ class DriverHistoryService:
             return list(driver_history)
         except Exception as e:
             self.logger.error(f"Failed to get driver history by year: {e!s}")
+            raise e
+
+    async def get_driver_history_summary(
+        self, session: AsyncSession, driver_id: UUID
+    ) -> DriverHistorySummary:
+        """Given a driver's ID, give the total km driven by the driver
+        (across all years, etc.), as well as the kilometers driven by the driver during the current year"""
+        try:
+            # Get driver's info
+            driver_history = await self.get_driver_history_by_id(session, driver_id)
+
+            # Calculate the current year in the local timezone to determine which year to get data for
+            current_year = datetime.now(self.timezone).year
+
+            # Var to store total kms driven by driver
+            total_kms = sum([entry.km for entry in driver_history])
+
+            # Var to store total kms driven by the driver in the current year
+            current_year_km = sum(
+                [entry.km for entry in driver_history if current_year == entry.year]
+            )
+
+            driver_history_summary = DriverHistorySummary(
+                lifetime_km=total_kms, current_year_km=current_year_km
+            )
+
+            return driver_history_summary
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to get summary of driver's history (i.e. km driven in total and this year): {e}"
+            )
             raise e
