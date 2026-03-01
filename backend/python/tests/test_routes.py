@@ -30,7 +30,7 @@ class TestDriverRoutes:
         assert response.json() == []
 
     @pytest.mark.asyncio
-    async def test_create_driver(
+    async def test_register_driver(
         self,
         async_client: AsyncClient,
         sample_driver_data: dict[str, Any],
@@ -74,6 +74,7 @@ class TestDriverRoutes:
                 data["driver"]["license_plate"] == sample_driver_data["license_plate"]
             )
             assert data["auth"]["email"] == "newdriver@example.com"
+            assert "access_token" in data["auth"]
             assert "driver_id" in data["driver"]
 
     @pytest.mark.asyncio

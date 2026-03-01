@@ -16,14 +16,14 @@ from app.models.driver import (
     DriverCreate,
     DriverRead,
     DriverRegister,
-    DriverRegisterResponse,
     DriverUpdate,
 )
 from app.models.user import UserCreate
-from app.routers.auth_routes import get_cookie_options
+from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.user_service import UserService
+from app.utilities.cookies import get_cookie_options
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -95,27 +95,10 @@ async def get_driver(
     return DriverRead.model_validate(driver)
 
 
-# @router.post("/", response_model=DriverRead, status_code=status.HTTP_201_CREATED)
-# async def create_driver(
-#     driver: DriverCreate,
-#     session: AsyncSession = Depends(get_session),
-# ) -> DriverRead:
-#     """
-#     Create a new driver
-#     """
-#     try:
-#         created_driver = await driver_service.create_driver(session, driver)
-#         return DriverRead.model_validate(created_driver)
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-#         ) from e
-
-
 @router.post(
     "/", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
 )
-async def create_driver(
+async def register_driver(
     register_request: DriverRegister,
     response: Response,
     session: AsyncSession = Depends(get_session),

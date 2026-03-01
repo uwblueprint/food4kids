@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.dependencies.auth import get_current_database_user_id, get_current_user_email
 from app.dependencies.services import (
     get_auth_service,
@@ -14,23 +13,12 @@ from app.dependencies.services import (
 from app.models import get_session
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
 from app.services.implementations.auth_service import AuthService
+from app.utilities.cookies import get_cookie_options
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
-
-
-def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
-    """Get cookie options based on environment"""
-    samesite: Literal["none", "strict", "lax"] = (
-        "none" if settings.preview_deploy else "strict"
-    )
-    return {
-        "httponly": True,
-        "samesite": samesite,
-        "secure": settings.is_production,
-    }
 
 
 @router.post("/login", response_model=AuthResponse)

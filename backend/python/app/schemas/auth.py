@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
 
+from app.models.driver import DriverRead
+
 
 class LoginRequest(BaseModel):
     """Login request"""
@@ -17,6 +19,13 @@ class AuthResponse(BaseModel):
     id: UUID
     name: str
     email: EmailStr
+
+
+class DriverRegisterResponse(BaseModel):
+    """Driver registration response - contains Driver object and AuthResponse"""
+
+    driver: DriverRead
+    auth: AuthResponse
 
 
 class TokenResponse(BaseModel):
