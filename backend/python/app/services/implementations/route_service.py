@@ -106,7 +106,7 @@ class RouteService:
             raise HTTPException(
                 status_code=500, detail="Failed to retrieve route."
             ) from error
-        
+
         if not route:
             raise HTTPException(
                 status_code=404, detail="Route with id {route_id} not found"
