@@ -84,31 +84,6 @@ async def export_all_drivers_history(
         ) from e
 
 
-@router.get("/{year}", response_model=DriverHistoryRead)
-async def get_driver_history(
-    driver_id: UUID,
-    year: int,
-    session: AsyncSession = Depends(get_session),
-) -> DriverHistoryRead:
-    """Get a driver history by ID and year"""
-    try:
-        driver_history = await driver_history_service.get_driver_history_by_id_and_year(
-            session, driver_id, year
-        )
-        if not driver_history:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver history with id {driver_id} and year {year} not found",
-            )
-        return DriverHistoryRead.model_validate(driver_history)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
-
-
 @router.get("/", response_model=list[DriverHistoryRead])
 async def get_driver_history(
     driver_id: UUID,
@@ -164,97 +139,117 @@ async def get_driver_history(
 
 
 @router.post(
-    "/{year}", response_model=DriverHistoryRead, status_code=status.HTTP_201_CREATED
+    "/", response_model=DriverHistoryRead, status_code=status.HTTP_201_CREATED
 )
 async def create_driver_history(
     driver_id: UUID,
-    year: int,
     create: DriverHistoryCreate,
     session: AsyncSession = Depends(get_session),
 ) -> DriverHistoryRead:
-    """Create a new driver history"""
+    """
+    Creates new driver history
+    Rules:
+    - Driver must exist with driver_id
+    - Must be unique: (driver_id, year, month)
+    """
 
-    validate_history = await driver_history_service.get_driver_history_by_id_and_year(
-        session, driver_id, year
+    if not driver_history_service.driver_exists(session, driver_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Driver with id {driver_id} does not exist",
+        )
+
+    year = create.year
+    month = create.month
+
+    validate_history = await driver_history_service.get_driver_history_by_id_year_and_month(
+        session, driver_id, year, month
     )
 
-    if not (MIN_YEAR <= year <= MAX_YEAR):
+    if validate_history:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Driver history with id {driver_id}, year {year} and month {month} already exists and cannot be created",
+        )
+    
+    if not driver_history_service.validate_year_and_month(year, month):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Year {year} is outside of the allowed range of {MIN_YEAR} to {MAX_YEAR}",
         )
 
-    if validate_history:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Driver history with id {driver_id} and year {year} already exists and cannot be created",
-        )
     created_driver_history = await driver_history_service.create_driver_history(
-        session, driver_id, year, create.km
+        session, driver_id, year, month, create.km
     )
     return DriverHistoryRead.model_validate(created_driver_history)
 
-
-@router.patch("/{year}", response_model=DriverHistoryRead)
+@router.patch("/", response_model=DriverHistoryRead)
 async def update_driver_history(
     driver_id: UUID,
-    year: int,
     update: DriverHistoryUpdate,
+    year: int = Query(ge=MIN_YEAR, le=MAX_YEAR),
+    month: int = Query(ge=1, le=12),
     session: AsyncSession = Depends(get_session),
 ) -> DriverHistoryRead:
-    """Update driver history"""
-    try:
-        existing_driver_history = (
-            await driver_history_service.get_driver_history_by_id_and_year(
-                session, driver_id, year
-            )
-        )
-        if not existing_driver_history:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver history with id {driver_id} and year {year} not found, cannot update history not found",
-            )
+    """
+    Updates driver history
+    Rules:
+    - Driver history must exist with (driver_id, year, month)
+    """
 
-        updated_driver_history = (
-            await driver_history_service.update_driver_history_by_id_and_year(
-                session, driver_id, year, update.km
-            )
-        )
-        logger.info(
-            f"Updated driver history for driver_id={driver_id}, year={year}, new_km={update.km}"
-        )
-        return DriverHistoryRead.model_validate(updated_driver_history)
-    except HTTPException:
-        raise
-    except Exception as e:
+    # Validate year/month
+    if not driver_history_service.validate_year_and_month(year, month):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Year {year} or month {month} is invalid",
+        )
 
+    # Check if history exists
+    existing = await driver_history_service.get_driver_history_by_id_year_and_month(
+        session, driver_id, year, month
+    )
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Driver history for driver {driver_id}, year {year}, month {month} not found",
+        )
 
-@router.delete("/{year}", status_code=status.HTTP_204_NO_CONTENT)
+    # Update km
+    updated = await driver_history_service.update_driver_history(
+        session, driver_id, year, month, update.km
+    )
+
+    return DriverHistoryRead.model_validate(updated)
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_driver_history(
-    driver_id: UUID, year: int, session: AsyncSession = Depends(get_session)
+    driver_id: UUID,
+    year: int = Query(ge=MIN_YEAR, le=MAX_YEAR),
+    month: int = Query(ge=1, le=12),
+    session: AsyncSession = Depends(get_session),
 ) -> None:
-    """Delete driver history"""
-    try:
-        existing_driver_history = (
-            await driver_history_service.get_driver_history_by_id_and_year(
-                session, driver_id, year
-            )
-        )
-        if not existing_driver_history:
-            raise HTTPException(
-                status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-                detail=f"Driver history with id {driver_id} and year {year} not found, cannot update history not found",
-            )
+    """
+    Delete a monthly driver history entry.
+    """
 
-        await driver_history_service.delete_driver_history_by_id(
-            session, driver_id, year
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
+    # Validate year/month
+    if not driver_history_service.validate_year_and_month(year, month):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Year {year} or month {month} is invalid",
+        )
+
+    # Check if history exists
+    existing = await driver_history_service.get_driver_history_by_id_year_and_month(
+        session, driver_id, year, month
+    )
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Driver history for driver {driver_id}, year {year}, month {month} not found",
+        )
+
+    # Delete record
+    await driver_history_service.delete_driver_history(
+        session, driver_id, year, month
+    )

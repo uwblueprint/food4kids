@@ -35,10 +35,12 @@ class DriverHistory(DriverHistoryBase, BaseModel, table=True):
     # driver: "Driver" = Relationship(back_populates="history")
 
 
-class DriverHistoryCreate(DriverHistoryBase):
+class DriverHistoryCreate(SQLModel):
     """Create request model"""
-
-    pass
+    year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
+    # The month is an int 1-12
+    month: int = Field(nullable=False, ge=1, le=12)
+    km: float = Field(nullable=False)
 
 
 class DriverHistoryRead(DriverHistoryBase):
@@ -50,4 +52,4 @@ class DriverHistoryRead(DriverHistoryBase):
 class DriverHistoryUpdate(SQLModel):
     """Update request model, all fields are required for now since we are only updating km"""
 
-    km: float
+    km: float = Field(nullable=False)
