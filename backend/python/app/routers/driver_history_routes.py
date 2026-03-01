@@ -116,9 +116,6 @@ async def get_driver_history(
             histories = await driver_history_service.get_driver_history_by_id_and_year(
                 session, driver_id, year
             )
-            # Ensure list
-            if not isinstance(histories, list):
-                histories = [histories] if histories else []
         else:
             # Year + month → single month
             driver_history = (

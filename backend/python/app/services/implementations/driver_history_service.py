@@ -16,10 +16,10 @@ class DriverHistoryService:
         """Initialize service"""
         self.logger = logger
 
-    async def validate_year(self, year: int):
+    def validate_year(self, year: int) -> bool:
         return MIN_YEAR <= year <= MAX_YEAR
 
-    async def validate_year_and_month(self, year: int, month: int | None):
+    def validate_year_and_month(self, year: int, month: int | None) -> bool:
         return self.validate_year(year) and (not month or 1 <= month <= 12)
 
     async def driver_exists(self, session: AsyncSession, driver_id: UUID) -> bool:
