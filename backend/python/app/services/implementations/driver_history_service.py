@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver import Driver
-from app.models.driver_history import DriverHistory, MIN_YEAR, MAX_YEAR
+from app.models.driver_history import MAX_YEAR, MIN_YEAR, DriverHistory
 
 
 class DriverHistoryService:
@@ -22,9 +22,9 @@ class DriverHistoryService:
     async def validate_year_and_month(self, year: int, month: int | None):
         return self.validate_year(year) and (not month or 1 <= month <= 12)
 
-    async def driver_exists(self, session: AsyncSession, driver_id: UUID ) -> bool: 
-        statement = select(Driver.driver_id).where(Driver.driver_id == driver_id) 
-        result = await session.execute(statement) 
+    async def driver_exists(self, session: AsyncSession, driver_id: UUID) -> bool:
+        statement = select(Driver.driver_id).where(Driver.driver_id == driver_id)
+        result = await session.execute(statement)
         return result.scalar_one_or_none() is not None
 
     async def get_all_driver_histories(
@@ -46,7 +46,7 @@ class DriverHistoryService:
         statement = select(DriverHistory).where(
             DriverHistory.driver_id == driver_id,
             DriverHistory.year == year,
-            DriverHistory.month == month
+            DriverHistory.month == month,
         )
         result = await session.execute(statement)
         return result.scalars().first()
@@ -58,7 +58,9 @@ class DriverHistoryService:
         # Fetch all 12 months using the month-specific service
         histories = []
         for month in range(1, 13):
-            history = await self.get_driver_history_by_id_year_and_month(session, driver_id, year, month)
+            history = await self.get_driver_history_by_id_year_and_month(
+                session, driver_id, year, month
+            )
             if history:
                 histories.append(history)
 
@@ -71,15 +73,19 @@ class DriverHistoryService:
     ) -> list[DriverHistory]:
         """Return all driver histories for a driver"""
         # Fetch all years by first getting distinct years from DB
-        statement = select(DriverHistory.year).where(
-            DriverHistory.driver_id == driver_id
-        ).distinct()
+        statement = (
+            select(DriverHistory.year)
+            .where(DriverHistory.driver_id == driver_id)
+            .distinct()
+        )
         result = await session.execute(statement)
         years = [row[0] for row in result.fetchall()]
 
         histories = []
         for year in sorted(years):
-            year_histories = await self.get_driver_history_by_id_and_year(session, driver_id, year)
+            year_histories = await self.get_driver_history_by_id_and_year(
+                session, driver_id, year
+            )
             histories.extend(year_histories)
 
         # Sort overall by year then month

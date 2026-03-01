@@ -14,9 +14,7 @@ MAX_YEAR = 2100
 
 
 class DriverHistoryBase(SQLModel):
-    __table_args__ = (
-        UniqueConstraint("driver_id", "year", "month"),
-    )
+    __table_args__ = (UniqueConstraint("driver_id", "year", "month"),)
 
     """Shared fields between table and API models"""
 
@@ -37,6 +35,7 @@ class DriverHistory(DriverHistoryBase, BaseModel, table=True):
 
 class DriverHistoryCreate(SQLModel):
     """Create request model"""
+
     year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
     # The month is an int 1-12
     month: int = Field(nullable=False, ge=1, le=12)

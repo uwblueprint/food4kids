@@ -667,7 +667,6 @@ def main() -> None:
                 )
 
                 for year in driver_years:
-
                     if (
                         year == current_year
                         and random.random() < PROBABILITY_SKIP_CURRENT_YEAR_HISTORY

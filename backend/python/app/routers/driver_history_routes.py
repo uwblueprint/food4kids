@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,28 +102,36 @@ async def get_driver_history(
     if month is not None and year is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot provide month without year"
+            detail="Cannot provide month without year",
         )
 
     try:
         if year is None:
             # No filters → return all histories
-            histories = await driver_history_service.get_driver_history_by_id(session, driver_id)
+            histories = await driver_history_service.get_driver_history_by_id(
+                session, driver_id
+            )
         elif month is None:
             # Year only → all months for that year
-            histories = await driver_history_service.get_driver_history_by_id_and_year(session, driver_id, year)
+            histories = await driver_history_service.get_driver_history_by_id_and_year(
+                session, driver_id, year
+            )
             # Ensure list
             if not isinstance(histories, list):
                 histories = [histories] if histories else []
         else:
             # Year + month → single month
-            driver_history = await driver_history_service.get_driver_history_by_id_year_and_month(session, driver_id, year, month)
+            driver_history = (
+                await driver_history_service.get_driver_history_by_id_year_and_month(
+                    session, driver_id, year, month
+                )
+            )
             histories = [driver_history] if driver_history else []
 
         if not histories:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No driver history found for the provided filters"
+                detail="No driver history found for the provided filters",
             )
 
         # Convert to response model
@@ -133,14 +141,11 @@ async def get_driver_history(
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
 
 
-@router.post(
-    "/", response_model=DriverHistoryRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=DriverHistoryRead, status_code=status.HTTP_201_CREATED)
 async def create_driver_history(
     driver_id: UUID,
     create: DriverHistoryCreate,
@@ -162,8 +167,10 @@ async def create_driver_history(
     year = create.year
     month = create.month
 
-    validate_history = await driver_history_service.get_driver_history_by_id_year_and_month(
-        session, driver_id, year, month
+    validate_history = (
+        await driver_history_service.get_driver_history_by_id_year_and_month(
+            session, driver_id, year, month
+        )
     )
 
     if validate_history:
@@ -171,7 +178,7 @@ async def create_driver_history(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Driver history with id {driver_id}, year {year} and month {month} already exists and cannot be created",
         )
-    
+
     if not driver_history_service.validate_year_and_month(year, month):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -182,6 +189,7 @@ async def create_driver_history(
         session, driver_id, year, month, create.km
     )
     return DriverHistoryRead.model_validate(created_driver_history)
+
 
 @router.patch("/", response_model=DriverHistoryRead)
 async def update_driver_history(
@@ -221,6 +229,7 @@ async def update_driver_history(
 
     return DriverHistoryRead.model_validate(updated)
 
+
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_driver_history(
     driver_id: UUID,
@@ -250,6 +259,4 @@ async def delete_driver_history(
         )
 
     # Delete record
-    await driver_history_service.delete_driver_history(
-        session, driver_id, year, month
-    )
+    await driver_history_service.delete_driver_history(session, driver_id, year, month)
