@@ -73,6 +73,7 @@ class TestDriverRoutes:
             assert (
                 data["driver"]["license_plate"] == sample_driver_data["license_plate"]
             )
+            assert data["driver"]["role"] == "driver"
             assert data["auth"]["email"] == "newdriver@example.com"
             assert "access_token" in data["auth"]
             assert "driver_id" in data["driver"]
