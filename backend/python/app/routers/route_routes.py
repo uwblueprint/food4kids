@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.route import Route, RouteWithDateRead
 from app.services.implementations.route_service import RouteService
@@ -62,7 +61,6 @@ async def get_route(
 async def delete_route(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a route by its unique identifier.
