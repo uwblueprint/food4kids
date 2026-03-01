@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import selectinload
@@ -16,6 +17,7 @@ from app.models.route_group_membership import RouteGroupMembership
 if TYPE_CHECKING:
     import logging
     from uuid import UUID
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
 

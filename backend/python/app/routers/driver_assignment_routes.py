@@ -112,6 +112,8 @@ async def delete_driver_assignment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Driver assignment with id {driver_assignment_id} not found",
         )
+
+
 @router.get(
     "/suggestions",
     response_model=list[SuggestedDriverResponse],
