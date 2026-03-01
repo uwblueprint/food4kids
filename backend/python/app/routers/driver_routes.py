@@ -154,7 +154,8 @@ async def register_driver(
         return DriverRegisterResponse(
             driver=DriverRead.model_validate(created_driver), auth=auth_dto
         )
-
+    except HTTPException:
+        raise
     except Exception as e:
         # Compensating transaction: rollback all changes
         logger.error(f"Error registering driver: {e}")
