@@ -100,18 +100,19 @@ class RouteService:
             result = await session.execute(statement)
             route = result.scalars().first()
 
-            if not route:
-                raise HTTPException(
-                    status_code=404, detail="Route with id {route_id} not found"
-                )
-
-            return route
         except Exception as error:
             self.logger.exception("Failed to get route " + str(route_id))
             await session.rollback()
             raise HTTPException(
                 status_code=500, detail="Failed to retrieve route."
             ) from error
+        
+        if not route:
+            raise HTTPException(
+                status_code=404, detail="Route with id {route_id} not found"
+            )
+
+        return route
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""

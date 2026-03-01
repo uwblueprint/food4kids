@@ -47,7 +47,7 @@ async def get_route(
     Get a route by its unique identifier.
 
     Parameters:
-        route_id (UUID): The unique identifier of the route to delete.
+        route_id (UUID): The unique identifier of the route to GET.
         session (AsyncSession): The database session dependency.
 
     Returns:
