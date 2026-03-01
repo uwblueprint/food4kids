@@ -163,18 +163,16 @@ class DriverHistoryService:
             # Get driver's info
             driver_history = await self.get_driver_history_by_id(session, driver_id)
 
-            # Var to hold sum of the driver's driven kms
-            total_kms = 0.0
-
-            # Var to hold the kms driven by the driver in the current year (when found)
-            current_year_km = 0.0
-
             # Calculate the current year in the local timezone to determine which year to get data for
             current_year = datetime.now(self.timezone).year
 
-            # Calculate total kms driven + record current kms driven this year
-            current_year_km = sum([entry.km for entry in driver_history if current_year == entry.year])
+            # Var to store total kms driven by driver
             total_kms = sum([entry.km for entry in driver_history])
+
+            # Var to store total kms driven by the driver in the current year
+            current_year_km = sum(
+                [entry.km for entry in driver_history if current_year == entry.year]
+            )
 
             driver_history_summary = DriverHistorySummary(
                 lifetime_km=total_kms, current_year_km=current_year_km
