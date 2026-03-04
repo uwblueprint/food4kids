@@ -101,7 +101,6 @@
     background-color: var(--color-grey-100); /* #FFFFFF */
     color: var(--color-grey-500); /* #1C1B1F */
     font-family: var(--font-nunito-sans);
-    @apply bg-background text-foreground;
   }
 
   /* Mobile-first: use mobile scale as default */
@@ -139,9 +138,6 @@
       font-size: var(--text-h3); /* 16px — smaller on desktop */
       line-height: var(--text-h3--line-height);
     }
-  }
-  * {
-    @apply border-border outline-ring/50;
   }
 }
 
