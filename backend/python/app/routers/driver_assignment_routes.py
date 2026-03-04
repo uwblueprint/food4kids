@@ -137,9 +137,9 @@ async def get_suggested_driver(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Route or route group not found",
         )
-    found, suggestion = await driver_assignment_service.get_suggested_driver(
+    suggestion = await driver_assignment_service.get_suggested_driver(
         session, route_id, route_group_id
     )
-    if not found or suggestion is None:
+    if suggestion is None:
         return []
     return [suggestion]

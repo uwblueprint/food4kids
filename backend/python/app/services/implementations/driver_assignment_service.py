@@ -5,6 +5,12 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
+if TYPE_CHECKING:
+    import logging
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.driver import Driver
 from app.models.driver_assignment import (
     DriverAssignment,
@@ -13,12 +19,6 @@ from app.models.driver_assignment import (
     SuggestedDriverResponse,
 )
 from app.models.route_group_membership import RouteGroupMembership
-
-if TYPE_CHECKING:
-    import logging
-    from uuid import UUID
-
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class DriverAssignmentService:
@@ -121,23 +121,21 @@ class DriverAssignmentService:
         session: AsyncSession,
         route_id: UUID,
         route_group_id: UUID,
-    ) -> tuple[bool, SuggestedDriverResponse | None]:
-        """
-        Get the driver who was last assigned to the given route in the given route group.
-        """
+    ) -> SuggestedDriverResponse | None:
+        """Get the driver who was last assigned to the given route in the given route group."""
         statement = (
             select(DriverAssignment)
             .where(
                 DriverAssignment.route_id == route_id,
                 DriverAssignment.route_group_id == route_group_id,
             )
-            .order_by(DriverAssignment.time.desc())
+            .order_by(DriverAssignment.time.desc())  # type: ignore[attr-defined]
             .limit(1)
         )
         result = await session.execute(statement)
         assignment = result.scalars().first()
         if not assignment:
-            return (False, None)
+            return None
 
         driver_statement = (
             select(Driver)
@@ -147,14 +145,11 @@ class DriverAssignmentService:
         driver_result = await session.execute(driver_statement)
         driver = driver_result.scalars().first()
         if not driver or not driver.user:
-            return (False, None)
+            return None
 
-        return (
-            True,
-            SuggestedDriverResponse(
-                driver_id=driver.driver_id,
-                driver_name=driver.user.name,
-            ),
+        return SuggestedDriverResponse(
+            driver_id=driver.driver_id,
+            driver_name=driver.user.name,
         )
 
     async def ensure_route_and_route_group_exist(
@@ -163,6 +158,7 @@ class DriverAssignmentService:
         route_id: UUID,
         route_group_id: UUID,
     ) -> bool:
+        """Checks whether the given route_id and route_group_id combination exists as a RouteGroupMembership."""
         statement = (
             select(RouteGroupMembership)
             .where(
