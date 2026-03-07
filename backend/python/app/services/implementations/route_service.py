@@ -94,8 +94,8 @@ class RouteService:
         ]
 
     async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
+        """Get route by ID"""
         try:
-            """Get route by ID"""
             statement = select(Route).where(Route.route_id == route_id)
             result = await session.execute(statement)
             route = result.scalars().first()
@@ -109,7 +109,7 @@ class RouteService:
 
         if not route:
             raise HTTPException(
-                status_code=404, detail="Route with id {route_id} not found"
+                status_code=404, detail=f"Route with id {route_id} not found"
             )
 
         return route
