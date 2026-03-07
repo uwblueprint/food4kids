@@ -41,3 +41,10 @@ class DriverAssignmentUpdate(SQLModel):
 
     time: datetime | None = Field(default=None)
     completed: bool | None = Field(default=None)
+
+
+class SuggestedDriverResponse(SQLModel):
+    """Response model for suggested driver (last assigned to a route)."""
+
+    driver_id: UUID
+    driver_name: str
