@@ -52,7 +52,6 @@ async def process_daily_reminder_emails() -> None:
                     and_(
                         DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
                         DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
-                        DriverAssignment.completed.is_(False),  # type: ignore[attr-defined]
                     )
                 )
                 .order_by(User.email)
