@@ -19,6 +19,7 @@ from app.services.implementations.location_group_service import LocationGroupSer
 from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
+from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
@@ -86,6 +87,13 @@ def get_simple_entity_service() -> SimpleEntityService:
     """Get simple entity service instance"""
     logger = get_logger()
     return SimpleEntityService(logger)
+
+
+@lru_cache
+def get_note_chain_service() -> NoteChainService:
+    """Get note chain service instance"""
+    logger = get_logger()
+    return NoteChainService(logger)
 
 
 @lru_cache

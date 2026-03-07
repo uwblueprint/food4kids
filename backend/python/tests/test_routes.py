@@ -184,6 +184,7 @@ class TestLocationRoutes:
         assert data["contact_name"] == sample_location_data["contact_name"]
         assert data["address"] == sample_location_data["address"]
         assert "location_id" in data
+        assert data["note_chain_id"] is not None  # auto-created
 
     @pytest.mark.asyncio
     async def test_get_locations_with_data(
@@ -390,6 +391,95 @@ class TestRouteGroupRoutes:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
+
+
+class TestNoteChainRoutes:
+    """Test suite for note chain API routes."""
+
+    @staticmethod
+    async def _create_chain(session: Any) -> str:
+        """Helper: create a NoteChain directly in DB, return its ID as string."""
+        from app.models.note_chain import NoteChain
+
+        chain = NoteChain(read_permission="All", write_permission="All")
+        session.add(chain)
+        await session.commit()
+        await session.refresh(chain)
+        return str(chain.note_chain_id)
+
+    @pytest.mark.asyncio
+    async def test_chain_get_update_delete(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """Test GET, PATCH, DELETE on a note chain, plus 404."""
+        chain_id = await self._create_chain(test_session)
+
+        # Get
+        resp = await authed_async_client.get(f"/note-chains/{chain_id}")
+        assert resp.status_code == 200
+        assert resp.json()["note_chain_id"] == chain_id
+
+        # Get 404
+        not_found_resp = await authed_async_client.get(f"/note-chains/{uuid4()}")
+        assert not_found_resp.status_code == 404
+
+        # Update
+        resp = await authed_async_client.patch(
+            f"/note-chains/{chain_id}",
+            json={"read_permission": "Admin"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["read_permission"] == "Admin"
+
+        # Delete
+        delete_resp = await authed_async_client.delete(f"/note-chains/{chain_id}")
+        assert delete_resp.status_code == 204
+        get_after_delete_resp = await authed_async_client.get(
+            f"/note-chains/{chain_id}"
+        )
+        assert get_after_delete_resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_notes_crud_and_read_tracking(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """Test note create, list (with unread count + auto mark-as-read), update, delete."""
+        chain_id = await self._create_chain(test_session)
+
+        # Create
+        note_resp = await authed_async_client.post(
+            f"/note-chains/{chain_id}/notes",
+            json={"message": "Hello"},
+        )
+        assert note_resp.status_code == 201
+        note_id = note_resp.json()["note_id"]
+
+        # List - unread_count=1, then auto-marked as read
+        list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
+        assert list_resp.status_code == 200
+        data = list_resp.json()
+        assert len(data["notes"]) == 1
+        assert data["unread_count"] == 1
+
+        # List again - unread_count=0
+        list_again_resp = await authed_async_client.get(
+            f"/note-chains/{chain_id}/notes"
+        )
+        assert list_again_resp.json()["unread_count"] == 0
+
+        # Update
+        patch_resp = await authed_async_client.patch(
+            f"/note-chains/{chain_id}/notes/{note_id}",
+            json={"message": "Edited"},
+        )
+        assert patch_resp.status_code == 200
+        assert patch_resp.json()["message"] == "Edited"
+
+        # Delete
+        delete_note_resp = await authed_async_client.delete(
+            f"/note-chains/{chain_id}/notes/{note_id}"
+        )
+        assert delete_note_resp.status_code == 204
 
 
 class TestValidationErrors:

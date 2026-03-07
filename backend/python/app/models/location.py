@@ -7,6 +7,7 @@ from .base import BaseModel
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
+    from .note_chain import NoteChain
 
 
 class LocationBase(SQLModel):
@@ -27,6 +28,9 @@ class LocationBase(SQLModel):
     num_children: int | None = None
     num_boxes: int
     notes: str = Field(default="")
+    note_chain_id: UUID | None = Field(
+        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+    )
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -38,6 +42,7 @@ class Location(LocationBase, BaseModel, table=True):
 
     # Relationship back to location group
     location_group: "LocationGroup" = Relationship(back_populates="locations")
+    note_chain: "NoteChain" = Relationship()
 
 
 class LocationCreate(LocationBase):
@@ -68,3 +73,4 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+    note_chain_id: UUID | None = None
