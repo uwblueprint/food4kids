@@ -5,8 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_google_maps_client
-
-# from app.dependencies.auth import require_driver
 from app.models import get_session
 from app.models.location import LocationCreate, LocationRead, LocationUpdate
 from app.services.implementations.location_service import LocationService
@@ -22,7 +20,6 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 @router.get("/", response_model=list[LocationRead])
 async def get_locations(
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> list[LocationRead]:
     """
     Get all locations
@@ -41,7 +38,6 @@ async def get_locations(
 async def get_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Get a single location by ID
@@ -65,7 +61,6 @@ async def get_location(
 async def create_location(
     location: LocationCreate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Create a new location
@@ -87,7 +82,6 @@ async def update_location(
     location_id: UUID,
     updated_location_data: LocationUpdate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> LocationRead:
     """
     Update a location by ID
@@ -113,7 +107,6 @@ async def update_location(
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_locations(
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete all locations
@@ -131,7 +124,6 @@ async def delete_all_locations(
 async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a location by ID

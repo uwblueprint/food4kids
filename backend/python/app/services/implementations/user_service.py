@@ -83,20 +83,15 @@ class UserService:
         self,
         session: AsyncSession,
         user_data: UserCreate,
-        auth_id: str | None = None,
-        signup_method: str = "PASSWORD",
     ) -> User:
         """Create new user with Firebase integration"""
         firebase_user: UserRecord | None = None
 
         try:
             # Create Firebase user
-            if signup_method == "PASSWORD":
-                firebase_user = firebase_admin.auth.create_user(
-                    email=user_data.email, password=user_data.password
-                )
-            elif signup_method == "GOOGLE":
-                firebase_user = firebase_admin.auth.get_user(uid=auth_id)
+            firebase_user = firebase_admin.auth.create_user(
+                email=user_data.email, password=user_data.password
+            )
 
             # Create database user
             if firebase_user is None:

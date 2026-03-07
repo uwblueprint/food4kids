@@ -18,7 +18,9 @@ class DriverHistoryBase(SQLModel):
 
     """Shared fields between table and API models"""
 
-    driver_id: UUID = Field(foreign_key="drivers.driver_id", index=True)
+    driver_id: UUID = Field(
+        foreign_key="drivers.driver_id", ondelete="CASCADE", index=True
+    )
     year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
     # The month is an int 1-12
     month: int = Field(nullable=False, ge=1, le=12)
@@ -52,3 +54,10 @@ class DriverHistoryUpdate(SQLModel):
     """Update request model, all fields are required for now since we are only updating km"""
 
     km: float = Field(nullable=False)
+
+
+class DriverHistorySummary(SQLModel):
+    """Summary of driver's lifetime and current year kilometers"""
+
+    lifetime_km: float
+    current_year_km: float

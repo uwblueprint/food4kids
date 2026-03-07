@@ -4,9 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_driver
 from app.models import get_session
-from app.models.route import RouteWithDateRead
+from app.models.route import Route, RouteWithDateRead
 from app.services.implementations.route_service import RouteService
 
 # Initialize service
@@ -38,11 +37,30 @@ async def get_routes(
     return routes
 
 
+@router.get("/{route_id}", response_model=Route, status_code=status.HTTP_200_OK)
+async def get_route(
+    route_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Route:
+    """
+    Get a route by its unique identifier.
+
+    Parameters:
+        route_id (UUID): The unique identifier of the route to GET.
+        session (AsyncSession): The database session dependency.
+
+    Returns:
+        None. Responds with HTTP 200 OK on successful get.
+    """
+
+    route = await route_service.get_route(session, route_id)
+    return route
+
+
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_route(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _: bool = Depends(require_driver),
 ) -> None:
     """
     Delete a route by its unique identifier.
@@ -52,15 +70,8 @@ async def delete_route(
         session (AsyncSession): The database session dependency.
         _ (bool): Indicates that the user is authenticated as a driver (injected by dependency).
 
-    Authentication:
-        Requires the user to be authenticated as a driver.
-
     Returns:
         None. Responds with HTTP 204 No Content on successful deletion.
-
-    Raises:
-        HTTPException:
-            - 404 Not Found: If the route with the specified ID does not exist.
     """
     success = await route_service.delete_route(session, route_id)
     if not success:
