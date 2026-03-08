@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 COPY . ./
 
 EXPOSE 8080
-ENTRYPOINT ["sh", "-c", "cd /app && alembic upgrade head && python server.py"]
+ENTRYPOINT ["sh", "-c", "cd /app && alembic upgrade head && python server.py "]
