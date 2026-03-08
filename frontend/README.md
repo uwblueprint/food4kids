@@ -1,5 +1,5 @@
 # Frontend
-
+ 
 Built with React 19, TypeScript, and Vite.
 
 ## Project Structure
