@@ -49,9 +49,44 @@ cd food4kids
 
 ### Environment
 
-You need two env files: `.env` (backend) and `frontend/.env` (frontend). Ask the PL for values. A `frontend/.env.example` template is provided.
+You need two env files: `.env` (backend) and `frontend/.env` (frontend). Never commit these files.
 
-Never commit `.env` files.
+The backend `.env` is stored in Google Secret Manager and pulled via a script. The frontend `.env` must be obtained from the PL (a `frontend/.env.example` template is provided).
+
+#### Pull backend `.env` via Google Secret Manager
+
+**Prerequisites:** [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) installed.
+
+**1. Get the service account credentials**
+
+Download the `food4kids-env-service-account.json` file from the Food4Kids Developers shared Google Drive in UW Blueprint. Save it to the **repo root** (it is gitignored automatically).
+
+**2. Authenticate with the service account**
+
+```bash
+gcloud auth activate-service-account --key-file=food4kids-env-service-account.json
+```
+
+**3. Run the pull script**
+
+Mac/Linux:
+```bash
+chmod +x pull-env.sh   # only needed once
+./pull-env.sh
+```
+
+Windows (Git Bash or WSL):
+```bash
+bash pull-env.sh
+```
+
+Windows (PowerShell, if you don't have Git Bash/WSL):
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS = "food4kids-env-service-account.json"
+gcloud secrets versions access latest --secret="f4k-backend-env" --project="food4kids-473501" | Out-File -Encoding utf8 .env
+```
+
+This writes `.env` to the repo root. You still need `frontend/.env` from the PL.
 
 ### Run
 
