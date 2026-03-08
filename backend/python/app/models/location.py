@@ -29,11 +29,11 @@ class LocationBase(SQLModel):
     phone_number: str
     longitude: float | None = None
     latitude: float | None = None
-    halal: bool
+    halal: bool = Field(default=False)
     dietary_restrictions: str = Field(default="")
     place_id: str | None = None
     num_children: int | None = None
-    num_boxes: int
+    num_boxes: int = Field(default=0)
     notes: str = Field(default="")
     state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
 
