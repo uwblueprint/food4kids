@@ -3,8 +3,6 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.models.location import LocationRead
-
 from .base import BaseModel
 
 # temporary import to avoid circular dependency
@@ -45,7 +43,6 @@ class LocationGroupRead(LocationGroupBase):
 
     location_group_id: UUID
     num_locations: int
-    locations: list[LocationRead]
 
 
 class LocationGroupUpdate(SQLModel):
