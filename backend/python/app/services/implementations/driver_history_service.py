@@ -68,7 +68,7 @@ class DriverHistoryService:
                 DriverHistory.driver_id == driver_id,
                 DriverHistory.year == year,
             )
-            .order_by(DriverHistory.month)
+            .order_by(DriverHistory.month)  # type: ignore[arg-type]
         )
 
         result = await session.execute(statement)
@@ -80,7 +80,7 @@ class DriverHistoryService:
         statement = (
             select(DriverHistory)
             .where(DriverHistory.driver_id == driver_id)
-            .order_by(DriverHistory.year, DriverHistory.month)
+            .order_by(DriverHistory.year, DriverHistory.month)  # type: ignore[arg-type]
         )
 
         result = await session.execute(statement)
