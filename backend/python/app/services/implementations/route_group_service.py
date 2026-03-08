@@ -118,7 +118,7 @@ class RouteGroupService:
 
         if route_status:
             # Get the current date and time in the local timezone
-            now = datetime.now(self.timezone)
+            now = datetime.now(self.timezone).replace(tzinfo=None)
             # Calculate the cutoff date for archiving (exactly 30 days ago from right now)
             thirty_days_ago = now - timedelta(days=30)
 
