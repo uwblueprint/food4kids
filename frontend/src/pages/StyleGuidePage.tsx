@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 
+import { Button } from '@/common/components/Button';
+
 export const StyleGuidePage = () => {
   return (
-    <div className="min-h-screen page-margins pb-16">
-      <h1 className="mb-2 text-blue-300">
-        F4K Design System
-      </h1>
+    <div className="page-margins min-h-screen pb-16">
+      <h1 className="mb-2 text-blue-300">F4K Design System</h1>
       <p className="text-p2 text-grey-400 mb-2">
         Tailwind CSS v4 theme — typography, colors, shadows, and spacing.
       </p>
@@ -319,8 +319,9 @@ export const StyleGuidePage = () => {
         <SectionHeader>Spacing Scale (8px Grid)</SectionHeader>
         <p className="text-p2 text-grey-400 mb-6">
           Illustrates Tailwind&apos;s underlying doubling scale — not a list of
-          approved design values. For the design&apos;s actual spacing increments
-          (4, 8, 12, 16, 20, 24, 40, 80px) see the README spacing table.
+          approved design values. For the design&apos;s actual spacing
+          increments (4, 8, 12, 16, 20, 24, 40, 80px) see the README spacing
+          table.
         </p>
 
         <div className="space-y-3">
@@ -371,9 +372,9 @@ export const StyleGuidePage = () => {
             </div>
           </div>
 
-          <div className="bg-light-red flex items-start gap-2.5 rounded-2xl border border-red px-4 py-6">
+          <div className="bg-light-red border-red flex items-start gap-2.5 rounded-2xl border px-4 py-6">
             <span className="text-red">&#9888;</span>
-            <p className="text-p2 font-semibold text-red">
+            <p className="text-p2 text-red font-semibold">
               Unsupported format — please upload an Excel (.xlsx) file
             </p>
           </div>
@@ -393,15 +394,30 @@ export const StyleGuidePage = () => {
         <div className="flex flex-wrap gap-6">
           {[
             { file: 'boy.png', label: 'boy' },
-            { file: 'boy-edge-case-no-question-mark.png', label: 'boy-edge-case-no-question-mark' },
-            { file: 'boy-edge-case-with-questions.png', label: 'boy-edge-case-with-questions' },
+            {
+              file: 'boy-edge-case-no-question-mark.png',
+              label: 'boy-edge-case-no-question-mark',
+            },
+            {
+              file: 'boy-edge-case-with-questions.png',
+              label: 'boy-edge-case-with-questions',
+            },
             { file: 'girl-403.png', label: 'girl-403' },
             { file: 'girl-confused.png', label: 'girl-confused' },
             { file: 'granny.png', label: 'granny' },
           ].map(({ file, label }) => (
-            <div key={file} className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4">
-              <img src={`/illustrations/${file}`} alt={label} className="h-32 w-auto object-contain" />
-              <p className="text-grey-400 text-center text-[10px] leading-tight">{label}</p>
+            <div
+              key={file}
+              className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4"
+            >
+              <img
+                src={`/illustrations/${file}`}
+                alt={label}
+                className="h-32 w-auto object-contain"
+              />
+              <p className="text-grey-400 text-center text-[10px] leading-tight">
+                {label}
+              </p>
             </div>
           ))}
         </div>
@@ -412,12 +428,24 @@ export const StyleGuidePage = () => {
         <SectionHeader>Logos</SectionHeader>
         <div className="flex flex-wrap gap-6">
           {[
-            { file: 'logo_desktop_two_lines.png', label: 'logo_desktop_two_lines' },
+            {
+              file: 'logo_desktop_two_lines.png',
+              label: 'logo_desktop_two_lines',
+            },
             { file: 'logo_mobile_one_line.png', label: 'logo_mobile_one_line' },
           ].map(({ file, label }) => (
-            <div key={file} className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4">
-              <img src={`/logos/${file}`} alt={label} className="h-16 w-auto object-contain" />
-              <p className="text-grey-400 text-center text-[10px] leading-tight">{label}</p>
+            <div
+              key={file}
+              className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4"
+            >
+              <img
+                src={`/logos/${file}`}
+                alt={label}
+                className="h-16 w-auto object-contain"
+              />
+              <p className="text-grey-400 text-center text-[10px] leading-tight">
+                {label}
+              </p>
             </div>
           ))}
         </div>
@@ -429,12 +457,35 @@ export const StyleGuidePage = () => {
 
         <IconGroup title="Action">
           {[
-            'clock', 'more-vertical', 'more-horizontal', 'x', 'phone', 'megaphone', 'search',
-            'home', 'map', 'users', 'settings', 'printer', 'edit', 'mail',
-            'trash', 'plus', 'minus', 'expand-content', 'collapse-content',
-            'chevron-up', 'chevron-down', 'chevron-left', 'chevron-right',
-            'filter-lines', 'copy', 'share', 'right-panel-close',
-            'external-link', 'undo',
+            'clock',
+            'more-vertical',
+            'more-horizontal',
+            'x',
+            'phone',
+            'megaphone',
+            'search',
+            'home',
+            'map',
+            'users',
+            'settings',
+            'printer',
+            'edit',
+            'mail',
+            'trash',
+            'plus',
+            'minus',
+            'expand-content',
+            'collapse-content',
+            'chevron-up',
+            'chevron-down',
+            'chevron-left',
+            'chevron-right',
+            'filter-lines',
+            'copy',
+            'share',
+            'right-panel-close',
+            'external-link',
+            'undo',
           ].map((name) => (
             <IconTile key={name} name={name} />
           ))}
@@ -442,9 +493,16 @@ export const StyleGuidePage = () => {
 
         <IconGroup title="Metadata">
           {[
-            'calendar', 'map-pin', 'box',
-            'instagram', 'facebook', 'globe', 'twitter', 'heart',
-            'award', 'package',
+            'calendar',
+            'map-pin',
+            'box',
+            'instagram',
+            'facebook',
+            'globe',
+            'twitter',
+            'heart',
+            'award',
+            'package',
           ].map((name) => (
             <IconTile key={`meta-${name}`} name={name} />
           ))}
@@ -452,12 +510,159 @@ export const StyleGuidePage = () => {
 
         <IconGroup title="Status">
           {[
-            'check', 'alert-circle', 'alert-triangle', 'wifi-off',
+            'check',
+            'alert-circle',
+            'alert-triangle',
+            'wifi-off',
             'check-circle',
           ].map((name) => (
             <IconTile key={`status-${name}`} name={name} />
           ))}
         </IconGroup>
+      </section>
+
+      <section className="mb-16">
+        {/* Section header (matches existing StyleGuide pattern) */}
+        <h2 className="mb-1">Call to Action Buttons</h2>
+        <hr className="border-grey-300 mb-6" />
+
+        {/* ---- Spec notes ---- */}
+        <div className="mb-10 space-y-6">
+          <SpecNote title="Button Height">
+            Button height is 44px across desktop, tablet, and mobile.
+          </SpecNote>
+
+          <SpecNote title="Button Width">
+            Width is auto based on container size, with 24px horizontal padding
+            (left and right).
+            <br />
+            <br />
+            Minimum width is 104px.
+          </SpecNote>
+
+          <SpecNote title="Mobile Button">
+            On mobile, buttons span the full width of their container.
+          </SpecNote>
+
+          <SpecNote title="Border Radius">
+            Border radius defaults to 40px on all corners.
+          </SpecNote>
+
+          <SpecNote title="Circular Button">
+            Circular icon buttons are 44px × 44px.
+          </SpecNote>
+        </div>
+
+        {/* ---- Rectangular button grid ---- */}
+        <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
+          <div className="divide-grey-300 grid grid-cols-2 divide-y md:grid-cols-4 md:divide-x md:divide-y-0">
+            {/* Primary */}
+            <ButtonColumn title="Primary">
+              <ButtonDemo label="Default State">
+                <Button variant="primary">Save</Button>
+              </ButtonDemo>
+              <ButtonDemo label="Hover State">
+                <Button variant="primary" className="!bg-blue-400">
+                  Save
+                </Button>
+              </ButtonDemo>
+            </ButtonColumn>
+
+            {/* Secondary */}
+            <ButtonColumn title="Secondary">
+              <ButtonDemo label="Default State">
+                <Button variant="secondary">Cancel</Button>
+              </ButtonDemo>
+              <ButtonDemo label="Hover State">
+                <Button variant="secondary" className="!bg-grey-300">
+                  Cancel
+                </Button>
+              </ButtonDemo>
+            </ButtonColumn>
+
+            {/* Tertiary */}
+            <ButtonColumn title="Tertiary">
+              <ButtonDemo label="Default State">
+                <Button variant="tertiary">Cancel</Button>
+              </ButtonDemo>
+              <ButtonDemo label="Hover State">
+                <Button variant="tertiary">Cancel</Button>
+              </ButtonDemo>
+            </ButtonColumn>
+
+            {/* Text Link */}
+            <ButtonColumn title="Text Link">
+              <ButtonDemo label="Default State">
+                <Button variant="textLink">Text</Button>
+              </ButtonDemo>
+              <ButtonDemo label="Hover State">
+                <Button variant="textLink" className="underline">
+                  Text
+                </Button>
+              </ButtonDemo>
+            </ButtonColumn>
+          </div>
+        </div>
+
+        {/* ---- Circular buttons ---- */}
+        <h3 className="mt-10 mb-1">Circular Buttons</h3>
+        <hr className="border-grey-300 mb-6" />
+
+        <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
+          <div className="divide-grey-300 grid grid-cols-3 divide-x">
+            {/* Circular Primary */}
+            <ButtonColumn title="Circular Primary">
+              <ButtonDemo label="Default State">
+                <Button variant="primary" shape="circular" aria-label="Next">
+                  <ChevronRightIcon />
+                </Button>
+              </ButtonDemo>
+              <ButtonDemo label="Hover State">
+                <Button
+                  variant="primary"
+                  shape="circular"
+                  className="!bg-blue-400"
+                  aria-label="Next"
+                >
+                  <ChevronRightIcon />
+                </Button>
+              </ButtonDemo>
+            </ButtonColumn>
+
+            {/* Circular Secondary */}
+            <ButtonColumn title="Circular Secondary">
+              <ButtonDemo label="Default State">
+                <Button variant="secondary" shape="circular" aria-label="Next">
+                  <ChevronRightIcon className="text-grey-500" />
+                </Button>
+              </ButtonDemo>
+              <ButtonDemo label="Hover State">
+                <Button
+                  variant="secondary"
+                  shape="circular"
+                  className="!bg-grey-300"
+                  aria-label="Next"
+                >
+                  <ChevronRightIcon className="text-grey-500" />
+                </Button>
+              </ButtonDemo>
+            </ButtonColumn>
+
+            {/* Circular Tertiary */}
+            <ButtonColumn title="Circular Tertiary">
+              <ButtonDemo label="Default State">
+                <Button variant="tertiary" shape="circular" aria-label="Next">
+                  <ChevronRightIcon className="text-grey-500" />
+                </Button>
+              </ButtonDemo>
+              <ButtonDemo label="Hover State">
+                <Button variant="tertiary" shape="circular" aria-label="Next">
+                  <ChevronRightIcon className="text-grey-500" />
+                </Button>
+              </ButtonDemo>
+            </ButtonColumn>
+          </div>
+        </div>
       </section>
     </div>
   );
@@ -466,6 +671,76 @@ export const StyleGuidePage = () => {
 /* ============================================== */
 /* Helper Components                              */
 /* ============================================== */
+
+function SpecNote({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-p3 mb-1 font-semibold tracking-wider text-blue-300 uppercase">
+        {title}
+      </p>
+      <p className="text-p1 text-grey-500">{children}</p>
+    </div>
+  );
+}
+
+function ButtonColumn({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="p-6">
+      <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
+        {title}
+      </p>
+      <div className="space-y-6">{children}</div>
+    </div>
+  );
+}
+
+function ButtonDemo({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-2">
+      {children}
+      <p className="text-p3 text-grey-400">{label}</p>
+    </div>
+  );
+}
+
+/** Inline chevron-right SVG matching the icon set at /icons/chevron-right.svg */
+function ChevronRightIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
 function SectionHeader({ children }: { children: ReactNode }) {
   return (
@@ -505,9 +780,7 @@ function Swatch({
   return (
     <div className="w-36">
       <div className={`mb-2 h-16 rounded-md ${color}`} />
-      <p className="text-p3 text-grey-500 font-semibold">
-        {name}
-      </p>
+      <p className="text-p3 text-grey-500 font-semibold">{name}</p>
       <p className="text-p3 text-grey-400 font-mono">{hex}</p>
       <p className="text-p3 text-grey-400">{usage}</p>
     </div>
@@ -555,7 +828,9 @@ function IconTile({ name }: { name: string }) {
   return (
     <div className="border-grey-300 bg-grey-150 flex w-24 flex-col items-center gap-2 rounded-lg border px-2 py-3">
       <img src={`/icons/${name}.svg`} alt={name} className="size-6" />
-      <p className="text-grey-400 text-center text-[10px] leading-tight">{name}</p>
+      <p className="text-grey-400 text-center text-[10px] leading-tight">
+        {name}
+      </p>
     </div>
   );
 }
