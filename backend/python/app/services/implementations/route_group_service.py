@@ -1,19 +1,25 @@
 import logging
 from datetime import datetime, timedelta
 from uuid import UUID
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
-from sqlalchemy import func, exists, cast, Date, and_
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import and_, exists, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
 from app.config import settings
-from app.models.enum import AllowedWeekdayEnum, DeliveryTypeEnum, RouteStatusEnum, DriverAssignmentStatusEnum
-from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
 from app.models.driver_assignment import DriverAssignment
+from app.models.enum import (
+    AllowedWeekdayEnum,
+    DeliveryTypeEnum,
+    DriverAssignmentStatusEnum,
+    RouteStatusEnum,
+)
+from app.models.location import Location
+from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
-from app.models.location import Location
+
 
 class RouteGroupService:
     """Route group service for CRUD operations"""
@@ -76,16 +82,16 @@ class RouteGroupService:
             statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
             statement = statement.where(RouteGroup.drive_date <= end_date)
-        
+
         # Weekday filter
         if weekday:
             dow_map = {
                 AllowedWeekdayEnum.TUE: 2,
                 AllowedWeekdayEnum.WED: 3,
-                AllowedWeekdayEnum.THU: 4
+                AllowedWeekdayEnum.THU: 4,
             }
             statement = statement.where(
-                func.extract("dow", RouteGroup.drive_date) == dow_map[weekday]
+                func.extract("dow", RouteGroup.drive_date) == dow_map[weekday]  # type: ignore[arg-type]
             )
 
         # Delivery type filter
@@ -94,12 +100,12 @@ class RouteGroupService:
             has_school_query = (
                 select(1)
                 .select_from(RouteGroupMembership)
-                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)
-                .join(Location, RouteStop.location_id == Location.location_id)
+                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
                 .where(
                     RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
-                    Location.school_name.isnot(None),
-                    Location.school_name != ""
+                    Location.school_name.isnot(None),  # type: ignore[union-attr]
+                    Location.school_name != "",
                 )
             )
 
@@ -109,7 +115,7 @@ class RouteGroupService:
             elif delivery_type == DeliveryTypeEnum.SUMMER:
                 # If no locations have a school name, it's a summer route
                 statement = statement.where(~has_school_query.exists())
-        
+
         if route_status:
             # Get the current date and time in the local timezone
             now = datetime.now(self.timezone)
@@ -119,16 +125,16 @@ class RouteGroupService:
             if route_status == RouteStatusEnum.UPCOMING:
                 # Includes routes strictly after right now
                 statement = statement.where(RouteGroup.drive_date > now)
-            
+
             elif route_status == RouteStatusEnum.COMPLETED:
                 # From 30 days ago up to (and including) right now
                 statement = statement.where(
                     and_(
-                        RouteGroup.drive_date <= now,
-                        RouteGroup.drive_date >= thirty_days_ago
+                        RouteGroup.drive_date <= now,  # type: ignore[arg-type]
+                        RouteGroup.drive_date >= thirty_days_ago,  # type: ignore[arg-type]
                     )
                 )
-            
+
             elif route_status == RouteStatusEnum.ARCHIVED:
                 # Strictly older than 30 days ago
                 statement = statement.where(RouteGroup.drive_date < thirty_days_ago)
@@ -137,9 +143,9 @@ class RouteGroupService:
         if driver_assignment_status:
             # Create subquery that checks for existing assignment
             assignment_exists = exists().where(
-                DriverAssignment.route_group_id == RouteGroup.route_group_id
+                DriverAssignment.route_group_id == RouteGroup.route_group_id  # type: ignore[arg-type]
             )
-            
+
             if driver_assignment_status == DriverAssignmentStatusEnum.ASSIGNED:
                 statement = statement.where(assignment_exists)
             elif driver_assignment_status == DriverAssignmentStatusEnum.UNASSIGNED:

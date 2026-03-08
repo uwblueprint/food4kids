@@ -4,9 +4,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enum import AllowedWeekdayEnum, DeliveryTypeEnum, RouteStatusEnum, DriverAssignmentStatusEnum
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
+from app.models.enum import (
+    AllowedWeekdayEnum,
+    DeliveryTypeEnum,
+    DriverAssignmentStatusEnum,
+    RouteStatusEnum,
+)
 from app.models.route_group import RouteGroupCreate, RouteGroupRead, RouteGroupUpdate
 from app.services.implementations.route_group_service import RouteGroupService
 
@@ -22,9 +27,15 @@ async def get_route_groups(
         None, description="Filter route groups until this date"
     ),
     weekday: AllowedWeekdayEnum | None = Query(None, description="Filter by weekday"),
-    delivery_type: DeliveryTypeEnum | None = Query(None, description="Filter by delivery type"),
-    route_status: RouteStatusEnum | None = Query(None, description="Filter by route status"),
-    driver_assignment_status: DriverAssignmentStatusEnum | None = Query(None, description="Filter by driver assignment status"),
+    delivery_type: DeliveryTypeEnum | None = Query(
+        None, description="Filter by delivery type"
+    ),
+    route_status: RouteStatusEnum | None = Query(
+        None, description="Filter by route status"
+    ),
+    driver_assignment_status: DriverAssignmentStatusEnum | None = Query(
+        None, description="Filter by driver assignment status"
+    ),
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
@@ -35,7 +46,14 @@ async def get_route_groups(
     """
     try:
         route_groups = await route_group_service.get_route_groups(
-            session, start_date, end_date, weekday, delivery_type, route_status, driver_assignment_status, include_routes
+            session,
+            start_date,
+            end_date,
+            weekday,
+            delivery_type,
+            route_status,
+            driver_assignment_status,
+            include_routes,
         )
         result = []
         for route_group in route_groups:
