@@ -174,7 +174,7 @@ class LocationService:
                 alerts: list[LocationImportAlert] = []
 
                 # ERROR: missing required fields — also narrows type to ValidatedLocationImportEntry
-                if not self._missing_required_fields(location):
+                if not self._has_required_fields(location):
                     alerts.append(
                         self._alert(
                             AlertType.ERROR,
@@ -344,7 +344,7 @@ class LocationService:
         )
 
     @staticmethod
-    def _missing_required_fields(
+    def _has_required_fields(
         entry: LocationImportEntry,
     ) -> TypeGuard[ValidatedLocationImportEntry]:
         """Returns True (and narrows to ValidatedLocationImportEntry) when all required
