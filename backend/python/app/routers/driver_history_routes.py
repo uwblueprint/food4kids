@@ -180,14 +180,20 @@ async def create_driver_history(
     - Must be unique: (driver_id, year, month)
     """
 
-    if not driver_history_service.driver_exists(session, driver_id):
+    year = create.year
+    month = create.month
+
+    if not driver_history_service.validate_year_and_month(year, month):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Year {year} is outside of the allowed range of {MIN_YEAR} to {MAX_YEAR}",
+        )
+
+    if not await driver_history_service.driver_exists(session, driver_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Driver with id {driver_id} does not exist",
         )
-
-    year = create.year
-    month = create.month
 
     validate_history = (
         await driver_history_service.get_driver_history_by_id_year_and_month(
@@ -199,12 +205,6 @@ async def create_driver_history(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Driver history with id {driver_id}, year {year} and month {month} already exists and cannot be created",
-        )
-
-    if not driver_history_service.validate_year_and_month(year, month):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Year {year} is outside of the allowed range of {MIN_YEAR} to {MAX_YEAR}",
         )
 
     created_driver_history = await driver_history_service.create_driver_history(
