@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
+import ChevronRight from '@/assets/icons/chevron-right.svg?react';
 import { Button } from '@/common/components/Button';
-import { TextField } from '@/common/components/TextField';
 import { Dropdown } from '@/common/components/Dropdown';
+import { FilterChip, FilterChipGroup } from '@/common/components/FilterChip';
 import { SearchBar } from '@/common/components/SearchBar';
-import {FilterChip, FilterChipGroup} from '@/common/components/FilterChip';
+import { TextField } from '@/common/components/TextField';
 
 export const StyleGuidePage = () => {
   return (
@@ -415,7 +416,10 @@ export const StyleGuidePage = () => {
               className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4"
             >
               <img
-                src={`/illustrations/${file}`}
+                src={
+                  new URL(`../assets/illustrations/${file}`, import.meta.url)
+                    .href
+                }
                 alt={label}
                 className="h-32 w-auto object-contain"
               />
@@ -443,7 +447,7 @@ export const StyleGuidePage = () => {
               className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4"
             >
               <img
-                src={`/logos/${file}`}
+                src={new URL(`../assets/logos/${file}`, import.meta.url).href}
                 alt={label}
                 className="h-16 w-auto object-contain"
               />
@@ -618,7 +622,7 @@ export const StyleGuidePage = () => {
             <ButtonColumn title="Circular Primary">
               <ButtonDemo label="Default State">
                 <Button variant="primary" shape="circular" aria-label="Next">
-                  <ChevronRightIcon />
+                  <ChevronRight className="h-5 w-5" />
                 </Button>
               </ButtonDemo>
               <ButtonDemo label="Hover State">
@@ -628,7 +632,7 @@ export const StyleGuidePage = () => {
                   className="!bg-blue-400"
                   aria-label="Next"
                 >
-                  <ChevronRightIcon />
+                  <ChevronRight className="h-5 w-5" />
                 </Button>
               </ButtonDemo>
             </ButtonColumn>
@@ -637,7 +641,7 @@ export const StyleGuidePage = () => {
             <ButtonColumn title="Circular Secondary">
               <ButtonDemo label="Default State">
                 <Button variant="secondary" shape="circular" aria-label="Next">
-                  <ChevronRightIcon className="text-grey-500" />
+                  <ChevronRight className="text-grey-500 h-5 w-5" />
                 </Button>
               </ButtonDemo>
               <ButtonDemo label="Hover State">
@@ -647,7 +651,7 @@ export const StyleGuidePage = () => {
                   className="!bg-grey-300"
                   aria-label="Next"
                 >
-                  <ChevronRightIcon className="text-grey-500" />
+                  <ChevronRight className="text-grey-500 h-5 w-5" />
                 </Button>
               </ButtonDemo>
             </ButtonColumn>
@@ -656,12 +660,12 @@ export const StyleGuidePage = () => {
             <ButtonColumn title="Circular Tertiary">
               <ButtonDemo label="Default State">
                 <Button variant="tertiary" shape="circular" aria-label="Next">
-                  <ChevronRightIcon className="text-grey-500" />
+                  <ChevronRight className="text-grey-500 h-5 w-5" />
                 </Button>
               </ButtonDemo>
               <ButtonDemo label="Hover State">
                 <Button variant="tertiary" shape="circular" aria-label="Next">
-                  <ChevronRightIcon className="text-grey-500" />
+                  <ChevronRight className="text-grey-500 h-5 w-5" />
                 </Button>
               </ButtonDemo>
             </ButtonColumn>
@@ -686,7 +690,7 @@ function FormFieldsSection() {
   const [searchValue, setSearchValue] = useState('');
   const [filledSearchValue, setFilledSearchValue] = useState('Search anything');
   const [selectedDays, setSelectedDays] = useState<Set<string>>(
-    new Set(['Wed', 'Thu']),
+    new Set(['Wed', 'Thu'])
   );
 
   const toggleDay = (day: string) => {
@@ -730,8 +734,8 @@ function FormFieldsSection() {
         </SpecNote>
 
         <SpecNote title="Text Field">
-          The text field height will remain 44px throughout desktop &amp; tablet,
-          and 42px throughout mobile.
+          The text field height will remain 44px throughout desktop &amp;
+          tablet, and 42px throughout mobile.
           <br />
           <br />
           Stroke: 1px | Inside | Grey/300
@@ -922,8 +926,8 @@ function FormFieldsSection() {
               Dropdown Spec
             </p>
             <p className="text-p2 text-grey-500">
-              The dropdown options will fill the width of the clickable container
-              above them.
+              The dropdown options will fill the width of the clickable
+              container above them.
             </p>
             <p className="text-p2 text-grey-500">
               Follow the right for the correct padding and margin on this
@@ -1021,8 +1025,8 @@ function FormFieldsSection() {
             </div>
 
             <p className="text-p2 text-grey-500">
-              These are chips used to filter as seen on desktop views. Clicking a
-              chip in default state will convert it to its selected state, and
+              These are chips used to filter as seen on desktop views. Clicking
+              a chip in default state will convert it to its selected state, and
               then clicking again will revert it back to the default state.
             </p>
           </div>
@@ -1132,27 +1136,6 @@ function FormFieldDemo({
   );
 }
 
-/** Inline chevron-right SVG matching the icon set at /icons/chevron-right.svg */
-function ChevronRightIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
 function SectionHeader({ children }: { children: ReactNode }) {
   return (
     <>
@@ -1238,7 +1221,11 @@ function IconGroup({
 function IconTile({ name }: { name: string }) {
   return (
     <div className="border-grey-300 bg-grey-150 flex w-24 flex-col items-center gap-2 rounded-lg border px-2 py-3">
-      <img src={`/icons/${name}.svg`} alt={name} className="size-6" />
+      <img
+        src={new URL(`../assets/icons/${name}.svg`, import.meta.url).href}
+        alt={name}
+        className="size-6"
+      />
       <p className="text-grey-400 text-center text-[10px] leading-tight">
         {name}
       </p>

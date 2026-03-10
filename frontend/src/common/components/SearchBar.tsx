@@ -1,5 +1,5 @@
-import { type InputHTMLAttributes, forwardRef } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { forwardRef, type InputHTMLAttributes } from 'react';
 
 import searchIcon from '@/assets/icons/search.svg';
 import { cn } from '@/lib/utils';
@@ -21,11 +21,12 @@ const searchBarVariants = cva(
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 );
 
 export interface SearchBarProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>,
+  extends
+    Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>,
     VariantProps<typeof searchBarVariants> {
   /** Additional className for the outermost wrapper */
   wrapperClassName?: string;
@@ -34,9 +35,7 @@ export interface SearchBarProps
 const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
   ({ variant, className, wrapperClassName, ...props }, ref) => {
     return (
-      <div
-        className={cn(searchBarVariants({ variant }), wrapperClassName)}
-      >
+      <div className={cn(searchBarVariants({ variant }), wrapperClassName)}>
         {/* Search icon */}
         <img
           src={searchIcon}
@@ -55,13 +54,13 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
             // Remove default search input styling (x button, etc.)
             '[&::-webkit-search-cancel-button]:hidden',
             '[&::-webkit-search-decoration]:hidden',
-            className,
+            className
           )}
           {...props}
         />
       </div>
     );
-  },
+  }
 );
 
 SearchBar.displayName = 'SearchBar';

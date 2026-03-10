@@ -1,11 +1,12 @@
-import { type InputHTMLAttributes, forwardRef, useId } from 'react';
+import { forwardRef, type InputHTMLAttributes, useId } from 'react';
 
 import AlertTriangle from '@/assets/icons/alert-triangle.svg?react';
-
 import { cn } from '@/lib/utils';
 
-export interface TextFieldProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
+export interface TextFieldProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'id'
+> {
   /** Field label displayed above the input */
   label?: string;
   /** Helper or info text below the input */
@@ -36,7 +37,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
       id: idProp,
       ...props
     },
-    ref,
+    ref
   ) => {
     const autoId = useId();
     const id = idProp ?? autoId;
@@ -55,10 +56,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         {label && (
           <label
             htmlFor={id}
-            className={cn(
-              'text-p3 text-grey-400',
-              disabled && 'opacity-50',
-            )}
+            className={cn('text-p3 text-grey-400', disabled && 'opacity-50')}
           >
             {label}
           </label>
@@ -76,19 +74,20 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             // Base
             'text-p2 text-grey-500 placeholder:text-p3 placeholder:text-grey-400',
             'h-[44px] w-full rounded-lg px-3',
-            'outline-none transition-colors',
+            'transition-colors outline-none',
             // Default state
-            'border border-grey-300 bg-grey-100',
+            'border-grey-300 bg-grey-100 border',
             // Focus / active
             'focus:border-blue-300 focus:ring-1 focus:ring-blue-300',
             // Error
             hasError && 'border-red focus:border-red focus:ring-red',
             // Info (non-editable)
-            info && 'border-none bg-grey-150 cursor-default',
+            info && 'bg-grey-150 cursor-default border-none',
             // Disabled
-            disabled && 'bg-grey-150 text-grey-400 cursor-not-allowed opacity-60',
+            disabled &&
+              'bg-grey-150 text-grey-400 cursor-not-allowed opacity-60',
             // Mobile height
-            'md:h-[44px]',
+            'md:h-[44px]'
           )}
           {...props}
         />
@@ -101,13 +100,13 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
               id={helperId}
               className={cn(
                 'text-p2 flex w-full items-center gap-1',
-                hasError ? 'text-red' : 'text-grey-400',
+                hasError ? 'text-red' : 'text-grey-400'
               )}
             >
               {hasError && (
                 <AlertTriangle
                   aria-hidden="true"
-                  className="h-4 w-4 shrink-0 -mt-1 text-red"
+                  className="text-red -mt-1 h-4 w-4 shrink-0"
                 />
               )}
               <span>{error ?? helperText}</span>
@@ -119,7 +118,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             <p
               className={cn(
                 'text-p3 ml-auto shrink-0',
-                isOverThreshold ? 'text-red' : 'text-grey-400',
+                isOverThreshold ? 'text-red' : 'text-grey-400'
               )}
             >
               {characterCount ?? 0}/{maxCharacters}
@@ -128,7 +127,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         </div>
       </div>
     );
-  },
+  }
 );
 
 TextField.displayName = 'TextField';
