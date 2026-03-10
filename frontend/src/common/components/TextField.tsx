@@ -68,6 +68,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           id={id}
           disabled={disabled}
           readOnly={info}
+          maxLength={maxCharacters}
           aria-describedby={helperText || error ? helperId : undefined}
           aria-invalid={hasError || undefined}
           className={cn(

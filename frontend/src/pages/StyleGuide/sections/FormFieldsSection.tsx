@@ -13,7 +13,7 @@ export function FormFieldsSection() {
   const [filledText] = useState('Lorem Ipsum is simply dummy text of th...');
   const [dropdownValue, setDropdownValue] = useState<string | undefined>();
   const [searchValue, setSearchValue] = useState('');
-  const [filledSearchValue, setFilledSearchValue] = useState('Search anything');
+  const [filledSearchValue, setFilledSearchValue] = useState('');
   const [selectedDays, setSelectedDays] = useState<Set<string>>(
     new Set(['Wed', 'Thu'])
   );
@@ -175,12 +175,14 @@ export function FormFieldsSection() {
               Info Field (Non-Editable)
             </p>
 
-            <FormFieldDemo label="Info Field">
-              <TextField
-                info
-                label="Address"
-                value="3245 Spruce Street West, Kitchener, ON, M1W 1X1"
-              />
+            <FormFieldDemo label="Info Field (White Background Added for Contrast)">
+              <div className="rounded-lg bg-white p-4">
+                <TextField
+                  info
+                  label="Address"
+                  value="3245 Spruce Street West, Kitchener, ON, M1W 1X1"
+                />
+              </div>
             </FormFieldDemo>
           </div>
         </div>
