@@ -13,8 +13,8 @@ export function TypekitSection() {
               Typeface & Weights
             </p>
             <p className="text-p3 text-grey-400 mb-6">
-              Nunito is used for Heading text (except H3) and Button UI.
-              Nunito Sans is used for Paragraph text.
+              Nunito is used for Heading text (except H3) and Button UI. Nunito
+              Sans is used for Paragraph text.
             </p>
             <div className="space-y-3">
               <p className="font-nunito text-grey-500 text-xl font-extrabold">
@@ -45,18 +45,21 @@ export function TypekitSection() {
             </p>
             <div className="space-y-5">
               <TypekitRow
+                as="h1"
                 label="Desktop/Heading/H1"
                 className="font-nunito text-h1 text-grey-500 font-bold"
                 spec="Nunito | Text size: 32px | Line height: 44px"
                 code="<h1>"
               />
               <TypekitRow
+                as="h2"
                 label="Desktop/Heading/H2"
                 className="font-nunito text-h2 text-grey-500 font-semibold"
                 spec="Nunito | Text size: 20px | Line height: 28px"
                 code="<h2>"
               />
               <TypekitRow
+                as="h3"
                 label="Desktop/Heading/H3"
                 className="font-nunito-sans text-h3 text-grey-500 font-bold"
                 spec="Nunito Sans | Text size: 16px | Line height: 20px"
@@ -64,19 +67,19 @@ export function TypekitSection() {
               />
               <TypekitRow
                 label="Desktop/Paragraph/P1"
-                className="font-nunito-sans text-p1 text-grey-500"
+                className="font-nunito-sans text-[var(--text-p1)] text-grey-500"
                 spec="Nunito Sans | Text size: 16px | Line height: 20px"
                 code="text-p1"
               />
               <TypekitRow
                 label="Desktop/Paragraph/P2"
-                className="font-nunito-sans text-p2 text-grey-500"
+                className="font-nunito-sans text-[var(--text-p2)] text-grey-500"
                 spec="Nunito Sans | Text size: 14px | Line height: 18px"
                 code="text-p2"
               />
               <TypekitRow
                 label="Desktop/Paragraph/P3"
-                className="font-nunito-sans text-p3 text-grey-500"
+                className="font-nunito-sans text-[var(--text-p3)] text-grey-500"
                 spec="Nunito Sans | Text size: 12px | Line height: 18px"
                 code="text-p3"
               />
@@ -101,24 +104,29 @@ export function TypekitSection() {
             </p>
             <div className="space-y-5">
               <TypekitRow
+                as="h1"
                 label="Mobile/Heading/H1"
                 className="font-nunito text-m-h1 text-grey-500 font-bold"
                 spec="Nunito | Text size: 24px | Line height: 32px"
                 code="<h1>"
               />
               <TypekitRow
+                as="h2"
                 label="Mobile/Heading/H2"
                 className="font-nunito text-m-h2 text-grey-500 font-semibold"
                 spec="Nunito | Text size: 20px | Line height: 24px"
                 code="<h2>"
               />
               <TypekitRow
+                as="h2"
                 label="Mobile/Heading/H2/ExtraBold"
-                className="font-nunito text-m-h2 text-grey-500 font-extrabold"
+                className="font-nunito text-m-h2 text-grey-500"
+                classNameAddons="font-extrabold"
                 spec="Nunito | Text size: 20px | Line height: 24px"
                 code="<h2> + font-extrabold"
               />
               <TypekitRow
+                as="h3"
                 label="Mobile/Heading/H3"
                 className="font-nunito-sans text-m-h3 text-grey-500 font-bold"
                 spec="Nunito Sans | Text size: 18px | Line height: 24px"
@@ -158,20 +166,29 @@ export function TypekitSection() {
 
 function TypekitRow({
   label,
+  as: Tag = 'p',
   className,
+  classNameAddons,
   spec,
   code,
 }: {
   label: string;
+  as?: 'h1' | 'h2' | 'h3' | 'p';
   className: string;
+  classNameAddons?: string;
   spec: string;
   code: string;
 }) {
   return (
     <div className="overflow-hidden">
-      <p className={`${className} truncate`}>{label}</p>
+      {/* FYI, these use className and overides to ensure consistent behavior for both mobile and desktop */}
+      <Tag
+        className={`${className}${classNameAddons ? ` ${classNameAddons}` : ''} truncate`}
+      >
+        {label}
+      </Tag>
       <p className="text-p3 text-grey-400 mt-0.5">{spec}</p>
-      <code className="bg-grey-200 text-p3 mt-1 inline-block break-all rounded px-2 py-0.5 font-mono text-blue-300">
+      <code className="bg-grey-200 text-p3 mt-1 inline-block rounded px-2 py-0.5 font-mono break-all text-blue-300">
         {code}
       </code>
     </div>
