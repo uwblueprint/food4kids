@@ -1,6 +1,7 @@
 import { type InputHTMLAttributes, forwardRef } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
+import searchIcon from '@/assets/icons/search.svg';
 import { cn } from '@/lib/utils';
 
 const searchBarVariants = cva(
@@ -37,7 +38,12 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
         className={cn(searchBarVariants({ variant }), wrapperClassName)}
       >
         {/* Search icon */}
-        <SearchIcon />
+        <img
+          src={searchIcon}
+          alt=""
+          aria-hidden="true"
+          className="h-[18px] w-[18px] shrink-0"
+        />
 
         {/* Input */}
         <input
@@ -59,28 +65,5 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
 );
 
 SearchBar.displayName = 'SearchBar';
-
-/** Inline search (magnifying glass) SVG */
-// TODO: See if we can have a search icon that we can use instead
-function SearchIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn('shrink-0 text-grey-400', className)}
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
 
 export { SearchBar };

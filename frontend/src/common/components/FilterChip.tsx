@@ -28,13 +28,13 @@ function FilterChip({
         'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300',
         // Default state
         !selected && [
-          'border border-grey-300 bg-grey-100 text-grey-500',
-          'hover:bg-blue-50',
+          'border border-grey-300 bg-grey-200 text-grey-500',
+          'hover:shadow-harsh',
         ],
         // Selected state
         selected && [
-          'border border-blue-300 bg-blue-300 text-grey-100',
-          'hover:bg-blue-400 hover:border-blue-400',
+          'border border-blue-100 bg-blue-50 text-blue-300',
+          'hover:shadow-harsh',
         ],
         className,
       )}

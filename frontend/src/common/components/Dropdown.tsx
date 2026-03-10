@@ -1,6 +1,7 @@
 import { useId } from 'react';
 
 import * as SelectPrimitive from '@radix-ui/react-select';
+import AlertTriangle from '@/assets/icons/alert-triangle.svg?react';
 
 import { cn } from '@/lib/utils';
 
@@ -111,7 +112,7 @@ function Dropdown({
               'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
             )}
           >
-            <SelectPrimitive.Viewport className="p-1">
+            <SelectPrimitive.Viewport className="p-3">
               {options.map((opt) => (
                 <SelectPrimitive.Item
                   key={opt.value}
@@ -137,21 +138,21 @@ function Dropdown({
 
       {/* Helper or error text */}
       {(helperText || error) && (
-        <p
+        <div
           id={helperId}
           className={cn(
-            'text-p3',
+            'text-p2 flex w-full items-center gap-1',
             hasError ? 'text-red' : 'text-grey-400',
           )}
         >
           {hasError && (
-            // TODO: This should be an icon not a span
-            <span className="mr-1" aria-hidden="true">
-              ⚠
-            </span>
+            <AlertTriangle
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 -mt-1 text-red"
+            />
           )}
-          {error ?? helperText}
-        </p>
+          <span>{error ?? helperText}</span>
+        </div>
       )}
     </div>
   );

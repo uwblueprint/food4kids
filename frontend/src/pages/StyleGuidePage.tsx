@@ -1010,11 +1010,11 @@ function FormFieldsSection() {
 
             <div className="flex flex-wrap gap-4">
               <FormFieldDemo label="Hover (simulated)">
-                <FilterChip className="!bg-blue-50">Text</FilterChip>
+                <FilterChip className="!shadow-harsh">Text</FilterChip>
               </FormFieldDemo>
 
               <FormFieldDemo label="Selected Hover (simulated)">
-                <FilterChip selected className="!bg-blue-400 !border-blue-400">
+                <FilterChip selected className="!shadow-harsh">
                   Text
                 </FilterChip>
               </FormFieldDemo>

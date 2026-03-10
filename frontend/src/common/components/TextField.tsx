@@ -1,5 +1,7 @@
 import { type InputHTMLAttributes, forwardRef, useId } from 'react';
 
+import AlertTriangle from '@/assets/icons/alert-triangle.svg?react';
+
 import { cn } from '@/lib/utils';
 
 export interface TextFieldProps
@@ -95,21 +97,21 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         <div className="flex items-start justify-between gap-2">
           {/* Helper or error text */}
           {(helperText || error) && (
-            <p
+            <div
               id={helperId}
               className={cn(
-                'text-p3',
+                'text-p2 flex w-full items-center gap-1',
                 hasError ? 'text-red' : 'text-grey-400',
               )}
             >
               {hasError && (
-                // TODO: This should be an icon not a span
-                <span className="mr-1" aria-hidden="true">
-                  ⚠
-                </span>
+                <AlertTriangle
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 -mt-1 text-red"
+                />
               )}
-              {error ?? helperText}
-            </p>
+              <span>{error ?? helperText}</span>
+            </div>
           )}
 
           {/* Character count */}

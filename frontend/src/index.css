@@ -21,6 +21,7 @@
 
   /* --- Colors: Secondary --- */
   --color-blue-50: #e9f4ff; /* Hover states */
+  --color-blue-100: #bed3e9; /* Selected chip border */
   --color-blue-400: #195586; /* Polylines */
   --color-grey-150: #f8f8f8; /* Form fields that are uneditable */
   --color-grey-200: #eff3f6; /* Secondary buttons */
@@ -43,6 +44,7 @@
 
   /* --- Shadows --- */
   --shadow-card: 0px 4px 10px rgba(0, 0, 0, 0.05);
+  --shadow-harsh: 0px 4px 24px #00000014;
 
   /* --- Spacing: extends Tailwind's 4px base grid ---
    * Design uses an 8px grid: 0, 4, 8, 16, 32, 64, 128, 256, 512
