@@ -23,7 +23,7 @@ class DriverAssignmentService:
         self, session: AsyncSession, pagination: PaginationParams
     ) -> PaginatedResponse[DriverAssignment]:
         """Get paginated driver assignments"""
-        statement = select(DriverAssignment)
+        statement = select(DriverAssignment).order_by(DriverAssignment.created_at.desc())  # type: ignore[union-attr]
         result, total = await paginate_query(session, statement, pagination)
         items = list(result.scalars().all())
         return PaginatedResponse.create(

@@ -39,7 +39,7 @@ class LocationService:
     ) -> PaginatedResponse[Location]:
         """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
-            statement = select(Location)
+            statement = select(Location).order_by(Location.created_at.desc())  # type: ignore[union-attr]
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
             return PaginatedResponse.create(
