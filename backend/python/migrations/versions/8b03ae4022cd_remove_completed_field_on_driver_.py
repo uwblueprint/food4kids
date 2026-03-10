@@ -1,7 +1,7 @@
 """remove completed field on driver_assignment
 
 Revision ID: 8b03ae4022cd
-Revises: eb010a6ed5ad
+Revises: bb9e2e8439ad
 Create Date: 2026-02-11 01:22:55.339927
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '8b03ae4022cd'
-down_revision = 'eb010a6ed5ad'
+down_revision = 'bb9e2e8439ad'
 branch_labels = None
 depends_on = None
 
