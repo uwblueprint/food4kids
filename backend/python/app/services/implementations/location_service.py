@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.location import Location, LocationCreate, LocationUpdate
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.pagination import paginate_query
 
 
 class LocationService:
@@ -32,12 +34,20 @@ class LocationService:
             self.logger.error(f"Failed to get location by id: {e!s}")
             raise e
 
-    async def get_locations(self, session: AsyncSession) -> list[Location]:
-        """Get all locations - returns SQLModel instances"""
+    async def get_locations(
+        self, session: AsyncSession, pagination: PaginationParams
+    ) -> PaginatedResponse[Location]:
+        """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
             statement = select(Location)
-            result = await session.execute(statement)
-            return list(result.scalars().all())
+            result, total = await paginate_query(session, statement, pagination)
+            items = list(result.scalars().all())
+            return PaginatedResponse.create(
+                items=items,
+                total=total,
+                page=pagination.page,
+                page_size=pagination.page_size,
+            )
         except Exception as e:
             self.logger.error(f"Failed to get locations: {e!s}")
             raise e

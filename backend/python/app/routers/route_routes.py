@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
 from app.models.route import RouteWithDateRead
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.route_service import RouteService
 
 # Initialize service
@@ -15,7 +16,7 @@ route_service = RouteService(logger)
 router = APIRouter(prefix="/routes", tags=["routes"])
 
 
-@router.get("", response_model=list[RouteWithDateRead])
+@router.get("", response_model=PaginatedResponse[RouteWithDateRead])
 async def get_routes(
     unassigned_only: bool = Query(
         False,
@@ -23,18 +24,18 @@ async def get_routes(
     ),
     start_date: str = Query(None, description="Filter route groups from this date"),
     end_date: str = Query(None, description="Filter route groups until this date"),
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
-) -> list[RouteWithDateRead]:
+) -> PaginatedResponse[RouteWithDateRead]:
     """
-    Get routes with optional filtering for unassigned routes and date range.
+    Get routes with pagination and optional filtering for unassigned routes and date range.
     Returns routes with their drive dates - routes can appear multiple times for different dates.
     When unassigned_only is False, returns all routes (no assignment filter).
     When unassigned_only is True, returns only routes that are unassigned for the given route group.
     """
-    routes = await route_service.get_routes(
-        session, unassigned_only, start_date, end_date
+    return await route_service.get_routes(
+        session, unassigned_only, start_date, end_date, pagination
     )
-    return routes
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

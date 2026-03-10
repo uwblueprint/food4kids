@@ -9,6 +9,8 @@ from app.models.driver_assignment import (
     DriverAssignmentCreate,
     DriverAssignmentUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.utilities.pagination import paginate_query
 
 
 class DriverAssignmentService:
@@ -18,12 +20,18 @@ class DriverAssignmentService:
         self.logger = logger
 
     async def get_driver_assignments(
-        self, session: AsyncSession
-    ) -> list[DriverAssignment]:
-        """Get all driver assignments - returns SQLModel instances directly"""
+        self, session: AsyncSession, pagination: PaginationParams
+    ) -> PaginatedResponse[DriverAssignment]:
+        """Get paginated driver assignments"""
         statement = select(DriverAssignment)
-        result = await session.execute(statement)
-        return list(result.scalars().all())
+        result, total = await paginate_query(session, statement, pagination)
+        items = list(result.scalars().all())
+        return PaginatedResponse.create(
+            items=items,
+            total=total,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
 
     async def create_driver_assignment(
         self, session: AsyncSession, driver_assignment_data: DriverAssignmentCreate

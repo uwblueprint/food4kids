@@ -10,6 +10,7 @@ from app.models.driver_assignment import (
     DriverAssignmentRead,
     DriverAssignmentUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
@@ -17,24 +18,27 @@ from app.services.implementations.driver_assignment_service import (
 router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 
 
-@router.get("/", response_model=list[DriverAssignmentRead])
+@router.get("/", response_model=PaginatedResponse[DriverAssignmentRead])
 async def get_driver_assignments(
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
-) -> list[DriverAssignmentRead]:
+) -> PaginatedResponse[DriverAssignmentRead]:
     """
-    Retrieve all driver assignments
+    Retrieve all driver assignments with pagination
     """
     try:
-        driver_assignments = await driver_assignment_service.get_driver_assignments(
-            session
+        result = await driver_assignment_service.get_driver_assignments(
+            session, pagination
         )
-        return [
-            DriverAssignmentRead.model_validate(driver_assignment)
-            for driver_assignment in driver_assignments
-        ]
+        return PaginatedResponse.create(
+            items=[DriverAssignmentRead.model_validate(da) for da in result.items],
+            total=result.total,
+            page=result.page,
+            page_size=result.page_size,
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

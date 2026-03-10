@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.services import get_google_maps_client
 from app.models import get_session
 from app.models.location import LocationCreate, LocationRead, LocationUpdate
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import LocationService
 
 # Initialize service
@@ -17,16 +18,22 @@ location_service = LocationService(logger, google_maps_client)
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-@router.get("/", response_model=list[LocationRead])
+@router.get("/", response_model=PaginatedResponse[LocationRead])
 async def get_locations(
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
-) -> list[LocationRead]:
+) -> PaginatedResponse[LocationRead]:
     """
-    Get all locations
+    Get all locations with pagination
     """
     try:
-        locations = await location_service.get_locations(session)
-        return [LocationRead.model_validate(location) for location in locations]
+        result = await location_service.get_locations(session, pagination)
+        return PaginatedResponse.create(
+            items=[LocationRead.model_validate(loc) for loc in result.items],
+            total=result.total,
+            page=result.page,
+            page_size=result.page_size,
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
