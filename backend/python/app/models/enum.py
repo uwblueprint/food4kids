@@ -33,7 +33,7 @@ class ProgressEnum(str, Enum):
     FAILED = "Failed"
 
 
-# For route group filtering
+# Used in route group filtering
 class AllowedWeekdayEnum(str, Enum):
     TUE = "Tue"
     WED = "Wed"

@@ -109,25 +109,37 @@ class RouteGroupService:
                 )
             )
 
+            # Subquery to check if the route group has any locations at all (make sure we dont default empty routes to summer)
+            has_locations_query = (
+                select(1)
+                .select_from(RouteGroupMembership)
+                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
+            )
+
             if delivery_type == DeliveryTypeEnum.SCHOOL_YEAR:
-                # If at least one location with a school name, it's a school year route
+                # If at least one location with a school name, classify as school year route
                 statement = statement.where(has_school_query.exists())
             elif delivery_type == DeliveryTypeEnum.SUMMER:
-                # If no locations have a school name, it's a summer route
-                statement = statement.where(~has_school_query.exists())
+                # If no locations have a school name and it has at least 1 location, classify as summer route
+                statement = statement.where(
+                    and_(has_locations_query.exists(), ~has_school_query.exists())
+                )
 
         if route_status:
             # Get the current date and time in the local timezone
             now = datetime.now(self.timezone).replace(tzinfo=None)
+            # Get start of current day (midnight) to properly determine which routes are upcoming
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             # Calculate the cutoff date for archiving (exactly 30 days ago from right now)
             thirty_days_ago = now - timedelta(days=30)
 
             if route_status == RouteStatusEnum.UPCOMING:
-                # Includes routes strictly after right now
-                statement = statement.where(RouteGroup.drive_date > now)
+                # Includes routes today and onwards
+                statement = statement.where(RouteGroup.drive_date > today_start)
 
             elif route_status == RouteStatusEnum.COMPLETED:
-                # From 30 days ago up to (and including) right now
+                # From 30 days ago from before today
                 statement = statement.where(
                     and_(
                         RouteGroup.drive_date <= now,  # type: ignore[arg-type]
