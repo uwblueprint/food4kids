@@ -1,10 +1,9 @@
 """
-Developer script for manually testing the Fleet Routing (optimizeTours) API
+Integration test for the Fleet Routing (optimizeTours) API
 with mock locations around Kitchener-Waterloo.
 
-Run from backend/python/:
-    docker-compose exec backend pytest scripts/fleet_routing_manual.py -v -s
-
+Run:
+  docker-compose exec backend bash -c "PYTHONPATH=/app pytest scripts/fleet_routing_manual.py -v -s"
 NOTE: This hits the live Google API and will incur charges.
 """
 
