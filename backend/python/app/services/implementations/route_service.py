@@ -2,9 +2,6 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from backend.python.app.models.location import Location
-from backend.python.app.models.route_stop import RouteStop
-from backend.python.app.models.system_settings import SystemSettings
 from fastapi import HTTPException
 from sqlalchemy import and_, exists
 from sqlalchemy import select as sql_select
@@ -12,12 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver_assignment import DriverAssignment
+from app.models.location import Location
 from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.pagination import paginate_query
 
+from app.models.route_stop import RouteStop
+from app.models.system_settings import SystemSettings
 from app.utilities.routes_utils import fetch_route_polyline
 
 
