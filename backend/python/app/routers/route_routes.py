@@ -81,6 +81,7 @@ async def delete_route(
             detail=f"Route with id {route_id} not found",
         )
 
+
 @router.patch("/{route_id}", response_model=RouteRead)
 async def update_route(
     route_id: UUID,

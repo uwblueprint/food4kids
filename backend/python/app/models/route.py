@@ -88,6 +88,7 @@ class RouteWithDateRead(SQLModel):
     length: float
     drive_date: datetime
 
+
 class RoutePatchRequest(SQLModel):
     """Request body for PATCH /routes/{route_id}.
 
