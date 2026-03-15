@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -120,7 +121,7 @@ class RouteGroupService:
                 .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
             )
 
-            delivery_conditions = []
+            delivery_conditions: list[Any] = []
             if DeliveryTypeEnum.SCHOOL_YEAR in delivery_type:
                 delivery_conditions.append(has_school_query.exists())
             if DeliveryTypeEnum.SUMMER in delivery_type:
@@ -138,7 +139,7 @@ class RouteGroupService:
             # Calculate the cutoff date for archiving (exactly 30 days ago from right now)
             thirty_days_ago = now - timedelta(days=30)
 
-            status_conditions = []
+            status_conditions: list[Any] = []
             if RouteStatusEnum.UPCOMING in route_status:
                 status_conditions.append(RouteGroup.drive_date > today_start)
 
@@ -162,7 +163,7 @@ class RouteGroupService:
                 DriverAssignment.route_group_id == RouteGroup.route_group_id  # type: ignore[arg-type]
             )
 
-            assignment_conditions = []
+            assignment_conditions: list[Any] = []
             if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
                 assignment_conditions.append(assignment_exists)
             if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
