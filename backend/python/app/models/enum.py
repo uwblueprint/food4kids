@@ -34,10 +34,12 @@ class ProgressEnum(str, Enum):
 
 
 # Used in route group filtering
-class AllowedWeekdayEnum(str, Enum):
+class DriveDaysOfWeekEnum(str, Enum):
+    MON = "Mon"
     TUE = "Tue"
     WED = "Wed"
     THU = "Thu"
+    FRI = "Fri"
 
 
 class DeliveryTypeEnum(str, Enum):

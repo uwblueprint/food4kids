@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
 from app.models.enum import (
-    AllowedWeekdayEnum,
     DeliveryTypeEnum,
+    DriveDaysOfWeekEnum,
     DriverAssignmentStatusEnum,
     RouteStatusEnum,
 )
@@ -26,15 +26,17 @@ async def get_route_groups(
     end_date: datetime | None = Query(
         None, description="Filter route groups until this date"
     ),
-    weekday: AllowedWeekdayEnum | None = Query(None, description="Filter by weekday"),
-    delivery_type: DeliveryTypeEnum | None = Query(
-        None, description="Filter by delivery type"
+    weekday: list[DriveDaysOfWeekEnum] | None = Query(
+        None, description="Filter by one or more weekdays"
     ),
-    route_status: RouteStatusEnum | None = Query(
-        None, description="Filter by route status"
+    delivery_type: list[DeliveryTypeEnum] | None = Query(
+        None, description="Filter by one or more delivery types"
     ),
-    driver_assignment_status: DriverAssignmentStatusEnum | None = Query(
-        None, description="Filter by driver assignment status"
+    route_status: list[RouteStatusEnum] | None = Query(
+        None, description="Filter by one or more route statuses"
+    ),
+    driver_assignment_status: list[DriverAssignmentStatusEnum] | None = Query(
+        None, description="Filter by one or more driver assignment statuses"
     ),
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
