@@ -9,7 +9,7 @@ import {
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { StyleGuidePage } from './pages/StyleGuidePage';
+import { StyleGuidePage } from './pages/StyleGuide';
 
 function App() {
   return (
