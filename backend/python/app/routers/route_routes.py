@@ -87,7 +87,7 @@ async def update_route(
     route_id: UUID,
     patch: RoutePatchRequest,
     session: AsyncSession = Depends(get_session),
-):
+) -> RouteRead:
     """
     Update a route's metadata (name, notes) and/or its stop order/locations.
 

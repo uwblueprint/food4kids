@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import and_, exists
 from sqlalchemy import select as sql_select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.models.driver_assignment import DriverAssignment
 from app.models.location import Location
@@ -195,7 +195,9 @@ class RouteService:
         # Update stops + re-run routing if location_ids provided
         if patch.location_ids is not None:
             location_results = await session.execute(
-                select(Location).where(Location.location_id.in_(patch.location_ids))
+                select(Location).where(
+                    col(Location.location_id).in_(patch.location_ids)
+                )
             )
             locations_by_id = {
                 loc.location_id: loc for loc in location_results.scalars().all()
@@ -224,14 +226,14 @@ class RouteService:
                     "System settings not found - cannot fetch warehouse coordinates for routing"
                 )
             if (
-                system_settings.warehouse_lattitude is None
+                system_settings.warehouse_latitude is None
                 or system_settings.warehouse_longitude is None
             ):
                 raise ValueError(
                     "Warehouse coordinates not set in system settings - cannot perform routing"
                 )
 
-            warehouse_lat = system_settings.warehouse_lattitude
+            warehouse_lat = system_settings.warehouse_latitude
             warehouse_lon = system_settings.warehouse_longitude
 
             # Call fetch route polylinefor new polyline + distance
