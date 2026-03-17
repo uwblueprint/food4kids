@@ -21,6 +21,7 @@ import {
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
+import { LoginPage } from './pages/auth/LoginPage';
 import { TestImageUpload } from './pages/TestImageUpload';
 
 function App() {
@@ -60,6 +61,9 @@ function App() {
 
         {/* Dev-only: test image upload route */}
         <Route path="/test-image-upload" element={<TestImageUpload />} />
+
+        {/* Login Routes */}
+        <Route path="/login" element={<LoginPage />}/>
 
         {/* Dev-only: style guide is not accessible in production */}
         {import.meta.env.DEV && (
