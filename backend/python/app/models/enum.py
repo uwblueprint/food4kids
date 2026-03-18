@@ -31,3 +31,28 @@ class ProgressEnum(str, Enum):
     RUNNING = "Running"
     COMPLETED = "Completed"
     FAILED = "Failed"
+
+
+# Used in route group filtering
+class DriveDaysOfWeekEnum(str, Enum):
+    MON = "Mon"
+    TUE = "Tue"
+    WED = "Wed"
+    THU = "Thu"
+    FRI = "Fri"
+
+
+class DeliveryTypeEnum(str, Enum):
+    SCHOOL_YEAR = "School Year"
+    SUMMER = "Summer"
+
+
+class RouteStatusEnum(str, Enum):
+    UPCOMING = "Upcoming"
+    COMPLETED = "Completed"
+    ARCHIVED = "Archived"
+
+
+class DriverAssignmentStatusEnum(str, Enum):
+    ASSIGNED = "Assigned"
+    UNASSIGNED = "Unassigned"
