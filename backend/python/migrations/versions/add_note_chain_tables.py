@@ -74,20 +74,9 @@ def upgrade():
         ['note_chain_id'], ['note_chain_id'],
     )
 
-    # Add global_note_chain_id FK to admin_info
-    op.add_column('admin_info', sa.Column('global_note_chain_id', sa.Uuid(), nullable=True))
-    op.create_foreign_key(
-        'fk_admin_info_global_note_chain_id',
-        'admin_info', 'note_chains',
-        ['global_note_chain_id'], ['note_chain_id'],
-    )
 
 
 def downgrade():
-    # Drop FK columns from existing tables
-    op.drop_constraint('fk_admin_info_global_note_chain_id', 'admin_info', type_='foreignkey')
-    op.drop_column('admin_info', 'global_note_chain_id')
-
     op.drop_constraint('fk_routes_note_chain_id', 'routes', type_='foreignkey')
     op.drop_column('routes', 'note_chain_id')
 

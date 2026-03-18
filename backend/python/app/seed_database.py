@@ -75,10 +75,6 @@ PROBABILITY_ROUTE_CHAIN_NOTES = 0.4
 MAX_LOCATION_CHAIN_NOTES = 3
 # Max notes per route chain
 MAX_ROUTE_CHAIN_NOTES = 2
-# Number of global announcement notes
-MIN_GLOBAL_NOTES = 1
-MAX_GLOBAL_NOTES = 3
-
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -845,7 +841,6 @@ def main() -> None:
 
             # Create admin info
             print("Creating admin info...")
-            # Parse route_start_time string to time object
             user = User(
                 name="Dev",
                 email="food4kids@uwblueprint.org",
@@ -855,39 +850,15 @@ def main() -> None:
             set_timestamps(user)
             session.add(user)
 
-            # Create global note chain for announcements
-            global_note_chain = NoteChain(
-                read_permission=NotePermission.ALL,
-                write_permission=NotePermission.ADMIN,
-            )
-            set_timestamps(global_note_chain)
-            session.add(global_note_chain)
-            session.flush()
-
             admin = Admin(
                 admin_phone=generate_valid_phone(),
                 user_id=user.user_id,
-                global_note_chain_id=global_note_chain.note_chain_id,
             )
             set_timestamps(admin)
             session.add(admin)
 
-            # Add sample global announcement notes
-            num_global_notes = random.randint(MIN_GLOBAL_NOTES, MAX_GLOBAL_NOTES)
-            for _ in range(num_global_notes):
-                note = Note(
-                    note_chain_id=global_note_chain.note_chain_id,
-                    user_id=user.user_id,
-                    message=fake.paragraph(nb_sentences=2),
-                    is_system=False,
-                )
-                set_timestamps(note)
-                session.add(note)
-
             session.commit()
-            print(
-                f"Created admin info with global note chain ({num_global_notes} announcements)"
-            )
+            print("Created admin info")
 
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")
