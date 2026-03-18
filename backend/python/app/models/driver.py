@@ -103,7 +103,6 @@ class DriverRegister(SQLModel):
     # User fields
     name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=254)
-    password: str = Field(min_length=8, max_length=100)
 
     # Driver fields
     phone: str = Field(min_length=1, max_length=20)
