@@ -8,6 +8,7 @@ from functools import lru_cache
 from fastapi import Depends
 
 from app.config import settings
+from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
@@ -32,6 +33,13 @@ from app.utilities.google_maps_client import GoogleMapsClient
 def get_logger() -> logging.Logger:
     """Get logger instance"""
     return logging.getLogger(__name__)
+
+
+@lru_cache
+def get_announcement_service() -> AnnouncementService:
+    """Get announcement service instance"""
+    logger = get_logger()
+    return AnnouncementService(logger)
 
 
 @lru_cache
