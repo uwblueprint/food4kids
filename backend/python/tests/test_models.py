@@ -592,6 +592,29 @@ class TestCoreModels:
         assert system_note.user_id is None
         assert system_note.is_system is True
 
+        # Note with attachments
+        note_with_attachments = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="Note with images",
+            attachments=[
+                "https://example.com/img1.png",
+                "https://example.com/img2.jpg",
+            ],
+        )
+        assert note_with_attachments.attachments == [
+            "https://example.com/img1.png",
+            "https://example.com/img2.jpg",
+        ]
+
+        # Note without attachments defaults to empty list
+        note_no_attachments = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="No attachments",
+        )
+        assert note_no_attachments.attachments == []
+
         # NoteCreate
         note_create = NoteCreate(message="Hello")
         assert note_create.message == "Hello"

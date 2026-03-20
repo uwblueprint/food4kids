@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
+import sqlalchemy as sa
+from sqlmodel import Column, Field, Relationship, SQLModel
 
 from .base import BaseModel
 
@@ -19,6 +20,9 @@ class NoteBase(SQLModel):
     )
     message: str = Field(min_length=1, max_length=2000)
     is_system: bool = Field(default=False)
+    attachments: list[str] = Field(
+        default=[], sa_column=Column(sa.JSON, nullable=True, default=[])
+    )
 
 
 class Note(NoteBase, BaseModel, table=True):
@@ -35,6 +39,7 @@ class NoteCreate(SQLModel):
     """Create request model - chain_id and user_id set by the service"""
 
     message: str = Field(min_length=1, max_length=2000)
+    attachments: list[str] = Field(default=[])
 
 
 class NoteRead(NoteBase):

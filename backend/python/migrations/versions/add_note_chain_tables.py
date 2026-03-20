@@ -36,6 +36,7 @@ def upgrade():
         sa.Column('user_id', sa.Uuid(), nullable=True),
         sa.Column('message', sa.VARCHAR(length=2000), nullable=False),
         sa.Column('is_system', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('attachments', sa.JSON(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['note_chain_id'], ['note_chains.note_chain_id']),
