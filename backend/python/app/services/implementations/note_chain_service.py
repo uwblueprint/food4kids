@@ -3,12 +3,14 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import col, func, select
+from sqlmodel import col, func, select, update
 
 from app.models.enum import NotePermission
+from app.models.location import Location
 from app.models.note import Note, NoteCreate, NoteUpdate
 from app.models.note_chain import NoteChain, NoteChainCreate, NoteChainUpdate
 from app.models.note_chain_read import NoteChainReadModel
+from app.models.route import Route
 from app.models.user import User
 
 
@@ -71,6 +73,24 @@ class NoteChainService:
             self.logger.error(f"Failed to get note chain by id: {e!s}")
             raise e
 
+    async def get_note_chain_with_permission(
+        self, session: AsyncSession, note_chain_id: UUID, user_id: UUID
+    ) -> NoteChain:
+        """Get a note chain by ID, checking read permission"""
+        try:
+            note_chain = await self.get_note_chain_by_id(session, note_chain_id)
+            user_role = await self._get_user_role(session, user_id)
+
+            if not self._check_permission(note_chain.read_permission, user_role):
+                raise PermissionError(
+                    "You do not have permission to read this note chain"
+                )
+
+            return note_chain
+        except Exception as e:
+            self.logger.error(f"Failed to get note chain with permission: {e!s}")
+            raise e
+
     async def update_note_chain(
         self,
         session: AsyncSession,
@@ -107,6 +127,18 @@ class NoteChainService:
                 raise PermissionError("Only admins can delete note chains")
 
             note_chain = await self.get_note_chain_by_id(session, note_chain_id)
+
+            # Null out FK references on locations and routes
+            await session.execute(
+                update(Location)
+                .where(col(Location.note_chain_id) == note_chain_id)
+                .values(note_chain_id=None)
+            )
+            await session.execute(
+                update(Route)
+                .where(col(Route.note_chain_id) == note_chain_id)
+                .values(note_chain_id=None)
+            )
 
             # Delete associated read tracking entries
             read_statement = select(NoteChainReadModel).where(
@@ -182,6 +214,7 @@ class NoteChainService:
                 user_id=user_id,
                 message=data.message,
                 is_system=is_system,
+                attachments=data.attachments,
             )
             session.add(note)
             await session.commit()

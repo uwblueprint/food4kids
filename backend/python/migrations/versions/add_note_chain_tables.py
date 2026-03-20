@@ -1,6 +1,6 @@
 """add note chain tables
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 407499fe5f15
 Revises: eb010a6ed5ad
 Create Date: 2026-02-19 00:00:00.000000
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'a1b2c3d4e5f6'
+revision = '407499fe5f15'
 down_revision = 'eb010a6ed5ad'
 branch_labels = None
 depends_on = None
@@ -65,6 +65,7 @@ def upgrade():
         'fk_locations_note_chain_id',
         'locations', 'note_chains',
         ['note_chain_id'], ['note_chain_id'],
+        ondelete='SET NULL',
     )
 
     # Add note_chain_id FK to routes
@@ -73,6 +74,7 @@ def upgrade():
         'fk_routes_note_chain_id',
         'routes', 'note_chains',
         ['note_chain_id'], ['note_chain_id'],
+        ondelete='SET NULL',
     )
 
 

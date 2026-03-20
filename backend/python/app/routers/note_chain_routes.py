@@ -24,12 +24,12 @@ router = APIRouter(prefix="/note-chains", tags=["note-chains"])
 async def get_note_chain(
     note_chain_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user_id: UUID = Depends(get_current_database_user_id),  # noqa: ARG001
+    current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> NoteChainRead:
-    """Get a note chain by ID"""
+    """Get a note chain by ID (checks read permission)"""
     try:
-        note_chain = await note_chain_service.get_note_chain_by_id(
-            session, note_chain_id
+        note_chain = await note_chain_service.get_note_chain_with_permission(
+            session, note_chain_id, current_user_id
         )
         return NoteChainRead.model_validate(note_chain)
     except ValueError as ve:
@@ -37,6 +37,11 @@ async def get_note_chain(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
+    except PermissionError as pe:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(pe),
+        ) from pe
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

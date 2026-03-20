@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 class NoteChainBase(SQLModel):
     """Shared fields between table and API models"""
 
-    read_permission: str = Field(default=NotePermission.ADMIN, max_length=50)
-    write_permission: str = Field(default=NotePermission.ADMIN, max_length=50)
+    read_permission: NotePermission = Field(default=NotePermission.ADMIN)
+    write_permission: NotePermission = Field(default=NotePermission.ADMIN)
 
 
 class NoteChain(NoteChainBase, BaseModel, table=True):
@@ -45,5 +45,5 @@ class NoteChainRead(NoteChainBase):
 class NoteChainUpdate(SQLModel):
     """Update request model - all optional"""
 
-    read_permission: str | None = None
-    write_permission: str | None = None
+    read_permission: NotePermission | None = None
+    write_permission: NotePermission | None = None
