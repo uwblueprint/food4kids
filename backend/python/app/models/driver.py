@@ -46,7 +46,7 @@ class DriverRead(DriverBase):
     user_id: UUID
 
     # These are from the User
-    auth_id: str
+    auth_id: str | None
     name: str
     email: EmailStr
     role: str

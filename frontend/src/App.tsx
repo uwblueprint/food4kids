@@ -10,7 +10,7 @@ import {
 import { DriverHomePage } from './pages/driver';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { StyleGuidePage } from './pages/StyleGuide';
-import { LoginPage } from './pages/auth/LoginPage';
+import { LoginPage, CreatePassword } from './pages/auth';
 import { TestImageUpload } from './pages/TestImageUpload';
 
 function App() {
@@ -41,6 +41,7 @@ function App() {
 
         {/* Login Routes */}
         <Route path="/login" element={<LoginPage />}/>
+        <Route path="/create-password" element={<CreatePassword />}/>
 
         {/* Dev-only: style guide is not accessible in production */}
         {import.meta.env.DEV && (
