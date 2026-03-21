@@ -15,7 +15,7 @@ class User(UserBase, BaseModel, table=True):
     __tablename__ = "users"
 
     user_id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    auth_id: str = Field(nullable=True, unique=True, index=True)
+    auth_id: str | None = Field(nullable=True, unique=True, index=True)
     role: str = Field(min_length=1, max_length=255, default="driver")
 
 

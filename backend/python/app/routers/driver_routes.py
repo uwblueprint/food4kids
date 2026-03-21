@@ -128,7 +128,7 @@ async def initialize_driver(
         created_driver = await driver_service.create_driver(session, driver)
 
         # Send invitation email
-        auth_service.send_email_verification_link(register_request.email)
+        auth_service.send_create_password_email(register_request.email)
 
         return DriverRead.model_validate(created_driver)
 
