@@ -98,7 +98,18 @@ async def update_route(
 
     If only name/notes are provided, stops and mileage are left unchanged.
     """
-    updated_route = await route_service.update_route(session, route_id, patch)
+    try:
+        updated_route = await route_service.update_route(session, route_id, patch)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=msg
+            )
+        # Missing system settings / warehouse config
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=msg
+        )
     if not updated_route:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

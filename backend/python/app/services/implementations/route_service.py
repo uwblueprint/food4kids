@@ -178,96 +178,101 @@ class RouteService:
             The updated Route, or None if not found.
         """
 
-        # Fetch the route
-        result = await session.execute(select(Route).where(Route.route_id == route_id))
-        route = result.scalars().first()
+        try:
+            # Fetch the route
+            result = await session.execute(select(Route).where(Route.route_id == route_id))
+            route = result.scalars().first()
 
-        if not route:
-            self.logger.error(f"Route with id {route_id} not found for update")
-            return None
+            if not route:
+                self.logger.error(f"Route with id {route_id} not found for update")
+                return None
 
-        # Update metadata fields if provided
-        if patch.name is not None:
-            route.name = patch.name
-        if patch.notes is not None:
-            route.notes = patch.notes
+            # Update metadata fields if provided
+            if patch.name is not None:
+                route.name = patch.name
+            if patch.notes is not None:
+                route.notes = patch.notes
 
-        # Update stops + re-run routing if location_ids provided
-        if patch.location_ids is not None:
-            location_results = await session.execute(
-                select(Location).where(
-                    col(Location.location_id).in_(patch.location_ids)
+            # Update stops + re-run routing if location_ids provided
+            if patch.location_ids is not None:
+                location_results = await session.execute(
+                    select(Location).where(
+                        col(Location.location_id).in_(patch.location_ids)
+                    )
                 )
-            )
-            locations_by_id = {
-                loc.location_id: loc for loc in location_results.scalars().all()
-            }
+                locations_by_id = {
+                    loc.location_id: loc for loc in location_results.scalars().all()
+                }
 
-            # Validate all requested location IDs exist
-            missing = [
-                str(loc_id)
-                for loc_id in patch.location_ids
-                if loc_id not in locations_by_id
-            ]
-            if missing:
-                raise ValueError(f"Location IDs not found: {', '.join(missing)}")
+                # Validate all requested location IDs exist
+                missing = [
+                    str(loc_id)
+                    for loc_id in patch.location_ids
+                    if loc_id not in locations_by_id
+                ]
+                if missing:
+                    raise ValueError(f"Location IDs not found: {', '.join(missing)}")
 
-            # Preserve the caller-specified order
-            ordered_locations = [
-                locations_by_id[loc_id] for loc_id in patch.location_ids
-            ]
+                # Preserve the caller-specified order
+                ordered_locations = [
+                    locations_by_id[loc_id] for loc_id in patch.location_ids
+                ]
 
-            # Fetch warehouse coordinates from system_settings
-            settings_result = await session.execute(select(SystemSettings))
-            system_settings = settings_result.scalars().first()
+                # Fetch warehouse coordinates from system_settings
+                settings_result = await session.execute(select(SystemSettings))
+                system_settings = settings_result.scalars().first()
 
-            if not system_settings:
-                raise ValueError(
-                    "System settings not found - cannot fetch warehouse coordinates for routing"
+                if not system_settings:
+                    raise ValueError(
+                        "System settings not found - cannot fetch warehouse coordinates for routing"
+                    )
+                if (
+                    system_settings.warehouse_latitude is None
+                    or system_settings.warehouse_longitude is None
+                ):
+                    raise ValueError(
+                        "Warehouse coordinates not set in system settings - cannot perform routing"
+                    )
+
+                warehouse_lat = system_settings.warehouse_latitude
+                warehouse_lon = system_settings.warehouse_longitude
+
+                # Call fetch route polyline for new polyline + distance
+                encoded_polyline, distance_km = await fetch_route_polyline(
+                    locations=ordered_locations,
+                    warehouse_lat=warehouse_lat,
+                    warehouse_lon=warehouse_lon,
+                    ends_at_warehouse=route.ends_at_warehouse,
                 )
-            if (
-                system_settings.warehouse_latitude is None
-                or system_settings.warehouse_longitude is None
-            ):
-                raise ValueError(
-                    "Warehouse coordinates not set in system settings - cannot perform routing"
+
+                # Delete existing route stops
+                existing_stops_result = await session.execute(
+                    select(RouteStop).where(RouteStop.route_id == route_id)
                 )
+                for stop in existing_stops_result.scalars().all():
+                    await session.delete(stop)
 
-            warehouse_lat = system_settings.warehouse_latitude
-            warehouse_lon = system_settings.warehouse_longitude
+                # Create new route stops in the given order
+                for stop_number, location in enumerate(ordered_locations, start=1):
+                    new_stop = RouteStop(
+                        route_id=route_id,
+                        location_id=location.location_id,
+                        stop_number=stop_number,
+                    )
+                    session.add(new_stop)
 
-            # Call fetch route polylinefor new polyline + distance
-            encoded_polyline, distance_km = await fetch_route_polyline(
-                locations=ordered_locations,
-                warehouse_lat=warehouse_lat,
-                warehouse_lon=warehouse_lon,
-                ends_at_warehouse=route.ends_at_warehouse,
-            )
+                # Update route polyline and mileage
+                route.encoded_polyline = encoded_polyline
+                route.polyline_updated_at = datetime.now(timezone.utc)
+                route.length = distance_km
 
-            # Delete existing route stops
-            existing_stops_result = await session.execute(
-                select(RouteStop).where(RouteStop.route_id == route_id)
-            )
-            for stop in existing_stops_result.scalars().all():
-                await session.delete(stop)
+            # Persist
+            session.add(route)
+            await session.commit()
+            await session.refresh(route)
 
-            # Create new route stops in the given order
-            for stop_number, location in enumerate(ordered_locations, start=1):
-                new_stop = RouteStop(
-                    route_id=route_id,
-                    location_id=location.location_id,
-                    stop_number=stop_number,
-                )
-                session.add(new_stop)
-
-            # Update route polyline and mileage
-            route.encoded_polyline = encoded_polyline
-            route.polyline_updated_at = datetime.now(timezone.utc)
-            route.length = distance_km
-
-        # Persist
-        session.add(route)
-        await session.commit()
-        await session.refresh(route)
-
-        return route
+            return route
+        except Exception as error:
+            self.logger.error(f"Failed to update route {route_id}: {error!s}")
+            await session.rollback()
+            raise error
