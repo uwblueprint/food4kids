@@ -83,17 +83,20 @@ STOP_DATA = [
 # DB helpers
 # ---------------------------------------------------------------------------
 
+
 def ensure_system_settings(session: Session) -> None:
     """Ensure a system_settings row exists with warehouse coordinates."""
     from app.models.system_settings import SystemSettings
 
     existing = session.query(SystemSettings).first()
     if not existing:
-        session.add(SystemSettings(
-            warehouse_location="137 Glasgow St, Kitchener, ON N2G 4X8",
-            warehouse_latitude=43.4516,
-            warehouse_longitude=-80.4925,
-        ))
+        session.add(
+            SystemSettings(
+                warehouse_location="137 Glasgow St, Kitchener, ON N2G 4X8",
+                warehouse_latitude=43.4516,
+                warehouse_longitude=-80.4925,
+            )
+        )
         session.commit()
 
 
@@ -134,18 +137,22 @@ def create_locations_and_route(session: Session) -> tuple[list[uuid.UUID], uuid.
     session.flush()
 
     for i, loc in enumerate([loc_a, loc_b, loc_c, loc_d], start=1):
-        session.add(RouteStop(
-            route_id=route.route_id,
-            location_id=loc.location_id,
-            stop_number=i,
-        ))
+        session.add(
+            RouteStop(
+                route_id=route.route_id,
+                location_id=loc.location_id,
+                stop_number=i,
+            )
+        )
 
     session.commit()
 
     return [loc.location_id for loc in locations], route.route_id
 
 
-def cleanup(session: Session, location_ids: list[uuid.UUID], route_id: uuid.UUID) -> None:
+def cleanup(
+    session: Session, location_ids: list[uuid.UUID], route_id: uuid.UUID
+) -> None:
     """Delete all demo data from the DB."""
     from app.models.location import Location
     from app.models.route import Route
@@ -166,6 +173,7 @@ def cleanup(session: Session, location_ids: list[uuid.UUID], route_id: uuid.UUID
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
+
 def patch_route(route_id: uuid.UUID, location_ids: list[uuid.UUID]) -> dict:
     resp = requests.patch(
         f"{BASE_URL}/routes/{route_id}",
@@ -185,6 +193,7 @@ def print_route(label: str, route: dict) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     print("=" * 60)
     print("PATCH /routes/{route_id} - Demo Script")
@@ -195,7 +204,9 @@ def main() -> None:
     with Session(engine) as session:
         print("\n[Setup] Ensuring system settings exist...")
         ensure_system_settings(session)
-        print("\n[Setup] Creating 5 demo locations and initial route A->B->C->D in DB...")
+        print(
+            "\n[Setup] Creating 5 demo locations and initial route A->B->C->D in DB..."
+        )
         location_ids, route_id = create_locations_and_route(session)
         loc_a, loc_b, loc_c, loc_d, loc_e = location_ids
         print(f"  Route ID   : {route_id}")
@@ -236,7 +247,9 @@ def main() -> None:
             print("\n" + "=" * 60)
             print("Demo complete!")
             print("Paste the polyline strings above into:")
-            print("https://developers.google.com/maps/documentation/utilities/polylineutility")
+            print(
+                "https://developers.google.com/maps/documentation/utilities/polylineutility"
+            )
             print("=" * 60)
 
         finally:
