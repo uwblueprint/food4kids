@@ -93,6 +93,28 @@ class RouteService:
             for row in rows
         ]
 
+    async def get_upcoming_routes(
+        self,
+        session: AsyncSession,
+    ) -> list[RouteWithDateRead]:
+        """
+        Get all routes that have a future drive date.
+        Deduplicated by route_id.
+        """
+        now = datetime.utcnow().isoformat()
+        return await self.get_routes(unassigned_only=False, start_date=now, end_date=None, session=session)
+    
+    async def get_past_routes(
+        self,
+        session: AsyncSession,
+    ) -> list[RouteWithDateRead]:
+        """
+        Get all routes that have a future drive date.
+        Deduplicated by route_id.
+        """
+        now = datetime.utcnow().isoformat()
+        return await self.get_routes(unassigned_only=False, start_date=None, end_date=now, session=session)
+
     async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
         """Get route by ID"""
         try:
