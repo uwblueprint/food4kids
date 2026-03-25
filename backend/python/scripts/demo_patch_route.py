@@ -83,6 +83,20 @@ STOP_DATA = [
 # DB helpers
 # ---------------------------------------------------------------------------
 
+def ensure_system_settings(session: Session) -> None:
+    """Ensure a system_settings row exists with warehouse coordinates."""
+    from app.models.system_settings import SystemSettings
+
+    existing = session.query(SystemSettings).first()
+    if not existing:
+        session.add(SystemSettings(
+            warehouse_location="137 Glasgow St, Kitchener, ON N2G 4X8",
+            warehouse_latitude=43.4516,
+            warehouse_longitude=-80.4925,
+        ))
+        session.commit()
+
+
 def create_locations_and_route(session: Session) -> tuple[list[uuid.UUID], uuid.UUID]:
     """Create 5 demo locations + an initial route A->B->C->D in the DB."""
     from app.models.location import Location
@@ -179,6 +193,8 @@ def main() -> None:
     engine = create_engine(DATABASE_URL, echo=False)
 
     with Session(engine) as session:
+        print("\n[Setup] Ensuring system settings exist...")
+        ensure_system_settings(session)
         print("\n[Setup] Creating 5 demo locations and initial route A->B->C->D in DB...")
         location_ids, route_id = create_locations_and_route(session)
         loc_a, loc_b, loc_c, loc_d, loc_e = location_ids
