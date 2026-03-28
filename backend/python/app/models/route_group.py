@@ -1,6 +1,10 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
+
+from pydantic import validator
+from sqlalchemy import Column, DateTime
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -16,7 +20,19 @@ class RouteGroupBase(SQLModel):
 
     name: str = Field(min_length=1, max_length=255, nullable=False)
     notes: str = Field(default="")
-    drive_date: datetime
+    drive_date: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+
+    @validator("drive_date")
+    def enforce_est(cls, v: datetime) -> datetime:
+        est_tz = ZoneInfo("America/Toronto")
+        if v.tzinfo is None:
+            # Assumes naive datetimes (like from the seed script) are already EST
+            return v.replace(tzinfo=est_tz)
+        # Converts other timezone-aware datetimes to EST
+        return v.astimezone(est_tz)
+    
 
 
 class RouteGroup(RouteGroupBase, BaseModel, table=True):
@@ -66,3 +82,14 @@ class RouteGroupUpdate(SQLModel):
     name: str | None = None
     notes: str | None = None
     drive_date: datetime | None = None
+
+    @validator("drive_date")
+    def enforce_est(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return v
+        est_tz = ZoneInfo("America/Toronto")
+        if v.tzinfo is None:
+            # Assumes naive datetimes (like from the seed script) are already EST
+            return v.replace(tzinfo=est_tz)
+        # Converts other timezone-aware datetimes to EST
+        return v.astimezone(est_tz)
