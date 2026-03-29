@@ -65,10 +65,8 @@ class GCPStorageClient:
                 method="GET",
             )
         except gcp_exceptions.Forbidden as e:
-            self.logger.exception("GCS upload forbidden (check IAM / bucket access)")
             raise GCSStorageError("Storage upload failed: permission denied.") from e
         except gcp_exceptions.NotFound as e:
-            self.logger.exception("GCS bucket or object not found during upload")
             raise GCSStorageError(
                 "Storage upload failed: bucket or resource not found."
             ) from e
@@ -91,27 +89,21 @@ class GCPStorageClient:
 
         try:
             if not blob.exists():
-                self.logger.warning(f"File not found in GCS: {filename}")
                 raise FileNotFoundError(f"{filename} not found")
 
             blob.delete()
         except FileNotFoundError:
             raise
         except gcp_exceptions.Forbidden as e:
-            self.logger.exception("GCS delete forbidden (check IAM / bucket access)")
             raise GCSStorageError("Storage delete failed: permission denied.") from e
         except gcp_exceptions.NotFound as e:
-            self.logger.exception("GCS bucket or object not found during delete")
             raise GCSStorageError(
                 "Storage delete failed: bucket or resource not found."
             ) from e
         except Exception as e:
-            self.logger.exception("Unexpected error during GCS delete")
             raise GCSStorageError(
                 "Storage delete failed due to an unexpected error."
             ) from e
-
-        self.logger.info(f"Deleted file from GCS: {filename}")
 
     def file_exists(self, filename: str) -> bool:
         """Check if a file exists in GCS"""
