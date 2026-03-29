@@ -10,6 +10,7 @@ import {
 import { DriverHomePage } from './pages/driver';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { StyleGuidePage } from './pages/StyleGuide';
+import { TestImageUpload } from './pages/TestImageUpload';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="drivers" element={<AdminDriversPage />} />
           <Route path="routes" element={<AdminRoutesPage />} />
           <Route path="settings" element={<AdminSettingsPage />} />
+          <Route path="test-image-upload" element={<TestImageUpload />} />
         </Route>
 
         {/* Driver Routes */}
@@ -32,6 +34,9 @@ function App() {
           <Route index element={<Navigate to="/driver/home" replace />} />
           <Route path="home" element={<DriverHomePage />} />
         </Route>
+
+        {/* Dev-only: test image upload route */}
+        <Route path="/test-image-upload" element={<TestImageUpload />} />
 
         {/* Dev-only: style guide is not accessible in production */}
         {import.meta.env.DEV && (
