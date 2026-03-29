@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 
 from pydantic import validator
 from sqlalchemy import Column, DateTime
-
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -25,14 +24,13 @@ class RouteGroupBase(SQLModel):
     )
 
     @validator("drive_date")
-    def enforce_est(cls, v: datetime) -> datetime:
+    def enforce_est(self, v: datetime) -> datetime:
         est_tz = ZoneInfo("America/Toronto")
         if v.tzinfo is None:
             # Assumes naive datetimes (like from the seed script) are already EST
             return v.replace(tzinfo=est_tz)
         # Converts other timezone-aware datetimes to EST
         return v.astimezone(est_tz)
-    
 
 
 class RouteGroup(RouteGroupBase, BaseModel, table=True):
@@ -84,7 +82,7 @@ class RouteGroupUpdate(SQLModel):
     drive_date: datetime | None = None
 
     @validator("drive_date")
-    def enforce_est(cls, v: datetime | None) -> datetime | None:
+    def enforce_est(self, v: datetime | None) -> datetime | None:
         if v is None:
             return v
         est_tz = ZoneInfo("America/Toronto")
