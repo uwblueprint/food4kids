@@ -13,7 +13,6 @@ class DriverAssignmentBase(SQLModel):
     route_id: UUID = Field(foreign_key="routes.route_id")
     route_group_id: UUID = Field(foreign_key="route_groups.route_group_id")
     time: datetime = Field()
-    completed: bool = Field(default=False)
 
 
 class DriverAssignment(DriverAssignmentBase, BaseModel, table=True):
@@ -37,7 +36,13 @@ class DriverAssignmentRead(DriverAssignmentBase):
 
 
 class DriverAssignmentUpdate(SQLModel):
-    """Update request model - all optional"""
+    """Update request model"""
 
     time: datetime | None = Field(default=None)
-    completed: bool | None = Field(default=None)
+
+
+class SuggestedDriverResponse(SQLModel):
+    """Response model for suggested driver (last assigned to a route)."""
+
+    driver_id: UUID
+    driver_name: str

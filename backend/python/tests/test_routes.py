@@ -11,6 +11,7 @@ Tests cover:
 
 from datetime import datetime
 from typing import Any
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -29,39 +30,53 @@ class TestDriverRoutes:
         assert response.json() == []
 
     @pytest.mark.asyncio
-    async def test_create_driver(
+    async def test_register_driver(
         self,
         async_client: AsyncClient,
         sample_driver_data: dict[str, Any],
-        test_session: Any,
     ) -> None:
         """Test POST /drivers creates a new driver."""
-        # First create a user for the driver
-        from app.models.user import User
+        mock_firebase_user = MagicMock()
+        mock_firebase_user.uid = "fake-auth-id-123"
 
-        user = User(
-            name=sample_driver_data["name"],
-            email="newdriver@example.com",
-            auth_id=sample_driver_data["auth_id"] + "_new",
-        )
-        test_session.add(user)
-        await test_session.commit()
-        await test_session.refresh(user)
-
-        # Now create driver with user_id
-        driver_create_data = {
-            "user_id": str(user.user_id),
-            "phone": sample_driver_data["phone"],
-            "address": sample_driver_data["address"],
-            "license_plate": sample_driver_data["license_plate"],
-            "car_make_model": sample_driver_data["car_make_model"],
+        fake_auth_dto = {
+            "access_token": "fake-access-token",
+            "name": sample_driver_data["name"],
+            "id": str(uuid4()),
+            "email": "newdriver@example.com",
         }
-        response = await async_client.post("/drivers/", json=driver_create_data)
-        assert response.status_code == 201
-        data = response.json()
-        assert data["phone"] == sample_driver_data["phone"]
-        assert data["license_plate"] == sample_driver_data["license_plate"]
-        assert "driver_id" in data
+        # We don't want to actually call firebase so we mock the call
+        with (
+            patch("firebase_admin.auth.create_user", return_value=mock_firebase_user),
+            patch("firebase_admin.auth.set_custom_user_claims"),
+            patch(
+                "app.services.implementations.auth_service.AuthService.generate_token",
+                return_value=(fake_auth_dto, "fake_refresh_token"),
+            ),
+            patch(
+                "app.services.implementations.auth_service.AuthService.send_email_verification_link"
+            ),
+        ):
+            driver_register_data = {
+                "name": sample_driver_data["name"],
+                "email": "newdriver@example.com",
+                "password": "testing123",
+                "phone": sample_driver_data["phone"],
+                "address": sample_driver_data["address"],
+                "license_plate": sample_driver_data["license_plate"],
+                "car_make_model": sample_driver_data["car_make_model"],
+            }
+            response = await async_client.post("/drivers/", json=driver_register_data)
+            assert response.status_code == 201
+            data = response.json()
+            assert data["driver"]["phone"] == sample_driver_data["phone"]
+            assert (
+                data["driver"]["license_plate"] == sample_driver_data["license_plate"]
+            )
+            assert data["driver"]["role"] == "driver"
+            assert data["auth"]["email"] == "newdriver@example.com"
+            assert "access_token" in data["auth"]
+            assert "driver_id" in data["driver"]
 
     @pytest.mark.asyncio
     async def test_get_drivers_with_data(
@@ -394,11 +409,11 @@ class TestValidationErrors:
         invalid_data = {
             "name": "Test Driver",
             "email": "test@example.com",
+            "password": "testing123",
             "phone": "invalid-phone",  # Invalid phone format
             "address": "123 Main St",
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
-            "auth_id": "test-auth-123",
         }
         response = await async_client.post("/drivers/", json=invalid_data)
         assert response.status_code == 422
