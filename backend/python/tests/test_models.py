@@ -3,7 +3,6 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
-from random import randint
 from uuid import uuid4
 
 import pytest
