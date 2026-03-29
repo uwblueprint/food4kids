@@ -27,13 +27,9 @@ async def upload_image(
         raise HTTPException(status_code=400, detail=f"Exceeds {MAX_SIZE_MB}MB limit")
 
     try:
-        result = gcp_client.upload_file(
-            contents, str(file.filename), file.content_type
-        )
+        result = gcp_client.upload_file(contents, str(file.filename), file.content_type)
     except GCSStorageError as e:
-        status_code = (
-            403 if "permission denied" in str(e).lower() else 503
-        )
+        status_code = 403 if "permission denied" in str(e).lower() else 503
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return {"url": result.url, "filename": result.filename}
@@ -53,7 +49,5 @@ async def delete_image(
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="File not found") from None
     except GCSStorageError as e:
-        status_code = (
-            403 if "permission denied" in str(e).lower() else 503
-        )
+        status_code = 403 if "permission denied" in str(e).lower() else 503
         raise HTTPException(status_code=status_code, detail=str(e)) from e

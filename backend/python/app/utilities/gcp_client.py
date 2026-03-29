@@ -66,9 +66,7 @@ class GCPStorageClient:
             )
         except gcp_exceptions.Forbidden as e:
             self.logger.exception("GCS upload forbidden (check IAM / bucket access)")
-            raise GCSStorageError(
-                "Storage upload failed: permission denied."
-            ) from e
+            raise GCSStorageError("Storage upload failed: permission denied.") from e
         except gcp_exceptions.NotFound as e:
             self.logger.exception("GCS bucket or object not found during upload")
             raise GCSStorageError(
@@ -101,9 +99,7 @@ class GCPStorageClient:
             raise
         except gcp_exceptions.Forbidden as e:
             self.logger.exception("GCS delete forbidden (check IAM / bucket access)")
-            raise GCSStorageError(
-                "Storage delete failed: permission denied."
-            ) from e
+            raise GCSStorageError("Storage delete failed: permission denied.") from e
         except gcp_exceptions.NotFound as e:
             self.logger.exception("GCS bucket or object not found during delete")
             raise GCSStorageError(
