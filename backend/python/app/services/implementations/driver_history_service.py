@@ -25,7 +25,7 @@ class DriverHistoryService:
         self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     def validate_year(self, year: int) -> bool:
-        return MIN_YEAR <= year <= MAX_YEAR
+        return isinstance(year, int) and MIN_YEAR <= year <= MAX_YEAR
 
     def validate_year_and_month(self, year: int, month: int | None) -> bool:
         return self.validate_year(year) and (not month or 1 <= month <= 12)

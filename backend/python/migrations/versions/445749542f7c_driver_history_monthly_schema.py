@@ -40,3 +40,23 @@ def upgrade():
         "driver_history",
         ["driver_id"],
     )
+
+def downgrade():
+    op.drop_index("ix_driver_history_driver_id", table_name="driver_history")
+    op.drop_table("driver_history")
+
+    # recreate previous driver_history table
+    op.create_table(
+        "driver_history",
+        sa.Column("driver_history_id", sa.Integer(), primary_key=True),
+        sa.Column(
+            "driver_id",
+            sa.UUID(),
+            sa.ForeignKey("drivers.driver_id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        # assuming previous table had a 'total_km' column instead of monthly km
+        sa.Column("total_km", sa.Float(), nullable=False),
+        sa.Column("created_at", sa.DateTime()),
+        sa.Column("updated_at", sa.DateTime()),
+    )

@@ -22,7 +22,6 @@ class DriverHistoryBase(SQLModel):
         foreign_key="drivers.driver_id", ondelete="CASCADE", index=True
     )
     year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
-    # The month is an int 1-12
     month: int = Field(nullable=False, ge=1, le=12)
     km: float = Field(nullable=False)
 
@@ -39,7 +38,6 @@ class DriverHistoryCreate(SQLModel):
     """Create request model"""
 
     year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
-    # The month is an int 1-12
     month: int = Field(nullable=False, ge=1, le=12)
     km: float = Field(nullable=False)
 

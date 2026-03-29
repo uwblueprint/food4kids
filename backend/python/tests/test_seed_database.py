@@ -223,6 +223,7 @@ async def test_seed_database_execution(test_session: AsyncSession) -> None:
         "DriverHistory missing 'driver_id' field"
     )
     assert hasattr(first_history, "year"), "DriverHistory missing 'year' field"
+    assert hasattr(first_history, "month"), "DriverHistory missing 'month' field"
     assert hasattr(first_history, "km"), "DriverHistory missing 'km' field"
     assert first_history.year >= 2025
     assert first_history.km > 0

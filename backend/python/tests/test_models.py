@@ -3,6 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
+from random import randint
 from uuid import uuid4
 
 import pytest
@@ -156,32 +157,46 @@ class TestCoreBusinessValidation:
             )
         assert "password" in str(exc_info.value)
 
-    def test_year_validation_business_rule(self) -> None:
-        """Test year validation business rule (2025-2100) for DriverHistory."""
-        from uuid import uuid4
+def test_year_validation_business_rule(self) -> None:
+    """Test year (2025-2100) and month (1-12) validation for DriverHistory."""
+    # Test valid years and months (boundaries)
+    valid_years = [2025, 2030, 2100]
+    valid_months = [1, 6, 12]
 
-        # Test valid years (boundaries)
-        valid_years = [2025, 2030, 2100]
-
-        for year in valid_years:
+    for year in valid_years:
+        for month in valid_months:
             history = DriverHistory(
                 driver_id=uuid4(),
                 year=year,
-                km=1000.0,
+                month=month,
+                km=1000.0
             )
             assert history.year == year
+            assert history.month == month
 
-        # Test invalid years
-        invalid_years = [2024, 2101, 2000]
+    # Test invalid years
+    invalid_years = [2024, 2101, 2000]
+    for year in invalid_years:
+        with pytest.raises(ValidationError) as exc_info:
+            DriverHistory(
+                driver_id=uuid4(),
+                year=year,
+                month=1,
+                km=1000.0,
+            )
+        assert "year" in str(exc_info.value)
 
-        for year in invalid_years:
-            with pytest.raises(ValidationError) as exc_info:
-                DriverHistory(
-                    driver_id=uuid4(),
-                    year=year,
-                    km=1000.0,
-                )
-            assert "year" in str(exc_info.value)
+    # Test invalid months
+    invalid_months = [0, 13, -1]
+    for month in invalid_months:
+        with pytest.raises(ValidationError) as exc_info:
+            DriverHistory(
+                driver_id=uuid4(),
+                year=2025, 
+                month=month,
+                km=1000.0,
+            )
+        assert "month" in str(exc_info.value)
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
@@ -478,9 +493,11 @@ class TestCoreModels:
             driver_id=uuid4(),
             year=2025,
             km=1500.5,
+            month=12
         )
         assert history.year == 2025
         assert history.km == 1500.5
+        assert history.month == 12
         assert history.created_at is not None
 
         # Read
@@ -488,6 +505,7 @@ class TestCoreModels:
             driver_history_id=1,
             driver_id=uuid4(),
             year=2027,
+            month=1,
             km=2200.0,
         )
         assert history_read.driver_history_id == 1

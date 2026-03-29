@@ -673,14 +673,13 @@ def main() -> None:
                     ):
                         continue
 
-                    # ⭐ NEW: create entries for random months
                     months = random.sample(range(1, 13), random.randint(3, 12))
 
                     for month in months:
                         driver_history = DriverHistory(
                             driver_id=driver_row[0],
                             year=year,
-                            month=month,  # ⭐ REQUIRED NOW
+                            month=month,
                             km=round(
                                 random.uniform(
                                     DRIVER_HISTORY_KM_MIN,
