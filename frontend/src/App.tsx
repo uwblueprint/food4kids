@@ -8,9 +8,9 @@ import {
   AdminSettingsPage,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
-import { TestImageUpload } from './pages/TestImageUpload';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { StyleGuidePage } from './pages/StyleGuide';
+import { TestImageUpload } from './pages/TestImageUpload';
 
 function App() {
   return (
