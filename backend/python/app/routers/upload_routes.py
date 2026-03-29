@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.dependencies.services import get_gcp_storage_client
-from app.utilities.gcp_client import GCPStorageClient
+from app.utilities.gcp_client import GCPStorageClient, GCSStorageError
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
@@ -26,7 +26,16 @@ async def upload_image(
     if len(contents) > MAX_SIZE_MB * 1024 * 1024:
         raise HTTPException(status_code=400, detail=f"Exceeds {MAX_SIZE_MB}MB limit")
 
-    result = gcp_client.upload_file(contents, str(file.filename), file.content_type)
+    try:
+        result = gcp_client.upload_file(
+            contents, str(file.filename), file.content_type
+        )
+    except GCSStorageError as e:
+        status_code = (
+            403 if "permission denied" in str(e).lower() else 503
+        )
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
+
     return {"url": result.url, "filename": result.filename}
 
 
@@ -43,3 +52,8 @@ async def delete_image(
         return {"message": f"Deleted {filename}"}
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="File not found") from None
+    except GCSStorageError as e:
+        status_code = (
+            403 if "permission denied" in str(e).lower() else 503
+        )
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
