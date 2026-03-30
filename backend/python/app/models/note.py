@@ -11,6 +11,13 @@ if TYPE_CHECKING:
     from .note_chain import NoteChain
 
 
+class Attachment(SQLModel):
+    """Attachment with filename and URL"""
+
+    filename: str
+    url: str
+
+
 class NoteBase(SQLModel):
     """Shared fields between table and API models"""
 
@@ -20,7 +27,7 @@ class NoteBase(SQLModel):
     )
     message: str = Field(min_length=1, max_length=2000)
     is_system: bool = Field(default=False)
-    attachments: list[str] = Field(
+    attachments: list[Attachment] = Field(
         default=[], sa_column=Column(sa.JSON, nullable=True, default=[])
     )
 
@@ -39,7 +46,7 @@ class NoteCreate(SQLModel):
     """Create request model - chain_id and user_id set by the service"""
 
     message: str = Field(min_length=1, max_length=2000)
-    attachments: list[str] = Field(default=[])
+    attachments: list[Attachment] = Field(default=[])
 
 
 class NoteRead(NoteBase):

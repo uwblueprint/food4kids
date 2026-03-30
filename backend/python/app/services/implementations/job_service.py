@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,8 +26,8 @@ class JobService:
         result = await self.session.execute(statement)
         return list(result.scalars().all())
 
-    def utc_now_naive(self) -> datetime:
-        return datetime.now(timezone.utc).replace(tzinfo=None)
+    def est_now_naive(self) -> datetime:
+        return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
     async def generate_job(self, _req: RouteGenerationGroupInput | None = None) -> UUID:
         """Create a job"""
@@ -53,9 +54,9 @@ class JobService:
                 self.logger.error("No job with corresponding job ID")
                 return
             job.progress = progress
-            job.updated_at = self.utc_now_naive()
+            job.updated_at = self.est_now_naive()
             if progress in (ProgressEnum.COMPLETED, ProgressEnum.FAILED):
-                job.finished_at = self.utc_now_naive()
+                job.finished_at = self.est_now_naive()
             self.session.add(job)
             await self.session.commit()
         except Exception as error:
@@ -80,7 +81,7 @@ class JobService:
                 return
 
             job.progress = ProgressEnum.RUNNING
-            job.started_at = self.utc_now_naive()
+            job.started_at = self.est_now_naive()
             self.session.add(job)
             await self.session.commit()
         except Exception:

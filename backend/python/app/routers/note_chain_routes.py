@@ -8,7 +8,7 @@ from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import get_note_chain_service
 from app.models import get_session
 from app.models.note import NoteCreate, NoteListResponse, NoteRead, NoteUpdate
-from app.models.note_chain import NoteChainRead, NoteChainUpdate
+from app.models.note_chain import NoteChainRead
 from app.services.implementations.note_chain_service import NoteChainService
 
 logger = logging.getLogger(__name__)
@@ -30,36 +30,6 @@ async def get_note_chain(
     try:
         note_chain = await note_chain_service.get_note_chain_with_permission(
             session, note_chain_id, current_user_id
-        )
-        return NoteChainRead.model_validate(note_chain)
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(ve),
-        ) from ve
-    except PermissionError as pe:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(pe),
-        ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
-
-
-@router.patch("/{note_chain_id}", response_model=NoteChainRead)
-async def update_note_chain(
-    note_chain_id: UUID,
-    data: NoteChainUpdate,
-    session: AsyncSession = Depends(get_session),
-    current_user_id: UUID = Depends(get_current_database_user_id),
-) -> NoteChainRead:
-    """Update a note chain's permissions (admin only)"""
-    try:
-        note_chain = await note_chain_service.update_note_chain(
-            session, note_chain_id, data, current_user_id
         )
         return NoteChainRead.model_validate(note_chain)
     except ValueError as ve:

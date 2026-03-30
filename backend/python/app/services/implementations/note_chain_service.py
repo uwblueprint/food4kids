@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +9,7 @@ from sqlmodel import col, func, select, update
 from app.models.enum import NotePermission
 from app.models.location import Location
 from app.models.note import Note, NoteCreate, NoteUpdate
-from app.models.note_chain import NoteChain, NoteChainCreate, NoteChainUpdate
+from app.models.note_chain import NoteChain, NoteChainCreate
 from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.user import User
@@ -89,32 +90,6 @@ class NoteChainService:
             return note_chain
         except Exception as e:
             self.logger.error(f"Failed to get note chain with permission: {e!s}")
-            raise e
-
-    async def update_note_chain(
-        self,
-        session: AsyncSession,
-        note_chain_id: UUID,
-        data: NoteChainUpdate,
-        user_id: UUID,
-    ) -> NoteChain:
-        """Update a note chain's permissions (admin only)"""
-        try:
-            user_role = await self._get_user_role(session, user_id)
-            if not user_role or user_role.lower() != "admin":
-                raise PermissionError("Only admins can update note chain permissions")
-
-            note_chain = await self.get_note_chain_by_id(session, note_chain_id)
-            updated_data = data.model_dump(exclude_unset=True)
-            for field, value in updated_data.items():
-                setattr(note_chain, field, value)
-
-            await session.commit()
-            await session.refresh(note_chain)
-            return note_chain
-        except Exception as e:
-            self.logger.error(f"Failed to update note chain: {e!s}")
-            await session.rollback()
             raise e
 
     async def delete_note_chain(
@@ -317,7 +292,7 @@ class NoteChainService:
             result = await session.execute(statement)
             read_entry = result.scalars().first()
 
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
             if read_entry:
                 read_entry.last_read_at = now

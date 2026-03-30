@@ -41,7 +41,6 @@ from app.models.note_chain import (
     NoteChain,
     NoteChainCreate,
     NoteChainRead,
-    NoteChainUpdate,
 )
 from app.models.note_chain_read import NoteChainReadModel, NoteChainReadResponse
 from app.models.route import Route, RouteUpdate
@@ -566,11 +565,6 @@ class TestCoreModels:
             write_permission=NotePermission.ADMIN,
         )
         assert chain_read.note_chain_id is not None
-
-        # NoteChainUpdate - partial
-        chain_update = NoteChainUpdate(read_permission=NotePermission.ALL)
-        assert chain_update.read_permission == NotePermission.ALL
-        assert chain_update.write_permission is None
 
         # Create note
         note = Note(

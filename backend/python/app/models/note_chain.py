@@ -42,8 +42,3 @@ class NoteChainRead(NoteChainBase):
     note_chain_id: UUID
 
 
-class NoteChainUpdate(SQLModel):
-    """Update request model - all optional"""
-
-    read_permission: NotePermission | None = None
-    write_permission: NotePermission | None = None

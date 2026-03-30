@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any, TypeVar
 
 import sqlmodel as sm
@@ -23,7 +24,7 @@ class BaseModel(sm.SQLModel):
 
     # Common timestamp fields
     created_at: datetime | None = Field(
-        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        default_factory=lambda: datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None),
     )
     updated_at: datetime | None = Field(
         default=None,
