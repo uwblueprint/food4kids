@@ -26,6 +26,7 @@ from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
 
 
@@ -147,3 +148,10 @@ def get_location_service() -> LocationService:
     logger = get_logger()
     google_maps_client = get_google_maps_client()
     return LocationService(logger, google_maps_client)
+
+
+@lru_cache
+def get_gcp_storage_client() -> GCPStorageClient:
+    """Get GCP Storage client instance"""
+    logger = get_logger()
+    return GCPStorageClient(logger, settings.gcp_bucket_name)
