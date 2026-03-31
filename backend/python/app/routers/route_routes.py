@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -31,9 +32,24 @@ async def get_routes(
     When unassigned_only is False, returns all routes (no assignment filter).
     When unassigned_only is True, returns only routes that are unassigned for the given route group.
     """
-    routes = await route_service.get_routes(
-        session, unassigned_only, start_date, end_date
-    )
+    # Convert string query params to datetime objects
+    try:
+        start_dt = (
+            datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+            if start_date
+            else None
+        )
+        end_dt = (
+            datetime.fromisoformat(end_date).replace(tzinfo=timezone.utc)
+            if end_date
+            else None
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail="Invalid date format. Use ISO 8601, e.g. 2026-01-30"
+        ) from None
+
+    routes = await route_service.get_routes(session, unassigned_only, start_dt, end_dt)
     return routes
 
 

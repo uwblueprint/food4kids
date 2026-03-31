@@ -1,9 +1,10 @@
 import logging
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, exists
+from sqlalchemy import and_, asc, exists
 from sqlalchemy import select as sql_select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -12,6 +13,9 @@ from app.models.driver_assignment import DriverAssignment
 from app.models.route import Route, RouteWithDateRead
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql.elements import ColumnElement
 
 
 class RouteService:
@@ -23,6 +27,12 @@ class RouteService:
         return datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0, tzinfo=None
         )
+
+    def _to_naive_utc(self, dt: datetime) -> datetime:
+        """Convert a tz-aware datetime to naive UTC for DB compatibility."""
+        if dt.tzinfo is not None:
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
 
     async def get_routes(
         self,
@@ -53,8 +63,10 @@ class RouteService:
 
         # Date filtering
         if start_date:
+            start_date = self._to_naive_utc(start_date)
             statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
+            end_date = self._to_naive_utc(end_date)
             statement = statement.where(RouteGroup.drive_date < end_date)
 
         # Unassigned filter
@@ -74,7 +86,8 @@ class RouteService:
             )
 
         statement = statement.order_by(
-            RouteGroup.drive_date, Route.name  # type: ignore[arg-type]
+            asc(cast("ColumnElement", RouteGroup.drive_date)),
+            asc(cast("ColumnElement", Route.name)),
         )
 
         result = await session.execute(statement)
