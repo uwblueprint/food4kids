@@ -68,7 +68,7 @@ class TestPaginatedResponse:
         assert resp.total_pages == 3
 
     def test_create_empty(self) -> None:
-        resp = PaginatedResponse.create(items=[], total=0, page=1, page_size=50)
+        resp: PaginatedResponse[int] = PaginatedResponse.create(items=[], total=0, page=1, page_size=50)
         assert resp.total_pages == 0
         assert resp.items == []
 

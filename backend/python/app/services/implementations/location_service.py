@@ -81,8 +81,8 @@ class LocationService:
             statement = (
                 select(Location)
                 .where(Location.state == LocationState.ACTIVE)
-                .order_by(Location.created_at.desc())
-            )  # type: ignore[union-attr]
+                .order_by(Location.created_at.desc())  # type: ignore[union-attr]
+            )
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
             return PaginatedResponse.create(
