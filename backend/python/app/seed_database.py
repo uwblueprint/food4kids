@@ -18,6 +18,7 @@ from sqlalchemy import create_engine, not_, text
 from sqlmodel import Session, select
 
 from app.models.admin import Admin
+from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
@@ -638,7 +639,6 @@ def main() -> None:
                             route_id=route_id,
                             route_group_id=route_group_id,
                             time=drive_date,
-                            completed=drive_date_obj < today,
                         )
                         set_timestamps(assignment)
                         session.add(assignment)
@@ -781,6 +781,38 @@ def main() -> None:
 
             session.commit()
             print("Created admin info")
+
+            # Create sample announcements
+            print("Creating sample announcements...")
+            sample_announcements = [
+                {
+                    "subject": "Welcome to Food4Kids",
+                    "message": "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
+                    "attachments": [],
+                },
+                {
+                    "subject": "Schedule Update for March",
+                    "message": "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
+                    "attachments": [],
+                },
+                {
+                    "subject": "Holiday Notice - Good Friday",
+                    "message": "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
+                    "attachments": [],
+                },
+            ]
+            for ann_data in sample_announcements:
+                announcement = Announcement(
+                    subject=ann_data["subject"],
+                    message=ann_data["message"],
+                    user_id=user.user_id,
+                    attachments=ann_data["attachments"],
+                )
+                set_timestamps(announcement)
+                session.add(announcement)
+            session.commit()
+            print("Created sample announcements")
+
             print("Comprehensive database seeding completed successfully!")
 
         except Exception as e:
