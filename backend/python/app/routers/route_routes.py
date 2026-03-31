@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
-from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.models.route import Route, RoutePatchRequest, RouteRead, RouteWithDateRead
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.route_service import RouteService
 
 # Initialize service
@@ -105,11 +105,11 @@ async def update_route(
         if "not found" in msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=msg
-            )
+            ) from None
         # Missing system settings / warehouse config
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=msg
-        )
+        ) from None
     if not updated_route:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

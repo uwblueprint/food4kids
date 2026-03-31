@@ -1,7 +1,7 @@
 """add state column to locations
 
 Revision ID: c1a2b3d4e5f6
-Revises: 8b03ae4022cd
+Revises: 88d4ec63dfb5
 Create Date: 2026-03-24 23:30:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'c1a2b3d4e5f6'
-down_revision = '8b03ae4022cd'
+down_revision = '88d4ec63dfb5'
 branch_labels = None
 depends_on = None
 

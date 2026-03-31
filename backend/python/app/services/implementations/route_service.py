@@ -13,11 +13,10 @@ from app.models.location import Location
 from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
-from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.utilities.pagination import paginate_query
-
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
+from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.utilities.pagination import paginate_query
 from app.utilities.routes_utils import fetch_route_polyline
 
 
@@ -180,7 +179,9 @@ class RouteService:
 
         try:
             # Fetch the route
-            result = await session.execute(select(Route).where(Route.route_id == route_id))
+            result = await session.execute(
+                select(Route).where(Route.route_id == route_id)
+            )
             route = result.scalars().first()
 
             if not route:
