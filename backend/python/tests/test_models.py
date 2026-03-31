@@ -165,10 +165,7 @@ class TestCoreBusinessValidation:
         for year in valid_years:
             for month in valid_months:
                 history = DriverHistory(
-                    driver_id=uuid4(),
-                    year=year,
-                    month=month,
-                    km=1000.0
+                    driver_id=uuid4(), year=year, month=month, km=1000.0
                 )
                 assert history.year == year
                 assert history.month == month
@@ -191,7 +188,7 @@ class TestCoreBusinessValidation:
             with pytest.raises(ValidationError) as exc_info:
                 DriverHistory(
                     driver_id=uuid4(),
-                    year=2025, 
+                    year=2025,
                     month=month,
                     km=1000.0,
                 )
@@ -476,12 +473,7 @@ class TestCoreModels:
         from uuid import uuid4
 
         # Create
-        history = DriverHistory(
-            driver_id=uuid4(),
-            year=2025,
-            km=1500.5,
-            month=12
-        )
+        history = DriverHistory(driver_id=uuid4(), year=2025, km=1500.5, month=12)
         assert history.year == 2025
         assert history.km == 1500.5
         assert history.month == 12
