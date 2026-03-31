@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -13,6 +12,7 @@ from app.models.driver_assignment import DriverAssignment
 from app.models.route import Route, RouteWithDateRead
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
+
 
 class RouteService:
     def __init__(self, logger: logging.Logger):
@@ -82,8 +82,8 @@ class RouteService:
             )
 
         statement = statement.order_by(
-            asc(cast("ColumnElement", RouteGroup.drive_date)),
-            asc(cast("ColumnElement", Route.name)),
+            asc(RouteGroup.drive_date),  # type: ignore[arg-type]
+            asc(Route.name),
         )
 
         result = await session.execute(statement)
