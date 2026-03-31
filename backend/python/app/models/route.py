@@ -31,10 +31,7 @@ class RouteBase(SQLModel):
 
 
 class Route(RouteBase, BaseModel, table=True):
-    """Database table model for Routes
-
-    Note: Routes are immutable once created
-    """
+    """Database table model for Routes"""
 
     __tablename__ = "routes"
 
