@@ -217,8 +217,8 @@ async def create_driver_history(
 async def update_driver_history(
     driver_id: UUID,
     update: DriverHistoryUpdate,
-    year: int = Query(ge=MIN_YEAR, le=MAX_YEAR),
-    month: int = Query(ge=1, le=12),
+    year: int,
+    month: int,
     session: AsyncSession = Depends(get_session),
 ) -> DriverHistoryRead:
     """
@@ -255,8 +255,8 @@ async def update_driver_history(
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_driver_history(
     driver_id: UUID,
-    year: int = Query(ge=MIN_YEAR, le=MAX_YEAR),
-    month: int = Query(ge=1, le=12),
+    year: int,
+    month: int,
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """

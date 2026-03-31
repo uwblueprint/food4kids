@@ -28,7 +28,7 @@ class DriverHistoryService:
         return MIN_YEAR <= year <= MAX_YEAR
 
     def validate_year_and_month(self, year: int, month: int | None) -> bool:
-        return self.validate_year(year) and (not month or 1 <= month <= 12)
+        return self.validate_year(year) and (month is None or 1 <= month <= 12)
 
     async def driver_exists(self, session: AsyncSession, driver_id: UUID) -> bool:
         statement = select(Driver.driver_id).where(Driver.driver_id == driver_id)

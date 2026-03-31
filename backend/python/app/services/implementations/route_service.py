@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -99,9 +99,8 @@ class RouteService:
     ) -> list[RouteWithDateRead]:
         """
         Get all routes that have a future drive date.
-        Deduplicated by route_id.
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         return await self.get_routes(
             unassigned_only=False, start_date=now, end_date=None, session=session
         )
@@ -111,10 +110,9 @@ class RouteService:
         session: AsyncSession,
     ) -> list[RouteWithDateRead]:
         """
-        Get all routes that have a future drive date.
-        Deduplicated by route_id.
+        Get all routes that have a past drive date.
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         return await self.get_routes(
             unassigned_only=False, start_date=None, end_date=now, session=session
         )
