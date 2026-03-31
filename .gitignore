@@ -1,5 +1,6 @@
 **/node_modules
 **/.env
+**/.env.local
 **/build
 **/venv
 **/__pycache__
@@ -15,3 +16,5 @@
 switch_github.sh
 CLAUDE.md
 backend/python/app/data/
+**/*service-account*.json
+**/*secrets*.json
