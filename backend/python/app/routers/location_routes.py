@@ -5,13 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_location_service
 from app.models import get_session
-from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.models.location import (
     LocationCreate,
     LocationImportResponse,
     LocationRead,
     LocationUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import LocationService
 
 router = APIRouter(prefix="/locations", tags=["locations"])

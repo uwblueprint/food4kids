@@ -18,9 +18,9 @@ from app.models.driver_assignment import (
     DriverAssignmentUpdate,
     SuggestedDriverResponse,
 )
+from app.models.route_group_membership import RouteGroupMembership
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.pagination import paginate_query
-from app.models.route_group_membership import RouteGroupMembership
 
 
 class DriverAssignmentService:
@@ -33,7 +33,9 @@ class DriverAssignmentService:
         self, session: AsyncSession, pagination: PaginationParams
     ) -> PaginatedResponse[DriverAssignment]:
         """Get paginated driver assignments"""
-        statement = select(DriverAssignment).order_by(DriverAssignment.created_at.desc())  # type: ignore[union-attr]
+        statement = select(DriverAssignment).order_by(
+            DriverAssignment.created_at.desc()
+        )  # type: ignore[union-attr]
         result, total = await paginate_query(session, statement, pagination)
         items = list(result.scalars().all())
         return PaginatedResponse.create(

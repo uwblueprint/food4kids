@@ -9,8 +9,6 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.utilities.pagination import paginate_query
 from app.models.location import (
     AlertCode,
     AlertType,
@@ -25,7 +23,9 @@ from app.models.location import (
     LocationUpdate,
     ValidatedLocationImportEntry,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.pagination import paginate_query
 from app.utilities.utils import validate_phone
 
 # Allowed file extensions for location import files
@@ -78,7 +78,11 @@ class LocationService:
     ) -> PaginatedResponse[Location]:
         """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
-            statement = select(Location).where(Location.state == LocationState.ACTIVE).order_by(Location.created_at.desc())  # type: ignore[union-attr]
+            statement = (
+                select(Location)
+                .where(Location.state == LocationState.ACTIVE)
+                .order_by(Location.created_at.desc())
+            )  # type: ignore[union-attr]
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
             return PaginatedResponse.create(

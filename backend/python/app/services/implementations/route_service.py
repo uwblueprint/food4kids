@@ -104,6 +104,7 @@ class RouteService:
             page=pagination.page,
             page_size=pagination.page_size,
         )
+
     async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
         """Get route by ID"""
         try:
