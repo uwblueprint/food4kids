@@ -15,29 +15,25 @@ from app.models.route_group_membership import RouteGroupMembership
 
 
 class RouteService:
-    """
-    Service class for handling route-related operations.
-
-    This class provides methods to manage Route entities, such as deleting routes by their ID.
-    While currently only the delete operation is implemented, this class is intended to be extended
-    with additional route-related operations in the future.
-    """
-
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+
+    def _today_start(self) -> datetime:
+        """Get start of today (midnight UTC, naive for DB compatibility)."""
+        return datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+        )
 
     async def get_routes(
         self,
         session: AsyncSession,
         unassigned_only: bool = False,
-        start_date: str | None = None,
-        end_date: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
         Returns routes with their drive dates - routes can appear multiple times for different dates.
-        When unassigned_only is False, returns all routes (no assignment filter).
-        When unassigned_only is True, returns only routes that are unassigned for the given route group.
         """
         statement = (
             select(
@@ -45,22 +41,23 @@ class RouteService:
                 RouteGroup.route_group_id,
                 RouteGroup.drive_date,
             )
-            .join(RouteGroupMembership, Route.route_id == RouteGroupMembership.route_id)  # type: ignore[arg-type]
+            .join(
+                RouteGroupMembership,
+                Route.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
+            )
             .join(
                 RouteGroup,
                 RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
             )
         )
 
-        # Parse and filter by date range
+        # Date filtering
         if start_date:
-            start_dt = datetime.fromisoformat(start_date)
-            statement = statement.where(RouteGroup.drive_date >= start_dt)
+            statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-            statement = statement.where(RouteGroup.drive_date <= end_dt)
+            statement = statement.where(RouteGroup.drive_date < end_date)
 
-        # Filter for unassigned routes only
+        # Unassigned filter
         if unassigned_only:
             statement = statement.where(
                 ~exists(
@@ -76,12 +73,13 @@ class RouteService:
                 )
             )
 
-        statement = statement.order_by(RouteGroup.drive_date, Route.name)  # type: ignore[arg-type]
+        statement = statement.order_by(
+            RouteGroup.drive_date, Route.name  # type: ignore[arg-type]
+        )
 
         result = await session.execute(statement)
         rows = result.all()
 
-        # Return RouteWithDateRead objects - no deduplication, routes can appear multiple times for different dates
         return [
             RouteWithDateRead(
                 route_id=row.Route.route_id,
@@ -98,11 +96,15 @@ class RouteService:
         session: AsyncSession,
     ) -> list[RouteWithDateRead]:
         """
-        Get all routes that have a future drive date.
+        Get all routes happening today or in the future.
         """
-        now = datetime.now(timezone.utc).isoformat()
+        today_start = self._today_start()
+
         return await self.get_routes(
-            unassigned_only=False, start_date=now, end_date=None, session=session
+            session=session,
+            unassigned_only=False,
+            start_date=today_start,
+            end_date=None,
         )
 
     async def get_past_routes(
@@ -110,11 +112,15 @@ class RouteService:
         session: AsyncSession,
     ) -> list[RouteWithDateRead]:
         """
-        Get all routes that have a past drive date.
+        Get all routes before today.
         """
-        now = datetime.now(timezone.utc).isoformat()
+        today_start = self._today_start()
+
         return await self.get_routes(
-            unassigned_only=False, start_date=None, end_date=now, session=session
+            session=session,
+            unassigned_only=False,
+            start_date=None,
+            end_date=today_start,
         )
 
     async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
