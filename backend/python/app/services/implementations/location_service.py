@@ -23,7 +23,9 @@ from app.models.location import (
     LocationUpdate,
     ValidatedLocationImportEntry,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.pagination import paginate_query
 from app.utilities.utils import validate_phone
 
 # Allowed file extensions for location import files
@@ -71,12 +73,24 @@ class LocationService:
             self.logger.error(f"Failed to get location by id: {e!s}")
             raise e
 
-    async def get_locations(self, session: AsyncSession) -> list[Location]:
-        """Get all active locations - returns SQLModel instances"""
+    async def get_locations(
+        self, session: AsyncSession, pagination: PaginationParams
+    ) -> PaginatedResponse[Location]:
+        """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
-            statement = select(Location).where(Location.state == LocationState.ACTIVE)
-            result = await session.execute(statement)
-            return list(result.scalars().all())
+            statement = (
+                select(Location)
+                .where(Location.state == LocationState.ACTIVE)
+                .order_by(Location.created_at.desc())  # type: ignore[union-attr]
+            )
+            result, total = await paginate_query(session, statement, pagination)
+            items = list(result.scalars().all())
+            return PaginatedResponse.create(
+                items=items,
+                total=total,
+                page=pagination.page,
+                page_size=pagination.page_size,
+            )
         except Exception as e:
             self.logger.error(f"Failed to get locations: {e!s}")
             raise e
