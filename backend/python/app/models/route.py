@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from pydantic import field_serializer
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -81,3 +82,10 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
+
+    @field_serializer("drive_date")
+    def serialize_drive_date(self, v: datetime) -> str:
+        # Treat naive datetimes from DB as UTC, then emit with offset
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.isoformat()
