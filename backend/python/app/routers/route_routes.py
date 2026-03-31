@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_session
-from app.models.route import Route, RouteRead, RouteWithDateRead
+from app.models.route import Route, RouteWithDateRead
 from app.services.implementations.route_service import RouteService
 
 # Initialize service
@@ -36,6 +36,7 @@ async def get_routes(
     )
     return routes
 
+
 @router.get("/upcoming_routes", response_model=list[RouteWithDateRead])
 async def get_upcoming_routes(
     session: AsyncSession = Depends(get_session),
@@ -45,6 +46,7 @@ async def get_upcoming_routes(
     """
     return await route_service.get_upcoming_routes(session)
 
+
 @router.get("/past_routes", response_model=list[RouteWithDateRead])
 async def get_past_routes(
     session: AsyncSession = Depends(get_session),
@@ -53,6 +55,7 @@ async def get_past_routes(
     Get all past routes (routes with past drive dates).
     """
     return await route_service.get_past_routes(session)
+
 
 @router.get("/{route_id}", response_model=Route, status_code=status.HTTP_200_OK)
 async def get_route(
@@ -72,6 +75,7 @@ async def get_route(
 
     route = await route_service.get_route(session, route_id)
     return route
+
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_route(

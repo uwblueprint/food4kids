@@ -102,8 +102,10 @@ class RouteService:
         Deduplicated by route_id.
         """
         now = datetime.utcnow().isoformat()
-        return await self.get_routes(unassigned_only=False, start_date=now, end_date=None, session=session)
-    
+        return await self.get_routes(
+            unassigned_only=False, start_date=now, end_date=None, session=session
+        )
+
     async def get_past_routes(
         self,
         session: AsyncSession,
@@ -113,7 +115,9 @@ class RouteService:
         Deduplicated by route_id.
         """
         now = datetime.utcnow().isoformat()
-        return await self.get_routes(unassigned_only=False, start_date=None, end_date=now, session=session)
+        return await self.get_routes(
+            unassigned_only=False, start_date=None, end_date=now, session=session
+        )
 
     async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
         """Get route by ID"""
