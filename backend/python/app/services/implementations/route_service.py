@@ -14,10 +14,6 @@ from app.models.route import Route, RouteWithDateRead
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
 
-if TYPE_CHECKING:
-    from sqlalchemy.sql.elements import ColumnElement
-
-
 class RouteService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
