@@ -1,8 +1,8 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from typing import Any, TypeVar
+from zoneinfo import ZoneInfo
 
 import sqlmodel as sm
 from sqlmodel import Field

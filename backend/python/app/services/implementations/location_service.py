@@ -97,28 +97,28 @@ class LocationService:
             self.logger.error(f"Failed to get locations: {e!s}")
             raise e
 
-      async def create_location(
-          self, session: AsyncSession, location_data: LocationCreate
-      ) -> Location:
-          """Create a new location using a LocationCreate object - returns SQLModel instance"""
-          try:
-              # Auto-create a note chain for the location
-              note_chain = NoteChain(
-                  read_permission=NotePermission.ALL,
-                  write_permission=NotePermission.ALL,
-              )
-              session.add(note_chain)
-              await session.flush()
-              location = await self._build_location(location_data)
-              location.note_chain_id = note_chain.note_chain_id
-              session.add(location)
-              await session.commit()
-              await session.refresh(location)
-              return location
-          except Exception as e:
-              self.logger.error(f"Failed to create location: {e!s}")
-              await session.rollback()
-              raise e
+    async def create_location(
+        self, session: AsyncSession, location_data: LocationCreate
+    ) -> Location:
+        """Create a new location using a LocationCreate object - returns SQLModel instance"""
+        try:
+            # Auto-create a note chain for the location
+            note_chain = NoteChain(
+                read_permission=NotePermission.ALL,
+                write_permission=NotePermission.ALL,
+            )
+            session.add(note_chain)
+            await session.flush()
+            location = await self._build_location(location_data)
+            location.note_chain_id = note_chain.note_chain_id
+            session.add(location)
+            await session.commit()
+            await session.refresh(location)
+            return location
+        except Exception as e:
+            self.logger.error(f"Failed to create location: {e!s}")
+            await session.rollback()
+            raise e
 
     async def update_location_by_id(
         self,
