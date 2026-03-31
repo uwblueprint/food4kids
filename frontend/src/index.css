@@ -1,1 +1,316 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* ==============================================
+   * F4K Design System — Tailwind CSS v4 Theme
+   * Source: Figma F4K-Designs (Design System pages)
+   * ============================================== */
+
+  /* --- Font Families --- */
+  --font-nunito: 'Nunito', sans-serif;
+  --font-nunito-sans: 'Nunito Sans', sans-serif;
+
+  /* --- Colors: Primary --- */
+  --color-grey-500: #1c1b1f; /* Global text color */
+  --color-grey-100: #ffffff; /* Global white color */
+  --color-blue-300: #226ca7; /* Interactive elements */
+
+  /* --- Colors: Secondary --- */
+  --color-blue-50: #e9f4ff; /* Hover states */
+  --color-blue-100: #bed3e9; /* Selected chip border */
+  --color-blue-400: #195586; /* Polylines */
+  --color-grey-150: #f8f8f8; /* Form fields that are uneditable */
+  --color-grey-200: #eff3f6; /* Secondary buttons */
+  --color-grey-300: #e0e7ed; /* Strokes */
+  --color-grey-400: #707581; /* Metadata, archived data */
+
+  /* --- Colors: Alerts --- */
+  --color-red: #eb3131; /* Alerts or critical error banner stroke */
+  --color-light-red: #fef3f2; /* Critical error banner fill */
+  --color-dark-yellow: #fdb022; /* Warning text or banner stroke */
+  --color-light-yellow: #fffaeb; /* Warning banner fill */
+  --color-success-stroke: #039855; /* Successful text or banner stroke */
+  --color-success-fill: #ecfdf3; /* Successful banner fill */
+
+  /* --- Colors: Supporting --- */
+  --color-brand-green: #27b28d; /* Card Background, Statistics Graph */
+  --color-brand-light-blue: #09a7df; /* Card Background, Statistics Graph */
+  --color-brand-orange: #eb5531; /* Card Background, Statistics Graph */
+  --color-brand-pink: #b33f93;
+
+  /* --- Shadows --- */
+  --shadow-card: 0px 4px 10px rgba(0, 0, 0, 0.05);
+  --shadow-harsh: 0px 4px 24px #00000014;
+
+  /* --- Spacing: extends Tailwind's 4px base grid ---
+   * Design uses an 8px grid: 0, 4, 8, 16, 32, 64, 128, 256, 512
+   * Tailwind covers 0–256px natively (p-0 through p-64).
+   * Adding 512px as spacing-128 for completeness. */
+  --spacing-128: 32rem;
+
+  /* --- Typography Scale: Desktop & Tablet ---
+   * H1: Nunito ExtraBold  32px / 44px  → 44/32 = 1.375
+   * H2: Nunito Bold       20px / 28px  → 28/20 = 1.4
+   * H3: Nunito Sans Bold  16px / 20px  → 20/16 = 1.25
+   * P1: Nunito Sans       16px / 20px  → 20/16 = 1.25
+   * P2: Nunito Sans       14px / 18px  → 18/14 ≈ 1.286
+   * P3: Nunito Sans       12px / 18px  → 18/12 = 1.5  */
+  --text-h1: 2rem;
+  --text-h1--line-height: 1.375;
+  --text-h2: 1.25rem;
+  --text-h2--line-height: 1.4;
+  --text-h3: 1rem;
+  --text-h3--line-height: 1.25;
+  --text-p1: 1rem;
+  --text-p1--line-height: 1.5;
+  --text-p2: 0.875rem;
+  --text-p2--line-height: 1.286;
+  --text-p3: 0.75rem;
+  --text-p3--line-height: 1.5;
+
+  /* --- Typography Scale: Mobile (internal — consumed by @layer base & utilities below)
+   * Do not use text-m-* classes directly in components (StyleGuidePage is the sole exception,
+   * where they are used to render static mobile size previews for documentation).
+   * M-H1: Nunito Bold         24px / 32px  → 32/24 = 1.333
+   * M-H2: Nunito SemiBold     20px / 24px  → 24/20 = 1.2
+   * M-H3: Nunito Sans Bold    18px / 24px  → 24/18 = 1.333
+   * M-P1: Nunito Sans         18px / 24px  → 24/18 = 1.333
+   * M-P2: Nunito Sans         16px / 24px  → 24/16 = 1.5
+   * M-P3: Nunito Sans         14px / 18px  → 18/14 ≈ 1.286  */
+  --text-m-h1: 1.5rem;
+  --text-m-h1--line-height: 1.333;
+  --text-m-h2: 1.25rem;
+  --text-m-h2--line-height: 1.2;
+  --text-m-h3: 1.125rem;
+  --text-m-h3--line-height: 1.333;
+  --text-m-p1: 1.125rem;
+  --text-m-p1--line-height: 1.333;
+  --text-m-p2: 1rem;
+  --text-m-p2--line-height: 1.5;
+  --text-m-p3: 0.875rem;
+  --text-m-p3--line-height: 1.286;
+}
+
+/* ==============================================
+ * Base styles — preconfigured heading elements
+ * ============================================== */
+@layer base {
+  body {
+    background-color: var(--color-grey-100); /* #FFFFFF */
+    color: var(--color-grey-500); /* #1C1B1F */
+    font-family: var(--font-nunito-sans);
+  }
+
+  /* Mobile-first: use mobile scale as default */
+  h1 {
+    font-family: var(--font-nunito);
+    font-size: var(--text-m-h1);
+    line-height: var(--text-m-h1--line-height);
+    font-weight: 700; /* Bold on mobile */
+  }
+  h2 {
+    font-family: var(--font-nunito);
+    font-size: var(--text-m-h2);
+    line-height: var(--text-m-h2--line-height);
+    font-weight: 600;
+  }
+  h3 {
+    font-family: var(--font-nunito-sans);
+    font-size: var(--text-m-h3); /* 18px — larger on mobile */
+    line-height: var(--text-m-h3--line-height);
+    font-weight: 700;
+  }
+
+  /* Desktop/tablet: md breakpoint (768px) */
+  @media (min-width: 48rem) {
+    h1 {
+      font-size: var(--text-h1);
+      line-height: var(--text-h1--line-height);
+      font-weight: 700;
+    }
+    h2 {
+      font-size: var(--text-h2);
+      line-height: var(--text-h2--line-height);
+    }
+    h3 {
+      font-size: var(--text-h3); /* 16px — smaller on desktop */
+      line-height: var(--text-h3--line-height);
+    }
+  }
+}
+
+/* ==============================================
+ * Responsive paragraph utilities
+ * Use text-p1, text-p2, text-p3 directly in className.
+ * Mobile size is the default; desktop kicks in at md (768px).
+ * ============================================== */
+@layer utilities {
+  .text-p1 {
+    font-size: var(--text-m-p1);
+    line-height: var(--text-m-p1--line-height);
+  }
+  @media (min-width: 48rem) {
+    .text-p1 {
+      font-size: var(--text-p1);
+      line-height: var(--text-p1--line-height);
+    }
+  }
+
+  .text-p2 {
+    font-size: var(--text-m-p2);
+    line-height: var(--text-m-p2--line-height);
+  }
+  @media (min-width: 48rem) {
+    .text-p2 {
+      font-size: var(--text-p2);
+      line-height: var(--text-p2--line-height);
+    }
+  }
+
+  .text-p3 {
+    font-size: var(--text-m-p3);
+    line-height: var(--text-m-p3--line-height);
+  }
+  @media (min-width: 48rem) {
+    .text-p3 {
+      font-size: var(--text-p3);
+      line-height: var(--text-p3--line-height);
+    }
+  }
+
+  /* Page-level margins from the F4K design system.
+   * Apply to top-level page wrapper elements.
+   * Mobile: 20px · Tablet (md): 40px · Desktop (lg): 80px left/right, 40px top */
+  .page-margins {
+    padding-left: 1.25rem; /* 20px */
+    padding-right: 1.25rem;
+    padding-top: 1.25rem;
+  }
+  @media (min-width: 48rem) {
+    .page-margins {
+      padding-left: 2.5rem; /* 40px */
+      padding-right: 2.5rem;
+    }
+  }
+  @media (min-width: 64rem) {
+    .page-margins {
+      padding-left: 5rem; /* 80px */
+      padding-right: 5rem;
+      padding-top: 2.5rem; /* 40px */
+    }
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}

@@ -11,6 +11,7 @@ Tests cover:
 
 from datetime import datetime
 from typing import Any
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -29,39 +30,53 @@ class TestDriverRoutes:
         assert response.json() == []
 
     @pytest.mark.asyncio
-    async def test_create_driver(
+    async def test_register_driver(
         self,
         async_client: AsyncClient,
         sample_driver_data: dict[str, Any],
-        test_session: Any,
     ) -> None:
         """Test POST /drivers creates a new driver."""
-        # First create a user for the driver
-        from app.models.user import User
+        mock_firebase_user = MagicMock()
+        mock_firebase_user.uid = "fake-auth-id-123"
 
-        user = User(
-            name=sample_driver_data["name"],
-            email="newdriver@example.com",
-            auth_id=sample_driver_data["auth_id"] + "_new",
-        )
-        test_session.add(user)
-        await test_session.commit()
-        await test_session.refresh(user)
-
-        # Now create driver with user_id
-        driver_create_data = {
-            "user_id": str(user.user_id),
-            "phone": sample_driver_data["phone"],
-            "address": sample_driver_data["address"],
-            "license_plate": sample_driver_data["license_plate"],
-            "car_make_model": sample_driver_data["car_make_model"],
+        fake_auth_dto = {
+            "access_token": "fake-access-token",
+            "name": sample_driver_data["name"],
+            "id": str(uuid4()),
+            "email": "newdriver@example.com",
         }
-        response = await async_client.post("/drivers/", json=driver_create_data)
-        assert response.status_code == 201
-        data = response.json()
-        assert data["phone"] == sample_driver_data["phone"]
-        assert data["license_plate"] == sample_driver_data["license_plate"]
-        assert "driver_id" in data
+        # We don't want to actually call firebase so we mock the call
+        with (
+            patch("firebase_admin.auth.create_user", return_value=mock_firebase_user),
+            patch("firebase_admin.auth.set_custom_user_claims"),
+            patch(
+                "app.services.implementations.auth_service.AuthService.generate_token",
+                return_value=(fake_auth_dto, "fake_refresh_token"),
+            ),
+            patch(
+                "app.services.implementations.auth_service.AuthService.send_email_verification_link"
+            ),
+        ):
+            driver_register_data = {
+                "name": sample_driver_data["name"],
+                "email": "newdriver@example.com",
+                "password": "testing123",
+                "phone": sample_driver_data["phone"],
+                "address": sample_driver_data["address"],
+                "license_plate": sample_driver_data["license_plate"],
+                "car_make_model": sample_driver_data["car_make_model"],
+            }
+            response = await async_client.post("/drivers/", json=driver_register_data)
+            assert response.status_code == 201
+            data = response.json()
+            assert data["driver"]["phone"] == sample_driver_data["phone"]
+            assert (
+                data["driver"]["license_plate"] == sample_driver_data["license_plate"]
+            )
+            assert data["driver"]["role"] == "driver"
+            assert data["auth"]["email"] == "newdriver@example.com"
+            assert "access_token" in data["auth"]
+            assert "driver_id" in data["driver"]
 
     @pytest.mark.asyncio
     async def test_get_drivers_with_data(
@@ -153,10 +168,14 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_get_locations_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /locations returns empty list when no locations exist."""
+        """Test GET /locations returns empty paginated response when no locations exist."""
         response = await async_client.get("/locations/")
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
     async def test_create_location(
@@ -175,7 +194,7 @@ class TestLocationRoutes:
     async def test_get_locations_with_data(
         self, async_client: AsyncClient, sample_location_data: dict[str, Any]
     ) -> None:
-        """Test GET /locations returns list of locations."""
+        """Test GET /locations returns paginated list of locations."""
         # Create a location first
         create_response = await async_client.post(
             "/locations/", json=sample_location_data
@@ -186,7 +205,8 @@ class TestLocationRoutes:
         response = await async_client.get("/locations/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) >= 1
+        assert len(data["items"]) >= 1
+        assert data["total"] >= 1
 
     @pytest.mark.asyncio
     async def test_get_location_by_id(
@@ -258,10 +278,14 @@ class TestRouteRoutes:
 
     @pytest.mark.asyncio
     async def test_get_routes_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /routes returns empty list when no routes exist."""
+        """Test GET /routes returns empty paginated response when no routes exist."""
         response = await async_client.get("/routes")
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
     async def test_get_routes_with_data(
@@ -269,12 +293,11 @@ class TestRouteRoutes:
         async_client: AsyncClient,
         test_route: Any,  # noqa: ARG002
     ) -> None:
-        """Test GET /routes returns list of routes."""
+        """Test GET /routes returns paginated list of routes."""
         response = await async_client.get("/routes")
         assert response.status_code == 200
-        # Routes may be empty if there are no route groups
         data = response.json()
-        assert isinstance(data, list)
+        assert isinstance(data["items"], list)
 
 
 class TestRouteGroupRoutes:
@@ -476,11 +499,11 @@ class TestValidationErrors:
         invalid_data = {
             "name": "Test Driver",
             "email": "test@example.com",
+            "password": "testing123",
             "phone": "invalid-phone",  # Invalid phone format
             "address": "123 Main St",
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
-            "auth_id": "test-auth-123",
         }
         response = await async_client.post("/drivers/", json=invalid_data)
         assert response.status_code == 422
@@ -509,3 +532,163 @@ class TestValidationErrors:
         }
         response = await async_client.post("/route-groups", json=invalid_data)
         assert response.status_code == 422
+
+
+class TestAnnouncementRoutes:
+    """Test suite for announcement API routes."""
+
+    @pytest.mark.asyncio
+    async def test_get_announcements_empty(self, async_client: AsyncClient) -> None:
+        """Test GET /announcements returns empty list when none exist."""
+        response = await async_client.get("/announcements/")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_create_announcement(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test POST /announcements creates a new announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin@test.com",
+            auth_id="test-admin-ann-123",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        announcement_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        response = await async_client.post("/announcements/", json=announcement_data)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["subject"] == sample_announcement_data["subject"]
+        assert data["message"] == sample_announcement_data["message"]
+        assert data["user_id"] == str(user.user_id)
+        assert "announcement_id" in data
+        assert "created_at" in data
+
+    @pytest.mark.asyncio
+    async def test_get_announcement_by_id(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test GET /announcements/{id} returns the announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin2@test.com",
+            auth_id="test-admin-ann-456",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        create_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        create_response = await async_client.post("/announcements/", json=create_data)
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await async_client.get(f"/announcements/{announcement_id}")
+        assert response.status_code == 200
+        assert response.json()["subject"] == sample_announcement_data["subject"]
+
+    @pytest.mark.asyncio
+    async def test_get_announcement_not_found(self, async_client: AsyncClient) -> None:
+        """Test GET /announcements/{id} returns 404 for nonexistent ID."""
+        fake_id = uuid4()
+        response = await async_client.get(f"/announcements/{fake_id}")
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_update_announcement(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test PUT /announcements/{id} updates the announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin3@test.com",
+            auth_id="test-admin-ann-789",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        create_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        create_response = await async_client.post("/announcements/", json=create_data)
+        announcement_id = create_response.json()["announcement_id"]
+
+        update_data = {"subject": "Updated Subject"}
+        response = await async_client.put(
+            f"/announcements/{announcement_id}", json=update_data
+        )
+        assert response.status_code == 200
+        assert response.json()["subject"] == "Updated Subject"
+        assert response.json()["message"] == sample_announcement_data["message"]
+
+    @pytest.mark.asyncio
+    async def test_delete_announcement(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test DELETE /announcements/{id} removes the announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin4@test.com",
+            auth_id="test-admin-ann-101",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        create_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        create_response = await async_client.post("/announcements/", json=create_data)
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await async_client.delete(f"/announcements/{announcement_id}")
+        assert response.status_code == 204
+
+        get_response = await async_client.get(f"/announcements/{announcement_id}")
+        assert get_response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_announcement_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Test DELETE /announcements/{id} returns 404 for nonexistent ID."""
+        fake_id = uuid4()
+        response = await async_client.delete(f"/announcements/{fake_id}")
+        assert response.status_code == 404

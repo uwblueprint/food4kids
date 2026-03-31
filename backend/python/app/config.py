@@ -63,6 +63,23 @@ class Settings(BaseSettings):
     # Google Maps
     google_maps_api_key: str = Field(default="")
 
+    # Route Optimization (service account for Fleet Routing API)
+    route_opt_project_id: str = Field(default="")
+    route_opt_private_key_id: str = Field(default="")
+    route_opt_private_key: str = Field(default="")
+    route_opt_client_email: str = Field(default="")
+
+    # GCP
+    gcp_bucket_name: str = Field(default="")
+    gcp_service_account_project_id: str = Field(default="")
+    gcp_service_account_private_key_id: str = Field(default="")
+    gcp_service_account_private_key: str = Field(default="")
+    gcp_service_account_client_email: str = Field(default="")
+    gcp_service_account_client_id: str = Field(default="")
+    gcp_service_account_auth_uri: str = Field(default="")
+    gcp_service_account_token_uri: str = Field(default="")
+    gcp_service_account_auth_provider_x509_cert_url: str = Field(default="")
+    gcp_service_account_client_x509_cert_url: str = Field(default="")
     # Preview deploy
     preview_deploy: bool = Field(default=False)
 

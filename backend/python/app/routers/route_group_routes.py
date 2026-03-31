@@ -6,6 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
+from app.models.enum import (
+    DeliveryTypeEnum,
+    DriveDaysOfWeekEnum,
+    DriverAssignmentStatusEnum,
+    RouteStatusEnum,
+)
 from app.models.route_group import RouteGroupCreate, RouteGroupRead, RouteGroupUpdate
 from app.services.implementations.route_group_service import RouteGroupService
 
@@ -20,17 +26,36 @@ async def get_route_groups(
     end_date: datetime | None = Query(
         None, description="Filter route groups until this date"
     ),
+    weekday: list[DriveDaysOfWeekEnum] | None = Query(
+        None, description="Filter by one or more weekdays"
+    ),
+    delivery_type: list[DeliveryTypeEnum] | None = Query(
+        None, description="Filter by one or more delivery types"
+    ),
+    route_status: list[RouteStatusEnum] | None = Query(
+        None, description="Filter by one or more route statuses"
+    ),
+    driver_assignment_status: list[DriverAssignmentStatusEnum] | None = Query(
+        None, description="Filter by one or more driver assignment statuses"
+    ),
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
 ) -> list[dict]:
     """
-    Retrieve all route groups, optionally filtered by date range.
+    Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
     Can include associated routes in the response.
     """
     try:
         route_groups = await route_group_service.get_route_groups(
-            session, start_date, end_date, include_routes
+            session,
+            start_date,
+            end_date,
+            weekday,
+            delivery_type,
+            route_status,
+            driver_assignment_status,
+            include_routes,
         )
         result = []
         for route_group in route_groups:

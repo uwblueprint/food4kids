@@ -8,6 +8,7 @@ from functools import lru_cache
 from fastapi import Depends
 
 from app.config import settings
+from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
@@ -16,6 +17,7 @@ from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.entity_service import EntityService
 from app.services.implementations.location_group_service import LocationGroupService
+from app.services.implementations.location_service import LocationService
 from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
@@ -25,6 +27,7 @@ from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
 
 
@@ -32,6 +35,13 @@ from app.utilities.google_maps_client import GoogleMapsClient
 def get_logger() -> logging.Logger:
     """Get logger instance"""
     return logging.getLogger(__name__)
+
+
+@lru_cache
+def get_announcement_service() -> AnnouncementService:
+    """Get announcement service instance"""
+    logger = get_logger()
+    return AnnouncementService(logger)
 
 
 @lru_cache
@@ -138,3 +148,18 @@ def get_google_maps_client() -> GoogleMapsClient:
     """Get Google Maps client instance"""
     logger = get_logger()
     return GoogleMapsClient(logger, settings.google_maps_api_key)
+
+
+@lru_cache
+def get_location_service() -> LocationService:
+    """Get location service instance"""
+    logger = get_logger()
+    google_maps_client = get_google_maps_client()
+    return LocationService(logger, google_maps_client)
+
+
+@lru_cache
+def get_gcp_storage_client() -> GCPStorageClient:
+    """Get GCP Storage client instance"""
+    logger = get_logger()
+    return GCPStorageClient(logger, settings.gcp_bucket_name)

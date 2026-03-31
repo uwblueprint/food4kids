@@ -19,6 +19,7 @@ from app.models.driver_assignment import (
     DriverAssignmentCreate,
     DriverAssignmentUpdate,
 )
+from app.schemas.pagination import PaginationParams
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
@@ -44,7 +45,6 @@ class TestDriverAssignmentService:
             "route_id": test_route.route_id,
             "route_group_id": test_route_group.route_group_id,
             "time": datetime(2024, 1, 15, 8, 0),
-            "completed": False,
         }
 
     @pytest.fixture
@@ -65,12 +65,14 @@ class TestDriverAssignmentService:
         ) -> None:
             """Test retrieval when no driver assignments exist."""
             # Execute
+            pagination = PaginationParams()
             result = await driver_assignment_service.get_driver_assignments(
-                test_session
+                test_session, pagination
             )
 
             # Verify
-            assert result == []
+            assert result.items == []
+            assert result.total == 0
 
         @pytest.mark.asyncio
         async def test_get_driver_assignments_with_data(
@@ -88,18 +90,20 @@ class TestDriverAssignmentService:
             )
 
             # Execute
+            pagination = PaginationParams()
             result = await driver_assignment_service.get_driver_assignments(
-                test_session
+                test_session, pagination
             )
 
             # Verify
-            assert len(result) == 1
+            assert len(result.items) == 1
+            assert result.total == 1
             assert (
-                result[0].driver_assignment_id
+                result.items[0].driver_assignment_id
                 == created_assignment.driver_assignment_id
             )
-            assert result[0].driver_id == created_assignment.driver_id
-            assert result[0].route_id == created_assignment.route_id
+            assert result.items[0].driver_id == created_assignment.driver_id
+            assert result.items[0].route_id == created_assignment.route_id
 
 
 class TestDriverAssignmentIntegration:
@@ -121,32 +125,32 @@ class TestDriverAssignmentIntegration:
             route_id=test_route.route_id,
             route_group_id=test_route_group.route_group_id,
             time=datetime(2024, 1, 15, 8, 0),
-            completed=False,
         )
 
         created_assignment = await driver_assignment_service.create_driver_assignment(
             test_session, assignment_data
         )
         assert created_assignment is not None
-        assert created_assignment.completed is False
+        assert created_assignment.time == datetime(2024, 1, 15, 8, 0)
 
         # Read
-        assignments = await driver_assignment_service.get_driver_assignments(
-            test_session
+        pagination = PaginationParams()
+        assignments_result = await driver_assignment_service.get_driver_assignments(
+            test_session, pagination
         )
-        assert len(assignments) == 1
+        assert len(assignments_result.items) == 1
         assert (
-            assignments[0].driver_assignment_id
+            assignments_result.items[0].driver_assignment_id
             == created_assignment.driver_assignment_id
         )
 
         # Update
-        update_data = DriverAssignmentUpdate(completed=True)
+        update_data = DriverAssignmentUpdate(time=datetime(2024, 1, 16, 8, 0))
         updated_assignment = await driver_assignment_service.update_driver_assignment(
             test_session, created_assignment.driver_assignment_id, update_data
         )
         assert updated_assignment is not None
-        assert updated_assignment.completed is True
+        assert updated_assignment.time == datetime(2024, 1, 16, 8, 0)
 
         # Delete
         delete_result = await driver_assignment_service.delete_driver_assignment(
@@ -155,7 +159,7 @@ class TestDriverAssignmentIntegration:
         assert delete_result is True
 
         # Verify deletion
-        final_assignments = await driver_assignment_service.get_driver_assignments(
-            test_session
+        final_result = await driver_assignment_service.get_driver_assignments(
+            test_session, pagination
         )
-        assert len(final_assignments) == 0
+        assert len(final_result.items) == 0

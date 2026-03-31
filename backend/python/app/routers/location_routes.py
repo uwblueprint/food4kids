@@ -1,35 +1,39 @@
-import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.services import get_google_maps_client
-
-# from app.dependencies.auth import require_driver
+from app.dependencies.services import get_location_service
 from app.models import get_session
-from app.models.location import LocationCreate, LocationRead, LocationUpdate
+from app.models.location import (
+    LocationCreate,
+    LocationImportResponse,
+    LocationRead,
+    LocationUpdate,
+)
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import LocationService
-
-# Initialize service
-logger = logging.getLogger(__name__)
-google_maps_client = get_google_maps_client()
-location_service = LocationService(logger, google_maps_client)
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-@router.get("/", response_model=list[LocationRead])
+@router.get("/", response_model=PaginatedResponse[LocationRead])
 async def get_locations(
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
-) -> list[LocationRead]:
+    location_service: LocationService = Depends(get_location_service),
+) -> PaginatedResponse[LocationRead]:
     """
-    Get all locations
+    Get all locations with pagination
     """
     try:
-        locations = await location_service.get_locations(session)
-        return [LocationRead.model_validate(location) for location in locations]
+        result = await location_service.get_locations(session, pagination)
+        return PaginatedResponse.create(
+            items=[LocationRead.model_validate(loc) for loc in result.items],
+            total=result.total,
+            page=result.page,
+            page_size=result.page_size,
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -41,7 +45,7 @@ async def get_locations(
 async def get_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
+    location_service: LocationService = Depends(get_location_service),
 ) -> LocationRead:
     """
     Get a single location by ID
@@ -65,7 +69,7 @@ async def get_location(
 async def create_location(
     location: LocationCreate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
+    location_service: LocationService = Depends(get_location_service),
 ) -> LocationRead:
     """
     Create a new location
@@ -87,7 +91,7 @@ async def update_location(
     location_id: UUID,
     updated_location_data: LocationUpdate,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
+    location_service: LocationService = Depends(get_location_service),
 ) -> LocationRead:
     """
     Update a location by ID
@@ -113,7 +117,7 @@ async def update_location(
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_locations(
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
+    location_service: LocationService = Depends(get_location_service),
 ) -> None:
     """
     Delete all locations
@@ -131,7 +135,7 @@ async def delete_all_locations(
 async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
-    # _: bool = Depends(require_driver),
+    location_service: LocationService = Depends(get_location_service),
 ) -> None:
     """
     Delete a location by ID
@@ -141,6 +145,33 @@ async def delete_location(
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/validate",
+    response_model=LocationImportResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_locations(
+    file: UploadFile = File(...),
+    location_service: LocationService = Depends(get_location_service),
+) -> LocationImportResponse:
+    """
+    Validate location import data (no missing fields or local duplicates)
+    """
+    try:
+        result = await location_service.validate_locations(file)
+        return result
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
     except Exception as e:

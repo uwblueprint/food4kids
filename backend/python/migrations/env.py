@@ -17,6 +17,7 @@ from alembic import context
 
 # Import all models to ensure they're registered with SQLModel
 from app.models.admin import Admin
+from app.models.announcement import Announcement
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
 from app.models.driver_history import DriverHistory
