@@ -63,7 +63,7 @@ class RouteService:
             statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
             end_date = self._to_naive_utc(end_date)
-            statement = statement.where(RouteGroup.drive_date < end_date)
+            statement = statement.where(RouteGroup.drive_date <= end_date)
 
         # Unassigned filter
         if unassigned_only:
