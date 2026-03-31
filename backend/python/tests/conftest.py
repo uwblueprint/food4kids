@@ -48,6 +48,7 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
     async with engine.begin() as conn:
         # Import models to register them with SQLModel
         # Import in dependency order to avoid relationship resolution issues
+        from app.models.announcement import Announcement  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
 
         # Import driver assignment model
@@ -265,6 +266,16 @@ async def test_driver(
     await test_session.commit()
     await test_session.refresh(driver)
     return driver
+
+
+@pytest.fixture
+def sample_announcement_data() -> dict[str, Any]:
+    """Sample announcement data for testing."""
+    return {
+        "subject": "Test Announcement",
+        "message": "This is a test announcement message.",
+        "attachments": [],
+    }
 
 
 @pytest.fixture

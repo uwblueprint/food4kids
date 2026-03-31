@@ -11,6 +11,11 @@ from pydantic import ValidationError
 # Initialize all models to ensure proper relationship resolution
 from app.models import init_app
 from app.models.admin import Admin
+from app.models.announcement import (
+    Announcement,
+    AnnouncementCreate,
+    AnnouncementUpdate,
+)
 from app.models.driver import (
     Driver,
     DriverCreate,
@@ -704,3 +709,82 @@ class TestModelValidation:
         )
         assert job.route_group_id is None
         assert job.progress == ProgressEnum.RUNNING
+
+
+class TestAnnouncementModel:
+    """Test suite for announcement model validation."""
+
+    def test_announcement_creation(self) -> None:
+        """Test creating a valid announcement."""
+        user = User(
+            name="Test Admin",
+            email="admin@example.com",
+            auth_id="test-admin-123",
+            role="admin",
+        )
+        announcement = Announcement(
+            subject="Test Subject",
+            message="Test message body",
+            user_id=user.user_id,
+            attachments=["https://example.com/image.png"],
+        )
+        assert announcement.subject == "Test Subject"
+        assert announcement.message == "Test message body"
+        assert announcement.user_id == user.user_id
+        assert announcement.attachments == ["https://example.com/image.png"]
+        assert announcement.created_at is not None
+        assert announcement.announcement_id is not None
+
+    def test_announcement_create_schema(self) -> None:
+        """Test AnnouncementCreate validation."""
+        user_id = uuid4()
+        create = AnnouncementCreate(
+            subject="New Announcement",
+            message="Details here",
+            user_id=user_id,
+        )
+        assert create.subject == "New Announcement"
+        assert create.attachments == []
+
+        create_with_attachments = AnnouncementCreate(
+            subject="With Images",
+            message="See attached",
+            user_id=user_id,
+            attachments=["https://example.com/img1.png"],
+        )
+        assert len(create_with_attachments.attachments) == 1
+
+    def test_announcement_update_schema(self) -> None:
+        """Test AnnouncementUpdate optional fields."""
+        update = AnnouncementUpdate(subject="Updated Subject")
+        assert update.subject == "Updated Subject"
+        assert update.message is None
+        assert update.attachments is None
+
+        empty_update = AnnouncementUpdate()
+        assert empty_update.subject is None
+
+    def test_announcement_required_fields(self) -> None:
+        """Test that subject and message are required."""
+        with pytest.raises(ValidationError) as exc_info:
+            AnnouncementCreate(
+                message="No subject",
+                user_id=uuid4(),
+            )
+        assert "subject" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            AnnouncementCreate(
+                subject="No message",
+                user_id=uuid4(),
+            )
+        assert "message" in str(exc_info.value)
+
+    def test_announcement_subject_validation(self) -> None:
+        """Test subject field min/max length validation."""
+        with pytest.raises(ValidationError):
+            AnnouncementCreate(
+                subject="",
+                message="Some message",
+                user_id=uuid4(),
+            )
