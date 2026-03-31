@@ -36,6 +36,25 @@ async def get_routes(
     )
     return routes
 
+@router.get("/upcoming_routes", response_model=list[RouteWithDateRead])
+async def get_upcoming_routes(
+    session: AsyncSession = Depends(get_session),
+) -> list[RouteWithDateRead]:
+    """
+    Get all upcoming routes (routes with future drive dates).
+    """
+    return await route_service.get_upcoming_routes(session)
+
+
+@router.get("/past_routes", response_model=list[RouteWithDateRead])
+async def get_past_routes(
+    session: AsyncSession = Depends(get_session),
+) -> list[RouteWithDateRead]:
+    """
+    Get all past routes (routes with past drive dates).
+    """
+    return await route_service.get_past_routes(session)
+
 
 @router.get("/{route_id}", response_model=Route, status_code=status.HTTP_200_OK)
 async def get_route(
