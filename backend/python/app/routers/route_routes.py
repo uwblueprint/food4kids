@@ -36,6 +36,7 @@ async def get_routes(
     )
     return routes
 
+
 @router.get("/upcoming_routes", response_model=list[RouteWithDateRead])
 async def get_upcoming_routes(
     session: AsyncSession = Depends(get_session),
