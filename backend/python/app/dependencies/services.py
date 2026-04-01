@@ -26,6 +26,7 @@ from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.implementations.user_service import UserService
+from app.services.implementations.user_invite_services import UserInviteService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
@@ -66,6 +67,13 @@ def get_user_service() -> UserService:
     """Get user service instance"""
     logger = get_logger()
     return UserService(logger)
+
+
+@lru_cache
+def get_user_invite_service() -> UserInviteService:
+    """Get user invite service instance"""
+    logger = get_logger()
+    return UserInviteService(logger)
 
 
 @lru_cache

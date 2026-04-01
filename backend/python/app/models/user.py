@@ -1,7 +1,8 @@
 from uuid import UUID, uuid4
+from typing import Optional
 
 from pydantic import EmailStr
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 
 from .base import BaseModel
 
@@ -18,6 +19,7 @@ class User(UserBase, BaseModel, table=True):
     auth_id: str | None = Field(nullable=True, unique=True, index=True)
     role: str = Field(min_length=1, max_length=255, default="driver")
 
+    driver: Optional["Driver"] = Relationship(back_populates="users")
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=100)
@@ -34,9 +36,7 @@ class UserUpdate(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=254)
 
 
-class UserRegister(SQLModel):
-    """User registration request"""
-
-    name: str = Field(min_length=1, max_length=255)
-    email: EmailStr = Field(max_length=254)
+class UserFinalize(SQLModel):
+    user_invite_id: UUID
     password: str = Field(min_length=8, max_length=100)
+
