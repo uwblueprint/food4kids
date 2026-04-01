@@ -102,6 +102,46 @@ class UserService:
             await session.rollback()
             self.logger.error(f"Failed to create user: {e!s}")
             raise e
+        
+    async def link_firebase_to_user(
+        self,
+        session: AsyncSession,
+        user: User,
+        password: str,
+    ) -> User:
+        """Create associated firebase user for an existing user in our DB"""
+        firebase_user: UserRecord | None = None
+
+        try:
+            # Create Firebase user and set role
+            firebase_user = firebase_admin.auth.create_user(
+                email=user.email, 
+                password=password, 
+                email_verified=True, 
+            )
+            firebase_admin.auth.set_custom_user_claims(firebase_user.uid, {"role": user.role})
+
+            # Update user
+            user.auth_id = firebase_user.uid
+
+            try:
+                await session.commit()
+                await session.refresh(user)
+                return user
+
+            except Exception as db_error:
+                # Rollback Firebase user creation
+                try:
+                    firebase_admin.auth.delete_user(firebase_user.uid)
+                except Exception as firebase_error:
+                    self.logger.error(
+                        f"Failed to rollback Firebase user: {firebase_error!s}"
+                    )
+                raise db_error
+
+        except Exception as e:
+            self.logger.error(f"Failed to create firebase user: {e!s}")
+            raise e
 
     # async def create_user(
     #     self,

@@ -13,9 +13,9 @@ class UserInviteService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_user_invite_by_user_id(self, session: AsyncSession, user_id: UUID) -> UserInvite | None:
-        """Get user by ID - returns SQLModel instance or None if no UserInvite exists"""
-        statement = select(UserInvite).where(UserInvite.user_id == user_id)
+    async def get_user_invite_by_id(self, session: AsyncSession, user_invite_id: UUID) -> UserInvite | None:
+        """Get user invite by ID - returns SQLModel instance or None if no UserInvite exists"""
+        statement = select(UserInvite).where(UserInvite.user_invite_id == user_invite_id)
         result = await session.execute(statement)
         user_invite = result.scalars().first()
 
