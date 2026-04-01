@@ -133,6 +133,16 @@ class LocationRead(LocationBase):
     location_id: UUID
 
 
+class LocationIngestRequest(SQLModel):
+    net_new: list[ValidatedLocationImportEntry]
+    stale: list[LocationRead]
+
+
+class LocationIngestResponse(SQLModel):
+    created: list[LocationRead]
+    archived: list[LocationRead]
+
+
 class LocationUpdate(SQLModel):
     """Update request model with all fields optional"""
 
