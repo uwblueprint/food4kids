@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 from .base import BaseModel
+from app.models.user import User
+
 
 class UserInviteBase(SQLModel):
     user_id: UUID = Field(foreign_key="users.user_id", index=True, unique=True)
@@ -14,6 +16,7 @@ class UserInvite(UserInviteBase, BaseModel, table=True):
     __tablename__ = "user_invites"
     
     user_invite_id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user: User = Relationship()
 
 class UserInviteCreate():
     user_id: UUID

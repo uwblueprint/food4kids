@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.services import (
     get_auth_service,
     get_user_service,
+    get_user_invite_service,
 )
 from app.models import get_session
 from app.models.driver import (
@@ -18,12 +19,15 @@ from app.models.driver import (
     DriverRegister,
     DriverUpdate,
 )
-from app.models.user import UserCreate, UserBase
+from app.models.user import UserCreate, UserBase, UserFinalize
 from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.user_service import UserService
+from app.services.implementations.user_invite_services import UserInviteService
 from app.utilities.cookies import get_cookie_options
+
+from datetime import datetime, timezone
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -147,6 +151,68 @@ async def initialize_driver(
                 )
             except Exception as db_error:
                 logger.error(f"Failed to rollback database user: {db_error}")
+
+        error_message = getattr(e, "message", None)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_message if error_message else str(e),
+        ) from e
+
+
+@router.post(
+    "/", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
+)
+async def complete_driver_registration(
+    registration_data: UserFinalize,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service),
+    user_invite_service: UserInviteService = Depends(get_user_invite_service),
+) -> DriverRegisterResponse:
+    """
+    Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
+    """
+    try:
+        # Validate invite token
+        user_invite_id = registration_data.user_invite_id
+        user_invite = await user_invite_service.get_user_invite_by_user_id(session, user_invite_id)
+
+        if not user_invite or user_invite.is_used or user_invite.expires_at < datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid or expired registration link."
+            )
+
+        # Create firebase account for user
+        user = user_invite.user
+        await user_service.link_firebase_to_user(session, user, registration_data.password)
+
+        # Generate authentication tokens
+        auth_dto, refresh_token = await auth_service.generate_token(
+            session, user.email, registration_data.password
+        )
+
+        # Set refresh token as httpOnly cookie
+        cookie_options = get_cookie_options()
+        response.set_cookie(
+            "refreshToken",
+            value=refresh_token,
+            httponly=bool(cookie_options["httponly"]),
+            samesite=cast(
+                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
+            ),
+            secure=bool(cookie_options["secure"]),
+        )
+
+        return DriverRegisterResponse(
+            driver=DriverRead.model_validate(user.driver), auth=auth_dto
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error registering driver: {e}")
+        logger.error(traceback.format_exc())
 
         error_message = getattr(e, "message", None)
         raise HTTPException(
