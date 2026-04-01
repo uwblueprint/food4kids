@@ -11,22 +11,29 @@ from app.models.location import (
     LocationRead,
     LocationUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import LocationService
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-@router.get("/", response_model=list[LocationRead])
+@router.get("/", response_model=PaginatedResponse[LocationRead])
 async def get_locations(
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
-) -> list[LocationRead]:
+) -> PaginatedResponse[LocationRead]:
     """
-    Get all locations
+    Get all locations with pagination
     """
     try:
-        locations = await location_service.get_locations(session)
-        return [LocationRead.model_validate(location) for location in locations]
+        result = await location_service.get_locations(session, pagination)
+        return PaginatedResponse.create(
+            items=[LocationRead.model_validate(loc) for loc in result.items],
+            total=result.total,
+            page=result.page,
+            page_size=result.page_size,
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

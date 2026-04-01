@@ -12,6 +12,8 @@ from app.models.driver_assignment import DriverAssignment
 from app.models.route import Route, RouteWithDateRead
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
+from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.utilities.pagination import paginate_query
 
 
 class RouteService:
@@ -32,7 +34,8 @@ class RouteService:
         unassigned_only: bool = False,
         start_date: str | None = None,
         end_date: str | None = None,
-    ) -> list[RouteWithDateRead]:
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
         Returns routes with their drive dates - routes can appear multiple times for different dates.
@@ -78,11 +81,13 @@ class RouteService:
 
         statement = statement.order_by(RouteGroup.drive_date, Route.name)  # type: ignore[arg-type]
 
-        result = await session.execute(statement)
+        if pagination is None:
+            pagination = PaginationParams()
+
+        result, total = await paginate_query(session, statement, pagination)
         rows = result.all()
 
-        # Return RouteWithDateRead objects - no deduplication, routes can appear multiple times for different dates
-        return [
+        items = [
             RouteWithDateRead(
                 route_id=row.Route.route_id,
                 name=row.Route.name,
@@ -92,6 +97,13 @@ class RouteService:
             )
             for row in rows
         ]
+
+        return PaginatedResponse.create(
+            items=items,
+            total=total,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
 
     async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
         """Get route by ID"""

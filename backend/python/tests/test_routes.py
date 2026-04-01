@@ -168,10 +168,14 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_get_locations_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /locations returns empty list when no locations exist."""
+        """Test GET /locations returns empty paginated response when no locations exist."""
         response = await async_client.get("/locations/")
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
     async def test_create_location(
@@ -189,7 +193,7 @@ class TestLocationRoutes:
     async def test_get_locations_with_data(
         self, async_client: AsyncClient, sample_location_data: dict[str, Any]
     ) -> None:
-        """Test GET /locations returns list of locations."""
+        """Test GET /locations returns paginated list of locations."""
         # Create a location first
         create_response = await async_client.post(
             "/locations/", json=sample_location_data
@@ -200,7 +204,8 @@ class TestLocationRoutes:
         response = await async_client.get("/locations/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) >= 1
+        assert len(data["items"]) >= 1
+        assert data["total"] >= 1
 
     @pytest.mark.asyncio
     async def test_get_location_by_id(
@@ -272,10 +277,14 @@ class TestRouteRoutes:
 
     @pytest.mark.asyncio
     async def test_get_routes_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /routes returns empty list when no routes exist."""
+        """Test GET /routes returns empty paginated response when no routes exist."""
         response = await async_client.get("/routes")
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
     async def test_get_routes_with_data(
@@ -283,12 +292,11 @@ class TestRouteRoutes:
         async_client: AsyncClient,
         test_route: Any,  # noqa: ARG002
     ) -> None:
-        """Test GET /routes returns list of routes."""
+        """Test GET /routes returns paginated list of routes."""
         response = await async_client.get("/routes")
         assert response.status_code == 200
-        # Routes may be empty if there are no route groups
         data = response.json()
-        assert isinstance(data, list)
+        assert isinstance(data["items"], list)
 
 
 class TestRouteGroupRoutes:
