@@ -40,5 +40,3 @@ class NoteChainRead(NoteChainBase):
     """Read response model"""
 
     note_chain_id: UUID
-
-

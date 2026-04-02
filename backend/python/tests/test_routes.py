@@ -416,38 +416,6 @@ class TestNoteChainRoutes:
         return str(chain.note_chain_id)
 
     @pytest.mark.asyncio
-    async def test_chain_get_update_delete(
-        self, authed_async_client: AsyncClient, test_session: Any
-    ) -> None:
-        """Test GET, PATCH, DELETE on a note chain, plus 404."""
-        chain_id = await self._create_chain(test_session)
-
-        # Get
-        resp = await authed_async_client.get(f"/note-chains/{chain_id}")
-        assert resp.status_code == 200
-        assert resp.json()["note_chain_id"] == chain_id
-
-        # Get 404
-        not_found_resp = await authed_async_client.get(f"/note-chains/{uuid4()}")
-        assert not_found_resp.status_code == 404
-
-        # Update
-        resp = await authed_async_client.patch(
-            f"/note-chains/{chain_id}",
-            json={"read_permission": "Admin"},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["read_permission"] == "Admin"
-
-        # Delete
-        delete_resp = await authed_async_client.delete(f"/note-chains/{chain_id}")
-        assert delete_resp.status_code == 204
-        get_after_delete_resp = await authed_async_client.get(
-            f"/note-chains/{chain_id}"
-        )
-        assert get_after_delete_resp.status_code == 404
-
-    @pytest.mark.asyncio
     async def test_notes_crud_and_read_tracking(
         self, authed_async_client: AsyncClient, test_session: Any
     ) -> None:

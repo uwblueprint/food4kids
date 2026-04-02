@@ -24,7 +24,9 @@ class BaseModel(sm.SQLModel):
 
     # Common timestamp fields
     created_at: datetime | None = Field(
-        default_factory=lambda: datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None),
+        default_factory=lambda: datetime.now(ZoneInfo("America/New_York")).replace(
+            tzinfo=None
+        ),
     )
     updated_at: datetime | None = Field(
         default=None,

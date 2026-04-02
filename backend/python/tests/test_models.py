@@ -41,7 +41,14 @@ from app.models.enum import (
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
 from app.models.location_group import LocationGroup
-from app.models.note import Note, NoteCreate, NoteListResponse, NoteRead, NoteUpdate
+from app.models.note import (
+    Attachment,
+    Note,
+    NoteCreate,
+    NoteListResponse,
+    NoteRead,
+    NoteUpdate,
+)
 from app.models.note_chain import (
     NoteChain,
     NoteChainCreate,
@@ -585,13 +592,13 @@ class TestCoreModels:
             user_id=uuid4(),
             message="Note with images",
             attachments=[
-                "https://example.com/img1.png",
-                "https://example.com/img2.jpg",
+                Attachment(filename="img1.png", url="https://example.com/img1.png"),
+                Attachment(filename="img2.jpg", url="https://example.com/img2.jpg"),
             ],
         )
         assert note_with_attachments.attachments == [
-            "https://example.com/img1.png",
-            "https://example.com/img2.jpg",
+            Attachment(filename="img1.png", url="https://example.com/img1.png"),
+            Attachment(filename="img2.jpg", url="https://example.com/img2.jpg"),
         ]
 
         # Note without attachments defaults to empty list

@@ -884,7 +884,9 @@ def main() -> None:
                         read_entry = NoteChainReadModel(
                             note_chain_id=chain_row[0],
                             user_id=driver_user_row[0],
-                            last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+                            last_read_at=datetime.now(
+                                ZoneInfo("America/New_York")
+                            ).replace(tzinfo=None)
                             - timedelta(hours=random.randint(0, 72)),
                         )
                         set_timestamps(read_entry)

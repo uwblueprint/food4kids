@@ -38,6 +38,8 @@ class NotePermission(str, Enum):
 
     ADMIN = "Admin"
     ALL = "All"
+
+
 # Used in route group filtering
 class DriveDaysOfWeekEnum(str, Enum):
     MON = "Mon"

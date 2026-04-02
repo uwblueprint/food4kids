@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.enum import NotePermission
-from app.models.note_chain import NoteChain
 from app.models.location import (
     AlertCode,
     AlertType,
@@ -25,6 +24,7 @@ from app.models.location import (
     LocationUpdate,
     ValidatedLocationImportEntry,
 )
+from app.models.note_chain import NoteChain
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
