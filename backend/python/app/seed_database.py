@@ -9,6 +9,7 @@ import random
 import uuid
 from datetime import datetime, timedelta
 from typing import cast
+from zoneinfo import ZoneInfo
 
 import faker
 import phonenumbers
@@ -23,10 +24,13 @@ from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
 from app.models.driver_history import DriverHistory
-from app.models.enum import ProgressEnum
+from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
+from app.models.note import Note
+from app.models.note_chain import NoteChain
+from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
@@ -65,7 +69,14 @@ PROBABILITY_LOCATION_NOTES = 0.4
 PROBABILITY_DRIVER_NOTES = 0.3
 # Probability to skip creating driver history for the current year
 PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
-
+# Probability that a location note chain will have notes
+PROBABILITY_LOCATION_CHAIN_NOTES = 0.6
+# Probability that a route note chain will have notes
+PROBABILITY_ROUTE_CHAIN_NOTES = 0.4
+# Max notes per location chain
+MAX_LOCATION_CHAIN_NOTES = 3
+# Max notes per route chain
+MAX_ROUTE_CHAIN_NOTES = 2
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -363,6 +374,8 @@ def main() -> None:
             # Clear existing data
             print("Clearing existing data...")
             tables_to_clear = [
+                "notes",
+                "note_chain_reads",
                 "driver_assignments",
                 "driver_history",
                 "jobs",
@@ -374,6 +387,7 @@ def main() -> None:
                 "location_groups",
                 "drivers",
                 "admin_info",
+                "note_chains",
                 "system_settings",
                 "users",
             ]
@@ -505,6 +519,82 @@ def main() -> None:
             session.commit()
             print(f"Created {routes_created} routes")
 
+            # Create note chains for locations
+            print("Creating note chains for locations...")
+            location_chains_created = 0
+            location_notes_created = 0
+            all_locations = session.exec(select(Location)).all()
+
+            for location in all_locations:
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ALL,
+                    write_permission=NotePermission.ALL,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
+                location.note_chain_id = note_chain.note_chain_id
+                location_chains_created += 1
+
+                # Add sample notes to some location chains
+                if random.random() < PROBABILITY_LOCATION_CHAIN_NOTES:
+                    num_notes = random.randint(1, MAX_LOCATION_CHAIN_NOTES)
+                    for _ in range(num_notes):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=None,
+                            message=fake.sentence(),
+                            is_system=random.choice([True, False]),
+                        )
+                        set_timestamps(note)
+                        session.add(note)
+                        location_notes_created += 1
+
+            session.commit()
+            print(
+                f"Created {location_chains_created} location note chains "
+                f"with {location_notes_created} notes"
+            )
+
+            # Create note chains for routes
+            print("Creating note chains for routes...")
+            route_chains_created = 0
+            route_notes_created = 0
+            all_routes = session.exec(select(Route)).all()
+
+            for route in all_routes:
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ADMIN,
+                    write_permission=NotePermission.ADMIN,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
+                route.note_chain_id = note_chain.note_chain_id
+                route_chains_created += 1
+
+                # Add sample notes to some route chains
+                if random.random() < PROBABILITY_ROUTE_CHAIN_NOTES:
+                    num_notes = random.randint(1, MAX_ROUTE_CHAIN_NOTES)
+                    for _ in range(num_notes):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=None,
+                            message=fake.sentence(),
+                            is_system=True,
+                        )
+                        set_timestamps(note)
+                        session.add(note)
+                        route_notes_created += 1
+
+            session.commit()
+            print(
+                f"Created {route_chains_created} route note chains "
+                f"with {route_notes_created} notes"
+            )
+
             # Create drivers
             print("Creating drivers...")
             num_drivers = max(routes_created, MIN_DRIVERS)
@@ -583,10 +673,10 @@ def main() -> None:
                     session.add(route_group)
                     session.flush()  # Flush to get the route_group_id
 
-                    for route in group_routes:
+                    for route_row in group_routes:
                         membership = RouteGroupMembership(
                             route_group_id=route_group.route_group_id,
-                            route_id=route.route_id,
+                            route_id=route_row.route_id,
                         )
                         set_timestamps(membership)
                         session.add(membership)
@@ -752,7 +842,6 @@ def main() -> None:
 
             # Create admin info
             print("Creating admin info...")
-            # Parse route_start_time string to time object
             user = User(
                 name="Dev",
                 email="food4kids@uwblueprint.org",
@@ -772,6 +861,40 @@ def main() -> None:
             session.commit()
             print("Created admin info")
 
+            # Create read tracking entries for some drivers
+            print("Creating note chain read tracking entries...")
+            read_entries_created = 0
+            all_driver_users = session.execute(
+                text(
+                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
+                )
+            ).fetchall()
+
+            # Get a sample of note chains to mark as read
+            all_chain_ids = session.execute(
+                text("SELECT note_chain_id FROM note_chains")
+            ).fetchall()
+
+            for driver_user_row in all_driver_users:
+                # Each driver reads a random subset of chains
+                num_chains_to_read = random.randint(0, min(5, len(all_chain_ids)))
+                if num_chains_to_read > 0:
+                    chains_to_read = random.sample(all_chain_ids, num_chains_to_read)
+                    for chain_row in chains_to_read:
+                        read_entry = NoteChainReadModel(
+                            note_chain_id=chain_row[0],
+                            user_id=driver_user_row[0],
+                            last_read_at=datetime.now(
+                                ZoneInfo("America/New_York")
+                            ).replace(tzinfo=None)
+                            - timedelta(hours=random.randint(0, 72)),
+                        )
+                        set_timestamps(read_entry)
+                        session.add(read_entry)
+                        read_entries_created += 1
+
+            session.commit()
+            print(f"Created {read_entries_created} note chain read tracking entries")
             # Create sample announcements
             print("Creating sample announcements...")
             sample_announcements = [

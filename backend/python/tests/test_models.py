@@ -31,12 +31,30 @@ from app.models.driver_history import (
     DriverHistoryRead,
     DriverHistoryUpdate,
 )
-from app.models.enum import EntityEnum, ProgressEnum, RoleEnum, SimpleEntityEnum
+from app.models.enum import (
+    EntityEnum,
+    NotePermission,
+    ProgressEnum,
+    RoleEnum,
+    SimpleEntityEnum,
+)
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
-from app.models.location_group import (
-    LocationGroup,
+from app.models.location_group import LocationGroup
+from app.models.note import (
+    Attachment,
+    Note,
+    NoteCreate,
+    NoteListResponse,
+    NoteRead,
+    NoteUpdate,
 )
+from app.models.note_chain import (
+    NoteChain,
+    NoteChainCreate,
+    NoteChainRead,
+)
+from app.models.note_chain_read import NoteChainReadModel, NoteChainReadResponse
 from app.models.route import Route, RouteUpdate
 from app.models.route_group import (
     RouteGroup,
@@ -518,6 +536,124 @@ class TestCoreModels:
         )
         assert job_update.progress == ProgressEnum.COMPLETED
 
+    def test_note_chain_core_operations(self) -> None:
+        """Test NoteChain and Note model core operations."""
+        # Create chain with defaults
+        chain = NoteChain(
+            read_permission=NotePermission.ADMIN,
+            write_permission=NotePermission.ADMIN,
+        )
+        assert chain.read_permission == NotePermission.ADMIN
+        assert chain.created_at is not None
+
+        # Create chain with ALL permissions
+        chain_public = NoteChain(
+            read_permission=NotePermission.ALL,
+            write_permission=NotePermission.ALL,
+        )
+        assert chain_public.read_permission == NotePermission.ALL
+
+        # NoteChainCreate defaults
+        chain_create = NoteChainCreate()
+        assert chain_create.read_permission == NotePermission.ADMIN
+        assert chain_create.write_permission == NotePermission.ADMIN
+
+        # NoteChainRead
+        chain_read = NoteChainRead(
+            note_chain_id=uuid4(),
+            read_permission=NotePermission.ALL,
+            write_permission=NotePermission.ADMIN,
+        )
+        assert chain_read.note_chain_id is not None
+
+        # Create note
+        note = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="Test note",
+        )
+        assert note.message == "Test note"
+        assert note.is_system is False  # Default
+        assert note.created_at is not None
+
+        # System note (no user)
+        system_note = Note(
+            note_chain_id=uuid4(),
+            user_id=None,
+            message="System generated",
+            is_system=True,
+        )
+        assert system_note.user_id is None
+        assert system_note.is_system is True
+
+        # Note with attachments
+        note_with_attachments = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="Note with images",
+            attachments=[
+                Attachment(filename="img1.png", url="https://example.com/img1.png"),
+                Attachment(filename="img2.jpg", url="https://example.com/img2.jpg"),
+            ],
+        )
+        assert note_with_attachments.attachments == [
+            Attachment(filename="img1.png", url="https://example.com/img1.png"),
+            Attachment(filename="img2.jpg", url="https://example.com/img2.jpg"),
+        ]
+
+        # Note without attachments defaults to empty list
+        note_no_attachments = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="No attachments",
+        )
+        assert note_no_attachments.attachments == []
+
+        # NoteCreate
+        note_create = NoteCreate(message="Hello")
+        assert note_create.message == "Hello"
+
+        # NoteRead
+        note_read = NoteRead(
+            note_id=uuid4(),
+            note_chain_id=uuid4(),
+            user_id=None,
+            message="Read test",
+            is_system=True,
+        )
+        assert note_read.note_id is not None
+
+        # NoteUpdate
+        note_update = NoteUpdate(message="Updated")
+        assert note_update.message == "Updated"
+
+        # NoteChainReadModel
+        from datetime import datetime, timezone
+
+        read_model = NoteChainReadModel(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        assert read_model.note_chain_read_id is not None
+
+        # NoteChainReadResponse
+        read_response = NoteChainReadResponse(
+            note_chain_read_id=uuid4(),
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        assert read_response.note_chain_read_id is not None
+
+        # NoteListResponse
+        list_response = NoteListResponse(
+            notes=[note_read],
+            unread_count=1,
+        )
+        assert len(list_response.notes) == 1
+        assert list_response.unread_count == 1
+
     def test_relationship_models_core_operations(self) -> None:
         """Test relationship models (RouteStop, RouteGroupMembership) core operations."""
         from uuid import uuid4
@@ -567,6 +703,10 @@ class TestEnumsAndSerialization:
         assert SimpleEntityEnum.B.value == "B"
         assert SimpleEntityEnum.C.value == "C"
         assert SimpleEntityEnum.D.value == "D"
+
+        # Test NotePermission
+        assert NotePermission.ADMIN.value == "Admin"
+        assert NotePermission.ALL.value == "All"
 
         # Test enum serialization in models
 
@@ -670,6 +810,24 @@ class TestModelValidation:
                 admin_phone="",  # Empty phone fails
             )
         assert "admin_phone" in str(exc_info.value)
+
+    def test_note_message_validation(self) -> None:
+        """Test note message validation (empty and too long)."""
+        with pytest.raises(ValidationError) as exc_info:
+            NoteCreate(message="")
+        assert "message" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            NoteCreate(message="x" * 2001)
+        assert "message" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            NoteUpdate(message="")
+        assert "message" in str(exc_info.value)
+
+        # Max length should be accepted
+        valid = NoteCreate(message="x" * 2000)
+        assert len(valid.message) == 2000
 
     def test_numeric_field_validation(self) -> None:
         """Test numeric field validation."""
