@@ -9,6 +9,7 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.enum import NotePermission
 from app.models.location import (
     AlertCode,
     AlertType,
@@ -23,6 +24,7 @@ from app.models.location import (
     LocationUpdate,
     ValidatedLocationImportEntry,
 )
+from app.models.note_chain import NoteChain
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
@@ -100,7 +102,15 @@ class LocationService:
     ) -> Location:
         """Create a new location using a LocationCreate object - returns SQLModel instance"""
         try:
+            # Auto-create a note chain for the location
+            note_chain = NoteChain(
+                read_permission=NotePermission.ALL,
+                write_permission=NotePermission.ALL,
+            )
+            session.add(note_chain)
+            await session.flush()
             location = await self._build_location(location_data)
+            location.note_chain_id = note_chain.note_chain_id
             session.add(location)
             await session.commit()
             await session.refresh(location)

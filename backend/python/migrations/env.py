@@ -25,6 +25,9 @@ from app.models.entity import Entity
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
+from app.models.note import Note
+from app.models.note_chain import NoteChain
+from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
