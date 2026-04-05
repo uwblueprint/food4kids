@@ -1,30 +1,40 @@
 // Auto-generated from index.css @theme block
-// Run: npx tsx extract-tokens.ts
+// Run: pnpm tsx emails/extract-tokens.ts
 
 export const emailTailwindConfig = {
   "theme": {
     "extend": {
       "colors": {
-        "grey-500": "#1c1b1f",
-        "grey-100": "#ffffff",
-        "blue-300": "#226ca7",
-        "blue-50": "#e9f4ff",
-        "blue-100": "#bed3e9",
-        "blue-400": "#195586",
-        "grey-150": "#f8f8f8",
-        "grey-200": "#eff3f6",
-        "grey-300": "#e0e7ed",
-        "grey-400": "#707581",
-        "red": "#eb3131",
-        "light-red": "#fef3f2",
+        "blue": {
+          "50": "#e9f4ff",
+          "100": "#bed3e9",
+          "300": "#226ca7",
+          "400": "#195586"
+        },
+        "brand": {
+          "green": "#27b28d",
+          "light-blue": "#09a7df",
+          "orange": "#eb5531",
+          "pink": "#b33f93"
+        },
         "dark-yellow": "#fdb022",
-        "light-yellow": "#fffaeb",
-        "success-stroke": "#039855",
-        "success-fill": "#ecfdf3",
-        "brand-green": "#27b28d",
-        "brand-light-blue": "#09a7df",
-        "brand-orange": "#eb5531",
-        "brand-pink": "#b33f93"
+        "grey": {
+          "100": "#ffffff",
+          "150": "#f8f8f8",
+          "200": "#eff3f6",
+          "300": "#e0e7ed",
+          "400": "#707581",
+          "500": "#1c1b1f"
+        },
+        "light": {
+          "red": "#fef3f2",
+          "yellow": "#fffaeb"
+        },
+        "red": "#eb3131",
+        "success": {
+          "fill": "#ecfdf3",
+          "stroke": "#039855"
+        }
       },
       "fontFamily": {
         "nunito": [
@@ -53,24 +63,6 @@ export const emailTailwindConfig = {
           "1rem",
           {
             "lineHeight": "1.25"
-          }
-        ],
-        "p1": [
-          "1rem",
-          {
-            "lineHeight": "1.5"
-          }
-        ],
-        "p2": [
-          "0.875rem",
-          {
-            "lineHeight": "1.286"
-          }
-        ],
-        "p3": [
-          "0.75rem",
-          {
-            "lineHeight": "1.5"
           }
         ],
         "m-h1": [
@@ -107,6 +99,24 @@ export const emailTailwindConfig = {
           "0.875rem",
           {
             "lineHeight": "1.286"
+          }
+        ],
+        "p1": [
+          "1rem",
+          {
+            "lineHeight": "1.5"
+          }
+        ],
+        "p2": [
+          "0.875rem",
+          {
+            "lineHeight": "1.286"
+          }
+        ],
+        "p3": [
+          "0.75rem",
+          {
+            "lineHeight": "1.5"
           }
         ]
       },

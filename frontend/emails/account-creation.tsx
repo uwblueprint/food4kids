@@ -1,5 +1,6 @@
-import { Text, Button, Heading, Img, Section } from "@react-email/components";
+import { Button, Heading, Img, Section,Text } from "@react-email/components";
 import * as React from "react";
+
 import F4KEmailLayout from "./components/Layout";
 
 export default function AccountCreationEmail() {
