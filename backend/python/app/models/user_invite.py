@@ -18,5 +18,5 @@ class UserInvite(UserInviteBase, BaseModel, table=True):
     user_invite_id: UUID = Field(default_factory=uuid4, primary_key=True)
     user: User = Relationship()
 
-class UserInviteCreate():
+class UserInviteCreate(SQLModel):
     user_id: UUID
