@@ -1,5 +1,7 @@
 import logging
+from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -9,6 +11,8 @@ from app.models.announcement import (
     AnnouncementCreate,
     AnnouncementUpdate,
 )
+from app.models.announcement_last_read import AnnouncementLastRead
+from app.models.user import User
 
 
 class AnnouncementService:
@@ -113,3 +117,50 @@ class AnnouncementService:
             self.logger.error(f"Failed to delete announcement: {error!s}")
             await session.rollback()
             raise error
+
+    # --- Read Tracking ---
+
+    async def mark_announcements_as_read(
+        self, session: AsyncSession, user_id: UUID
+    ) -> AnnouncementLastRead:
+        """Upsert the user's last_read_at timestamp to now"""
+        try:
+            # Validate user exists
+            user_statement = select(User).where(User.user_id == user_id)
+            user_result = await session.execute(user_statement)
+            if not user_result.scalars().first():
+                raise ValueError(f"User with id {user_id} not found")
+
+            statement = select(AnnouncementLastRead).where(
+                AnnouncementLastRead.user_id == user_id
+            )
+            result = await session.execute(statement)
+            entry = result.scalars().first()
+
+            now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+
+            if entry:
+                entry.last_read_at = now
+                entry.updated_at = now
+            else:
+                entry = AnnouncementLastRead(user_id=user_id, last_read_at=now)
+                session.add(entry)
+
+            await session.commit()
+            await session.refresh(entry)
+            return entry
+
+        except Exception as error:
+            self.logger.error(f"Failed to mark announcements as read: {error!s}")
+            await session.rollback()
+            raise error
+
+    async def get_last_read_at(
+        self, session: AsyncSession, user_id: UUID
+    ) -> datetime | None:
+        """Get the user's last_read_at timestamp, or None if never read"""
+        statement = select(AnnouncementLastRead.last_read_at).where(
+            AnnouncementLastRead.user_id == user_id
+        )
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()
