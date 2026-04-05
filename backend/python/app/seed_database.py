@@ -23,6 +23,7 @@ from sqlmodel import Session, select
 from app import initialize_firebase
 from app.models.admin import Admin
 from app.models.announcement import Announcement
+from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
@@ -32,7 +33,6 @@ from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note import Note
 from app.models.note_chain import NoteChain
-from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
@@ -596,8 +596,10 @@ def main() -> None:
             # route_groups.
             print("Clearing existing data...")
             tables_to_clear = [
+                "announcement_last_reads",
                 "notes",
                 "note_chain_reads",
+                "driver_assignments",
                 "driver_history",
                 "jobs",
                 "route_stop_snapshots",
@@ -1213,6 +1215,33 @@ def main() -> None:
                 session.add(announcement)
             session.commit()
             print(f"Created {len(SAMPLE_ANNOUNCEMENTS)} sample announcements")
+
+            # Create announcement read tracking entries for some drivers
+            print("Creating announcement read tracking entries...")
+            read_entries_created = 0
+            all_driver_users = session.execute(
+                text(
+                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
+                )
+            ).fetchall()
+
+            for driver_user_row in all_driver_users:
+                if random.random() < 0.6:
+                    read_entry = AnnouncementLastRead(
+                        user_id=driver_user_row[0],
+                        last_read_at=datetime.now(
+                            ZoneInfo("America/New_York")
+                        ).replace(tzinfo=None)
+                        - timedelta(hours=random.randint(0, 72)),
+                    )
+                    set_timestamps(read_entry)
+                    session.add(read_entry)
+                    read_entries_created += 1
+
+            session.commit()
+            print(
+                f"Created {read_entries_created} announcement read tracking entries"
+            )
 
             print("Comprehensive database seeding completed successfully!")
 

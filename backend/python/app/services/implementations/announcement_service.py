@@ -12,9 +12,8 @@ from app.models.announcement import (
     AnnouncementCreate,
     AnnouncementUpdate,
 )
-from app.models.driver import Driver
+from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.user import User
-from app.services.implementations.email_dispatcher import EmailDispatcher
 
 
 class AnnouncementService:
@@ -155,51 +154,49 @@ class AnnouncementService:
             await session.rollback()
             raise error
 
-    async def send_announcement_emails_to_drivers(
-        self,
-        session: AsyncSession,
-        announcement_id: UUID,
-        dispatcher: EmailDispatcher,
-        frontend_base_url: str,
-    ) -> dict[str, int]:
-        """Email all active drivers about an announcement."""
-        announcement = await self.get_announcement(session, announcement_id)
-        if announcement is None:
-            raise ValueError(f"Announcement with id {announcement_id} not found")
+    # --- Read Tracking ---
 
-        statement = (
-            select(User)
-            .join(Driver, col(Driver.user_id) == col(User.user_id))
-            .where(col(Driver.active).is_(True))
+    async def mark_announcements_as_read(
+        self, session: AsyncSession, user_id: UUID
+    ) -> AnnouncementLastRead:
+        """Upsert the user's last_read_at timestamp to now"""
+        try:
+            # Validate user exists
+            user_statement = select(User).where(User.user_id == user_id)
+            user_result = await session.execute(user_statement)
+            if not user_result.scalars().first():
+                raise ValueError(f"User with id {user_id} not found")
+
+            statement = select(AnnouncementLastRead).where(
+                AnnouncementLastRead.user_id == user_id
+            )
+            result = await session.execute(statement)
+            entry = result.scalars().first()
+
+            now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+
+            if entry:
+                entry.last_read_at = now
+                entry.updated_at = now
+            else:
+                entry = AnnouncementLastRead(user_id=user_id, last_read_at=now)
+                session.add(entry)
+
+            await session.commit()
+            await session.refresh(entry)
+            return entry
+
+        except Exception as error:
+            self.logger.error(f"Failed to mark announcements as read: {error!s}")
+            await session.rollback()
+            raise error
+
+    async def get_last_read_at(
+        self, session: AsyncSession, user_id: UUID
+    ) -> datetime | None:
+        """Get the user's last_read_at timestamp, or None if never read"""
+        statement = select(AnnouncementLastRead.last_read_at).where(
+            AnnouncementLastRead.user_id == user_id
         )
         result = await session.execute(statement)
-        drivers = list(result.scalars().all())
-
-        announcement_url = f"{frontend_base_url.rstrip('/')}/driver/home"
-        sent_count = 0
-        failed_count = 0
-
-        for user in drivers:
-            context = {
-                "Driver_Name_To_Replace": user.full_name,
-                "Announcement_Name": announcement.subject,
-                "Announcement_Body": announcement.message,
-                "Announcement_URL": announcement_url,
-            }
-            try:
-                await dispatcher.dispatch(
-                    email_type="check-latest-announcement",
-                    to=user.email,
-                    context=context,
-                )
-                sent_count += 1
-            except Exception as error:
-                failed_count += 1
-                self.logger.error(
-                    "Failed to send announcement email to %s: %s",
-                    user.email,
-                    error,
-                    exc_info=True,
-                )
-
-        return {"sent": sent_count, "failed": failed_count}
+        return result.scalar_one_or_none()
