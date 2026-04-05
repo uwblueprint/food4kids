@@ -20,6 +20,7 @@ from app.models.driver import (
     DriverUpdate,
 )
 from app.models.user import UserCreate, UserBase, UserFinalize
+from app.models.user_invite import UserInviteCreate
 from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
@@ -100,13 +101,14 @@ async def get_driver(
 
 
 @router.post(
-    "/", response_model=DriverRead, status_code=status.HTTP_201_CREATED
+    "/initialize", response_model=DriverRead, status_code=status.HTTP_201_CREATED
 )
 async def initialize_driver(
     register_request: DriverRegister,
     session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
+    user_invite_service: UserInviteService = Depends(get_user_invite_service)
 ) -> DriverRead:
     """
     Register a new driver in our backend, creates a User and Driver object, returns DriverRead
@@ -116,23 +118,28 @@ async def initialize_driver(
     user = None
 
     try:
-        # Create user first
-        user_data = register_request.model_dump(
-            include=set(UserBase.model_fields.keys())
-        )
-        user_base = UserBase(**user_data)
-        user = await user_service.create_user(session, user_base)
+        async with session.begin():
+            # Create user first
+            user_data = register_request.model_dump(
+                include=set(UserBase.model_fields.keys())
+            )
+            user_base = UserBase(**user_data)
+            user = await user_service.create_user(session, user_base)
 
-        # Create driver after
-        driver_data = register_request.model_dump(
-            include=set(DriverCreate.model_fields.keys())
-        )
-        driver_data["user_id"] = user.user_id
-        driver = DriverCreate(**driver_data)
-        created_driver = await driver_service.create_driver(session, driver)
+            # Create driver after
+            driver_data = register_request.model_dump(
+                include=set(DriverCreate.model_fields.keys())
+            )
+            driver_data["user_id"] = user.user_id
+            driver = DriverCreate(**driver_data)
+            created_driver = await driver_service.create_driver(session, driver)
+
+            # Create User Invite Record
+            user_invite_create = UserInviteCreate(user_id=user.user_id)
+            user_invite = await user_invite_service.create_user_invite(session, user_invite_create)
 
         # Send invitation email
-        auth_service.send_create_password_email(register_request.email)
+        auth_service.send_create_password_email(register_request.email, user_invite.user_invite_id)
 
         return DriverRead.model_validate(created_driver)
 
@@ -142,15 +149,6 @@ async def initialize_driver(
         # Compensating transaction: rollback all changes
         logger.error(f"Error registering driver: {e}")
         logger.error(traceback.format_exc())
-
-        # Attempt to clean up database user (which also attempts Firebase cleanup)
-        if user:
-            try:
-                await user_service.delete_user_by_id(
-                    session=session, user_id=user.user_id
-                )
-            except Exception as db_error:
-                logger.error(f"Failed to rollback database user: {db_error}")
 
         error_message = getattr(e, "message", None)
         raise HTTPException(
@@ -184,7 +182,7 @@ async def complete_driver_registration(
                 detail="Invalid or expired registration link."
             )
 
-        # Create firebase account for user
+        # Create Firebase account for user
         user = user_invite.user
         await user_service.link_firebase_to_user(session, user, registration_data.password)
 

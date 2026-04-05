@@ -26,19 +26,12 @@ class UserInviteService:
         session: AsyncSession,
         user_invite_data: UserInviteCreate,
     ) -> UserInvite:
-        """Create new user without Firebase integration"""
-        try:
-            # Create database user
-            user_invite = UserInvite(
-                user_id=user_invite_data.user_id
-            )
+        """Create new user invite"""
+        # Create database user invite
+        user_invite = UserInvite(
+            user_id=user_invite_data.user_id
+        )
 
-            session.add(user_invite)
-            await session.commit()
-            await session.refresh(user_invite)
-            return user_invite
-
-        except Exception as e:
-            await session.rollback()
-            self.logger.error(f"Failed to create user invite: {e!s}")
-            raise e
+        session.add(user_invite)
+        await session.flush()
+        return user_invite

@@ -85,23 +85,16 @@ class UserService:
         user_data: UserBase,
     ) -> User:
         """Create new user without Firebase integration"""
-        try:
-            # Create database user
-            user = User(
-                name=user_data.name,
-                email=user_data.email,
-                auth_id=None,
-            )
+        # Create database user
+        user = User(
+            name=user_data.name,
+            email=user_data.email,
+            auth_id=None,
+        )
 
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            return user
-
-        except Exception as e:
-            await session.rollback()
-            self.logger.error(f"Failed to create user: {e!s}")
-            raise e
+        session.add(user)
+        await session.flush()
+        return user
         
     async def link_firebase_to_user(
         self,
@@ -241,30 +234,23 @@ class UserService:
                 self.logger.error(f"User with id {user_id} not found")
                 return
 
-            # Store for rollback
-            user_data = {
-                "name": user.name,
-                "email": user.email,
-                "auth_id": user.auth_id,
-                "role": user.role,
-            }
+            auth_id = user.auth_id
 
             await session.delete(user)
-            await session.commit()
 
             # Delete from Firebase if not in hanging state
-            if user.auth_id:
+            if auth_id:
                 try:
-                    firebase_admin.auth.delete_user(user.auth_id)
-
+                    firebase_admin.auth.delete_user(auth_id)
                 except Exception as firebase_error:
                     # Rollback database deletion
-                    new_user = User(**user_data)
-                    session.add(new_user)
-                    await session.commit()
+                    await session.rollback()
                     raise firebase_error
+                
+            await session.commit()
 
         except Exception as e:
+            await session.rollback()
             self.logger.error(f"Failed to delete user: {e!s}")
             raise e
 
