@@ -8,6 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import BaseModel
 
 if TYPE_CHECKING:
+    from .note_chain import NoteChain
     from .route_group_membership import RouteGroupMembership
     from .route_stop import RouteStop
 
@@ -24,6 +25,9 @@ class RouteBase(SQLModel):
     )
     expires_at: datetime | None = Field(default=None)
     ends_at_warehouse: bool = Field(default=False)
+    note_chain_id: UUID | None = Field(
+        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+    )
 
 
 class Route(RouteBase, BaseModel, table=True):
@@ -44,6 +48,7 @@ class Route(RouteBase, BaseModel, table=True):
     route_group_memberships: list["RouteGroupMembership"] = Relationship(
         back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+    note_chain: "NoteChain" = Relationship()
 
 
 class RouteCreate(RouteBase):
@@ -71,6 +76,7 @@ class RouteUpdate(SQLModel):
     polyline_updated_at: datetime | None = None
     expires_at: datetime | None = None
     ends_at_warehouse: bool | None = None
+    note_chain_id: UUID | None = None
 
 
 class RouteWithDateRead(SQLModel):

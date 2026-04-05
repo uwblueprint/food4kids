@@ -8,6 +8,7 @@ from .base import BaseModel
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
+    from .note_chain import NoteChain
 
 
 class LocationState(str, Enum):
@@ -34,8 +35,11 @@ class LocationBase(SQLModel):
     place_id: str | None = None
     num_children: int | None = None
     num_boxes: int = Field(default=0)
-    notes: str = Field(default="")
     state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
+    notes: str = Field(default="")
+    note_chain_id: UUID | None = Field(
+        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+    )
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -47,6 +51,7 @@ class Location(LocationBase, BaseModel, table=True):
 
     # Relationship back to location group
     location_group: "LocationGroup" = Relationship(back_populates="locations")
+    note_chain: "NoteChain" = Relationship()
 
 
 class LocationImportStatus(str, Enum):
@@ -149,3 +154,4 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+    note_chain_id: UUID | None = None

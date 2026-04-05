@@ -33,6 +33,13 @@ class ProgressEnum(str, Enum):
     FAILED = "Failed"
 
 
+class NotePermission(str, Enum):
+    """Controls who can read/write on a note chain"""
+
+    ADMIN = "Admin"
+    ALL = "All"
+
+
 # Used in route group filtering
 class DriveDaysOfWeekEnum(str, Enum):
     MON = "Mon"
