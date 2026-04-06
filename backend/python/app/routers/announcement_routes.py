@@ -31,9 +31,7 @@ async def get_announcements(
 
         last_read_at = None
         if user_id is not None:
-            last_read_at = await announcement_service.get_last_read_at(
-                session, user_id
-            )
+            last_read_at = await announcement_service.get_last_read_at(session, user_id)
 
         results = []
         for a in announcements:
@@ -66,9 +64,7 @@ async def mark_announcements_as_read(
         )
         return AnnouncementLastReadResponse.model_validate(entry)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

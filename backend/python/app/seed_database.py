@@ -905,9 +905,9 @@ def main() -> None:
                 if random.random() < 0.6:
                     read_entry = AnnouncementLastRead(
                         user_id=driver_user_row[0],
-                        last_read_at=datetime.now(
-                            ZoneInfo("America/New_York")
-                        ).replace(tzinfo=None)
+                        last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(
+                            tzinfo=None
+                        )
                         - timedelta(hours=random.randint(0, 72)),
                     )
                     set_timestamps(read_entry)
@@ -915,9 +915,7 @@ def main() -> None:
                     read_entries_created += 1
 
             session.commit()
-            print(
-                f"Created {read_entries_created} announcement read tracking entries"
-            )
+            print(f"Created {read_entries_created} announcement read tracking entries")
 
             print("Comprehensive database seeding completed successfully!")
 

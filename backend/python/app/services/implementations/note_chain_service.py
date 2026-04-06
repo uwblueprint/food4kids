@@ -262,4 +262,3 @@ class NoteChainService:
             self.logger.error(f"Failed to delete note: {e!s}")
             await session.rollback()
             raise e
-
