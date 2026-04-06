@@ -61,5 +61,3 @@ class NoteUpdate(SQLModel):
     """Update request model - only message can be edited"""
 
     message: str = Field(min_length=1, max_length=2000)
-
-
