@@ -180,31 +180,42 @@ class TestCoreBusinessValidation:
         assert "password" in str(exc_info.value)
 
     def test_year_validation_business_rule(self) -> None:
-        """Test year validation business rule (2025-2100) for DriverHistory."""
-        from uuid import uuid4
-
-        # Test valid years (boundaries)
+        """Test year (2025-2100) and month (1-12) validation for DriverHistory."""
+        # Test valid years and months (boundaries)
         valid_years = [2025, 2030, 2100]
+        valid_months = [1, 6, 12]
 
         for year in valid_years:
-            history = DriverHistory(
-                driver_id=uuid4(),
-                year=year,
-                km=1000.0,
-            )
-            assert history.year == year
+            for month in valid_months:
+                history = DriverHistory(
+                    driver_id=uuid4(), year=year, month=month, km=1000.0
+                )
+                assert history.year == year
+                assert history.month == month
 
         # Test invalid years
         invalid_years = [2024, 2101, 2000]
-
         for year in invalid_years:
             with pytest.raises(ValidationError) as exc_info:
                 DriverHistory(
                     driver_id=uuid4(),
                     year=year,
+                    month=1,
                     km=1000.0,
                 )
             assert "year" in str(exc_info.value)
+
+        # Test invalid months
+        invalid_months = [0, 13, -1]
+        for month in invalid_months:
+            with pytest.raises(ValidationError) as exc_info:
+                DriverHistory(
+                    driver_id=uuid4(),
+                    year=2025,
+                    month=month,
+                    km=1000.0,
+                )
+            assert "month" in str(exc_info.value)
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
@@ -271,23 +282,23 @@ class TestCoreBusinessValidation:
             ]
         )
 
-        # Test LocationGroup required fields
-        with pytest.raises(ValidationError) as exc_info:
-            LocationGroup(  # type: ignore[call-arg]
-                name="Test Group",
-                # Missing: color
-            )
-        assert "color" in str(exc_info.value)
+    # Test LocationGroup required fields
+    with pytest.raises(ValidationError) as exc_info:
+        LocationGroup(  # type: ignore[call-arg]
+            name="Test Group",
+            # Missing: color
+        )
+    assert "color" in str(exc_info.value)
 
-        # Test RouteGroup required fields
-        from datetime import datetime
+    # Test RouteGroup required fields
+    from datetime import datetime
 
-        with pytest.raises(ValidationError) as exc_info:
-            RouteGroup(
-                name="",  # Empty name should fail
-                drive_date=datetime(2024, 1, 15, 8, 0),
-            )
-        assert "name" in str(exc_info.value)
+    with pytest.raises(ValidationError) as exc_info:
+        RouteGroup(
+            name="",  # Empty name should fail
+            drive_date=datetime(2024, 1, 15, 8, 0),
+        )
+    assert "name" in str(exc_info.value)
 
     def test_extra_field_validation(self) -> None:
         """Test that extra fields are rejected (extra='forbid' configuration)."""
@@ -485,13 +496,10 @@ class TestCoreModels:
         from uuid import uuid4
 
         # Create
-        history = DriverHistory(
-            driver_id=uuid4(),
-            year=2025,
-            km=1500.5,
-        )
+        history = DriverHistory(driver_id=uuid4(), year=2025, km=1500.5, month=12)
         assert history.year == 2025
         assert history.km == 1500.5
+        assert history.month == 12
         assert history.created_at is not None
 
         # Read
@@ -499,6 +507,7 @@ class TestCoreModels:
             driver_history_id=1,
             driver_id=uuid4(),
             year=2027,
+            month=1,
             km=2200.0,
         )
         assert history_read.driver_history_id == 1

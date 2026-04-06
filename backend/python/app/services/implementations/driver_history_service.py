@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.config import settings
-from app.models.driver_history import DriverHistory, DriverHistorySummary
+from app.models.driver import Driver
+from app.models.driver_history import (
+    MAX_YEAR,
+    MIN_YEAR,
+    DriverHistory,
+    DriverHistorySummary,
+)
 
 
 class DriverHistoryService:
@@ -17,6 +23,17 @@ class DriverHistoryService:
         """Initialize service"""
         self.logger = logger
         self.timezone = ZoneInfo(settings.scheduler_timezone)
+
+    def validate_year(self, year: int) -> bool:
+        return isinstance(year, int) and MIN_YEAR <= year <= MAX_YEAR
+
+    def validate_year_and_month(self, year: int, month: int | None) -> bool:
+        return self.validate_year(year) and (not month or 1 <= month <= 12)
+
+    async def driver_exists(self, session: AsyncSession, driver_id: UUID) -> bool:
+        statement = select(Driver.driver_id).where(Driver.driver_id == driver_id)
+        result = await session.execute(statement)
+        return result.scalar_one_or_none() is not None
 
     async def get_all_driver_histories(
         self, session: AsyncSession
@@ -30,79 +47,97 @@ class DriverHistoryService:
             self.logger.error(f"Failed to get driver histories: {e!s}")
             raise e
 
-    async def get_driver_history_by_id(
-        self, session: AsyncSession, driver_id: UUID
-    ) -> list[DriverHistory]:
-        """Get a driver history by ID"""
-        try:
-            statement = select(DriverHistory).where(
-                DriverHistory.driver_id == driver_id
-            )
-            result = await session.execute(statement)
-            driver_history = result.scalars().all()
+    async def get_driver_history_by_id_year_and_month(
+        self, session: AsyncSession, driver_id: UUID, year: int, month: int
+    ) -> DriverHistory | None:
+        statement = select(DriverHistory).where(
+            DriverHistory.driver_id == driver_id,
+            DriverHistory.year == year,
+            DriverHistory.month == month,
+        )
 
-            return list(driver_history)
-        except Exception as e:
-            self.logger.error(f"Failed to get driver history by id: {e!s}")
-            raise e
+        result = await session.execute(statement)
+        return result.scalars().first()
 
     async def get_driver_history_by_id_and_year(
         self, session: AsyncSession, driver_id: UUID, year: int
-    ) -> DriverHistory | None:
-        """Get a driver history by ID and year"""
-        try:
-            statement = select(DriverHistory).where(
+    ) -> list[DriverHistory]:
+        statement = (
+            select(DriverHistory)
+            .where(
                 DriverHistory.driver_id == driver_id,
                 DriverHistory.year == year,
             )
-            result = await session.execute(statement)
-            driver_history = result.scalars().first()
+            .order_by(DriverHistory.month)  # type: ignore[arg-type]
+        )
 
-            return driver_history
-        except Exception as e:
-            self.logger.error(f"Failed to get driver history by id and year: {e!s}")
-            raise e
+        result = await session.execute(statement)
+        return list(result.scalars().all())
+
+    async def get_driver_history_by_id(
+        self, session: AsyncSession, driver_id: UUID
+    ) -> list[DriverHistory]:
+        statement = (
+            select(DriverHistory)
+            .where(DriverHistory.driver_id == driver_id)
+            .order_by(DriverHistory.year, DriverHistory.month)  # type: ignore[arg-type]
+        )
+
+        result = await session.execute(statement)
+        return list(result.scalars().all())
 
     async def create_driver_history(
         self,
         session: AsyncSession,
         driver_id: UUID,
-        year: int = datetime.now().year,
-        km: float = 0,
+        year: int,
+        month: int,
+        km: float,
     ) -> DriverHistory:
-        """Create a new driver history"""
+        """
+        Create a new monthly driver history record.
+        Enforces:
+        - driver must exist
+        - unique (driver_id, year, month)
+        """
         try:
             driver_history = DriverHistory(
                 driver_id=driver_id,
                 year=year,
+                month=month,
                 km=km,
             )
 
             session.add(driver_history)
             await session.commit()
             await session.refresh(driver_history)
+
             return driver_history
+
         except Exception as e:
             self.logger.error(f"Failed to create driver history: {e!s}")
             await session.rollback()
             raise e
 
-    async def update_driver_history_by_id_and_year(
+    async def update_driver_history(
         self,
         session: AsyncSession,
         driver_id: UUID,
         year: int,
+        month: int,
         km: float,
     ) -> DriverHistory:
-        """Update a driver history by ID and year"""
+        """
+        Update an existing monthly driver history record.
+        """
         try:
-            existing_history = await self.get_driver_history_by_id_and_year(
-                session, driver_id, year
+            existing_history = await self.get_driver_history_by_id_year_and_month(
+                session, driver_id, year, month
             )
 
             if existing_history is None:
                 raise ValueError(
-                    f"Driver history with id {driver_id} and year {year} not found"
+                    f"Driver history for driver {driver_id}, year {year}, month {month} not found"
                 )
 
             existing_history.km = km
@@ -110,31 +145,37 @@ class DriverHistoryService:
 
             await session.commit()
             await session.refresh(existing_history)
+
             return existing_history
+
         except Exception as e:
-            self.logger.error(f"Failed to update driver history by id and year: {e!s}")
+            self.logger.error(f"Failed to update driver history: {e!s}")
             await session.rollback()
             raise e
 
-    async def delete_driver_history_by_id(
-        self, session: AsyncSession, driver_id: UUID, year: int
+    async def delete_driver_history(
+        self, session: AsyncSession, driver_id: UUID, year: int, month: int
     ) -> None:
-        """Delete a driver history by driver history id and year. In case we no longer want to keep records of a driver."""
+        """
+        Delete a monthly driver history record.
+        """
         try:
             statement = select(DriverHistory).where(
                 DriverHistory.driver_id == driver_id,
                 DriverHistory.year == year,
+                DriverHistory.month == month,
             )
             result = await session.execute(statement)
             driver_history = result.scalars().first()
 
             if driver_history is None:
                 raise ValueError(
-                    f"Driver history with id {driver_id} and year {year} not found"
+                    f"Driver history for driver {driver_id}, year {year}, month {month} not found"
                 )
 
             await session.delete(driver_history)
             await session.commit()
+
         except Exception as e:
             self.logger.error(f"Error deleting driver history: {e}")
             await session.rollback()
