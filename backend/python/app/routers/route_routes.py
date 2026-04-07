@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.google_maps_link_schema import GoogleMapsLinkResponse
 from app.models import get_session
 from app.models.route import Route, RoutePatchRequest, RouteRead, RouteWithDateRead
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
@@ -56,6 +57,27 @@ async def get_route(
 
     route = await route_service.get_route(session, route_id)
     return route
+
+@router.get("/{route_id}/google-maps-link", response_model=GoogleMapsLinkResponse, status_code=status.HTTP_200_OK)
+async def get_google_maps_link(
+    route_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> GoogleMapsLinkResponse:
+    """
+    Generate a Google Maps directions URL for a route.
+ 
+    Takes a route ID, looks up its stops in order, and builds a Google Maps
+    directions link starting from the warehouse and visiting each stop.
+ 
+    Parameters:
+        route_id (UUID): The unique identifier of the route.
+        session (AsyncSession): The database session dependency.
+ 
+    Returns:
+        GoogleMapsLinkResponse containing the route_id and the generated URL.
+    """
+    url = await route_service.get_google_maps_link(session, route_id)
+    return GoogleMapsLinkResponse(route_id=route_id, google_maps_url=url)
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -8,6 +8,10 @@ from sqlalchemy import select as sql_select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
+from app.models.location import Location
+from app.models.route_stop import RouteStop
+from app.models.system_settings import SystemSettings
+from app.utilities.google_maps_link import build_google_maps_directions_url
 from app.models.driver_assignment import DriverAssignment
 from app.models.location import Location
 from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
@@ -277,3 +281,67 @@ class RouteService:
             self.logger.error(f"Failed to update route {route_id}: {error!s}")
             await session.rollback()
             raise error
+    async def get_google_maps_link(
+        self, session: AsyncSession, route_id: UUID
+    ) -> str:
+        """Generate a Google Maps directions URL for a route.
+
+        Fetches the route's stops (ordered by stop_number), joins each stop
+        to its location to get the address/coordinates, retrieves the
+        warehouse origin from SystemSettings, and builds the URL.
+
+        Returns:
+            The Google Maps directions URL string.
+
+        Raises:
+            HTTPException 404: If the route or system settings are not found.
+            HTTPException 422: If a stop is missing both address and coordinates.
+        """
+        # 1. Fetch route stops with their locations, ordered by stop_number
+        statement = (
+            select(RouteStop, Location)
+            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+            .where(RouteStop.route_id == route_id)
+            .order_by(RouteStop.stop_number)  # type: ignore[arg-type]
+        )
+        result = await session.execute(statement)
+        rows = result.all()
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Route {route_id} not found or has no stops.",
+            )
+
+        # 2. Fetch warehouse coordinates from SystemSettings
+        settings_result = await session.execute(select(SystemSettings).limit(1))
+        system_settings = settings_result.scalars().first()
+
+        if not system_settings:
+            raise HTTPException(
+                status_code=404,
+                detail="System settings not found.",
+            )
+        if (
+            system_settings.warehouse_latitude is None
+            or system_settings.warehouse_longitude is None
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Warehouse coordinates are not configured in system settings.",
+            )
+
+        # 3. Extract the ordered list of Location objects
+        locations: list[Location] = [location for _, location in rows]
+
+        # 4. Generate the URL
+        try:
+            url = build_google_maps_directions_url(
+                locations=locations,
+                warehouse_lat=system_settings.warehouse_latitude,
+                warehouse_lon=system_settings.warehouse_longitude,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+        return url
