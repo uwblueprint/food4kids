@@ -1,2 +1,2 @@
-export { LoginPage } from './LoginPage'
-export { CreatePassword } from './CreatePassword'
+export { CreatePassword } from './CreatePassword';
+export { LoginPage } from './LoginPage';

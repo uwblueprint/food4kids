@@ -19,9 +19,9 @@ import {
   ReviewStep,
   ValidateStep,
 } from './pages/admin';
+import { CreatePassword, LoginPage } from './pages/auth';
 import { DriverHomePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
-import { LoginPage, CreatePassword } from './pages/auth';
 import { TestImageUpload } from './pages/TestImageUpload';
 
 function App() {
@@ -63,8 +63,8 @@ function App() {
         <Route path="/test-image-upload" element={<TestImageUpload />} />
 
         {/* Login Routes */}
-        <Route path="/login" element={<LoginPage />}/>
-        <Route path="/create-password/:token" element={<CreatePassword />}/>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/create-password/:token" element={<CreatePassword />} />
 
         {/* Dev-only: style guide is not accessible in production */}
         {import.meta.env.DEV && (
