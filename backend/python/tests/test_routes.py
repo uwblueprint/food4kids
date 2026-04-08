@@ -51,13 +51,13 @@ class TestDriverRoutes:
                 "license_plate": sample_driver_data["license_plate"],
                 "car_make_model": sample_driver_data["car_make_model"],
             }
-            response = await async_client.post("/drivers/initialize", json=driver_register_data)
+            response = await async_client.post(
+                "/drivers/initialize", json=driver_register_data
+            )
             assert response.status_code == 201
             data = response.json()
             assert data["phone"] == sample_driver_data["phone"]
-            assert (
-                data["license_plate"] == sample_driver_data["license_plate"]
-            )
+            assert data["license_plate"] == sample_driver_data["license_plate"]
             assert data["role"] == "driver"
             assert data["email"] == "newdriver@example.com"
             assert data["auth_id"] is None
@@ -73,16 +73,16 @@ class TestDriverRoutes:
         mock_firebase_user = MagicMock()
         mock_firebase_user.uid = "fake-auth-id-123"
 
+        from app.models.driver import Driver
         from app.models.user import User
         from app.models.user_invite import UserInvite
-        from app.models.driver import Driver
 
         fake_user = User(
             user_id=uuid4(),
             auth_id=None,
             email="testemail@gmail.com",
             name="Test User",
-            role="driver"
+            role="driver",
         )
 
         fake_driver = Driver(
@@ -113,12 +113,17 @@ class TestDriverRoutes:
             patch("firebase_admin.auth.create_user", return_value=mock_firebase_user),
             patch("firebase_admin.auth.set_custom_user_claims"),
             patch("firebase_admin.auth.delete_user"),
-            patch("sqlalchemy.ext.asyncio.AsyncSession.refresh", new_callable=AsyncMock),
+            patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.refresh", new_callable=AsyncMock
+            ),
             patch("sqlalchemy.ext.asyncio.AsyncSession.commit", new_callable=AsyncMock),
-            patch("sqlalchemy.ext.asyncio.AsyncSession.begin_nested", new_callable=AsyncMock),
+            patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.begin_nested",
+                new_callable=AsyncMock,
+            ),
             patch(
                 "app.services.implementations.user_invite_service.UserInviteService.get_user_invite_by_id",
-                return_value=fake_user_invite
+                return_value=fake_user_invite,
             ),
             patch(
                 "app.services.implementations.auth_service.AuthService.generate_token",
@@ -129,7 +134,9 @@ class TestDriverRoutes:
                 "user_invite_id": str(uuid4()),
                 "password": "testing123",
             }
-            response = await async_client.post("/drivers/register", json=user_finalize_data)
+            response = await async_client.post(
+                "/drivers/register", json=user_finalize_data
+            )
             assert response.status_code == 201
             data = response.json()
             assert data["driver"]["phone"] == sample_driver_data["phone"]

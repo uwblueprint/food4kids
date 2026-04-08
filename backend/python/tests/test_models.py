@@ -19,7 +19,6 @@ from app.models.announcement import (
 from app.models.driver import (
     Driver,
     DriverCreate,
-    DriverRegister,
     DriverUpdate,
 )
 from app.models.driver_assignment import (
@@ -155,7 +154,7 @@ class TestCoreBusinessValidation:
         # Test valid password
         user_finalize = UserFinalize(
             user_invite_id=uuid4(),
-            password="securepassword123",            
+            password="securepassword123",
         )
         assert user_finalize.password == "securepassword123"
 
