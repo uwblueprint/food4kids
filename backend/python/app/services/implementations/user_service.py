@@ -6,7 +6,7 @@ import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.user import User, UserCreate, UserUpdate, UserBase
+from app.models.user import User, UserBase, UserUpdate
 
 if TYPE_CHECKING:
     from firebase_admin.auth import UserRecord
@@ -78,7 +78,7 @@ class UserService:
         except Exception as e:
             self.logger.error(f"Failed to get users: {e!s}")
             raise e
-        
+
     async def create_user(
         self,
         session: AsyncSession,
@@ -95,7 +95,7 @@ class UserService:
         session.add(user)
         await session.flush()
         return user
-        
+
     async def link_firebase_to_user(
         self,
         session: AsyncSession,
@@ -108,11 +108,13 @@ class UserService:
         try:
             # Create Firebase user and set role
             firebase_user = firebase_admin.auth.create_user(
-                email=user.email, 
-                password=password, 
-                email_verified=True, 
+                email=user.email,
+                password=password,
+                email_verified=True,
             )
-            firebase_admin.auth.set_custom_user_claims(firebase_user.uid, {"role": user.role})
+            firebase_admin.auth.set_custom_user_claims(
+                firebase_user.uid, {"role": user.role}
+            )
 
             # Update user
             user.auth_id = firebase_user.uid
@@ -246,7 +248,7 @@ class UserService:
                     # Rollback database deletion
                     await session.rollback()
                     raise firebase_error
-                
+
             await session.commit()
 
         except Exception as e:

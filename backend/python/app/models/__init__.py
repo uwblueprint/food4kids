@@ -99,7 +99,7 @@ def init_app(_app: Any | None = None) -> None:
     from .simple_entity import SimpleEntity  # noqa: F401
     from .system_settings import SystemSettings  # noqa: F401
     from .user import User  # noqa: F401
-    from .user_invite import UserInvite # noqa: F401
+    from .user_invite import UserInvite  # noqa: F401
 
     init_database()
 
