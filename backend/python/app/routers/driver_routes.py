@@ -1,16 +1,16 @@
 import logging
 import traceback
+from datetime import datetime, timezone
 from typing import Literal, cast
 from uuid import UUID
 
-import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import (
     get_auth_service,
-    get_user_service,
     get_user_invite_service,
+    get_user_service,
 )
 from app.models import get_session
 from app.models.driver import (
@@ -19,16 +19,14 @@ from app.models.driver import (
     DriverRegister,
     DriverUpdate,
 )
-from app.models.user import UserCreate, UserBase, UserFinalize
+from app.models.user import UserBase, UserFinalize
 from app.models.user_invite import UserInviteCreate
 from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
-from app.services.implementations.user_service import UserService
 from app.services.implementations.user_invite_services import UserInviteService
+from app.services.implementations.user_service import UserService
 from app.utilities.cookies import get_cookie_options
-
-from datetime import datetime, timezone
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -108,7 +106,7 @@ async def initialize_driver(
     session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
-    user_invite_service: UserInviteService = Depends(get_user_invite_service)
+    user_invite_service: UserInviteService = Depends(get_user_invite_service),
 ) -> DriverRead:
     """
     Register a new driver in our backend, creates a User and Driver object, returns DriverRead
@@ -136,10 +134,14 @@ async def initialize_driver(
 
             # Create User Invite Record
             user_invite_create = UserInviteCreate(user_id=user.user_id)
-            user_invite = await user_invite_service.create_user_invite(session, user_invite_create)
+            user_invite = await user_invite_service.create_user_invite(
+                session, user_invite_create
+            )
 
         # Send invitation email
-        auth_service.send_create_password_email(register_request.email, user_invite.user_invite_id)
+        auth_service.send_create_password_email(
+            register_request.email, user_invite.user_invite_id
+        )
 
         return DriverRead.model_validate(created_driver)
 
@@ -158,7 +160,9 @@ async def initialize_driver(
 
 
 @router.post(
-    "/register", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
+    "/register",
+    response_model=DriverRegisterResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def complete_driver_registration(
     registration_data: UserFinalize,
@@ -174,17 +178,25 @@ async def complete_driver_registration(
     try:
         # Validate invite token
         user_invite_id = registration_data.user_invite_id
-        user_invite = await user_invite_service.get_user_invite_by_id(session, user_invite_id)
+        user_invite = await user_invite_service.get_user_invite_by_id(
+            session, user_invite_id
+        )
 
-        if not user_invite or user_invite.is_used or user_invite.expires_at < datetime.now(timezone.utc):
+        if (
+            not user_invite
+            or user_invite.is_used
+            or user_invite.expires_at < datetime.now(timezone.utc)
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid or expired registration link."
+                detail="Invalid or expired registration link.",
             )
 
         # Create Firebase account for user
         user = user_invite.user
-        await user_service.link_firebase_to_user(session, user, registration_data.password)
+        await user_service.link_firebase_to_user(
+            session, user, registration_data.password
+        )
 
         # Generate authentication tokens
         auth_dto, refresh_token = await auth_service.generate_token(

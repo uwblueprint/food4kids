@@ -1,10 +1,13 @@
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
-from typing import Optional
 
 from pydantic import EmailStr
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
+
+if TYPE_CHECKING:
+    from .driver import Driver
 
 
 class UserBase(SQLModel):
@@ -19,7 +22,10 @@ class User(UserBase, BaseModel, table=True):
     auth_id: str | None = Field(nullable=True, unique=True, index=True)
     role: str = Field(min_length=1, max_length=255, default="driver")
 
-    driver: Optional["Driver"] = Relationship(back_populates="user", cascade_delete=True)
+    driver: Optional["Driver"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
+
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=100)
@@ -39,4 +45,3 @@ class UserUpdate(SQLModel):
 class UserFinalize(SQLModel):
     user_invite_id: UUID
     password: str = Field(min_length=8, max_length=100)
-

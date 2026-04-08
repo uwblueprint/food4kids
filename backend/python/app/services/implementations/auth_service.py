@@ -123,7 +123,7 @@ class AuthService:
                 f"Failed to send password reset link for {email}. Reason = {reason if reason else str(e)}"
             )
             raise e
-        
+
     def send_create_password_email(self, email: str, user_invite_id: UUID) -> None:
         if not self.email_service:
             error_message = """
@@ -134,7 +134,9 @@ class AuthService:
             raise Exception(error_message)
 
         try:
-            driver_signup_link = f"http://localhost:3000/create-password/{user_invite_id}"
+            driver_signup_link = (
+                f"http://localhost:3000/create-password/{user_invite_id}"
+            )
             email_body = f"""
                 Hello,
                 <br><br>
@@ -153,7 +155,7 @@ class AuthService:
     # def send_email_verification_link(self, email: str) -> None:
     #     if not self.email_service:
     #         error_message = """
-    #             Attempted to call send_email_verification_link but this instance of AuthService 
+    #             Attempted to call send_email_verification_link but this instance of AuthService
     #             does not have an EmailService instance
     #             """
     #         self.logger.error(error_message)

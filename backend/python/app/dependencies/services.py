@@ -35,6 +35,7 @@ from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_service import UserService
 from app.services.implementations.user_invite_services import UserInviteService
+from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
