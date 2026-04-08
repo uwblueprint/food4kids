@@ -1,8 +1,8 @@
-"""make auth_id nullable and create user_invites table
+"""make auth_id nullable + add user_invites table
 
-Revision ID: 5b1f33614790
+Revision ID: ed43fb6c4708
 Revises: 8b03ae4022cd
-Create Date: 2026-03-29 00:10:52.944793
+Create Date: 2026-04-07 23:44:29.308591
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '5b1f33614790'
+revision = 'ed43fb6c4708'
 down_revision = '8b03ae4022cd'
 branch_labels = None
 depends_on = None
@@ -22,7 +22,7 @@ def upgrade():
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user_id', sa.Uuid(), nullable=False),
-    sa.Column('expires_at', sa.DateTime(), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('is_used', sa.Boolean(), nullable=False),
     sa.Column('user_invite_id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ),
