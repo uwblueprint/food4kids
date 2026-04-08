@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
-import { AdminLayout, DriverLayout } from './layouts';
+import { AdminLayout, DriverLayout, RoutesGenerationLayout } from './layouts';
 import {
   AdminDriversPage,
   AdminHomePage,
@@ -9,8 +9,13 @@ import {
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
 import { NotFoundPage } from './pages/NotFoundPage';
+import {
+  ImportStep,
+  ReviewStep,
+  RouteGenerationLandingPage,
+  ValidateStep,
+} from './pages/routeGeneration';
 import { StyleGuidePage } from './pages/StyleGuide';
-
 function App() {
   return (
     <BrowserRouter>
@@ -31,6 +36,14 @@ function App() {
         <Route path="/driver" element={<DriverLayout />}>
           <Route index element={<Navigate to="/driver/home" replace />} />
           <Route path="home" element={<DriverHomePage />} />
+        </Route>
+
+        {/* Route Generation */}
+        <Route path="/routes/generation" element={<RoutesGenerationLayout />}>
+          <Route index element={<RouteGenerationLandingPage />} />
+          <Route path="import" element={<ImportStep />} />
+          <Route path="validate" element={<ValidateStep />} />
+          <Route path="review" element={<ReviewStep />} />
         </Route>
 
         {/* Dev-only: style guide is not accessible in production */}
