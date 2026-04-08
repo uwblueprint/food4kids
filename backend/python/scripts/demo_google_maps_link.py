@@ -180,9 +180,8 @@ def main() -> None:
             print(f"Status: {resp.status_code}")
 
             if resp.status_code == 200:
-                data = resp.json()
-                print(f"\nRoute ID:  {data['route_id']}")
-                print(f"\nGoogle Maps URL:\n{data['google_maps_url']}")
+                url = resp.json()
+                print(f"\nGoogle Maps URL:\n{url}")
                 print(
                     "\n^ Open this link in a browser to see the route on Google Maps."
                 )
