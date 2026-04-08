@@ -24,7 +24,7 @@ from app.models.user_invite import UserInviteCreate
 from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
-from app.services.implementations.user_invite_services import UserInviteService
+from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import get_cookie_options
 
@@ -116,7 +116,7 @@ async def initialize_driver(
     user = None
 
     try:
-        async with session.begin():
+        async with session.begin_nested():
             # Create user first
             user_data = register_request.model_dump(
                 include=set(UserBase.model_fields.keys())
