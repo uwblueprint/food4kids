@@ -22,7 +22,7 @@ class UserInviteService:
         statement = (
             select(UserInvite)
             .where(UserInvite.user_invite_id == user_invite_id)
-            .options(selectinload(UserInvite.user).selectinload(User.driver)) # type: ignore[arg-type]
+            .options(selectinload(UserInvite.user).selectinload(User.driver))  # type: ignore[arg-type]
         )
         result = await session.execute(statement)
         user_invite = result.scalars().first()
