@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, DateTime, Column
 from .base import BaseModel
 from app.models.user import User
 
@@ -8,7 +8,8 @@ from app.models.user import User
 class UserInviteBase(SQLModel):
     user_id: UUID = Field(foreign_key="users.user_id", index=True, unique=True)
     expires_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=2)
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+        default_factory=lambda: (datetime.now(timezone.utc) + timedelta(days=2))
     )
     is_used: bool = Field(default=False)
 
