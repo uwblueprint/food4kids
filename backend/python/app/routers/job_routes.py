@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_driver_or_admin
 from app.models import get_session
 from app.models.enum import ProgressEnum
 from app.models.job import JobRead
@@ -24,6 +25,7 @@ def get_job_service(session: AsyncSession = Depends(get_session)) -> JobService:
 async def get_jobs(
     progress: ProgressEnum | None = Query(None, description="Filter by job status"),
     service: JobService = Depends(get_job_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> list[JobRead]:
     """Get all jobs"""
     try:
@@ -39,6 +41,7 @@ async def get_jobs(
 async def generate_job(
     _req: RouteGenerationGroupInput,
     service: JobService = Depends(get_job_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> JobEnqueueResponse:
     try:
         job_id = await service.generate_job(_req)
@@ -53,7 +56,9 @@ async def generate_job(
 
 @router.get("/{job_id}", response_model=JobRead)
 async def get_job(
-    job_id: UUID, service: JobService = Depends(get_job_service)
+    job_id: UUID,
+    service: JobService = Depends(get_job_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> JobRead:
     try:
         job = await service.get_job(job_id)
