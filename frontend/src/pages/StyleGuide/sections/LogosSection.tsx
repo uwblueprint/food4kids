@@ -17,7 +17,9 @@ export function LogosSection() {
             className="border-grey-300 bg-grey-150 flex flex-col items-center gap-2 rounded-lg border p-4"
           >
             <img
-              src={new URL(`../../../assets/logos/${file}`, import.meta.url).href}
+              src={
+                new URL(`../../../assets/logos/${file}`, import.meta.url).href
+              }
               alt={label}
               className="h-16 w-auto object-contain"
             />
