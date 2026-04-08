@@ -1,12 +1,12 @@
 import logging
 from uuid import UUID
 
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
-from app.models.user_invite import UserInvite, UserInviteCreate
 from app.models.user import User
+from app.models.user_invite import UserInvite, UserInviteCreate
 
 
 class UserInviteService:
@@ -15,21 +15,20 @@ class UserInviteService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    async def get_user_invite_by_id(self, session: AsyncSession, user_invite_id: UUID) -> UserInvite | None:
+    async def get_user_invite_by_id(
+        self, session: AsyncSession, user_invite_id: UUID
+    ) -> UserInvite | None:
         """Get user invite by ID - returns SQLModel instance or None if no UserInvite exists"""
         statement = (
             select(UserInvite)
             .where(UserInvite.user_invite_id == user_invite_id)
-            .options(
-                selectinload(UserInvite.user)
-                .selectinload(User.driver)
-            )
+            .options(selectinload(UserInvite.user).selectinload(User.driver))
         )
         result = await session.execute(statement)
         user_invite = result.scalars().first()
 
         return user_invite
-        
+
     async def create_user_invite(
         self,
         session: AsyncSession,
@@ -37,9 +36,7 @@ class UserInviteService:
     ) -> UserInvite:
         """Create new user invite"""
         # Create database user invite
-        user_invite = UserInvite(
-            user_id=user_invite_data.user_id
-        )
+        user_invite = UserInvite(user_id=user_invite_data.user_id)
 
         session.add(user_invite)
         await session.flush()

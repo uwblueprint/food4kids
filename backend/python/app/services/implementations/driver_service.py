@@ -114,7 +114,6 @@ class DriverService:
         await session.flush()
         return driver
 
-
     async def update_driver_by_id(
         self, session: AsyncSession, driver_id: UUID, driver_data: DriverUpdate
     ) -> Driver | None:
