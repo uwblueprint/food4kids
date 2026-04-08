@@ -29,7 +29,7 @@ for (const line of lines) {
     flatColors[key.replace('color-', '')] = value;
   } else if (key.startsWith('font-')) {
     const name = key.replace('font-', '');
-    fontFamily[name] = value.split(',').map((f) => f.trim().replace(/'/g, ''));
+    fontFamily[name] = value.split(',').map((f) => f.trim());
   } else if (key.startsWith('text-')) {
     const name = key.replace('text-', '');
     const lhKey = `--${key}--line-height`;

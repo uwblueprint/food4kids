@@ -16,42 +16,6 @@ import * as React from 'react';
 
 import { emailTailwindConfig } from '../email-tailwind-config';
 
-// Great Job on working on the theme, However, I think it might be good to use a script to extract the design system like extract-tokens.ts instead
-// You can now delete the below and use the import
-const f4kTheme = {
-  theme: {
-    extend: {
-      colors: {
-        grey: {
-          100: '#ffffff',
-          150: '#f8f8f8',
-          200: '#eff3f6',
-          300: '#e0e7ed',
-          400: '#707581',
-          500: '#1c1b1f',
-        },
-        blue: { 50: '#e9f4ff', 100: '#bed3e9', 300: '#226ca7', 400: '#195586' },
-        red: '#eb3131',
-        'light-red': '#fef3f2',
-        'dark-yellow': '#fdb022',
-        'light-yellow': '#fffaeb',
-        'success-stroke': '#039855',
-        'success-fill': '#ecfdf3',
-        brand: {
-          green: '#27b28d',
-          'light-blue': '#09a7df',
-          orange: '#eb5531',
-          pink: '#b33f93',
-        },
-      },
-      fontFamily: {
-        nunito: ['"Nunito"', 'sans-serif'],
-        'nunito-sans': ['"Nunito Sans"', 'sans-serif'],
-      },
-    },
-  },
-};
-
 interface LayoutProps {
   previewText: string;
   children: React.ReactNode;
@@ -69,7 +33,14 @@ export default function F4KEmailLayout({
 }: LayoutProps) {
   return (
     <Html>
-      <Head />
+      <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap" 
+          rel="stylesheet" 
+        />
+      </Head>
       <Preview>{previewText}</Preview>
       <Tailwind
         config={{
@@ -77,14 +48,14 @@ export default function F4KEmailLayout({
           ...emailTailwindConfig,
         }}
       >
-        <Body className="bg-grey-300 font-nunito-sans text-grey-500 m-0 p-0">
+        <Body className="bg-grey-200 font-nunito text-grey-500 m-0 p-0">
           <Container className="mx-[200px] my-[100px] max-w-[600px]">
             {/* Main email structure */}
             <Section className="bg-grey-100 overflow-hidden rounded-lg">
               {/* Top Card: Logo Header */}
               <Section className="bg-grey-100 py-[24px] text-center">
                 <Img
-                  src="/static/logo_mobile_one_line.png"
+                  src="https://food4kidswr.ca/wp-content/uploads/2022/08/food4kids-waterloo-region.png"
                   alt="Food4Kids Waterloo Region"
                   width="180"
                   className="mx-auto"
@@ -138,7 +109,7 @@ export default function F4KEmailLayout({
                   className="mx-[8px] inline-block"
                 >
                   <Img
-                    src="/static/instagram.png"
+                    src="https://static.xx.fbcdn.net/rsrc.php/yr/r/e0S_nAdcU32.webp"
                     width="24"
                     height="24"
                     alt="Instagram"
@@ -158,7 +129,7 @@ export default function F4KEmailLayout({
               </Section>
 
               {/* Address and Website URL */}
-              <Text className="text-grey-400 m-0 text-[12px] leading-[18px]">
+              <Text className="font-nunito-sans text-grey-400 font-normal m-0 text-[14px] leading-[18px]">
                 food4kidswr.ca
                 <br />
                 <br />

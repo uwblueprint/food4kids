@@ -38,11 +38,11 @@ export const emailTailwindConfig = {
       },
       "fontFamily": {
         "nunito": [
-          "Nunito",
+          "'Nunito'",
           "sans-serif"
         ],
         "nunito-sans": [
-          "Nunito Sans",
+          "'Nunito Sans'",
           "sans-serif"
         ]
       },
