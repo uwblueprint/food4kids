@@ -7,6 +7,7 @@ import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_driver_or_admin, require_self_driver_or_admin
 from app.dependencies.services import (
     get_auth_service,
     get_user_service,
@@ -37,6 +38,7 @@ async def get_drivers(
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Query(None, description="Filter by driver ID"),
     email: str | None = Query(None, description="Filter by email"),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> list[DriverRead]:
     """
     Get all drivers, optionally filter by driver_id or email
@@ -82,6 +84,7 @@ async def get_drivers(
 async def get_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_self_driver_or_admin),
 ) -> DriverRead:
     """
     Get a single driver by ID
@@ -197,6 +200,7 @@ async def update_driver(
     driver_id: UUID,
     driver: DriverUpdate,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> DriverRead:
     """
     Update an existing driver
@@ -216,6 +220,7 @@ async def update_driver(
 async def delete_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> None:
     """
     Delete a driver by ID

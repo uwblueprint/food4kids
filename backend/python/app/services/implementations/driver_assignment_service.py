@@ -45,6 +45,16 @@ class DriverAssignmentService:
             page_size=pagination.page_size,
         )
 
+    async def get_driver_assignments_by_driver_id(
+        self, session: AsyncSession, driver_id: UUID
+    ) -> list[DriverAssignment]:
+        """Get all driver assignments for a specific driver"""
+        statement = select(DriverAssignment).where(
+            DriverAssignment.driver_id == driver_id
+        )
+        result = await session.execute(statement)
+        return list(result.scalars().all())
+
     async def create_driver_assignment(
         self, session: AsyncSession, driver_assignment_data: DriverAssignmentCreate
     ) -> DriverAssignment:

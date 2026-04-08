@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_driver_or_admin
 from app.dependencies.services import get_entity_service
 from app.models import get_session
 from app.models.entity import EntityCreate, EntityRead, EntityUpdate
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/entities", tags=["entities"])
 async def get_entities(
     session: AsyncSession = Depends(get_session),
     entity_service: EntityService = Depends(get_entity_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> list[EntityRead]:
     """
     Retrieve all entities
@@ -31,6 +33,7 @@ async def get_entity(
     entity_id: int,
     session: AsyncSession = Depends(get_session),
     entity_service: EntityService = Depends(get_entity_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> EntityRead:
     """
     Get a single entity by ID
@@ -49,6 +52,7 @@ async def create_entity(
     entity: EntityCreate,  # Auto-validated by FastAPI
     session: AsyncSession = Depends(get_session),
     entity_service: EntityService = Depends(get_entity_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> EntityRead:
     """
     Create a new entity
@@ -68,6 +72,7 @@ async def update_entity(
     entity: EntityUpdate,
     session: AsyncSession = Depends(get_session),
     entity_service: EntityService = Depends(get_entity_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> EntityRead:
     """
     Update an existing entity
@@ -86,6 +91,7 @@ async def delete_entity(
     entity_id: int,
     session: AsyncSession = Depends(get_session),
     entity_service: EntityService = Depends(get_entity_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> None:
     """
     Delete an entity

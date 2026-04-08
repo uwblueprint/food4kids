@@ -1,8 +1,15 @@
+import logging
 from uuid import UUID
 
+import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import (
+    get_access_token,
+    require_admin,
+    require_driver_or_admin,
+)
 from app.dependencies.services import get_driver_assignment_service
 from app.models import get_session
 from app.models.driver_assignment import (
@@ -15,6 +22,10 @@ from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagi
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
+from app.services.implementations.driver_service import DriverService
+
+logger = logging.getLogger(__name__)
+driver_service = DriverService(logger)
 
 router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 
@@ -26,9 +37,10 @@ async def get_driver_assignments(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
+    _auth: bool = Depends(require_admin),
 ) -> PaginatedResponse[DriverAssignmentRead]:
     """
-    Retrieve all driver assignments with pagination
+    Retrieve all driver assignments with pagination (admin only). Drivers should use /me.
     """
     try:
         result = await driver_assignment_service.get_driver_assignments(
@@ -46,6 +58,53 @@ async def get_driver_assignments(
         ) from e
 
 
+@router.get("/me", response_model=list[DriverAssignmentRead])
+async def get_my_driver_assignments(
+    access_token: str = Depends(get_access_token),
+    session: AsyncSession = Depends(get_session),
+    driver_assignment_service: DriverAssignmentService = Depends(
+        get_driver_assignment_service
+    ),
+    _auth: bool = Depends(require_driver_or_admin),
+) -> list[DriverAssignmentRead]:
+    """
+    Retrieve driver assignments for the currently authenticated driver.
+    """
+    try:
+        decoded_token = firebase_admin.auth.verify_id_token(
+            access_token, check_revoked=True
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        ) from e
+
+    driver_id = await driver_service.get_driver_id_by_auth_id(
+        session, decoded_token["uid"]
+    )
+    if driver_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No driver record found for current user",
+        )
+
+    try:
+        driver_assignments = (
+            await driver_assignment_service.get_driver_assignments_by_driver_id(
+                session, driver_id
+            )
+        )
+        return [
+            DriverAssignmentRead.model_validate(driver_assignment)
+            for driver_assignment in driver_assignments
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+
 @router.post(
     "/", response_model=DriverAssignmentRead, status_code=status.HTTP_201_CREATED
 )
@@ -55,6 +114,7 @@ async def create_driver_assignment(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> DriverAssignmentRead:
     """
     Create a new driver assignment
@@ -80,6 +140,7 @@ async def update_driver_assignment(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> DriverAssignmentRead:
     """
     Update an existing driver assignment
@@ -104,6 +165,7 @@ async def delete_driver_assignment(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete a driver assignment
@@ -129,6 +191,7 @@ async def get_suggested_driver(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> list[SuggestedDriverResponse]:
     """
     Get a suggested driver for a route on a certain day that is the last assigned to that same route

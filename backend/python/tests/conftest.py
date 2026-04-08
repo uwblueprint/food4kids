@@ -15,6 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 from app import create_app
+from app.dependencies.auth import (
+    get_access_token,
+    require_admin,
+    require_driver_or_admin,
+    require_route_assigned_or_admin,
+    require_self_driver_or_admin,
+)
 from app.models import get_session
 
 # Set test environment
@@ -108,6 +115,15 @@ async def test_session(test_db_engine: Any) -> AsyncGenerator[AsyncSession, None
                 await transaction.rollback()
 
 
+def _apply_auth_overrides(app: Any) -> None:
+    """Override auth dependencies to bypass authentication in tests."""
+    app.dependency_overrides[get_access_token] = lambda: "test-token"
+    app.dependency_overrides[require_admin] = lambda: True
+    app.dependency_overrides[require_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_self_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_route_assigned_or_admin] = lambda: True
+
+
 @pytest.fixture(scope="function")
 def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
     """Create a test client with database session override."""
@@ -118,6 +134,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
         yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
+    _apply_auth_overrides(app)
 
     with TestClient(app) as test_client:
         yield test_client
@@ -135,6 +152,7 @@ async def async_client(
         yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
+    _apply_auth_overrides(app)
 
     from httpx import ASGITransport
 

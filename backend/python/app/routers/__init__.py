@@ -14,7 +14,6 @@ from . import (
     note_chain_routes,
     route_group_routes,
     route_routes,
-    simple_entity_routes,
     system_settings_routes,
     upload_routes,
 )
@@ -29,7 +28,6 @@ def init_app(app: FastAPI) -> None:
     app.include_router(driver_history_routes.router)
     app.include_router(driver_routes.router)
     app.include_router(entity_routes.router)
-    app.include_router(simple_entity_routes.router)
     app.include_router(location_group_routes.router)
     app.include_router(route_group_routes.router)
     app.include_router(route_routes.router)
