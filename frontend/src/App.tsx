@@ -41,7 +41,7 @@ function App() {
 
         {/* Login Routes */}
         <Route path="/login" element={<LoginPage />}/>
-        <Route path="/create-password" element={<CreatePassword />}/>
+        <Route path="/create-password/:token" element={<CreatePassword />}/>
 
         {/* Dev-only: style guide is not accessible in production */}
         {import.meta.env.DEV && (

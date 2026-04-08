@@ -1,10 +1,12 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.user_invite import UserInvite, UserInviteCreate
+from app.models.user import User
 
 
 class UserInviteService:
@@ -15,7 +17,14 @@ class UserInviteService:
 
     async def get_user_invite_by_id(self, session: AsyncSession, user_invite_id: UUID) -> UserInvite | None:
         """Get user invite by ID - returns SQLModel instance or None if no UserInvite exists"""
-        statement = select(UserInvite).where(UserInvite.user_invite_id == user_invite_id)
+        statement = (
+            select(UserInvite)
+            .where(UserInvite.user_invite_id == user_invite_id)
+            .options(
+                selectinload(UserInvite.user)
+                .selectinload(User.driver)
+            )
+        )
         result = await session.execute(statement)
         user_invite = result.scalars().first()
 

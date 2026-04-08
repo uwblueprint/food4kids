@@ -124,7 +124,7 @@ class AuthService:
             )
             raise e
         
-    def send_create_password_email(self, email: str) -> None:
+    def send_create_password_email(self, email: str, user_invite_id: UUID) -> None:
         if not self.email_service:
             error_message = """
                 Attempted to call send_create_password_email but this instance of AuthService 
@@ -134,7 +134,7 @@ class AuthService:
             raise Exception(error_message)
 
         try:
-            driver_signup_link = "http://localhost:3000/create-password"
+            driver_signup_link = f"http://localhost:3000/create-password/{user_invite_id}"
             email_body = f"""
                 Hello,
                 <br><br>

@@ -158,7 +158,7 @@ async def initialize_driver(
 
 
 @router.post(
-    "/", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
+    "/register", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
 )
 async def complete_driver_registration(
     registration_data: UserFinalize,
@@ -174,7 +174,7 @@ async def complete_driver_registration(
     try:
         # Validate invite token
         user_invite_id = registration_data.user_invite_id
-        user_invite = await user_invite_service.get_user_invite_by_user_id(session, user_invite_id)
+        user_invite = await user_invite_service.get_user_invite_by_id(session, user_invite_id)
 
         if not user_invite or user_invite.is_used or user_invite.expires_at < datetime.now(timezone.utc):
             raise HTTPException(
