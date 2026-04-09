@@ -13,6 +13,7 @@ export function TagsSection() {
           <Tag variant="success" onRemove={() => {}}>
             DeliveriesData.xlsx
           </Tag>
+          <Tag variant="error">Missing Address</Tag>
         </div>
       </div>
     </section>

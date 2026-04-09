@@ -9,6 +9,7 @@ const tagVariants = cva(
     variants: {
       variant: {
         success: 'border-success-stroke bg-success-fill text-success-stroke',
+        error: 'bg-light-red border-red text-red',
       },
     },
     defaultVariants: {
@@ -17,7 +18,7 @@ const tagVariants = cva(
   }
 );
 
-type TagVariant = 'success';
+type TagVariant = 'success' | 'error';
 
 interface TagProps
   extends
