@@ -3,6 +3,8 @@
 // Example: export { Modal } from './Modal';
 export { Banner } from './Banner';
 export { Button } from './Button';
+export { DataTable, AlertCell } from './DataTable';
+export type { Column, DataTableProps } from './DataTable';
 export { Dropdown } from './Dropdown';
 export { DropdownTable } from './DropdownTable';
 export type { DropdownTableRow } from './DropdownTable';

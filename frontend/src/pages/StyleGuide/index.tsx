@@ -1,6 +1,4 @@
 import { BannersSection } from './sections/BannersSection';
-import { DropdownTableSection } from './sections/DropdownTableSection';
-import { TagsSection } from './sections/TagsSection';
 import { ButtonsSection } from './sections/ButtonsSection';
 import { ColorsSection } from './sections/ColorsSection';
 import { FormFieldsSection } from './sections/FormFieldsSection';
@@ -9,6 +7,8 @@ import { IllustrationsSection } from './sections/IllustrationsSection';
 import { LogosSection } from './sections/LogosSection';
 import { ShadowsSection } from './sections/ShadowsSection';
 import { SpacingSection } from './sections/SpacingSection';
+import { TableSection } from './sections/TableSection';
+import { TagsSection } from './sections/TagsSection';
 import { TypekitSection } from './sections/TypekitSection';
 
 export const StyleGuidePage = () => {
@@ -27,7 +27,7 @@ export const StyleGuidePage = () => {
       <SpacingSection />
       <BannersSection />
       <TagsSection />
-      <DropdownTableSection />
+      <TableSection />
       <IllustrationsSection />
       <LogosSection />
       <IconographySection />
