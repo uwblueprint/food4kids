@@ -74,7 +74,7 @@ function Dropdown({
           aria-invalid={hasError || undefined}
           className={cn(
             // Base
-            'inline-flex h-[44px] w-full items-center justify-between rounded-lg px-3',
+            'inline-flex w-full items-center justify-between rounded-lg px-3 py-2',
             'text-p2 text-grey-500 transition-colors outline-none',
             'cursor-pointer',
             // Default border & bg
@@ -88,7 +88,7 @@ function Dropdown({
             disabled &&
               'bg-grey-150 text-grey-400 cursor-not-allowed opacity-60',
             // Placeholder color
-            'data-[placeholder]:text-grey-400 data-[placeholder]:text-p3'
+            'data-[placeholder]:text-grey-400 data-[placeholder]:text-p2'
           )}
         >
           <SelectPrimitive.Value placeholder={placeholder} />

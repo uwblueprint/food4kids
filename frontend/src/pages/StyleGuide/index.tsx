@@ -1,4 +1,5 @@
 import { BannersSection } from './sections/BannersSection';
+import { DropdownTableSection } from './sections/DropdownTableSection';
 import { TagsSection } from './sections/TagsSection';
 import { ButtonsSection } from './sections/ButtonsSection';
 import { ColorsSection } from './sections/ColorsSection';
@@ -26,6 +27,7 @@ export const StyleGuidePage = () => {
       <SpacingSection />
       <BannersSection />
       <TagsSection />
+      <DropdownTableSection />
       <IllustrationsSection />
       <LogosSection />
       <IconographySection />
