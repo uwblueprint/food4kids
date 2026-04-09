@@ -1,4 +1,5 @@
 import { BannersSection } from './sections/BannersSection';
+import { CardSection } from './sections/CardSection';
 import { ButtonsSection } from './sections/ButtonsSection';
 import { ColorsSection } from './sections/ColorsSection';
 import { FormFieldsSection } from './sections/FormFieldsSection';
@@ -27,6 +28,7 @@ export const StyleGuidePage = () => {
       <SpacingSection />
       <BannersSection />
       <TagsSection />
+      <CardSection />
       <TableSection />
       <IllustrationsSection />
       <LogosSection />
