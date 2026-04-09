@@ -5,10 +5,13 @@ import { SectionHeader } from '../components/SectionHeader';
 export function BannersSection() {
   return (
     <section className="mb-16">
-      <SectionHeader>Banners (Token Usage Examples)</SectionHeader>
+      <SectionHeader>Banners</SectionHeader>
 
       <div className="space-y-6">
-        <Banner variant="success" subtitle="Generated on Oct 20, 2025 at 10:42 AM">
+        <Banner
+          variant="success"
+          subtitle="Generated on Oct 20, 2025 at 10:42 AM"
+        >
           Routes generated successfully!
         </Banner>
 
