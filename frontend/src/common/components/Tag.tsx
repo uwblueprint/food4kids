@@ -17,13 +17,23 @@ const tagVariants = cva(
   }
 );
 
+type TagVariant = 'success';
+
 interface TagProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
+  extends
+    React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof tagVariants> {
+  variant: TagVariant;
   onRemove?: () => void;
 }
 
-function Tag({ variant = 'success', onRemove, className, children, ...props }: TagProps) {
+function Tag({
+  variant = 'success',
+  onRemove,
+  className,
+  children,
+  ...props
+}: TagProps) {
   return (
     <span className={cn(tagVariants({ variant }), className)} {...props}>
       {children}
