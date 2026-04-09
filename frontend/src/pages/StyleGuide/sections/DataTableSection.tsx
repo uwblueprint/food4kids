@@ -1,5 +1,5 @@
 import girlConfused from '@/assets/illustrations/girl-confused.png';
-import { AlertCell, DataTable, type Column } from '@/common/components';
+import { AlertCell, type Column, DataTable } from '@/common/components';
 
 import { SectionHeader } from '../components/SectionHeader';
 

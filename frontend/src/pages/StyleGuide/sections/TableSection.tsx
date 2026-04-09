@@ -3,9 +3,9 @@ import { useState } from 'react';
 import girlConfused from '@/assets/illustrations/girl-confused.png';
 import {
   AlertCell,
+  type Column,
   DataTable,
   DropdownTable,
-  type Column,
   type DropdownTableRow,
 } from '@/common/components';
 
@@ -23,7 +23,11 @@ const MOCK_OPTIONS = [
 ];
 
 const INITIAL_ROWS: DropdownTableRow[] = [
-  { label: 'School Name / Child Last Name', required: true, options: MOCK_OPTIONS },
+  {
+    label: 'School Name / Child Last Name',
+    required: true,
+    options: MOCK_OPTIONS,
+  },
   { label: 'Address', required: true, options: MOCK_OPTIONS },
   { label: 'Delivery Group', required: true, options: MOCK_OPTIONS },
   { label: 'Phone Number', required: true, options: MOCK_OPTIONS },
@@ -50,13 +54,81 @@ interface MockRow {
 }
 
 const MOCK_ROWS: MockRow[] = [
-  { id: 1, alertType: 'error', alert: 'Missing Address', rowNum: 12, name: 'Smith', address: '', deliveryGroup: 'Monday A', phone: '416 123 4850', errorCell: 'address' },
-  { id: 2, alertType: 'error', alert: 'Missing Address', rowNum: 43, name: 'Connor', address: '', deliveryGroup: 'Tuesday A', phone: '416 343 8450', errorCell: 'address' },
-  { id: 3, alertType: 'error', alert: 'Missing Address', rowNum: 45, name: 'Dougall', address: '', deliveryGroup: 'Thursday B', phone: '416 233 8450', errorCell: 'address' },
-  { id: 4, alertType: 'error', alert: 'Missing Address', rowNum: 51, name: 'Morales', address: '', deliveryGroup: 'Tuesday A', phone: '519 343 8450', errorCell: 'address' },
-  { id: 5, alertType: 'warning', alert: 'Duplicate Entry', rowNum: 78, name: 'Patel', address: '400 Oak Ave', deliveryGroup: 'Monday A', phone: '427 284 2498' },
-  { id: 6, alertType: 'warning', alert: 'Duplicate Entry', rowNum: 89, name: 'Patel', address: '400 Oak Ave', deliveryGroup: 'Monday A', phone: '427 284 2498' },
-  { id: 7, alertType: 'warning', alert: 'Missing Delivery Day', rowNum: 120, name: 'Jordan', address: '43 Burr Ave', deliveryGroup: '', phone: '519 5443 298', errorCell: 'deliveryGroup' },
+  {
+    id: 1,
+    alertType: 'error',
+    alert: 'Missing Address',
+    rowNum: 12,
+    name: 'Smith',
+    address: '',
+    deliveryGroup: 'Monday A',
+    phone: '416 123 4850',
+    errorCell: 'address',
+  },
+  {
+    id: 2,
+    alertType: 'error',
+    alert: 'Missing Address',
+    rowNum: 43,
+    name: 'Connor',
+    address: '',
+    deliveryGroup: 'Tuesday A',
+    phone: '416 343 8450',
+    errorCell: 'address',
+  },
+  {
+    id: 3,
+    alertType: 'error',
+    alert: 'Missing Address',
+    rowNum: 45,
+    name: 'Dougall',
+    address: '',
+    deliveryGroup: 'Thursday B',
+    phone: '416 233 8450',
+    errorCell: 'address',
+  },
+  {
+    id: 4,
+    alertType: 'error',
+    alert: 'Missing Address',
+    rowNum: 51,
+    name: 'Morales',
+    address: '',
+    deliveryGroup: 'Tuesday A',
+    phone: '519 343 8450',
+    errorCell: 'address',
+  },
+  {
+    id: 5,
+    alertType: 'warning',
+    alert: 'Duplicate Entry',
+    rowNum: 78,
+    name: 'Patel',
+    address: '400 Oak Ave',
+    deliveryGroup: 'Monday A',
+    phone: '427 284 2498',
+  },
+  {
+    id: 6,
+    alertType: 'warning',
+    alert: 'Duplicate Entry',
+    rowNum: 89,
+    name: 'Patel',
+    address: '400 Oak Ave',
+    deliveryGroup: 'Monday A',
+    phone: '427 284 2498',
+  },
+  {
+    id: 7,
+    alertType: 'warning',
+    alert: 'Missing Delivery Day',
+    rowNum: 120,
+    name: 'Jordan',
+    address: '43 Burr Ave',
+    deliveryGroup: '',
+    phone: '519 5443 298',
+    errorCell: 'deliveryGroup',
+  },
 ];
 
 const DATA_COLUMNS: Column<MockRow>[] = [
@@ -71,7 +143,9 @@ const DATA_COLUMNS: Column<MockRow>[] = [
     key: 'address',
     header: 'Address',
     getCellClassName: (row) =>
-      row.errorCell === 'address' ? 'bg-light-red border-b-2 border-red' : undefined,
+      row.errorCell === 'address'
+        ? 'bg-light-red border-b-2 border-red'
+        : undefined,
   },
   {
     key: 'deliveryGroup',

@@ -116,4 +116,4 @@ function DataTable<T>({
   );
 }
 
-export { DataTable, AlertCell };
+export { AlertCell, DataTable };

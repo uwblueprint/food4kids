@@ -67,19 +67,19 @@ export function TypekitSection() {
               />
               <TypekitRow
                 label="Desktop/Paragraph/P1"
-                className="font-nunito-sans text-[var(--text-p1)] text-grey-500"
+                className="font-nunito-sans text-grey-500 text-[var(--text-p1)]"
                 spec="Nunito Sans | Text size: 16px | Line height: 20px"
                 code="text-p1"
               />
               <TypekitRow
                 label="Desktop/Paragraph/P2"
-                className="font-nunito-sans text-[var(--text-p2)] text-grey-500"
+                className="font-nunito-sans text-grey-500 text-[var(--text-p2)]"
                 spec="Nunito Sans | Text size: 14px | Line height: 18px"
                 code="text-p2"
               />
               <TypekitRow
                 label="Desktop/Paragraph/P3"
-                className="font-nunito-sans text-[var(--text-p3)] text-grey-500"
+                className="font-nunito-sans text-grey-500 text-[var(--text-p3)]"
                 spec="Nunito Sans | Text size: 12px | Line height: 18px"
                 code="text-p3"
               />

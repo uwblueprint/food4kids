@@ -18,7 +18,7 @@ export function CardSection() {
           </div>
 
           <div className="flex justify-center">
-            <ShareIcon className="text-blue-300 h-10 w-10" />
+            <ShareIcon className="h-10 w-10 text-blue-300" />
           </div>
 
           <Button variant="primary">Import New File</Button>

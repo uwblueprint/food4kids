@@ -1,6 +1,6 @@
 import { BannersSection } from './sections/BannersSection';
-import { CardSection } from './sections/CardSection';
 import { ButtonsSection } from './sections/ButtonsSection';
+import { CardSection } from './sections/CardSection';
 import { ColorsSection } from './sections/ColorsSection';
 import { FormFieldsSection } from './sections/FormFieldsSection';
 import { IconographySection } from './sections/IconographySection';

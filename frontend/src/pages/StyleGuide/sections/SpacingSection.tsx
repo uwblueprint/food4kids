@@ -6,9 +6,8 @@ export function SpacingSection() {
       <SectionHeader>Spacing Scale (8px Grid)</SectionHeader>
       <p className="text-p2 text-grey-400 mb-6">
         Illustrates Tailwind&apos;s underlying doubling scale — not a list of
-        approved design values. For the design&apos;s actual spacing
-        increments (4, 8, 12, 16, 20, 24, 40, 80px) see the README spacing
-        table.
+        approved design values. For the design&apos;s actual spacing increments
+        (4, 8, 12, 16, 20, 24, 40, 80px) see the README spacing table.
       </p>
 
       <div className="space-y-3">
@@ -24,9 +23,7 @@ export function SpacingSection() {
           { step: 8, px: 512, tw: '128' },
         ].map(({ step, px, tw }) => (
           <div key={step} className="flex items-center gap-4">
-            <span className="text-p3 text-grey-400 w-6 text-right">
-              {step}
-            </span>
+            <span className="text-p3 text-grey-400 w-6 text-right">{step}</span>
             <div
               className="bg-brand-pink h-2 rounded-sm"
               style={{ width: Math.min(px, 512) + 'px' }}
