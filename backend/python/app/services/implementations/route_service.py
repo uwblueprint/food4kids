@@ -278,9 +278,8 @@ class RouteService:
             self.logger.error(f"Failed to update route {route_id}: {error!s}")
             await session.rollback()
             raise error
-    async def get_google_maps_link(
-        self, session: AsyncSession, route_id: UUID
-    ) -> str:
+
+    async def get_google_maps_link(self, session: AsyncSession, route_id: UUID) -> str:
         """Generate a Google Maps directions URL for a route.
 
         Fetches the route's stops (ordered by stop_number), joins each stop
