@@ -57,7 +57,10 @@ async def get_route(
     route = await route_service.get_route(session, route_id)
     return route
 
-@router.get("/{route_id}/google-maps-link", response_model=str, status_code=status.HTTP_200_OK)
+
+@router.get(
+    "/{route_id}/google-maps-link", response_model=str, status_code=status.HTTP_200_OK
+)
 async def get_google_maps_link(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),

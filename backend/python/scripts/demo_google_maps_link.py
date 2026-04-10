@@ -210,9 +210,7 @@ def main() -> None:
                     {"lid": loc_id},
                 )
             session.execute(
-                text(
-                    "DELETE FROM system_settings WHERE system_settings_id = :id"
-                ),
+                text("DELETE FROM system_settings WHERE system_settings_id = :id"),
                 {"id": system_settings_id},
             )
 

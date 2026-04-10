@@ -55,9 +55,7 @@ def build_google_maps_directions_url(
         elif location.latitude is not None and location.longitude is not None:
             segments.append(f"{location.latitude},{location.longitude}")
         else:
-            raise ValueError(
-                f"Stop {i + 1} has neither an address nor coordinates."
-            )
+            raise ValueError(f"Stop {i + 1} has neither an address nor coordinates.")
 
     url = base_url + "/" + "/".join(segments)
 
