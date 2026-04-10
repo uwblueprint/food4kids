@@ -18,6 +18,10 @@ def build_google_maps_directions_url(
     Each stop is represented by its address (URL-encoded), falling back to
     raw ``lat,lon`` coordinates when no address is available.
 
+    Google Maps ``/dir/`` URLs support a maximum of 10 waypoints (excluding
+    the origin).  Browsers generally refuse URLs longer than ~2 000
+    characters.  Both limits are enforced here.
+
     Args:
         locations: Ordered list of Location objects (route stops).
         warehouse_lat: Latitude of the warehouse (route origin).
@@ -27,8 +31,19 @@ def build_google_maps_directions_url(
         A fully-formed Google Maps directions URL string.
 
     Raises:
-        ValueError: If a location has neither an address nor coordinates.
+        ValueError: If a location has neither an address nor coordinates,
+            if there are more than 10 stops, or if the resulting URL
+            exceeds 2 000 characters.
     """
+    _MAX_WAYPOINTS = 10
+    _MAX_URL_LENGTH = 2000
+
+    if len(locations) > _MAX_WAYPOINTS:
+        raise ValueError(
+            f"Route has {len(locations)} stops, but Google Maps directions "
+            f"URLs support a maximum of {_MAX_WAYPOINTS} waypoints."
+        )
+
     base_url = "https://www.google.com/maps/dir"
 
     # Origin is always the warehouse coordinates
@@ -44,4 +59,12 @@ def build_google_maps_directions_url(
                 f"Stop {i + 1} has neither an address nor coordinates."
             )
 
-    return base_url + "/" + "/".join(segments)
+    url = base_url + "/" + "/".join(segments)
+
+    if len(url) > _MAX_URL_LENGTH:
+        raise ValueError(
+            f"Generated URL is {len(url)} characters, which exceeds the "
+            f"browser limit of {_MAX_URL_LENGTH} characters."
+        )
+
+    return url
