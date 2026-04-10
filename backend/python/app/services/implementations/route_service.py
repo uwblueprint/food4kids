@@ -308,9 +308,12 @@ class RouteService:
         rows = result.all()
 
         if not rows:
+            # Verify the route exists (raises 404 if not found)
+            await self.get_route(session, route_id)
+            # Route exists but has no stops
             raise HTTPException(
-                status_code=404,
-                detail=f"Route {route_id} not found or has no stops.",
+                status_code=422,
+                detail=f"Route {route_id} has no stops.",
             )
 
         # 2. Fetch warehouse coordinates from SystemSettings
