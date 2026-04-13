@@ -51,6 +51,8 @@ ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
 UNASSIGNED_LOCATION_PERCENTAGE = 0.05
 # Average number of stops per route (used to calculate number of clusters)
 AVG_STOPS_PER_ROUTE = 7.5
+# Maximum number of stops per route (Google Maps directions URLs support max 10 waypoints)
+MAX_STOPS_PER_ROUTE = 10
 # Number of months in the past to generate route groups for
 MONTHS_PAST = 2
 # Number of months in the future to generate route groups for
@@ -328,6 +330,17 @@ def create_routes_for_group(session: Session, group_locations: list[Location]) -
 
     num_clusters = max(1, int(len(group_locations) // AVG_STOPS_PER_ROUTE))
     clusters = create_clusters(group_locations, num_clusters)
+
+    # Split any cluster that exceeds the max stops per route
+    split_clusters: list[list[Location]] = []
+    for cluster in clusters:
+        while len(cluster) > MAX_STOPS_PER_ROUTE:
+            split_clusters.append(cluster[:MAX_STOPS_PER_ROUTE])
+            cluster = cluster[MAX_STOPS_PER_ROUTE:]
+        if cluster:
+            split_clusters.append(cluster)
+    clusters = split_clusters
+
     routes_created = 0
 
     for cluster_idx, cluster_locations in enumerate(clusters):
