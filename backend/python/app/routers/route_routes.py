@@ -58,6 +58,29 @@ async def get_route(
     return route
 
 
+@router.get(
+    "/{route_id}/google-maps-link", response_model=str, status_code=status.HTTP_200_OK
+)
+async def get_google_maps_link(
+    route_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> str:
+    """
+    Generate a Google Maps directions URL for a route.
+
+    Takes a route ID, looks up its stops in order, and builds a Google Maps
+    directions link starting from the warehouse and visiting each stop.
+
+    Parameters:
+        route_id (UUID): The unique identifier of the route.
+        session (AsyncSession): The database session dependency.
+
+    Returns:
+        The Google Maps directions URL as a plain string.
+    """
+    return await route_service.get_google_maps_link(session, route_id)
+
+
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_route(
     route_id: UUID,
