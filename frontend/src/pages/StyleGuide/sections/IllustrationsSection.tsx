@@ -25,8 +25,10 @@ export function IllustrationsSection() {
           >
             <img
               src={
-                new URL(`../../../assets/illustrations/${file}`, import.meta.url)
-                  .href
+                new URL(
+                  `../../../assets/illustrations/${file}`,
+                  import.meta.url
+                ).href
               }
               alt={label}
               className="h-32 w-auto object-contain"
