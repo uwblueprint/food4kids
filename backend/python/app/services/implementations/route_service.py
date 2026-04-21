@@ -41,64 +41,71 @@ class RouteService:
         Get routes with optional filtering for unassigned routes and date range.
         Returns routes with their drive dates - routes can appear multiple times for different dates.
         """
-        statement = (
-            select(
-                Route,
-                RouteGroup.route_group_id,
-                RouteGroup.drive_date,
-            )
-            .join(
-                RouteGroupMembership,
-                Route.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
-            )
-            .join(
-                RouteGroup,
-                RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
-            )
-        )
-
-        # Date filtering
-        if start_date:
-            start_date = self._to_naive_utc(start_date)
-            statement = statement.where(RouteGroup.drive_date >= start_date)
-        if end_date:
-            end_date = self._to_naive_utc(end_date)
-            statement = statement.where(RouteGroup.drive_date <= end_date)
-
-        # Unassigned filter
-        if unassigned_only:
-            statement = statement.where(
-                ~exists(
-                    sql_select(1)
-                    .select_from(DriverAssignment)
-                    .where(
-                        and_(
-                            DriverAssignment.route_id == Route.route_id,  # type: ignore[arg-type]
-                            DriverAssignment.route_group_id
-                            == RouteGroup.route_group_id,  # type: ignore[arg-type]
-                        )
-                    )
+        try:
+            statement = (
+                select(
+                    Route,
+                    RouteGroup.route_group_id,
+                    RouteGroup.drive_date,
+                )
+                .join(
+                    RouteGroupMembership,
+                    Route.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
+                )
+                .join(
+                    RouteGroup,
+                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
                 )
             )
 
-        statement = statement.order_by(
-            asc(RouteGroup.drive_date),  # type: ignore[arg-type]
-            asc(Route.name),
-        )
+            # Date filtering
+            if start_date:
+                start_date = self._to_naive_utc(start_date)
+                statement = statement.where(RouteGroup.drive_date >= start_date)
+            if end_date:
+                end_date = self._to_naive_utc(end_date)
+                statement = statement.where(RouteGroup.drive_date <= end_date)
 
-        result = await session.execute(statement)
-        rows = result.all()
+            # Unassigned filter
+            if unassigned_only:
+                statement = statement.where(
+                    ~exists(
+                        sql_select(1)
+                        .select_from(DriverAssignment)
+                        .where(
+                            and_(
+                                DriverAssignment.route_id == Route.route_id,  # type: ignore[arg-type]
+                                DriverAssignment.route_group_id
+                                == RouteGroup.route_group_id,  # type: ignore[arg-type]
+                            )
+                        )
+                    )
+                )
 
-        return [
-            RouteWithDateRead(
-                route_id=row.Route.route_id,
-                name=row.Route.name,
-                notes=row.Route.notes,
-                length=row.Route.length,
-                drive_date=row.drive_date,
+            statement = statement.order_by(
+                asc(RouteGroup.drive_date),  # type: ignore[arg-type]
+                asc(Route.name),
             )
-            for row in rows
-        ]
+
+            result = await session.execute(statement)
+            rows = result.all()
+
+            return [
+                RouteWithDateRead(
+                    route_id=row.Route.route_id,
+                    name=row.Route.name,
+                    notes=row.Route.notes,
+                    length=row.Route.length,
+                    drive_date=row.drive_date,
+                )
+                for row in rows
+            ]
+        except Exception as error:
+            self.logger.exception("Failed to fetch routes from database")
+            await session.rollback()
+            raise HTTPException(
+                status_code=500, detail="An error occurred while retrieving routes."
+            ) from error
 
     async def get_upcoming_routes(
         self,
@@ -107,14 +114,18 @@ class RouteService:
         """
         Get all routes happening today or in the future.
         """
-        today_start = self._today_start()
-
-        return await self.get_routes(
-            session=session,
-            unassigned_only=False,
-            start_date=today_start,
-            end_date=None,
-        )
+        try:
+            today_start = self._today_start()
+            return await self.get_routes(
+                session=session,
+                unassigned_only=False,
+                start_date=today_start,
+                end_date=None,
+            )
+        except Exception as error:
+            # We catch here primarily to provide better log context
+            self.logger.error(f"Error in get_upcoming_routes: {error}")
+            raise
 
     async def get_past_routes(
         self,
@@ -123,14 +134,17 @@ class RouteService:
         """
         Get all routes before today.
         """
-        today_start = self._today_start()
-
-        return await self.get_routes(
-            session=session,
-            unassigned_only=False,
-            start_date=None,
-            end_date=today_start,
-        )
+        try:
+            today_start = self._today_start()
+            return await self.get_routes(
+                session=session,
+                unassigned_only=False,
+                start_date=None,
+                end_date=today_start,
+            )
+        except Exception as error:
+            self.logger.error(f"Error in get_past_routes: {error}")
+            raise
 
     async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
         """Get route by ID"""
@@ -169,6 +183,9 @@ class RouteService:
 
             return True
         except Exception as error:
-            self.logger.error(f"Failed to delete route {route_id}: {error!s}")
+            self.logger.exception(f"Failed to delete route {route_id}")
             await session.rollback()
-            raise error
+            # Raising HTTPException here for consistency with other methods
+            raise HTTPException(
+                status_code=500, detail="Internal server error during deletion."
+            ) from error
