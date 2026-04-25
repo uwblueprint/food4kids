@@ -10,7 +10,7 @@ const STEP_PATHS = [
   'validate',
   'review',
   'configure',
-  'complete',
+  'generate',
 ] as const;
 
 function getCurrentStep(pathname: string): number {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
 import { Button, Dropdown } from '@/common/components';
@@ -64,12 +64,17 @@ const END_LOCATION_OPTIONS: DropdownOption[] = [
 // ---------------------------------------------------------------------------
 
 export function ConfigureStep() {
+  const navigate = useNavigate();
   const [configs, setConfigs] = useState<RouteConfig[]>(MOCK_CONFIGS);
 
   const updateConfig = (index: number, updates: Partial<RouteConfig>) => {
     setConfigs((prev) =>
       prev.map((c, i) => (i === index ? { ...c, ...updates } : c))
     );
+  };
+
+  const handleContinue = () => {
+    navigate('/admin/routes/generation/generate');
   };
 
   return (
@@ -175,7 +180,9 @@ export function ConfigureStep() {
             Back to Review Changes
           </Link>
         </Button>
-        <Button variant="primary">Continue to Generate Routes</Button>
+        <Button variant="primary" onClick={handleContinue}>
+          Continue to Generate Routes
+        </Button>
       </div>
     </>
   );
