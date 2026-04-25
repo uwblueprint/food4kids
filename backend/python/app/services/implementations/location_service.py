@@ -6,7 +6,6 @@ from typing import TypeGuard
 from uuid import UUID
 
 import pandas as pd
-from app.models.location_group import LocationGroup
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -29,6 +28,7 @@ from app.models.location import (
     LocationUpdate,
     ValidatedLocationImportEntry,
 )
+from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
