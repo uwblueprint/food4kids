@@ -49,23 +49,23 @@ export default function F4KEmailLayout({
         }}
       >
         <Body className="bg-grey-200 font-nunito text-grey-500 m-0 p-0">
-          <Container className="mx-[200px] my-[100px] max-w-[600px]">
+          <Container className="mx-[200px] my-[100px] max-w-[540px]">
             {/* Main email structure */}
             <Section className="bg-grey-100 overflow-hidden rounded-lg">
               {/* Top Card: Logo Header */}
-              <Section className="bg-grey-100 py-[24px] text-center">
+              <Section className="bg-grey-100 py-[30px] text-center">
                 <Img
                   src="https://food4kidswr.ca/wp-content/uploads/2022/08/food4kids-waterloo-region.png"
                   alt="Food4Kids Waterloo Region"
-                  width="180"
+                  width="276"
                   className="mx-auto"
                 />
               </Section>
 
-              <Hr className="border-grey-300 m-0 w-full border-solid" />
+              <Hr className="border-grey-200 m-0 w-full border-solid" />
 
               {/* Bottom Card: Main Content Area */}
-              <Section className="p-[40px]">
+              <Section>
                 {children}
 
                 {/* Dynamic button */}
@@ -120,10 +120,10 @@ export default function F4KEmailLayout({
                   className="mx-[8px] inline-block"
                 >
                   <Img
-                    src="/static/twitter.png"
+                    src="/static/x-logo.png"
                     width="24"
                     height="24"
-                    alt="Twitter"
+                    alt="X"
                   />
                 </Link>
               </Section>
