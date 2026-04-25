@@ -5,7 +5,9 @@ import {
   AdminDriversPage,
   AdminHomePage,
   AdminRoutesPage,
+  AdminRoutesGenerationLayout,
   AdminSettingsPage,
+  ImportStep,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -25,6 +27,13 @@ function App() {
           <Route path="home" element={<AdminHomePage />} />
           <Route path="drivers" element={<AdminDriversPage />} />
           <Route path="routes" element={<AdminRoutesPage />} />
+          <Route
+            path="routes/generation"
+            element={<AdminRoutesGenerationLayout />}
+          >
+            <Route index element={<Navigate to="import" replace />} />
+            <Route path="import" element={<ImportStep />} />
+          </Route>
           <Route path="settings" element={<AdminSettingsPage />} />
           <Route path="test-image-upload" element={<TestImageUpload />} />
         </Route>

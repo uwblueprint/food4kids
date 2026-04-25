@@ -1,10 +1,14 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 
+import AlertCircleIcon from '@/assets/icons/alert-circle.svg?react';
+import AlertTriangleIcon from '@/assets/icons/alert-triangle.svg?react';
+import CheckCircleIcon from '@/assets/icons/check-circle.svg?react';
+import XIcon from '@/assets/icons/x.svg?react';
 import { cn } from '@/lib/utils';
 
 const bannerVariants = cva(
-  'flex items-start gap-2.5 rounded-2xl border px-4 py-6',
+  'flex items-start gap-4 rounded-2xl border p-6',
   {
     variants: {
       variant: {
@@ -19,54 +23,66 @@ const bannerVariants = cva(
   }
 );
 
-const iconChar = {
-  success: '\u2713',
-  error: '\u26A0',
-  warning: '\u26A0',
+const IconComponent = {
+  success: CheckCircleIcon,
+  error: AlertCircleIcon,
+  warning: AlertTriangleIcon,
 } as const;
 
 const iconClass = {
-  success: 'text-success-stroke',
-  error: 'text-red',
-  warning: 'text-dark-yellow',
+  success: 'shrink-0 size-[18px] text-success-stroke',
+  error: 'shrink-0 size-[18px] text-red',
+  warning: 'shrink-0 size-[18px] text-dark-yellow',
 } as const;
 
 const textClass = {
-  success: 'text-success-stroke font-semibold',
-  error: 'text-p2 text-red font-semibold',
-  warning: 'text-p2 text-dark-yellow font-semibold',
+  success: 'text-p1 text-success-stroke',
+  error: 'text-p1 text-grey-500',
+  warning: 'text-p1 text-grey-500',
 } as const;
 
 const subtitleClass = {
   success: 'text-p2 text-success-stroke opacity-80',
-  error: 'text-p2 text-red opacity-80',
-  warning: 'text-p2 text-dark-yellow opacity-80',
+  error: 'text-p2 text-grey-500 opacity-80',
+  warning: 'text-p2 text-grey-500 opacity-80',
 } as const;
 
-type BannerVariant = keyof typeof iconChar;
+type BannerVariant = keyof typeof IconComponent;
 
 interface BannerProps
-  extends
-    React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLDivElement>,
     Omit<VariantProps<typeof bannerVariants>, 'variant'> {
   variant: BannerVariant;
   subtitle?: React.ReactNode;
+  onDismiss?: () => void;
 }
 
 function Banner({
   variant = 'success',
   subtitle,
+  onDismiss,
   className,
   children,
   ...props
 }: BannerProps) {
+  const Icon = IconComponent[variant];
   return (
     <div className={cn(bannerVariants({ variant }), className)} {...props}>
-      <span className={iconClass[variant]}>{iconChar[variant]}</span>
-      <div>
+      <Icon className={iconClass[variant]} />
+      <div className="min-w-0 flex-1">
         <p className={textClass[variant]}>{children}</p>
-        {subtitle && <p className={subtitleClass[variant]}>{subtitle}</p>}
+        {subtitle && <p className={cn(subtitleClass[variant], 'mt-1')}>{subtitle}</p>}
       </div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="shrink-0 text-grey-400 transition-colors hover:text-grey-500"
+        >
+          <XIcon className="size-5" />
+        </button>
+      )}
     </div>
   );
 }
