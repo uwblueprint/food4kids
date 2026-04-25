@@ -36,11 +36,11 @@ function getAlertDisplay(
     case 'INVALID_FORMAT':
       return { type: 'error', label: 'Invalid Format' };
     case 'LOCAL_DUPLICATE':
-      return { type: 'error', label: 'Duplicate Entry' };
-    case 'PARTIAL_DUPLICATE':
       return { type: 'warning', label: 'Duplicate Entry' };
+    case 'PARTIAL_DUPLICATE':
+      return { type: 'warning', label: 'Partial Duplicate Entry' };
     case 'MISSING_DELIVERY_GROUP':
-      return { type: 'warning', label: 'Missing Delivery Group' };
+      return { type: 'error', label: 'Missing Delivery Group' };
   }
 }
 
