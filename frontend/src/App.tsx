@@ -7,6 +7,7 @@ import {
   AdminRoutesPage,
   AdminRoutesGenerationLayout,
   AdminSettingsPage,
+  ConfigureStep,
   ImportStep,
   ReviewStep,
   ValidateStep,
@@ -37,6 +38,7 @@ function App() {
             <Route path="import" element={<ImportStep />} />
             <Route path="validate" element={<ValidateStep />} />
             <Route path="review" element={<ReviewStep />} />
+            <Route path="configure" element={<ConfigureStep />} />
           </Route>
           <Route path="settings" element={<AdminSettingsPage />} />
           <Route path="test-image-upload" element={<TestImageUpload />} />

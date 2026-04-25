@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
 import CheckIcon from '@/assets/icons/check.svg?react';
 import XIcon from '@/assets/icons/x.svg?react';
@@ -107,6 +107,7 @@ const PLACEHOLDER_STALE: StaleEntry[] = [];
 const PLACEHOLDER_CHANGED: ChangedEntry[] = [];
 
 export function ReviewStep() {
+  const navigate = useNavigate();
   useOutletContext<GenerationOutletContext>(); // ensures we're inside the layout
 
   const [accepted, setAccepted] = useState<Set<number>>(new Set());
@@ -121,6 +122,10 @@ export function ReviewStep() {
       }
       return next;
     });
+  };
+
+  const handleContinue = () => {
+    navigate('/admin/routes/generation/configure');
   };
 
   const changedColumns: Column<ChangedEntry & { _index: number }>[] = [
@@ -245,7 +250,7 @@ export function ReviewStep() {
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes/generation/validate">Back to Validation</Link>
         </Button>
-        <Button variant="primary" disabled>
+        <Button variant="primary" onClick={handleContinue}>
           Continue to Configure Routes
         </Button>
       </div>
