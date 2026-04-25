@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
@@ -18,9 +19,26 @@ function getCurrentStep(pathname: string): number {
   return index === -1 ? 0 : index;
 }
 
+export interface GenerationOutletContext {
+  file: File | null;
+  setFile: (f: File | null) => void;
+  columnMap: Record<string, string>;
+  setColumnMap: (m: Record<string, string>) => void;
+}
+
 export function AdminRoutesGenerationLayout() {
   const { pathname } = useLocation();
   const currentStep = getCurrentStep(pathname);
+
+  const [file, setFile] = useState<File | null>(null);
+  const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+
+  const context: GenerationOutletContext = {
+    file,
+    setFile,
+    columnMap,
+    setColumnMap,
+  };
 
   return (
     <div className="bg-grey-200 min-h-screen px-20 py-10">
@@ -45,7 +63,7 @@ export function AdminRoutesGenerationLayout() {
         <ProgressStepper currentStep={currentStep} />
 
         {/* Step content */}
-        <Outlet />
+        <Outlet context={context} />
       </div>
     </div>
   );

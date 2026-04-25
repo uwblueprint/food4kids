@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import { Banner, Button, Card, DropdownTable } from '@/common/components';
@@ -7,17 +7,19 @@ import type { DropdownTableRow } from '@/common/components';
 
 import { FileDropZone } from '@/pages/admin/routes/components/FileDropZone';
 
+import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
 
 const COLUMN_MAP_STORAGE_KEY = 'food4kids_column_map';
 
 const SYSTEM_FIELDS: { key: string; label: string; required: boolean }[] = [
-  { key: 'school_name', label: 'School Name / Last Name', required: true },
+  { key: 'contact_name', label: 'School Name / Last Name', required: true },
   { key: 'address', label: 'Address', required: true },
   { key: 'delivery_group', label: 'Delivery Group', required: true },
   { key: 'phone_number', label: 'Phone Number', required: true },
-  { key: 'number_of_children', label: 'Number of Children', required: true },
-  { key: 'food_restrictions', label: 'Food Restrictions', required: true },
+  { key: 'num_boxes', label: 'Number of Children', required: true },
+  { key: 'dietary_restrictions', label: 'Food Restrictions', required: true },
 ];
 
 function parseHeaders(file: File): Promise<string[]> {
@@ -52,12 +54,30 @@ function loadSavedMapping(): Record<string, string> {
 }
 
 export function ImportStep() {
+  const navigate = useNavigate();
+  const { file, setFile, columnMap, setColumnMap } =
+    useOutletContext<GenerationOutletContext>();
+
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
-  const [columnMap, setColumnMap] = useState<Record<string, string>>(
-    loadSavedMapping
-  );
+
+  // Restore saved mapping on mount
+  useEffect(() => {
+    const saved = loadSavedMapping();
+    if (Object.keys(saved).length > 0) setColumnMap(saved);
+  }, []);
+
+  // If a file was already set in context (e.g. user navigated back), parse headers
+  useEffect(() => {
+    if (file && fileHeaders.length === 0) {
+      parseHeaders(file).then(setFileHeaders).catch(() => {});
+    }
+  }, [file]);
+
+  // Persist column map to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(COLUMN_MAP_STORAGE_KEY, JSON.stringify(columnMap));
+  }, [columnMap]);
 
   const handleFileSelect = async (selected: File) => {
     const ext = '.' + selected.name.split('.').pop()?.toLowerCase();
@@ -83,13 +103,8 @@ export function ImportStep() {
   };
 
   const handleColumnChange = (systemKey: string, fileColumn: string) => {
-    setColumnMap((prev) => ({ ...prev, [systemKey]: fileColumn }));
+    setColumnMap({ ...columnMap, [systemKey]: fileColumn });
   };
-
-  // Persist column map to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem(COLUMN_MAP_STORAGE_KEY, JSON.stringify(columnMap));
-  }, [columnMap]);
 
   const headerOptions = fileHeaders.map((h) => ({ label: h, value: h }));
 
@@ -102,10 +117,12 @@ export function ImportStep() {
   }));
 
   const requiredFields = SYSTEM_FIELDS.filter((f) => f.required);
-  const allRequiredMapped = requiredFields.every(
-    (f) => !!columnMap[f.key]
-  );
+  const allRequiredMapped = requiredFields.every((f) => !!columnMap[f.key]);
   const canContinue = file !== null && allRequiredMapped;
+
+  const handleContinue = () => {
+    navigate('/admin/routes/generation/validate');
+  };
 
   return (
     <>
@@ -152,15 +169,9 @@ export function ImportStep() {
         <Button
           variant="primary"
           disabled={!canContinue}
-          asChild={canContinue}
+          onClick={canContinue ? handleContinue : undefined}
         >
-          {canContinue ? (
-            <Link to="/admin/routes/generation/validate">
-              Continue to Validation
-            </Link>
-          ) : (
-            'Continue to Validation'
-          )}
+          Continue to Validation
         </Button>
       </div>
     </>

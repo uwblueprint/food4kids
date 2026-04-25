@@ -17,6 +17,8 @@ export interface DataTableProps<T> {
   columns: Column<T>[];
   rows: T[];
   getRowKey: (row: T) => string | number;
+  /** Per-row className based on row data — use for error/warning row states. */
+  getRowClassName?: (row: T) => string | undefined;
   /** Rendered when rows is empty. */
   emptyState?: ReactNode;
   className?: string;
@@ -58,6 +60,7 @@ function DataTable<T>({
   columns,
   rows,
   getRowKey,
+  getRowClassName,
   emptyState,
   className,
 }: DataTableProps<T>) {
@@ -90,7 +93,7 @@ function DataTable<T>({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={getRowKey(row)}>
+                <tr key={getRowKey(row)} className={getRowClassName?.(row)}>
                   {columns.map((col) => (
                     <td
                       key={col.key}

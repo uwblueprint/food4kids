@@ -1,0 +1,1 @@
+export { useValidateLocations } from './locations';

@@ -54,40 +54,14 @@ class Location(LocationBase, BaseModel, table=True):
     note_chain: "NoteChain" = Relationship()
 
 
-class LocationImportStatus(str, Enum):
-    """Status of the import"""
-
-    SUCCESS = "SUCCESS"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-
-
-class AlertType(str, Enum):
-    """Severity of an import alert — drives icon/colour on the frontend."""
-
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-
-
 class AlertCode(str, Enum):
     """Machine-readable reason code for an import alert."""
 
-    # ERROR TYPES
     MISSING_FIELDS = "MISSING_FIELDS"
     INVALID_FORMAT = "INVALID_FORMAT"
     LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
-
-    # WARNING TYPES
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
     PARTIAL_DUPLICATE = "PARTIAL_DUPLICATE"
-
-
-class LocationImportAlert(SQLModel):
-    """A single alert attached to an import row."""
-
-    type: AlertType
-    code: AlertCode
-    message: str
 
 
 class LocationImportEntry(SQLModel):
@@ -117,11 +91,13 @@ class ValidatedLocationImportEntry(LocationImportEntry):
 class LocationImportRow(SQLModel):
     row: int
     location: LocationImportEntry
-    alerts: list[LocationImportAlert]
+    alerts: list[AlertCode]
 
 
 class LocationImportResponse(SQLModel):
-    status: LocationImportStatus
+    """success=False when any row has alerts."""
+
+    success: bool
     total_rows: int
     rows: list[LocationImportRow]
 

@@ -13,14 +13,11 @@ from sqlmodel import select
 from app.models.enum import NotePermission
 from app.models.location import (
     AlertCode,
-    AlertType,
     Location,
     LocationCreate,
-    LocationImportAlert,
     LocationImportEntry,
     LocationImportResponse,
     LocationImportRow,
-    LocationImportStatus,
     LocationIngestRequest,
     LocationIngestResponse,
     LocationRead,
@@ -186,7 +183,9 @@ class LocationService:
             await session.rollback()
             raise e
 
-    async def validate_locations(self, file: UploadFile) -> LocationImportResponse:
+    async def validate_locations(
+        self, file: UploadFile, column_map: dict[str, str]
+    ) -> LocationImportResponse:
         """Validate location import data and return per-row alerts."""
         try:
             df = await self._read_upload_file(file)
@@ -194,92 +193,55 @@ class LocationService:
 
             # track local duplicates
             full_dup_keys: dict[tuple[str, str, str], int] = {}
-            address_keys: dict[str, int] = {}  # track partial duplicates by address
-            phone_keys: dict[str, int] = {}  # track partial duplicates by phone
+            address_keys: dict[str, int] = {}
+            phone_keys: dict[str, int] = {}
 
             for index, row in df.iterrows():
                 row_num = int(index) + 1  # type: ignore[call-overload]
-                location = self._parse_row(row, DEFAULT_COLUMN_MAP)
-                alerts: list[LocationImportAlert] = []
+                location = self._parse_row(row, column_map)
+                alerts: list[AlertCode] = []
 
-                # ERROR: missing required fields — also narrows type to ValidatedLocationImportEntry
+                # missing required fields
                 if not self._has_required_fields(location):
-                    alerts.append(
-                        self._alert(
-                            AlertType.ERROR,
-                            AlertCode.MISSING_FIELDS,
-                            "Missing Field(s)",
-                        )
-                    )
+                    alerts.append(AlertCode.MISSING_FIELDS)
                     rows.append(
                         LocationImportRow(row=row_num, location=location, alerts=alerts)
                     )
                     continue
 
-                # ERROR: invalid phone number format
+                # invalid phone number format
                 try:
                     location.phone_number = validate_phone(location.phone_number)
                 except ValueError:
-                    alerts.append(
-                        self._alert(
-                            AlertType.ERROR,
-                            AlertCode.INVALID_FORMAT,
-                            "Invalid Phone Number",
-                        )
-                    )
+                    alerts.append(AlertCode.INVALID_FORMAT)
                     rows.append(
                         LocationImportRow(row=row_num, location=location, alerts=alerts)
                     )
                     continue
 
-                # WARNING: missing delivery group
+                # missing delivery group
                 if not location.delivery_group:
-                    alerts.append(
-                        self._alert(
-                            AlertType.WARNING,
-                            AlertCode.MISSING_DELIVERY_GROUP,
-                            "Missing Delivery Group",
-                        )
-                    )
+                    alerts.append(AlertCode.MISSING_DELIVERY_GROUP)
 
-                # ERROR: full duplicate (same contact name, address, and phone)
+                # full duplicate (same contact name, address, and phone)
                 full_key = (
                     location.contact_name,
                     location.address,
                     location.phone_number,
                 )
-
                 if full_key in full_dup_keys:
-                    alerts.append(
-                        self._alert(
-                            AlertType.ERROR,
-                            AlertCode.LOCAL_DUPLICATE,
-                            f"Local Duplicate to Row #{full_dup_keys[full_key]}",
-                        )
-                    )
+                    alerts.append(AlertCode.LOCAL_DUPLICATE)
                 else:
                     full_dup_keys[full_key] = row_num
 
-                    # WARNING: partial duplicate — same address or same phone
+                    # partial duplicate — same address or same phone
                     if location.address in address_keys:
-                        alerts.append(
-                            self._alert(
-                                AlertType.WARNING,
-                                AlertCode.PARTIAL_DUPLICATE,
-                                f"Address matches Row #{address_keys[location.address]}",
-                            )
-                        )
+                        alerts.append(AlertCode.PARTIAL_DUPLICATE)
                     else:
                         address_keys[location.address] = row_num
 
                     if location.phone_number in phone_keys:
-                        alerts.append(
-                            self._alert(
-                                AlertType.WARNING,
-                                AlertCode.PARTIAL_DUPLICATE,
-                                f"Phone matches Row #{phone_keys[location.phone_number]}",
-                            )
-                        )
+                        alerts.append(AlertCode.PARTIAL_DUPLICATE)
                     else:
                         phone_keys[location.phone_number] = row_num
 
@@ -288,22 +250,13 @@ class LocationService:
                 )
 
             return LocationImportResponse(
-                status=self._get_import_status(rows),
+                success=not any(r.alerts for r in rows),
                 total_rows=len(rows),
                 rows=rows,
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
-
-    def _get_import_status(self, rows: list[LocationImportRow]) -> LocationImportStatus:
-        """Get the most severe status across all rows."""
-        all_alerts = [a for r in rows for a in r.alerts]
-        if any(a.type == AlertType.ERROR for a in all_alerts):
-            return LocationImportStatus.ERROR
-        if any(a.type == AlertType.WARNING for a in all_alerts):
-            return LocationImportStatus.WARNING
-        return LocationImportStatus.SUCCESS
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
@@ -519,6 +472,3 @@ class LocationService:
             await session.rollback()
             raise e
 
-    @staticmethod
-    def _alert(type: AlertType, code: AlertCode, message: str) -> LocationImportAlert:
-        return LocationImportAlert(type=type, code=code, message=message)
