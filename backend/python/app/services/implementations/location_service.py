@@ -6,7 +6,7 @@ from typing import TypeGuard
 from uuid import UUID
 
 import pandas as pd
-from backend.python.app.models.location_group import LocationGroup
+from app.models.location_group import LocationGroup
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select

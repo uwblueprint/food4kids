@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react';
 
 import ShareIcon from '@/assets/icons/share.svg?react';
+import { Tag } from '@/common/components';
 import { cn } from '@/lib/utils';
 
 interface FileDropZoneProps {
   onFileSelect: (file: File) => void;
+  selectedFile?: File | null;
+  onClearFile?: () => void;
   accept?: string;
   disabled?: boolean;
   className?: string;
@@ -12,6 +15,8 @@ interface FileDropZoneProps {
 
 function FileDropZone({
   onFileSelect,
+  selectedFile,
+  onClearFile,
   accept = '.xlsx',
   disabled,
   className,
@@ -68,6 +73,15 @@ function FileDropZone({
           Excel files (.xlsx) only
         </p>
       </div>
+      {selectedFile && (
+        <Tag
+          variant="success"
+          onRemove={onClearFile}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {selectedFile.name}
+        </Tag>
+      )}
     </div>
   );
 }
