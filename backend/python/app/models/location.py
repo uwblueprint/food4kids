@@ -155,3 +155,13 @@ class LocationUpdate(SQLModel):
     num_boxes: int | None = None
     notes: str | None = None
     note_chain_id: UUID | None = None
+
+
+class LocationIngestRequest(SQLModel):
+    net_new: list[ValidatedLocationImportEntry]
+    stale: list[LocationRead]
+
+
+class LocationIngestResponse(SQLModel):
+    created: list[LocationRead]
+    archived: list[LocationRead]

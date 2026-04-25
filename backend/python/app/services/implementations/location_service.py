@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from io import BytesIO
@@ -5,6 +6,7 @@ from typing import TypeGuard
 from uuid import UUID
 
 import pandas as pd
+from backend.python.app.models.location_group import LocationGroup
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -20,6 +22,9 @@ from app.models.location import (
     LocationImportResponse,
     LocationImportRow,
     LocationImportStatus,
+    LocationIngestRequest,
+    LocationIngestResponse,
+    LocationRead,
     LocationState,
     LocationUpdate,
     ValidatedLocationImportEntry,
@@ -410,6 +415,109 @@ class LocationService:
             num_boxes=location_data.num_boxes,
             notes=location_data.notes,
         )
+    
+
+    _GROUP_COLORS = [
+        "#EF4444",
+        "#F97316",
+        "#EAB308",
+        "#22C55E",
+        "#3B82F6",
+        "#A855F7",
+        "#EC4899",
+    ]
+
+    async def ingest_locations(
+        self, session: AsyncSession, request: LocationIngestRequest
+    ) -> LocationIngestResponse:
+        """Persist net-new locations and archive stale ones."""
+        try:
+            # Fetch and archive stale locations in one SELECT IN
+            stale_ids = [loc.location_id for loc in request.stale]
+            stale_db_rows: list[Location] = []
+            if stale_ids:
+                result = await session.execute(
+                    select(Location).where(Location.location_id.in_(stale_ids))
+                )
+                stale_db_rows = list(result.scalars().all())
+                for loc in stale_db_rows:
+                    loc.state = LocationState.ARCHIVED
+
+            archived = [LocationRead.model_validate(loc) for loc in stale_db_rows]
+
+            if not request.net_new:
+                await session.commit()
+                return LocationIngestResponse(created=[], archived=archived)
+
+            # Geocode all addresses concurrently
+            geocode_results = await asyncio.gather(
+                *[
+                    self.google_maps_service.geocode_address(entry.address)
+                    for entry in request.net_new
+                ]
+            )
+
+            # Fetch all existing LocationGroups in one query
+            groups_result = await session.execute(select(LocationGroup))
+            group_by_name: dict[str, LocationGroup] = {
+                g.name: g for g in groups_result.scalars().all()
+            }
+
+            # Create missing LocationGroups (batch, deterministic color assignment)
+            needed_names = sorted(
+                {
+                    entry.delivery_group
+                    for entry in request.net_new
+                    if entry.delivery_group
+                    and entry.delivery_group not in group_by_name
+                }
+            )
+            for i, name in enumerate(needed_names):
+                color = self._GROUP_COLORS[i % len(self._GROUP_COLORS)]
+                group = LocationGroup(name=name, color=color)
+                session.add(group)
+                group_by_name[name] = group
+
+            # Build and batch-insert new Location records
+            new_locations: list[Location] = []
+            for entry, geocode_result in zip(request.net_new, geocode_results):
+                if not geocode_result:
+                    raise ValueError(f"Geocoding failed for address: {entry.address}")
+
+                group = (
+                    group_by_name.get(entry.delivery_group)
+                    if entry.delivery_group
+                    else None
+                )
+                new_locations.append(
+                    Location(
+                        contact_name=entry.contact_name,
+                        address=geocode_result.formatted_address,
+                        phone_number=entry.phone_number,
+                        longitude=geocode_result.longitude,
+                        latitude=geocode_result.latitude,
+                        place_id=geocode_result.place_id,
+                        halal=entry.halal or False,
+                        dietary_restrictions=entry.dietary_restrictions or "",
+                        num_boxes=entry.num_boxes or 0,
+                        location_group_id=(group.location_group_id if group else None),
+                    )
+                )
+
+            session.add_all(new_locations)
+            await session.commit()
+
+            for loc in new_locations:
+                await session.refresh(loc)
+
+            return LocationIngestResponse(
+                created=[LocationRead.model_validate(loc) for loc in new_locations],
+                archived=archived,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to ingest locations: {e!s}")
+            await session.rollback()
+            raise e
 
     @staticmethod
     def _alert(type: AlertType, code: AlertCode, message: str) -> LocationImportAlert:
