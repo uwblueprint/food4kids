@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import girlConfused from '@/assets/illustrations/girl-confused.png';
 
 import { useValidateLocations } from '@/api';
 import {
@@ -14,6 +13,7 @@ import type { Column } from '@/common/components';
 import type { AlertCode, LocationImportRow } from '@/types/location';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { EmptyState } from '../components';
 
 // ---------------------------------------------------------------------------
 // Alert display helpers
@@ -47,21 +47,6 @@ function getAlertDisplay(
 const MISSING_CELL_CLASS = 'border-b-2 border-red bg-red-50';
 
 // ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-const emptyState = (
-  <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-    <img src={girlConfused} alt="" className="h-28 w-auto" />
-    <div>
-      <p className="text-p2 text-grey-500 font-medium">
-        No new entries found in the spreadsheet
-      </p>
-      <p className="text-p3 text-grey-400">It's feeling quite empty here</p>
-    </div>
-  </div>
-);
-
-// ---------------------------------------------------------------------------
 // ValidateStep
 // ---------------------------------------------------------------------------
 
@@ -88,6 +73,10 @@ export function ValidateStep() {
   const errorRows = data?.rows.filter((r) => r.alerts.length > 0) ?? [];
   const errorCount = errorRows.length;
   const canContinue = data?.success === true;
+
+  const handleContinue = () => {
+    navigate('/admin/routes/generation/review');
+  };
 
   const columns: Column<LocationImportRow>[] = [
     {
@@ -192,7 +181,7 @@ export function ValidateStep() {
                 ? 'bg-yellow-50'
                 : undefined
             }
-            emptyState={emptyState}
+            emptyState={<EmptyState />}
           />
         )}
       </Card>
@@ -202,7 +191,11 @@ export function ValidateStep() {
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes/generation/import">Back to Import</Link>
         </Button>
-        <Button variant="primary" disabled={!canContinue}>
+        <Button
+          variant="primary"
+          disabled={!canContinue}
+          onClick={handleContinue}
+        >
           Continue to Review
         </Button>
       </div>

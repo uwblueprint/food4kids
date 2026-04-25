@@ -67,7 +67,7 @@ function DataTable<T>({
   return (
     <div
       className={cn(
-        'border-grey-300 overflow-hidden rounded-2xl border',
+        'border-grey-300 overflow-hidden rounded-2xl border bg-white',
         className
       )}
     >

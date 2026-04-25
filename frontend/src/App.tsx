@@ -8,6 +8,7 @@ import {
   AdminRoutesGenerationLayout,
   AdminSettingsPage,
   ImportStep,
+  ReviewStep,
   ValidateStep,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
@@ -35,6 +36,7 @@ function App() {
             <Route index element={<Navigate to="import" replace />} />
             <Route path="import" element={<ImportStep />} />
             <Route path="validate" element={<ValidateStep />} />
+            <Route path="review" element={<ReviewStep />} />
           </Route>
           <Route path="settings" element={<AdminSettingsPage />} />
           <Route path="test-image-upload" element={<TestImageUpload />} />
