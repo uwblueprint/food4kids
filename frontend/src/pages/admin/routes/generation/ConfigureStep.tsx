@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import EditIcon from '@/assets/icons/edit.svg?react';
 import { Button, DataTable, Dropdown, TextField } from '@/common/components';
 import type { Column, DropdownOption } from '@/common/components';
+import { DatePicker } from '@/common/components';
 
 // ---------------------------------------------------------------------------
 // TODO: Hook up to backend API and define actual types
@@ -96,7 +97,7 @@ export function ConfigureStep() {
     {
       key: 'route_date',
       header: 'Route Date',
-      render: () => null, // TODO: DatePicker
+      render: () => <DatePicker />,
     },
     {
       key: 'start_time',

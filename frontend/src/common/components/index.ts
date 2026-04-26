@@ -23,3 +23,4 @@ export {
   DialogTitle,
   DialogTrigger,
 } from './Dialog';
+export { DatePicker } from './DatePicker';
