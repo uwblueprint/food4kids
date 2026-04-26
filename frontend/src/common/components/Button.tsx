@@ -22,6 +22,7 @@ const buttonVariants = cva(
           'bg-grey-200 text-grey-500 border border-grey-300 hover:bg-grey-300',
         tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
         textLink: 'bg-transparent text-blue-300 hover:underline',
+        ghost: 'bg-transparent text-grey-500 hover:bg-grey-200',
       },
       shape: {
         default: [
@@ -70,4 +71,4 @@ function Button({
   );
 }
 
-export { Button };
+export { Button, buttonVariants };
