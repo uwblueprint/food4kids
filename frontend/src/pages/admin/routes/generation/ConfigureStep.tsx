@@ -2,19 +2,19 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
-import { Button, Dropdown } from '@/common/components';
-import type { DropdownOption } from '@/common/components/Dropdown';
+import { Button, DataTable, Dropdown, TextField } from '@/common/components';
+import type { Column, DropdownOption } from '@/common/components';
 
 // ---------------------------------------------------------------------------
-// Types
+// TODO: Types
 // ---------------------------------------------------------------------------
 
 interface RouteConfig {
   delivery_group: string;
   delivery_type: string;
   stops: number;
-  route_date: string | null; // ISO date string e.g. "2026-02-16"
-  start_time: string | null; // 24h time string e.g. "08:45"
+  route_date: string | null;
+  start_time: string | null;
   route_count: number;
   end_location: string;
 }
@@ -77,6 +77,70 @@ export function ConfigureStep() {
     navigate('/admin/routes/generation/generate');
   };
 
+  const columns: Column<RouteConfig>[] = [
+    {
+      key: 'delivery_type',
+      header: 'Delivery Type',
+      render: (row) => row.delivery_type,
+    },
+    {
+      key: 'delivery_group',
+      header: 'Delivery Group',
+      render: (row) => row.delivery_group,
+    },
+    {
+      key: 'stops',
+      header: 'Stops',
+      render: (row) => String(row.stops),
+    },
+    {
+      key: 'route_date',
+      header: 'Route Date',
+      render: () => null, // TODO: DatePicker
+    },
+    {
+      key: 'start_time',
+      header: 'Start Time',
+      render: () => null, // TODO: TimePicker
+    },
+    {
+      key: 'route_count',
+      header: 'Route Count',
+      render: (row) => {
+        const index = configs.indexOf(row);
+        return (
+          <TextField
+            type="number"
+            min={1}
+            value={row.route_count}
+            onChange={(e) =>
+              updateConfig(index, {
+                route_count: Math.max(1, Number(e.target.value)),
+              })
+            }
+            trailingIcon={<EditIcon className="size-4" />}
+            className="w-24"
+          />
+        );
+      },
+    },
+    {
+      key: 'end_location',
+      header: 'End Location',
+      render: (row) => {
+        const index = configs.indexOf(row);
+        return (
+          <Dropdown
+            options={END_LOCATION_OPTIONS}
+            value={row.end_location}
+            onValueChange={(val) => updateConfig(index, { end_location: val })}
+            className="w-40"
+          />
+        );
+      },
+    },
+  ];
+
   return (
     <>
       {/* Header */}
@@ -89,89 +153,11 @@ export function ConfigureStep() {
         </p>
       </div>
 
-      {/* Table */}
-      <div className="border-grey-300 overflow-hidden rounded-2xl border bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-grey-300 border-b">
-                {[
-                  'Delivery Type',
-                  'Delivery Group',
-                  'Stops',
-                  'Route Date',
-                  'Start Time',
-                  'Route Count',
-                  'End Location',
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="text-p2 px-4 py-3 text-left font-semibold whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-grey-300 divide-y">
-              {configs.map((row, i) => (
-                <tr key={row.delivery_group}>
-                  {/* Delivery Type */}
-                  <td className="text-p2 text-grey-500 px-4 py-3 whitespace-nowrap">
-                    {row.delivery_type}
-                  </td>
-
-                  {/* Delivery Group */}
-                  <td className="text-p2 text-grey-500 px-4 py-3 whitespace-nowrap">
-                    {row.delivery_group}
-                  </td>
-
-                  {/* Stops */}
-                  <td className="text-p2 text-grey-500 px-4 py-3 whitespace-nowrap">
-                    {row.stops}
-                  </td>
-
-                  {/* Route Date — TODO: add DatePicker component */}
-                  <td className="px-4 py-3 whitespace-nowrap" />
-
-                  {/* Start Time — TODO: add TimePicker component */}
-                  <td className="px-4 py-3 whitespace-nowrap" />
-
-                  {/* Route Count — inline editable */}
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={1}
-                        value={row.route_count}
-                        onChange={(e) =>
-                          updateConfig(i, {
-                            route_count: Math.max(1, Number(e.target.value)),
-                          })
-                        }
-                        className="border-grey-300 bg-grey-100 text-p2 text-grey-500 w-14 rounded-lg border px-2 py-1.5 text-center outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300"
-                      />
-                      <EditIcon className="text-grey-400 size-4 shrink-0" />
-                    </div>
-                  </td>
-
-                  {/* End Location — dropdown */}
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <Dropdown
-                      options={END_LOCATION_OPTIONS}
-                      value={row.end_location}
-                      onValueChange={(val) =>
-                        updateConfig(i, { end_location: val })
-                      }
-                      className="w-40"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={configs}
+        getRowKey={(row) => row.delivery_group}
+      />
 
       {/* Actions */}
       <div className="flex items-center justify-between">
