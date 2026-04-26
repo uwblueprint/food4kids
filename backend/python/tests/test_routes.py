@@ -419,7 +419,7 @@ class TestNoteChainRoutes:
     async def test_notes_crud_and_read_tracking(
         self, authed_async_client: AsyncClient, test_session: Any
     ) -> None:
-        """Test note create, list (with unread count + auto mark-as-read), update, delete."""
+        """Test note create, list, update, delete."""
         chain_id = await self._create_chain(test_session)
 
         # Create
@@ -430,18 +430,10 @@ class TestNoteChainRoutes:
         assert note_resp.status_code == 201
         note_id = note_resp.json()["note_id"]
 
-        # List - unread_count=1, then auto-marked as read
+        # List notes
         list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
         assert list_resp.status_code == 200
-        data = list_resp.json()
-        assert len(data["notes"]) == 1
-        assert data["unread_count"] == 1
-
-        # List again - unread_count=0
-        list_again_resp = await authed_async_client.get(
-            f"/note-chains/{chain_id}/notes"
-        )
-        assert list_again_resp.json()["unread_count"] == 0
+        assert len(list_resp.json()) == 1
 
         # Update
         patch_resp = await authed_async_client.patch(
@@ -659,4 +651,62 @@ class TestAnnouncementRoutes:
         """Test DELETE /announcements/{id} returns 404 for nonexistent ID."""
         fake_id = uuid4()
         response = await async_client.delete(f"/announcements/{fake_id}")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_mark_read_and_is_read_status(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test POST /announcements/mark-read and is_read on GET /announcements/."""
+        from app.models.user import User
+
+        user = User(
+            name="Read Test User",
+            email="readtest@test.com",
+            auth_id="test-read-user-123",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+        user_id = str(user.user_id)
+
+        # Create an announcement
+        create_data = {**sample_announcement_data, "user_id": user_id}
+        create_resp = await async_client.post("/announcements/", json=create_data)
+        assert create_resp.status_code == 201
+
+        # GET without user_id — is_read should be null
+        resp = await async_client.get("/announcements/")
+        assert resp.status_code == 200
+        assert resp.json()[0]["is_read"] is None
+
+        # GET with user_id — is_read should be False (never marked read)
+        resp = await async_client.get(f"/announcements/?user_id={user_id}")
+        assert resp.status_code == 200
+        assert resp.json()[0]["is_read"] is False
+
+        # Mark as read
+        mark_resp = await async_client.post(
+            "/announcements/mark-read", json={"user_id": user_id}
+        )
+        assert mark_resp.status_code == 200
+        assert mark_resp.json()["user_id"] == user_id
+        assert "last_read_at" in mark_resp.json()
+
+        # GET with user_id — is_read should be True now
+        resp = await async_client.get(f"/announcements/?user_id={user_id}")
+        assert resp.status_code == 200
+        assert resp.json()[0]["is_read"] is True
+
+    @pytest.mark.asyncio
+    async def test_mark_read_invalid_user(self, async_client: AsyncClient) -> None:
+        """Test POST /announcements/mark-read returns 404 for nonexistent user."""
+        fake_id = str(uuid4())
+        response = await async_client.post(
+            "/announcements/mark-read", json={"user_id": fake_id}
+        )
         assert response.status_code == 404

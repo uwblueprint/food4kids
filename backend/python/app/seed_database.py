@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 
 from app.models.admin import Admin
 from app.models.announcement import Announcement
+from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
@@ -30,7 +31,6 @@ from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note import Note
 from app.models.note_chain import NoteChain
-from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
@@ -387,8 +387,8 @@ def main() -> None:
             # Clear existing data
             print("Clearing existing data...")
             tables_to_clear = [
+                "announcement_last_reads",
                 "notes",
-                "note_chain_reads",
                 "driver_assignments",
                 "driver_history",
                 "jobs",
@@ -883,40 +883,6 @@ def main() -> None:
             session.commit()
             print("Created admin info")
 
-            # Create read tracking entries for some drivers
-            print("Creating note chain read tracking entries...")
-            read_entries_created = 0
-            all_driver_users = session.execute(
-                text(
-                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
-                )
-            ).fetchall()
-
-            # Get a sample of note chains to mark as read
-            all_chain_ids = session.execute(
-                text("SELECT note_chain_id FROM note_chains")
-            ).fetchall()
-
-            for driver_user_row in all_driver_users:
-                # Each driver reads a random subset of chains
-                num_chains_to_read = random.randint(0, min(5, len(all_chain_ids)))
-                if num_chains_to_read > 0:
-                    chains_to_read = random.sample(all_chain_ids, num_chains_to_read)
-                    for chain_row in chains_to_read:
-                        read_entry = NoteChainReadModel(
-                            note_chain_id=chain_row[0],
-                            user_id=driver_user_row[0],
-                            last_read_at=datetime.now(
-                                ZoneInfo("America/New_York")
-                            ).replace(tzinfo=None)
-                            - timedelta(hours=random.randint(0, 72)),
-                        )
-                        set_timestamps(read_entry)
-                        session.add(read_entry)
-                        read_entries_created += 1
-
-            session.commit()
-            print(f"Created {read_entries_created} note chain read tracking entries")
             # Create sample announcements
             print("Creating sample announcements...")
             sample_announcements = [
@@ -947,6 +913,31 @@ def main() -> None:
                 session.add(announcement)
             session.commit()
             print("Created sample announcements")
+
+            # Create announcement read tracking entries for some drivers
+            print("Creating announcement read tracking entries...")
+            read_entries_created = 0
+            all_driver_users = session.execute(
+                text(
+                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
+                )
+            ).fetchall()
+
+            for driver_user_row in all_driver_users:
+                if random.random() < 0.6:
+                    read_entry = AnnouncementLastRead(
+                        user_id=driver_user_row[0],
+                        last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(
+                            tzinfo=None
+                        )
+                        - timedelta(hours=random.randint(0, 72)),
+                    )
+                    set_timestamps(read_entry)
+                    session.add(read_entry)
+                    read_entries_created += 1
+
+            session.commit()
+            print(f"Created {read_entries_created} announcement read tracking entries")
 
             print("Comprehensive database seeding completed successfully!")
 

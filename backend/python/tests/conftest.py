@@ -60,7 +60,6 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.location_group import LocationGroup  # noqa: F401
         from app.models.note import Note  # noqa: F401
         from app.models.note_chain import NoteChain  # noqa: F401
-        from app.models.note_chain_read import NoteChainReadModel  # noqa: F401
         from app.models.route import Route  # noqa: F401
 
         # Import relationship models after their dependencies
