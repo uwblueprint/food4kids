@@ -14,3 +14,4 @@ export { FilterChip, FilterChipGroup } from './FilterChip';
 export { SearchBar } from './SearchBar';
 export { Tag } from './Tag';
 export { TextField } from './TextField';
+export { FileInput } from './FileInput';

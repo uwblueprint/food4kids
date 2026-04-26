@@ -2,26 +2,33 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
-import { Banner, Button, Card, DataTable, Dropdown } from '@/common/components';
+import {
+  Banner,
+  Button,
+  Card,
+  DataTable,
+  Dropdown,
+  FileInput,
+} from '@/common/components';
 import type { Column } from '@/common/components';
-import { FileDropZone } from '@/pages/admin/routes/components/FileDropZone';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
 
 const COLUMN_MAP_STORAGE_KEY = 'food4kids_column_map';
 
-const SYSTEM_FIELDS: { key: string; label: string; required: boolean }[] = [
-  { key: 'contact_name', label: 'School Name / Last Name', required: true },
-  { key: 'address', label: 'Address', required: true },
-  { key: 'delivery_group', label: 'Delivery Group', required: true },
-  { key: 'phone_number', label: 'Phone Number', required: true },
-  { key: 'num_boxes', label: 'Number of Children', required: true },
-  { key: 'dietary_restrictions', label: 'Food Restrictions', required: true },
+const SYSTEM_FIELDS: { key: string; label: string }[] = [
+  { key: 'contact_name', label: 'School Name / Last Name' },
+  { key: 'address', label: 'Address' },
+  { key: 'delivery_group', label: 'Delivery Group' },
+  { key: 'phone_number', label: 'Phone Number' },
+  { key: 'num_boxes', label: 'Number of Children' },
+  { key: 'dietary_restrictions', label: 'Food Restrictions' },
 ];
 
 type SystemField = (typeof SYSTEM_FIELDS)[number];
 
+// Parses headers from uploaded Excel file
 function parseHeaders(file: File): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -113,7 +120,7 @@ export function ImportStep() {
       render: (row) => (
         <span className="text-p2 text-grey-500">
           {row.label}
-          {row.required && <span className="text-red ml-0.5">*</span>}
+          <span className="text-red ml-0.5">*</span>
         </span>
       ),
     },
@@ -133,9 +140,8 @@ export function ImportStep() {
     },
   ];
 
-  const requiredFields = SYSTEM_FIELDS.filter((f) => f.required);
-  const allRequiredMapped = requiredFields.every((f) => !!columnMap[f.key]);
-  const canContinue = file !== null && allRequiredMapped;
+  const canContinue =
+    file !== null && SYSTEM_FIELDS.every((f) => !!columnMap[f.key]);
 
   const handleContinue = () => {
     navigate('/admin/routes/generation/validate');
@@ -150,7 +156,7 @@ export function ImportStep() {
         </Banner>
       )}
 
-      {/* Import card */}
+      {/* Import Data Card */}
       <Card className="flex flex-col gap-4 p-6">
         <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Import Data</h2>
@@ -158,14 +164,14 @@ export function ImportStep() {
             Upload an Excel file (.xlsx) with delivery information
           </p>
         </div>
-        <FileDropZone
+        <FileInput
           onFileSelect={handleFileSelect}
           selectedFile={file}
           onClearFile={handleClearFile}
         />
       </Card>
 
-      {/* Map Columns */}
+      {/* Map Columns Table */}
       {file && (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">

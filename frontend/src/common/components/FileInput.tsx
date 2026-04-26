@@ -4,7 +4,7 @@ import ShareIcon from '@/assets/icons/share.svg?react';
 import { Tag } from '@/common/components';
 import { cn } from '@/lib/utils';
 
-interface FileDropZoneProps {
+interface FileInputProps {
   onFileSelect: (file: File) => void;
   selectedFile?: File | null;
   onClearFile?: () => void;
@@ -13,14 +13,14 @@ interface FileDropZoneProps {
   className?: string;
 }
 
-function FileDropZone({
+function FileInput({
   onFileSelect,
   selectedFile,
   onClearFile,
   accept = '.xlsx',
   disabled,
   className,
-}: FileDropZoneProps) {
+}: FileInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -86,4 +86,4 @@ function FileDropZone({
   );
 }
 
-export { FileDropZone };
+export { FileInput };
