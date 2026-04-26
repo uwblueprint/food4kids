@@ -27,32 +27,32 @@ function DropdownTable({
   return (
     <div
       className={cn(
-        'border-grey-300 divide-grey-300 divide-y rounded-2xl border px-6 pt-4 pb-1',
+        'border-grey-300 rounded-2xl border bg-white px-6 py-3',
         className
       )}
     >
-      <div className="grid grid-cols-[2fr_3fr] pb-3">
+      {/* Headers */}
+      <div className="border-grey-300 mb-4 grid grid-cols-[2fr_3fr] border-b px-4 py-2.5">
         <span className="text-p2 font-semibold">{systemColumnHeader}</span>
         <span className="text-p2 font-semibold">{fileColumnHeader}</span>
       </div>
 
-      {rows.map((row, i) => (
-        <div
-          key={i}
-          className="grid grid-cols-[2fr_3fr] items-center gap-2 px-4 py-2.5"
-        >
-          <span className="text-p2 text-grey-500">
-            {row.label}
-            {row.required && <span className="text-red ml-0.5">*</span>}
-          </span>
-          <Dropdown
-            options={row.options}
-            value={row.value}
-            onValueChange={row.onValueChange}
-            placeholder={row.placeholder ?? 'Select Column'}
-          />
-        </div>
-      ))}
+      <div className="flex flex-col gap-4">
+        {rows.map((row, i) => (
+          <div key={i} className="grid grid-cols-[2fr_3fr] items-center px-4">
+            <span className="text-p2 text-grey-500">
+              {row.label}
+              {row.required && <span className="text-red ml-0.5">*</span>}
+            </span>
+            <Dropdown
+              options={row.options}
+              value={row.value}
+              onValueChange={row.onValueChange}
+              placeholder={row.placeholder ?? 'Select Column'}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

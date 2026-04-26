@@ -157,9 +157,7 @@ export function ImportStep() {
               Match your file's columns to the required system fields
             </p>
           </div>
-          <Card>
-            <DropdownTable rows={dropdownRows} />
-          </Card>
+          <DropdownTable rows={dropdownRows} />
         </div>
       )}
 
