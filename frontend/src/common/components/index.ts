@@ -8,8 +8,6 @@ export type { Column, DataTableProps } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
 export { Dropdown } from './Dropdown';
 export type { DropdownOption } from './Dropdown';
-export type { DropdownTableRow } from './DropdownTable';
-export { DropdownTable } from './DropdownTable';
 export { FilterChip, FilterChipGroup } from './FilterChip';
 export { SearchBar } from './SearchBar';
 export { Tag } from './Tag';
