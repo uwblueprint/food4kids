@@ -16,8 +16,7 @@ export const AdminRoutesPage = () => {
   const [search, setSearch] = useState('');
 
   return (
-    <div className="bg-grey-200 min-h-screen px-8 py-8">
-      <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8">
         {/* Header */}
         <h1 className="text-grey-500">Routes</h1>
 
@@ -70,6 +69,5 @@ export const AdminRoutesPage = () => {
         {activeTab === 'groups' && <RouteGroupsTab />}
         {activeTab === 'addresses' && <RouteAddressesTab />}
       </div>
-    </div>
   );
 };

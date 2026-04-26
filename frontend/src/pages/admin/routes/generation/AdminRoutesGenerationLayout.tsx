@@ -41,8 +41,7 @@ export function AdminRoutesGenerationLayout() {
   };
 
   return (
-    <div className="bg-grey-200 min-h-screen px-20 py-10">
-      <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-10">
         {/* Breadcrumb + subtitle */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1">
@@ -68,6 +67,5 @@ export function AdminRoutesGenerationLayout() {
         {/* Step content */}
         <Outlet context={context} />
       </div>
-    </div>
   );
 }
