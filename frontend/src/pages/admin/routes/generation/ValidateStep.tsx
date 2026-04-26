@@ -181,7 +181,7 @@ export function ValidateStep() {
                 ? 'bg-yellow-50'
                 : undefined
             }
-            emptyState={<EmptyState />}
+            emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
           />
         )}
       </Card>

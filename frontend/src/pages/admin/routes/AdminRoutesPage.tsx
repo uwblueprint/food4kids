@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
-import { Button } from '@/common/components';
+import { Button, SearchBar } from '@/common/components';
 import { cn } from '@/lib/utils';
 
+import { RouteAddressesTab, RouteGroupsTab } from './components';
+
 type Tab = 'groups' | 'addresses';
+const TABS: Tab[] = ['groups', 'addresses'];
 
 export const AdminRoutesPage = () => {
   const [activeTab, setActiveTab] = useState<Tab>('groups');
+  const [search, setSearch] = useState('');
 
   return (
     <div className="bg-grey-200 min-h-screen px-8 py-8">
@@ -19,7 +24,7 @@ export const AdminRoutesPage = () => {
         {/* Tabs */}
         <div className="flex flex-col gap-0">
           <div className="flex gap-12">
-            {(['groups', 'addresses'] as Tab[]).map((tab) => (
+            {TABS.map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -40,8 +45,16 @@ export const AdminRoutesPage = () => {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            TODO: Add search bar and filter button
+          <div className="flex items-center gap-3">
+            <SearchBar
+              placeholder="Search anything"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              wrapperClassName="w-64"
+            />
+            <Button variant="tertiary" shape="circular" className="bg-white">
+              <FilterLinesIcon className="size-4" />
+            </Button>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="primary" asChild>
@@ -52,6 +65,10 @@ export const AdminRoutesPage = () => {
             </Button>
           </div>
         </div>
+
+        {/* Tab content */}
+        {activeTab === 'groups' && <RouteGroupsTab />}
+        {activeTab === 'addresses' && <RouteAddressesTab />}
       </div>
     </div>
   );

@@ -203,7 +203,7 @@ export function ReviewStep() {
           columns={netNewColumns}
           rows={PLACEHOLDER_NET_NEW}
           getRowKey={(r) => r.row}
-          emptyState={<EmptyState />}
+          emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
         />
       </section>
 
@@ -219,7 +219,7 @@ export function ReviewStep() {
           columns={staleColumns}
           rows={PLACEHOLDER_STALE}
           getRowKey={(r) => r.location_id}
-          emptyState={<EmptyState />}
+          emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
         />
       </section>
 
@@ -241,7 +241,7 @@ export function ReviewStep() {
           columns={changedColumns}
           rows={changedRows}
           getRowKey={(r) => r._index}
-          emptyState={<EmptyState />}
+          emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
         />
       </section>
 
