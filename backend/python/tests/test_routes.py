@@ -9,9 +9,9 @@ Tests cover:
 - Error handling (404s, validation errors)
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -30,14 +30,77 @@ class TestDriverRoutes:
         assert response.json() == []
 
     @pytest.mark.asyncio
-    async def test_register_driver(
+    async def test_initialize_driver(
         self,
         async_client: AsyncClient,
         sample_driver_data: dict[str, Any],
     ) -> None:
         """Test POST /drivers creates a new driver."""
+
+        # We don't want to actually to send an email so we mock the call
+        with (
+            patch(
+                "app.services.implementations.auth_service.AuthService.send_create_password_email"
+            ),
+        ):
+            driver_register_data = {
+                "name": sample_driver_data["name"],
+                "email": "newdriver@example.com",
+                "phone": sample_driver_data["phone"],
+                "address": sample_driver_data["address"],
+                "license_plate": sample_driver_data["license_plate"],
+                "car_make_model": sample_driver_data["car_make_model"],
+            }
+            response = await async_client.post(
+                "/drivers/initialize", json=driver_register_data
+            )
+            assert response.status_code == 201
+            data = response.json()
+            assert data["phone"] == sample_driver_data["phone"]
+            assert data["license_plate"] == sample_driver_data["license_plate"]
+            assert data["role"] == "driver"
+            assert data["email"] == "newdriver@example.com"
+            assert data["auth_id"] is None
+            assert "driver_id" in data
+
+    @pytest.mark.asyncio
+    async def test_register_driver(
+        self,
+        async_client: AsyncClient,
+        sample_driver_data: dict[str, Any],
+    ) -> None:
+        """Test POST /drivers/register creates a new driver."""
         mock_firebase_user = MagicMock()
         mock_firebase_user.uid = "fake-auth-id-123"
+
+        from app.models.driver import Driver
+        from app.models.user import User
+        from app.models.user_invite import UserInvite
+
+        fake_user = User(
+            user_id=uuid4(),
+            auth_id=None,
+            email="testemail@gmail.com",
+            name="Test User",
+            role="driver",
+        )
+
+        fake_driver = Driver(
+            user_id=fake_user.user_id,
+            phone=sample_driver_data["phone"],
+            address=sample_driver_data["address"],
+            license_plate=sample_driver_data["license_plate"],
+            car_make_model=sample_driver_data["car_make_model"],
+        )
+        fake_user.driver = fake_driver
+
+        fake_user_invite = UserInvite(
+            user_invite_id=uuid4(),
+            user_id=fake_user.user_id,
+            is_used=False,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=2),
+        )
+        fake_user_invite.user = fake_user
 
         fake_auth_dto = {
             "access_token": "fake-access-token",
@@ -49,24 +112,31 @@ class TestDriverRoutes:
         with (
             patch("firebase_admin.auth.create_user", return_value=mock_firebase_user),
             patch("firebase_admin.auth.set_custom_user_claims"),
+            patch("firebase_admin.auth.delete_user"),
+            patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.refresh", new_callable=AsyncMock
+            ),
+            patch("sqlalchemy.ext.asyncio.AsyncSession.commit", new_callable=AsyncMock),
+            patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.begin_nested",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.implementations.user_invite_service.UserInviteService.get_user_invite_by_id",
+                return_value=fake_user_invite,
+            ),
             patch(
                 "app.services.implementations.auth_service.AuthService.generate_token",
                 return_value=(fake_auth_dto, "fake_refresh_token"),
             ),
-            patch(
-                "app.services.implementations.auth_service.AuthService.send_email_verification_link"
-            ),
         ):
-            driver_register_data = {
-                "name": sample_driver_data["name"],
-                "email": "newdriver@example.com",
+            user_finalize_data = {
+                "user_invite_id": str(uuid4()),
                 "password": "testing123",
-                "phone": sample_driver_data["phone"],
-                "address": sample_driver_data["address"],
-                "license_plate": sample_driver_data["license_plate"],
-                "car_make_model": sample_driver_data["car_make_model"],
             }
-            response = await async_client.post("/drivers/", json=driver_register_data)
+            response = await async_client.post(
+                "/drivers/register", json=user_finalize_data
+            )
             assert response.status_code == 201
             data = response.json()
             assert data["driver"]["phone"] == sample_driver_data["phone"]
@@ -467,13 +537,12 @@ class TestValidationErrors:
         invalid_data = {
             "name": "Test Driver",
             "email": "test@example.com",
-            "password": "testing123",
             "phone": "invalid-phone",  # Invalid phone format
             "address": "123 Main St",
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
         }
-        response = await async_client.post("/drivers/", json=invalid_data)
+        response = await async_client.post("/drivers/initialize", json=invalid_data)
         assert response.status_code == 422
 
     @pytest.mark.asyncio
