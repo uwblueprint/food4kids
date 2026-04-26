@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes, useId } from 'react';
+import { forwardRef, type InputHTMLAttributes, type ReactNode, useId } from 'react';
 
 import AlertTriangle from '@/assets/icons/alert-triangle.svg?react';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,8 @@ export interface TextFieldProps extends Omit<
   characterCount?: number;
   /** Max characters allowed (used for display and threshold warning) */
   maxCharacters?: number;
+  /** Icon rendered inside the input on the right */
+  trailingIcon?: ReactNode;
   /** Override the auto-generated id */
   id?: string;
 }
@@ -32,6 +34,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
       info = false,
       characterCount,
       maxCharacters,
+      trailingIcon,
       className,
       disabled,
       id: idProp,
@@ -63,35 +66,42 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         )}
 
         {/* Input */}
-        <input
-          ref={ref}
-          id={id}
-          disabled={disabled}
-          readOnly={info}
-          maxLength={maxCharacters}
-          aria-describedby={helperText || error ? helperId : undefined}
-          aria-invalid={hasError || undefined}
-          className={cn(
-            // Base
-            'text-p2 text-grey-500 placeholder:text-p3 placeholder:text-grey-400',
-            'h-[44px] w-full rounded-lg px-3',
-            'transition-colors outline-none',
-            // Default state
-            'border-grey-300 bg-grey-100 border',
-            // Focus / active
-            'focus:border-blue-300 focus:ring-1 focus:ring-blue-300',
-            // Error
-            hasError && 'border-red focus:border-red focus:ring-red',
-            // Info (non-editable)
-            info && 'bg-grey-150 cursor-default border-none',
-            // Disabled
-            disabled &&
-              'bg-grey-150 text-grey-400 cursor-not-allowed opacity-60',
-            // Mobile height
-            'md:h-[44px]'
+        <div className="relative">
+          <input
+            ref={ref}
+            id={id}
+            disabled={disabled}
+            readOnly={info}
+            maxLength={maxCharacters}
+            aria-describedby={helperText || error ? helperId : undefined}
+            aria-invalid={hasError || undefined}
+            className={cn(
+              // Base
+              'text-p2 text-grey-400 placeholder:text-p3 placeholder:text-grey-400',
+              'w-full rounded-lg px-3 py-2',
+              'transition-colors',
+              // Default state — outline instead of border to match Figma
+              'bg-grey-100 outline outline-1 outline-offset-[-1px] outline-grey-300',
+              // Focus / active
+              'focus:outline-blue-300 focus:outline-2',
+              // Error
+              hasError && 'outline-red focus:outline-red',
+              // Info (non-editable)
+              info && 'bg-grey-150 cursor-default outline-none',
+              // Disabled
+              disabled &&
+                'bg-grey-150 text-grey-400 cursor-not-allowed opacity-60',
+              // Make room for trailing icon
+              trailingIcon && 'pr-9'
+            )}
+            {...props}
+          />
+          {trailingIcon && (
+            <div className="text-grey-400 pointer-events-none absolute inset-y-0 right-3 flex items-center">
+              {trailingIcon}
+            </div>
           )}
-          {...props}
-        />
+        </div>
 
         {/* Bottom row: helper/error text + character count */}
         <div className="flex items-start justify-between gap-2">
