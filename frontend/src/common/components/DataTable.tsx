@@ -69,7 +69,7 @@ function DataTable<T>({
   return (
     <div
       className={cn(
-        'border-grey-300 overflow-hidden rounded-2xl border bg-white',
+        'border-grey-300 overflow-hidden rounded-2xl border bg-white px-6 py-3',
         className
       )}
     >
@@ -81,7 +81,7 @@ function DataTable<T>({
                 <th
                   key={col.key}
                   className={cn(
-                    'text-p2 px-6 py-4 text-left font-semibold whitespace-nowrap',
+                    'text-p2 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
                     col.headerClassName
                   )}
                 >
@@ -103,7 +103,7 @@ function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'text-p2 text-grey-500 px-6 py-4 whitespace-nowrap',
+                        'text-p2 text-grey-500 px-4 py-2.5 whitespace-nowrap',
                         col.getCellClassName?.(row)
                       )}
                     >
