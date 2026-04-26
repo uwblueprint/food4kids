@@ -13,3 +13,13 @@ export { SearchBar } from './SearchBar';
 export { Tag } from './Tag';
 export { TextField } from './TextField';
 export { FileInput } from './FileInput';
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './Dialog';
