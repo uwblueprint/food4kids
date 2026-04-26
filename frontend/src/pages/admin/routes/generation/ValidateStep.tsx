@@ -9,6 +9,10 @@ import type { AlertCode, LocationImportRow } from '@/types/location';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { EmptyState } from '../components';
 
+// Styling for error and warning cells
+const ERROR_CELL_CLASS = 'border-b-2 border-red bg-red-50';
+const WARNING_CELL_CLASS = 'border-b-2 border-dark-yellow bg-light-yellow';
+
 // ---------------------------------------------------------------------------
 // Alert display helpers
 // ---------------------------------------------------------------------------
@@ -38,18 +42,10 @@ function getAlertDisplay(
   }
 }
 
-const STICKY_CLASS =
-  'sticky left-0 bg-white z-10 shadow-[2px_0_5px_rgba(0,0,0,0.08)]';
-const ERROR_CELL_CLASS = 'border-b-2 border-red bg-red-50';
-const WARNING_CELL_CLASS = 'border-b-2 border-dark-yellow bg-light-yellow';
-
 const isDuplicateRow = (row: LocationImportRow) =>
   row.alerts.some((a) => a === 'LOCAL_DUPLICATE' || a === 'PARTIAL_DUPLICATE');
 
-/**
- * Returns the cell highlight class for non-alert data columns.
- * Field-level errors take priority; otherwise yellow for duplicate rows.
- */
+// Returns the cell highlight class for non-alert data columns
 function getCellClass(
   row: LocationImportRow,
   hasFieldError: boolean
@@ -58,10 +54,6 @@ function getCellClass(
   if (isDuplicateRow(row)) return WARNING_CELL_CLASS;
   return undefined;
 }
-
-// ---------------------------------------------------------------------------
-// ValidateStep
-// ---------------------------------------------------------------------------
 
 export function ValidateStep() {
   const navigate = useNavigate();
@@ -95,8 +87,6 @@ export function ValidateStep() {
     {
       key: 'alerts',
       header: 'Alert',
-      headerClassName: STICKY_CLASS,
-      getCellClassName: () => STICKY_CLASS,
       render: (row) => {
         const first = row.alerts[0];
         if (!first) return null;

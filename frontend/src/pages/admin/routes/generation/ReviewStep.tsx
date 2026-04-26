@@ -3,7 +3,17 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
 import CheckIcon from '@/assets/icons/check.svg?react';
 import XIcon from '@/assets/icons/x.svg?react';
-import { Button, DataTable, Tag } from '@/common/components';
+import {
+  Button,
+  DataTable,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Tag,
+} from '@/common/components';
 import type { Column } from '@/common/components';
 import type {
   ChangedEntry,
@@ -111,6 +121,7 @@ export function ReviewStep() {
   useOutletContext<GenerationOutletContext>(); // ensures we're inside the layout
 
   const [accepted, setAccepted] = useState<Set<number>>(new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const toggleAccepted = (index: number) => {
     setAccepted((prev) => {
@@ -124,7 +135,8 @@ export function ReviewStep() {
     });
   };
 
-  const handleContinue = () => {
+  const handleConfirm = () => {
+    setConfirmOpen(false);
     navigate('/admin/routes/generation/configure');
   };
 
@@ -203,7 +215,12 @@ export function ReviewStep() {
           columns={netNewColumns}
           rows={PLACEHOLDER_NET_NEW}
           getRowKey={(r) => r.row}
-          emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
+          emptyState={
+            <EmptyState
+              title="No new entries found in the spreadsheet"
+              description="It's feeling quite empty here"
+            />
+          }
         />
       </section>
 
@@ -219,7 +236,12 @@ export function ReviewStep() {
           columns={staleColumns}
           rows={PLACEHOLDER_STALE}
           getRowKey={(r) => r.location_id}
-          emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
+          emptyState={
+            <EmptyState
+              title="No new entries found in the spreadsheet"
+              description="It's feeling quite empty here"
+            />
+          }
         />
       </section>
 
@@ -241,7 +263,12 @@ export function ReviewStep() {
           columns={changedColumns}
           rows={changedRows}
           getRowKey={(r) => r._index}
-          emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
+          emptyState={
+            <EmptyState
+              title="No new entries found in the spreadsheet"
+              description="It's feeling quite empty here"
+            />
+          }
         />
       </section>
 
@@ -250,10 +277,31 @@ export function ReviewStep() {
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes/generation/validate">Back to Validation</Link>
         </Button>
-        <Button variant="primary" onClick={handleContinue}>
+        <Button variant="primary" onClick={() => setConfirmOpen(true)}>
           Continue to Configure Routes
         </Button>
       </div>
+
+      {/* Confirmation Changes Dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Changes</DialogTitle>
+            <DialogDescription>
+              Some data has been updated, added, or removed. Are you sure you
+              want to apply these changes?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleConfirm}>
+              Apply Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

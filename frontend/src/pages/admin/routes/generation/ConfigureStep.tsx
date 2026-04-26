@@ -6,7 +6,7 @@ import { Button, DataTable, Dropdown, TextField } from '@/common/components';
 import type { Column, DropdownOption } from '@/common/components';
 
 // ---------------------------------------------------------------------------
-// TODO: Types
+// TODO: Hook up to backend API and define actual types
 // ---------------------------------------------------------------------------
 
 interface RouteConfig {
