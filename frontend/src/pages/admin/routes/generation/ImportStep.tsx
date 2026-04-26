@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
-import { Banner, Button, Card, DropdownTable } from '@/common/components';
-import type { DropdownTableRow } from '@/common/components';
+import { Banner, Button, Card, DataTable, Dropdown } from '@/common/components';
+import type { Column } from '@/common/components';
 import { FileDropZone } from '@/pages/admin/routes/components/FileDropZone';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
@@ -19,6 +19,8 @@ const SYSTEM_FIELDS: { key: string; label: string; required: boolean }[] = [
   { key: 'num_boxes', label: 'Number of Children', required: true },
   { key: 'dietary_restrictions', label: 'Food Restrictions', required: true },
 ];
+
+type SystemField = (typeof SYSTEM_FIELDS)[number];
 
 function parseHeaders(file: File): Promise<string[]> {
   return new Promise((resolve, reject) => {
@@ -102,19 +104,34 @@ export function ImportStep() {
     setFileHeaders([]);
   };
 
-  const handleColumnChange = (systemKey: string, fileColumn: string) => {
-    setColumnMap({ ...columnMap, [systemKey]: fileColumn });
-  };
-
   const headerOptions = fileHeaders.map((h) => ({ label: h, value: h }));
 
-  const dropdownRows: DropdownTableRow[] = SYSTEM_FIELDS.map((field) => ({
-    label: field.label,
-    required: field.required,
-    options: headerOptions,
-    value: columnMap[field.key] ?? '',
-    onValueChange: (val) => handleColumnChange(field.key, val),
-  }));
+  const columns: Column<SystemField>[] = [
+    {
+      key: 'label',
+      header: 'System Column',
+      render: (row) => (
+        <span className="text-p2 text-grey-500">
+          {row.label}
+          {row.required && <span className="text-red ml-0.5">*</span>}
+        </span>
+      ),
+    },
+    {
+      key: 'value',
+      header: 'Your File Column',
+      render: (row) => (
+        <Dropdown
+          options={headerOptions}
+          value={columnMap[row.key] ?? ''}
+          onValueChange={(val) =>
+            setColumnMap({ ...columnMap, [row.key]: val })
+          }
+          placeholder="Select Column"
+        />
+      ),
+    },
+  ];
 
   const requiredFields = SYSTEM_FIELDS.filter((f) => f.required);
   const allRequiredMapped = requiredFields.every((f) => !!columnMap[f.key]);
@@ -157,7 +174,11 @@ export function ImportStep() {
               Match your file's columns to the required system fields
             </p>
           </div>
-          <DropdownTable rows={dropdownRows} />
+          <DataTable
+            columns={columns}
+            rows={SYSTEM_FIELDS}
+            getRowKey={(row) => row.key}
+          />
         </div>
       )}
 

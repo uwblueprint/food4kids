@@ -4,7 +4,48 @@ import type { RouteGroupRow } from '@/types/route-group';
 
 import { EmptyState } from './EmptyState';
 
-const COLUMNS: Column<RouteGroupRow>[] = [];
+const COLUMNS: Column<RouteGroupRow>[] = [
+  {
+    key: 'name',
+    header: 'Name',
+    render: (row) => row.name,
+  },
+  {
+    key: 'date',
+    header: 'Date',
+    render: (row) => row.date,
+  },
+  {
+    key: 'delivery_type',
+    header: 'Delivery Type',
+    render: (row) => row.delivery_type,
+  },
+  {
+    key: 'num_routes',
+    header: '# of Routes',
+    render: (row) => row.num_routes,
+  },
+  {
+    key: 'num_locations',
+    header: 'Locations',
+    render: (row) => row.num_locations,
+  },
+  {
+    key: 'num_boxes',
+    header: 'Boxes',
+    render: (row) => row.num_boxes,
+  },
+  {
+    key: 'num_drivers_assigned',
+    header: 'Drivers Assigned',
+    render: (row) => row.num_drivers_assigned,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (row) => row.status,
+  },
+];
 
 interface RouteGroupsTabProps {
   rows?: RouteGroupRow[];

@@ -3,13 +3,43 @@ import type { Column } from '@/common/components';
 
 import { EmptyState } from './EmptyState';
 
-// TODO: define AddressRow type in src/types/ when the addresses API is ready
-interface AddressRow {
+export type LocationStatus = 'Active' | 'Inactive' | 'Completed';
+
+export interface AddressRow {
   id: string;
+  contact_name: string;
+  address: string;
+  delivery_group: string;
+  notes: string;
+  status: LocationStatus;
 }
 
 const COLUMNS: Column<AddressRow>[] = [
-  // TODO: add address columns when the API is defined
+  {
+    key: 'contact_name',
+    header: 'School / Last Name',
+    render: (row) => row.contact_name,
+  },
+  {
+    key: 'address',
+    header: 'Address',
+    render: (row) => row.address,
+  },
+  {
+    key: 'delivery_group',
+    header: 'Delivery Group',
+    render: (row) => row.delivery_group,
+  },
+  {
+    key: 'notes',
+    header: 'Notes',
+    render: (row) => row.notes,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (row) => row.status,
+  },
 ];
 
 interface RouteAddressesTabProps {
