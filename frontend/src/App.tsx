@@ -31,6 +31,7 @@ function App() {
           <Route path="home" element={<AdminHomePage />} />
           <Route path="drivers" element={<AdminDriversPage />} />
           <Route path="routes" element={<AdminRoutesPage />} />
+          {/* Route Generation */}
           <Route
             path="routes/generation"
             element={<AdminRoutesGenerationLayout />}

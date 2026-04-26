@@ -8,66 +8,76 @@ import { cn } from '@/lib/utils';
 
 import { RouteAddressesTab, RouteGroupsTab } from './components';
 
-type Tab = 'groups' | 'addresses';
-const TABS: Tab[] = ['groups', 'addresses'];
+const TABS = [
+  {
+    label: 'Groups',
+    render: () => <RouteGroupsTab />,
+  },
+  {
+    label: 'Addresses',
+    render: () => <RouteAddressesTab />,
+  },
+] as const;
 
 export const AdminRoutesPage = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('groups');
+  const [activeLabel, setActiveLabel] = useState<string>(TABS[0].label);
+
+  // TODO: Add search and filter logic
   const [search, setSearch] = useState('');
+
+  const activeTab = TABS.find((t) => t.label === activeLabel) ?? TABS[0];
 
   return (
     <div className="flex flex-col gap-8">
-        {/* Header */}
-        <h1 className="text-grey-500">Routes</h1>
+      {/* Header */}
+      <h1 className="text-grey-500">Routes</h1>
 
-        {/* Tabs */}
-        <div className="flex flex-col gap-0">
-          <div className="flex gap-12">
-            {TABS.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'font-nunito text-h2 pb-2 capitalize transition-colors',
-                  activeTab === tab
-                    ? 'text-grey-500 border-b-2 border-blue-300 font-bold'
-                    : 'text-grey-400 font-normal'
-                )}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
-          <hr className="border-grey-300" />
+      {/* Tabs */}
+      <div className="flex flex-col gap-0">
+        <div className="flex gap-12">
+          {TABS.map((tab) => (
+            <button
+              key={tab.label}
+              type="button"
+              onClick={() => setActiveLabel(tab.label)}
+              className={cn(
+                'font-nunito text-h2 pb-2 capitalize transition-colors',
+                activeLabel === tab.label
+                  ? 'text-grey-500 border-b-2 border-blue-300 font-bold'
+                  : 'text-grey-400 font-normal'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <SearchBar
-              placeholder="Search anything"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              wrapperClassName="w-64"
-            />
-            <Button variant="tertiary" shape="circular" className="bg-white">
-              <FilterLinesIcon className="size-4" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="primary" asChild>
-              <Link to="/admin/routes/generation">Generate Routes</Link>
-            </Button>
-            <Button variant="primary" shape="circular">
-              <ShareIcon className="size-5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Tab content */}
-        {activeTab === 'groups' && <RouteGroupsTab />}
-        {activeTab === 'addresses' && <RouteAddressesTab />}
+        <hr className="border-grey-300" />
       </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-5">
+          <SearchBar
+            placeholder="Search anything"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            wrapperClassName="w-64"
+          />
+          <Button variant="tertiary" shape="circular" className="bg-white">
+            <FilterLinesIcon className="size-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-4">
+          <Button variant="primary" asChild>
+            <Link to="/admin/routes/generation">Generate Routes</Link>
+          </Button>
+          <Button variant="primary" shape="circular">
+            <ShareIcon className="size-5" />
+          </Button>
+        </div>
+      </div>
+
+      {activeTab.render()}
+    </div>
   );
 };

@@ -144,20 +144,22 @@ export function ConfigureStep() {
   return (
     <>
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h2 className="text-grey-500">Configure Routes</h2>
-        <p className="text-p1 text-grey-400">
-          Route data has been prefilled based on the imported data. Please
-          review the details, make any necessary changes, and select which
-          routes to generate.
-        </p>
-      </div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-grey-500">Configure Routes</h2>
+          <p className="text-p1 text-grey-400">
+            Route data has been prefilled based on the imported data. Please
+            review the details, make any necessary changes, and select which
+            routes to generate.
+          </p>
+        </div>
 
-      <DataTable
-        columns={columns}
-        rows={configs}
-        getRowKey={(row) => row.delivery_group}
-      />
+        <DataTable
+          columns={columns}
+          rows={configs}
+          getRowKey={(row) => row.delivery_group}
+        />
+      </div>
 
       {/* Actions */}
       <div className="flex items-center justify-between">
