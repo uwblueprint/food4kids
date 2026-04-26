@@ -80,7 +80,10 @@ function DataTable<T>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={cn('text-p2 px-6 py-4 text-left font-semibold whitespace-nowrap', col.headerClassName)}
+                  className={cn(
+                    'text-p2 px-6 py-4 text-left font-semibold whitespace-nowrap',
+                    col.headerClassName
+                  )}
                 >
                   {col.header}
                 </th>

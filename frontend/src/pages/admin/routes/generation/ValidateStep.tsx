@@ -2,13 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
 import { useValidateLocations } from '@/api';
-import {
-  AlertCell,
-  Banner,
-  Button,
-  Card,
-  DataTable,
-} from '@/common/components';
+import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 import type { Column } from '@/common/components';
 import type { AlertCode, LocationImportRow } from '@/types/location';
 
@@ -44,7 +38,26 @@ function getAlertDisplay(
   }
 }
 
-const MISSING_CELL_CLASS = 'border-b-2 border-red bg-red-50';
+const STICKY_CLASS =
+  'sticky left-0 bg-white z-10 shadow-[2px_0_5px_rgba(0,0,0,0.08)]';
+const ERROR_CELL_CLASS = 'border-b-2 border-red bg-red-50';
+const WARNING_CELL_CLASS = 'border-b-2 border-dark-yellow bg-light-yellow';
+
+const isDuplicateRow = (row: LocationImportRow) =>
+  row.alerts.some((a) => a === 'LOCAL_DUPLICATE' || a === 'PARTIAL_DUPLICATE');
+
+/**
+ * Returns the cell highlight class for non-alert data columns.
+ * Field-level errors take priority; otherwise yellow for duplicate rows.
+ */
+function getCellClass(
+  row: LocationImportRow,
+  hasFieldError: boolean
+): string | undefined {
+  if (hasFieldError) return ERROR_CELL_CLASS;
+  if (isDuplicateRow(row)) return WARNING_CELL_CLASS;
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // ValidateStep
@@ -82,8 +95,8 @@ export function ValidateStep() {
     {
       key: 'alerts',
       header: 'Alert',
-      headerClassName: 'sticky left-0 bg-white z-10',
-      getCellClassName: () => 'sticky left-0 bg-white z-10',
+      headerClassName: STICKY_CLASS,
+      getCellClassName: () => STICKY_CLASS,
       render: (row) => {
         const first = row.alerts[0];
         if (!first) return null;
@@ -95,43 +108,50 @@ export function ValidateStep() {
       key: 'row',
       header: 'Row',
       render: (row) => String(row.row),
+      getCellClassName: (row) => getCellClass(row, false),
     },
     {
       key: 'contact_name',
       header: 'School / Last Name',
       render: (row) => row.location.contact_name ?? '',
       getCellClassName: (row) =>
-        row.alerts.includes('MISSING_FIELDS') && !row.location.contact_name
-          ? MISSING_CELL_CLASS
-          : undefined,
+        getCellClass(
+          row,
+          row.alerts.includes('MISSING_FIELDS') && !row.location.contact_name
+        ),
     },
     {
       key: 'address',
       header: 'Address',
       render: (row) => row.location.address ?? '',
       getCellClassName: (row) =>
-        row.alerts.includes('MISSING_FIELDS') && !row.location.address
-          ? MISSING_CELL_CLASS
-          : undefined,
+        getCellClass(
+          row,
+          row.alerts.includes('MISSING_FIELDS') && !row.location.address
+        ),
     },
     {
       key: 'delivery_group',
       header: 'Delivery Group',
       render: (row) => row.location.delivery_group ?? '',
       getCellClassName: (row) =>
-        row.alerts.includes('MISSING_DELIVERY_GROUP') &&
-        !row.location.delivery_group
-          ? MISSING_CELL_CLASS
-          : undefined,
+        getCellClass(
+          row,
+          row.alerts.includes('MISSING_DELIVERY_GROUP') &&
+            !row.location.delivery_group
+        ),
     },
     {
       key: 'phone_number',
       header: 'Phone Number',
       render: (row) => row.location.phone_number ?? '',
       getCellClassName: (row) =>
-        row.alerts.includes('MISSING_FIELDS') && !row.location.phone_number
-          ? MISSING_CELL_CLASS
-          : undefined,
+        getCellClass(
+          row,
+          row.alerts.some((a: AlertCode) =>
+            ['MISSING_FIELDS', 'INVALID_FORMAT'].includes(a)
+          )
+        ),
     },
   ];
 
