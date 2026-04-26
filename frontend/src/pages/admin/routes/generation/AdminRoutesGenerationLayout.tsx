@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
@@ -46,9 +46,12 @@ export function AdminRoutesGenerationLayout() {
         {/* Breadcrumb + subtitle */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1">
-            <span className="font-nunito text-h1 text-grey-400 font-bold">
+            <Link
+              to="/admin/routes"
+              className="font-nunito text-h1 text-grey-400 cursor-pointer font-bold"
+            >
               Routes
-            </span>
+            </Link>
             <ChevronRightIcon className="text-grey-400 size-8 shrink-0" />
             <span className="font-nunito text-h1 text-grey-500 font-bold">
               Route Generation

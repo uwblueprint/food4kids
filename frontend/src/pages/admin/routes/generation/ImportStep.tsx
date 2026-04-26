@@ -4,9 +4,7 @@ import * as XLSX from 'xlsx';
 
 import { Banner, Button, Card, DropdownTable } from '@/common/components';
 import type { DropdownTableRow } from '@/common/components';
-
 import { FileDropZone } from '@/pages/admin/routes/components/FileDropZone';
-
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
@@ -70,7 +68,9 @@ export function ImportStep() {
   // If a file was already set in context (e.g. user navigated back), parse headers
   useEffect(() => {
     if (file && fileHeaders.length === 0) {
-      parseHeaders(file).then(setFileHeaders).catch(() => {});
+      parseHeaders(file)
+        .then(setFileHeaders)
+        .catch(() => {});
     }
   }, [file]);
 
@@ -148,17 +148,19 @@ export function ImportStep() {
         />
       </Card>
 
-      {/* Map Columns card */}
+      {/* Map Columns */}
       {file && (
-        <Card className="flex flex-col gap-4 p-6">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="text-grey-500">Map Columns</h2>
             <p className="text-p1 text-grey-500">
               Match your file's columns to the required system fields
             </p>
           </div>
-          <DropdownTable rows={dropdownRows} />
-        </Card>
+          <Card>
+            <DropdownTable rows={dropdownRows} />
+          </Card>
+        </div>
       )}
 
       {/* Actions */}

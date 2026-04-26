@@ -11,6 +11,8 @@ export interface Column<T> {
   render?: (row: T) => ReactNode;
   /** Per-cell className based on row data — use for error/warning cell states. */
   getCellClassName?: (row: T) => string | undefined;
+  /** Static className applied to the header <th> cell. */
+  headerClassName?: string;
 }
 
 export interface DataTableProps<T> {
@@ -78,7 +80,7 @@ function DataTable<T>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="text-p2 px-4 py-3 text-left font-semibold whitespace-nowrap"
+                  className={cn('text-p2 px-6 py-4 text-left font-semibold whitespace-nowrap', col.headerClassName)}
                 >
                   {col.header}
                 </th>
@@ -98,7 +100,7 @@ function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'text-p2 text-grey-500 px-4 py-3 whitespace-nowrap',
+                        'text-p2 text-grey-500 px-6 py-4 whitespace-nowrap',
                         col.getCellClassName?.(row)
                       )}
                     >

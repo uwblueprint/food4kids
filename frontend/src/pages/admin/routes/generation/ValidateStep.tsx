@@ -82,6 +82,8 @@ export function ValidateStep() {
     {
       key: 'alerts',
       header: 'Alert',
+      headerClassName: 'sticky left-0 bg-white z-10',
+      getCellClassName: () => 'sticky left-0 bg-white z-10',
       render: (row) => {
         const first = row.alerts[0];
         if (!first) return null;
@@ -138,7 +140,8 @@ export function ValidateStep() {
       {/* Error banner */}
       {!bannerDismissed && data && !data.success && (
         <Banner variant="error" onDismiss={() => setBannerDismissed(true)}>
-          Please correct these <span className="font-bold">{errorCount}</span>{' '}
+          Please correct these{' '}
+          <span className="text-red font-bold">{errorCount}</span>{' '}
           {errorCount === 1 ? 'error' : 'errors'} before continuing, then go
           back to import to reupload the file.
         </Banner>
@@ -152,7 +155,7 @@ export function ValidateStep() {
       )}
 
       {/* Validation card */}
-      <Card className="flex flex-col gap-4 p-6">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Validation</h2>
           <p className="text-p1 text-grey-500">
@@ -160,11 +163,9 @@ export function ValidateStep() {
             resolve
           </p>
         </div>
-
         {isPending && (
           <p className="text-p1 text-grey-400 py-8 text-center">Validating…</p>
         )}
-
         {isError && (
           <p className="text-p1 text-red py-8 text-center">
             Validation failed — please try again.
@@ -176,15 +177,15 @@ export function ValidateStep() {
             columns={columns}
             rows={errorRows}
             getRowKey={(row) => row.row}
-            getRowClassName={(row) =>
-              row.alerts.includes('PARTIAL_DUPLICATE')
-                ? 'bg-yellow-50'
-                : undefined
+            emptyState={
+              <EmptyState
+                title="No new entries found in the spreadsheet"
+                description="It's feeling quite empty here"
+              />
             }
-            emptyState={<EmptyState title="No new entries found in the spreadsheet" description="It's feeling quite empty here" />}
           />
         )}
-      </Card>
+      </div>
 
       {/* Actions */}
       <div className="flex items-center justify-between">
