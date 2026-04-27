@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
-import { Button, DataTable, Dropdown, TextField } from '@/common/components';
+import {
+  Button,
+  DataTable,
+  Dropdown,
+  TextField,
+  TimePicker,
+} from '@/common/components';
 import type { Column, DropdownOption } from '@/common/components';
 import { DatePicker } from '@/common/components';
 
@@ -60,10 +66,7 @@ const END_LOCATION_OPTIONS: DropdownOption[] = [
   { label: 'Church', value: 'Church' },
 ];
 
-// ---------------------------------------------------------------------------
-// ConfigureStep
-// ---------------------------------------------------------------------------
-
+// TODO: hook up form state for dates and times
 export function ConfigureStep() {
   const navigate = useNavigate();
   const [configs, setConfigs] = useState<RouteConfig[]>(MOCK_CONFIGS);
@@ -102,7 +105,7 @@ export function ConfigureStep() {
     {
       key: 'start_time',
       header: 'Start Time',
-      render: () => null, // TODO: TimePicker
+      render: () => <TimePicker />,
     },
     {
       key: 'route_count',
