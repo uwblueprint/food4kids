@@ -1,10 +1,16 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
 import {
   Button,
   DataTable,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Dropdown,
   TextField,
   TimePicker,
@@ -70,6 +76,8 @@ const END_LOCATION_OPTIONS: DropdownOption[] = [
 export function ConfigureStep() {
   const navigate = useNavigate();
   const [configs, setConfigs] = useState<RouteConfig[]>(MOCK_CONFIGS);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   const updateConfig = (index: number, updates: Partial<RouteConfig>) => {
     setConfigs((prev) =>
@@ -77,7 +85,8 @@ export function ConfigureStep() {
     );
   };
 
-  const handleContinue = () => {
+  const handleConfirm = () => {
+    setConfirmOpen(false);
     navigate('/admin/routes/generation/generate');
   };
 
@@ -167,15 +176,58 @@ export function ConfigureStep() {
 
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <Button variant="tertiary" asChild>
-          <Link to="/admin/routes/generation/review">
-            Back to Review Changes
-          </Link>
+        <Button variant="tertiary" onClick={() => setLeaveOpen(true)}>
+          Back to Review Changes
         </Button>
-        <Button variant="primary" onClick={handleContinue}>
+        <Button variant="primary" onClick={() => setConfirmOpen(true)}>
           Continue to Generate Routes
         </Button>
       </div>
+
+      {/* Leave without saving dialog */}
+      <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave Without Saving</DialogTitle>
+            <DialogDescription>
+              If you go back now, all the data you entered will be lost. Would
+              you still like to go back anyway?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setLeaveOpen(false)}>
+              Stay on this Page
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => navigate('/admin/routes/generation/review')}
+            >
+              Leave Anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate routes confirmation dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Continue to Generation</DialogTitle>
+            <DialogDescription>
+              You're about to generate routes for routes you have selected. This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleConfirm}>
+              Generate Routes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
