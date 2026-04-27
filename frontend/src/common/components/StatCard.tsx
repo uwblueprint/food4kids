@@ -1,4 +1,5 @@
 import boyImg from '@/assets/illustrations/boy.png';
+import boyAnnouncingImg from '@/assets/illustrations/boy-announcing.png';
 import girlConfusedImg from '@/assets/illustrations/girl-confused.png';
 import boyPointingImg from '@/assets/illustrations/boy-pointing.png';
 import girlSearchingImg from '@/assets/illustrations/girl-searching.png';
@@ -8,6 +9,7 @@ import { cn } from '@/lib/utils';
 const CHARACTER_MAP = {
   boy: boyImg,
   boyPointing: boyPointingImg,
+  boyAnnouncing: boyAnnouncingImg,
   girlConfused: girlConfusedImg,
   girlSearching: girlSearchingImg,
   granny: grannyImg,
