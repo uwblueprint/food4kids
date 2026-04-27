@@ -5,6 +5,7 @@ import EditIcon from '@/assets/icons/edit.svg?react';
 import {
   Button,
   DataTable,
+  DatePicker,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -16,80 +17,107 @@ import {
   TimePicker,
 } from '@/common/components';
 import type { Column, DropdownOption } from '@/common/components';
-import { DatePicker } from '@/common/components';
 
 // ---------------------------------------------------------------------------
-// TODO: Hook up to backend API and define actual types
+// Types
 // ---------------------------------------------------------------------------
 
-interface RouteConfig {
+// Read-only — comes from the backend (POST /locations/review or similar)
+interface RouteGroup {
   delivery_group: string;
   delivery_type: string;
   stops: number;
-  route_date: string | null;
-  start_time: string | null;
-  route_count: number;
+}
+
+// User-controlled — sent to the generation API
+interface RouteFormEntry {
+  route_date: Date | undefined;
+  start_time: string | undefined;
+  route_count: number | undefined;
   end_location: string;
 }
 
+type FormState = Record<string, RouteFormEntry>;
+
+// Combined shape for the DataTable row
+interface RouteRow extends RouteGroup {
+  form: RouteFormEntry;
+}
+
 // ---------------------------------------------------------------------------
-// Mock data — replace with real data from POST /locations/review
+// Mock API data — replace with real response from backend
 // ---------------------------------------------------------------------------
 
-const MOCK_CONFIGS: RouteConfig[] = [
-  {
-    delivery_group: 'Tuesday A',
-    delivery_type: 'Family',
-    stops: 9,
-    route_date: null,
-    start_time: null,
+const MOCK_ROUTE_GROUPS: RouteGroup[] = [
+  { delivery_group: 'Tuesday A', delivery_type: 'Family', stops: 9 },
+  { delivery_group: 'Wednesday B', delivery_type: 'Family', stops: 6 },
+  { delivery_group: 'Thursday A', delivery_type: 'Family', stops: 8 },
+];
+
+const INITIAL_FORM_STATE: FormState = {
+  'Tuesday A': {
+    route_date: undefined,
+    start_time: undefined,
     route_count: 4,
     end_location: 'Warehouse',
   },
-  {
-    delivery_group: 'Wednesday B',
-    delivery_type: 'Family',
-    stops: 6,
-    route_date: null,
-    start_time: null,
+  'Wednesday B': {
+    route_date: undefined,
+    start_time: undefined,
     route_count: 4,
     end_location: 'Warehouse',
   },
-  {
-    delivery_group: 'Thursday A',
-    delivery_type: 'Family',
-    stops: 8,
-    route_date: null,
-    start_time: null,
+  'Thursday A': {
+    route_date: undefined,
+    start_time: undefined,
     route_count: 8,
     end_location: 'Warehouse',
   },
-];
+};
 
 const END_LOCATION_OPTIONS: DropdownOption[] = [
   { label: 'Warehouse', value: 'Warehouse' },
   { label: 'School', value: 'School' },
 ];
 
-// TODO: hook up form state for dates and times
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function ConfigureStep() {
   const navigate = useNavigate();
-  const [configs, setConfigs] = useState<RouteConfig[]>(MOCK_CONFIGS);
+  const [formData, setFormData] = useState<FormState>(INITIAL_FORM_STATE);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
-  const updateConfig = (index: number, updates: Partial<RouteConfig>) => {
-    setConfigs((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, ...updates } : c))
-    );
+  const updateEntry = (key: string, updates: Partial<RouteFormEntry>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], ...updates },
+    }));
   };
 
+  // Merged payload ready to POST to the generation API
+  const buildPayload = () =>
+    MOCK_ROUTE_GROUPS.map((group) => ({
+      ...group,
+      ...formData[group.delivery_group],
+    }));
+
   const handleConfirm = () => {
+    // TODO: pass buildPayload() to the generation API call
+    console.log('Generation payload:', buildPayload());
     setConfirmOpen(false);
     navigate('/admin/routes/generation/generate');
   };
 
-  const columns: Column<RouteConfig>[] = [
+  // Flatten API data + form state into table rows
+  const rows: RouteRow[] = MOCK_ROUTE_GROUPS.map((group) => ({
+    ...group,
+    form: formData[group.delivery_group],
+  }));
+
+  const columns: Column<RouteRow>[] = [
     {
       key: 'delivery_type',
       header: 'Delivery Type',
@@ -108,48 +136,58 @@ export function ConfigureStep() {
     {
       key: 'route_date',
       header: 'Route Date',
-      render: () => <DatePicker />,
+      render: (row) => (
+        <DatePicker
+          value={row.form.route_date}
+          onChange={(date) =>
+            updateEntry(row.delivery_group, { route_date: date })
+          }
+        />
+      ),
     },
     {
       key: 'start_time',
       header: 'Start Time',
-      render: () => <TimePicker />,
+      render: (row) => (
+        <TimePicker
+          value={row.form.start_time}
+          onChange={(time) =>
+            updateEntry(row.delivery_group, { start_time: time })
+          }
+        />
+      ),
     },
     {
       key: 'route_count',
       header: 'Route Count',
-      render: (row) => {
-        const index = configs.indexOf(row);
-        return (
-          <TextField
-            type="number"
-            min={1}
-            value={row.route_count}
-            onChange={(e) =>
-              updateConfig(index, {
-                route_count: Math.max(1, Number(e.target.value)),
-              })
-            }
-            trailingIcon={<EditIcon className="size-4" />}
-            className="w-24"
-          />
-        );
-      },
+      render: (row) => (
+        <TextField
+          type="number"
+          value={row.form.route_count ?? ''}
+          placeholder="0"
+          onChange={(e) =>
+            updateEntry(row.delivery_group, {
+              route_count: e.target.value === '' ? undefined : Number(e.target.value),
+            })
+          }
+          trailingIcon={<EditIcon className="size-4" />}
+          className="w-24"
+        />
+      ),
     },
     {
       key: 'end_location',
       header: 'End Location',
-      render: (row) => {
-        const index = configs.indexOf(row);
-        return (
-          <Dropdown
-            options={END_LOCATION_OPTIONS}
-            value={row.end_location}
-            onValueChange={(val) => updateConfig(index, { end_location: val })}
-            className="w-40"
-          />
-        );
-      },
+      render: (row) => (
+        <Dropdown
+          options={END_LOCATION_OPTIONS}
+          value={row.form.end_location}
+          onValueChange={(val) =>
+            updateEntry(row.delivery_group, { end_location: val })
+          }
+          className="w-40"
+        />
+      ),
     },
   ];
 
@@ -168,7 +206,7 @@ export function ConfigureStep() {
 
         <DataTable
           columns={columns}
-          rows={configs}
+          rows={rows}
           getRowKey={(row) => row.delivery_group}
         />
       </div>

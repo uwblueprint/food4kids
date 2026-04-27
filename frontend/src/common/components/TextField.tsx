@@ -1,4 +1,9 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode, useId } from 'react';
+import {
+  forwardRef,
+  type InputHTMLAttributes,
+  type ReactNode,
+  useId,
+} from 'react';
 
 import AlertTriangle from '@/assets/icons/alert-triangle.svg?react';
 import { cn } from '@/lib/utils';
@@ -77,13 +82,13 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             aria-invalid={hasError || undefined}
             className={cn(
               // Base
-              'text-p2 text-grey-400 placeholder:text-p3 placeholder:text-grey-400',
+              'text-p2 text-grey-400 placeholder:text-p2 placeholder:text-grey-400',
               'w-full rounded-lg px-3 py-2',
               'transition-colors',
               // Default state — outline instead of border to match Figma
-              'bg-grey-100 outline outline-1 outline-offset-[-1px] outline-grey-300',
+              'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
               // Focus / active
-              'focus:outline-blue-300 focus:outline-2',
+              'focus:outline-2 focus:outline-blue-300',
               // Error
               hasError && 'outline-red focus:outline-red',
               // Info (non-editable)
