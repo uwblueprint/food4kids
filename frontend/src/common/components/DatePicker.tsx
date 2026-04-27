@@ -32,12 +32,13 @@ export function DatePicker({
   disabled,
   className,
 }: DatePickerProps) {
+  const today = new Date();
   const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState(toInputValue(value));
+  const [inputValue, setInputValue] = useState(toInputValue(value ?? today));
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setInputValue(toInputValue(value));
+    setInputValue(toInputValue(value ?? today));
   }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
