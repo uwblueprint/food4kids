@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { format, isValid, parse } from 'date-fns';
 
 import CalendarIcon from '@/assets/icons/calendar.svg?react';
 import { cn } from '@/lib/utils';
@@ -12,58 +11,49 @@ import {
   PopoverTrigger,
 } from './Popover';
 
-const DATE_FORMAT = 'MM/dd/yy';
-
 interface DatePickerProps {
   value?: Date;
   onChange?: (date: Date | undefined) => void;
-  placeholder?: string;
   disabled?: boolean;
   className?: string;
+}
+
+function toInputValue(date: Date | undefined): string {
+  if (!date) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export function DatePicker({
   value,
   onChange,
-  placeholder = 'Select a date',
   disabled,
   className,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState(
-    value ? format(value, DATE_FORMAT) : ''
-  );
+  const [inputValue, setInputValue] = useState(toInputValue(value));
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync input when controlled value changes externally
   useEffect(() => {
-    setInputValue(value ? format(value, DATE_FORMAT) : '');
+    setInputValue(toInputValue(value));
   }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Strip non-digits and cap at 6
-    const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
-
-    // Auto-insert slashes: MM/DD/YY
-    let formatted = digits;
-    if (digits.length > 4)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-
-    setInputValue(formatted);
-
-    if (digits.length === 6) {
-      const parsed = parse(formatted, DATE_FORMAT, new Date());
-      onChange?.(isValid(parsed) ? parsed : undefined);
-    } else if (digits.length === 0) {
+    const raw = e.target.value; // YYYY-MM-DD or ''
+    setInputValue(raw);
+    if (!raw) {
       onChange?.(undefined);
+      return;
     }
+    const parsed = new Date(raw + 'T00:00:00');
+    onChange?.(isNaN(parsed.getTime()) ? undefined : parsed);
   };
 
   const handleCalendarSelect = (date: Date | undefined) => {
     onChange?.(date);
-    setInputValue(date ? format(date, DATE_FORMAT) : '');
+    setInputValue(toInputValue(date));
     setOpen(false);
     inputRef.current?.focus();
   };
@@ -74,7 +64,7 @@ export function DatePicker({
         <div
           className={cn(
             'inline-flex w-40 items-center justify-between rounded-lg px-3 py-2',
-            'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
+            'bg-grey-100 outline outline-1 outline-offset-[-1px] outline-grey-300',
             'transition-colors',
             open
               ? 'outline-2 outline-blue-300'
@@ -85,20 +75,22 @@ export function DatePicker({
         >
           <input
             ref={inputRef}
-            type="text"
-            inputMode="numeric"
-            placeholder={placeholder}
+            type="date"
             value={inputValue}
             onChange={handleInputChange}
             disabled={disabled}
-            className="font-nunito-sans text-grey-500 placeholder:text-grey-400 min-w-0 flex-1 bg-transparent text-sm font-normal outline-none"
+            className={cn(
+              'font-nunito-sans min-w-0 flex-1 bg-transparent text-sm font-normal text-grey-500 outline-none',
+              '[&::-webkit-calendar-picker-indicator]:hidden',
+              '[&::-webkit-datetime-edit-fields-wrapper]:p-0',
+            )}
           />
           <PopoverTrigger asChild>
             <button
               type="button"
               disabled={disabled}
               aria-label="Open calendar"
-              className="text-grey-400 hover:text-grey-500 shrink-0 cursor-pointer transition-colors"
+              className="shrink-0 cursor-pointer text-grey-400 transition-colors hover:text-grey-500"
             >
               <CalendarIcon className="size-4" />
             </button>
