@@ -205,16 +205,11 @@ function CalendarDayButton({
         'flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center leading-none font-normal',
         // Outside days: more faded
         modifiers.outside ? 'text-grey-300' : 'text-grey-500',
-        // Default: transparent, circle border on hover
-        !modifiers.today &&
-          !modifiers.selected &&
-          'hover:border-grey-400 bg-transparent hover:border hover:bg-transparent',
-        // Today (not selected): filled blue circle
-        modifiers.today &&
-          !modifiers.selected &&
-          'text-grey-100 bg-blue-300 hover:bg-blue-400',
+        // Default + today (unselected): transparent, circle border on hover
+        !modifiers.selected &&
+          'bg-transparent hover:border hover:border-grey-400 hover:bg-transparent',
         // Selected: filled blue circle
-        modifiers.selected && 'text-grey-100 bg-blue-300 hover:bg-blue-400',
+        modifiers.selected && 'bg-blue-300 text-grey-100 hover:bg-blue-400',
         className
       )}
       {...props}
