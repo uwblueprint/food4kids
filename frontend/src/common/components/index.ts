@@ -26,3 +26,4 @@ export {
 export { DatePicker } from './DatePicker';
 export { TimePicker } from './TimePicker';
 export { Spinner } from './spinner';
+export { Progress } from './progress';
