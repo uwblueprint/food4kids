@@ -39,7 +39,7 @@ export function TimePicker({
         onChange={handleChange}
         disabled={disabled}
         className={cn(
-          'font-nunito-sans text-grey-500 min-w-0 flex-1 bg-transparent text-sm font-normal outline-none',
+          'text-grey-500 min-w-0 flex-1 bg-transparent text-sm font-normal outline-none',
           '[&::-webkit-calendar-picker-indicator]:hidden',
           '[&::-webkit-datetime-edit-fields-wrapper]:p-0'
         )}

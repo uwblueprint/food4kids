@@ -90,7 +90,7 @@ export function DatePicker({
             onChange={handleInputChange}
             disabled={disabled}
             className={cn(
-              'font-nunito-sans min-w-0 flex-1 bg-transparent text-sm font-normal text-grey-500 outline-none',
+              'min-w-0 flex-1 bg-transparent text-sm font-normal text-grey-500 outline-none',
               '[&::-webkit-calendar-picker-indicator]:hidden',
               '[&::-webkit-datetime-edit-fields-wrapper]:p-0',
             )}

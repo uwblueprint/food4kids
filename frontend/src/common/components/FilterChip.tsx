@@ -21,8 +21,8 @@ function FilterChip({
       className={cn(
         // Base
         'inline-flex items-center justify-center',
-        'h-9 rounded-[40px] px-3',
-        'text-p3 font-nunito font-bold',
+        'h-11 rounded-[40px] px-6',
+        'text-p1 font-medium',
         'cursor-pointer transition-colors',
         'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300',
         // Default state
@@ -70,9 +70,7 @@ function FilterChipGroup({
         className
       )}
     >
-      {label && (
-        <p className="text-p3 text-grey-500 mb-2 font-semibold">{label}</p>
-      )}
+      {label && <p className="text-p1 text-grey-500 mb-2 font-bold">{label}</p>}
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
