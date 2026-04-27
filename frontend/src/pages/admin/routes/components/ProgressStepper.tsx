@@ -2,7 +2,6 @@ import { Fragment } from 'react';
 
 import CheckIcon from '@/assets/icons/check.svg?react';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
 
 interface Step {
   label: string;
@@ -23,17 +22,14 @@ interface ProgressStepperProps {
 }
 
 function ProgressStepper({ currentStep, className }: ProgressStepperProps) {
-  const navigate = useNavigate();
-
   return (
     <div className={cn('flex w-full items-start pb-6', className)}>
       {STEPS.map((step, i) => (
         <Fragment key={step.path}>
           <div className="relative z-10 m-0 flex w-6 shrink-0 justify-center">
             <div
-              onClick={() => currentStep > i && navigate(step.path)}
               className={cn(
-                'flex size-6 cursor-pointer items-center justify-center rounded-full border-2 bg-white',
+                'flex size-6 items-center justify-center rounded-full border-2 bg-white',
                 i < currentStep && 'border-blue-300 bg-blue-300',
                 i === currentStep && 'border-blue-300 bg-white',
                 i > currentStep && 'border-grey-300 bg-white'
