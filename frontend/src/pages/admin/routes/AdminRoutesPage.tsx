@@ -85,7 +85,7 @@ export const AdminRoutesPage = () => {
   return (
     <>
       <Tabs defaultValue="groups" className="flex flex-col gap-8">
-        <h1 className="text-grey-500">Routes</h1>
+        <h1>Routes</h1>
 
         <TabsList>
           <TabsTrigger value="groups">Groups</TabsTrigger>
@@ -127,7 +127,7 @@ export const AdminRoutesPage = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Filter Dialog */}
+      {/* Filter dialog */}
       <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
         <DialogContent>
           <DialogHeader>
