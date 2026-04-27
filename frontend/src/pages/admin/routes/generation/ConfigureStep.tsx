@@ -68,8 +68,7 @@ const MOCK_CONFIGS: RouteConfig[] = [
 
 const END_LOCATION_OPTIONS: DropdownOption[] = [
   { label: 'Warehouse', value: 'Warehouse' },
-  { label: 'Community Centre', value: 'Community Centre' },
-  { label: 'Church', value: 'Church' },
+  { label: 'School', value: 'School' },
 ];
 
 // TODO: hook up form state for dates and times
