@@ -35,6 +35,7 @@ export const AdminHomePage = () => {
           </div>
         </div>
       </div>
+      <div>TODO</div>
     </div>
   );
 };

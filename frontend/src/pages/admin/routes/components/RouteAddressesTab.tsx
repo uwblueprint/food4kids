@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode } from 'react';
 
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import {
@@ -16,25 +16,11 @@ import {
 } from '@/common/components';
 import type { Column } from '@/common/components';
 
+import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
 const DELIVERY_TYPES = ['School Year', 'Summer'];
-
-interface FilterState {
-  routeStatuses: Set<string>;
-  deliveryTypes: Set<string>;
-}
-
-const emptyFilters = (): FilterState => ({
-  routeStatuses: new Set(),
-  deliveryTypes: new Set(),
-});
-
-const copyFilters = (f: FilterState): FilterState => ({
-  routeStatuses: new Set(f.routeStatuses),
-  deliveryTypes: new Set(f.deliveryTypes),
-});
 
 export type LocationStatus = 'Active' | 'Inactive' | 'Completed';
 
@@ -63,42 +49,25 @@ const COLUMNS: Column<AddressRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-interface RouteAddressesTabProps {
+// TODO: fetch data from API
+interface RouteAddressesTabProps extends AddressesTabState {
   rows?: AddressRow[];
   actions?: ReactNode;
 }
 
-export function RouteAddressesTab({ rows = [], actions }: RouteAddressesTabProps) {
-  const [search, setSearch] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [appliedFilters, setAppliedFilters] =
-    useState<FilterState>(emptyFilters());
-  const [draftFilters, setDraftFilters] = useState<FilterState>(emptyFilters());
-
-  const hasActiveFilters = Object.values(appliedFilters).some(
-    (s) => s.size > 0
-  );
-
-  const openFilters = () => {
-    setDraftFilters(copyFilters(appliedFilters));
-    setFilterOpen(true);
-  };
-
-  const toggleDraft = (key: keyof FilterState, value: string) => {
-    setDraftFilters((prev) => {
-      const next = new Set(prev[key]);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return { ...prev, [key]: next };
-    });
-  };
-
-  const handleApply = () => {
-    setAppliedFilters(copyFilters(draftFilters));
-    setFilterOpen(false);
-    // TODO: pass appliedFilters to data fetching logic
-  };
-
+export function RouteAddressesTab({
+  rows = [],
+  actions,
+  search,
+  setSearch,
+  filterOpen,
+  setFilterOpen,
+  draftFilters,
+  hasActiveFilters,
+  openFilters,
+  toggleDraft,
+  handleApply,
+}: RouteAddressesTabProps) {
   return (
     <>
       <div className="mb-8 flex items-center justify-between">
@@ -138,7 +107,7 @@ export function RouteAddressesTab({ rows = [], actions }: RouteAddressesTabProps
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Filters</DialogTitle>
-            <DialogDescription>Routes</DialogDescription>
+            <DialogDescription>Addresses</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">

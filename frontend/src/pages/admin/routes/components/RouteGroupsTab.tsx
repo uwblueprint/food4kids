@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode } from 'react';
 
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import {
@@ -17,33 +17,13 @@ import {
 import type { Column } from '@/common/components';
 import type { RouteGroupRow } from '@/types/route-group';
 
+import type { GroupsTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const DELIVERY_TYPES = ['School Year', 'Summer'];
 const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
 const DRIVER_STATUSES = ['Assigned', 'Unassigned'];
-
-interface FilterState {
-  weekdays: Set<string>;
-  deliveryTypes: Set<string>;
-  routeStatuses: Set<string>;
-  driverStatuses: Set<string>;
-}
-
-const emptyFilters = (): FilterState => ({
-  weekdays: new Set(),
-  deliveryTypes: new Set(),
-  routeStatuses: new Set(),
-  driverStatuses: new Set(),
-});
-
-const copyFilters = (f: FilterState): FilterState => ({
-  weekdays: new Set(f.weekdays),
-  deliveryTypes: new Set(f.deliveryTypes),
-  routeStatuses: new Set(f.routeStatuses),
-  driverStatuses: new Set(f.driverStatuses),
-});
 
 const COLUMNS: Column<RouteGroupRow>[] = [
   { key: 'name', header: 'Name', render: (row) => row.name },
@@ -68,42 +48,25 @@ const COLUMNS: Column<RouteGroupRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-interface RouteGroupsTabProps {
+// TODO: fetch data from API
+interface RouteGroupsTabProps extends GroupsTabState {
   rows?: RouteGroupRow[];
   actions?: ReactNode;
 }
 
-export function RouteGroupsTab({ rows = [], actions }: RouteGroupsTabProps) {
-  const [search, setSearch] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [appliedFilters, setAppliedFilters] =
-    useState<FilterState>(emptyFilters());
-  const [draftFilters, setDraftFilters] = useState<FilterState>(emptyFilters());
-
-  const hasActiveFilters = Object.values(appliedFilters).some(
-    (s) => s.size > 0
-  );
-
-  const openFilters = () => {
-    setDraftFilters(copyFilters(appliedFilters));
-    setFilterOpen(true);
-  };
-
-  const toggleDraft = (key: keyof FilterState, value: string) => {
-    setDraftFilters((prev) => {
-      const next = new Set(prev[key]);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return { ...prev, [key]: next };
-    });
-  };
-
-  const handleApply = () => {
-    setAppliedFilters(copyFilters(draftFilters));
-    setFilterOpen(false);
-    // TODO: pass appliedFilters to data fetching logic
-  };
-
+export function RouteGroupsTab({
+  rows = [],
+  actions,
+  search,
+  setSearch,
+  filterOpen,
+  setFilterOpen,
+  draftFilters,
+  hasActiveFilters,
+  openFilters,
+  toggleDraft,
+  handleApply,
+}: RouteGroupsTabProps) {
   return (
     <>
       <div className="mb-8 flex items-center justify-between">

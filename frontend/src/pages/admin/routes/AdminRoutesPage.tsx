@@ -4,19 +4,23 @@ import ShareIcon from '@/assets/icons/share.svg?react';
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@/common/components';
 
 import { RouteAddressesTab, RouteGroupsTab } from './components';
-
-const tabActions = (
-  <>
-    <Button variant="primary" asChild>
-      <Link to="/admin/routes/generation">Generate Routes</Link>
-    </Button>
-    <Button variant="primary" shape="circular">
-      <ShareIcon className="size-5" />
-    </Button>
-  </>
-);
+import { useAddressesTabState, useGroupsTabState } from './hooks';
 
 export const AdminRoutesPage = () => {
+  const groupsState = useGroupsTabState();
+  const addressesState = useAddressesTabState();
+
+  const tabActions = (
+    <>
+      <Button variant="primary" asChild>
+        <Link to="/admin/routes/generation">Generate Routes</Link>
+      </Button>
+      <Button variant="primary" shape="circular">
+        <ShareIcon className="size-5" />
+      </Button>
+    </>
+  );
+
   return (
     <Tabs defaultValue="groups" className="flex flex-col gap-8">
       <h1>Routes</h1>
@@ -27,10 +31,10 @@ export const AdminRoutesPage = () => {
       </TabsList>
 
       <TabsContent value="groups">
-        <RouteGroupsTab actions={tabActions} />
+        <RouteGroupsTab {...groupsState} actions={tabActions} />
       </TabsContent>
       <TabsContent value="addresses">
-        <RouteAddressesTab actions={tabActions} />
+        <RouteAddressesTab {...addressesState} actions={tabActions} />
       </TabsContent>
     </Tabs>
   );
