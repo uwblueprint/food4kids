@@ -16,22 +16,13 @@ import {
 } from '@/common/components';
 import type { Column } from '@/common/components';
 
+import type { AddressRow } from '@/types/address';
+
 import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
 const DELIVERY_TYPES = ['School Year', 'Summer'];
-
-export type LocationStatus = 'Active' | 'Inactive' | 'Completed';
-
-export interface AddressRow {
-  id: string;
-  contact_name: string;
-  address: string;
-  delivery_group: string;
-  notes: string;
-  status: LocationStatus;
-}
 
 const COLUMNS: Column<AddressRow>[] = [
   {
@@ -49,14 +40,12 @@ const COLUMNS: Column<AddressRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-// TODO: fetch data from API
 interface RouteAddressesTabProps extends AddressesTabState {
-  rows?: AddressRow[];
   actions?: ReactNode;
 }
 
 export function RouteAddressesTab({
-  rows = [],
+  rows,
   actions,
   search,
   setSearch,

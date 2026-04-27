@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+import { useAddresses } from '@/api/addresses';
+import type { AddressRow } from '@/types/address';
+
 export interface AddressesFilterState {
   routeStatuses: Set<string>;
   deliveryTypes: Set<string>;
@@ -16,6 +19,8 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
 });
 
 export interface AddressesTabState {
+  rows: AddressRow[];
+  isLoading: boolean;
   search: string;
   setSearch: (v: string) => void;
   filterOpen: boolean;
@@ -36,6 +41,12 @@ export function useAddressesTabState(): AddressesTabState {
 
   const hasActiveFilters = Object.values(appliedFilters).some((s) => s.size > 0);
 
+  const { data: rows = [], isLoading } = useAddresses({
+    search: search || undefined,
+    routeStatuses: appliedFilters.routeStatuses.size > 0 ? [...appliedFilters.routeStatuses] : undefined,
+    deliveryTypes: appliedFilters.deliveryTypes.size > 0 ? [...appliedFilters.deliveryTypes] : undefined,
+  });
+
   const openFilters = () => {
     setDraftFilters(copyFilters(appliedFilters));
     setFilterOpen(true);
@@ -53,10 +64,11 @@ export function useAddressesTabState(): AddressesTabState {
   const handleApply = () => {
     setAppliedFilters(copyFilters(draftFilters));
     setFilterOpen(false);
-    // TODO: pass appliedFilters to data fetching logic
   };
 
   return {
+    rows,
+    isLoading,
     search,
     setSearch,
     filterOpen,

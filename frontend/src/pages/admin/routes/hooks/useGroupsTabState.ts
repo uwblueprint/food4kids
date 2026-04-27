@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+import { useRouteGroups } from '@/api/route-groups';
+import type { RouteGroupRow } from '@/types/route-group';
+
 export interface GroupsFilterState {
   weekdays: Set<string>;
   deliveryTypes: Set<string>;
@@ -22,6 +25,8 @@ const copyFilters = (f: GroupsFilterState): GroupsFilterState => ({
 });
 
 export interface GroupsTabState {
+  rows: RouteGroupRow[];
+  isLoading: boolean;
   search: string;
   setSearch: (v: string) => void;
   filterOpen: boolean;
@@ -42,6 +47,14 @@ export function useGroupsTabState(): GroupsTabState {
 
   const hasActiveFilters = Object.values(appliedFilters).some((s) => s.size > 0);
 
+  const { data: rows = [], isLoading } = useRouteGroups({
+    search: search || undefined,
+    weekdays: appliedFilters.weekdays.size > 0 ? [...appliedFilters.weekdays] : undefined,
+    deliveryTypes: appliedFilters.deliveryTypes.size > 0 ? [...appliedFilters.deliveryTypes] : undefined,
+    routeStatuses: appliedFilters.routeStatuses.size > 0 ? [...appliedFilters.routeStatuses] : undefined,
+    driverStatuses: appliedFilters.driverStatuses.size > 0 ? [...appliedFilters.driverStatuses] : undefined,
+  });
+
   const openFilters = () => {
     setDraftFilters(copyFilters(appliedFilters));
     setFilterOpen(true);
@@ -59,10 +72,11 @@ export function useGroupsTabState(): GroupsTabState {
   const handleApply = () => {
     setAppliedFilters(copyFilters(draftFilters));
     setFilterOpen(false);
-    // TODO: pass appliedFilters to data fetching logic
   };
 
   return {
+    rows,
+    isLoading,
     search,
     setSearch,
     filterOpen,

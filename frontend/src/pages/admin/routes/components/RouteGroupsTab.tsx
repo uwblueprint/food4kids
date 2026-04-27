@@ -48,14 +48,12 @@ const COLUMNS: Column<RouteGroupRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-// TODO: fetch data from API
 interface RouteGroupsTabProps extends GroupsTabState {
-  rows?: RouteGroupRow[];
   actions?: ReactNode;
 }
 
 export function RouteGroupsTab({
-  rows = [],
+  rows,
   actions,
   search,
   setSearch,
