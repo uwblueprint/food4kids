@@ -11,7 +11,7 @@ import {
 } from 'react-day-picker';
 
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants } from '@/common/components/Button';
+import { Button } from '@/common/components/Button';
 
 function Calendar({
   className,
@@ -40,6 +40,8 @@ function Calendar({
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString('default', { month: 'short' }),
+        formatWeekdayName: (date) =>
+          ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()],
         ...formatters,
       }}
       classNames={{
@@ -54,14 +56,16 @@ function Calendar({
           defaultClassNames.nav
         ),
         button_previous: cn(
-          buttonVariants({ variant: buttonVariant }),
-          'size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
-          defaultClassNames.button_previous
+          'inline-flex cursor-pointer items-center justify-center',
+          'size-(--cell-size) rounded-full p-0 select-none',
+          'text-grey-500 transition-colors hover:bg-grey-200',
+          'aria-disabled:pointer-events-none aria-disabled:opacity-50',
         ),
         button_next: cn(
-          buttonVariants({ variant: buttonVariant }),
-          'size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
-          defaultClassNames.button_next
+          'inline-flex cursor-pointer items-center justify-center',
+          'size-(--cell-size) rounded-full p-0 select-none',
+          'text-grey-500 transition-colors hover:bg-grey-200',
+          'aria-disabled:pointer-events-none aria-disabled:opacity-50',
         ),
         month_caption: cn(
           'flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)',
@@ -198,15 +202,19 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        'flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center font-normal leading-none',
+        'flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center leading-none font-normal',
         // Outside days: more faded
         modifiers.outside ? 'text-grey-300' : 'text-grey-500',
         // Default: transparent, circle border on hover
-        !modifiers.today && !modifiers.selected && 'bg-transparent hover:bg-transparent hover:border hover:border-grey-400',
+        !modifiers.today &&
+          !modifiers.selected &&
+          'hover:border-grey-400 bg-transparent hover:border hover:bg-transparent',
         // Today (not selected): filled blue circle
-        modifiers.today && !modifiers.selected && 'bg-blue-300 text-grey-100 hover:bg-blue-400',
+        modifiers.today &&
+          !modifiers.selected &&
+          'text-grey-100 bg-blue-300 hover:bg-blue-400',
         // Selected: filled blue circle
-        modifiers.selected && 'bg-blue-300 text-grey-100 hover:bg-blue-400',
+        modifiers.selected && 'text-grey-100 bg-blue-300 hover:bg-blue-400',
         className
       )}
       {...props}

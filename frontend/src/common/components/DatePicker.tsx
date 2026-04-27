@@ -26,6 +26,12 @@ function toInputValue(date: Date | undefined): string {
   return `${y}-${m}-${d}`;
 }
 
+function parseInputValue(raw: string): Date | undefined {
+  if (!raw) return undefined;
+  const parsed = new Date(raw + 'T00:00:00');
+  return isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
 export function DatePicker({
   value,
   onChange,
@@ -34,25 +40,28 @@ export function DatePicker({
 }: DatePickerProps) {
   const today = new Date();
   const [open, setOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    value ?? today,
+  );
   const [inputValue, setInputValue] = useState(toInputValue(value ?? today));
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setInputValue(toInputValue(value ?? today));
+    const next = value ?? today;
+    setSelectedDate(next);
+    setInputValue(toInputValue(next));
   }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value; // YYYY-MM-DD or ''
+    const raw = e.target.value;
     setInputValue(raw);
-    if (!raw) {
-      onChange?.(undefined);
-      return;
-    }
-    const parsed = new Date(raw + 'T00:00:00');
-    onChange?.(isNaN(parsed.getTime()) ? undefined : parsed);
+    const parsed = parseInputValue(raw);
+    setSelectedDate(parsed);
+    onChange?.(parsed);
   };
 
   const handleCalendarSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
     onChange?.(date);
     setInputValue(toInputValue(date));
     setOpen(false);
@@ -71,7 +80,7 @@ export function DatePicker({
               ? 'outline-2 outline-blue-300'
               : 'focus-within:outline-2 focus-within:outline-blue-300',
             disabled && 'bg-grey-150 cursor-not-allowed opacity-60',
-            className
+            className,
           )}
         >
           <input
@@ -102,9 +111,9 @@ export function DatePicker({
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
-          selected={value}
+          selected={selectedDate}
           onSelect={handleCalendarSelect}
-          defaultMonth={value}
+          defaultMonth={selectedDate ?? today}
         />
       </PopoverContent>
     </Popover>
