@@ -31,6 +31,13 @@ export { StatCard } from './StatCard';
 export type { Character, StatCardColor } from './StatCard';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
 export {
+  ErrorScreen,
+  NotFoundPage,
+  ForbiddenPage,
+  ServiceUnavailablePage,
+  CatchAllErrorPage,
+} from './ErrorScreen';
+export {
   Sidebar,
   SidebarContent,
   SidebarFooter,

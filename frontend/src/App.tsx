@@ -14,7 +14,12 @@ import {
   ValidateStep,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
-import { NotFoundPage } from './pages/NotFoundPage';
+import {
+  CatchAllErrorPage,
+  ForbiddenPage,
+  NotFoundPage,
+  ServiceUnavailablePage,
+} from './common/components';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { TestImageUpload } from './pages/TestImageUpload';
 
@@ -61,7 +66,15 @@ function App() {
           <Route path="/style-guide" element={<StyleGuidePage />} />
         )}
 
-        {/* 404 Not Found */}
+        {/* Error pages (dev preview) */}
+        {import.meta.env.DEV && (
+          <>
+            <Route path="/403" element={<ForbiddenPage />} />
+            <Route path="/404" element={<NotFoundPage />} />
+            <Route path="/503" element={<ServiceUnavailablePage />} />
+            <Route path="/error" element={<CatchAllErrorPage />} />
+          </>
+        )}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
