@@ -81,7 +81,7 @@ function DataTable<T>({
                 <th
                   key={col.key}
                   className={cn(
-                    'text-p2 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
+                    'text-p1 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
                     col.headerClassName
                   )}
                 >
