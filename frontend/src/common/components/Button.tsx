@@ -23,11 +23,12 @@ const buttonVariants = cva(
         tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
         textLink: 'bg-transparent text-blue-300 hover:underline',
         ghost: 'bg-transparent text-grey-500 hover:bg-grey-200',
+        destructive: 'bg-red text-light-red hover:opacity-90',
       },
       shape: {
         default: [
           'font-nunito text-h3',
-          'h-[44px] min-w-[104px] px-6 rounded-[40px]',
+          'h-[44px] min-w-[104px] px-6 py-2 rounded-[40px]',
           'w-full md:w-auto',
         ],
         circular: 'size-[44px] rounded-full',
