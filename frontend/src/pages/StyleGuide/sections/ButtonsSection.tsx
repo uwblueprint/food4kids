@@ -40,7 +40,7 @@ export function ButtonsSection() {
 
       {/* ---- Rectangular button grid ---- */}
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
-        <div className="divide-grey-300 grid grid-cols-2 divide-y md:grid-cols-4 md:divide-x md:divide-y-0">
+        <div className="divide-grey-300 grid grid-cols-2 divide-y md:grid-cols-6 md:divide-x md:divide-y-0">
           {/* Primary */}
           <ButtonColumn title="Primary">
             <ButtonDemo label="Default State">
@@ -83,6 +83,30 @@ export function ButtonsSection() {
             <ButtonDemo label="Hover State">
               <Button variant="textLink" className="underline">
                 Text
+              </Button>
+            </ButtonDemo>
+          </ButtonColumn>
+
+          {/* Ghost */}
+          <ButtonColumn title="Ghost">
+            <ButtonDemo label="Default State">
+              <Button variant="ghost">Cancel</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover State">
+              <Button variant="ghost" className="!bg-grey-200">
+                Cancel
+              </Button>
+            </ButtonDemo>
+          </ButtonColumn>
+
+          {/* Destructive */}
+          <ButtonColumn title="Destructive">
+            <ButtonDemo label="Default State">
+              <Button variant="destructive">Delete</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover State">
+              <Button variant="destructive" className="!opacity-90">
+                Delete
               </Button>
             </ButtonDemo>
           </ButtonColumn>
