@@ -27,3 +27,5 @@ export { DatePicker } from './DatePicker';
 export { TimePicker } from './TimePicker';
 export { Spinner } from './spinner';
 export { Progress } from './progress';
+export { StatCard } from './StatCard';
+export type { Character, StatCardColor } from './StatCard';
