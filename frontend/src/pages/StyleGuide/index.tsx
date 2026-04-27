@@ -38,9 +38,6 @@ export const StyleGuidePage = () => {
       <TagsSection />
       <CardSection />
       <TableSection />
-      <IllustrationsSection />
-      <LogosSection />
-      <IconographySection />
       <ButtonsSection />
       <FormFieldsSection />
       <CalendarSection />
@@ -51,6 +48,9 @@ export const StyleGuidePage = () => {
       <ProgressSection />
       <StatCardSection />
       <TabsSection />
+      <IllustrationsSection />
+      <LogosSection />
+      <IconographySection />
     </div>
   );
 };
