@@ -29,3 +29,4 @@ export { Spinner } from './spinner';
 export { Progress } from './progress';
 export { StatCard } from './StatCard';
 export type { Character, StatCardColor } from './StatCard';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
