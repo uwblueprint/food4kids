@@ -13,11 +13,7 @@ interface SidebarContextValue {
 
 const SidebarContext = React.createContext<SidebarContextValue>({});
 
-function SidebarProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function SidebarProvider({ children }: { children: React.ReactNode }) {
   return (
     <SidebarContext.Provider value={{}}>
       <div className="flex h-screen overflow-hidden">{children}</div>
@@ -36,7 +32,7 @@ function Sidebar({ className, children }: React.ComponentProps<'aside'>) {
         'flex w-28 shrink-0 flex-col items-center gap-12 bg-white px-4 py-6',
         'shadow-[0px_0px_32px_0px_rgba(0,0,0,0.04)]',
         'z-10 h-full',
-        className,
+        className
       )}
     >
       {children}
@@ -61,7 +57,7 @@ function SidebarContent({ className, children }: React.ComponentProps<'div'>) {
     <div
       className={cn(
         'flex flex-1 flex-col items-center gap-2 overflow-y-auto',
-        className,
+        className
       )}
     >
       {children}
@@ -96,7 +92,12 @@ interface SidebarMenuItemProps {
   end?: boolean;
 }
 
-function SidebarMenuItem({ label, to, icon: Icon, end = false }: SidebarMenuItemProps) {
+function SidebarMenuItem({
+  label,
+  to,
+  icon: Icon,
+  end = false,
+}: SidebarMenuItemProps) {
   return (
     <NavLink
       to={to}
@@ -107,7 +108,7 @@ function SidebarMenuItem({ label, to, icon: Icon, end = false }: SidebarMenuItem
           'text-base transition-colors',
           isActive
             ? 'bg-blue-50 text-blue-400 shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] outline outline-1 outline-offset-[-1px] outline-blue-100'
-            : 'text-grey-500 hover:bg-grey-150',
+            : 'text-grey-500 hover:bg-grey-150'
         )
       }
     >
@@ -123,7 +124,9 @@ function SidebarMenuItem({ label, to, icon: Icon, end = false }: SidebarMenuItem
 
 function SidebarInset({ className, children }: React.ComponentProps<'main'>) {
   return (
-    <main className={cn('flex-1 overflow-y-auto', className)}>{children}</main>
+    <main className={cn('bg-grey-200 flex-1 overflow-y-auto', className)}>
+      {children}
+    </main>
   );
 }
 
@@ -131,7 +134,10 @@ function SidebarInset({ className, children }: React.ComponentProps<'main'>) {
 // Trigger (future use)
 // ---------------------------------------------------------------------------
 
-function SidebarTrigger({ className, ...props }: React.ComponentProps<'button'>) {
+function SidebarTrigger({
+  className,
+  ...props
+}: React.ComponentProps<'button'>) {
   return (
     <button
       type="button"
