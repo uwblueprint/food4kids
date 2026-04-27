@@ -25,8 +25,8 @@ export {
 } from './Dialog';
 export { DatePicker } from './DatePicker';
 export { TimePicker } from './TimePicker';
-export { Spinner } from './spinner';
-export { Progress } from './progress';
+export { Spinner } from './Spinner';
+export { Progress } from './Progress';
 export { StatCard } from './StatCard';
 export type { Character, StatCardColor } from './StatCard';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
