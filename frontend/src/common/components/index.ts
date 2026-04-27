@@ -25,3 +25,4 @@ export {
 } from './Dialog';
 export { DatePicker } from './DatePicker';
 export { TimePicker } from './TimePicker';
+export { Spinner } from './spinner';

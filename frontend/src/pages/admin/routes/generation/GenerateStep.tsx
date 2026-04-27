@@ -1,4 +1,4 @@
-import { Card } from '@/common/components';
+import { Card, Spinner } from '@/common/components';
 
 export function GenerateStep() {
   return (
@@ -13,7 +13,7 @@ export function GenerateStep() {
 
       {/* Loading content */}
       <div className="flex flex-col items-center gap-6 py-10">
-        <div>TODO: replace with Spinner component</div>
+        <Spinner size="lg" />
 
         <div className="flex flex-col items-center gap-1 text-center">
           <p className="font-nunito text-h2 text-grey-500 font-bold">
