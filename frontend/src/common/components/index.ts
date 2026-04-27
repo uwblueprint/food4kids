@@ -30,3 +30,14 @@ export { Progress } from './Progress';
 export { StatCard } from './StatCard';
 export type { Character, StatCardColor } from './StatCard';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
+export {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from './Sidebar';
