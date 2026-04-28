@@ -7,15 +7,15 @@ import { cn } from '@/lib/utils';
 const searchBarVariants = cva(
   /* Base styles shared by all variants */
   [
-    'flex w-full min-w-80 items-center gap-2.5 rounded-full px-6 py-3',
+    'flex min-w-90 items-center gap-2.5 rounded-full px-6 py-3 border border-grey-300 bg-white',
     'transition-colors',
     'focus-within:ring-1 focus-within:ring-blue-300',
   ],
   {
     variants: {
       variant: {
-        default: 'bg-white shadow-sm',
-        filled: 'border border-grey-300 bg-grey-150',
+        default: 'bg-white',
+        filled: 'bg-grey-150',
       },
     },
     defaultVariants: {

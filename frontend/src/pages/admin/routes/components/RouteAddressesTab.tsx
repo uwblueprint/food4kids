@@ -65,7 +65,6 @@ export function RouteAddressesTab({
             placeholder="Search anything"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            wrapperClassName="w-64"
           />
           <Button
             variant="tertiary"
