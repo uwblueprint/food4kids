@@ -23,23 +23,23 @@ const COLOR_MAP = {
 } as const;
 
 type Character = keyof typeof CHARACTER_MAP;
-type StatCardColor = keyof typeof COLOR_MAP;
+type StatisticsCardColor = keyof typeof COLOR_MAP;
 
-interface StatCardProps {
+interface StatisticsCardProps {
   label: string;
   value: string | number;
   character: Character;
-  color?: StatCardColor;
+  color?: StatisticsCardColor;
   className?: string;
 }
 
-function StatCard({
+function StatisticsCard({
   label,
   value,
   character,
   color = 'green',
   className,
-}: StatCardProps) {
+}: StatisticsCardProps) {
   return (
     <div
       className={cn('relative w-full overflow-hidden rounded-2xl', className)}
@@ -80,5 +80,5 @@ function StatCard({
   );
 }
 
-export { StatCard };
-export type { Character, StatCardColor };
+export { StatisticsCard };
+export type { Character, StatisticsCardColor };

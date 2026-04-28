@@ -1,12 +1,12 @@
-import { StatCard } from '@/common/components/StatCard';
+import { StatisticsCard } from '@/common/components';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
 
-export function StatCardSection() {
+export function StatisticsCardSection() {
   return (
     <section className="mb-16">
-      <SectionHeader>Stat Card</SectionHeader>
+      <SectionHeader>Statistics Card</SectionHeader>
 
       <div className="mb-10 space-y-6">
         <SpecNote title="Usage">
@@ -39,10 +39,10 @@ export function StatCardSection() {
               Color Variants
             </p>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <StatCard color="green" label="Routes Created" value={3} character="granny" />
-              <StatCard color="blue" label="Total Families" value={515} character="boy" />
-              <StatCard color="pink" label="Average Stops" value={12} character="boyPointing" />
-              <StatCard color="orange" label="Longest Route" value="22 km" character="girlSearching" />
+              <StatisticsCard color="green" label="Routes Created" value={3} character="granny" />
+              <StatisticsCard color="blue" label="Total Families" value={515} character="boy" />
+              <StatisticsCard color="pink" label="Average Stops" value={12} character="boyPointing" />
+              <StatisticsCard color="orange" label="Longest Route" value="22 km" character="girlSearching" />
             </div>
           </div>
 
@@ -51,11 +51,11 @@ export function StatCardSection() {
               Character Variants (all on green)
             </p>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-              <StatCard color="green" label="Boy" value="—" character="boy" />
-              <StatCard color="green" label="Boy Pointing" value="—" character="boyPointing" />
-              <StatCard color="green" label="Girl Confused" value="—" character="girlConfused" />
-              <StatCard color="green" label="Girl Searching" value="—" character="girlSearching" />
-              <StatCard color="green" label="Granny" value="—" character="granny" />
+              <StatisticsCard color="green" label="Boy" value="—" character="boy" />
+              <StatisticsCard color="green" label="Boy Pointing" value="—" character="boyPointing" />
+              <StatisticsCard color="green" label="Girl Confused" value="—" character="girlConfused" />
+              <StatisticsCard color="green" label="Girl Searching" value="—" character="girlSearching" />
+              <StatisticsCard color="green" label="Granny" value="—" character="granny" />
             </div>
           </div>
         </div>

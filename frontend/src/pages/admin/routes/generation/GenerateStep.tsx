@@ -4,7 +4,7 @@ import {
   Card,
   Progress,
   Spinner,
-  StatCard,
+  StatisticsCard,
 } from '@/common/components';
 import { Link } from 'react-router-dom';
 
@@ -31,25 +31,25 @@ export function GenerateStep() {
           Routes generated successfully and auto-saved successfully!
         </Banner>
         <div className="flex gap-8">
-          <StatCard
+          <StatisticsCard
             color="green"
             label="Routes Created"
             value={MOCK_COMPLETED}
             character="granny"
           />
-          <StatCard
+          <StatisticsCard
             color="blue"
             label="Total Families"
             value={TOTAL_FAMILIES}
             character="boy"
           />
-          <StatCard
+          <StatisticsCard
             color="pink"
             label="Average Stops"
             value={AVERAGE_STOPS}
             character="boyPointing"
           />
-          <StatCard
+          <StatisticsCard
             color="orange"
             label="Longest Route"
             value={`${LONGEST_ROUTE} km`}

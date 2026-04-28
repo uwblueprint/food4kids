@@ -13,7 +13,7 @@ import { ProgressSection } from './sections/ProgressSection';
 import { ShadowsSection } from './sections/ShadowsSection';
 import { SpacingSection } from './sections/SpacingSection';
 import { SpinnerSection } from './sections/SpinnerSection';
-import { StatCardSection } from './sections/StatCardSection';
+import { StatisticsCardSection } from './sections/StatisticsCardSection';
 import { TableSection } from './sections/TableSection';
 import { TabsSection } from './sections/TabsSection';
 import { TagsSection } from './sections/TagsSection';
@@ -46,7 +46,7 @@ export const StyleGuidePage = () => {
       <ModalSection />
       <SpinnerSection />
       <ProgressSection />
-      <StatCardSection />
+      <StatisticsCardSection />
       <TabsSection />
       <IllustrationsSection />
       <LogosSection />
