@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import DownloadIcon from '@/assets/icons/download.svg?react';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
+import SearchIcon from '@/assets/icons/search.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import { Button, Card, PageHeader, SearchBar } from '@/common/components';
 
@@ -16,9 +17,18 @@ export const AdminDriversPage = () => {
       <PageHeader
         title="Driver Management"
         actions={
-          <Button variant="tertiary" shape="circular">
-            <MegaphoneIcon className="size-5" />
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button variant="tertiary" shape="circular">
+              <MegaphoneIcon className="size-5 text-blue-300" />
+            </Button>
+            <Button
+              variant="tertiary"
+              shape="circular"
+              onClick={() => setAssignDialogOpen(true)}
+            >
+              <SearchIcon className="size-5 text-blue-300" />
+            </Button>
+          </div>
         }
       />
 
@@ -31,7 +41,11 @@ export const AdminDriversPage = () => {
             wrapperClassName="w-64"
           />
           <div className="flex items-center gap-4">
-            <Button variant="primary" shape="circular" onClick={() => setAssignDialogOpen(true)}>
+            <Button
+              variant="primary"
+              shape="circular"
+              onClick={() => setAssignDialogOpen(true)}
+            >
               <PlusIcon className="size-5" />
             </Button>
             <Button variant="primary" shape="circular">
