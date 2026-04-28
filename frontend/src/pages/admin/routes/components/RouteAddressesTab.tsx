@@ -1,5 +1,3 @@
-import { type ReactNode } from 'react';
-
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import {
   Button,
@@ -15,6 +13,7 @@ import {
   SearchBar,
 } from '@/common/components';
 import type { Column } from '@/common/components';
+import ShareIcon from '@/assets/icons/share.svg?react';
 
 import type { AddressRow } from '@/types/address';
 
@@ -40,13 +39,10 @@ const COLUMNS: Column<AddressRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-interface RouteAddressesTabProps extends AddressesTabState {
-  actions?: ReactNode;
-}
+interface RouteAddressesTabProps extends AddressesTabState {}
 
 export function RouteAddressesTab({
   rows,
-  actions,
   search,
   setSearch,
   filterOpen,
@@ -75,7 +71,12 @@ export function RouteAddressesTab({
             <FilterLinesIcon className="size-4" />
           </Button>
         </div>
-        {actions && <div className="flex items-center gap-4">{actions}</div>}
+        <div className="flex items-center gap-4">
+          <Button variant="primary">Mark Inactive</Button>
+          <Button variant="primary" shape="circular">
+            <ShareIcon className="size-5" />
+          </Button>
+        </div>
       </div>
 
       <DataTable

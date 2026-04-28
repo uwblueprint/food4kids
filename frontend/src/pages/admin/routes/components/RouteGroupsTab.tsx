@@ -1,6 +1,7 @@
-import { type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
+import ShareIcon from '@/assets/icons/share.svg?react';
 import {
   Button,
   DataTable,
@@ -48,13 +49,10 @@ const COLUMNS: Column<RouteGroupRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-interface RouteGroupsTabProps extends GroupsTabState {
-  actions?: ReactNode;
-}
+interface RouteGroupsTabProps extends GroupsTabState {}
 
 export function RouteGroupsTab({
   rows,
-  actions,
   search,
   setSearch,
   filterOpen,
@@ -83,7 +81,14 @@ export function RouteGroupsTab({
             <FilterLinesIcon className="size-4" />
           </Button>
         </div>
-        {actions && <div className="flex items-center gap-4">{actions}</div>}
+        <div className="flex items-center gap-4">
+            <Button variant="primary" asChild>
+              <Link to="/admin/routes/generation">Generate Routes</Link>
+            </Button>
+            <Button variant="primary" shape="circular">
+              <ShareIcon className="size-5" />
+            </Button>
+          </div>
       </div>
 
       <DataTable
