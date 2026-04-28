@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python3:*)",
-      "mcp__plugin_figma_figma__get_design_context"
-    ]
-  }
-}
