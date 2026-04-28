@@ -1,6 +1,6 @@
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
-import { Account, Button } from '@/common/components';
+import { Account, Button, Card } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
 
 const today = formatDisplayDate(new Date());
@@ -25,7 +25,16 @@ export const AdminHomePage = () => {
           <Account />
         </div>
       </div>
-      <div>TODO</div>
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="col-span-2">TODO: Calendar</Card>
+        <div className="flex flex-col gap-4">
+          <Card>TODO: Route Generation Cost</Card>
+          <Card>TODO: Statistics Toggles</Card>
+        </div>
+        <Card>TODO: Upcoming Routes</Card>
+        <Card>TODO: Unassigned Routes</Card>
+        <Card>TODO: Recent Notes</Card>
+      </div>
     </div>
   );
 };
