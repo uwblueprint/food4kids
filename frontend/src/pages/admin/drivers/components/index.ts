@@ -1,1 +1,1 @@
-export { AssignRouteDialog } from './AssignRouteDialog';
+export { AssignRouteModal } from './AssignRouteModal';

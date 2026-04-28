@@ -2,12 +2,12 @@ import { useState } from 'react';
 
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
   Dropdown,
 } from '@/common/components';
 
@@ -32,15 +32,15 @@ const START_TIME_OPTIONS = [
   { label: '10:00 AM', value: '10:00' },
 ];
 
-interface AssignRouteDialogProps {
+interface AssignRouteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function AssignRouteDialog({
+export function AssignRouteModal({
   open,
   onOpenChange,
-}: AssignRouteDialogProps) {
+}: AssignRouteModalProps) {
   const [route, setRoute] = useState('');
   const [driver, setDriver] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -48,12 +48,12 @@ export function AssignRouteDialog({
   const handleClose = () => onOpenChange(false);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Assign a Route</DialogTitle>
-          <DialogDescription>Assign a route to DRIVER_NAME</DialogDescription>
-        </DialogHeader>
+    <Modal open={open} onOpenChange={onOpenChange}>
+      <ModalContent>
+        <ModalHeader>
+          <ModalTitle>Assign a Route</ModalTitle>
+          <ModalDescription>Assign a route to DRIVER_NAME</ModalDescription>
+        </ModalHeader>
 
         <div className="flex flex-col gap-4">
           <Dropdown
@@ -80,7 +80,7 @@ export function AssignRouteDialog({
           />
         </div>
 
-        <DialogFooter className="justify-between pt-4">
+        <ModalFooter className="justify-between pt-4">
           <Button variant="tertiary" onClick={handleClose}>
             Cancel
           </Button>
@@ -88,8 +88,8 @@ export function AssignRouteDialog({
             <Button variant="secondary">View Route</Button>
             <Button variant="primary">Assign</Button>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }

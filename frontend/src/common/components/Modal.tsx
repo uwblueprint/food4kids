@@ -4,12 +4,12 @@ import * as React from 'react';
 import XIcon from '@/assets/icons/x.svg?react';
 import { cn } from '@/lib/utils';
 
-const Dialog = DialogPrimitive.Root;
-const DialogTrigger = DialogPrimitive.Trigger;
-const DialogPortal = DialogPrimitive.Portal;
-const DialogClose = DialogPrimitive.Close;
+const Modal = DialogPrimitive.Root;
+const ModalTrigger = DialogPrimitive.Trigger;
+const ModalPortal = DialogPrimitive.Portal;
+const ModalClose = DialogPrimitive.Close;
 
-function DialogOverlay({
+function ModalOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
@@ -26,14 +26,14 @@ function DialogOverlay({
   );
 }
 
-function DialogContent({
+function ModalContent({
   className,
   children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
-    <DialogPortal>
-      <DialogOverlay />
+    <ModalPortal>
+      <ModalOverlay />
       <DialogPrimitive.Content
         className={cn(
           'fixed left-1/2 top-1/2 z-50 w-full max-w-[600px] -translate-x-1/2 -translate-y-1/2',
@@ -54,11 +54,11 @@ function DialogContent({
           <XIcon className="size-5" />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
-    </DialogPortal>
+    </ModalPortal>
   );
 }
 
-function DialogHeader({
+function ModalHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
@@ -67,7 +67,7 @@ function DialogHeader({
   );
 }
 
-function DialogTitle({
+function ModalTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
@@ -79,7 +79,7 @@ function DialogTitle({
   );
 }
 
-function DialogDescription({
+function ModalDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
@@ -91,7 +91,7 @@ function DialogDescription({
   );
 }
 
-function DialogFooter({
+function ModalFooter({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
@@ -104,12 +104,12 @@ function DialogFooter({
 }
 
 export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Modal,
+  ModalClose,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+  ModalTrigger,
 };

@@ -6,12 +6,12 @@ import XIcon from '@/assets/icons/x.svg?react';
 import {
   Button,
   DataTable,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
   Tag,
 } from '@/common/components';
 import type { Column } from '@/common/components';
@@ -282,26 +282,26 @@ export function ReviewStep() {
         </Button>
       </div>
 
-      {/* Confirmation Changes Dialog */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Changes</DialogTitle>
-            <DialogDescription>
+      {/* Confirmation Changes Modal */}
+      <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Confirm Changes</ModalTitle>
+            <ModalDescription>
               Some data has been updated, added, or removed. Are you sure you
               want to apply these changes?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalFooter>
             <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
             <Button variant="primary" onClick={handleConfirm}>
               Apply Changes
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

@@ -6,12 +6,12 @@ import {
   Button,
   DataTable,
   DatePicker,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
   Dropdown,
   TextField,
   TimePicker,
@@ -222,16 +222,16 @@ export function ConfigureStep() {
       </div>
 
       {/* Leave without saving dialog */}
-      <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Leave Without Saving</DialogTitle>
-            <DialogDescription>
+      <Modal open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Leave Without Saving</ModalTitle>
+            <ModalDescription>
               If you go back now, all the data you entered will be lost. Would
               you still like to go back anyway?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalFooter>
             <Button variant="secondary" onClick={() => setLeaveOpen(false)}>
               Stay on this Page
             </Button>
@@ -241,30 +241,30 @@ export function ConfigureStep() {
             >
               Leave Anyway
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Generate routes confirmation dialog */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Continue to Generation</DialogTitle>
-            <DialogDescription>
+      <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Continue to Generation</ModalTitle>
+            <ModalDescription>
               You're about to generate routes for routes you have selected. This
               action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalFooter>
             <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
             <Button variant="primary" onClick={handleConfirm}>
               Generate Routes
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

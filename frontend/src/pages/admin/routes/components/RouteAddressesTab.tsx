@@ -2,12 +2,12 @@ import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import {
   Button,
   DataTable,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
   FilterChip,
   FilterChipGroup,
   SearchBar,
@@ -92,12 +92,12 @@ export function RouteAddressesTab({
         }
       />
 
-      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Filters</DialogTitle>
-            <DialogDescription>Addresses</DialogDescription>
-          </DialogHeader>
+      <Modal open={filterOpen} onOpenChange={setFilterOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Filters</ModalTitle>
+            <ModalDescription>Addresses</ModalDescription>
+          </ModalHeader>
 
           <div className="flex flex-col gap-4">
             <FilterChipGroup label="Route Status">
@@ -125,13 +125,13 @@ export function RouteAddressesTab({
             </FilterChipGroup>
           </div>
 
-          <DialogFooter>
+          <ModalFooter>
             <Button variant="primary" onClick={handleApply}>
               Apply
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

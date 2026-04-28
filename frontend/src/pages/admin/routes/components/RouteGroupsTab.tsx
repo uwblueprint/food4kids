@@ -5,12 +5,12 @@ import ShareIcon from '@/assets/icons/share.svg?react';
 import {
   Button,
   DataTable,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
   FilterChip,
   FilterChipGroup,
   SearchBar,
@@ -103,12 +103,12 @@ export function RouteGroupsTab({
         }
       />
 
-      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Filters</DialogTitle>
-            <DialogDescription>Routes</DialogDescription>
-          </DialogHeader>
+      <Modal open={filterOpen} onOpenChange={setFilterOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Filters</ModalTitle>
+            <ModalDescription>Routes</ModalDescription>
+          </ModalHeader>
 
           <div className="flex flex-col gap-4">
             <FilterChipGroup label="Weekday">
@@ -160,13 +160,13 @@ export function RouteGroupsTab({
             </FilterChipGroup>
           </div>
 
-          <DialogFooter>
+          <ModalFooter>
             <Button variant="primary" onClick={handleApply}>
               Apply
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

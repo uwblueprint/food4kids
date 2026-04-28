@@ -6,7 +6,7 @@ import PlusIcon from '@/assets/icons/plus.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
 import { Account, Button, Card, SearchBar } from '@/common/components';
 
-import { AssignRouteDialog } from './components';
+import { AssignRouteModal } from './components';
 
 export const AdminDriversPage = () => {
   const [search, setSearch] = useState('');
@@ -53,7 +53,7 @@ export const AdminDriversPage = () => {
         <div>TODO</div>
       </Card>
 
-      <AssignRouteDialog
+      <AssignRouteModal
         open={assignDialogOpen}
         onOpenChange={setAssignDialogOpen}
       />

@@ -1,41 +1,41 @@
 import {
   Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Modal,
+  ModalClose,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+  ModalTrigger,
 } from '@/common/components';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
 
-export function DialogSection() {
+export function ModalSection() {
   return (
     <section className="mb-16">
-      <SectionHeader>Dialog</SectionHeader>
+      <SectionHeader>Modal</SectionHeader>
 
       <div className="mb-10 space-y-6">
         <SpecNote title="Composition">
           Built with Radix UI Dialog primitives using a composable shadcn-style
-          API: Dialog › DialogTrigger › DialogContent › DialogHeader +
-          DialogFooter. An X close button is auto-included in DialogContent.
+          API: Modal › ModalTrigger › ModalContent › ModalHeader +
+          ModalFooter. An X close button is auto-included in ModalContent.
         </SpecNote>
 
         <SpecNote title="Backdrop">
-          A semi-transparent overlay fades in behind the dialog to focus
-          attention. Clicking the overlay or pressing Escape closes the dialog.
+          A semi-transparent overlay fades in behind the modal to focus
+          attention. Clicking the overlay or pressing Escape closes the modal.
         </SpecNote>
 
         <SpecNote title="Max Width">
-          DialogContent is capped at 600px wide and centers on the viewport.
+          ModalContent is capped at 600px wide and centers on the viewport.
         </SpecNote>
 
         <SpecNote title="Actions">
-          DialogFooter holds Cancel (secondary) and a CTA (primary/destructive)
+          ModalFooter holds Cancel (secondary) and a CTA (primary/destructive)
           button. The CTA label and variant should reflect the action, e.g.
           "Delete" in red, "Save" in blue.
         </SpecNote>
@@ -47,28 +47,28 @@ export function DialogSection() {
             <p className="text-p3 font-semibold tracking-wider text-blue-300 uppercase">
               Confirm Action
             </p>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="primary">Open Confirm Dialog</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Save Changes?</DialogTitle>
-                  <DialogDescription>
+            <Modal>
+              <ModalTrigger asChild>
+                <Button variant="primary">Open Confirm Modal</Button>
+              </ModalTrigger>
+              <ModalContent>
+                <ModalHeader>
+                  <ModalTitle>Save Changes?</ModalTitle>
+                  <ModalDescription>
                     Your changes will be applied and saved. This action can be
                     undone later.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose asChild>
+                  </ModalDescription>
+                </ModalHeader>
+                <ModalFooter>
+                  <ModalClose asChild>
                     <Button variant="secondary">Cancel</Button>
-                  </DialogClose>
-                  <DialogClose asChild>
+                  </ModalClose>
+                  <ModalClose asChild>
                     <Button variant="primary">Save Changes</Button>
-                  </DialogClose>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  </ModalClose>
+                </ModalFooter>
+              </ModalContent>
+            </Modal>
             <p className="text-p3 text-grey-400">
               Standard confirmation with cancel + primary CTA.
             </p>
@@ -78,28 +78,28 @@ export function DialogSection() {
             <p className="text-p3 font-semibold tracking-wider text-blue-300 uppercase">
               Destructive Action
             </p>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="primary">Open Destructive Dialog</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Leave Without Saving?</DialogTitle>
-                  <DialogDescription>
+            <Modal>
+              <ModalTrigger asChild>
+                <Button variant="primary">Open Destructive Modal</Button>
+              </ModalTrigger>
+              <ModalContent>
+                <ModalHeader>
+                  <ModalTitle>Leave Without Saving?</ModalTitle>
+                  <ModalDescription>
                     Any unsaved changes will be lost. This action cannot be
                     undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose asChild>
+                  </ModalDescription>
+                </ModalHeader>
+                <ModalFooter>
+                  <ModalClose asChild>
                     <Button variant="secondary">Stay</Button>
-                  </DialogClose>
-                  <DialogClose asChild>
+                  </ModalClose>
+                  <ModalClose asChild>
                     <Button variant="primary">Leave</Button>
-                  </DialogClose>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  </ModalClose>
+                </ModalFooter>
+              </ModalContent>
+            </Modal>
             <p className="text-p3 text-grey-400">
               Destructive variant — warn before an irreversible action.
             </p>

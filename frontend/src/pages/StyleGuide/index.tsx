@@ -4,7 +4,7 @@ import { CalendarSection } from './sections/CalendarSection';
 import { CardSection } from './sections/CardSection';
 import { ColorsSection } from './sections/ColorsSection';
 import { DatePickerSection } from './sections/DatePickerSection';
-import { DialogSection } from './sections/DialogSection';
+import { ModalSection } from './sections/ModalSection';
 import { FormFieldsSection } from './sections/FormFieldsSection';
 import { IconographySection } from './sections/IconographySection';
 import { IllustrationsSection } from './sections/IllustrationsSection';
@@ -43,7 +43,7 @@ export const StyleGuidePage = () => {
       <CalendarSection />
       <DatePickerSection />
       <TimePickerSection />
-      <DialogSection />
+      <ModalSection />
       <SpinnerSection />
       <ProgressSection />
       <StatCardSection />

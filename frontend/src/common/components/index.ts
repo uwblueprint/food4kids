@@ -14,15 +14,15 @@ export { Tag } from './Tag';
 export { TextField } from './TextField';
 export { FileInput } from './FileInput';
 export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from './Dialog';
+  Modal,
+  ModalClose,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+  ModalTrigger,
+} from './Modal';
 export { DatePicker } from './DatePicker';
 export { TimePicker } from './TimePicker';
 export { Spinner } from './Spinner';
