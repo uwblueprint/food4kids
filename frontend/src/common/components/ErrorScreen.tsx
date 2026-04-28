@@ -1,11 +1,10 @@
 import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-import boyEdgeCaseImg from '@/assets/illustrations/boy-edge-case-with-questions.png';
-import girlForbiddenImg from '@/assets/illustrations/girl-403.png';
-import girlCatchingImg from '@/assets/illustrations/girl-catching.png';
-import grannyImg from '@/assets/illustrations/granny.png';
 import { Button } from './Button';
+import boyEdgeCaseImg from '@/assets/illustrations/boy-edge-case-with-questions.png';
+import error403Img from '@/assets/errors/error-403.png';
+import error404Img from '@/assets/errors/error-404.png';
+import error503Img from '@/assets/errors/error-503.png';
 
 interface ErrorScreenProps {
   illustration: string;
@@ -20,12 +19,12 @@ export function ErrorScreen({
 }: ErrorScreenProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-6">
-      <div className="flex w-full max-w-[744px] flex-col items-center">
+      <div className="flex w-full flex-col items-center">
         <img
           src={illustration}
           alt=""
           aria-hidden
-          className="h-80 w-56 object-contain"
+          className="mb-3 h-60 w-full object-contain"
         />
         <h2 className="font-nunito text-grey-500 mb-5 text-center text-3xl leading-10 font-bold">
           {title}
@@ -43,7 +42,7 @@ export function ErrorScreen({
 export function NotFoundPage() {
   const navigate = useNavigate();
   return (
-    <ErrorScreen illustration={grannyImg} title="404 - Page not found">
+    <ErrorScreen illustration={error404Img} title="Page not found">
       <p className="text-grey-500 mb-12 text-center text-base leading-6">
         The page you're looking for doesn't exist or may have been moved.
       </p>
@@ -57,7 +56,7 @@ export function NotFoundPage() {
 export function ForbiddenPage() {
   const navigate = useNavigate();
   return (
-    <ErrorScreen illustration={girlForbiddenImg} title="403 - Forbidden">
+    <ErrorScreen illustration={error403Img} title="Forbidden">
       <p className="text-grey-500 mb-12 text-center text-base leading-6">
         This page is only available to authorized users. Please log in to
         continue.
@@ -73,7 +72,7 @@ export function ForbiddenPage() {
 export function ServiceUnavailablePage() {
   const navigate = useNavigate();
   return (
-    <ErrorScreen illustration={girlCatchingImg} title="Service Unavailable">
+    <ErrorScreen illustration={error503Img} title="Service Unavailable">
       <div className="mb-12 flex flex-col items-center gap-1">
         <p className="text-grey-500 text-center text-base leading-6">
           We're temporarily offline for maintenance or unexpected issues.
