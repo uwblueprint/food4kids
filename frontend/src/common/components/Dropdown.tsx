@@ -51,12 +51,12 @@ function Dropdown({
   const hasError = !!error;
 
   return (
-    <div className={cn('flex w-full flex-col gap-1', className)}>
+    <div className={cn('flex w-full flex-col gap-2', className)}>
       {/* Label */}
       {label && (
         <label
           htmlFor={id}
-          className={cn('text-p3 text-grey-400', disabled && 'opacity-50')}
+          className={cn('text-p1 font-bold', disabled && 'opacity-50')}
         >
           {label}
         </label>
@@ -74,21 +74,21 @@ function Dropdown({
           aria-invalid={hasError || undefined}
           className={cn(
             // Base
-            'inline-flex w-full items-center justify-between rounded-lg px-3 py-2',
+            'inline-flex w-full items-center justify-between rounded-full px-5 py-2',
             'text-p2 text-grey-500 transition-colors outline-none',
             'cursor-pointer',
-            // Default border & bg
-            'border-grey-300 bg-grey-100 border',
+            // Default outline & bg
+            'bg-grey-100 ring-grey-300 ring-1',
             // Focus / open
-            'focus:border-blue-300 focus:ring-1 focus:ring-blue-300',
-            'data-[state=open]:border-blue-300 data-[state=open]:ring-1 data-[state=open]:ring-blue-300',
+            'focus:ring-blue-300',
+            'data-[state=open]:ring-blue-300',
             // Error
-            hasError && 'border-red focus:border-red focus:ring-red',
+            hasError && 'ring-red focus:ring-red',
             // Disabled
             disabled &&
               'bg-grey-150 text-grey-400 cursor-not-allowed opacity-60',
             // Placeholder color
-            'data-[placeholder]:text-grey-400 data-[placeholder]:text-p2'
+            'data-[placeholder]:text-grey-500'
           )}
         >
           <SelectPrimitive.Value placeholder={placeholder} />
@@ -117,7 +117,7 @@ function Dropdown({
                   value={opt.value}
                   className={cn(
                     'relative flex w-full cursor-pointer items-center rounded-md px-3 py-2 select-none',
-                    'text-p2 text-grey-500 outline-none',
+                    'text-p1 text-grey-500 outline-none',
                     'hover:bg-blue-50',
                     'focus:bg-blue-50',
                     // Selected item shows in blue
@@ -139,14 +139,14 @@ function Dropdown({
         <div
           id={helperId}
           className={cn(
-            'text-p2 flex w-full items-center gap-1',
+            'text-p2 flex w-full items-start gap-1',
             hasError ? 'text-red' : 'text-grey-400'
           )}
         >
           {hasError && (
             <AlertTriangle
               aria-hidden="true"
-              className="text-red -mt-1 h-4 w-4 shrink-0"
+              className="text-red mt-0.5 h-4 w-4 shrink-0"
             />
           )}
           <span>{error ?? helperText}</span>
