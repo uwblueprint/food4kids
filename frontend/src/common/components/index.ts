@@ -48,4 +48,4 @@ export {
   SidebarProvider,
   SidebarTrigger,
 } from './Sidebar';
-export { PageHeader } from './PageHeader';
+export { Account } from './Account';

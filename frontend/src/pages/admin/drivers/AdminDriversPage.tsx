@@ -2,9 +2,9 @@ import { useState } from 'react';
 
 import DownloadIcon from '@/assets/icons/download.svg?react';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
-import SearchIcon from '@/assets/icons/search.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
-import { Button, Card, PageHeader, SearchBar } from '@/common/components';
+import SearchIcon from '@/assets/icons/search.svg?react';
+import { Account, Button, Card, SearchBar } from '@/common/components';
 
 import { AssignRouteDialog } from './components';
 
@@ -14,23 +14,20 @@ export const AdminDriversPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader
-        title="Driver Management"
-        actions={
+      <div className="flex items-start justify-between">
+        <h1>Driver Management</h1>
+        <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
             <Button variant="tertiary" shape="circular">
               <MegaphoneIcon className="size-5 text-blue-300" />
             </Button>
-            <Button
-              variant="tertiary"
-              shape="circular"
-              onClick={() => setAssignDialogOpen(true)}
-            >
+            <Button variant="tertiary" shape="circular">
               <SearchIcon className="size-5 text-blue-300" />
             </Button>
           </div>
-        }
-      />
+          <Account />
+        </div>
+      </div>
 
       <Card>
         <div className="mb-5 flex items-center justify-between">
