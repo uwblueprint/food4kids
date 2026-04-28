@@ -74,7 +74,7 @@ function Dropdown({
           aria-invalid={hasError || undefined}
           className={cn(
             // Base
-            'inline-flex w-full items-center justify-between rounded-full px-5 py-2',
+            'inline-flex w-full items-center justify-between rounded-full px-6 py-3',
             'text-p2 text-grey-500 transition-colors outline-none',
             'cursor-pointer',
             // Default outline & bg

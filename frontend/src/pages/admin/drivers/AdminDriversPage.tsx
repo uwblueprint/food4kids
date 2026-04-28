@@ -5,8 +5,11 @@ import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import { Button, Card, PageHeader, SearchBar } from '@/common/components';
 
+import { AssignRouteDialog } from './components';
+
 export const AdminDriversPage = () => {
   const [search, setSearch] = useState('');
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-8">
@@ -28,7 +31,7 @@ export const AdminDriversPage = () => {
             wrapperClassName="w-64"
           />
           <div className="flex items-center gap-4">
-            <Button variant="primary" shape="circular">
+            <Button variant="primary" shape="circular" onClick={() => setAssignDialogOpen(true)}>
               <PlusIcon className="size-5" />
             </Button>
             <Button variant="primary" shape="circular">
@@ -38,6 +41,11 @@ export const AdminDriversPage = () => {
         </div>
         <div>TODO</div>
       </Card>
+
+      <AssignRouteDialog
+        open={assignDialogOpen}
+        onOpenChange={setAssignDialogOpen}
+      />
     </div>
   );
 };
