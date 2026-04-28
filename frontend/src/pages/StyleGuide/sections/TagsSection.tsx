@@ -15,6 +15,11 @@ export function TagsSection() {
           </Tag>
           <Tag variant="error">Missing Address</Tag>
         </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Tag variant="primary">New</Tag>
+          <Tag variant="secondary">Edited</Tag>
+        </div>
       </div>
     </section>
   );
