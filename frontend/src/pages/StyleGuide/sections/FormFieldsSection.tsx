@@ -7,6 +7,7 @@ import { TextField } from '@/common/components/TextField';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
+import { SubsectionHeader } from '../components/SubsectionHeader';
 
 export function FormFieldsSection() {
   const [textValue, setTextValue] = useState('');
@@ -189,8 +190,7 @@ export function FormFieldsSection() {
       </div>
 
       {/* ---- Dropdown demos ---- */}
-      <h3 className="mt-10 mb-1">Dropdown</h3>
-      <hr className="border-grey-300 mb-6" />
+      <SubsectionHeader>Dropdown</SubsectionHeader>
 
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
@@ -269,8 +269,7 @@ export function FormFieldsSection() {
       </div>
 
       {/* ---- Search demos ---- */}
-      <h3 className="mt-10 mb-1">Search</h3>
-      <hr className="border-grey-300 mb-6" />
+      <SubsectionHeader>Search</SubsectionHeader>
 
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
@@ -318,8 +317,7 @@ export function FormFieldsSection() {
       </div>
 
       {/* ---- Filter Chips demos ---- */}
-      <h3 className="mt-10 mb-1">Filtration Chips</h3>
-      <hr className="border-grey-300 mb-6" />
+      <SubsectionHeader>Filtration Chips</SubsectionHeader>
 
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-2 md:divide-x md:divide-y-0">

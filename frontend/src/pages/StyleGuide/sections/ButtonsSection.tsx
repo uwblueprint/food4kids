@@ -3,13 +3,14 @@ import { type ReactNode } from 'react';
 import ChevronRight from '@/assets/icons/chevron-right.svg?react';
 import { Button } from '@/common/components/Button';
 
+import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
+import { SubsectionHeader } from '../components/SubsectionHeader';
 
 export function ButtonsSection() {
   return (
     <section className="mb-16">
-      <h2 className="mb-1">Call to Action Buttons</h2>
-      <hr className="border-grey-300 mb-6" />
+      <SectionHeader>Call to Action Buttons</SectionHeader>
 
       {/* ---- Spec notes ---- */}
       <div className="mb-10 space-y-6">
@@ -123,8 +124,7 @@ export function ButtonsSection() {
       </div>
 
       {/* ---- Circular buttons ---- */}
-      <h3 className="mt-10 mb-1">Circular Buttons</h3>
-      <hr className="border-grey-300 mb-6" />
+      <SubsectionHeader>Circular Buttons</SubsectionHeader>
 
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-3 divide-x">
