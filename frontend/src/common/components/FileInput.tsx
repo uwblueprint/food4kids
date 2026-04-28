@@ -36,7 +36,7 @@ function FileInput({
       aria-label="Upload file"
       className={cn(
         'flex h-[248px] cursor-pointer flex-col items-center justify-center gap-4',
-        'border-spacing-8 rounded-2xl border border-dashed border-blue-100',
+        'rounded-2xl border border-dashed border-blue-100',
         'transition-colors',
         isDragging && 'bg-blue-50',
         disabled && 'pointer-events-none opacity-50',
