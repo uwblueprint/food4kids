@@ -9,8 +9,14 @@ export type { InputProps } from './Input';
 export { Card } from './Card';
 export type { Column, DataTableProps } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
-export { Dropdown } from './Dropdown';
-export type { DropdownOption } from './Dropdown';
+export {
+  Dropdown,
+  DropdownTrigger,
+  DropdownValue,
+  DropdownContent,
+  DropdownItem,
+  DropdownGroup,
+} from './Dropdown';
 export { FilterChip, FilterChipGroup } from './FilterChip';
 export { SearchBar } from './SearchBar';
 export { Tag } from './Tag';

@@ -6,6 +6,11 @@ import {
   Button,
   DataTable,
   DatePicker,
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownTrigger,
+  DropdownValue,
   Input,
   Modal,
   ModalContent,
@@ -13,10 +18,9 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  Dropdown,
   TimePicker,
 } from '@/common/components';
-import type { Column, DropdownOption } from '@/common/components';
+import type { Column } from '@/common/components';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,10 +79,10 @@ const INITIAL_FORM_STATE: FormState = {
   },
 };
 
-const END_LOCATION_OPTIONS: DropdownOption[] = [
+const END_LOCATION_OPTIONS = [
   { label: 'Warehouse', value: 'Warehouse' },
   { label: 'School', value: 'School' },
-];
+] as const;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -185,13 +189,18 @@ export function ConfigureStep() {
       header: 'End Location',
       render: (row) => (
         <Dropdown
-          options={END_LOCATION_OPTIONS}
           value={row.form.end_location}
-          onValueChange={(val) =>
-            updateEntry(row.delivery_group, { end_location: val })
-          }
-          className="w-40"
-        />
+          onValueChange={(val) => updateEntry(row.delivery_group, { end_location: val })}
+        >
+          <DropdownTrigger className="w-40">
+            <DropdownValue />
+          </DropdownTrigger>
+          <DropdownContent>
+            {END_LOCATION_OPTIONS.map((opt) => (
+              <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+            ))}
+          </DropdownContent>
+        </Dropdown>
       ),
     },
   ];

@@ -1,6 +1,12 @@
 import { type ReactNode, useState } from 'react';
 
-import { Dropdown } from '@/common/components/Dropdown';
+import {
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownTrigger,
+  DropdownValue,
+} from '@/common/components/Dropdown';
 import { Field, FieldDescription, FieldLabel } from '@/common/components/Field';
 import { FilterChip, FilterChipGroup } from '@/common/components/FilterChip';
 import { Input } from '@/common/components/Input';
@@ -291,23 +297,37 @@ export function FormFieldsSection() {
             </p>
 
             <FormFieldDemo label="Default State">
-              <Dropdown
-                label="Driver"
-                placeholder="Dropdown Selection"
-                options={demoOptions}
-                helperText="Some information about the dropdown"
-              />
+              <Field>
+                <FieldLabel>Driver</FieldLabel>
+                <Dropdown>
+                  <DropdownTrigger>
+                    <DropdownValue placeholder="Dropdown Selection" />
+                  </DropdownTrigger>
+                  <DropdownContent>
+                    {demoOptions.map((opt) => (
+                      <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                    ))}
+                  </DropdownContent>
+                </Dropdown>
+                <FieldDescription>Some information about the dropdown</FieldDescription>
+              </Field>
             </FormFieldDemo>
 
             <FormFieldDemo label="Interactive Demo">
-              <Dropdown
-                label="Driver"
-                placeholder="Dropdown Selection"
-                options={demoOptions}
-                value={dropdownValue}
-                onValueChange={setDropdownValue}
-                helperText="Click to open and select an option"
-              />
+              <Field>
+                <FieldLabel>Driver</FieldLabel>
+                <Dropdown value={dropdownValue} onValueChange={setDropdownValue}>
+                  <DropdownTrigger>
+                    <DropdownValue placeholder="Dropdown Selection" />
+                  </DropdownTrigger>
+                  <DropdownContent>
+                    {demoOptions.map((opt) => (
+                      <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                    ))}
+                  </DropdownContent>
+                </Dropdown>
+                <FieldDescription>Click to open and select an option</FieldDescription>
+              </Field>
             </FormFieldDemo>
           </div>
 
@@ -318,22 +338,37 @@ export function FormFieldsSection() {
             </p>
 
             <FormFieldDemo label="Error State">
-              <Dropdown
-                label="Driver"
-                placeholder="Dropdown Selection"
-                options={demoOptions}
-                error="Some information about the dropdown"
-              />
+              <Field>
+                <FieldLabel>Driver</FieldLabel>
+                <Dropdown>
+                  <DropdownTrigger className="ring-red focus:ring-red data-[state=open]:ring-red">
+                    <DropdownValue placeholder="Dropdown Selection" />
+                  </DropdownTrigger>
+                  <DropdownContent>
+                    {demoOptions.map((opt) => (
+                      <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                    ))}
+                  </DropdownContent>
+                </Dropdown>
+                <FieldDescription error>Some information about the dropdown</FieldDescription>
+              </Field>
             </FormFieldDemo>
 
             <FormFieldDemo label="Disabled State">
-              <Dropdown
-                label="Driver"
-                placeholder="Dropdown Selection"
-                options={demoOptions}
-                helperText="Some information about the dropdown"
-                disabled
-              />
+              <Field>
+                <FieldLabel className="opacity-50">Driver</FieldLabel>
+                <Dropdown disabled>
+                  <DropdownTrigger>
+                    <DropdownValue placeholder="Dropdown Selection" />
+                  </DropdownTrigger>
+                  <DropdownContent>
+                    {demoOptions.map((opt) => (
+                      <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                    ))}
+                  </DropdownContent>
+                </Dropdown>
+                <FieldDescription className="opacity-50">Some information about the dropdown</FieldDescription>
+              </Field>
             </FormFieldDemo>
           </div>
 

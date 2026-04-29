@@ -2,13 +2,20 @@ import { useState } from 'react';
 
 import {
   Button,
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownTrigger,
+  DropdownValue,
+  Field,
+  FieldDescription,
+  FieldLabel,
   Modal,
   ModalContent,
   ModalDescription,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  Dropdown,
 } from '@/common/components';
 
 // TODO: replace with API data
@@ -56,28 +63,48 @@ export function AssignRouteModal({
         </ModalHeader>
 
         <div className="flex flex-col gap-4">
-          <Dropdown
-            label="Route"
-            placeholder="Select a Route"
-            options={ROUTE_OPTIONS}
-            value={route}
-            onValueChange={setRoute}
-          />
-          <Dropdown
-            label="Driver"
-            placeholder="Dropdown Selection"
-            options={DRIVER_OPTIONS}
-            value={driver}
-            onValueChange={setDriver}
-            helperText="Last Driven By: LAST_DRIVER_NAME"
-          />
-          <Dropdown
-            label="Start Time"
-            placeholder="9:00 AM"
-            options={START_TIME_OPTIONS}
-            value={startTime}
-            onValueChange={setStartTime}
-          />
+          <Field>
+            <FieldLabel>Route</FieldLabel>
+            <Dropdown value={route} onValueChange={setRoute}>
+              <DropdownTrigger>
+                <DropdownValue placeholder="Select a Route" />
+              </DropdownTrigger>
+              <DropdownContent>
+                {ROUTE_OPTIONS.map((opt) => (
+                  <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                ))}
+              </DropdownContent>
+            </Dropdown>
+          </Field>
+
+          <Field>
+            <FieldLabel>Driver</FieldLabel>
+            <Dropdown value={driver} onValueChange={setDriver}>
+              <DropdownTrigger>
+                <DropdownValue placeholder="Dropdown Selection" />
+              </DropdownTrigger>
+              <DropdownContent>
+                {DRIVER_OPTIONS.map((opt) => (
+                  <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                ))}
+              </DropdownContent>
+            </Dropdown>
+            <FieldDescription>Last Driven By: LAST_DRIVER_NAME</FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel>Start Time</FieldLabel>
+            <Dropdown value={startTime} onValueChange={setStartTime}>
+              <DropdownTrigger>
+                <DropdownValue placeholder="9:00 AM" />
+              </DropdownTrigger>
+              <DropdownContent>
+                {START_TIME_OPTIONS.map((opt) => (
+                  <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                ))}
+              </DropdownContent>
+            </Dropdown>
+          </Field>
         </div>
 
         <ModalFooter className="justify-between pt-4">

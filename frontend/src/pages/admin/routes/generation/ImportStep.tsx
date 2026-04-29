@@ -8,6 +8,10 @@ import {
   Card,
   DataTable,
   Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownTrigger,
+  DropdownValue,
   FileInput,
 } from '@/common/components';
 import type { Column } from '@/common/components';
@@ -129,13 +133,18 @@ export function ImportStep() {
       header: 'Your File Column',
       render: (row) => (
         <Dropdown
-          options={headerOptions}
           value={columnMap[row.key] ?? ''}
-          onValueChange={(val) =>
-            setColumnMap({ ...columnMap, [row.key]: val })
-          }
-          placeholder="Select Column"
-        />
+          onValueChange={(val) => setColumnMap({ ...columnMap, [row.key]: val })}
+        >
+          <DropdownTrigger>
+            <DropdownValue placeholder="Select Column" />
+          </DropdownTrigger>
+          <DropdownContent>
+            {headerOptions.map((opt) => (
+              <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+            ))}
+          </DropdownContent>
+        </Dropdown>
       ),
     },
   ];
