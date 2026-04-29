@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import { useRouteGroups } from '@/api/route-groups';
+import { useSearch } from '@/common/hooks';
+import type { UseSearchReturn } from '@/common/hooks';
 import type { RouteGroupRow } from '@/types/route-group';
 
 export interface GroupsFilterState {
@@ -27,8 +29,7 @@ const copyFilters = (f: GroupsFilterState): GroupsFilterState => ({
 export interface GroupsTabState {
   rows: RouteGroupRow[];
   isLoading: boolean;
-  search: string;
-  setSearch: (v: string) => void;
+  search: UseSearchReturn;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
   appliedFilters: GroupsFilterState;
@@ -40,7 +41,7 @@ export interface GroupsTabState {
 }
 
 export function useGroupsTabState(): GroupsTabState {
-  const [search, setSearch] = useState('');
+  const search = useSearch();
   const [filterOpen, setFilterOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<GroupsFilterState>(emptyFilters());
   const [draftFilters, setDraftFilters] = useState<GroupsFilterState>(emptyFilters());
@@ -48,7 +49,7 @@ export function useGroupsTabState(): GroupsTabState {
   const hasActiveFilters = Object.values(appliedFilters).some((s) => s.size > 0);
 
   const { data: rows = [], isLoading } = useRouteGroups({
-    search: search || undefined,
+    search: search.value || undefined,
     weekdays: appliedFilters.weekdays.size > 0 ? [...appliedFilters.weekdays] : undefined,
     deliveryTypes: appliedFilters.deliveryTypes.size > 0 ? [...appliedFilters.deliveryTypes] : undefined,
     routeStatuses: appliedFilters.routeStatuses.size > 0 ? [...appliedFilters.routeStatuses] : undefined,
@@ -78,7 +79,6 @@ export function useGroupsTabState(): GroupsTabState {
     rows,
     isLoading,
     search,
-    setSearch,
     filterOpen,
     setFilterOpen,
     appliedFilters,

@@ -54,7 +54,6 @@ interface RouteGroupsTabProps extends GroupsTabState {}
 export function RouteGroupsTab({
   rows,
   search,
-  setSearch,
   filterOpen,
   setFilterOpen,
   draftFilters,
@@ -67,11 +66,7 @@ export function RouteGroupsTab({
     <>
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-5">
-          <SearchBar
-            placeholder="Search anything"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <SearchBar placeholder="Search anything" {...search} />
           <Button
             variant="tertiary"
             shape="circular"

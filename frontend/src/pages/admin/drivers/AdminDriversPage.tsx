@@ -5,11 +5,12 @@ import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
 import { Account, Button, Card, SearchBar } from '@/common/components';
+import { useSearch } from '@/common/hooks';
 
 import { AssignRouteModal } from './components';
 
 export const AdminDriversPage = () => {
-  const [search, setSearch] = useState('');
+  const search = useSearch();
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   return (
@@ -33,8 +34,7 @@ export const AdminDriversPage = () => {
         <div className="mb-5 flex items-center justify-between">
           <SearchBar
             placeholder="Search for a driver"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            {...search}
             wrapperClassName="w-64"
           />
           <div className="flex items-center gap-4">
