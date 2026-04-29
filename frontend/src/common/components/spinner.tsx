@@ -17,7 +17,7 @@ function Spinner({ className, size = 'lg' }: SpinnerProps) {
       role="status"
       aria-label="Loading"
       className={cn(
-        'rounded-full animate-spin',
+        'animate-spin rounded-full',
         'border-grey-300 border-t-blue-300',
         sizeClasses[size],
         className

@@ -135,14 +135,18 @@ export function ImportStep() {
       render: (row) => (
         <Dropdown
           value={columnMap[row.key] ?? ''}
-          onValueChange={(val) => setColumnMap({ ...columnMap, [row.key]: val })}
+          onValueChange={(val) =>
+            setColumnMap({ ...columnMap, [row.key]: val })
+          }
         >
           <DropdownTrigger>
             <DropdownValue placeholder="Select Column" />
           </DropdownTrigger>
           <DropdownContent>
             {headerOptions.map((opt) => (
-              <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+              <DropdownItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </DropdownItem>
             ))}
           </DropdownContent>
         </Dropdown>

@@ -16,9 +16,9 @@ export function SpinnerSection() {
       <SectionHeader>Spinner</SectionHeader>
       <SectionDescription>
         Loading indicator for in-progress operations. Renders a circular
-        spinning border with a Blue/300 accent on a Grey/300 track. Three
-        sizes are available via the{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">size</code> prop.
+        spinning border with a Blue/300 accent on a Grey/300 track. Three sizes
+        are available via the{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">size</code> prop.
       </SectionDescription>
 
       <div className="mb-10 space-y-6">

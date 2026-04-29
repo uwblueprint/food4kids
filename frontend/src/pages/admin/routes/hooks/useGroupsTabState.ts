@@ -43,17 +43,33 @@ export interface GroupsTabState {
 export function useGroupsTabState(): GroupsTabState {
   const search = useSearch();
   const [filterOpen, setFilterOpen] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState<GroupsFilterState>(emptyFilters());
-  const [draftFilters, setDraftFilters] = useState<GroupsFilterState>(emptyFilters());
+  const [appliedFilters, setAppliedFilters] =
+    useState<GroupsFilterState>(emptyFilters());
+  const [draftFilters, setDraftFilters] =
+    useState<GroupsFilterState>(emptyFilters());
 
-  const hasActiveFilters = Object.values(appliedFilters).some((s) => s.size > 0);
+  const hasActiveFilters = Object.values(appliedFilters).some(
+    (s) => s.size > 0
+  );
 
   const { data: rows = [], isLoading } = useRouteGroups({
     search: search.value || undefined,
-    weekdays: appliedFilters.weekdays.size > 0 ? [...appliedFilters.weekdays] : undefined,
-    deliveryTypes: appliedFilters.deliveryTypes.size > 0 ? [...appliedFilters.deliveryTypes] : undefined,
-    routeStatuses: appliedFilters.routeStatuses.size > 0 ? [...appliedFilters.routeStatuses] : undefined,
-    driverStatuses: appliedFilters.driverStatuses.size > 0 ? [...appliedFilters.driverStatuses] : undefined,
+    weekdays:
+      appliedFilters.weekdays.size > 0
+        ? [...appliedFilters.weekdays]
+        : undefined,
+    deliveryTypes:
+      appliedFilters.deliveryTypes.size > 0
+        ? [...appliedFilters.deliveryTypes]
+        : undefined,
+    routeStatuses:
+      appliedFilters.routeStatuses.size > 0
+        ? [...appliedFilters.routeStatuses]
+        : undefined,
+    driverStatuses:
+      appliedFilters.driverStatuses.size > 0
+        ? [...appliedFilters.driverStatuses]
+        : undefined,
   });
 
   const openFilters = () => {

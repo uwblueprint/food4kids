@@ -1,9 +1,4 @@
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/common/components';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/common/components';
 
 import { ComponentPreview } from '../components/ComponentPreview';
 import { CompositionTree } from '../components/CompositionTree';

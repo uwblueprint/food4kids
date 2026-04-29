@@ -3,9 +3,7 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-function Tabs({
-  ...props
-}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+function Tabs({ ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
   return <TabsPrimitive.Root data-slot="tabs" {...props} />;
 }
 
@@ -36,7 +34,7 @@ function TabsTrigger({
         'font-nunito text-h2 cursor-pointer pb-2 capitalize transition-colors',
         'text-grey-400 font-normal',
         'data-[state=active]:text-grey-500 data-[state=active]:border-b-2 data-[state=active]:border-blue-300 data-[state=active]:font-bold',
-        className,
+        className
       )}
       {...props}
     />
@@ -56,4 +54,4 @@ function TabsContent({
   );
 }
 
-export { Tabs, TabsContent,TabsList, TabsTrigger };
+export { Tabs, TabsContent, TabsList, TabsTrigger };

@@ -17,11 +17,11 @@ export function CompositionTree({ tree }: CompositionTreeProps) {
   };
 
   return (
-    <div className="relative rounded-xl border border-grey-300 bg-grey-150 p-6">
+    <div className="border-grey-300 bg-grey-150 relative rounded-xl border p-6">
       <button
         onClick={handleCopy}
         aria-label="Copy tree"
-        className="absolute top-4 right-4 rounded p-1 text-grey-400 transition-colors hover:text-grey-500"
+        className="text-grey-400 hover:text-grey-500 absolute top-4 right-4 rounded p-1 transition-colors"
       >
         {copied ? (
           <CheckIcon className="size-4" />
@@ -29,7 +29,9 @@ export function CompositionTree({ tree }: CompositionTreeProps) {
           <CopyIcon className="size-4" />
         )}
       </button>
-      <pre className="font-mono text-sm text-grey-500 whitespace-pre leading-6">{tree}</pre>
+      <pre className="text-grey-500 font-mono text-sm leading-6 whitespace-pre">
+        {tree}
+      </pre>
     </div>
   );
 }

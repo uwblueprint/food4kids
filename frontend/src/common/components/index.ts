@@ -23,7 +23,7 @@ export {
   NotFoundPage,
   ServiceUnavailablePage,
 } from './ErrorScreen';
-export { Field, FieldDescription,FieldLabel } from './Field';
+export { Field, FieldDescription, FieldLabel } from './Field';
 export { FileInput } from './FileInput';
 export { FilterChip, FilterChipGroup } from './FilterChip';
 export type { InputProps } from './Input';
@@ -54,6 +54,6 @@ export {
 export { Spinner } from './Spinner';
 export type { Character, StatisticsCardColor } from './StatisticsCard';
 export { StatisticsCard } from './StatisticsCard';
-export { Tabs, TabsContent,TabsList, TabsTrigger } from './Tabs';
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
 export { TimePicker } from './TimePicker';

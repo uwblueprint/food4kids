@@ -55,18 +55,17 @@ const MODAL_CONFIRM_CODE = `import {
   </ModalContent>
 </Modal>`;
 
-
 export function ModalSection() {
   return (
     <section className="mb-16">
       <SectionHeader>Modal</SectionHeader>
       <SectionDescription>
         Composable dialog built on Radix UI Dialog primitives.{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">ModalContent</code>{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">ModalContent</code>{' '}
         includes an X close button automatically; use{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">ModalTrigger</code> to
-        open it or control the{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">open</code> prop
+        <code className="text-p2 bg-grey-150 rounded px-1">ModalTrigger</code>{' '}
+        to open it or control the{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">open</code> prop
         directly for programmatic control.
       </SectionDescription>
 
@@ -116,7 +115,6 @@ export function ModalSection() {
             </ModalContent>
           </Modal>
         </ComponentPreview>
-
       </div>
     </section>
   );

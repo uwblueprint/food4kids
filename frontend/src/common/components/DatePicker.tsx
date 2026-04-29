@@ -42,7 +42,7 @@ export function DatePicker({
   const today = new Date();
   const [open, setOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    value ?? today,
+    value ?? today
   );
   const [inputValue, setInputValue] = useState(toInputValue(value ?? today));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,13 +75,13 @@ export function DatePicker({
         <div
           className={cn(
             'inline-flex w-40 items-center justify-between rounded-lg px-3 py-2',
-            'bg-grey-100 outline outline-1 outline-offset-[-1px] outline-grey-300',
+            'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
             'transition-colors',
             open
               ? 'outline-2 outline-blue-300'
               : 'focus-within:outline-2 focus-within:outline-blue-300',
             disabled && 'bg-grey-150 cursor-not-allowed opacity-60',
-            className,
+            className
           )}
         >
           <Input
@@ -91,10 +91,10 @@ export function DatePicker({
             onChange={handleInputChange}
             disabled={disabled}
             className={cn(
-              'min-w-0 flex-1 w-auto bg-transparent px-0 py-0 outline-none focus:outline-0',
+              'w-auto min-w-0 flex-1 bg-transparent px-0 py-0 outline-none focus:outline-0',
               'disabled:bg-transparent disabled:opacity-100',
               '[&::-webkit-calendar-picker-indicator]:hidden',
-              '[&::-webkit-datetime-edit-fields-wrapper]:p-0',
+              '[&::-webkit-datetime-edit-fields-wrapper]:p-0'
             )}
           />
           <PopoverTrigger asChild>
@@ -102,7 +102,7 @@ export function DatePicker({
               type="button"
               disabled={disabled}
               aria-label="Open calendar"
-              className="shrink-0 cursor-pointer text-grey-400 transition-colors hover:text-grey-500"
+              className="text-grey-400 hover:text-grey-500 shrink-0 cursor-pointer transition-colors"
             >
               <CalendarIcon className="size-4" />
             </button>

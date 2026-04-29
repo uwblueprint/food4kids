@@ -71,7 +71,9 @@ export function AssignRouteModal({
               </DropdownTrigger>
               <DropdownContent>
                 {ROUTE_OPTIONS.map((opt) => (
-                  <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                  <DropdownItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </DropdownItem>
                 ))}
               </DropdownContent>
             </Dropdown>
@@ -85,11 +87,15 @@ export function AssignRouteModal({
               </DropdownTrigger>
               <DropdownContent>
                 {DRIVER_OPTIONS.map((opt) => (
-                  <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                  <DropdownItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </DropdownItem>
                 ))}
               </DropdownContent>
             </Dropdown>
-            <FieldDescription>Last Driven By: LAST_DRIVER_NAME</FieldDescription>
+            <FieldDescription>
+              Last Driven By: LAST_DRIVER_NAME
+            </FieldDescription>
           </Field>
 
           <Field>
@@ -100,7 +106,9 @@ export function AssignRouteModal({
               </DropdownTrigger>
               <DropdownContent>
                 {START_TIME_OPTIONS.map((opt) => (
-                  <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+                  <DropdownItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </DropdownItem>
                 ))}
               </DropdownContent>
             </Dropdown>

@@ -37,15 +37,25 @@ export interface AddressesTabState {
 export function useAddressesTabState(): AddressesTabState {
   const search = useSearch();
   const [filterOpen, setFilterOpen] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState<AddressesFilterState>(emptyFilters());
-  const [draftFilters, setDraftFilters] = useState<AddressesFilterState>(emptyFilters());
+  const [appliedFilters, setAppliedFilters] =
+    useState<AddressesFilterState>(emptyFilters());
+  const [draftFilters, setDraftFilters] =
+    useState<AddressesFilterState>(emptyFilters());
 
-  const hasActiveFilters = Object.values(appliedFilters).some((s) => s.size > 0);
+  const hasActiveFilters = Object.values(appliedFilters).some(
+    (s) => s.size > 0
+  );
 
   const { data: rows = [], isLoading } = useAddresses({
     search: search.value || undefined,
-    routeStatuses: appliedFilters.routeStatuses.size > 0 ? [...appliedFilters.routeStatuses] : undefined,
-    deliveryTypes: appliedFilters.deliveryTypes.size > 0 ? [...appliedFilters.deliveryTypes] : undefined,
+    routeStatuses:
+      appliedFilters.routeStatuses.size > 0
+        ? [...appliedFilters.routeStatuses]
+        : undefined,
+    deliveryTypes:
+      appliedFilters.deliveryTypes.size > 0
+        ? [...appliedFilters.deliveryTypes]
+        : undefined,
   });
 
   const openFilters = () => {

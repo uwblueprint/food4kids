@@ -36,8 +36,8 @@ function ModalContent({
       <ModalOverlay />
       <DialogPrimitive.Content
         className={cn(
-          'fixed left-1/2 top-1/2 z-50 w-full max-w-[600px] -translate-x-1/2 -translate-y-1/2',
-          'bg-grey-100 rounded-2xl shadow-harsh p-6',
+          'fixed top-1/2 left-1/2 z-50 w-full max-w-[600px] -translate-x-1/2 -translate-y-1/2',
+          'bg-grey-100 shadow-harsh rounded-2xl p-6',
           'flex flex-col items-stretch gap-4',
           'data-[state=open]:animate-in data-[state=closed]:animate-out',
           'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
@@ -49,7 +49,7 @@ function ModalContent({
         {children}
         <DialogPrimitive.Close
           aria-label="Close"
-          className="absolute right-6 top-6 text-grey-400 hover:text-grey-500 transition-colors"
+          className="text-grey-400 hover:text-grey-500 absolute top-6 right-6 transition-colors"
         >
           <XIcon className="size-5" />
         </DialogPrimitive.Close>
@@ -63,7 +63,10 @@ function ModalHeader({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('flex w-full flex-col gap-2 pr-8', className)} {...props} />
+    <div
+      className={cn('flex w-full flex-col gap-2 pr-8', className)}
+      {...props}
+    />
   );
 }
 
@@ -73,7 +76,7 @@ function ModalTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn('text-h2 font-bold text-grey-500', className)}
+      className={cn('text-h2 text-grey-500 font-bold', className)}
       {...props}
     />
   );
@@ -85,7 +88,7 @@ function ModalDescription({
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
-      className={cn('text-p2 font-normal text-grey-400', className)}
+      className={cn('text-p2 text-grey-400 font-normal', className)}
       {...props}
     />
   );
@@ -95,12 +98,7 @@ function ModalFooter({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn('flex justify-end gap-3', className)}
-      {...props}
-    />
-  );
+  return <div className={cn('flex justify-end gap-3', className)} {...props} />;
 }
 
 export {

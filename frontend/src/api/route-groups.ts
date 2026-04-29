@@ -11,8 +11,12 @@ export interface RouteGroupsParams {
   driverStatuses?: string[];
 }
 
-async function fetchRouteGroups(params: RouteGroupsParams): Promise<RouteGroupRow[]> {
-  const response = await axiosClient.get<RouteGroupRow[]>('/route-groups', { params });
+async function fetchRouteGroups(
+  params: RouteGroupsParams
+): Promise<RouteGroupRow[]> {
+  const response = await axiosClient.get<RouteGroupRow[]>('/route-groups', {
+    params,
+  });
   return response.data;
 }
 

@@ -21,8 +21,8 @@ export function CardSection() {
       <SectionDescription>
         A surface container with rounded corners and a drop shadow for grouping
         related content. Cards accept any children and support a{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">className</code> override
-        for custom sizing and layout.
+        <code className="text-p2 bg-grey-150 rounded px-1">className</code>{' '}
+        override for custom sizing and layout.
       </SectionDescription>
 
       <SectionLabel>Usage</SectionLabel>

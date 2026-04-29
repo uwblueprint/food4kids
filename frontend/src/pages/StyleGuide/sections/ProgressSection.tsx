@@ -34,13 +34,14 @@ export function ProgressSection() {
       <SectionHeader>Progress</SectionHeader>
       <SectionDescription>
         Linear progress bar for communicating completion percentage. Pass a{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">value</code> between
+        <code className="text-p2 bg-grey-150 rounded px-1">value</code> between
         0–100; the fill transitions smoothly as the value updates.
       </SectionDescription>
 
       <div className="mb-10 space-y-6">
         <SpecNote title="Track &amp; Fill">
-          Track: Grey/300. Fill: Blue/300. Transitions smoothly as value updates.
+          Track: Grey/300. Fill: Blue/300. Transitions smoothly as value
+          updates.
         </SpecNote>
         <SpecNote title="Value">
           Accepts a value from 0–100. Typically paired with a text label showing
@@ -61,10 +62,16 @@ export function ProgressSection() {
             <Progress value={value} className="w-full" />
             <p className="text-p3 text-grey-400">{value}%</p>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setValue((v) => Math.max(0, v - 10))}>
+              <Button
+                variant="secondary"
+                onClick={() => setValue((v) => Math.max(0, v - 10))}
+              >
                 −10
               </Button>
-              <Button variant="secondary" onClick={() => setValue((v) => Math.min(100, v + 10))}>
+              <Button
+                variant="secondary"
+                onClick={() => setValue((v) => Math.min(100, v + 10))}
+              >
                 +10
               </Button>
             </div>

@@ -42,30 +42,30 @@ export function AdminRoutesGenerationLayout() {
 
   return (
     <div className="flex flex-col gap-10">
-        {/* Breadcrumb + subtitle */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-1">
-            <Link
-              to="/admin/routes"
-              className="font-nunito text-h1 text-grey-400 cursor-pointer font-bold"
-            >
-              Routes
-            </Link>
-            <ChevronRightIcon className="text-grey-400 size-8 shrink-0" />
-            <span className="font-nunito text-h1 text-grey-500 font-bold">
-              Route Generation
-            </span>
-          </div>
-          <p className="text-p1 text-grey-500">
-            Import family data and generate delivery routes
-          </p>
+      {/* Breadcrumb + subtitle */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-1">
+          <Link
+            to="/admin/routes"
+            className="font-nunito text-h1 text-grey-400 cursor-pointer font-bold"
+          >
+            Routes
+          </Link>
+          <ChevronRightIcon className="text-grey-400 size-8 shrink-0" />
+          <span className="font-nunito text-h1 text-grey-500 font-bold">
+            Route Generation
+          </span>
         </div>
-
-        {/* Stepper — shared across all steps */}
-        <ProgressStepper currentStep={currentStep} />
-
-        {/* Step content */}
-        <Outlet context={context} />
+        <p className="text-p1 text-grey-500">
+          Import family data and generate delivery routes
+        </p>
       </div>
+
+      {/* Stepper — shared across all steps */}
+      <ProgressStepper currentStep={currentStep} />
+
+      {/* Step content */}
+      <Outlet context={context} />
+    </div>
   );
 }

@@ -59,13 +59,13 @@ function Calendar({
           'inline-flex cursor-pointer items-center justify-center',
           'size-(--cell-size) rounded-full p-0 select-none',
           'text-grey-500 transition-colors hover:bg-grey-200',
-          'aria-disabled:pointer-events-none aria-disabled:opacity-50',
+          'aria-disabled:pointer-events-none aria-disabled:opacity-50'
         ),
         button_next: cn(
           'inline-flex cursor-pointer items-center justify-center',
           'size-(--cell-size) rounded-full p-0 select-none',
           'text-grey-500 transition-colors hover:bg-grey-200',
-          'aria-disabled:pointer-events-none aria-disabled:opacity-50',
+          'aria-disabled:pointer-events-none aria-disabled:opacity-50'
         ),
         month_caption: cn(
           'flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)',
@@ -207,9 +207,9 @@ function CalendarDayButton({
         modifiers.outside ? 'text-grey-300' : 'text-grey-500',
         // Default + today (unselected): transparent, circle border on hover
         !modifiers.selected &&
-          'bg-transparent hover:border hover:border-grey-400 hover:bg-transparent',
+          'hover:border-grey-400 bg-transparent hover:border hover:bg-transparent',
         // Selected: filled blue circle
-        modifiers.selected && 'bg-blue-300 text-grey-100 hover:bg-blue-400',
+        modifiers.selected && 'text-grey-100 bg-blue-300 hover:bg-blue-400',
         className
       )}
       {...props}

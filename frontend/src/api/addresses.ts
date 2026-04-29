@@ -10,7 +10,9 @@ export interface AddressesParams {
 }
 
 async function fetchAddresses(params: AddressesParams): Promise<AddressRow[]> {
-  const response = await axiosClient.get<AddressRow[]>('/addresses', { params });
+  const response = await axiosClient.get<AddressRow[]>('/addresses', {
+    params,
+  });
   return response.data;
 }
 

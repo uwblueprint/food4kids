@@ -190,14 +190,18 @@ export function ConfigureStep() {
       render: (row) => (
         <Dropdown
           value={row.form.end_location}
-          onValueChange={(val) => updateEntry(row.delivery_group, { end_location: val })}
+          onValueChange={(val) =>
+            updateEntry(row.delivery_group, { end_location: val })
+          }
         >
           <DropdownTrigger className="w-40">
             <DropdownValue />
           </DropdownTrigger>
           <DropdownContent>
             {END_LOCATION_OPTIONS.map((opt) => (
-              <DropdownItem key={opt.value} value={opt.value}>{opt.label}</DropdownItem>
+              <DropdownItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </DropdownItem>
             ))}
           </DropdownContent>
         </Dropdown>

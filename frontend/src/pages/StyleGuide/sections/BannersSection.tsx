@@ -34,14 +34,19 @@ export function BannersSection() {
         System-level alerts for user feedback and notifications. Three variants
         cover the full range of feedback scenarios: success, error, and warning.
         Banners support an optional{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">subtitle</code> and a
+        <code className="text-p2 bg-grey-150 rounded px-1">subtitle</code> and a
         dismiss button via the{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">onDismiss</code> prop.
+        <code className="text-p2 bg-grey-150 rounded px-1">onDismiss</code>{' '}
+        prop.
       </SectionDescription>
 
       <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
-        <ComponentPreview title="Success" code={BANNER_SUCCESS_CODE} previewClassName="min-h-24 flex items-center justify-center p-6">
+        <ComponentPreview
+          title="Success"
+          code={BANNER_SUCCESS_CODE}
+          previewClassName="min-h-24 flex items-center justify-center p-6"
+        >
           <div className="w-full max-w-2xl">
             <Banner
               variant="success"
@@ -52,7 +57,11 @@ export function BannersSection() {
           </div>
         </ComponentPreview>
 
-        <ComponentPreview title="Error" code={BANNER_ERROR_CODE} previewClassName="min-h-24 flex items-center justify-center p-6">
+        <ComponentPreview
+          title="Error"
+          code={BANNER_ERROR_CODE}
+          previewClassName="min-h-24 flex items-center justify-center p-6"
+        >
           <div className="w-full max-w-2xl">
             <Banner variant="error">
               Unsupported format — please upload an Excel (.xlsx) file
@@ -60,7 +69,11 @@ export function BannersSection() {
           </div>
         </ComponentPreview>
 
-        <ComponentPreview title="Warning" code={BANNER_WARNING_CODE} previewClassName="min-h-24 flex items-center justify-center p-6">
+        <ComponentPreview
+          title="Warning"
+          code={BANNER_WARNING_CODE}
+          previewClassName="min-h-24 flex items-center justify-center p-6"
+        >
           <div className="w-full max-w-2xl">
             <Banner variant="warning">
               Warning — These entries will be skipped unless corrected.

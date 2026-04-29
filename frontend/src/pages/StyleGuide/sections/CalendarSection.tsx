@@ -15,7 +15,6 @@ const [selected, setSelected] = useState<Date | undefined>(new Date());
 
 <Calendar mode="single" selected={selected} onSelect={setSelected} />`;
 
-
 export function CalendarSection() {
   const [selected, setSelected] = useState<Date | undefined>(new Date());
 
@@ -44,13 +43,16 @@ export function CalendarSection() {
       <div className="space-y-6">
         <ComponentPreview title="Controlled" code={CALENDAR_CONTROLLED_CODE}>
           <div className="flex flex-col items-center gap-3">
-            <Calendar mode="single" selected={selected} onSelect={setSelected} />
+            <Calendar
+              mode="single"
+              selected={selected}
+              onSelect={setSelected}
+            />
             <p className="text-p3 text-grey-400">
               Selected: {selected ? selected.toLocaleDateString() : 'None'}
             </p>
           </div>
         </ComponentPreview>
-
       </div>
     </section>
   );

@@ -12,8 +12,8 @@ export function SectionLabel({
   return (
     <p
       className={cn(
-        'text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase',
-        className,
+        'text-p3 text-grey-400 mb-2 font-semibold tracking-wider uppercase',
+        className
       )}
     >
       {children}

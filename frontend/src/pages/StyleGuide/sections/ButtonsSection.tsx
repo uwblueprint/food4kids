@@ -60,7 +60,9 @@ export function ButtonsSection() {
         supporting actions, text link for inline navigation, destructive for
         irreversible actions, and ghost for low-emphasis controls. Icon-only
         buttons use the{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">shape="circular"</code>{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">
+          shape="circular"
+        </code>{' '}
         prop.
       </SectionDescription>
 
@@ -115,7 +117,9 @@ export function ButtonsSection() {
         </ComponentPreview>
 
         <ComponentPreview title="Disabled" code={BUTTON_DISABLED_CODE}>
-          <Button variant="primary" disabled>Post</Button>
+          <Button variant="primary" disabled>
+            Post
+          </Button>
         </ComponentPreview>
       </div>
 
@@ -124,31 +128,69 @@ export function ButtonsSection() {
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-2 divide-y md:grid-cols-7 md:divide-x md:divide-y-0">
           <ButtonColumn title="Primary">
-            <ButtonDemo label="Default"><Button variant="primary">Save</Button></ButtonDemo>
-            <ButtonDemo label="Hover"><Button variant="primary" className="!bg-blue-400">Save</Button></ButtonDemo>
+            <ButtonDemo label="Default">
+              <Button variant="primary">Save</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover">
+              <Button variant="primary" className="!bg-blue-400">
+                Save
+              </Button>
+            </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Secondary">
-            <ButtonDemo label="Default"><Button variant="secondary">Cancel</Button></ButtonDemo>
-            <ButtonDemo label="Hover"><Button variant="secondary" className="!bg-grey-300">Cancel</Button></ButtonDemo>
+            <ButtonDemo label="Default">
+              <Button variant="secondary">Cancel</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover">
+              <Button variant="secondary" className="!bg-grey-300">
+                Cancel
+              </Button>
+            </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Tertiary">
-            <ButtonDemo label="Default"><Button variant="tertiary">Cancel</Button></ButtonDemo>
-            <ButtonDemo label="Hover"><Button variant="tertiary">Cancel</Button></ButtonDemo>
+            <ButtonDemo label="Default">
+              <Button variant="tertiary">Cancel</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover">
+              <Button variant="tertiary">Cancel</Button>
+            </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Text Link">
-            <ButtonDemo label="Default"><Button variant="textLink">Text</Button></ButtonDemo>
-            <ButtonDemo label="Hover"><Button variant="textLink" className="underline">Text</Button></ButtonDemo>
+            <ButtonDemo label="Default">
+              <Button variant="textLink">Text</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover">
+              <Button variant="textLink" className="underline">
+                Text
+              </Button>
+            </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Destructive">
-            <ButtonDemo label="Default"><Button variant="destructive">Delete</Button></ButtonDemo>
-            <ButtonDemo label="Hover"><Button variant="destructive" className="!opacity-90">Delete</Button></ButtonDemo>
+            <ButtonDemo label="Default">
+              <Button variant="destructive">Delete</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover">
+              <Button variant="destructive" className="!opacity-90">
+                Delete
+              </Button>
+            </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Ghost">
-            <ButtonDemo label="Default"><Button variant="ghost">Cancel</Button></ButtonDemo>
-            <ButtonDemo label="Hover"><Button variant="ghost" className="!bg-grey-200">Cancel</Button></ButtonDemo>
+            <ButtonDemo label="Default">
+              <Button variant="ghost">Cancel</Button>
+            </ButtonDemo>
+            <ButtonDemo label="Hover">
+              <Button variant="ghost" className="!bg-grey-200">
+                Cancel
+              </Button>
+            </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Disabled">
-            <ButtonDemo label="Disabled"><Button variant="primary" disabled>Post</Button></ButtonDemo>
+            <ButtonDemo label="Disabled">
+              <Button variant="primary" disabled>
+                Post
+              </Button>
+            </ButtonDemo>
           </ButtonColumn>
         </div>
       </div>
@@ -156,8 +198,8 @@ export function ButtonsSection() {
       {/* Circular buttons */}
       <SectionHeader className="mt-10">Circular Buttons</SectionHeader>
       <SectionDescription>
-        Icon-only circular buttons for compact action triggers. Sized at 44×44px,
-        they share the same variant palette as rectangular buttons.
+        Icon-only circular buttons for compact action triggers. Sized at
+        44×44px, they share the same variant palette as rectangular buttons.
       </SectionDescription>
 
       <SectionLabel>Usage</SectionLabel>
@@ -172,26 +214,48 @@ export function ButtonsSection() {
         <div className="divide-grey-300 grid grid-cols-3 divide-x">
           <ButtonColumn title="Circular Primary">
             <ButtonDemo label="Default">
-              <Button variant="primary" shape="circular" aria-label="Next"><ChevronRight className="h-5 w-5" /></Button>
+              <Button variant="primary" shape="circular" aria-label="Next">
+                <ChevronRight className="h-5 w-5" />
+              </Button>
             </ButtonDemo>
             <ButtonDemo label="Hover">
-              <Button variant="primary" shape="circular" className="!bg-blue-400" aria-label="Next"><ChevronRight className="h-5 w-5" /></Button>
+              <Button
+                variant="primary"
+                shape="circular"
+                className="!bg-blue-400"
+                aria-label="Next"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
             </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Circular Secondary">
             <ButtonDemo label="Default">
-              <Button variant="secondary" shape="circular" aria-label="Next"><ChevronRight className="text-grey-500 h-5 w-5" /></Button>
+              <Button variant="secondary" shape="circular" aria-label="Next">
+                <ChevronRight className="text-grey-500 h-5 w-5" />
+              </Button>
             </ButtonDemo>
             <ButtonDemo label="Hover">
-              <Button variant="secondary" shape="circular" className="!bg-grey-300" aria-label="Next"><ChevronRight className="text-grey-500 h-5 w-5" /></Button>
+              <Button
+                variant="secondary"
+                shape="circular"
+                className="!bg-grey-300"
+                aria-label="Next"
+              >
+                <ChevronRight className="text-grey-500 h-5 w-5" />
+              </Button>
             </ButtonDemo>
           </ButtonColumn>
           <ButtonColumn title="Circular Tertiary">
             <ButtonDemo label="Default">
-              <Button variant="tertiary" shape="circular" aria-label="Next"><ChevronRight className="text-grey-500 h-5 w-5" /></Button>
+              <Button variant="tertiary" shape="circular" aria-label="Next">
+                <ChevronRight className="text-grey-500 h-5 w-5" />
+              </Button>
             </ButtonDemo>
             <ButtonDemo label="Hover">
-              <Button variant="tertiary" shape="circular" aria-label="Next"><ChevronRight className="text-grey-500 h-5 w-5" /></Button>
+              <Button variant="tertiary" shape="circular" aria-label="Next">
+                <ChevronRight className="text-grey-500 h-5 w-5" />
+              </Button>
             </ButtonDemo>
           </ButtonColumn>
         </div>
@@ -200,16 +264,30 @@ export function ButtonsSection() {
   );
 }
 
-function ButtonColumn({ title, children }: { title: string; children: ReactNode }) {
+function ButtonColumn({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <div className="p-6">
-      <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">{title}</p>
+      <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
+        {title}
+      </p>
       <div className="space-y-6">{children}</div>
     </div>
   );
 }
 
-function ButtonDemo({ label, children }: { label: string; children: ReactNode }) {
+function ButtonDemo({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col items-start gap-2">
       {children}

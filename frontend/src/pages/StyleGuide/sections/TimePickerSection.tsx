@@ -28,7 +28,7 @@ export function TimePickerSection() {
       <SectionDescription>
         Native time input (HH:mm, 24-hour) with the browser's default indicator
         hidden and a decorative clock icon on the right. Integrates with{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">Input</code> for
+        <code className="text-p2 bg-grey-150 rounded px-1">Input</code> for
         consistent styling and focus behavior.
       </SectionDescription>
 

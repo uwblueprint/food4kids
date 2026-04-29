@@ -30,8 +30,8 @@ export function TagsSection() {
         Small inline labels for status display and categorization. Four variants
         cover the full range of intent — success and error for state feedback,
         primary for new items, and secondary for edited ones. Add an{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">onRemove</code> handler
-        to show a dismiss button for user-removable selections.
+        <code className="text-p2 bg-grey-150 rounded px-1">onRemove</code>{' '}
+        handler to show a dismiss button for user-removable selections.
       </SectionDescription>
 
       <SectionLabel>Usage</SectionLabel>

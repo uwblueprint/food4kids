@@ -46,7 +46,7 @@ function StatisticsCard({
     >
       <div
         className={cn(
-          'relative h-24 w-full overflow-hidden rounded-2xl p-4 shadow-card',
+          'shadow-card relative h-24 w-full overflow-hidden rounded-2xl p-4',
           COLOR_MAP[color]
         )}
       >
@@ -60,9 +60,7 @@ function StatisticsCard({
 
         {/* Text */}
         <div className="relative flex flex-col justify-center gap-0.5">
-          <p className="text-p1 font-bold text-grey-100">
-            {label}
-          </p>
+          <p className="text-p1 text-grey-100 font-bold">{label}</p>
           <p className="font-nunito text-grey-100 text-3xl leading-10 font-bold">
             {value}
           </p>

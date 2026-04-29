@@ -79,12 +79,18 @@ export function DropdownSection() {
       <SectionHeader>Dropdown</SectionHeader>
       <SectionDescription>
         Composable dropdown built on Radix UI Select. Use{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">DropdownTrigger</code>,{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">DropdownContent</code>, and{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">DropdownItem</code> to assemble
-        flexible select menus. Wrap in{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">Field</code> to add a label and
-        helper text.
+        <code className="text-p2 bg-grey-150 rounded px-1">
+          DropdownTrigger
+        </code>
+        ,{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">
+          DropdownContent
+        </code>
+        , and{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">DropdownItem</code>{' '}
+        to assemble flexible select menus. Wrap in{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">Field</code> to add a
+        label and helper text.
       </SectionDescription>
 
       {/* Composition */}
@@ -113,7 +119,10 @@ export function DropdownSection() {
           </div>
         </ComponentPreview>
 
-        <ComponentPreview title="With Field and Description" code={DROPDOWN_FIELD_CODE}>
+        <ComponentPreview
+          title="With Field and Description"
+          code={DROPDOWN_FIELD_CODE}
+        >
           <div className="w-64">
             <Field>
               <FieldLabel>Driver</FieldLabel>
@@ -157,7 +166,9 @@ export function DropdownSection() {
                   ))}
                 </DropdownContent>
               </Dropdown>
-              <FieldDescription error>Some information about the dropdown</FieldDescription>
+              <FieldDescription error>
+                Some information about the dropdown
+              </FieldDescription>
             </Field>
           </div>
           <div className="space-y-8 p-6">
