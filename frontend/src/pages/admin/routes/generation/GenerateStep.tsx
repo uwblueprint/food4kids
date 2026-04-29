@@ -6,6 +6,7 @@ import {
   Spinner,
   StatisticsCard,
 } from '@/common/components';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 // TODO: replace with actual values from API
@@ -19,9 +20,17 @@ export function GenerateStep() {
   const percent = Math.round((MOCK_COMPLETED / MOCK_TOTAL) * 100);
 
   // TODO: replace with actual response from API
-  const GENERATION_SUCCESS = true;
+  const [success, setSucess] = useState(false);
 
-  if (GENERATION_SUCCESS) {
+  // TODO: replace with actual response from API
+  // create a timer that makes the GENERATION_SUCCESS true after 5 seconds
+  useEffect(() => {
+    setTimeout(() => {
+      setSucess(true);
+    }, 5000);
+  }, []);
+
+  if (success) {
     return (
       <div className="flex flex-col gap-8">
         <Banner
