@@ -3,6 +3,7 @@ import { StatisticsCard } from '@/common/components';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 import { SpecNote } from '../components/SpecNote';
 
 const STATISTICS_CARD_CODE = `import { StatisticsCard } from '@/common/components';
@@ -39,12 +40,10 @@ export function StatisticsCardSection() {
         </SpecNote>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="mb-8">
         <ComponentPreview title="Basic" code={STATISTICS_CARD_CODE}>
-          <div className="w-48">
+          <div className="w-80">
             <StatisticsCard
               color="green"
               label="Routes Created"
@@ -55,9 +54,7 @@ export function StatisticsCardSection() {
         </ComponentPreview>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel>States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border p-6">
         <div className="flex flex-col gap-8">
           <div>
@@ -65,10 +62,30 @@ export function StatisticsCardSection() {
               Color Variants
             </p>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <StatisticsCard color="green" label="Routes Created" value={3} character="granny" />
-              <StatisticsCard color="blue" label="Total Families" value={515} character="boy" />
-              <StatisticsCard color="pink" label="Average Stops" value={12} character="boyPointing" />
-              <StatisticsCard color="orange" label="Longest Route" value="22 km" character="girlSearching" />
+              <StatisticsCard
+                color="green"
+                label="Routes Created"
+                value={3}
+                character="granny"
+              />
+              <StatisticsCard
+                color="blue"
+                label="Total Families"
+                value={515}
+                character="boy"
+              />
+              <StatisticsCard
+                color="pink"
+                label="Average Stops"
+                value={12}
+                character="boyPointing"
+              />
+              <StatisticsCard
+                color="orange"
+                label="Longest Route"
+                value="22 km"
+                character="girlSearching"
+              />
             </div>
           </div>
 
@@ -77,11 +94,36 @@ export function StatisticsCardSection() {
               Character Variants
             </p>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-              <StatisticsCard color="green" label="Boy" value="—" character="boy" />
-              <StatisticsCard color="green" label="Boy Pointing" value="—" character="boyPointing" />
-              <StatisticsCard color="green" label="Girl Confused" value="—" character="girlConfused" />
-              <StatisticsCard color="green" label="Girl Searching" value="—" character="girlSearching" />
-              <StatisticsCard color="green" label="Granny" value="—" character="granny" />
+              <StatisticsCard
+                color="green"
+                label="Boy"
+                value="—"
+                character="boy"
+              />
+              <StatisticsCard
+                color="green"
+                label="Boy Pointing"
+                value="—"
+                character="boyPointing"
+              />
+              <StatisticsCard
+                color="green"
+                label="Girl Confused"
+                value="—"
+                character="girlConfused"
+              />
+              <StatisticsCard
+                color="green"
+                label="Girl Searching"
+                value="—"
+                character="girlSearching"
+              />
+              <StatisticsCard
+                color="green"
+                label="Granny"
+                value="—"
+                character="granny"
+              />
             </div>
           </div>
         </div>

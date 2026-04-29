@@ -5,6 +5,7 @@ import { Button, Progress } from '@/common/components';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 import { SpecNote } from '../components/SpecNote';
 
 const PROGRESS_CODE = `import { Progress } from '@/common/components';
@@ -47,9 +48,7 @@ export function ProgressSection() {
         </SpecNote>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="mb-8 space-y-6">
         <ComponentPreview title="Basic" code={PROGRESS_CODE}>
           <div className="w-full max-w-sm">
@@ -73,9 +72,7 @@ export function ProgressSection() {
         </ComponentPreview>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel>States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border p-6">
         <div className="flex flex-col gap-6">
           {[0, 33, 66, 100].map((v) => (

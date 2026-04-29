@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react';
 
-import { Field, FieldDescription, FieldLabel } from '@/common/components/Field';
+import { Field, FieldLabel } from '@/common/components/Field';
 import { FilterChip, FilterChipGroup } from '@/common/components/FilterChip';
 import { Input } from '@/common/components/Input';
 import { SearchBar } from '@/common/components/SearchBar';
@@ -8,8 +8,8 @@ import { ComponentPreview } from '../components/ComponentPreview';
 import { CompositionTree } from '../components/CompositionTree';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 import { SpecNote } from '../components/SpecNote';
-import { SubsectionHeader } from '../components/SubsectionHeader';
 
 // ---------------------------------------------------------------------------
 // Composition trees
@@ -132,8 +132,8 @@ export function FormFieldsSection() {
         </SpecNote>
 
         <SpecNote title="Text Field">
-          The text field height will remain 44px throughout desktop &amp; tablet,
-          and 42px throughout mobile.
+          The text field height will remain 44px throughout desktop &amp;
+          tablet, and 42px throughout mobile.
           <br />
           <br />
           Stroke: 1px | Inside | Grey/300
@@ -165,29 +165,28 @@ export function FormFieldsSection() {
       {/* ================================================================ */}
       {/* INPUT                                                             */}
       {/* ================================================================ */}
-      <SubsectionHeader>Input</SubsectionHeader>
+      <SectionHeader className="mt-10">Input</SectionHeader>
       <SectionDescription>
         Composable input primitives for building form fields. Use{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">Input</code> standalone
-        or compose it with{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">Field</code>,{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">FieldLabel</code>, and{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">FieldDescription</code>{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">Input</code>{' '}
+        standalone or compose it with{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">Field</code>,{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">FieldLabel</code>,
+        and{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">
+          FieldDescription
+        </code>{' '}
         to build labeled, validated form fields.
       </SectionDescription>
 
       {/* Composition */}
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Composition
-      </p>
+      <SectionLabel>Composition</SectionLabel>
       <div className="mb-8">
         <CompositionTree tree={FIELD_TREE} />
       </div>
 
       {/* Usage */}
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="mb-8 space-y-6">
         <ComponentPreview title="Basic Input" code={FIELD_BASIC_CODE}>
           <div className="w-80">
@@ -195,7 +194,10 @@ export function FormFieldsSection() {
           </div>
         </ComponentPreview>
 
-        <ComponentPreview title="With Field and Label" code={FIELD_COMPOSED_CODE}>
+        <ComponentPreview
+          title="With Field and Label"
+          code={FIELD_COMPOSED_CODE}
+        >
           <div className="w-80">
             <Field>
               <FieldLabel htmlFor="sg-field-demo" required>
@@ -244,9 +246,7 @@ export function FormFieldsSection() {
       </div>
 
       {/* States */}
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel>States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
           {/* Desktop states */}
@@ -294,7 +294,11 @@ export function FormFieldsSection() {
                 <FieldLabel htmlFor="tf-disabled" className="opacity-50">
                   Label
                 </FieldLabel>
-                <Input id="tf-disabled" placeholder="Enter text here" disabled />
+                <Input
+                  id="tf-disabled"
+                  placeholder="Enter text here"
+                  disabled
+                />
               </Field>
             </FormFieldDemo>
           </div>
@@ -349,17 +353,17 @@ export function FormFieldsSection() {
       {/* ================================================================ */}
       {/* SEARCH                                                            */}
       {/* ================================================================ */}
-      <SubsectionHeader>Search</SubsectionHeader>
+      <SectionHeader className="mt-10">Search</SectionHeader>
       <SectionDescription>
         A search input with a leading icon. Use the{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">variant="filled"</code> prop
-        for use on grey backgrounds where the default outlined style provides insufficient
-        contrast.
+        <code className="text-p2 bg-grey-150 rounded px-1">
+          variant="filled"
+        </code>{' '}
+        prop for use on grey backgrounds where the default outlined style
+        provides insufficient contrast.
       </SectionDescription>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="mb-8 space-y-6">
         <ComponentPreview title="Outlined (Default)" code={SEARCH_DEFAULT_CODE}>
           <div className="w-full max-w-sm">
@@ -374,9 +378,7 @@ export function FormFieldsSection() {
         </ComponentPreview>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel>States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
           <div className="space-y-8 p-6">
@@ -417,18 +419,19 @@ export function FormFieldsSection() {
       {/* ================================================================ */}
       {/* FILTER CHIPS                                                      */}
       {/* ================================================================ */}
-      <SubsectionHeader>Filtration Chips</SubsectionHeader>
+      <SectionHeader className="mt-10">Filtration Chips</SectionHeader>
       <SectionDescription>
         Toggle chips for filtering lists. Use{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">FilterChip</code> standalone
-        or group multiple chips with{' '}
-        <code className="text-p2 rounded bg-grey-150 px-1">FilterChipGroup</code>. When
-        multiple groups appear on a page, they are separated by a full-width Grey/300 line.
+        <code className="text-p2 bg-grey-150 rounded px-1">FilterChip</code>{' '}
+        standalone or group multiple chips with{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">
+          FilterChipGroup
+        </code>
+        . When multiple groups appear on a page, they are separated by a
+        full-width Grey/300 line.
       </SectionDescription>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="mb-8 space-y-6">
         <ComponentPreview title="Chip" code={FILTER_CHIP_CODE}>
           <div className="flex gap-3">
@@ -448,9 +451,7 @@ export function FormFieldsSection() {
         </ComponentPreview>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel>States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
           <div className="space-y-8 p-6">

@@ -3,6 +3,7 @@ import { Spinner } from '@/common/components/Spinner';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 import { SpecNote } from '../components/SpecNote';
 
 const SPINNER_CODE = `import { Spinner } from '@/common/components';
@@ -27,18 +28,14 @@ export function SpinnerSection() {
         </SpecNote>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="mb-8">
         <ComponentPreview title="Default" code={SPINNER_CODE}>
           <Spinner />
         </ComponentPreview>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel>States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
           <div className="flex flex-col items-start gap-4 p-6">

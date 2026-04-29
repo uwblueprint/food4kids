@@ -5,6 +5,7 @@ import { DatePicker } from '@/common/components/DatePicker';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 import { SpecNote } from '../components/SpecNote';
 
 const DATE_PICKER_CONTROLLED_CODE = `import { useState } from 'react';
@@ -43,9 +44,7 @@ export function DatePickerSection() {
         </SpecNote>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
         <ComponentPreview title="Controlled" code={DATE_PICKER_CONTROLLED_CODE}>
           <div className="flex flex-col items-center gap-3">

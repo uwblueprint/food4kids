@@ -3,6 +3,7 @@ import { Card } from '@/common/components';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 
 const CARD_CODE = `import { Card } from '@/common/components';
 
@@ -24,9 +25,7 @@ export function CardSection() {
         for custom sizing and layout.
       </SectionDescription>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <ComponentPreview title="Basic Card" code={CARD_CODE}>
         <div className="w-full max-w-sm">
           <Card>

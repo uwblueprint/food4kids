@@ -6,8 +6,8 @@ import { Button } from '@/common/components/Button';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 import { SpecNote } from '../components/SpecNote';
-import { SubsectionHeader } from '../components/SubsectionHeader';
 
 // ---------------------------------------------------------------------------
 // Code snippets
@@ -88,9 +88,7 @@ export function ButtonsSection() {
       </div>
 
       {/* Usage */}
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
         <ComponentPreview title="Primary" code={BUTTON_PRIMARY_CODE}>
           <Button variant="primary">Save</Button>
@@ -122,9 +120,7 @@ export function ButtonsSection() {
       </div>
 
       {/* States (hover reference) */}
-      <p className="text-p3 mt-8 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel className="mt-8">States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-2 divide-y md:grid-cols-7 md:divide-x md:divide-y-0">
           <ButtonColumn title="Primary">
@@ -158,24 +154,20 @@ export function ButtonsSection() {
       </div>
 
       {/* Circular buttons */}
-      <SubsectionHeader>Circular Buttons</SubsectionHeader>
+      <SectionHeader className="mt-10">Circular Buttons</SectionHeader>
       <SectionDescription>
         Icon-only circular buttons for compact action triggers. Sized at 44×44px,
         they share the same variant palette as rectangular buttons.
       </SectionDescription>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <ComponentPreview title="Circular Button" code={BUTTON_CIRCULAR_CODE}>
         <Button variant="primary" shape="circular" aria-label="Next">
           <ChevronRight className="h-5 w-5" />
         </Button>
       </ComponentPreview>
 
-      <p className="text-p3 mt-8 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        States
-      </p>
+      <SectionLabel className="mt-8">States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-3 divide-x">
           <ButtonColumn title="Circular Primary">

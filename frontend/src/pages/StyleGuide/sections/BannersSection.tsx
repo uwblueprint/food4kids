@@ -3,6 +3,7 @@ import { Banner } from '@/common/components';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 
 const BANNER_SUCCESS_CODE = `import { Banner } from '@/common/components';
 
@@ -38,9 +39,7 @@ export function BannersSection() {
         <code className="text-p2 rounded bg-grey-150 px-1">onDismiss</code> prop.
       </SectionDescription>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
         <ComponentPreview title="Success" code={BANNER_SUCCESS_CODE} previewClassName="min-h-24 flex items-center justify-center p-6">
           <div className="w-full max-w-2xl">

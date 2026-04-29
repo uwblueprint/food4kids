@@ -14,6 +14,7 @@ import { ComponentPreview } from '../components/ComponentPreview';
 import { CompositionTree } from '../components/CompositionTree';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 import { SpecNote } from '../components/SpecNote';
 
 const MODAL_TREE = `Modal
@@ -84,16 +85,12 @@ export function ModalSection() {
         </SpecNote>
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Composition
-      </p>
+      <SectionLabel>Composition</SectionLabel>
       <div className="mb-8">
         <CompositionTree tree={MODAL_TREE} />
       </div>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
         <ComponentPreview title="Confirm Action" code={MODAL_CONFIRM_CODE}>
           <Modal>

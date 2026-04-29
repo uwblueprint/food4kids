@@ -3,6 +3,7 @@ import { Tag } from '@/common/components';
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
 
 const TAG_STATUS_CODE = `import { Tag } from '@/common/components';
 
@@ -33,9 +34,7 @@ export function TagsSection() {
         to show a dismiss button for user-removable selections.
       </SectionDescription>
 
-      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
-        Usage
-      </p>
+      <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
         <ComponentPreview title="Status Tags" code={TAG_STATUS_CODE}>
           <div className="flex flex-wrap gap-3">
