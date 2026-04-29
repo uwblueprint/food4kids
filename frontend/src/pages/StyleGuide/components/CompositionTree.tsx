@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-import CopyIcon from '@/assets/icons/copy.svg?react';
 import CheckIcon from '@/assets/icons/check.svg?react';
+import CopyIcon from '@/assets/icons/copy.svg?react';
 
 interface CompositionTreeProps {
   tree: string;

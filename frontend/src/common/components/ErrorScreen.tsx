@@ -1,10 +1,12 @@
 import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from './Button';
-import boyEdgeCaseImg from '@/assets/illustrations/boy-edge-case-with-questions.png';
+
 import error403Img from '@/assets/errors/error-403.png';
 import error404Img from '@/assets/errors/error-404.png';
 import error503Img from '@/assets/errors/error-503.png';
+import boyEdgeCaseImg from '@/assets/illustrations/boy-edge-case-with-questions.png';
+
+import { Button } from './Button';
 
 interface ErrorScreenProps {
   illustration: string;

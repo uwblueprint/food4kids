@@ -1,6 +1,6 @@
-import girlConfused from '@/assets/illustrations/girl-confused.png';
-import boyEdgeCaseWithQuestions from '@/assets/illustrations/boy-edge-case-with-questions.png';
 import boyEdgeCaseNoQuestionMark from '@/assets/illustrations/boy-edge-case-no-question-mark.png';
+import boyEdgeCaseWithQuestions from '@/assets/illustrations/boy-edge-case-with-questions.png';
+import girlConfused from '@/assets/illustrations/girl-confused.png';
 
 const IMAGES = {
   'girl-confused': girlConfused,

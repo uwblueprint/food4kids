@@ -1,6 +1,6 @@
-import { Account, Button } from '@/common/components';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
+import { Account, Button } from '@/common/components';
 
 export const AdminSettingsPage = () => {
   return (

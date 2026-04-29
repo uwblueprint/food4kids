@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
+import type { Column } from '@/common/components';
 import {
   Button,
   DataTable,
@@ -20,7 +21,6 @@ import {
   ModalTitle,
   TimePicker,
 } from '@/common/components';
-import type { Column } from '@/common/components';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -3,6 +3,7 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
 import CheckIcon from '@/assets/icons/check.svg?react';
 import XIcon from '@/assets/icons/x.svg?react';
+import type { Column } from '@/common/components';
 import {
   Button,
   DataTable,
@@ -14,7 +15,6 @@ import {
   ModalTitle,
   Tag,
 } from '@/common/components';
-import type { Column } from '@/common/components';
 import type {
   ChangedEntry,
   ChangedField,

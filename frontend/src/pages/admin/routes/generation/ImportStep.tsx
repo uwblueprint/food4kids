@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
+import type { Column } from '@/common/components';
 import {
   Banner,
   Button,
@@ -14,7 +15,7 @@ import {
   DropdownValue,
   FileInput,
 } from '@/common/components';
-import type { Column } from '@/common/components';
+
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);

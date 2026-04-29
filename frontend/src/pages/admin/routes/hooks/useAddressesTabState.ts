@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
-import { useSearch } from '@/common/hooks';
 import type { UseSearchReturn } from '@/common/hooks';
+import { useSearch } from '@/common/hooks';
 import type { AddressRow } from '@/types/address';
 
 export interface AddressesFilterState {

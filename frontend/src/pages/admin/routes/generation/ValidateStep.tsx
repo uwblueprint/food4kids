@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
 import { useValidateLocations } from '@/api';
-import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 import type { Column } from '@/common/components';
+import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 import type { AlertCode, LocationImportRow } from '@/types/location';
 
-import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { EmptyState } from '../components';
+import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 // Styling for error and warning cells
 const ERROR_CELL_CLASS = 'border-b-2 border-red bg-red-50';

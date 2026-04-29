@@ -1,11 +1,17 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import {
+  CatchAllErrorPage,
+  ForbiddenPage,
+  NotFoundPage,
+  ServiceUnavailablePage,
+} from './common/components';
 import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
   AdminHomePage,
-  AdminRoutesPage,
   AdminRoutesGenerationLayout,
+  AdminRoutesPage,
   AdminSettingsPage,
   ConfigureStep,
   GenerateStep,
@@ -14,12 +20,6 @@ import {
   ValidateStep,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
-import {
-  CatchAllErrorPage,
-  ForbiddenPage,
-  NotFoundPage,
-  ServiceUnavailablePage,
-} from './common/components';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { TestImageUpload } from './pages/TestImageUpload';
 

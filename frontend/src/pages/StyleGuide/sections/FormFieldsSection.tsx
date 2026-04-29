@@ -4,6 +4,7 @@ import { Field, FieldLabel } from '@/common/components/Field';
 import { FilterChip, FilterChipGroup } from '@/common/components/FilterChip';
 import { Input } from '@/common/components/Input';
 import { SearchBar } from '@/common/components/SearchBar';
+
 import { ComponentPreview } from '../components/ComponentPreview';
 import { CompositionTree } from '../components/CompositionTree';
 import { SectionDescription } from '../components/SectionDescription';

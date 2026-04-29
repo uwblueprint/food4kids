@@ -148,13 +148,13 @@ function SidebarTrigger({
 }
 
 export {
-  SidebarProvider,
   Sidebar,
-  SidebarHeader,
   SidebarContent,
   SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarInset,
+  SidebarProvider,
   SidebarTrigger,
 };

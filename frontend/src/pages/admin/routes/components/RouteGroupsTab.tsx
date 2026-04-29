@@ -2,20 +2,20 @@ import { Link } from 'react-router-dom';
 
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
+import type { Column } from '@/common/components';
 import {
   Button,
   DataTable,
+  FilterChip,
+  FilterChipGroup,
   Modal,
   ModalContent,
   ModalDescription,
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  FilterChip,
-  FilterChipGroup,
   SearchBar,
 } from '@/common/components';
-import type { Column } from '@/common/components';
 import type { RouteGroupRow } from '@/types/route-group';
 
 import type { GroupsTabState } from '../hooks';

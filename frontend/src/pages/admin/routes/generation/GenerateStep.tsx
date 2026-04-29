@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+
 import {
   Banner,
   Button,
@@ -6,8 +9,6 @@ import {
   Spinner,
   StatisticsCard,
 } from '@/common/components';
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 // TODO: replace with actual values from API
 const MOCK_COMPLETED = 1;

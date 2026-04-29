@@ -1,7 +1,7 @@
 import boyImg from '@/assets/illustrations/boy.png';
 import boyAnnouncingImg from '@/assets/illustrations/boy-announcing.png';
-import girlConfusedImg from '@/assets/illustrations/girl-confused.png';
 import boyPointingImg from '@/assets/illustrations/boy-pointing.png';
+import girlConfusedImg from '@/assets/illustrations/girl-confused.png';
 import girlSearchingImg from '@/assets/illustrations/girl-searching.png';
 import grannyImg from '@/assets/illustrations/granny.png';
 import { cn } from '@/lib/utils';
