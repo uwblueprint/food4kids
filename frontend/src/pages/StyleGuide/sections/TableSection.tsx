@@ -1,39 +1,10 @@
 import { useState } from 'react';
 
 import girlConfused from '@/assets/illustrations/girl-confused.png';
-import {
-  AlertCell,
-  type Column,
-  DataTable,
-  DropdownTable,
-  type DropdownTableRow,
-} from '@/common/components';
+import { AlertCell, type Column, DataTable } from '@/common/components';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
-
-// ---------------------------------------------------------------------------
-// DropdownTable mock data
-// ---------------------------------------------------------------------------
-
-const MOCK_OPTIONS = [
-  { label: 'Column A', value: 'col_a' },
-  { label: 'Column B', value: 'col_b' },
-  { label: 'Column C', value: 'col_c' },
-];
-
-const INITIAL_ROWS: DropdownTableRow[] = [
-  {
-    label: 'School Name / Child Last Name',
-    required: true,
-    options: MOCK_OPTIONS,
-  },
-  { label: 'Address', required: true, options: MOCK_OPTIONS },
-  { label: 'Delivery Group', required: true, options: MOCK_OPTIONS },
-  { label: 'Phone Number', required: true, options: MOCK_OPTIONS },
-  { label: 'Number of Children', required: true, options: MOCK_OPTIONS },
-  { label: 'Food Restrictions', required: true, options: MOCK_OPTIONS },
-];
 
 // ---------------------------------------------------------------------------
 // DataTable mock data
@@ -175,27 +146,11 @@ const emptyState = (
 // ---------------------------------------------------------------------------
 
 export function TableSection() {
-  const [values, setValues] = useState<Record<number, string>>({});
-
-  const dropdownRows: DropdownTableRow[] = INITIAL_ROWS.map((row, i) => ({
-    ...row,
-    value: values[i],
-    onValueChange: (v) => setValues((prev) => ({ ...prev, [i]: v })),
-  }));
-
   return (
     <section className="mb-16">
       <SectionHeader>Tables</SectionHeader>
 
       <div className="space-y-12">
-        <div className="space-y-4">
-          <SpecNote title="Dropdown Table">
-            Two-column mapping table — pairs system column labels with a
-            user-selectable file column dropdown.
-          </SpecNote>
-          <DropdownTable rows={dropdownRows} />
-        </div>
-
         <div className="space-y-4">
           <SpecNote title="Data Table">
             Tabular data display with support for custom cell rendering,

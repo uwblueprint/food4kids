@@ -11,12 +11,16 @@ export interface Column<T> {
   render?: (row: T) => ReactNode;
   /** Per-cell className based on row data — use for error/warning cell states. */
   getCellClassName?: (row: T) => string | undefined;
+  /** Static className applied to the header <th> cell. */
+  headerClassName?: string;
 }
 
 export interface DataTableProps<T> {
   columns: Column<T>[];
   rows: T[];
   getRowKey: (row: T) => string | number;
+  /** Per-row className based on row data — use for error/warning row states. */
+  getRowClassName?: (row: T) => string | undefined;
   /** Rendered when rows is empty. */
   emptyState?: ReactNode;
   className?: string;
@@ -58,13 +62,14 @@ function DataTable<T>({
   columns,
   rows,
   getRowKey,
+  getRowClassName,
   emptyState,
   className,
 }: DataTableProps<T>) {
   return (
     <div
       className={cn(
-        'border-grey-300 overflow-hidden rounded-2xl border',
+        'border-grey-300 overflow-hidden rounded-2xl border bg-white px-6 py-3',
         className
       )}
     >
@@ -75,7 +80,10 @@ function DataTable<T>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="text-p2 px-4 py-3 text-left font-semibold whitespace-nowrap"
+                  className={cn(
+                    'text-p1 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
+                    col.headerClassName
+                  )}
                 >
                   {col.header}
                 </th>
@@ -90,12 +98,12 @@ function DataTable<T>({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={getRowKey(row)}>
+                <tr key={getRowKey(row)} className={getRowClassName?.(row)}>
                   {columns.map((col) => (
                     <td
                       key={col.key}
                       className={cn(
-                        'text-p2 text-grey-500 px-4 py-3 whitespace-nowrap',
+                        'text-p2 text-grey-500 px-4 py-2.5 whitespace-nowrap',
                         col.getCellClassName?.(row)
                       )}
                     >

@@ -7,15 +7,15 @@ import { cn } from '@/lib/utils';
 const searchBarVariants = cva(
   /* Base styles shared by all variants */
   [
-    'flex h-[44px] w-full items-center gap-2 rounded-lg px-3',
+    'flex min-w-90 items-center gap-2.5 rounded-full px-6 py-3 border border-grey-300 bg-white',
     'transition-colors',
-    'focus-within:border-blue-300 focus-within:ring-1 focus-within:ring-blue-300',
+    'focus-within:ring-1 focus-within:ring-blue-300',
   ],
   {
     variants: {
       variant: {
-        default: 'border border-grey-300 bg-grey-100',
-        filled: 'border border-grey-300 bg-grey-150',
+        default: 'bg-white',
+        filled: 'bg-grey-150',
       },
     },
     defaultVariants: {
@@ -41,7 +41,7 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
           src={searchIcon}
           alt=""
           aria-hidden="true"
-          className="h-[18px] w-[18px] shrink-0"
+          className="size-5 shrink-0 opacity-80"
         />
 
         {/* Input */}
@@ -50,7 +50,7 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
           type="search"
           className={cn(
             'h-full w-full bg-transparent outline-none',
-            'text-p2 text-grey-500 placeholder:text-p3 placeholder:text-grey-400',
+            'text-grey-500 placeholder:text-grey-400 text-lg placeholder:text-lg',
             // Remove default search input styling (x button, etc.)
             '[&::-webkit-search-cancel-button]:hidden',
             '[&::-webkit-search-decoration]:hidden',
