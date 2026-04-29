@@ -5,28 +5,20 @@ import {
   useId,
 } from 'react';
 
-import AlertTriangle from '@/assets/icons/alert-triangle.svg?react';
 import { cn } from '@/lib/utils';
 
-export interface TextFieldProps extends Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  'id'
-> {
-  /** Field label displayed above the input */
+import { Field, FieldDescription, FieldLabel } from './Field';
+import { Input } from './Input';
+
+export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label?: string;
-  /** Helper or info text below the input */
   helperText?: string;
-  /** Error message — replaces helperText and switches to error styling */
   error?: string;
   /** Non-editable info field: grey-150 bg, no border, read-only */
   info?: boolean;
-  /** Current character count (displayed as "count/max") */
   characterCount?: number;
-  /** Max characters allowed (used for display and threshold warning) */
   maxCharacters?: number;
-  /** Icon rendered inside the input on the right */
   trailingIcon?: ReactNode;
-  /** Override the auto-generated id */
   id?: string;
 }
 
@@ -42,62 +34,48 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
       trailingIcon,
       className,
       disabled,
+      required,
       id: idProp,
       ...props
     },
-    ref
+    ref,
   ) => {
     const autoId = useId();
     const id = idProp ?? autoId;
     const helperId = `${id}-helper`;
     const hasError = !!error;
 
-    // Character count threshold: red when ≥80% of max
     const isOverThreshold =
       characterCount !== undefined &&
       maxCharacters !== undefined &&
       characterCount >= maxCharacters * 0.8;
 
     return (
-      <div className={cn('flex w-full flex-col gap-1', className)}>
-        {/* Label */}
+      <Field className={className}>
         {label && (
-          <label
+          <FieldLabel
             htmlFor={id}
-            className={cn('text-p3 text-grey-400', disabled && 'opacity-50')}
+            required={required}
+            className={disabled ? 'opacity-50' : undefined}
           >
             {label}
-          </label>
+          </FieldLabel>
         )}
 
-        {/* Input */}
         <div className="relative">
-          <input
+          <Input
             ref={ref}
             id={id}
             disabled={disabled}
+            required={required}
             readOnly={info}
             maxLength={maxCharacters}
             aria-describedby={helperText || error ? helperId : undefined}
             aria-invalid={hasError || undefined}
             className={cn(
-              // Base
-              'text-p2 text-grey-400 placeholder:text-p2 placeholder:text-grey-400',
-              'w-full rounded-lg px-3 py-2',
-              'transition-colors',
-              // Default state — outline instead of border to match Figma
-              'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
-              // Focus / active
-              'focus:outline-2 focus:outline-blue-300',
-              // Error
               hasError && 'outline-red focus:outline-red',
-              // Info (non-editable)
               info && 'bg-grey-150 cursor-default outline-none',
-              // Disabled
-              disabled &&
-                'bg-grey-150 text-grey-400 cursor-not-allowed opacity-60',
-              // Make room for trailing icon
-              trailingIcon && 'pr-9'
+              trailingIcon && 'pr-9',
             )}
             {...props}
           />
@@ -108,42 +86,21 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           )}
         </div>
 
-        {/* Bottom row: helper/error text + character count */}
         <div className="flex items-start justify-between gap-2">
-          {/* Helper or error text */}
           {(helperText || error) && (
-            <div
-              id={helperId}
-              className={cn(
-                'text-p2 flex w-full items-center gap-1',
-                hasError ? 'text-red' : 'text-grey-400'
-              )}
-            >
-              {hasError && (
-                <AlertTriangle
-                  aria-hidden="true"
-                  className="text-red -mt-1 h-4 w-4 shrink-0"
-                />
-              )}
-              <span>{error ?? helperText}</span>
-            </div>
+            <FieldDescription id={helperId} error={hasError}>
+              {error ?? helperText}
+            </FieldDescription>
           )}
-
-          {/* Character count */}
           {maxCharacters !== undefined && (
-            <p
-              className={cn(
-                'text-p3 ml-auto shrink-0',
-                isOverThreshold ? 'text-red' : 'text-grey-400'
-              )}
-            >
+            <p className={cn('text-p3 ml-auto shrink-0', isOverThreshold ? 'text-red' : 'text-grey-400')}>
               {characterCount ?? 0}/{maxCharacters}
             </p>
           )}
         </div>
-      </div>
+      </Field>
     );
-  }
+  },
 );
 
 TextField.displayName = 'TextField';

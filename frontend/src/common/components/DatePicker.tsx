@@ -4,6 +4,7 @@ import CalendarIcon from '@/assets/icons/calendar.svg?react';
 import { cn } from '@/lib/utils';
 
 import { Calendar } from './Calendar';
+import { Input } from './Input';
 import {
   Popover,
   PopoverAnchor,
@@ -83,14 +84,15 @@ export function DatePicker({
             className,
           )}
         >
-          <input
+          <Input
             ref={inputRef}
             type="date"
             value={inputValue}
             onChange={handleInputChange}
             disabled={disabled}
             className={cn(
-              'min-w-0 flex-1 bg-transparent text-sm font-normal text-grey-500 outline-none',
+              'min-w-0 flex-1 w-auto bg-transparent px-0 py-0 outline-none focus:outline-0',
+              'disabled:bg-transparent disabled:opacity-100',
               '[&::-webkit-calendar-picker-indicator]:hidden',
               '[&::-webkit-datetime-edit-fields-wrapper]:p-0',
             )}

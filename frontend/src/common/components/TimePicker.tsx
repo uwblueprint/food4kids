@@ -3,6 +3,8 @@ import { useState } from 'react';
 import ClockIcon from '@/assets/icons/clock.svg?react';
 import { cn } from '@/lib/utils';
 
+import { Input } from './Input';
+
 interface TimePickerProps {
   value?: string;
   onChange?: (value: string | undefined) => void;
@@ -33,15 +35,16 @@ export function TimePicker({
         className
       )}
     >
-      <input
+      <Input
         type="time"
         value={value}
         onChange={handleChange}
         disabled={disabled}
         className={cn(
-          'text-grey-500 min-w-0 flex-1 bg-transparent text-sm font-normal outline-none',
+          'min-w-0 flex-1 w-auto bg-transparent px-0 py-0 outline-none focus:outline-0',
+          'disabled:bg-transparent disabled:opacity-100',
           '[&::-webkit-calendar-picker-indicator]:hidden',
-          '[&::-webkit-datetime-edit-fields-wrapper]:p-0'
+          '[&::-webkit-datetime-edit-fields-wrapper]:p-0',
         )}
       />
       <ClockIcon className="text-grey-400 size-4 shrink-0" />
