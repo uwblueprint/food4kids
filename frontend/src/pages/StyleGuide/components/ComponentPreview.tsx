@@ -1,8 +1,31 @@
-import { type ReactNode, useState } from 'react';
-import SyntaxHighlighter from 'react-syntax-highlighter';
-import { githubGist } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { type CSSProperties, type ReactNode, useState } from 'react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 import { cn } from '@/lib/utils';
+
+// githubGist palette mapped to Prism token names so we get consistent
+// highlighting on complex nested JSX (hljs's TSX tokenizer breaks on it)
+const githubGist: Record<string, CSSProperties> = {
+  'code[class*="language-"]': { color: '#24292e', background: 'none' },
+  'pre[class*="language-"]': { color: '#24292e', background: 'none' },
+  comment: { color: '#6a737d', fontStyle: 'italic' },
+  'block-comment': { color: '#6a737d', fontStyle: 'italic' },
+  keyword: { color: '#d73a49' },
+  boolean: { color: '#d73a49' },
+  operator: { color: '#d73a49' },
+  tag: { color: '#22863a' },
+  'class-name': { color: '#6f42c1' },
+  'maybe-class-name': { color: '#6f42c1' },
+  function: { color: '#6f42c1' },
+  string: { color: '#032f62' },
+  'attr-value': { color: '#032f62' },
+  regex: { color: '#032f62' },
+  'attr-name': { color: '#005cc5' },
+  number: { color: '#005cc5' },
+  builtin: { color: '#e36209' },
+  punctuation: { color: '#24292e' },
+  plain: { color: '#24292e' },
+};
 
 interface ComponentPreviewProps {
   /** The live component to render in the preview area */
