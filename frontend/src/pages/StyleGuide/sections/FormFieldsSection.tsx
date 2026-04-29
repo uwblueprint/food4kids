@@ -1,10 +1,10 @@
 import { type ReactNode, useState } from 'react';
 
 import { Dropdown } from '@/common/components/Dropdown';
+import { Field, FieldDescription, FieldLabel } from '@/common/components/Field';
 import { FilterChip, FilterChipGroup } from '@/common/components/FilterChip';
+import { Input } from '@/common/components/Input';
 import { SearchBar } from '@/common/components/SearchBar';
-import { TextField } from '@/common/components/TextField';
-
 import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
 import { SubsectionHeader } from '../components/SubsectionHeader';
@@ -90,7 +90,77 @@ export function FormFieldsSection() {
         </SpecNote>
       </div>
 
+      {/* ---- Primitives ---- */}
+      <SubsectionHeader>Primitives</SubsectionHeader>
+
+      <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
+        <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
+          {/* Left: individual pieces */}
+          <div className="space-y-8 p-6">
+            <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
+              Individual Pieces
+            </p>
+
+            <FormFieldDemo label="Input">
+              <Input placeholder="Enter text here" />
+            </FormFieldDemo>
+
+            <FormFieldDemo label="FieldLabel">
+              <FieldLabel>Label</FieldLabel>
+            </FormFieldDemo>
+
+            <FormFieldDemo label="FieldLabel — required">
+              <FieldLabel required>Label</FieldLabel>
+            </FormFieldDemo>
+
+            <FormFieldDemo label="FieldDescription — helper">
+              <FieldDescription>
+                Some information about the field
+              </FieldDescription>
+            </FormFieldDemo>
+
+            <FormFieldDemo label="FieldDescription — error">
+              <FieldDescription error>Something went wrong</FieldDescription>
+            </FormFieldDemo>
+          </div>
+
+          {/* Right: composed */}
+          <div className="space-y-8 p-6">
+            <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
+              Composed with Field
+            </p>
+
+            <FormFieldDemo label="Field + FieldLabel + Input (with description)">
+              <Field>
+                <FieldLabel htmlFor="sg-field-demo">API Key</FieldLabel>
+                <Input
+                  id="sg-field-demo"
+                  type="password"
+                  placeholder="sk-..."
+                  description="Your API key is stored securely."
+                />
+              </Field>
+            </FormFieldDemo>
+
+            <FormFieldDemo label="Field — required + error">
+              <Field>
+                <FieldLabel htmlFor="sg-field-error" required>
+                  Email
+                </FieldLabel>
+                <Input
+                  id="sg-field-error"
+                  placeholder="you@example.com"
+                  error="Please enter a valid email address."
+                />
+              </Field>
+            </FormFieldDemo>
+          </div>
+        </div>
+      </div>
+
       {/* ---- Text Field demos ---- */}
+      <SubsectionHeader>Text Field</SubsectionHeader>
+
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
         <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
           {/* Column 1: Desktop Text Field states */}
@@ -100,37 +170,50 @@ export function FormFieldsSection() {
             </p>
 
             <FormFieldDemo label="Default State">
-              <TextField
-                label="Label"
-                placeholder="Enter text here"
-                helperText="Some information about the field"
-              />
+              <Field>
+                <FieldLabel htmlFor="tf-default">Label</FieldLabel>
+                <Input
+                  id="tf-default"
+                  placeholder="Enter text here"
+                  description="Some information about the field"
+                />
+              </Field>
             </FormFieldDemo>
 
-            <FormFieldDemo label="Active State">
-              <TextField
-                label="Label"
-                placeholder="Enter text here"
-                helperText="Some information about the field"
-                className="[&_input]:border-blue-300 [&_input]:ring-1 [&_input]:ring-blue-300"
-              />
+            <FormFieldDemo label="Active State (simulated)">
+              <Field>
+                <FieldLabel htmlFor="tf-active">Label</FieldLabel>
+                <Input
+                  id="tf-active"
+                  placeholder="Enter text here"
+                  description="Some information about the field"
+                  className="outline-2 outline-blue-300"
+                />
+              </Field>
             </FormFieldDemo>
 
             <FormFieldDemo label="Error State">
-              <TextField
-                label="Label"
-                placeholder="Enter text here"
-                error="Some information about the field"
-              />
+              <Field>
+                <FieldLabel htmlFor="tf-error">Label</FieldLabel>
+                <Input
+                  id="tf-error"
+                  placeholder="Enter text here"
+                  error="Some information about the field"
+                />
+              </Field>
             </FormFieldDemo>
 
             <FormFieldDemo label="Disabled State">
-              <TextField
-                label="Label"
-                placeholder="Enter text here"
-                helperText="Some information about the field"
-                disabled
-              />
+              <Field>
+                <FieldLabel htmlFor="tf-disabled" className="opacity-50">
+                  Label
+                </FieldLabel>
+                <Input
+                  id="tf-disabled"
+                  placeholder="Enter text here"
+                  disabled
+                />
+              </Field>
             </FormFieldDemo>
           </div>
 
@@ -141,36 +224,39 @@ export function FormFieldsSection() {
             </p>
 
             <FormFieldDemo label="Default State">
-              <TextField
+              <Input
                 placeholder="Enter text here"
                 maxCharacters={100}
                 characterCount={0}
               />
             </FormFieldDemo>
 
-            <FormFieldDemo label="Filled-in State">
-              <TextField
+            <FormFieldDemo label="Filled-in State (threshold warning)">
+              <Input
                 value={filledText}
                 readOnly
                 maxCharacters={100}
-                characterCount={80}
+                characterCount={100}
               />
             </FormFieldDemo>
 
             <FormFieldDemo label="Interactive Demo">
-              <TextField
-                label="Label"
-                placeholder="Type to see character count..."
-                value={textValue}
-                onChange={(e) => setTextValue(e.target.value)}
-                maxCharacters={100}
-                characterCount={textValue.length}
-                helperText="Try typing 80+ characters"
-              />
+              <Field>
+                <FieldLabel htmlFor="tf-interactive">Label</FieldLabel>
+                <Input
+                  id="tf-interactive"
+                  placeholder="Type to see character count..."
+                  value={textValue}
+                  onChange={(e) => setTextValue(e.target.value)}
+                  maxCharacters={100}
+                  characterCount={textValue.length}
+                  description="Try typing 100+ characters"
+                />
+              </Field>
             </FormFieldDemo>
           </div>
 
-          {/* Column 3: Info Field (Non-editable) + Example */}
+          {/* Column 3: Info Field */}
           <div className="space-y-8 p-6">
             <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
               Info Field (Non-Editable)
@@ -178,11 +264,15 @@ export function FormFieldsSection() {
 
             <FormFieldDemo label="Info Field (White Background Added for Contrast)">
               <div className="rounded-lg bg-white p-4">
-                <TextField
-                  info
-                  label="Address"
-                  value="3245 Spruce Street West, Kitchener, ON, M1W 1X1"
-                />
+                <Field>
+                  <FieldLabel htmlFor="tf-info">Address</FieldLabel>
+                  <Input
+                    id="tf-info"
+                    value="3245 Spruce Street West, Kitchener, ON, M1W 1X1"
+                    readOnly
+                    className="bg-grey-150 cursor-default outline-none"
+                  />
+                </Field>
               </div>
             </FormFieldDemo>
           </div>

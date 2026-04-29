@@ -5,6 +5,7 @@ export { Banner } from './Banner';
 export { Button } from './Button';
 export { Field, FieldLabel, FieldDescription } from './Field';
 export { Input } from './Input';
+export type { InputProps } from './Input';
 export { Card } from './Card';
 export type { Column, DataTableProps } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
@@ -13,7 +14,6 @@ export type { DropdownOption } from './Dropdown';
 export { FilterChip, FilterChipGroup } from './FilterChip';
 export { SearchBar } from './SearchBar';
 export { Tag } from './Tag';
-export { TextField } from './TextField';
 export { FileInput } from './FileInput';
 export {
   Modal,
