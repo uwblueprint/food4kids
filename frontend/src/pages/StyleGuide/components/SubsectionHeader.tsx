@@ -2,9 +2,9 @@ import { type ReactNode } from 'react';
 
 export function SubsectionHeader({ children }: { children: ReactNode }) {
   return (
-    <>
-      <h3 className="mt-10 mb-1">{children}</h3>
-      <hr className="border-grey-300 mb-6" />
-    </>
+    <div className="mt-10 mb-4">
+      <h2 className="mb-3">{children}</h2>
+      <hr className="border-grey-300" />
+    </div>
   );
 }

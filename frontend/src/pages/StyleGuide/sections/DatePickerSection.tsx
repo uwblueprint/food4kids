@@ -2,8 +2,21 @@ import { useState } from 'react';
 
 import { DatePicker } from '@/common/components/DatePicker';
 
+import { ComponentPreview } from '../components/ComponentPreview';
+import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
+
+const DATE_PICKER_CONTROLLED_CODE = `import { useState } from 'react';
+import { DatePicker } from '@/common/components';
+
+const [date, setDate] = useState<Date | undefined>(new Date());
+
+<DatePicker value={date} onChange={setDate} />`;
+
+const DATE_PICKER_DISABLED_CODE = `import { DatePicker } from '@/common/components';
+
+<DatePicker disabled />`;
 
 export function DatePickerSection() {
   const [controlled, setControlled] = useState<Date | undefined>(new Date());
@@ -11,6 +24,12 @@ export function DatePickerSection() {
   return (
     <section className="mb-16">
       <SectionHeader>Date Picker</SectionHeader>
+      <SectionDescription>
+        Combines a text input with a calendar popover for structured date entry.
+        The browser's native date picker indicator is hidden in favor of a
+        custom calendar icon trigger. Supports uncontrolled (defaults to today)
+        and controlled usage.
+      </SectionDescription>
 
       <div className="mb-10 space-y-6">
         <SpecNote title="Input + Popover">
@@ -18,51 +37,28 @@ export function DatePickerSection() {
           popover triggered by the calendar icon. The browser's native picker
           indicator is hidden.
         </SpecNote>
-
-        <SpecNote title="Default Value">
-          When no value is provided, the picker defaults to today's date. The
-          calendar popover opens to the month matching the current input value.
-        </SpecNote>
-
-        <SpecNote title="Focus & Border">
+        <SpecNote title="Focus &amp; Border">
           The wrapper outline turns Blue/300 (2px) when the input is focused or
           the calendar popover is open.
         </SpecNote>
       </div>
 
-      <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
-        <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
-          <div className="flex flex-col gap-4 p-6">
-            <p className="text-p3 font-semibold tracking-wider text-blue-300 uppercase">
-              Uncontrolled (Default Today)
-            </p>
-            <DatePicker />
-            <p className="text-p3 text-grey-400">
-              No value prop — defaults to today internally.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4 p-6">
-            <p className="text-p3 font-semibold tracking-wider text-blue-300 uppercase">
-              Controlled
-            </p>
+      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
+        Usage
+      </p>
+      <div className="space-y-6">
+        <ComponentPreview title="Controlled" code={DATE_PICKER_CONTROLLED_CODE}>
+          <div className="flex flex-col items-center gap-3">
             <DatePicker value={controlled} onChange={setControlled} />
             <p className="text-p3 text-grey-400">
-              Controlled:{' '}
-              {controlled ? controlled.toLocaleDateString() : 'None'}
+              Selected: {controlled ? controlled.toLocaleDateString() : 'None'}
             </p>
           </div>
+        </ComponentPreview>
 
-          <div className="flex flex-col gap-4 p-6">
-            <p className="text-p3 font-semibold tracking-wider text-blue-300 uppercase">
-              Disabled
-            </p>
-            <DatePicker disabled />
-            <p className="text-p3 text-grey-400">
-              Input and calendar icon both disabled.
-            </p>
-          </div>
-        </div>
+        <ComponentPreview title="Disabled" code={DATE_PICKER_DISABLED_CODE}>
+          <DatePicker disabled />
+        </ComponentPreview>
       </div>
     </section>
   );

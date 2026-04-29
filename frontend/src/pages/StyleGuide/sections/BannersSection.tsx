@@ -1,27 +1,73 @@
 import { Banner } from '@/common/components';
 
+import { ComponentPreview } from '../components/ComponentPreview';
+import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+
+const BANNER_SUCCESS_CODE = `import { Banner } from '@/common/components';
+
+<Banner
+  variant="success"
+  subtitle="Generated on Oct 20, 2025 at 10:42 AM"
+>
+  Routes generated successfully!
+</Banner>`;
+
+const BANNER_ERROR_CODE = `import { Banner } from '@/common/components';
+
+<Banner variant="error">
+  Unsupported format — please upload an Excel (.xlsx) file
+</Banner>`;
+
+const BANNER_WARNING_CODE = `import { Banner } from '@/common/components';
+
+<Banner variant="warning">
+  Warning — These entries will be skipped unless corrected.
+</Banner>`;
 
 export function BannersSection() {
   return (
     <section className="mb-16">
       <SectionHeader>Banners</SectionHeader>
+      <SectionDescription>
+        System-level alerts for user feedback and notifications. Three variants
+        cover the full range of feedback scenarios: success, error, and warning.
+        Banners support an optional{' '}
+        <code className="text-p2 rounded bg-grey-150 px-1">subtitle</code> and a
+        dismiss button via the{' '}
+        <code className="text-p2 rounded bg-grey-150 px-1">onDismiss</code> prop.
+      </SectionDescription>
 
+      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
+        Usage
+      </p>
       <div className="space-y-6">
-        <Banner
-          variant="success"
-          subtitle="Generated on Oct 20, 2025 at 10:42 AM"
-        >
-          Routes generated successfully!
-        </Banner>
+        <ComponentPreview title="Success" code={BANNER_SUCCESS_CODE} previewClassName="min-h-24 flex items-center justify-center p-6">
+          <div className="w-full max-w-2xl">
+            <Banner
+              variant="success"
+              subtitle="Generated on Oct 20, 2025 at 10:42 AM"
+            >
+              Routes generated successfully!
+            </Banner>
+          </div>
+        </ComponentPreview>
 
-        <Banner variant="error">
-          Unsupported format — please upload an Excel (.xlsx) file
-        </Banner>
+        <ComponentPreview title="Error" code={BANNER_ERROR_CODE} previewClassName="min-h-24 flex items-center justify-center p-6">
+          <div className="w-full max-w-2xl">
+            <Banner variant="error">
+              Unsupported format — please upload an Excel (.xlsx) file
+            </Banner>
+          </div>
+        </ComponentPreview>
 
-        <Banner variant="warning">
-          Warning — These entries will be skipped unless corrected.
-        </Banner>
+        <ComponentPreview title="Warning" code={BANNER_WARNING_CODE} previewClassName="min-h-24 flex items-center justify-center p-6">
+          <div className="w-full max-w-2xl">
+            <Banner variant="warning">
+              Warning — These entries will be skipped unless corrected.
+            </Banner>
+          </div>
+        </ComponentPreview>
       </div>
     </section>
   );

@@ -1,39 +1,65 @@
 import { StatisticsCard } from '@/common/components';
 
+import { ComponentPreview } from '../components/ComponentPreview';
+import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
 import { SpecNote } from '../components/SpecNote';
+
+const STATISTICS_CARD_CODE = `import { StatisticsCard } from '@/common/components';
+
+<StatisticsCard
+  color="green"
+  label="Routes Created"
+  value={3}
+  character="granny"
+/>`;
 
 export function StatisticsCardSection() {
   return (
     <section className="mb-16">
       <SectionHeader>Statistics Card</SectionHeader>
+      <SectionDescription>
+        Displays a key metric with a label, value, illustrated character, and
+        colored background. Used to summarize results at a glance, e.g. on the
+        route generation success screen.
+      </SectionDescription>
 
       <div className="mb-10 space-y-6">
-        <SpecNote title="Usage">
-          Displays a key metric with a label, value, illustrated character, and
-          colored background. Used on the route generation success screen to
-          summarize results at a glance.
-        </SpecNote>
-
         <SpecNote title="Color Variants">
-          Four background colors are available: green (Brand Green), blue (Brand
-          Light Blue), orange (Brand Orange), and pink (Brand Pink).
+          Four background colors: green (Brand Green), blue (Brand Light Blue),
+          orange (Brand Orange), and pink (Brand Pink).
         </SpecNote>
-
         <SpecNote title="Character Variants">
-          Five characters can be placed on each card: boy, boyPointing,
-          girlConfused, girlSearching, and granny. The character peeks up from
-          the bottom-right edge of the card.
+          Five characters: boy, boyPointing, girlConfused, girlSearching, and
+          granny. The character peeks up from the bottom-right edge of the card.
         </SpecNote>
-
         <SpecNote title="Sizing">
           Cards are full-width within their container. Use a flex/grid layout to
           place them side by side.
         </SpecNote>
       </div>
 
-      <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
-        <div className="flex flex-col gap-8 p-6">
+      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
+        Usage
+      </p>
+      <div className="mb-8">
+        <ComponentPreview title="Basic" code={STATISTICS_CARD_CODE}>
+          <div className="w-48">
+            <StatisticsCard
+              color="green"
+              label="Routes Created"
+              value={3}
+              character="granny"
+            />
+          </div>
+        </ComponentPreview>
+      </div>
+
+      <p className="text-p3 mb-2 font-semibold tracking-wider text-grey-400 uppercase">
+        States
+      </p>
+      <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border p-6">
+        <div className="flex flex-col gap-8">
           <div>
             <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
               Color Variants
@@ -48,7 +74,7 @@ export function StatisticsCardSection() {
 
           <div>
             <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
-              Character Variants (all on green)
+              Character Variants
             </p>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
               <StatisticsCard color="green" label="Boy" value="—" character="boy" />
