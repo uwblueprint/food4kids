@@ -6,6 +6,7 @@ import {
   Button,
   DataTable,
   DatePicker,
+  Input,
   Modal,
   ModalContent,
   ModalDescription,
@@ -13,7 +14,6 @@ import {
   ModalHeader,
   ModalTitle,
   Dropdown,
-  TextField,
   TimePicker,
 } from '@/common/components';
 import type { Column, DropdownOption } from '@/common/components';
@@ -161,18 +161,23 @@ export function ConfigureStep() {
       key: 'route_count',
       header: 'Route Count',
       render: (row) => (
-        <TextField
-          type="number"
-          value={row.form.route_count ?? ''}
-          placeholder="0"
-          onChange={(e) =>
-            updateEntry(row.delivery_group, {
-              route_count: e.target.value === '' ? undefined : Number(e.target.value),
-            })
-          }
-          trailingIcon={<EditIcon className="size-4" />}
-          className="w-24"
-        />
+        <div className="relative w-24">
+          <Input
+            type="number"
+            value={row.form.route_count ?? ''}
+            placeholder="0"
+            onChange={(e) =>
+              updateEntry(row.delivery_group, {
+                route_count:
+                  e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+            className="px-3 py-2"
+          />
+          <div className="text-grey-400 pointer-events-none absolute inset-y-0 right-3 flex items-center">
+            <EditIcon className="size-4" />
+          </div>
+        </div>
       ),
     },
     {

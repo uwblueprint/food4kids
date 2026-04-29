@@ -77,13 +77,13 @@ export function RouteGroupsTab({
           </Button>
         </div>
         <div className="flex items-center gap-4">
-            <Button variant="primary" asChild>
-              <Link to="/admin/routes/generation">Generate Routes</Link>
-            </Button>
-            <Button variant="primary" shape="circular">
-              <ShareIcon className="size-5" />
-            </Button>
-          </div>
+          <Button variant="primary" asChild>
+            <Link to="/admin/routes/generation">Generate Routes</Link>
+          </Button>
+          <Button variant="primary" shape="circular">
+            <ShareIcon className="size-5" />
+          </Button>
+        </div>
       </div>
 
       <DataTable
