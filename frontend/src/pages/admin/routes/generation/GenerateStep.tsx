@@ -5,6 +5,10 @@ import {
   Banner,
   Button,
   Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
   Progress,
   Spinner,
   StatisticsCard,
@@ -77,25 +81,22 @@ export function GenerateStep() {
 
   return (
     <>
-      <Card className="flex flex-col gap-6 px-8 pt-6 pb-8">
-        {/* Header */}
-        <div className="flex flex-col gap-1">
-          <h2 className="text-grey-500">Route Generation</h2>
-          <p className="font-nunito-sans text-grey-500 text-lg">
-            Creating optimized delivery routes.
-          </p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Route Generation</CardTitle>
+          <CardDescription>Creating optimized delivery routes.</CardDescription>
+        </CardHeader>
 
         {/* Loading content */}
-        <div className="flex flex-col items-center gap-12">
+        <CardContent className="flex flex-col items-center gap-12 pt-6">
           {/* Spinner + text */}
           <div className="flex flex-col items-center gap-6">
             <Spinner size="lg" />
             <div className="flex flex-col items-center gap-1 text-center">
-              <p className="font-nunito-sans text-grey-500 text-base font-bold">
+              <p className="text-grey-500 text-base font-bold">
                 Generating Routes
               </p>
-              <p className="font-nunito-sans text-grey-500 text-base">
+              <p className="text-grey-500 text-base">
                 This may take up to 5 minutes...
               </p>
             </div>
@@ -104,11 +105,11 @@ export function GenerateStep() {
           {/* Progress */}
           <div className="flex flex-col items-center gap-2">
             <Progress value={percent} className="h-2 w-80" />
-            <p className="font-nunito-sans text-grey-500 text-sm">
+            <p className="text-grey-500 text-sm">
               {MOCK_COMPLETED}/{MOCK_TOTAL} route groups completed
             </p>
           </div>
-        </div>
+        </CardContent>
       </Card>
     </>
   );

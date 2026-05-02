@@ -64,7 +64,7 @@ function FileInput({
       />
       <ShareIcon className="text-grey-400 size-11" />
       <div className="space-y-1 text-center">
-        <p className="font-nunito text-h2 font-bold">
+        <p className="text-h2 font-bold">
           <span className="text-blue-300">Click to upload</span>{' '}
           <span className="text-grey-500">or drag and drop</span>
         </p>

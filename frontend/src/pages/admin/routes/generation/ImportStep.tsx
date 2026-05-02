@@ -7,6 +7,10 @@ import {
   Banner,
   Button,
   Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
   DataTable,
   Dropdown,
   DropdownContent,
@@ -171,18 +175,20 @@ export function ImportStep() {
       )}
 
       {/* Import Data Card */}
-      <Card className="flex flex-col gap-4 p-6">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-grey-500">Import Data</h2>
-          <p className="text-p1 text-grey-500">
+      <Card>
+        <CardHeader>
+          <CardTitle>Import Data</CardTitle>
+          <CardDescription>
             Upload an Excel file (.xlsx) with delivery information
-          </p>
-        </div>
-        <FileInput
-          onFileSelect={handleFileSelect}
-          selectedFile={file}
-          onClearFile={handleClearFile}
-        />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FileInput
+            onFileSelect={handleFileSelect}
+            selectedFile={file}
+            onClearFile={handleClearFile}
+          />
+        </CardContent>
       </Card>
 
       {/* Map Columns Table */}

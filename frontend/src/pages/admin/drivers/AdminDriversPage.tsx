@@ -4,7 +4,7 @@ import DownloadIcon from '@/assets/icons/download.svg?react';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
-import { Account, Button, Card, SearchBar } from '@/common/components';
+import { Account, Button, Card, CardContent, SearchBar } from '@/common/components';
 import { useSearch } from '@/common/hooks';
 
 import { AssignRouteModal } from './components';
@@ -31,26 +31,28 @@ export const AdminDriversPage = () => {
       </div>
 
       <Card>
-        <div className="mb-5 flex items-center justify-between">
-          <SearchBar
-            placeholder="Search for a driver"
-            {...search}
-            wrapperClassName="w-64"
-          />
-          <div className="flex items-center gap-4">
-            <Button
-              variant="primary"
-              shape="circular"
-              onClick={() => setAssignDialogOpen(true)}
-            >
-              <PlusIcon className="size-5" />
-            </Button>
-            <Button variant="primary" shape="circular">
-              <DownloadIcon className="size-5" />
-            </Button>
+        <CardContent className="pt-6">
+          <div className="mb-5 flex items-center justify-between">
+            <SearchBar
+              placeholder="Search for a driver"
+              {...search}
+              wrapperClassName="w-64"
+            />
+            <div className="flex items-center gap-4">
+              <Button
+                variant="primary"
+                shape="circular"
+                onClick={() => setAssignDialogOpen(true)}
+              >
+                <PlusIcon className="size-5" />
+              </Button>
+              <Button variant="primary" shape="circular">
+                <DownloadIcon className="size-5" />
+              </Button>
+            </div>
           </div>
-        </div>
-        <div>TODO</div>
+          <div>TODO</div>
+        </CardContent>
       </Card>
 
       <AssignRouteModal

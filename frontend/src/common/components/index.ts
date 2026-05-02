@@ -4,7 +4,7 @@
 export { Account } from './Account';
 export { Banner } from './Banner';
 export { Button } from './Button';
-export { Card } from './Card';
+export { Card, CardContent, CardDescription, CardHeader, CardTitle } from './Card';
 export type { Column, DataTableProps } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
 export { DatePicker } from './DatePicker';
