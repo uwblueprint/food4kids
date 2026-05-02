@@ -28,7 +28,7 @@ export function ErrorScreen({
           aria-hidden
           className="mb-3 h-60 w-full object-contain"
         />
-        <h2 className="font-nunito text-grey-500 mb-5 text-center text-3xl leading-10 font-bold">
+        <h2 className="text-grey-500 mb-5 text-center text-3xl leading-10 font-bold">
           {title}
         </h2>
         {children}

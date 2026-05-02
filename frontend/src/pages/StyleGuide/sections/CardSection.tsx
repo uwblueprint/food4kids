@@ -1,17 +1,26 @@
-import { Card } from '@/common/components';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/common/components';
 
 import { ComponentPreview } from '../components/ComponentPreview';
 import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
 import { SectionLabel } from '../components/SectionLabel';
 
-const CARD_CODE = `import { Card } from '@/common/components';
+const CARD_CODE = `import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/common/components';
 
 <Card>
-  <h3 className="font-semibold">Card Title</h3>
-  <p className="text-p2 text-grey-500">
-    Card description or content goes here.
-  </p>
+  <CardHeader>
+    <CardTitle>Card Title</CardTitle>
+    <CardDescription>Card description or content goes here.</CardDescription>
+  </CardHeader>
+  <CardContent>
+    {/* main content */}
+  </CardContent>
 </Card>`;
 
 export function CardSection() {
@@ -20,19 +29,26 @@ export function CardSection() {
       <SectionHeader>Card</SectionHeader>
       <SectionDescription>
         A surface container with rounded corners and a drop shadow for grouping
-        related content. Cards accept any children and support a{' '}
-        <code className="text-p2 bg-grey-150 rounded px-1">className</code>{' '}
-        override for custom sizing and layout.
+        related content. Compose with{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">CardHeader</code>,{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">CardTitle</code>,{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">CardDescription</code>
+        , and{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">CardContent</code>{' '}
+        for structured layouts.
       </SectionDescription>
 
       <SectionLabel>Usage</SectionLabel>
       <ComponentPreview title="Basic Card" code={CARD_CODE}>
         <div className="w-full max-w-sm">
           <Card>
-            <h3 className="font-semibold">Card Title</h3>
-            <p className="text-p2 text-grey-500">
-              Card description or content goes here.
-            </p>
+            <CardHeader>
+              <CardTitle>Card Title</CardTitle>
+              <CardDescription>Card description or content goes here.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-p2 text-grey-400">Main content goes here.</p>
+            </CardContent>
           </Card>
         </div>
       </ComponentPreview>

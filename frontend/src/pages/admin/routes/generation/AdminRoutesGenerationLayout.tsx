@@ -47,12 +47,12 @@ export function AdminRoutesGenerationLayout() {
         <div className="flex items-center gap-1">
           <Link
             to="/admin/routes"
-            className="font-nunito text-h1 text-grey-400 cursor-pointer font-bold"
+            className="text-h1 text-grey-400 cursor-pointer font-bold"
           >
             Routes
           </Link>
           <ChevronRightIcon className="text-grey-400 size-8 shrink-0" />
-          <span className="font-nunito text-h1 text-grey-500 font-bold">
+          <span className="text-h1 text-grey-500 font-bold">
             Route Generation
           </span>
         </div>

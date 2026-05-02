@@ -61,9 +61,7 @@ function StatisticsCard({
         {/* Text */}
         <div className="relative flex flex-col justify-center gap-0.5">
           <p className="text-p1 text-grey-100 font-bold">{label}</p>
-          <p className="font-nunito text-grey-100 text-3xl leading-10 font-bold">
-            {value}
-          </p>
+          <p className="text-grey-100 text-3xl leading-10 font-bold">{value}</p>
         </div>
       </div>
 
