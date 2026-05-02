@@ -4,7 +4,13 @@ import DownloadIcon from '@/assets/icons/download.svg?react';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
-import { Account, Button, Card, CardContent, SearchBar } from '@/common/components';
+import {
+  Account,
+  Button,
+  Card,
+  CardContent,
+  SearchBar,
+} from '@/common/components';
 import { useSearch } from '@/common/hooks';
 
 import { AssignRouteModal } from './components';
@@ -31,7 +37,7 @@ export const AdminDriversPage = () => {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           <div className="mb-5 flex items-center justify-between">
             <SearchBar
               placeholder="Search for a driver"

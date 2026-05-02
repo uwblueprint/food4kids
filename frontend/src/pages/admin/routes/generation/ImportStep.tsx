@@ -182,7 +182,7 @@ export function ImportStep() {
             Upload an Excel file (.xlsx) with delivery information
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <FileInput
             onFileSelect={handleFileSelect}
             selectedFile={file}

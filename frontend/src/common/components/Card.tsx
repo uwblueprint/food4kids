@@ -62,7 +62,7 @@ function CardContent({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('flex-1 pt-4', className)} {...props}>
+    <div className={cn('flex-1', className)} {...props}>
       {children}
     </div>
   );
