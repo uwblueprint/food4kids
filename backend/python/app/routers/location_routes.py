@@ -1,6 +1,7 @@
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_location_service
@@ -8,11 +9,16 @@ from app.models import get_session
 from app.models.location import (
     LocationCreate,
     LocationImportResponse,
+    LocationIngestRequest,
+    LocationIngestResponse,
     LocationRead,
     LocationUpdate,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
-from app.services.implementations.location_service import LocationService
+from app.services.implementations.location_service import (
+    DEFAULT_COLUMN_MAP,
+    LocationService,
+)
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -161,14 +167,48 @@ async def delete_location(
 )
 async def validate_locations(
     file: UploadFile = File(...),
+    column_map: str | None = Form(None),
     location_service: LocationService = Depends(get_location_service),
 ) -> LocationImportResponse:
     """
-    Validate location import data (no missing fields or local duplicates)
+    Validate location import data. Accepts an optional column_map JSON string
+    mapping system field names to file column headers. Falls back to DEFAULT_COLUMN_MAP.
     """
     try:
-        result = await location_service.validate_locations(file)
+        parsed_map: dict[str, str] = DEFAULT_COLUMN_MAP
+        if column_map:
+            try:
+                parsed_map = json.loads(column_map)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid column_map JSON: {e}") from e
+        result = await location_service.validate_locations(file, parsed_map)
         return result
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        ) from ve
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+
+@router.post(
+    "/ingest",
+    response_model=LocationIngestResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def ingest_locations(
+    request: LocationIngestRequest,
+    session: AsyncSession = Depends(get_session),
+    location_service: LocationService = Depends(get_location_service),
+) -> LocationIngestResponse:
+    """
+    Persist net-new locations and archive stale ones.
+    """
+    try:
+        return await location_service.ingest_locations(session, request)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

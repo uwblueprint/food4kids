@@ -1,20 +1,57 @@
 import { Tag } from '@/common/components';
 
+import { ComponentPreview } from '../components/ComponentPreview';
+import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
+
+const TAG_STATUS_CODE = `import { Tag } from '@/common/components';
+
+<div className="flex gap-3">
+  <Tag variant="success">DeliveriesData.xlsx</Tag>
+  <Tag variant="success" onRemove={() => {}}>
+    DeliveriesData.xlsx
+  </Tag>
+  <Tag variant="error">Missing Address</Tag>
+</div>`;
+
+const TAG_STATE_CODE = `import { Tag } from '@/common/components';
+
+<div className="flex gap-3">
+  <Tag variant="primary">New</Tag>
+  <Tag variant="secondary">Edited</Tag>
+</div>`;
 
 export function TagsSection() {
   return (
     <section className="mb-16">
       <SectionHeader>Tags</SectionHeader>
+      <SectionDescription>
+        Small inline labels for status display and categorization. Four variants
+        cover the full range of intent — success and error for state feedback,
+        primary for new items, and secondary for edited ones. Add an{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">onRemove</code>{' '}
+        handler to show a dismiss button for user-removable selections.
+      </SectionDescription>
 
+      <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
-        <div className="flex flex-wrap gap-3">
-          <Tag variant="success">DeliveriesData.xlsx</Tag>
-          <Tag variant="success" onRemove={() => {}}>
-            DeliveriesData.xlsx
-          </Tag>
-          <Tag variant="error">Missing Address</Tag>
-        </div>
+        <ComponentPreview title="Status Tags" code={TAG_STATUS_CODE}>
+          <div className="flex flex-wrap gap-3">
+            <Tag variant="success">DeliveriesData.xlsx</Tag>
+            <Tag variant="success" onRemove={() => {}}>
+              DeliveriesData.xlsx
+            </Tag>
+            <Tag variant="error">Missing Address</Tag>
+          </div>
+        </ComponentPreview>
+
+        <ComponentPreview title="State Tags" code={TAG_STATE_CODE}>
+          <div className="flex gap-3">
+            <Tag variant="primary">New</Tag>
+            <Tag variant="secondary">Edited</Tag>
+          </div>
+        </ComponentPreview>
       </div>
     </section>
   );

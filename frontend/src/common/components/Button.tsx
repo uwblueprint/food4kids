@@ -10,7 +10,7 @@ const buttonVariants = cva(
     'inline-flex items-center justify-center gap-2',
     'transition-colors duration-150 ease-in-out',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300',
-    'disabled:pointer-events-none disabled:opacity-50',
+    'disabled:pointer-events-none disabled:bg-grey-400 disabled:text-grey-200 disabled:border-transparent',
     'cursor-pointer',
     '[&_svg]:pointer-events-none [&_svg]:shrink-0',
   ],
@@ -22,11 +22,13 @@ const buttonVariants = cva(
           'bg-grey-200 text-grey-500 border border-grey-300 hover:bg-grey-300',
         tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
         textLink: 'bg-transparent text-blue-300 hover:underline',
+        ghost: 'bg-transparent text-grey-500 hover:bg-grey-200',
+        destructive: 'bg-red text-light-red hover:opacity-90',
       },
       shape: {
         default: [
           'font-nunito text-h3',
-          'h-[44px] min-w-[104px] px-6 rounded-[40px]',
+          'h-[44px] min-w-[104px] px-6 py-2 rounded-[40px]',
           'w-full md:w-auto',
         ],
         circular: 'size-[44px] rounded-full',
@@ -70,4 +72,4 @@ function Button({
   );
 }
 
-export { Button };
+export { Button, buttonVariants };
