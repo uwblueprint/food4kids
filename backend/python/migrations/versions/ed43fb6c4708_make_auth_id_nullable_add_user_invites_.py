@@ -1,17 +1,16 @@
 """make auth_id nullable + add user_invites table
 
 Revision ID: ed43fb6c4708
-Revises: 8b03ae4022cd
+Revises: d3f1a2b4c5e6
 Create Date: 2026-04-07 23:44:29.308591
 
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'ed43fb6c4708'
-down_revision = '8b03ae4022cd'
+down_revision = 'd3f1a2b4c5e6'
 branch_labels = None
 depends_on = None
 
