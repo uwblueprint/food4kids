@@ -118,10 +118,6 @@ class TestDriverRoutes:
             ),
             patch("sqlalchemy.ext.asyncio.AsyncSession.commit", new_callable=AsyncMock),
             patch(
-                "sqlalchemy.ext.asyncio.AsyncSession.begin_nested",
-                new_callable=AsyncMock,
-            ),
-            patch(
                 "app.services.implementations.user_invite_service.UserInviteService.get_user_invite_by_id",
                 return_value=fake_user_invite,
             ),
@@ -131,7 +127,7 @@ class TestDriverRoutes:
             ),
         ):
             user_finalize_data = {
-                "user_invite_id": str(uuid4()),
+                "user_invite_id": str(fake_user_invite.user_invite_id),
                 "password": "testing123",
             }
             response = await async_client.post(
