@@ -6,7 +6,7 @@ import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.user import User, UserCreate, UserUpdate
+from app.models.user import User, UserBase, UserUpdate
 
 if TYPE_CHECKING:
     from firebase_admin.auth import UserRecord
@@ -82,46 +82,56 @@ class UserService:
     async def create_user(
         self,
         session: AsyncSession,
-        user_data: UserCreate,
+        user_data: UserBase,
     ) -> User:
-        """Create new user with Firebase integration"""
+        """Create new user without Firebase integration"""
+        # Create database user
+        user = User(
+            name=user_data.name,
+            email=user_data.email,
+            auth_id=None,
+        )
+
+        session.add(user)
+        await session.flush()
+        return user
+
+    async def link_firebase_to_user(
+        self,
+        session: AsyncSession,
+        user: User,
+        password: str,
+    ) -> User:
+        """Create associated firebase user for an existing user in our DB"""
         firebase_user: UserRecord | None = None
 
         try:
-            # Create Firebase user
+            # Create Firebase user and set role
             firebase_user = firebase_admin.auth.create_user(
-                email=user_data.email, password=user_data.password
+                email=user.email,
+                password=password,
+                email_verified=True,
+            )
+            firebase_admin.auth.set_custom_user_claims(
+                firebase_user.uid, {"role": user.role}
             )
 
-            # Create database user
-            if firebase_user is None:
-                raise Exception("Failed to create Firebase user")
+            # Update user
+            user.auth_id = firebase_user.uid
 
-            user = User(
-                name=user_data.name,
-                email=user_data.email,
-                auth_id=firebase_user.uid,
-            )
+            await session.flush()
+            return user
 
-            try:
-                session.add(user)
-                await session.commit()
-                await session.refresh(user)
-                return user
-
-            except Exception as db_error:
-                # Rollback Firebase user creation
+        except Exception as db_error:
+            # Rollback Firebase user creation
+            if firebase_user:
                 try:
                     firebase_admin.auth.delete_user(firebase_user.uid)
                 except Exception as firebase_error:
                     self.logger.error(
                         f"Failed to rollback Firebase user: {firebase_error!s}"
                     )
-                raise db_error
-
-        except Exception as e:
-            self.logger.error(f"Failed to create user: {e!s}")
-            raise e
+            raise db_error
 
     async def update_user_by_id(
         self, session: AsyncSession, user_id: UUID, user_data: UserUpdate
@@ -177,29 +187,23 @@ class UserService:
                 self.logger.error(f"User with id {user_id} not found")
                 return
 
-            # Store for rollback
-            user_data = {
-                "name": user.name,
-                "email": user.email,
-                "auth_id": user.auth_id,
-                "role": user.role,
-            }
+            auth_id = user.auth_id
 
             await session.delete(user)
+
+            # Delete from Firebase if not in hanging state
+            if auth_id:
+                try:
+                    firebase_admin.auth.delete_user(auth_id)
+                except Exception as firebase_error:
+                    # Rollback database deletion
+                    await session.rollback()
+                    raise firebase_error
+
             await session.commit()
 
-            # Delete from Firebase
-            try:
-                firebase_admin.auth.delete_user(user.auth_id)
-
-            except Exception as firebase_error:
-                # Rollback database deletion
-                new_user = User(**user_data)
-                session.add(new_user)
-                await session.commit()
-                raise firebase_error
-
         except Exception as e:
+            await session.rollback()
             self.logger.error(f"Failed to delete user: {e!s}")
             raise e
 

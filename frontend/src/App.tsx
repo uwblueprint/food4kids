@@ -7,6 +7,7 @@ import {
   AdminRoutesPage,
   AdminSettingsPage,
 } from './pages/admin';
+import { CreatePassword, LoginPage } from './pages/auth';
 import { DriverHomePage } from './pages/driver';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { StyleGuidePage } from './pages/StyleGuide';
@@ -37,6 +38,10 @@ function App() {
 
         {/* Dev-only: test image upload route */}
         <Route path="/test-image-upload" element={<TestImageUpload />} />
+
+        {/* Login Routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/create-password/:token" element={<CreatePassword />} />
 
         {/* Dev-only: style guide is not accessible in production */}
         {import.meta.env.DEV && (
