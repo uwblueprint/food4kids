@@ -179,7 +179,7 @@ async def complete_driver_registration(
     Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
     """
     try:
-        async with session.begin():
+        async with session.begin_nested():
             # Validate invite token
             user_invite_id = registration_data.user_invite_id
             user_invite = await user_invite_service.get_user_invite_by_id(
@@ -203,6 +203,8 @@ async def complete_driver_registration(
             )
 
             user_invite.is_used = True
+
+        await session.commit()
 
         # Generate authentication tokens
         auth_dto, refresh_token = await auth_service.generate_token(
