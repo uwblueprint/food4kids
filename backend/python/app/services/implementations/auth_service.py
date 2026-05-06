@@ -152,34 +152,6 @@ class AuthService:
             )
             raise e
 
-    # def send_email_verification_link(self, email: str) -> None:
-    #     if not self.email_service:
-    #         error_message = """
-    #             Attempted to call send_email_verification_link but this instance of AuthService
-    #             does not have an EmailService instance
-    #             """
-    #         self.logger.error(error_message)
-    #         raise Exception(error_message)
-
-    #     try:
-    #         verification_link = firebase_admin.auth.generate_email_verification_link(
-    #             email
-    #         )
-    #         email_body = f"""
-    #             Hello,
-    #             <br><br>
-    #             Please click the following link to verify your email and activate your account.
-    #             <strong>This link is only valid for 1 hour.</strong>
-    #             <br><br>
-    #             <a href={verification_link}>Verify email</a>
-    #             """
-    #         self.email_service.send_email(email, "Verify your email", email_body)
-    #     except Exception as e:
-    #         self.logger.error(
-    #             f"Failed to generate email verification link for user with email {email}."
-    #         )
-    #         raise e
-
     async def is_authorized_by_role(
         self, _session: AsyncSession, access_token: str, roles: set[str]
     ) -> bool:

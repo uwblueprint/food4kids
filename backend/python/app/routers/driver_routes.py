@@ -138,6 +138,9 @@ async def initialize_driver(
                 session, user_invite_create
             )
 
+        await session.commit()
+        await session.refresh(created_driver)
+
         # Send invitation email
         auth_service.send_create_password_email(
             register_request.email, user_invite.user_invite_id
@@ -176,27 +179,30 @@ async def complete_driver_registration(
     Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
     """
     try:
-        # Validate invite token
-        user_invite_id = registration_data.user_invite_id
-        user_invite = await user_invite_service.get_user_invite_by_id(
-            session, user_invite_id
-        )
-
-        if (
-            not user_invite
-            or user_invite.is_used
-            or user_invite.expires_at < datetime.now(timezone.utc)
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid or expired registration link.",
+        async with session.begin():
+            # Validate invite token
+            user_invite_id = registration_data.user_invite_id
+            user_invite = await user_invite_service.get_user_invite_by_id(
+                session, user_invite_id
             )
 
-        # Create Firebase account for user
-        user = user_invite.user
-        await user_service.link_firebase_to_user(
-            session, user, registration_data.password
-        )
+            if (
+                not user_invite
+                or user_invite.is_used
+                or user_invite.expires_at < datetime.now(timezone.utc)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Invalid or expired registration link.",
+                )
+
+            # Create Firebase account for user
+            user = user_invite.user
+            await user_service.link_firebase_to_user(
+                session, user, registration_data.password
+            )
+
+            user_invite.is_used = True
 
         # Generate authentication tokens
         auth_dto, refresh_token = await auth_service.generate_token(
@@ -229,103 +235,6 @@ async def complete_driver_registration(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_message if error_message else str(e),
         ) from e
-
-
-# @router.post(
-#     "/", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
-# )
-# async def register_driver(
-#     register_request: DriverRegister,
-#     response: Response,
-#     session: AsyncSession = Depends(get_session),
-#     auth_service: AuthService = Depends(get_auth_service),
-#     user_service: UserService = Depends(get_user_service),
-# ) -> DriverRegisterResponse:
-#     """
-#     Register a new driver in our backend, creates a User and Driver object, returns DriverRead
-#     """
-#     user = None
-#     firebase_auth_id = None
-
-#     try:
-#         # Create user first
-#         user_data = register_request.model_dump(
-#             include=set(UserCreate.model_fields.keys())
-#         )
-#         user_create = UserCreate(**user_data)
-#         user = await user_service.create_user(session, user_create)
-#         firebase_auth_id = user.auth_id
-
-#         # Set custom claims on Firebase user
-#         firebase_admin.auth.set_custom_user_claims(user.auth_id, {"role": user.role})
-
-#         # Create driver after
-#         driver_data = register_request.model_dump(
-#             include=set(DriverCreate.model_fields.keys())
-#         )
-#         driver_data["user_id"] = user.user_id
-#         driver = DriverCreate(**driver_data)
-#         created_driver = await driver_service.create_driver(session, driver)
-
-#         # Generate authentication tokens
-#         auth_dto, refresh_token = await auth_service.generate_token(
-#             session, register_request.email, register_request.password
-#         )
-
-#         # Send email verification link
-#         auth_service.send_email_verification_link(register_request.email)
-
-#         # Set refresh token as httpOnly cookie
-#         cookie_options = get_cookie_options()
-#         response.set_cookie(
-#             "refreshToken",
-#             value=refresh_token,
-#             httponly=bool(cookie_options["httponly"]),
-#             samesite=cast(
-#                 "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
-#             ),
-#             secure=bool(cookie_options["secure"]),
-#         )
-
-#         return DriverRegisterResponse(
-#             driver=DriverRead.model_validate(created_driver), auth=auth_dto
-#         )
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         # Compensating transaction: rollback all changes
-#         logger.error(f"Error registering driver: {e}")
-#         logger.error(traceback.format_exc())
-
-#         # Attempt to clean up database user (which also attempts Firebase cleanup)
-#         db_cleanup_failed = False
-#         if user:
-#             try:
-#                 await user_service.delete_user_by_id(
-#                     session=session, user_id=user.user_id
-#                 )
-#             except Exception as db_error:
-#                 logger.error(f"Failed to rollback database user: {db_error}")
-#                 db_cleanup_failed = True
-
-#         # If database cleanup failed and we have a Firebase auth_id, attempt direct Firebase cleanup
-#         # This ensures Firebase user is deleted even if database cleanup failed
-#         if db_cleanup_failed and firebase_auth_id:
-#             try:
-#                 firebase_admin.auth.delete_user(firebase_auth_id)
-#                 logger.info(
-#                     f"Successfully deleted Firebase user {firebase_auth_id} via direct cleanup"
-#                 )
-#             except Exception as firebase_error:
-#                 logger.error(
-#                     f"Failed to rollback Firebase user via direct cleanup: {firebase_error}"
-#                 )
-
-#         error_message = getattr(e, "message", None)
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=error_message if error_message else str(e),
-#         ) from e
 
 
 @router.put("/{driver_id}", response_model=DriverRead)
