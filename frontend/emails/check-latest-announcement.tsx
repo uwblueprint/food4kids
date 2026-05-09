@@ -32,7 +32,7 @@ export default function CheckLatestAnnouncementsEmail() {
             Please check the driver board to read the full update.
         </Text>
 
-        <Section className="text-center mt-[32px] mb-[32px]">
+        <Section className="text-center mt-[32px] mb-[18px]">
           <Button 
           // REPLACE THIS WITH ACTUAL URL (unless we want to Rick Roll recipients...)
           href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" 

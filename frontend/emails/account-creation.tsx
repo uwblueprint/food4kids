@@ -20,7 +20,7 @@ export default function AccountCreationEmail() {
         <Text className="text-[16px] text-grey-500">
             You've been invited to create your account. Click the button below to set your password.
         </Text>
-        <Section className="text-center mt-[16px] mb-[32px]">
+        <Section className="text-center mt-[30px] mb-[32px]">
           <Button 
             // REPLACE THIS WITH ACTUAL URL (unless we want to Rick Roll recipients...)
             href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" 
@@ -30,7 +30,7 @@ export default function AccountCreationEmail() {
           </Button>
         </Section>
 
-        <Text className="text-[14px] text-grey-400 m-0 mb-[14px] leading-[18px]">
+        <Text className="text-[14px] text-grey-400 m-0 mb-[4px] leading-[18px]">
           This link will expire in 2 hours. If you're not an F4K Waterloo driver, please disregard this message.
         </Text>
       </Section>

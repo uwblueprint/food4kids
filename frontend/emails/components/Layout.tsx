@@ -49,9 +49,9 @@ export default function F4KEmailLayout({
         }}
       >
         <Body className="bg-grey-200 font-nunito text-grey-500 m-0 p-0">
-          <Container className="mx-[200px] my-[100px] max-w-[540px]">
+          <Container className="mx-auto my-[100px] max-w-[540px]">
             {/* Main email structure */}
-            <Section className="bg-grey-100 overflow-hidden rounded-lg">
+            <Section className="bg-grey-100 overflow-hidden rounded-lg mb-[38px]">
               {/* Top Card: Logo Header */}
               <Section className="bg-grey-100 py-[30px] text-center">
                 <Img
@@ -92,56 +92,56 @@ export default function F4KEmailLayout({
             {/* Footer */}
             <Section className="mt-[32px] text-center">
               {/* Social Media Icons Row */}
-              <Section className="mb-[16px]">
+              <Section className="mb-[19px]">
                 <Link
                   href="https://facebook.com/Food4KidsWR"
-                  className="mx-[8px] inline-block"
+                  className="inline-block"
                 >
                   <Img
                     src="/static/facebook.png"
-                    width="24"
-                    height="24"
+                    width="30"
+                    height="30"
                     alt="Facebook"
                   />
                 </Link>
                 <Link
                   href="https://instagram.com/food4kidswr"
-                  className="mx-[8px] inline-block"
+                  className="inline-block mx-[22px]"
                 >
                   <Img
-                    src="https://static.xx.fbcdn.net/rsrc.php/yr/r/e0S_nAdcU32.webp"
-                    width="24"
-                    height="24"
+                    src="/static/instagram.png"
+                    width="30"
+                    height="30"
                     alt="Instagram"
                   />
                 </Link>
                 <Link
                   href="https://twitter.com/food4kidsWR"
-                  className="mx-[8px] inline-block"
+                  className="inline-block"
                 >
                   <Img
                     src="/static/x-logo.png"
-                    width="24"
-                    height="24"
+                    width="30"
+                    height="30"
                     alt="X"
                   />
                 </Link>
               </Section>
 
               {/* Address and Website URL */}
-              <Text className="font-nunito-sans text-grey-400 font-normal m-0 text-[14px] leading-[18px]">
+              <Text className="font-nunito-sans text-grey-400 font-normal m-0 mb-[22px] text-[14px] leading-[18px]">
                 food4kidswr.ca
-                <br />
-                <br />
-                330 Trillium Dr., Unit B Kitchener ON N2E 3J2
+              </Text>
+              <Text className="font-nunito-sans text-grey-400 font-normal m-0 mb-[30px] text-[14px] leading-[18px]">
+                330 Trillium Dr, Unit B Kitchener ON N2E 3J2
               </Text>
 
               {/* Small Footer Logo */}
               <Section className="mt-[24px]">
                 <Img
-                  src="/static/f4k_logo_footer.png"
-                  alt="Food4Kids Mark"
-                  width="50"
+                  src="/static/f4k_full_logo_clear_bg.png"
+                  alt="Food4Kids Waterloo Region"
+                  width="125"
                   className="mx-auto"
                 />
               </Section>
