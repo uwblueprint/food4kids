@@ -13,7 +13,7 @@ export default function ResetPasswordEmail() {
         </Heading>
         
         <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
-            Hi {"[Driver Name]"},
+            Hi Driver_Name_To_Replace,
         </Text>
         <Text className="text-[16px] text-grey-500 leading-[24px]">
             We received a request to reset the password for your Food4Kids account. Click the button below to set a new password.

@@ -14,7 +14,7 @@ export default function CheckLatestAnnouncementsEmail() {
         </Heading>
         
         <Text className="text-[16px] leading-[24px] text-grey-500 m-0 mb-[24px]">
-            Hi {"[Driver Name]"},
+            Hi Driver_Name_To_Replace,
         </Text>
         <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
             There's a new announcement from the Food4Kids team:
@@ -22,10 +22,10 @@ export default function CheckLatestAnnouncementsEmail() {
 
         <Section className="border-l-[4px] border-solid border-grey-300 pl-[22px] mb-[48px]">
           <Text className="text-[16px] text-grey-500 m-0">
-            <strong>[ANNOUNCEMENT NAME]</strong>
+            <strong>Announcement_Name</strong>
           </Text>
           <Text className="text-[16px] text-grey-500 m-0">
-            [ANNOUNCEMENT BODY]
+            Announcement_Body
           </Text>
         </Section>
         <Text className="text-[16px] text-grey-500 m-0">

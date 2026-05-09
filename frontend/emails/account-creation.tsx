@@ -12,7 +12,7 @@ export default function AccountCreationEmail() {
           Create your driver account
         </Heading>
         <Text className="text-[16px] leading-[24px] text-grey-500 m-0 mb-[24px]">
-          Hi {"[Driver Name]"},
+          Hi Driver_Name_To_Replace,
         </Text>
         <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
             Thank you for volunteering as a driver for Food4Kids!

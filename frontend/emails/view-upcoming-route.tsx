@@ -13,7 +13,7 @@
             </Heading>
             
             <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
-                Hi {"[Driver Name]"},
+                Hi Driver_Name_To_Replace,
             </Text>
             <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
                 This is a reminder that you have an upcoming delivery route scheduled:
@@ -21,13 +21,13 @@
             <ul className="m-0 mb-[24px] pl-[24px] font-nunito-sans text-[16px] leading-[24px] text-grey-500">
 
             <li className="">
-                <strong>Date:</strong> [DATE]
+                <strong>Date:</strong> Date_To_Replace
             </li>
             <li className="">
-                <strong>Start Time:</strong> [TIME]
+                <strong>Start Time:</strong> Time_To_Replace
             </li>
             <li className="">
-                <strong>Route Duration:</strong> [KMS]
+                <strong>Route Duration:</strong> Route_Duration_To_Replace
             </li>
             
             </ul>
