@@ -1,7 +1,7 @@
-import { Button, Heading, Img, Section,Text } from "@react-email/components";
+import { Button, Heading, Section, Text } from "@react-email/components";
 import * as React from "react";
 
-import F4KEmailLayout from "./components/Layout";
+import F4KEmailLayout from "./components/F4KEmailLayout";
 
 export default function CheckLatestAnnouncementsEmail() {
   return (

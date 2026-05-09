@@ -1,9 +1,8 @@
-    import { Button, Heading, Img, Section,Text } from "@react-email/components";
-    import * as React from "react";
+import { Button, Heading, Section,Text } from "@react-email/components";
 
-    import F4KEmailLayout from "./components/Layout";
+import F4KEmailLayout from "./components/F4KEmailLayout";
 
-    export default function ViewUpcomingRouteEmail() {
+export default function ViewUpcomingRouteEmail() {
     return (
         <F4KEmailLayout previewText="View Your Upcoming F4K Route">
 
@@ -19,17 +18,15 @@
                 This is a reminder that you have an upcoming delivery route scheduled:
             </Text>
             <ul className="m-0 mb-[24px] pl-[24px] font-nunito-sans text-[16px] leading-[24px] text-grey-500">
-
-            <li className="">
-                <strong>Date:</strong> Date_To_Replace
-            </li>
-            <li className="">
-                <strong>Start Time:</strong> Time_To_Replace
-            </li>
-            <li className="">
-                <strong>Route Duration:</strong> Route_Duration_To_Replace
-            </li>
-            
+                <li className="">
+                    <strong>Date:</strong> Date_To_Replace
+                </li>
+                <li className="">
+                    <strong>Start Time:</strong> Time_To_Replace
+                </li>
+                <li className="">
+                    <strong>Route Duration:</strong> Route_Duration_To_Replace
+                </li>
             </ul>
             <Text className="text-[16px] text-grey-500">
                 You can review all stops, delivery instructions, and contact details using the button below.
@@ -52,4 +49,4 @@
         
         </F4KEmailLayout>
     );
-    }
+}
