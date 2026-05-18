@@ -45,9 +45,7 @@ EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "test_locations.csv")
 
 # Driver history covers MONTHS_PAST..MONTHS_FUTURE around today.
-_MIN_HISTORY_YEAR = (
-    datetime.now() - timedelta(days=seed_module.MONTHS_PAST * 31)
-).year
+_MIN_HISTORY_YEAR = (datetime.now() - timedelta(days=seed_module.MONTHS_PAST * 31)).year
 _MAX_HISTORY_YEAR = (
     datetime.now() + timedelta(days=seed_module.MONTHS_FUTURE * 31)
 ).year
@@ -138,7 +136,10 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
     (DriverAssignment, ["driver_id", "route_id", "route_group_id"]),
     (DriverHistory, ["driver_id", "year", "month", "km"]),
     (Job, ["route_group_id", "progress", "started_at"]),
-    (SystemSettings, ["warehouse_location", "warehouse_latitude", "warehouse_longitude"]),
+    (
+        SystemSettings,
+        ["warehouse_location", "warehouse_latitude", "warehouse_longitude"],
+    ),
     (Admin, ["user_id", "admin_phone"]),
 ]
 
@@ -178,9 +179,7 @@ class TestDataCounts:
     async def test_location_group_count_matches_schedule(
         self, seeded_session: AsyncSession
     ) -> None:
-        groups = (
-            await seeded_session.execute(select(LocationGroup))
-        ).scalars().all()
+        groups = (await seeded_session.execute(select(LocationGroup))).scalars().all()
         assert len(groups) == len(seed_module.LOCATION_GROUP_SCHEDULE), (
             "Location group count should match LOCATION_GROUP_SCHEDULE keys"
         )
@@ -193,8 +192,7 @@ class TestDataCounts:
         # is unconditionally MIN_DRIVERS.
         drivers = (await seeded_session.execute(select(Driver))).scalars().all()
         assert len(drivers) >= seed_module.MIN_DRIVERS, (
-            f"Expected at least {seed_module.MIN_DRIVERS} drivers, "
-            f"got {len(drivers)}"
+            f"Expected at least {seed_module.MIN_DRIVERS} drivers, got {len(drivers)}"
         )
 
 
@@ -203,9 +201,7 @@ class TestDataValidation:
     """Seeded data satisfies business validation rules."""
 
     @pytest.mark.asyncio
-    async def test_phone_numbers_are_e164(
-        self, seeded_session: AsyncSession
-    ) -> None:
+    async def test_phone_numbers_are_e164(self, seeded_session: AsyncSession) -> None:
         drivers = (await seeded_session.execute(select(Driver))).scalars().all()
         for driver in drivers:
             assert driver.phone.startswith("+"), (
@@ -258,9 +254,7 @@ class TestDataValidation:
     async def test_driver_history_years_in_range(
         self, seeded_session: AsyncSession
     ) -> None:
-        history = (
-            await seeded_session.execute(select(DriverHistory))
-        ).scalars().all()
+        history = (await seeded_session.execute(select(DriverHistory))).scalars().all()
         assert history, "No driver history seeded"
         for entry in history:
             assert _MIN_HISTORY_YEAR <= entry.year <= _MAX_HISTORY_YEAR, (
@@ -269,13 +263,11 @@ class TestDataValidation:
             )
 
     @pytest.mark.asyncio
-    async def test_timestamps_populated(
-        self, seeded_session: AsyncSession
-    ) -> None:
+    async def test_timestamps_populated(self, seeded_session: AsyncSession) -> None:
         for model in (Location, Driver, Route):
             rows = (
-                await seeded_session.execute(select(model).limit(5))
-            ).scalars().all()
+                (await seeded_session.execute(select(model).limit(5))).scalars().all()
+            )
             for row in rows:
                 assert row.created_at is not None, (
                     f"{model.__name__} {row} should have created_at"
@@ -299,12 +291,16 @@ class TestRouteStopSequence:
 
         for route in routes:
             stops = (
-                await seeded_session.execute(
-                    select(RouteStop)
-                    .where(RouteStop.route_id == route.route_id)
-                    .order_by(RouteStop.stop_number)
+                (
+                    await seeded_session.execute(
+                        select(RouteStop)
+                        .where(RouteStop.route_id == route.route_id)
+                        .order_by(RouteStop.stop_number)
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             assert stops, f"Route {route.route_id} should have stops"
 
             stop_numbers = [stop.stop_number for stop in stops]
