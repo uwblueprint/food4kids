@@ -14,7 +14,8 @@ marked ``slow`` because each one pays a full seed cycle.
 
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
 from unittest.mock import patch
 
 import phonenumbers
@@ -41,11 +42,11 @@ EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "test_locations.csv")
 
-# Driver history covers MONTHS_PAST..MONTHS_FUTURE around today.
-_MIN_HISTORY_YEAR = (datetime.now() - timedelta(days=seed_module.MONTHS_PAST * 31)).year
-_MAX_HISTORY_YEAR = (
-    datetime.now() + timedelta(days=seed_module.MONTHS_FUTURE * 31)
-).year
+# Driver history spans current_year-HISTORY_YEARS_BACK..current_year,
+# clamped to >= 2025 by the seed itself (seed_database.py:764).
+_CURRENT_YEAR = datetime.now().year
+_MIN_HISTORY_YEAR = max(2025, _CURRENT_YEAR - seed_module.HISTORY_YEARS_BACK)
+_MAX_HISTORY_YEAR = _CURRENT_YEAR
 
 
 def _run_seed_script() -> None:
@@ -71,7 +72,7 @@ def _run_seed_script() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _seed_database(test_db_engine) -> None:  # noqa: ARG001
+def _seed_database(test_db_engine: Any) -> None:  # noqa: ARG001
     """Run the seed script once per test, after the shared engine fixture has
     reset tables. The ``test_db_engine`` parameter establishes the fixture
     dependency so the drop/create cycle completes before seeding.
@@ -130,7 +131,7 @@ class TestSeedScriptExecution:
         model: type,
         required_fields: list[str],
     ) -> None:
-        rows = (await test_session.execute(select(model))).scalars().all()
+        rows: list[Any] = (await test_session.execute(select(model))).scalars().all()
         assert len(rows) > 0, f"No {model.__name__} rows were created"
 
         first = rows[0]
@@ -257,7 +258,7 @@ class TestRouteStopSequence:
                     await test_session.execute(
                         select(RouteStop)
                         .where(RouteStop.route_id == route.route_id)
-                        .order_by(RouteStop.stop_number)
+                        .order_by("stop_number")
                     )
                 )
                 .scalars()
