@@ -7,23 +7,20 @@ These tests verify that the seeding script:
 3. Produces data that satisfies business validation rules
 4. Wires up route-stop sequence invariants correctly
 
-The seed script is expensive to run, so each test class shares a single
-seeded database via class-scoped fixtures defined below. Tests are marked
-``slow`` because each class still pays a full seed + table reset.
+Every test re-runs the synchronous ``seed_database.main()`` and verifies
+against the async ``test_session`` fixture from ``conftest.py``. Tests are
+marked ``slow`` because each one pays a full seed cycle.
 """
 
 import os
 import re
-from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
-from typing import Any
 from unittest.mock import patch
 
 import phonenumbers
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlmodel import SQLModel, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 import app.seed_database as seed_module
 from app.models.admin import Admin
@@ -73,40 +70,13 @@ def _run_seed_script() -> None:
         seed_module.main()
 
 
-@pytest_asyncio.fixture(scope="class")
-async def seeded_engine() -> AsyncGenerator[Any, None]:
-    """Class-scoped engine that resets tables and runs the seed once per class.
-
-    Tests in a class share the same seeded database — they only read, so
-    sharing is safe and saves ~4x on seed cycles.
+@pytest.fixture(autouse=True)
+def _seed_database(test_db_engine) -> None:  # noqa: ARG001
+    """Run the seed script once per test, after the shared engine fixture has
+    reset tables. The ``test_db_engine`` parameter establishes the fixture
+    dependency so the drop/create cycle completes before seeding.
     """
-    database_url = os.getenv(
-        "TEST_DATABASE_URL",
-        "postgresql+asyncpg://postgres:postgres@db:5432/f4k_test",
-    )
-    engine = create_async_engine(database_url, echo=False)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
-        await conn.run_sync(SQLModel.metadata.create_all)
-
     _run_seed_script()
-
-    yield engine
-
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
-    await engine.dispose()
-
-
-@pytest_asyncio.fixture(scope="function")
-async def seeded_session(seeded_engine: Any) -> AsyncGenerator[AsyncSession, None]:
-    """Per-test session against the class-scoped seeded database."""
-    factory = async_sessionmaker(
-        seeded_engine, class_=AsyncSession, expire_on_commit=False
-    )
-    async with factory() as session:
-        yield session
 
 
 # (model, [required_fields]) — covers every entity the seed populates.
@@ -156,11 +126,11 @@ class TestSeedScriptExecution:
     )
     async def test_entity_populated_with_required_fields(
         self,
-        seeded_session: AsyncSession,
+        test_session: AsyncSession,
         model: type,
         required_fields: list[str],
     ) -> None:
-        rows = (await seeded_session.execute(select(model))).scalars().all()
+        rows = (await test_session.execute(select(model))).scalars().all()
         assert len(rows) > 0, f"No {model.__name__} rows were created"
 
         first = rows[0]
@@ -177,20 +147,18 @@ class TestDataCounts:
 
     @pytest.mark.asyncio
     async def test_location_group_count_matches_schedule(
-        self, seeded_session: AsyncSession
+        self, test_session: AsyncSession
     ) -> None:
-        groups = (await seeded_session.execute(select(LocationGroup))).scalars().all()
+        groups = (await test_session.execute(select(LocationGroup))).scalars().all()
         assert len(groups) == len(seed_module.LOCATION_GROUP_SCHEDULE), (
             "Location group count should match LOCATION_GROUP_SCHEDULE keys"
         )
 
     @pytest.mark.asyncio
-    async def test_driver_count_meets_minimum(
-        self, seeded_session: AsyncSession
-    ) -> None:
+    async def test_driver_count_meets_minimum(self, test_session: AsyncSession) -> None:
         # Seed uses `max(routes_created, MIN_DRIVERS)`, so the lower bound
         # is unconditionally MIN_DRIVERS.
-        drivers = (await seeded_session.execute(select(Driver))).scalars().all()
+        drivers = (await test_session.execute(select(Driver))).scalars().all()
         assert len(drivers) >= seed_module.MIN_DRIVERS, (
             f"Expected at least {seed_module.MIN_DRIVERS} drivers, got {len(drivers)}"
         )
@@ -201,8 +169,8 @@ class TestDataValidation:
     """Seeded data satisfies business validation rules."""
 
     @pytest.mark.asyncio
-    async def test_phone_numbers_are_e164(self, seeded_session: AsyncSession) -> None:
-        drivers = (await seeded_session.execute(select(Driver))).scalars().all()
+    async def test_phone_numbers_are_e164(self, test_session: AsyncSession) -> None:
+        drivers = (await test_session.execute(select(Driver))).scalars().all()
         for driver in drivers:
             assert driver.phone.startswith("+"), (
                 f"Driver phone {driver.phone} should be E.164"
@@ -211,7 +179,7 @@ class TestDataValidation:
                 phonenumbers.parse(driver.phone, None)
             ), f"Driver phone {driver.phone} should parse as valid"
 
-        locations = (await seeded_session.execute(select(Location))).scalars().all()
+        locations = (await test_session.execute(select(Location))).scalars().all()
         for location in locations:
             assert location.phone_number.startswith("+"), (
                 f"Location phone {location.phone_number} should be E.164"
@@ -220,7 +188,7 @@ class TestDataValidation:
                 phonenumbers.parse(location.phone_number, None)
             ), f"Location phone {location.phone_number} should parse as valid"
 
-        admins = (await seeded_session.execute(select(Admin))).scalars().all()
+        admins = (await test_session.execute(select(Admin))).scalars().all()
         for admin in admins:
             assert admin.admin_phone.startswith("+"), (
                 f"Admin phone {admin.admin_phone} should be E.164"
@@ -231,9 +199,9 @@ class TestDataValidation:
 
     @pytest.mark.asyncio
     async def test_email_addresses_match_pattern(
-        self, seeded_session: AsyncSession
+        self, test_session: AsyncSession
     ) -> None:
-        users = (await seeded_session.execute(select(User))).scalars().all()
+        users = (await test_session.execute(select(User))).scalars().all()
         assert users, "Expected at least one user"
         for user in users:
             assert EMAIL_PATTERN.match(user.email), (
@@ -241,10 +209,8 @@ class TestDataValidation:
             )
 
     @pytest.mark.asyncio
-    async def test_route_lengths_non_negative(
-        self, seeded_session: AsyncSession
-    ) -> None:
-        routes = (await seeded_session.execute(select(Route))).scalars().all()
+    async def test_route_lengths_non_negative(self, test_session: AsyncSession) -> None:
+        routes = (await test_session.execute(select(Route))).scalars().all()
         for route in routes:
             assert route.length >= 0, (
                 f"Route {route.route_id} length {route.length} should be non-negative"
@@ -252,9 +218,9 @@ class TestDataValidation:
 
     @pytest.mark.asyncio
     async def test_driver_history_years_in_range(
-        self, seeded_session: AsyncSession
+        self, test_session: AsyncSession
     ) -> None:
-        history = (await seeded_session.execute(select(DriverHistory))).scalars().all()
+        history = (await test_session.execute(select(DriverHistory))).scalars().all()
         assert history, "No driver history seeded"
         for entry in history:
             assert _MIN_HISTORY_YEAR <= entry.year <= _MAX_HISTORY_YEAR, (
@@ -263,11 +229,9 @@ class TestDataValidation:
             )
 
     @pytest.mark.asyncio
-    async def test_timestamps_populated(self, seeded_session: AsyncSession) -> None:
+    async def test_timestamps_populated(self, test_session: AsyncSession) -> None:
         for model in (Location, Driver, Route):
-            rows = (
-                (await seeded_session.execute(select(model).limit(5))).scalars().all()
-            )
+            rows = (await test_session.execute(select(model).limit(5))).scalars().all()
             for row in rows:
                 assert row.created_at is not None, (
                     f"{model.__name__} {row} should have created_at"
@@ -283,16 +247,14 @@ class TestRouteStopSequence:
     does not enforce. (Pure FK existence is covered by Postgres itself.)"""
 
     @pytest.mark.asyncio
-    async def test_route_stops_are_sequential(
-        self, seeded_session: AsyncSession
-    ) -> None:
-        routes = (await seeded_session.execute(select(Route))).scalars().all()
+    async def test_route_stops_are_sequential(self, test_session: AsyncSession) -> None:
+        routes = (await test_session.execute(select(Route))).scalars().all()
         assert routes, "Need at least one route to test stops"
 
         for route in routes:
             stops = (
                 (
-                    await seeded_session.execute(
+                    await test_session.execute(
                         select(RouteStop)
                         .where(RouteStop.route_id == route.route_id)
                         .order_by(RouteStop.stop_number)
