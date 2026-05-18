@@ -15,13 +15,16 @@ marked ``slow`` because each one pays a full seed cycle.
 import os
 import re
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import phonenumbers
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 import app.seed_database as seed_module
 from app.models.admin import Admin
@@ -131,7 +134,9 @@ class TestSeedScriptExecution:
         model: type,
         required_fields: list[str],
     ) -> None:
-        rows: list[Any] = (await test_session.execute(select(model))).scalars().all()
+        rows: Sequence[Any] = (
+            (await test_session.execute(select(model))).scalars().all()
+        )
         assert len(rows) > 0, f"No {model.__name__} rows were created"
 
         first = rows[0]
