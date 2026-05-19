@@ -15,8 +15,11 @@ export function IllustrationsSection() {
             file: 'boy-edge-case-with-questions.png',
             label: 'boy-edge-case-with-questions',
           },
+          { file: 'boy-pointing.png', label: 'boy-pointing' },
+          { file: 'boy-announcing.png', label: 'boy-announcing' },
           { file: 'girl-403.png', label: 'girl-403' },
           { file: 'girl-confused.png', label: 'girl-confused' },
+          { file: 'girl-searching.png', label: 'girl-searching' },
           { file: 'granny.png', label: 'granny' },
         ].map(({ file, label }) => (
           <div

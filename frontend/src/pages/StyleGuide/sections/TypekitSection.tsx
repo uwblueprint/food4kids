@@ -17,22 +17,16 @@ export function TypekitSection() {
               Sans is used for Paragraph text.
             </p>
             <div className="space-y-3">
-              <p className="font-nunito text-grey-500 text-xl font-extrabold">
+              <p className="text-grey-500 text-xl font-extrabold">
                 Nunito ExtraBold
               </p>
-              <p className="font-nunito text-grey-500 text-xl font-bold">
-                Nunito Bold
-              </p>
-              <p className="font-nunito text-grey-500 text-xl font-semibold">
+              <p className="text-grey-500 text-xl font-bold">Nunito Bold</p>
+              <p className="text-grey-500 text-xl font-semibold">
                 Nunito SemiBold
               </p>
-              <p className="font-nunito text-grey-500 text-xl font-medium">
-                Nunito Medium
-              </p>
-              <p className="font-nunito-sans text-grey-500 text-xl">
-                Nunito Sans Regular
-              </p>
-              <p className="font-nunito-sans text-grey-500 text-xl font-light">
+              <p className="text-grey-500 text-xl font-medium">Nunito Medium</p>
+              <p className="text-grey-500 text-xl">Nunito Sans Regular</p>
+              <p className="text-grey-500 text-xl font-light">
                 Nunito Sans Light
               </p>
             </div>
@@ -47,45 +41,45 @@ export function TypekitSection() {
               <TypekitRow
                 as="h1"
                 label="Desktop/Heading/H1"
-                className="font-nunito text-h1 text-grey-500 font-bold"
+                className="text-h1 text-grey-500 font-bold"
                 spec="Nunito | Text size: 32px | Line height: 44px"
                 code="<h1>"
               />
               <TypekitRow
                 as="h2"
                 label="Desktop/Heading/H2"
-                className="font-nunito text-h2 text-grey-500 font-semibold"
+                className="text-h2 text-grey-500 font-semibold"
                 spec="Nunito | Text size: 20px | Line height: 28px"
                 code="<h2>"
               />
               <TypekitRow
                 as="h3"
                 label="Desktop/Heading/H3"
-                className="font-nunito-sans text-h3 text-grey-500 font-bold"
+                className="text-h3 text-grey-500 font-bold"
                 spec="Nunito Sans | Text size: 16px | Line height: 20px"
                 code="<h3>"
               />
               <TypekitRow
                 label="Desktop/Paragraph/P1"
-                className="font-nunito-sans text-grey-500 text-[var(--text-p1)]"
+                className="text-grey-500 text-[var(--text-p1)]"
                 spec="Nunito Sans | Text size: 16px | Line height: 20px"
                 code="text-p1"
               />
               <TypekitRow
                 label="Desktop/Paragraph/P2"
-                className="font-nunito-sans text-grey-500 text-[var(--text-p2)]"
+                className="text-grey-500 text-[var(--text-p2)]"
                 spec="Nunito Sans | Text size: 14px | Line height: 18px"
                 code="text-p2"
               />
               <TypekitRow
                 label="Desktop/Paragraph/P3"
-                className="font-nunito-sans text-grey-500 text-[var(--text-p3)]"
+                className="text-grey-500 text-[var(--text-p3)]"
                 spec="Nunito Sans | Text size: 12px | Line height: 18px"
                 code="text-p3"
               />
               <TypekitRow
                 label="UI/Button"
-                className="font-nunito text-h3 text-grey-500 font-bold"
+                className="text-h3 text-grey-500 font-bold"
                 spec="Nunito | Text size: 16px | Line height: 20px"
                 code="font-nunito font-bold"
               />
@@ -106,21 +100,21 @@ export function TypekitSection() {
               <TypekitRow
                 as="h1"
                 label="Mobile/Heading/H1"
-                className="font-nunito text-m-h1 text-grey-500 font-bold"
+                className="text-m-h1 text-grey-500 font-bold"
                 spec="Nunito | Text size: 24px | Line height: 32px"
                 code="<h1>"
               />
               <TypekitRow
                 as="h2"
                 label="Mobile/Heading/H2"
-                className="font-nunito text-m-h2 text-grey-500 font-semibold"
+                className="text-m-h2 text-grey-500 font-semibold"
                 spec="Nunito | Text size: 20px | Line height: 24px"
                 code="<h2>"
               />
               <TypekitRow
                 as="h2"
                 label="Mobile/Heading/H2/ExtraBold"
-                className="font-nunito text-m-h2 text-grey-500"
+                className="text-m-h2 text-grey-500"
                 classNameAddons="font-extrabold"
                 spec="Nunito | Text size: 20px | Line height: 24px"
                 code="<h2> + font-extrabold"
@@ -128,31 +122,31 @@ export function TypekitSection() {
               <TypekitRow
                 as="h3"
                 label="Mobile/Heading/H3"
-                className="font-nunito-sans text-m-h3 text-grey-500 font-bold"
+                className="text-m-h3 text-grey-500 font-bold"
                 spec="Nunito Sans | Text size: 18px | Line height: 24px"
                 code="<h3>"
               />
               <TypekitRow
                 label="Mobile/Paragraph/P1"
-                className="font-nunito-sans text-m-p1 text-grey-500"
+                className="text-m-p1 text-grey-500"
                 spec="Nunito Sans | Text size: 18px | Line height: 24px"
                 code="text-p1"
               />
               <TypekitRow
                 label="Mobile/Paragraph/P2"
-                className="font-nunito-sans text-m-p2 text-grey-500"
+                className="text-m-p2 text-grey-500"
                 spec="Nunito Sans | Text size: 16px | Line height: 24px"
                 code="text-p2"
               />
               <TypekitRow
                 label="Mobile/Paragraph/P3"
-                className="font-nunito-sans text-m-p3 text-grey-500"
+                className="text-m-p3 text-grey-500"
                 spec="Nunito Sans | Text size: 14px | Line height: 18px"
                 code="text-p3"
               />
               <TypekitRow
                 label="UI/Button"
-                className="font-nunito text-h3 text-grey-500 font-bold"
+                className="text-h3 text-grey-500 font-bold"
                 spec="Nunito | Text size: 16px | Line height: 20px"
                 code="font-nunito font-bold"
               />
