@@ -10,8 +10,14 @@ import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
   AdminHomePage,
+  AdminRoutesGenerationLayout,
   AdminRoutesPage,
   AdminSettingsPage,
+  ConfigureStep,
+  GenerateStep,
+  ImportStep,
+  ReviewStep,
+  ValidateStep,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
@@ -30,6 +36,18 @@ function App() {
           <Route path="home" element={<AdminHomePage />} />
           <Route path="drivers" element={<AdminDriversPage />} />
           <Route path="routes" element={<AdminRoutesPage />} />
+          {/* Route Generation */}
+          <Route
+            path="routes/generation"
+            element={<AdminRoutesGenerationLayout />}
+          >
+            <Route index element={<Navigate to="import" replace />} />
+            <Route path="import" element={<ImportStep />} />
+            <Route path="validate" element={<ValidateStep />} />
+            <Route path="review" element={<ReviewStep />} />
+            <Route path="configure" element={<ConfigureStep />} />
+            <Route path="generate" element={<GenerateStep />} />
+          </Route>
           <Route path="settings" element={<AdminSettingsPage />} />
           <Route path="test-image-upload" element={<TestImageUpload />} />
         </Route>
