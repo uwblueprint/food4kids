@@ -813,11 +813,14 @@ def main() -> None:
                 {"limit": PAST_ROUTE_GROUPS_LIMIT},
             ).fetchall()
 
+            jobs_created = 0
             if past_route_groups:
+                available = len(past_route_groups)
                 num_jobs = random.randint(
-                    MIN_JOBS, min(MAX_JOBS, len(past_route_groups))
+                    min(MIN_JOBS, available), min(MAX_JOBS, available)
                 )
                 selected_groups = random.sample(past_route_groups, num_jobs)
+                jobs_created = len(selected_groups)
 
                 for route_group_id, drive_date in selected_groups:
                     started_at = drive_date + timedelta(
@@ -841,7 +844,7 @@ def main() -> None:
                     session.add(job)
 
             session.commit()
-            print(f"Created {len(past_route_groups) if past_route_groups else 0} jobs")
+            print(f"Created {jobs_created} jobs")
 
             # Create system settings
             print("Creating system settings info...")
