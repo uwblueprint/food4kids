@@ -49,7 +49,7 @@ const COLUMNS: Column<RouteGroupRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-interface RouteGroupsTabProps extends GroupsTabState {}
+type RouteGroupsTabProps = GroupsTabState;
 
 export function RouteGroupsTab({
   rows,

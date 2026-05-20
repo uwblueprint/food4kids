@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import CalendarIcon from '@/assets/icons/calendar.svg?react';
 import { cn } from '@/lib/utils';
@@ -45,13 +45,16 @@ export function DatePicker({
     value ?? today
   );
   const [inputValue, setInputValue] = useState(toInputValue(value ?? today));
+  const [lastValue, setLastValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Sync internal state when controlled value changes externally
+  if (value !== lastValue) {
+    setLastValue(value);
     const next = value ?? today;
     setSelectedDate(next);
     setInputValue(toInputValue(next));
-  }, [value]);
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;

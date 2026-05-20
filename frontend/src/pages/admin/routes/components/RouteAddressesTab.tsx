@@ -38,7 +38,7 @@ const COLUMNS: Column<AddressRow>[] = [
   { key: 'status', header: 'Status', render: (row) => row.status },
 ];
 
-interface RouteAddressesTabProps extends AddressesTabState {}
+type RouteAddressesTabProps = AddressesTabState;
 
 export function RouteAddressesTab({
   rows,
