@@ -238,4 +238,3 @@ class UserService:
         except Exception as e:
             self.logger.error(f"Failed to get user_id by auth_id: {e!s}")
             raise e
-
