@@ -27,10 +27,6 @@ class User(UserBase, BaseModel, table=True):
     )
 
 
-class UserCreate(UserBase):
-    password: str = Field(min_length=8, max_length=100)
-
-
 class UserRead(UserBase):
     user_id: UUID
     auth_id: str | None

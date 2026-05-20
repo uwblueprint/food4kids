@@ -191,21 +191,17 @@ class UserService:
 
             await session.delete(user)
 
-            # Delete from Firebase if not in hanging state
+            # Delete from Firebase before committing — if this fails,
+            # the outer handler rolls back the pending DB delete.
             if auth_id:
-                try:
-                    firebase_admin.auth.delete_user(auth_id)
-                except Exception as firebase_error:
-                    # Rollback database deletion
-                    await session.rollback()
-                    raise firebase_error
+                firebase_admin.auth.delete_user(auth_id)
 
             await session.commit()
 
         except Exception as e:
             await session.rollback()
             self.logger.error(f"Failed to delete user: {e!s}")
-            raise e
+            raise
 
     async def get_auth_id_by_user_id(
         self, session: AsyncSession, user_id: UUID
@@ -243,40 +239,3 @@ class UserService:
             self.logger.error(f"Failed to get user_id by auth_id: {e!s}")
             raise e
 
-    async def delete_user_by_email(self, session: AsyncSession, email: str) -> None:
-        """Delete user by email"""
-        try:
-            firebase_user: UserRecord = firebase_admin.auth.get_user_by_email(email)
-            statement = select(User).where(User.auth_id == firebase_user.uid)
-            result = await session.execute(statement)
-            user = result.scalars().first()
-
-            if not user:
-                self.logger.error(f"User with email {email} not found")
-                return
-
-            # Store for rollback
-            user_data = {
-                "name": user.name,
-                "email": user.email,
-                "auth_id": user.auth_id,
-                "role": user.role,
-            }
-
-            await session.delete(user)
-            await session.commit()
-
-            # Delete from Firebase
-            try:
-                firebase_admin.auth.delete_user(user.auth_id)
-
-            except Exception as firebase_error:
-                # Rollback database deletion
-                new_user = User(**user_data)
-                session.add(new_user)
-                await session.commit()
-                raise firebase_error
-
-        except Exception as e:
-            self.logger.error(f"Failed to delete user by email: {e!s}")
-            raise e

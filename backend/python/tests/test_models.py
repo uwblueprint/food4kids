@@ -60,7 +60,7 @@ from app.models.route_group import (
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
-from app.models.user import User, UserCreate, UserFinalize
+from app.models.user import User, UserFinalize
 
 init_app()
 
@@ -332,11 +332,6 @@ class TestCoreModels:
         assert driver.created_at is not None
 
         # Create model
-        user_create = UserCreate(
-            name="Jane Doe",
-            email="jane.doe@example.com",
-            password="securepassword123",
-        )
         driver_create = DriverCreate(
             user_id=uuid4(),
             phone="+12125551234",
@@ -344,7 +339,6 @@ class TestCoreModels:
             license_plate="XYZ789",
             car_make_model="Honda Civic",
         )
-        assert user_create.name == "Jane Doe"
         assert driver_create.license_plate == "XYZ789"
 
         # Update model
