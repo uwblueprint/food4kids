@@ -31,7 +31,7 @@
   /* --- Colors: Alerts --- */
   --color-red: #eb3131; /* Alerts or critical error banner stroke */
   --color-light-red: #fef3f2; /* Critical error banner fill */
-  --color-dark-yellow: #fdb022; /* Warning text or banner stroke */
+  --color-dark-yellow: #794b07; /* Warning text or banner stroke */
   --color-light-yellow: #fffaeb; /* Warning banner fill */
   --color-success-stroke: #039855; /* Successful text or banner stroke */
   --color-success-fill: #ecfdf3; /* Successful banner fill */
@@ -43,8 +43,10 @@
   --color-brand-pink: #b33f93;
 
   /* --- Shadows --- */
-  --shadow-card: 0px 4px 10px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0px 2px 5px rgba(19, 24, 44, 0.1);
   --shadow-harsh: 0px 4px 24px #00000014;
+  --shadow-light: 0px 0px 10px #0000000a;
+  --shadow-admin-bento: 0px 0px 32px #0000000a;
 
   /* --- Spacing: extends Tailwind's 4px base grid ---
    * Design uses an 8px grid: 0, 4, 8, 16, 32, 64, 128, 256, 512
@@ -53,7 +55,7 @@
   --spacing-128: 32rem;
 
   /* --- Typography Scale: Desktop & Tablet ---
-   * H1: Nunito ExtraBold  32px / 44px  → 44/32 = 1.375
+   * H1: Nunito Bold       32px / 44px  → 44/32 = 1.375
    * H2: Nunito Bold       20px / 28px  → 28/20 = 1.4
    * H3: Nunito Sans Bold  16px / 20px  → 20/16 = 1.25
    * P1: Nunito Sans       16px / 20px  → 20/16 = 1.25

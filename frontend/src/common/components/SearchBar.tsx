@@ -15,7 +15,7 @@ const searchBarVariants = cva(
     variants: {
       variant: {
         default: 'bg-white',
-        filled: 'bg-grey-150',
+        filled: 'bg-grey-150 border-transparent',
       },
     },
     defaultVariants: {

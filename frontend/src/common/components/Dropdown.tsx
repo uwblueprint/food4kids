@@ -17,9 +17,9 @@ function DropdownTrigger({
       className={cn(
         'inline-flex w-full cursor-pointer items-center justify-between rounded-full px-6 py-3',
         'text-p2 text-grey-500 transition-colors outline-none',
-        'bg-grey-100 ring-grey-300 ring-1',
-        'focus:ring-2 focus:ring-blue-300',
-        'data-[state=open]:ring-2 data-[state=open]:ring-blue-300',
+        'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
+        'focus:outline-2 focus:outline-blue-300',
+        'data-[state=open]:outline-2 data-[state=open]:outline-blue-300',
         'data-[placeholder]:text-grey-400',
         'disabled:bg-grey-150 disabled:cursor-not-allowed disabled:opacity-60',
         className

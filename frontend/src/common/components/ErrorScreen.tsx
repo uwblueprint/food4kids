@@ -28,7 +28,7 @@ export function ErrorScreen({
           aria-hidden
           className="mb-3 h-60 w-full object-contain"
         />
-        <h2 className="text-grey-500 mb-5 text-center text-3xl leading-10 font-bold">
+        <h2 className="text-h1 text-grey-500 mb-5 text-center font-bold">
           {title}
         </h2>
         {children}
@@ -45,7 +45,7 @@ export function NotFoundPage() {
   const navigate = useNavigate();
   return (
     <ErrorScreen illustration={error404Img} title="Page not found">
-      <p className="text-grey-500 mb-12 text-center text-base leading-6">
+      <p className="text-p1 text-grey-500 mb-12 text-center">
         The page you're looking for doesn't exist or may have been moved.
       </p>
       <Button variant="primary" onClick={() => navigate(-1)}>
@@ -59,7 +59,7 @@ export function ForbiddenPage() {
   const navigate = useNavigate();
   return (
     <ErrorScreen illustration={error403Img} title="Forbidden">
-      <p className="text-grey-500 mb-12 text-center text-base leading-6">
+      <p className="text-p1 text-grey-500 mb-12 text-center">
         This page is only available to authorized users. Please log in to
         continue.
       </p>
@@ -99,7 +99,7 @@ export function CatchAllErrorPage() {
   const navigate = useNavigate();
   return (
     <ErrorScreen illustration={boyEdgeCaseImg} title="Something went wrong">
-      <p className="text-grey-500 mb-12 text-center text-base leading-6">
+      <p className="text-p1 text-grey-500 mb-12 text-center">
         Please try again shortly. If the issue persists, contact Emily Loro at
         (123) 456-7890 for help.
       </p>

@@ -3,22 +3,8 @@ import { NavLink } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
-
-interface SidebarContextValue {
-  // placeholder for future collapsible state
-}
-
-const SidebarContext = React.createContext<SidebarContextValue>({});
-
 function SidebarProvider({ children }: { children: React.ReactNode }) {
-  return (
-    <SidebarContext.Provider value={{}}>
-      <div className="flex h-screen overflow-hidden">{children}</div>
-    </SidebarContext.Provider>
-  );
+  return <div className="flex h-screen overflow-hidden">{children}</div>;
 }
 
 // ---------------------------------------------------------------------------

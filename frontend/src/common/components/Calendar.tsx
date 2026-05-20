@@ -31,7 +31,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        'group/calendar bg-background p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
+        'group/calendar bg-white p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
@@ -76,24 +76,24 @@ function Calendar({
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          'relative rounded-md border border-input shadow-xs has-focus:border-ring has-focus:ring-[3px] has-focus:ring-ring/50',
+          'relative rounded-md border border-grey-300 has-focus:border-blue-300 has-focus:ring-[3px] has-focus:ring-blue-300/50',
           defaultClassNames.dropdown_root
         ),
         dropdown: cn(
-          'absolute inset-0 bg-popover opacity-0',
+          'absolute inset-0 bg-grey-100 opacity-0',
           defaultClassNames.dropdown
         ),
         caption_label: cn(
-          'font-medium select-none',
+          'text-h2 text-grey-500 font-bold select-none',
           captionLayout === 'label'
-            ? 'text-sm'
-            : 'flex h-8 items-center gap-1 rounded-md pr-1 pl-2 text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground',
+            ? ''
+            : 'flex h-8 items-center gap-1 rounded-md pr-1 pl-2 [&>svg]:size-3.5 [&>svg]:text-grey-400',
           defaultClassNames.caption_label
         ),
         table: 'w-full border-collapse',
         weekdays: cn('flex', defaultClassNames.weekdays),
         weekday: cn(
-          'flex-1 rounded-md text-[0.8rem] font-normal text-muted-foreground select-none',
+          'text-p2 text-grey-400 flex-1 rounded-md font-normal select-none',
           defaultClassNames.weekday
         ),
         week: cn('mt-2 flex w-full', defaultClassNames.week),
@@ -102,7 +102,7 @@ function Calendar({
           defaultClassNames.week_number_header
         ),
         week_number: cn(
-          'text-[0.8rem] text-muted-foreground select-none',
+          'text-p2 text-grey-400 select-none',
           defaultClassNames.week_number
         ),
         day: cn(
@@ -113,15 +113,15 @@ function Calendar({
           defaultClassNames.day
         ),
         range_start: cn(
-          'rounded-l-md bg-accent',
+          'rounded-l-md bg-blue-50',
           defaultClassNames.range_start
         ),
         range_middle: cn('rounded-none', defaultClassNames.range_middle),
-        range_end: cn('rounded-r-md bg-accent', defaultClassNames.range_end),
+        range_end: cn('rounded-r-md bg-blue-50', defaultClassNames.range_end),
         today: defaultClassNames.today,
         outside: defaultClassNames.outside,
         disabled: cn(
-          'text-muted-foreground opacity-50',
+          'text-grey-400 opacity-50',
           defaultClassNames.disabled
         ),
         hidden: cn('invisible', defaultClassNames.hidden),

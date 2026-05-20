@@ -15,7 +15,7 @@ function TabsList({
     <div className="flex flex-col gap-0">
       <TabsPrimitive.List
         data-slot="tabs-list"
-        className={cn('flex gap-12', className)}
+        className={cn('flex gap-8', className)}
         {...props}
       />
       <hr className="border-grey-300" />
@@ -31,9 +31,9 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        'font-nunito text-h2 cursor-pointer pb-2 capitalize transition-colors',
-        'text-grey-400 font-normal',
-        'data-[state=active]:text-grey-500 data-[state=active]:border-b-2 data-[state=active]:border-blue-300 data-[state=active]:font-bold',
+        'text-h3 cursor-pointer pb-2 capitalize transition-colors',
+        'text-grey-400 font-bold',
+        'data-[state=active]:text-blue-400 data-[state=active]:border-b-2 data-[state=active]:border-blue-400',
         className
       )}
       {...props}

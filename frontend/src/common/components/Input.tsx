@@ -40,7 +40,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         maxLength={maxCharacters}
         className={cn(
           'text-p2 text-grey-500 placeholder:text-p1 placeholder:text-grey-400',
-          'w-full rounded-lg px-6 py-3',
+          'w-full rounded-lg px-3 py-3',
           'transition-colors',
           'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
           'focus:outline-2 focus:outline-blue-300',

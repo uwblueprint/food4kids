@@ -33,13 +33,13 @@ const iconClass = {
 } as const;
 
 const textClass = {
-  success: 'text-p1',
+  success: 'text-p1 text-grey-500',
   error: 'text-p1 text-grey-500',
   warning: 'text-p1 text-grey-500',
 } as const;
 
 const subtitleClass = {
-  success: 'text-p2 opacity-80',
+  success: 'text-p2 text-grey-500 opacity-80',
   error: 'text-p2 text-grey-500 opacity-80',
   warning: 'text-p2 text-grey-500 opacity-80',
 } as const;

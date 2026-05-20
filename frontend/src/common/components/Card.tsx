@@ -38,7 +38,7 @@ function CardTitle({
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h2 className={cn('text-grey-500', className)} {...props}>
+    <h2 className={cn('text-h2 text-grey-500 font-bold', className)} {...props}>
       {children}
     </h2>
   );
