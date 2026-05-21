@@ -190,6 +190,7 @@ async def review_locations(
             detail=str(e),
         ) from e
 
+
 @router.post(
     "/ingest",
     response_model=LocationIngestResponse,

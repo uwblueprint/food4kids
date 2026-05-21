@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from io import BytesIO
-from typing import TypeGuard
+from typing import ClassVar, TypeGuard
 from uuid import UUID
 
 import pandas as pd
@@ -51,6 +51,16 @@ DEFAULT_COLUMN_MAP = {
 
 class LocationService:
     """Service for managing delivery locations with geocoding support"""
+
+    _GROUP_COLORS: ClassVar[list[str]] = [
+        "#EF4444",
+        "#F97316",
+        "#EAB308",
+        "#22C55E",
+        "#3B82F6",
+        "#A855F7",
+        "#EC4899",
+    ]
 
     def __init__(
         self,
@@ -368,17 +378,6 @@ class LocationService:
             num_boxes=location_data.num_boxes,
             notes=location_data.notes,
         )
-    
-
-    _GROUP_COLORS = [
-        "#EF4444",
-        "#F97316",
-        "#EAB308",
-        "#22C55E",
-        "#3B82F6",
-        "#A855F7",
-        "#EC4899",
-    ]
 
     async def ingest_locations(
         self, session: AsyncSession, request: LocationIngestRequest
@@ -390,7 +389,7 @@ class LocationService:
             stale_db_rows: list[Location] = []
             if stale_ids:
                 result = await session.execute(
-                    select(Location).where(Location.location_id.in_(stale_ids))
+                    select(Location).where(Location.location_id.in_(stale_ids))  # type: ignore[attr-defined]
                 )
                 stale_db_rows = list(result.scalars().all())
                 for loc in stale_db_rows:
@@ -433,11 +432,13 @@ class LocationService:
 
             # Build and batch-insert new Location records
             new_locations: list[Location] = []
-            for entry, geocode_result in zip(request.net_new, geocode_results):
+            for entry, geocode_result in zip(
+                request.net_new, geocode_results, strict=True
+            ):
                 if not geocode_result:
                     raise ValueError(f"Geocoding failed for address: {entry.address}")
 
-                group = (
+                entry_group = (
                     group_by_name.get(entry.delivery_group)
                     if entry.delivery_group
                     else None
@@ -453,7 +454,9 @@ class LocationService:
                         halal=entry.halal or False,
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_boxes=entry.num_boxes or 0,
-                        location_group_id=(group.location_group_id if group else None),
+                        location_group_id=(
+                            entry_group.location_group_id if entry_group else None
+                        ),
                     )
                 )
 
@@ -471,4 +474,3 @@ class LocationService:
             self.logger.error(f"Failed to ingest locations: {e!s}")
             await session.rollback()
             raise e
-
