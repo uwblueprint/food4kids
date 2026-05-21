@@ -5,6 +5,7 @@ from logging.config import dictConfig
 import firebase_admin
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 
 from app.dependencies.services import get_scheduler_service
 from app.services.jobs import init_jobs
@@ -133,6 +134,17 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     scheduler_service.stop()
 
 
+def _use_route_name_as_operation_id(route: APIRoute) -> str:
+    """Use the route's function name as the OpenAPI operation ID.
+
+    Why: FastAPI's default operation IDs include the full path and method
+    (e.g. ``read_announcements_announcements__get``), which produces ugly
+    function names in generated TypeScript clients. Using the route name
+    yields clean names like ``get_announcements``.
+    """
+    return route.name
+
+
 def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
 
@@ -143,6 +155,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         docs_url="/docs" if settings.is_development else None,
         redoc_url="/redoc" if settings.is_development else None,
+        generate_unique_id_function=_use_route_name_as_operation_id,
     )
 
     # Configure CORS

@@ -123,6 +123,8 @@ docker-compose exec backend python -m app.seed_database
 
 Use the interactive Swagger UI at http://localhost:8080/docs, or see the [Postman Setup Guide](https://www.notion.so/uwblueprintexecs/Postman-Setup-28410f3fb1dc80f8b1e8c414c4a21802).
 
+The frontend consumes the API through a TypeScript client generated from FastAPI's OpenAPI schema. After making backend route or schema changes, regenerate with `pnpm generate:api` from `frontend/`. See [frontend/README.md](frontend/README.md#api-client-generated-from-openapi) for details.
+
 ## Docker Commands
 
 ```bash
