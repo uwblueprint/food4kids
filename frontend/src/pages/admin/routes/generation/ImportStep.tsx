@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
@@ -23,8 +23,6 @@ import {
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
-
-const COLUMN_MAP_STORAGE_KEY = 'food4kids_column_map';
 
 const SYSTEM_FIELDS: { key: string; label: string }[] = [
   { key: 'contact_name', label: 'School Name / Last Name' },
@@ -60,42 +58,18 @@ function parseHeaders(file: File): Promise<string[]> {
   });
 }
 
-function loadSavedMapping(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(COLUMN_MAP_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
-  } catch {
-    return {};
-  }
-}
-
 export function ImportStep() {
   const navigate = useNavigate();
-  const { file, setFile, columnMap, setColumnMap } =
-    useOutletContext<GenerationOutletContext>();
+  const {
+    file,
+    setFile,
+    fileHeaders,
+    setFileHeaders,
+    columnMap,
+    setColumnMap,
+  } = useOutletContext<GenerationOutletContext>();
 
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
-
-  // Restore saved mapping on mount
-  useEffect(() => {
-    const saved = loadSavedMapping();
-    if (Object.keys(saved).length > 0) setColumnMap(saved);
-  }, []);
-
-  // If a file was already set in context (e.g. user navigated back), parse headers
-  useEffect(() => {
-    if (file && fileHeaders.length === 0) {
-      parseHeaders(file)
-        .then(setFileHeaders)
-        .catch(() => {});
-    }
-  }, [file]);
-
-  // Persist column map to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem(COLUMN_MAP_STORAGE_KEY, JSON.stringify(columnMap));
-  }, [columnMap]);
 
   const handleFileSelect = async (selected: File) => {
     const ext = '.' + selected.name.split('.').pop()?.toLowerCase();

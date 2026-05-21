@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useState } from 'react';
+import { Navigate, useNavigate, useOutletContext } from 'react-router-dom';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
 import type { Column } from '@/common/components';
@@ -97,12 +97,9 @@ export function ConfigureStep() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
-  // Redirect back if no file in context (e.g. page refresh)
-  useEffect(() => {
-    if (!file) {
-      navigate('/admin/routes/generation/import', { replace: true });
-    }
-  }, []);
+  if (!file) {
+    return <Navigate to="/admin/routes/generation/import" replace />;
+  }
 
   const updateEntry = (key: string, updates: Partial<RouteFormEntry>) => {
     setFormData((prev) => ({

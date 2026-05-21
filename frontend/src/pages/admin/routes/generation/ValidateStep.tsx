@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useOutletContext,
+} from 'react-router-dom';
 
 import { useReviewLocations } from '@/api';
 import type { Column } from '@/common/components';
 import { AlertCell, Banner, Button, DataTable } from '@/common/components';
-import type { AlertCode, LocationImportRow } from '@/types/location';
+import type {
+  AlertCode,
+  LocationImportResponse,
+  LocationImportRow,
+} from '@/types/location';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
@@ -59,21 +68,25 @@ export function ValidateStep() {
   const navigate = useNavigate();
   const { file, columnMap } = useOutletContext<GenerationOutletContext>();
   const { mutate, data, isPending, isError } = useReviewLocations();
-  const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // Redirect back if no file in context (e.g. page refresh)
+  // Track which data the user dismissed the banner for. The banner is shown
+  // again automatically when a new response comes in (different reference).
+  const [dismissedFor, setDismissedFor] = useState<
+    LocationImportResponse | undefined
+  >(undefined);
+  const bannerDismissed = data !== undefined && dismissedFor === data;
+
+  // Kick off review whenever we have a file + column map.
   useEffect(() => {
-    if (!file) {
-      navigate('/admin/routes/generation/import', { replace: true });
-      return;
-    }
+    if (!file) return;
     mutate({ file, columnMap });
-  }, []);
+  }, [mutate, file, columnMap]);
 
-  // Reset banner when new results come in
-  useEffect(() => {
-    setBannerDismissed(false);
-  }, [data]);
+  if (!file) {
+    return (
+      <Navigate to="/admin/routes/generation/import" replace />
+    );
+  }
 
   const errorRows = data?.rows.filter((r) => r.alerts.length > 0) ?? [];
   const errorCount = errorRows.length;
@@ -149,7 +162,7 @@ export function ValidateStep() {
     <>
       {/* Error banner */}
       {!bannerDismissed && data && !data.success && (
-        <Banner variant="error" onDismiss={() => setBannerDismissed(true)}>
+        <Banner variant="error" onDismiss={() => setDismissedFor(data)}>
           Please correct these{' '}
           <span className="text-red font-bold">{errorCount}</span>{' '}
           {errorCount === 1 ? 'error' : 'errors'} before continuing, then go
@@ -159,7 +172,7 @@ export function ValidateStep() {
 
       {/* Success banner */}
       {!bannerDismissed && data && data.success && (
-        <Banner variant="success" onDismiss={() => setBannerDismissed(true)}>
+        <Banner variant="success" onDismiss={() => setDismissedFor(data)}>
           No errors. You may proceed to the next step.
         </Banner>
       )}

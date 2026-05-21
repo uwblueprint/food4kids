@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, Navigate, useOutletContext } from 'react-router-dom';
 
 import {
   Banner,
@@ -24,27 +24,24 @@ const AVERAGE_STOPS = 12;
 const LONGEST_ROUTE = 22;
 
 export function GenerateStep() {
-  const navigate = useNavigate();
   const { file } = useOutletContext<GenerationOutletContext>();
   const percent = Math.round((MOCK_COMPLETED / MOCK_TOTAL) * 100);
 
   // TODO: replace with actual response from API
   const [success, setSucess] = useState(false);
 
-  // Redirect back if no file in context (e.g. page refresh)
-  useEffect(() => {
-    if (!file) {
-      navigate('/admin/routes/generation/import', { replace: true });
-    }
-  }, []);
-
   // TODO: replace with actual response from API
   // create a timer that makes the GENERATION_SUCCESS true after 5 seconds
   useEffect(() => {
-    setTimeout(() => {
+    const id = setTimeout(() => {
       setSucess(true);
     }, 5000);
+    return () => clearTimeout(id);
   }, []);
+
+  if (!file) {
+    return <Navigate to="/admin/routes/generation/import" replace />;
+  }
 
   if (success) {
     return (
