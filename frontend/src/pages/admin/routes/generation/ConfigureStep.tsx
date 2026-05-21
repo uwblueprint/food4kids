@@ -28,7 +28,7 @@ import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 // Types
 // ---------------------------------------------------------------------------
 
-// Read-only — comes from the backend (POST /locations/review or similar)
+// Read-only — derived from POST /locations/review response
 interface RouteGroup {
   delivery_group: string;
   delivery_type: string;

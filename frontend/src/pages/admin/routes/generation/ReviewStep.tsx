@@ -111,7 +111,7 @@ const staleColumns: Column<StaleEntry>[] = [
 // ReviewStep
 // ---------------------------------------------------------------------------
 
-// TODO: replace with real data from POST /locations/review once endpoint is implemented
+// TODO: replace with net_new/stale/changed from the POST /locations/review response once backend matching logic is implemented
 const PLACEHOLDER_NET_NEW: NetNewEntry[] = [];
 const PLACEHOLDER_STALE: StaleEntry[] = [];
 const PLACEHOLDER_CHANGED: ChangedEntry[] = [];

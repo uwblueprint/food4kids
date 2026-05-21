@@ -183,10 +183,10 @@ class LocationService:
             await session.rollback()
             raise e
 
-    async def validate_locations(
+    async def review_locations(
         self, file: UploadFile, column_map: dict[str, str]
     ) -> LocationImportResponse:
-        """Validate location import data and return per-row alerts."""
+        """Review a pending location import: validate rows + (eventually) compute diff against existing locations."""
         try:
             df = await self._read_upload_file(file)
             rows: list[LocationImportRow] = []

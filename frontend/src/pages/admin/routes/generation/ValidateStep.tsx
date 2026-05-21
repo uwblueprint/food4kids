@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
-import { useValidateLocations } from '@/api';
+import { useReviewLocations } from '@/api';
 import type { Column } from '@/common/components';
 import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 import type { AlertCode, LocationImportRow } from '@/types/location';
@@ -58,7 +58,7 @@ function getCellClass(
 export function ValidateStep() {
   const navigate = useNavigate();
   const { file, columnMap } = useOutletContext<GenerationOutletContext>();
-  const { mutate, data, isPending, isError } = useValidateLocations();
+  const { mutate, data, isPending, isError } = useReviewLocations();
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Redirect back if no file in context (e.g. page refresh)

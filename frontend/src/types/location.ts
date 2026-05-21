@@ -21,12 +21,6 @@ export interface LocationImportRow {
   alerts: AlertCode[];
 }
 
-export interface LocationImportResponse {
-  success: boolean;
-  total_rows: number;
-  rows: LocationImportRow[];
-}
-
 // ---------------------------------------------------------------------------
 // Review Changes
 // ---------------------------------------------------------------------------
@@ -63,7 +57,10 @@ export interface ChangedEntry {
   num_children: number | null | ChangedField<number | null>;
 }
 
-export interface ReviewChangesResponse {
+export interface LocationImportResponse {
+  success: boolean;
+  total_rows: number;
+  rows: LocationImportRow[];
   net_new: NetNewEntry[];
   stale: StaleEntry[];
   changed: ChangedEntry[];

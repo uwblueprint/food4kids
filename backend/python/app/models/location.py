@@ -94,12 +94,70 @@ class LocationImportRow(SQLModel):
     alerts: list[AlertCode]
 
 
+class NetNewEntry(SQLModel):
+    """A row in the import that has no matching existing location."""
+
+    row: int
+    contact_name: str
+    address: str
+    delivery_group: str | None = None
+    phone_number: str
+    num_boxes: int | None = None
+
+
+class StaleEntry(SQLModel):
+    """An existing location not present in the import; would be archived on ingest."""
+
+    location_id: UUID
+    contact_name: str
+    address: str
+    delivery_group: str | None = None
+    phone_number: str
+
+
+class ChangedFieldStr(SQLModel):
+    new_value: str
+    old_value: str
+
+
+class ChangedFieldOptStr(SQLModel):
+    new_value: str | None
+    old_value: str | None
+
+
+class ChangedFieldOptInt(SQLModel):
+    new_value: int | None
+    old_value: int | None
+
+
+class ChangedEntry(SQLModel):
+    """An existing location whose fields differ from the import row.
+
+    Each field is either the plain new value (unchanged) or a ChangedField object
+    carrying both new and old values.
+    """
+
+    contact_name: str
+    address: str | ChangedFieldStr
+    delivery_group: str | None | ChangedFieldOptStr = None
+    phone_number: str | ChangedFieldStr
+    num_children: int | None | ChangedFieldOptInt = None
+
+
 class LocationImportResponse(SQLModel):
-    """success=False when any row has alerts."""
+    """Combined validate + review-changes payload.
+
+    success=False when any row has alerts. net_new/stale/changed describe how the
+    import would affect the existing locations table; these are placeholders until
+    the matching logic is implemented.
+    """
 
     success: bool
     total_rows: int
     rows: list[LocationImportRow]
+    net_new: list[NetNewEntry] = []
+    stale: list[StaleEntry] = []
+    changed: list[ChangedEntry] = []
 
 
 class LocationCreate(LocationBase):
