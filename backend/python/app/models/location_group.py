@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING
+import hashlib
+from typing import TYPE_CHECKING, ClassVar
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -25,6 +26,27 @@ class LocationGroup(LocationGroupBase, BaseModel, table=True):
     location_group_id: UUID = Field(default_factory=uuid4, primary_key=True)
     # Relationship to locations
     locations: list["Location"] = Relationship(back_populates="location_group")
+
+    DEFAULT_PALETTE: ClassVar[tuple[str, ...]] = (
+        "#EF4444",
+        "#F97316",
+        "#EAB308",
+        "#22C55E",
+        "#3B82F6",
+        "#A855F7",
+        "#EC4899",
+    )
+
+    @classmethod
+    def default_color(cls, name: str) -> str:
+        """Pick a palette color deterministically from the group name.
+
+        Same name always yields the same color, so re-imports stay stable. Used
+        when auto-creating groups during location import where the caller
+        doesn't have a user-selected color.
+        """
+        digest = hashlib.sha256(name.encode("utf-8")).hexdigest()
+        return cls.DEFAULT_PALETTE[int(digest, 16) % len(cls.DEFAULT_PALETTE)]
 
     @property
     def num_locations(self) -> int:

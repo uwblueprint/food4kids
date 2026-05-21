@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from io import BytesIO
-from typing import ClassVar, TypeGuard
+from typing import TypeGuard
 from uuid import UUID
 
 import pandas as pd
@@ -51,16 +51,6 @@ DEFAULT_COLUMN_MAP = {
 
 class LocationService:
     """Service for managing delivery locations with geocoding support"""
-
-    _GROUP_COLORS: ClassVar[list[str]] = [
-        "#EF4444",
-        "#F97316",
-        "#EAB308",
-        "#22C55E",
-        "#3B82F6",
-        "#A855F7",
-        "#EC4899",
-    ]
 
     def __init__(
         self,
@@ -415,7 +405,7 @@ class LocationService:
                 g.name: g for g in groups_result.scalars().all()
             }
 
-            # Create missing LocationGroups (batch, deterministic color assignment)
+            # Create missing LocationGroups with default colors picked by name
             needed_names = sorted(
                 {
                     entry.delivery_group
@@ -424,9 +414,8 @@ class LocationService:
                     and entry.delivery_group not in group_by_name
                 }
             )
-            for i, name in enumerate(needed_names):
-                color = self._GROUP_COLORS[i % len(self._GROUP_COLORS)]
-                group = LocationGroup(name=name, color=color)
+            for name in needed_names:
+                group = LocationGroup(name=name, color=LocationGroup.default_color(name))
                 session.add(group)
                 group_by_name[name] = group
 
