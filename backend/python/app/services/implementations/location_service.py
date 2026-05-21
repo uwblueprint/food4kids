@@ -235,14 +235,14 @@ class LocationService:
                     full_dup_keys[full_key] = row_num
 
                     # partial duplicate — same address or same phone
-                    if location.address in address_keys:
+                    if (
+                        location.address in address_keys
+                        or location.phone_number in phone_keys
+                    ):
                         alerts.append(AlertCode.PARTIAL_DUPLICATE)
-                    else:
+                    if location.address not in address_keys:
                         address_keys[location.address] = row_num
-
-                    if location.phone_number in phone_keys:
-                        alerts.append(AlertCode.PARTIAL_DUPLICATE)
-                    else:
+                    if location.phone_number not in phone_keys:
                         phone_keys[location.phone_number] = row_num
 
                 rows.append(

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
 import CheckIcon from '@/assets/icons/check.svg?react';
@@ -118,10 +118,17 @@ const PLACEHOLDER_CHANGED: ChangedEntry[] = [];
 
 export function ReviewStep() {
   const navigate = useNavigate();
-  useOutletContext<GenerationOutletContext>(); // ensures we're inside the layout
+  const { file } = useOutletContext<GenerationOutletContext>();
 
   const [accepted, setAccepted] = useState<Set<number>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Redirect back if no file in context (e.g. page refresh)
+  useEffect(() => {
+    if (!file) {
+      navigate('/admin/routes/generation/import', { replace: true });
+    }
+  }, []);
 
   const toggleAccepted = (index: number) => {
     setAccepted((prev) => {

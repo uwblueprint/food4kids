@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
 import type { Column } from '@/common/components';
@@ -21,6 +21,8 @@ import {
   ModalTitle,
   TimePicker,
 } from '@/common/components';
+
+import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,9 +92,17 @@ const END_LOCATION_OPTIONS = [
 
 export function ConfigureStep() {
   const navigate = useNavigate();
+  const { file } = useOutletContext<GenerationOutletContext>();
   const [formData, setFormData] = useState<FormState>(INITIAL_FORM_STATE);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
+
+  // Redirect back if no file in context (e.g. page refresh)
+  useEffect(() => {
+    if (!file) {
+      navigate('/admin/routes/generation/import', { replace: true });
+    }
+  }, []);
 
   const updateEntry = (key: string, updates: Partial<RouteFormEntry>) => {
     setFormData((prev) => ({
