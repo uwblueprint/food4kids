@@ -415,7 +415,8 @@ class LocationService:
                 }
             )
             for name in needed_names:
-                group = LocationGroup(name=name, color=LocationGroup.default_color(name))
+                # color filled in by LocationGroupBase model validator
+                group = LocationGroup(name=name)  # type: ignore[call-arg]
                 session.add(group)
                 group_by_name[name] = group
 
