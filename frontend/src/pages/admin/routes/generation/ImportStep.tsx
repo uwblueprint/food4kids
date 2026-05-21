@@ -216,7 +216,7 @@ export function ImportStep() {
         <Button
           variant="primary"
           disabled={!canContinue}
-          onClick={canContinue ? handleContinue : undefined}
+          onClick={handleContinue}
         >
           Continue to Validation
         </Button>
