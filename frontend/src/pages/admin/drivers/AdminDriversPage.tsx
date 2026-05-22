@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 import DownloadIcon from '@/assets/icons/download.svg?react';
-import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
 import {
@@ -12,6 +11,7 @@ import {
   SearchBar,
 } from '@/common/components';
 import { useSearch } from '@/common/hooks';
+import { AnnouncementsBoard } from '@/features/announcements';
 
 import { AssignRouteModal } from './components';
 
@@ -25,9 +25,7 @@ export const AdminDriversPage = () => {
         <h1>Driver Management</h1>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
-            <Button variant="tertiary" shape="circular">
-              <MegaphoneIcon className="size-5 text-blue-300" />
-            </Button>
+            <AnnouncementsBoard role="admin" />
             <Button variant="tertiary" shape="circular">
               <SearchIcon className="size-5 text-blue-300" />
             </Button>

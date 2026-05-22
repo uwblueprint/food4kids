@@ -1,12 +1,11 @@
-import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import {
   Account,
-  Button,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/common/components';
+import { AnnouncementsBoard } from '@/features/announcements';
 
 import { RouteAddressesTab, RouteGroupsTab } from './components';
 import { useAddressesTabState, useGroupsTabState } from './hooks';
@@ -20,9 +19,7 @@ export const AdminRoutesPage = () => {
       <div className="flex items-start justify-between">
         <h1>Routes</h1>
         <div className="flex items-center gap-6">
-          <Button variant="tertiary" shape="circular">
-            <MegaphoneIcon className="size-5 text-blue-300" />
-          </Button>
+          <AnnouncementsBoard role="admin" />
           <Account />
         </div>
       </div>
