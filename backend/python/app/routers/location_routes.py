@@ -165,19 +165,23 @@ async def delete_location(
 async def review_locations(
     file: UploadFile = File(...),
     column_map: str = Form(...),
+    session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
 ) -> LocationImportResponse:
     """
     Review a pending location import: validate rows and (eventually) describe how
     the import would affect existing locations (net_new / stale / changed).
     Requires a column_map JSON string mapping system field names to file headers.
+
+    Side effect: the submitted column_map is persisted to system_settings so it
+    becomes the default mapping on the next import.
     """
     try:
         try:
             parsed_map: dict[str, str] = json.loads(column_map)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid column_map JSON: {e}") from e
-        result = await location_service.review_locations(file, parsed_map)
+        result = await location_service.review_locations(session, file, parsed_map)
         return result
     except ValueError as ve:
         raise HTTPException(

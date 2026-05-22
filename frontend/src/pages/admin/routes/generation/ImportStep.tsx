@@ -84,6 +84,13 @@ export function ImportStep() {
       const headers = await parseHeaders(selected);
       setFile(selected);
       setFileHeaders(headers);
+      // Drop any saved mappings whose target column isn't in this file
+      const validHeaders = new Set(headers);
+      setColumnMap(
+        Object.fromEntries(
+          Object.entries(columnMap).filter(([, val]) => validHeaders.has(val))
+        )
+      );
     } catch {
       setFormatError('Could not read file headers — is the file valid?');
     }

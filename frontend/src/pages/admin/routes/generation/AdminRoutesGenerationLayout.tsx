@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
+import { useSystemSettings } from '@/api';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
 import { ProgressStepper } from '../components';
@@ -13,21 +14,10 @@ const STEP_PATHS = [
   'generate',
 ] as const;
 
-const COLUMN_MAP_STORAGE_KEY = 'food4kids_column_map';
-
 function getCurrentStep(pathname: string): number {
   const segment = pathname.split('/').pop();
   const index = STEP_PATHS.indexOf(segment as (typeof STEP_PATHS)[number]);
   return index === -1 ? 0 : index;
-}
-
-function loadSavedColumnMap(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(COLUMN_MAP_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
-  } catch {
-    return {};
-  }
 }
 
 export interface GenerationOutletContext {
@@ -43,16 +33,18 @@ export function AdminRoutesGenerationLayout() {
   const { pathname } = useLocation();
   const currentStep = getCurrentStep(pathname);
 
+  const { data: systemSettings, isSuccess: settingsLoaded } =
+    useSystemSettings();
+
   const [file, setFile] = useState<File | null>(null);
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
-  const [columnMap, setColumnMap] = useState<Record<string, string>>(
-    loadSavedColumnMap
-  );
+  const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+  const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
 
-  // Persist column map to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem(COLUMN_MAP_STORAGE_KEY, JSON.stringify(columnMap));
-  }, [columnMap]);
+  if (!hasSeededColumnMap && settingsLoaded) {
+    setHasSeededColumnMap(true);
+    setColumnMap(systemSettings?.import_column_map ?? {});
+  }
 
   const context: GenerationOutletContext = {
     file,

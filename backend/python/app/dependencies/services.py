@@ -25,6 +25,7 @@ from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
+from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.gcp_client import GCPStorageClient
@@ -151,11 +152,18 @@ def get_google_maps_client() -> GoogleMapsClient:
 
 
 @lru_cache
+def get_system_settings_service() -> SystemSettingsService:
+    """Get system settings service instance"""
+    logger = get_logger()
+    return SystemSettingsService(logger)
+
+
+@lru_cache
 def get_location_service() -> LocationService:
     """Get location service instance"""
     logger = get_logger()
     google_maps_client = get_google_maps_client()
-    return LocationService(logger, google_maps_client)
+    return LocationService(logger, google_maps_client, get_system_settings_service())
 
 
 @lru_cache

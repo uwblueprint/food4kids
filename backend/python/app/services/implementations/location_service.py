@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from io import BytesIO
-from typing import TypeGuard
+from typing import TYPE_CHECKING, TypeGuard
 from uuid import UUID
 
 import pandas as pd
@@ -32,6 +32,11 @@ from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
 from app.utilities.utils import validate_phone
 
+if TYPE_CHECKING:
+    from app.services.implementations.system_settings_service import (
+        SystemSettingsService,
+    )
+
 # Allowed file extensions for location import files
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 
@@ -56,9 +61,11 @@ class LocationService:
         self,
         logger: logging.Logger,
         google_maps_client: GoogleMapsClient,
+        system_settings_service: "SystemSettingsService",
     ):
         self.logger = logger
         self.google_maps_service = google_maps_client
+        self.system_settings_service = system_settings_service
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -184,10 +191,21 @@ class LocationService:
             raise e
 
     async def review_locations(
-        self, file: UploadFile, column_map: dict[str, str]
+        self,
+        session: AsyncSession,
+        file: UploadFile,
+        column_map: dict[str, str],
     ) -> LocationImportResponse:
-        """Review a pending location import: validate rows + (eventually) compute diff against existing locations."""
+        """Review a pending location import: validate rows + (eventually) compute diff against existing locations.
+
+        Side effect: persists `column_map` to system_settings so it becomes the
+        default mapping on the next import.
+        """
         try:
+            await self.system_settings_service.set_import_column_map(
+                session, column_map
+            )
+            await session.commit()
             df = await self._read_upload_file(file)
             rows: list[LocationImportRow] = []
 

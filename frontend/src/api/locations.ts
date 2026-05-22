@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import axiosClient from '@/lib/axiosClient';
 import type { LocationImportResponse } from '@/types/location';
@@ -20,6 +20,7 @@ async function fetchReviewLocations(
 }
 
 export function useReviewLocations() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
       file,
@@ -28,5 +29,9 @@ export function useReviewLocations() {
       file: File;
       columnMap: Record<string, string>;
     }) => fetchReviewLocations(file, columnMap),
+    onSuccess: () => {
+      // Backend persists the submitted column_map as the new default
+      queryClient.invalidateQueries({ queryKey: ['system-settings'] });
+    },
   });
 }
