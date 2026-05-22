@@ -1,8 +1,14 @@
 import type { Announcement } from '@/types/announcement';
+<<<<<<< HEAD
+=======
+import type { UserRole } from '@/contexts/AuthContext';
+
+>>>>>>> fa70cf5 (add board and crud functionality)
 const SUBJECT_MAX = 100;
 const MESSAGE_MAX = 1500;
 const NEW_BADGE_DAYS = 7;
 
+<<<<<<< HEAD
 export const PANEL_WIDTH_DEFAULT = 544;
 export const PANEL_WIDTH_MIN = 480;
 export const PANEL_WIDTH_MAX = 608;
@@ -16,6 +22,8 @@ export const PANEL_SECTION_GAP = 'py-4';
 /** 16px gap between announcement cards. */
 export const PANEL_CARD_GAP = 'gap-4';
 
+=======
+>>>>>>> fa70cf5 (add board and crud functionality)
 export { SUBJECT_MAX, MESSAGE_MAX };
 
 export function formatAnnouncementDate(isoDate: string | null): string {
@@ -24,6 +32,7 @@ export function formatAnnouncementDate(isoDate: string | null): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+<<<<<<< HEAD
 export function isAnnouncementEdited(announcement: Announcement): boolean {
   if (!announcement.created_at || !announcement.updated_at) return false;
   const created = new Date(announcement.created_at).getTime();
@@ -39,12 +48,18 @@ export function isAnnouncementNew(
   if (!announcement.created_at) return false;
   if (readIds.has(announcement.announcement_id)) return false;
   const created = new Date(announcement.created_at).getTime();
+=======
+export function isAnnouncementNew(createdAt: string | null): boolean {
+  if (!createdAt) return false;
+  const created = new Date(createdAt).getTime();
+>>>>>>> fa70cf5 (add board and crud functionality)
   const cutoff = Date.now() - NEW_BADGE_DAYS * 24 * 60 * 60 * 1000;
   return created >= cutoff;
 }
 
 export function canManageAnnouncement(
   announcement: Announcement,
+<<<<<<< HEAD
   currentUserId: string
 ): boolean {
   return announcement.user_id === currentUserId;
@@ -73,4 +88,21 @@ export function announcementDateLine(announcement: Announcement): string {
   const edited = formatAnnouncementDate(announcement.updated_at);
   if (!posted) return `Edited ${edited}`;
   return `Posted ${posted} • Edited ${edited}`;
+=======
+  currentUserId: string,
+  role: UserRole
+): boolean {
+  if (role === 'admin') return true;
+  return announcement.user_id === currentUserId;
+}
+
+export function authorDisplayLabel(
+  announcement: Announcement,
+  currentUserId: string
+): string {
+  if (announcement.user_id === currentUserId) {
+    return `${announcement.author_name || 'You'} (You)`;
+  }
+  return announcement.author_name || 'Unknown';
+>>>>>>> fa70cf5 (add board and crud functionality)
 }

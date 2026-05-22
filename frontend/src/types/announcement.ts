@@ -2,7 +2,10 @@ export interface Announcement {
   announcement_id: string;
   user_id: string;
   author_name: string;
+<<<<<<< HEAD
   author_role: string;
+=======
+>>>>>>> fa70cf5 (add board and crud functionality)
   subject: string;
   message: string;
   attachments: string[];
@@ -11,6 +14,10 @@ export interface Announcement {
 }
 
 export interface AnnouncementCreatePayload {
+<<<<<<< HEAD
+=======
+  user_id: string;
+>>>>>>> fa70cf5 (add board and crud functionality)
   subject: string;
   message: string;
   attachments?: string[];
