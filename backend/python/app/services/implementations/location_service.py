@@ -405,7 +405,6 @@ class LocationService:
                 g.name: g for g in groups_result.scalars().all()
             }
 
-            # Create missing LocationGroups with default colors picked by name
             needed_names = sorted(
                 {
                     entry.delivery_group
@@ -415,7 +414,6 @@ class LocationService:
                 }
             )
             for name in needed_names:
-                # color filled in by LocationGroupBase model validator
                 group = LocationGroup(name=name)  # type: ignore[call-arg]
                 session.add(group)
                 group_by_name[name] = group
