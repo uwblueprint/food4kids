@@ -436,13 +436,22 @@ class LocationService:
                 session.add(group)
                 group_by_name[name] = group
 
-            # Build and batch-insert new Location records
+            # Build and batch-insert new Location records, each with its own
+            # NoteChain so ingested locations support notes like every other
+            # creation path (see create_location).
+            new_note_chains: list[NoteChain] = []
             new_locations: list[Location] = []
             for entry, geocode_result in zip(
                 request.net_new, geocode_results, strict=True
             ):
                 if not geocode_result:
                     raise ValueError(f"Geocoding failed for address: {entry.address}")
+
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ALL,
+                    write_permission=NotePermission.ALL,
+                )
+                new_note_chains.append(note_chain)
 
                 entry_group = (
                     group_by_name.get(entry.delivery_group)
@@ -460,12 +469,14 @@ class LocationService:
                         halal=entry.halal or False,
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_boxes=entry.num_boxes or 0,
+                        note_chain_id=note_chain.note_chain_id,
                         location_group_id=(
                             entry_group.location_group_id if entry_group else None
                         ),
                     )
                 )
 
+            session.add_all(new_note_chains)
             session.add_all(new_locations)
             await session.commit()
 
