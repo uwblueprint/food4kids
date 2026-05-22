@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Link,
   Navigate,
@@ -6,7 +6,6 @@ import {
   useOutletContext,
 } from 'react-router-dom';
 
-import { useReviewLocations } from '@/api';
 import type { Column } from '@/common/components';
 import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 import type {
@@ -66,31 +65,24 @@ function getCellClass(
 
 export function ValidateStep() {
   const navigate = useNavigate();
-  const { file, columnMap } = useOutletContext<GenerationOutletContext>();
-  const { mutate, data, isPending, isError } = useReviewLocations();
+  const { file, reviewResult } = useOutletContext<GenerationOutletContext>();
 
   // Track which data the user dismissed the banner for. The banner is shown
   // again automatically when a new response comes in (different reference).
   const [dismissedFor, setDismissedFor] = useState<
     LocationImportResponse | undefined
   >(undefined);
-  const bannerDismissed = data !== undefined && dismissedFor === data;
 
-  // Kick off review whenever we have a file + column map.
-  useEffect(() => {
-    if (!file) return;
-    mutate({ file, columnMap });
-  }, [mutate, file, columnMap]);
-
-  if (!file) {
-    return (
-      <Navigate to="/admin/routes/generation/import" replace />
-    );
+  // Review runs on the Import step; without a result there's nothing to show.
+  if (!file || !reviewResult) {
+    return <Navigate to="/admin/routes/generation/import" replace />;
   }
 
-  const errorRows = data?.rows.filter((r) => r.alerts.length > 0) ?? [];
+  const data = reviewResult;
+  const bannerDismissed = dismissedFor === data;
+  const errorRows = data.rows.filter((r) => r.alerts.length > 0);
   const errorCount = errorRows.length;
-  const canContinue = data?.success === true;
+  const canContinue = data.success === true;
 
   const handleContinue = () => {
     navigate('/admin/routes/generation/review');
@@ -161,7 +153,7 @@ export function ValidateStep() {
   return (
     <>
       {/* Error banner */}
-      {!bannerDismissed && data && !data.success && (
+      {!bannerDismissed && !data.success && (
         <Banner variant="error" onDismiss={() => setDismissedFor(data)}>
           Please correct these{' '}
           <span className="text-red font-bold">{errorCount}</span>{' '}
@@ -171,7 +163,7 @@ export function ValidateStep() {
       )}
 
       {/* Success banner */}
-      {!bannerDismissed && data && data.success && (
+      {!bannerDismissed && data.success && (
         <Banner variant="success" onDismiss={() => setDismissedFor(data)}>
           No errors. You may proceed to the next step.
         </Banner>
@@ -186,28 +178,17 @@ export function ValidateStep() {
             resolve
           </p>
         </div>
-        {isPending && (
-          <p className="text-p1 text-grey-400 py-8 text-center">Validating…</p>
-        )}
-        {isError && (
-          <p className="text-p1 text-red py-8 text-center">
-            Validation failed — please try again.
-          </p>
-        )}
-
-        {data && (
-          <DataTable
-            columns={columns}
-            rows={errorRows}
-            getRowKey={(row) => row.row}
-            emptyState={
-              <EmptyState
-                title="No new entries found in the spreadsheet"
-                description="It's feeling quite empty here"
-              />
-            }
-          />
-        )}
+        <DataTable
+          columns={columns}
+          rows={errorRows}
+          getRowKey={(row) => row.row}
+          emptyState={
+            <EmptyState
+              title="No new entries found in the spreadsheet"
+              description="It's feeling quite empty here"
+            />
+          }
+        />
       </div>
 
       {/* Actions */}

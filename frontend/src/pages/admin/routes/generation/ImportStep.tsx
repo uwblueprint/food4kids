@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
+import { useReviewLocations } from '@/api';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -70,9 +71,14 @@ export function ImportStep() {
     setFileHeaders,
     columnMap,
     setColumnMap,
+    setReviewResult,
   } = useOutletContext<GenerationOutletContext>();
 
+  const { mutateAsync: reviewLocations, isPending: isReviewing } =
+    useReviewLocations();
+
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const handleFileSelect = async (selected: File) => {
     const ext = '.' + selected.name.split('.').pop()?.toLowerCase();
@@ -145,8 +151,16 @@ export function ImportStep() {
   const canContinue =
     file !== null && SYSTEM_FIELDS.every((f) => !!columnMap[f.key]);
 
-  const handleContinue = () => {
-    navigate('/admin/routes/generation/validate');
+  const handleContinue = async () => {
+    if (!file) return;
+    setReviewError(null);
+    try {
+      const result = await reviewLocations({ file, columnMap });
+      setReviewResult(result);
+      navigate('/admin/routes/generation/validate');
+    } catch {
+      setReviewError('Could not validate the file — please try again.');
+    }
   };
 
   return (
@@ -155,6 +169,11 @@ export function ImportStep() {
       {formatError && (
         <Banner variant="error" onDismiss={() => setFormatError(null)}>
           {formatError}
+        </Banner>
+      )}
+      {reviewError && (
+        <Banner variant="error" onDismiss={() => setReviewError(null)}>
+          {reviewError}
         </Banner>
       )}
 
@@ -199,10 +218,10 @@ export function ImportStep() {
         </Button>
         <Button
           variant="primary"
-          disabled={!canContinue}
+          disabled={!canContinue || isReviewing}
           onClick={handleContinue}
         >
-          Continue to Validation
+          {isReviewing ? 'Validating…' : 'Continue to Validation'}
         </Button>
       </div>
     </>

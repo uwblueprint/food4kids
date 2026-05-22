@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useSystemSettings } from '@/api';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
+import type { LocationImportResponse } from '@/types/location';
 
 import { ProgressStepper } from '../components';
 
@@ -27,6 +28,8 @@ export interface GenerationOutletContext {
   setFileHeaders: (h: string[]) => void;
   columnMap: Record<string, string>;
   setColumnMap: (m: Record<string, string>) => void;
+  reviewResult: LocationImportResponse | null;
+  setReviewResult: (r: LocationImportResponse | null) => void;
 }
 
 export function AdminRoutesGenerationLayout() {
@@ -40,6 +43,9 @@ export function AdminRoutesGenerationLayout() {
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
   const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
+  const [reviewResult, setReviewResult] = useState<LocationImportResponse | null>(
+    null
+  );
 
   if (!hasSeededColumnMap && settingsLoaded) {
     setHasSeededColumnMap(true);
@@ -53,6 +59,8 @@ export function AdminRoutesGenerationLayout() {
     setFileHeaders,
     columnMap,
     setColumnMap,
+    reviewResult,
+    setReviewResult,
   };
 
   return (
