@@ -282,23 +282,19 @@ class TestCoreBusinessValidation:
             ]
         )
 
-    # Test LocationGroup required fields
-    with pytest.raises(ValidationError) as exc_info:
-        LocationGroup(  # type: ignore[call-arg]
-            name="Test Group",
-            # Missing: color
-        )
-    assert "color" in str(exc_info.value)
+        # LocationGroup auto-fills color from name when omitted
+        group = LocationGroup(name="Test Group")  # type: ignore[call-arg]
+        assert group.color in LocationGroup.DEFAULT_PALETTE
 
-    # Test RouteGroup required fields
-    from datetime import datetime
+        # Test RouteGroup required fields
+        from datetime import datetime
 
-    with pytest.raises(ValidationError) as exc_info:
-        RouteGroup(
-            name="",  # Empty name should fail
-            drive_date=datetime(2024, 1, 15, 8, 0),
-        )
-    assert "name" in str(exc_info.value)
+        with pytest.raises(ValidationError) as exc_info:
+            RouteGroup(
+                name="",  # Empty name should fail
+                drive_date=datetime(2024, 1, 15, 8, 0),
+            )
+        assert "name" in str(exc_info.value)
 
     def test_extra_field_validation(self) -> None:
         """Test that extra fields are rejected (extra='forbid' configuration)."""
