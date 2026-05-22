@@ -20,6 +20,7 @@ interface AnnouncementFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
+<<<<<<< HEAD
   role: 'admin' | 'driver';
   announcement?: Announcement;
   onSubmit: (values: {
@@ -27,6 +28,10 @@ interface AnnouncementFormModalProps {
     message: string;
     sendEmailToAll: boolean;
   }) => Promise<void>;
+=======
+  announcement?: Announcement;
+  onSubmit: (values: { subject: string; message: string }) => Promise<void>;
+>>>>>>> fa70cf5 (add board and crud functionality)
   isSubmitting?: boolean;
 }
 
@@ -34,14 +39,20 @@ export function AnnouncementFormModal({
   open,
   onOpenChange,
   mode,
+<<<<<<< HEAD
   role,
+=======
+>>>>>>> fa70cf5 (add board and crud functionality)
   announcement,
   onSubmit,
   isSubmitting = false,
 }: AnnouncementFormModalProps) {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+<<<<<<< HEAD
   const [sendEmailToAll, setSendEmailToAll] = useState(false);
+=======
+>>>>>>> fa70cf5 (add board and crud functionality)
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,6 +64,7 @@ export function AnnouncementFormModal({
       setSubject('');
       setMessage('');
     }
+<<<<<<< HEAD
     setSendEmailToAll(false);
     setError(null);
   }, [open, mode, announcement]);
@@ -78,6 +90,33 @@ export function AnnouncementFormModal({
           ? err.message
           : 'Something went wrong. Please try again.';
       setError(messageText);
+=======
+    setError(null);
+  }, [open, mode, announcement]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedSubject = subject.trim();
+    const trimmedMessage = message.trim();
+    if (!trimmedSubject) {
+      setError('Subject is required.');
+      return;
+    }
+    if (!trimmedMessage) {
+      setError('Note is required.');
+      return;
+    }
+    setError(null);
+    try {
+      await onSubmit({ subject: trimmedSubject, message: trimmedMessage });
+      onOpenChange(false);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong. Please try again.';
+      setError(message);
+>>>>>>> fa70cf5 (add board and crud functionality)
     }
   };
 
@@ -117,6 +156,7 @@ export function AnnouncementFormModal({
             />
           </Field>
 
+<<<<<<< HEAD
           {mode === 'create' && role === 'admin' && (
             <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
               <input
@@ -129,6 +169,8 @@ export function AnnouncementFormModal({
             </label>
           )}
 
+=======
+>>>>>>> fa70cf5 (add board and crud functionality)
           {error && (
             <p className="text-p2 text-red" role="alert">
               {error}
@@ -144,7 +186,11 @@ export function AnnouncementFormModal({
             >
               Cancel
             </Button>
+<<<<<<< HEAD
             <Button type="submit" disabled={isSubmitting || !canSubmit}>
+=======
+            <Button type="submit" disabled={isSubmitting}>
+>>>>>>> fa70cf5 (add board and crud functionality)
               {isSubmitting
                 ? 'Saving…'
                 : mode === 'create'
