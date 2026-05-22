@@ -18,7 +18,7 @@ import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 // Styling for error and warning cells
-const ERROR_CELL_CLASS = 'border-b-2 border-red bg-red-50';
+const ERROR_CELL_CLASS = 'border-b-2 border-red bg-light-red';
 const WARNING_CELL_CLASS = 'border-b-2 border-dark-yellow bg-light-yellow';
 
 // ---------------------------------------------------------------------------
