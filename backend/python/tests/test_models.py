@@ -283,7 +283,7 @@ class TestCoreBusinessValidation:
         )
 
         # LocationGroup auto-fills color from name when omitted
-        group = LocationGroup(name="Test Group")
+        group = LocationGroup(name="Test Group")  # type: ignore[call-arg]
         assert group.color in LocationGroup.DEFAULT_PALETTE
 
         # Test RouteGroup required fields
