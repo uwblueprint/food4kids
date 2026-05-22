@@ -150,6 +150,11 @@ import type {
   GetSuggestedDriverData,
   GetSuggestedDriverErrors,
   GetSuggestedDriverResponses,
+  GetSystemSettingsData,
+  GetSystemSettingsResponses,
+  IngestLocationsData,
+  IngestLocationsErrors,
+  IngestLocationsResponses,
   LoginData,
   LoginErrors,
   LoginResponses,
@@ -164,6 +169,9 @@ import type {
   ResetPasswordData,
   ResetPasswordErrors,
   ResetPasswordResponses,
+  ReviewLocationsData,
+  ReviewLocationsErrors,
+  ReviewLocationsResponses,
   TestData,
   TestResponses,
   UpdateAnnouncementData,
@@ -202,9 +210,6 @@ import type {
   UploadImageData,
   UploadImageErrors,
   UploadImageResponses,
-  ValidateLocationsData,
-  ValidateLocationsErrors,
-  ValidateLocationsResponses,
 } from './types.gen';
 
 export type Options<
@@ -996,21 +1001,48 @@ export const createLocation = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Validate Locations
+ * Ingest Locations
  *
- * Validate location import data (no missing fields or local duplicates)
+ * Persist net-new locations and archive stale ones.
  */
-export const validateLocations = <ThrowOnError extends boolean = false>(
-  options: Options<ValidateLocationsData, ThrowOnError>
+export const ingestLocations = <ThrowOnError extends boolean = false>(
+  options: Options<IngestLocationsData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    ValidateLocationsResponses,
-    ValidateLocationsErrors,
+    IngestLocationsResponses,
+    IngestLocationsErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/locations/ingest',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Review Locations
+ *
+ * Review a pending location import: validate rows and (eventually) describe how
+ * the import would affect existing locations (net_new / stale / changed).
+ * Requires a column_map JSON string mapping system field names to file headers.
+ *
+ * Side effect: the submitted column_map is persisted to system_settings so it
+ * becomes the default mapping on the next import.
+ */
+export const reviewLocations = <ThrowOnError extends boolean = false>(
+  options: Options<ReviewLocationsData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ReviewLocationsResponses,
+    ReviewLocationsErrors,
     ThrowOnError
   >({
     ...formDataBodySerializer,
     responseType: 'json',
-    url: '/locations/validate',
+    url: '/locations/review',
     ...options,
     headers: {
       'Content-Type': null,
@@ -1486,6 +1518,24 @@ export const updateSimpleEntity = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get System Settings
+ *
+ * Return the singleton system settings row, or null if none has been created.
+ */
+export const getSystemSettings = <ThrowOnError extends boolean = false>(
+  options?: Options<GetSystemSettingsData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetSystemSettingsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/system-settings/',
+    ...options,
   });
 
 /**

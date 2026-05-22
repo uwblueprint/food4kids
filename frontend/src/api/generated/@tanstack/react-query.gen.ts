@@ -60,12 +60,15 @@ import {
   getSimpleEntities,
   getSimpleEntity,
   getSuggestedDriver,
+  getSystemSettings,
+  ingestLocations,
   login,
   logout,
   type Options,
   refresh,
   registerDriver,
   resetPassword,
+  reviewLocations,
   test,
   updateAnnouncement,
   updateDriver,
@@ -79,7 +82,6 @@ import {
   updateRouteGroup,
   updateSimpleEntity,
   uploadImage,
-  validateLocations,
 } from '../sdk.gen';
 import type {
   CreateAnnouncementData,
@@ -223,6 +225,11 @@ import type {
   GetSuggestedDriverData,
   GetSuggestedDriverError,
   GetSuggestedDriverResponse,
+  GetSystemSettingsData,
+  GetSystemSettingsResponse,
+  IngestLocationsData,
+  IngestLocationsError,
+  IngestLocationsResponse,
   LoginData,
   LoginError,
   LoginResponse,
@@ -237,6 +244,9 @@ import type {
   ResetPasswordData,
   ResetPasswordError,
   ResetPasswordResponse,
+  ReviewLocationsData,
+  ReviewLocationsError,
+  ReviewLocationsResponse,
   TestData,
   TestResponse,
   UpdateAnnouncementData,
@@ -275,9 +285,6 @@ import type {
   UploadImageData,
   UploadImageError,
   UploadImageResponse,
-  ValidateLocationsData,
-  ValidateLocationsError,
-  ValidateLocationsResponse,
 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
@@ -1677,24 +1684,58 @@ export const createLocationMutation = (
 };
 
 /**
- * Validate Locations
+ * Ingest Locations
  *
- * Validate location import data (no missing fields or local duplicates)
+ * Persist net-new locations and archive stale ones.
  */
-export const validateLocationsMutation = (
-  options?: Partial<Options<ValidateLocationsData>>
+export const ingestLocationsMutation = (
+  options?: Partial<Options<IngestLocationsData>>
 ): UseMutationOptions<
-  ValidateLocationsResponse,
-  AxiosError<ValidateLocationsError>,
-  Options<ValidateLocationsData>
+  IngestLocationsResponse,
+  AxiosError<IngestLocationsError>,
+  Options<IngestLocationsData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ValidateLocationsResponse,
-    AxiosError<ValidateLocationsError>,
-    Options<ValidateLocationsData>
+    IngestLocationsResponse,
+    AxiosError<IngestLocationsError>,
+    Options<IngestLocationsData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await validateLocations({
+      const { data } = await ingestLocations({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Review Locations
+ *
+ * Review a pending location import: validate rows and (eventually) describe how
+ * the import would affect existing locations (net_new / stale / changed).
+ * Requires a column_map JSON string mapping system field names to file headers.
+ *
+ * Side effect: the submitted column_map is persisted to system_settings so it
+ * becomes the default mapping on the next import.
+ */
+export const reviewLocationsMutation = (
+  options?: Partial<Options<ReviewLocationsData>>
+): UseMutationOptions<
+  ReviewLocationsResponse,
+  AxiosError<ReviewLocationsError>,
+  Options<ReviewLocationsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReviewLocationsResponse,
+    AxiosError<ReviewLocationsError>,
+    Options<ReviewLocationsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await reviewLocations({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -2498,6 +2539,36 @@ export const updateSimpleEntityMutation = (
   };
   return mutationOptions;
 };
+
+export const getSystemSettingsQueryKey = (
+  options?: Options<GetSystemSettingsData>
+) => createQueryKey('getSystemSettings', options);
+
+/**
+ * Get System Settings
+ *
+ * Return the singleton system settings row, or null if none has been created.
+ */
+export const getSystemSettingsOptions = (
+  options?: Options<GetSystemSettingsData>
+) =>
+  queryOptions<
+    GetSystemSettingsResponse,
+    AxiosError<DefaultError>,
+    GetSystemSettingsResponse,
+    ReturnType<typeof getSystemSettingsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getSystemSettings({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getSystemSettingsQueryKey(options),
+  });
 
 /**
  * Upload Image

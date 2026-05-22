@@ -13,15 +13,6 @@
         "title": "AlertCode",
         "type": "string"
       },
-      "AlertType": {
-        "description": "Severity of an import alert — drives icon/colour on the frontend.",
-        "enum": [
-          "WARNING",
-          "ERROR"
-        ],
-        "title": "AlertType",
-        "type": "string"
-      },
       "AnnouncementCreate": {
         "description": "Announcement creation request",
         "properties": {
@@ -218,6 +209,25 @@
         "title": "AuthResponse",
         "type": "object"
       },
+      "Body_review_locations": {
+        "properties": {
+          "column_map": {
+            "title": "Column Map",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "column_map"
+        ],
+        "title": "Body_review_locations",
+        "type": "object"
+      },
       "Body_upload_image": {
         "properties": {
           "file": {
@@ -232,18 +242,152 @@
         "title": "Body_upload_image",
         "type": "object"
       },
-      "Body_validate_locations": {
+      "ChangedEntry": {
+        "description": "An existing location whose fields differ from the import row.\n\nEach field is either the plain new value (unchanged) or a ChangedField object\ncarrying both new and old values.",
         "properties": {
-          "file": {
-            "contentMediaType": "application/octet-stream",
-            "title": "File",
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldStr"
+              }
+            ],
+            "title": "Address"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldOptStr"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "num_children": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldOptInt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Children"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldStr"
+              }
+            ],
+            "title": "Phone Number"
+          }
+        },
+        "required": [
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "ChangedEntry",
+        "type": "object"
+      },
+      "ChangedFieldOptInt": {
+        "properties": {
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          }
+        },
+        "required": [
+          "new_value",
+          "old_value"
+        ],
+        "title": "ChangedFieldOptInt",
+        "type": "object"
+      },
+      "ChangedFieldOptStr": {
+        "properties": {
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          }
+        },
+        "required": [
+          "new_value",
+          "old_value"
+        ],
+        "title": "ChangedFieldOptStr",
+        "type": "object"
+      },
+      "ChangedFieldStr": {
+        "properties": {
+          "new_value": {
+            "title": "New Value",
+            "type": "string"
+          },
+          "old_value": {
+            "title": "Old Value",
             "type": "string"
           }
         },
         "required": [
-          "file"
+          "new_value",
+          "old_value"
         ],
-        "title": "Body_validate_locations",
+        "title": "ChangedFieldStr",
         "type": "object"
       },
       "DeliveryTypeEnum": {
@@ -1103,8 +1247,15 @@
         "description": "Location group creation request",
         "properties": {
           "color": {
-            "title": "Color",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
           },
           "location_ids": {
             "items": {
@@ -1127,7 +1278,6 @@
         },
         "required": [
           "name",
-          "color",
           "location_ids"
         ],
         "title": "LocationGroupCreate",
@@ -1206,28 +1356,6 @@
           }
         },
         "title": "LocationGroupUpdate",
-        "type": "object"
-      },
-      "LocationImportAlert": {
-        "description": "A single alert attached to an import row.",
-        "properties": {
-          "code": {
-            "$ref": "#/components/schemas/AlertCode"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "type": {
-            "$ref": "#/components/schemas/AlertType"
-          }
-        },
-        "required": [
-          "type",
-          "code",
-          "message"
-        ],
-        "title": "LocationImportAlert",
         "type": "object"
       },
       "LocationImportEntry": {
@@ -1315,7 +1443,24 @@
         "type": "object"
       },
       "LocationImportResponse": {
+        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. net_new/stale/changed describe how the\nimport would affect the existing locations table; these are placeholders until\nthe matching logic is implemented.",
         "properties": {
+          "changed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChangedEntry"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "net_new": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NetNewEntry"
+            },
+            "title": "Net New",
+            "type": "array"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/LocationImportRow"
@@ -1323,8 +1468,17 @@
             "title": "Rows",
             "type": "array"
           },
-          "status": {
-            "$ref": "#/components/schemas/LocationImportStatus"
+          "stale": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/StaleEntry"
+            },
+            "title": "Stale",
+            "type": "array"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
           },
           "total_rows": {
             "title": "Total Rows",
@@ -1332,7 +1486,7 @@
           }
         },
         "required": [
-          "status",
+          "success",
           "total_rows",
           "rows"
         ],
@@ -1343,7 +1497,7 @@
         "properties": {
           "alerts": {
             "items": {
-              "$ref": "#/components/schemas/LocationImportAlert"
+              "$ref": "#/components/schemas/AlertCode"
             },
             "title": "Alerts",
             "type": "array"
@@ -1364,15 +1518,53 @@
         "title": "LocationImportRow",
         "type": "object"
       },
-      "LocationImportStatus": {
-        "description": "Status of the import",
-        "enum": [
-          "SUCCESS",
-          "WARNING",
-          "ERROR"
+      "LocationIngestRequest": {
+        "properties": {
+          "net_new": {
+            "items": {
+              "$ref": "#/components/schemas/ValidatedLocationImportEntry"
+            },
+            "title": "Net New",
+            "type": "array"
+          },
+          "stale": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Stale",
+            "type": "array"
+          }
+        },
+        "required": [
+          "net_new",
+          "stale"
         ],
-        "title": "LocationImportStatus",
-        "type": "string"
+        "title": "LocationIngestRequest",
+        "type": "object"
+      },
+      "LocationIngestResponse": {
+        "properties": {
+          "archived": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Archived",
+            "type": "array"
+          },
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Created",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created",
+          "archived"
+        ],
+        "title": "LocationIngestResponse",
+        "type": "object"
       },
       "LocationRead": {
         "description": "Read response model",
@@ -1697,6 +1889,57 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "NetNewEntry": {
+        "description": "A row in the import that has no matching existing location.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "num_boxes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Boxes"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "NetNewEntry",
         "type": "object"
       },
       "NoteChainRead": {
@@ -2650,6 +2893,47 @@
         "title": "SimpleEntityUpdate",
         "type": "object"
       },
+      "StaleEntry": {
+        "description": "An existing location not present in the import; would be archived on ingest.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location_id",
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "StaleEntry",
+        "type": "object"
+      },
       "SuggestedDriverResponse": {
         "description": "Response model for suggested driver (last assigned to a route).",
         "properties": {
@@ -2668,6 +2952,160 @@
           "driver_name"
         ],
         "title": "SuggestedDriverResponse",
+        "type": "object"
+      },
+      "SystemSettingsRead": {
+        "description": "Read response model",
+        "properties": {
+          "default_cap": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Cap"
+          },
+          "import_column_map": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Column Map"
+          },
+          "route_start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Start Time"
+          },
+          "system_settings_id": {
+            "format": "uuid",
+            "title": "System Settings Id",
+            "type": "string"
+          },
+          "warehouse_latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Latitude"
+          },
+          "warehouse_location": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Location"
+          },
+          "warehouse_longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Longitude"
+          }
+        },
+        "required": [
+          "system_settings_id"
+        ],
+        "title": "SystemSettingsRead",
+        "type": "object"
+      },
+      "ValidatedLocationImportEntry": {
+        "description": "LocationImportEntry with required fields guaranteed non-None after validation.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "dietary_restrictions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dietary Restrictions"
+          },
+          "halal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Halal"
+          },
+          "num_boxes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Boxes"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "ValidatedLocationImportEntry",
         "type": "object"
       },
       "ValidationError": {
@@ -4593,15 +5031,57 @@
         ]
       }
     },
-    "/locations/validate": {
+    "/locations/ingest": {
       "post": {
-        "description": "Validate location import data (no missing fields or local duplicates)",
-        "operationId": "validate_locations",
+        "description": "Persist net-new locations and archive stale ones.",
+        "operationId": "ingest_locations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationIngestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationIngestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Locations",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/locations/review": {
+      "post": {
+        "description": "Review a pending location import: validate rows and (eventually) describe how\nthe import would affect existing locations (net_new / stale / changed).\nRequires a column_map JSON string mapping system field names to file headers.\n\nSide effect: the submitted column_map is persisted to system_settings so it\nbecomes the default mapping on the next import.",
+        "operationId": "review_locations",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_validate_locations"
+                "$ref": "#/components/schemas/Body_review_locations"
               }
             }
           },
@@ -4629,7 +5109,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Validate Locations",
+        "summary": "Review Locations",
         "tags": [
           "locations"
         ]
@@ -5867,6 +6347,36 @@
         "summary": "Update Simple Entity",
         "tags": [
           "simple-entities"
+        ]
+      }
+    },
+    "/system-settings/": {
+      "get": {
+        "description": "Return the singleton system settings row, or null if none has been created.",
+        "operationId": "get_system_settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SystemSettingsRead"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get System Settings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get System Settings",
+        "tags": [
+          "system-settings"
         ]
       }
     },

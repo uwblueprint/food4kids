@@ -17,13 +17,6 @@ export type AlertCode =
   | 'PARTIAL_DUPLICATE';
 
 /**
- * AlertType
- *
- * Severity of an import alert — drives icon/colour on the frontend.
- */
-export type AlertType = 'WARNING' | 'ERROR';
-
-/**
  * AnnouncementCreate
  *
  * Announcement creation request
@@ -144,6 +137,20 @@ export type AuthResponse = {
 };
 
 /**
+ * Body_review_locations
+ */
+export type BodyReviewLocations = {
+  /**
+   * Column Map
+   */
+  column_map: string;
+  /**
+   * File
+   */
+  file: Blob | File;
+};
+
+/**
  * Body_upload_image
  */
 export type BodyUploadImage = {
@@ -154,13 +161,76 @@ export type BodyUploadImage = {
 };
 
 /**
- * Body_validate_locations
+ * ChangedEntry
+ *
+ * An existing location whose fields differ from the import row.
+ *
+ * Each field is either the plain new value (unchanged) or a ChangedField object
+ * carrying both new and old values.
  */
-export type BodyValidateLocations = {
+export type ChangedEntry = {
   /**
-   * File
+   * Address
    */
-  file: Blob | File;
+  address: string | ChangedFieldStr;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  /**
+   * Delivery Group
+   */
+  delivery_group?: string | ChangedFieldOptStr | null;
+  /**
+   * Num Children
+   */
+  num_children?: number | ChangedFieldOptInt | null;
+  /**
+   * Phone Number
+   */
+  phone_number: string | ChangedFieldStr;
+};
+
+/**
+ * ChangedFieldOptInt
+ */
+export type ChangedFieldOptInt = {
+  /**
+   * New Value
+   */
+  new_value: number | null;
+  /**
+   * Old Value
+   */
+  old_value: number | null;
+};
+
+/**
+ * ChangedFieldOptStr
+ */
+export type ChangedFieldOptStr = {
+  /**
+   * New Value
+   */
+  new_value: string | null;
+  /**
+   * Old Value
+   */
+  old_value: string | null;
+};
+
+/**
+ * ChangedFieldStr
+ */
+export type ChangedFieldStr = {
+  /**
+   * New Value
+   */
+  new_value: string;
+  /**
+   * Old Value
+   */
+  old_value: string;
 };
 
 /**
@@ -679,7 +749,7 @@ export type LocationGroupCreate = {
   /**
    * Color
    */
-  color: string;
+  color?: string | null;
   /**
    * Location Ids
    */
@@ -743,20 +813,6 @@ export type LocationGroupUpdate = {
 };
 
 /**
- * LocationImportAlert
- *
- * A single alert attached to an import row.
- */
-export type LocationImportAlert = {
-  code: AlertCode;
-  /**
-   * Message
-   */
-  message: string;
-  type: AlertType;
-};
-
-/**
  * LocationImportEntry
  *
  * Parsed row from import file; all fields optional until validated.
@@ -794,13 +850,34 @@ export type LocationImportEntry = {
 
 /**
  * LocationImportResponse
+ *
+ * Combined validate + review-changes payload.
+ *
+ * success=False when any row has alerts. net_new/stale/changed describe how the
+ * import would affect the existing locations table; these are placeholders until
+ * the matching logic is implemented.
  */
 export type LocationImportResponse = {
+  /**
+   * Changed
+   */
+  changed?: Array<ChangedEntry>;
+  /**
+   * Net New
+   */
+  net_new?: Array<NetNewEntry>;
   /**
    * Rows
    */
   rows: Array<LocationImportRow>;
-  status: LocationImportStatus;
+  /**
+   * Stale
+   */
+  stale?: Array<StaleEntry>;
+  /**
+   * Success
+   */
+  success: boolean;
   /**
    * Total Rows
    */
@@ -814,7 +891,7 @@ export type LocationImportRow = {
   /**
    * Alerts
    */
-  alerts: Array<LocationImportAlert>;
+  alerts: Array<AlertCode>;
   location: LocationImportEntry;
   /**
    * Row
@@ -823,11 +900,32 @@ export type LocationImportRow = {
 };
 
 /**
- * LocationImportStatus
- *
- * Status of the import
+ * LocationIngestRequest
  */
-export type LocationImportStatus = 'SUCCESS' | 'WARNING' | 'ERROR';
+export type LocationIngestRequest = {
+  /**
+   * Net New
+   */
+  net_new: Array<ValidatedLocationImportEntry>;
+  /**
+   * Stale
+   */
+  stale: Array<LocationRead>;
+};
+
+/**
+ * LocationIngestResponse
+ */
+export type LocationIngestResponse = {
+  /**
+   * Archived
+   */
+  archived: Array<LocationRead>;
+  /**
+   * Created
+   */
+  created: Array<LocationRead>;
+};
 
 /**
  * LocationRead
@@ -983,6 +1081,38 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+};
+
+/**
+ * NetNewEntry
+ *
+ * A row in the import that has no matching existing location.
+ */
+export type NetNewEntry = {
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  /**
+   * Delivery Group
+   */
+  delivery_group?: string | null;
+  /**
+   * Num Boxes
+   */
+  num_boxes?: number | null;
+  /**
+   * Phone Number
+   */
+  phone_number: string;
+  /**
+   * Row
+   */
+  row: number;
 };
 
 /**
@@ -1547,6 +1677,34 @@ export type SimpleEntityUpdate = {
 };
 
 /**
+ * StaleEntry
+ *
+ * An existing location not present in the import; would be archived on ingest.
+ */
+export type StaleEntry = {
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  /**
+   * Delivery Group
+   */
+  delivery_group?: string | null;
+  /**
+   * Location Id
+   */
+  location_id: string;
+  /**
+   * Phone Number
+   */
+  phone_number: string;
+};
+
+/**
  * SuggestedDriverResponse
  *
  * Response model for suggested driver (last assigned to a route).
@@ -1560,6 +1718,80 @@ export type SuggestedDriverResponse = {
    * Driver Name
    */
   driver_name: string;
+};
+
+/**
+ * SystemSettingsRead
+ *
+ * Read response model
+ */
+export type SystemSettingsRead = {
+  /**
+   * Default Cap
+   */
+  default_cap?: number | null;
+  /**
+   * Import Column Map
+   */
+  import_column_map?: {
+    [key: string]: string;
+  } | null;
+  /**
+   * Route Start Time
+   */
+  route_start_time?: string | null;
+  /**
+   * System Settings Id
+   */
+  system_settings_id: string;
+  /**
+   * Warehouse Latitude
+   */
+  warehouse_latitude?: number | null;
+  /**
+   * Warehouse Location
+   */
+  warehouse_location?: string | null;
+  /**
+   * Warehouse Longitude
+   */
+  warehouse_longitude?: number | null;
+};
+
+/**
+ * ValidatedLocationImportEntry
+ *
+ * LocationImportEntry with required fields guaranteed non-None after validation.
+ */
+export type ValidatedLocationImportEntry = {
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  /**
+   * Delivery Group
+   */
+  delivery_group?: string | null;
+  /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | null;
+  /**
+   * Halal
+   */
+  halal?: boolean | null;
+  /**
+   * Num Boxes
+   */
+  num_boxes?: number | null;
+  /**
+   * Phone Number
+   */
+  phone_number: string;
 };
 
 /**
@@ -2854,32 +3086,59 @@ export type CreateLocationResponses = {
 export type CreateLocationResponse =
   CreateLocationResponses[keyof CreateLocationResponses];
 
-export type ValidateLocationsData = {
-  body: BodyValidateLocations;
+export type IngestLocationsData = {
+  body: LocationIngestRequest;
   path?: never;
   query?: never;
-  url: '/locations/validate';
+  url: '/locations/ingest';
 };
 
-export type ValidateLocationsErrors = {
+export type IngestLocationsErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type ValidateLocationsError =
-  ValidateLocationsErrors[keyof ValidateLocationsErrors];
+export type IngestLocationsError =
+  IngestLocationsErrors[keyof IngestLocationsErrors];
 
-export type ValidateLocationsResponses = {
+export type IngestLocationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: LocationIngestResponse;
+};
+
+export type IngestLocationsResponse =
+  IngestLocationsResponses[keyof IngestLocationsResponses];
+
+export type ReviewLocationsData = {
+  body: BodyReviewLocations;
+  path?: never;
+  query?: never;
+  url: '/locations/review';
+};
+
+export type ReviewLocationsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReviewLocationsError =
+  ReviewLocationsErrors[keyof ReviewLocationsErrors];
+
+export type ReviewLocationsResponses = {
   /**
    * Successful Response
    */
   200: LocationImportResponse;
 };
 
-export type ValidateLocationsResponse =
-  ValidateLocationsResponses[keyof ValidateLocationsResponses];
+export type ReviewLocationsResponse =
+  ReviewLocationsResponses[keyof ReviewLocationsResponses];
 
 export type DeleteLocationData = {
   body?: never;
@@ -3664,6 +3923,25 @@ export type UpdateSimpleEntityResponses = {
 
 export type UpdateSimpleEntityResponse =
   UpdateSimpleEntityResponses[keyof UpdateSimpleEntityResponses];
+
+export type GetSystemSettingsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/system-settings/';
+};
+
+export type GetSystemSettingsResponses = {
+  /**
+   * Response Get System Settings
+   *
+   * Successful Response
+   */
+  200: SystemSettingsRead | null;
+};
+
+export type GetSystemSettingsResponse =
+  GetSystemSettingsResponses[keyof GetSystemSettingsResponses];
 
 export type UploadImageData = {
   body: BodyUploadImage;

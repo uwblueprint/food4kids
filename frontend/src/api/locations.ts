@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosClient from '@/lib/axiosClient';
 import type { LocationImportResponse } from '@/types/location';
 
+import { getSystemSettingsQueryKey } from './generated/@tanstack/react-query.gen';
+
 async function fetchReviewLocations(
   file: File,
   columnMap: Record<string, string>
@@ -31,7 +33,7 @@ export function useReviewLocations() {
     }) => fetchReviewLocations(file, columnMap),
     onSuccess: () => {
       // Backend persists the submitted column_map as the new default
-      queryClient.invalidateQueries({ queryKey: ['system-settings'] });
+      queryClient.invalidateQueries({ queryKey: getSystemSettingsQueryKey() });
     },
   });
 }
