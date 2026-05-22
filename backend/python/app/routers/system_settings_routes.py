@@ -12,7 +12,9 @@ router = APIRouter(prefix="/system-settings", tags=["system-settings"])
 @router.get("/", response_model=SystemSettingsRead | None)
 async def get_system_settings(
     session: AsyncSession = Depends(get_session),
-    system_settings_service: SystemSettingsService = Depends(get_system_settings_service),
+    system_settings_service: SystemSettingsService = Depends(
+        get_system_settings_service
+    ),
 ) -> SystemSettingsRead | None:
     """Return the singleton system settings row, or null if none has been created."""
     try:
