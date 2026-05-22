@@ -4,13 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "backend/python/**"
   pull_request:
     branches:
       - main
-    paths:
-      - "backend/python/**"
 
 concurrency:
   group: pytest-${{ github.workflow }}-${{ github.ref }}
@@ -41,20 +37,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Run the job on every PR so the required `test` check always reports a
+      # status, but only do the expensive setup + tests when backend code
+      # changed. A path-filtered workflow is skipped entirely on frontend-only
+      # PRs, which leaves the required check stuck on "Expected — Waiting for
+      # status to be reported" and blocks merge.
+      - name: Filter changed files
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            python-backend:
+              - "backend/python/**"
+
       - name: Set up Python
+        if: steps.changes.outputs.python-backend == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
           cache-dependency-path: backend/python/requirements.txt
-      
+
       - name: Install dependencies
+        if: steps.changes.outputs.python-backend == 'true'
         working-directory: ./backend/python
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-      
+
       - name: Run tests
+        if: steps.changes.outputs.python-backend == 'true'
         working-directory: ./backend/python
         env:
           PYTHONPATH: ${{ github.workspace }}/backend/python
@@ -68,4 +80,3 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           pytest -q --disable-warnings -ra
-
