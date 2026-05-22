@@ -24,7 +24,12 @@ import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
 
-const SYSTEM_FIELDS: { key: string; label: string }[] = [
+interface SystemField {
+  key: string;
+  label: string;
+}
+
+const SYSTEM_FIELDS: SystemField[] = [
   { key: 'contact_name', label: 'School Name / Last Name' },
   { key: 'address', label: 'Address' },
   { key: 'delivery_group', label: 'Delivery Group' },
@@ -32,8 +37,6 @@ const SYSTEM_FIELDS: { key: string; label: string }[] = [
   { key: 'num_boxes', label: 'Number of Children' },
   { key: 'dietary_restrictions', label: 'Food Restrictions' },
 ];
-
-type SystemField = (typeof SYSTEM_FIELDS)[number];
 
 // Parses headers from uploaded Excel file
 function parseHeaders(file: File): Promise<string[]> {
