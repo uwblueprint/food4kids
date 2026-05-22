@@ -28,13 +28,13 @@ export function GenerateStep() {
   const percent = Math.round((MOCK_COMPLETED / MOCK_TOTAL) * 100);
 
   // TODO: replace with actual response from API
-  const [success, setSucess] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   // TODO: replace with actual response from API
   // create a timer that makes the GENERATION_SUCCESS true after 5 seconds
   useEffect(() => {
     const id = setTimeout(() => {
-      setSucess(true);
+      setSuccess(true);
     }, 5000);
     return () => clearTimeout(id);
   }, []);

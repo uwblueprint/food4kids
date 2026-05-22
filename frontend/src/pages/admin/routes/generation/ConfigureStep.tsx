@@ -117,7 +117,7 @@ export function ConfigureStep() {
 
   const handleConfirm = () => {
     // TODO: pass buildPayload() to the generation API call
-    console.log('Generation payload:', buildPayload());
+    void buildPayload();
     setConfirmOpen(false);
     navigate('/admin/routes/generation/generate');
   };
