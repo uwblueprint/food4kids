@@ -34,7 +34,7 @@ LOCATIONS_COUNT = 18
 
 NUM_CLUSTERS = 10
 MAX_LOCATIONS_PER_CLUSTER = 5
-MAX_BOXES_PER_CLUSTER = 50
+MAX_BOXES_PER_CLUSTER = 14
 
 
 def _print_and_collect_rows(clusters: list[list[Location]]) -> list[dict]:
