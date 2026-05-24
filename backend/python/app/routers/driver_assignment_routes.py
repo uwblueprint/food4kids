@@ -1,4 +1,3 @@
-import logging
 from uuid import UUID
 
 import firebase_admin.auth
@@ -8,9 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.auth import (
     get_access_token,
     require_admin,
+    require_driver,
     require_driver_or_admin,
 )
-from app.dependencies.services import get_driver_assignment_service
+from app.dependencies.services import (
+    get_driver_assignment_service,
+    get_driver_service,
+)
 from app.models import get_session
 from app.models.driver_assignment import (
     DriverAssignmentCreate,
@@ -23,9 +26,6 @@ from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
 from app.services.implementations.driver_service import DriverService
-
-logger = logging.getLogger(__name__)
-driver_service = DriverService(logger)
 
 router = APIRouter(prefix="/driver-assignments", tags=["driver-assignments"])
 
@@ -65,10 +65,14 @@ async def get_my_driver_assignments(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
-    _auth: bool = Depends(require_driver_or_admin),
+    driver_service: DriverService = Depends(get_driver_service),
+    _auth: bool = Depends(require_driver),
 ) -> list[DriverAssignmentRead]:
     """
     Retrieve driver assignments for the currently authenticated driver.
+
+    Drivers only: an admin's UID does not map to a driver record. Admins should
+    use GET /driver-assignments/ for the full list.
     """
     try:
         decoded_token = firebase_admin.auth.verify_id_token(
@@ -114,7 +118,7 @@ async def create_driver_assignment(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> DriverAssignmentRead:
     """
     Create a new driver assignment
@@ -140,7 +144,7 @@ async def update_driver_assignment(
     driver_assignment_service: DriverAssignmentService = Depends(
         get_driver_assignment_service
     ),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> DriverAssignmentRead:
     """
     Update an existing driver assignment

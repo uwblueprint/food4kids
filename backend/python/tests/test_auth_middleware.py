@@ -8,7 +8,7 @@ Firebase and the auth service layer.
 from collections.abc import AsyncGenerator
 from typing import Any
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -338,7 +338,7 @@ class TestRequireSelfDriverOrAdmin:
 
         with patch(
             "app.dependencies.auth.firebase_admin.auth.verify_id_token",
-            return_value={"uid": "admin-uid", "role": "admin"},
+            return_value={"uid": "admin-uid", "role": "admin", "email_verified": True},
         ):
             resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
 
@@ -353,12 +353,16 @@ class TestRequireSelfDriverOrAdmin:
         with (
             patch(
                 "app.dependencies.auth.firebase_admin.auth.verify_id_token",
-                return_value={"uid": "driver-uid", "role": "driver"},
+                return_value={
+                    "uid": "driver-uid",
+                    "role": "driver",
+                    "email_verified": True,
+                },
             ),
             patch(
-                "app.dependencies.auth.auth_service.is_authorized_by_driver_id",
+                "app.dependencies.auth.driver_service.get_driver_id_by_auth_id",
                 new_callable=AsyncMock,
-                return_value=True,
+                return_value=UUID(driver_id),
             ),
         ):
             resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
@@ -374,13 +378,53 @@ class TestRequireSelfDriverOrAdmin:
         with (
             patch(
                 "app.dependencies.auth.firebase_admin.auth.verify_id_token",
-                return_value={"uid": "driver-uid", "role": "driver"},
+                return_value={
+                    "uid": "driver-uid",
+                    "role": "driver",
+                    "email_verified": True,
+                },
             ),
             patch(
-                "app.dependencies.auth.auth_service.is_authorized_by_driver_id",
+                "app.dependencies.auth.driver_service.get_driver_id_by_auth_id",
                 new_callable=AsyncMock,
-                return_value=False,
+                return_value=uuid4(),  # a different driver than the path id
             ),
+        ):
+            resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
+
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_driver_unverified_email_gets_403(self) -> None:
+        """A driver with an unverified email is rejected even for their own id."""
+        app = _make_driver_id_app()
+        driver_id = str(uuid4())
+
+        with patch(
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value={
+                "uid": "driver-uid",
+                "role": "driver",
+                "email_verified": False,
+            },
+        ):
+            resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
+
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_admin_unverified_email_gets_403(self) -> None:
+        """Admins are held to the same email_verified bar as drivers."""
+        app = _make_driver_id_app()
+        driver_id = str(uuid4())
+
+        with patch(
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value={
+                "uid": "admin-uid",
+                "role": "admin",
+                "email_verified": False,
+            },
         ):
             resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
 
@@ -422,7 +466,7 @@ class TestRequireRouteAssignedOrAdmin:
 
         with patch(
             "app.dependencies.auth.firebase_admin.auth.verify_id_token",
-            return_value={"uid": "admin-uid", "role": "admin"},
+            return_value={"uid": "admin-uid", "role": "admin", "email_verified": True},
         ):
             resp = await _get_route(app, route_id, {"Authorization": "Bearer tok"})
 
@@ -435,13 +479,14 @@ class TestRequireRouteAssignedOrAdmin:
         route_id = str(uuid4())
         driver_id = uuid4()
 
-        mock_result = AsyncMock()
-        mock_result.scalar = lambda: True
-
         with (
             patch(
                 "app.dependencies.auth.firebase_admin.auth.verify_id_token",
-                return_value={"uid": "driver-uid", "role": "driver"},
+                return_value={
+                    "uid": "driver-uid",
+                    "role": "driver",
+                    "email_verified": True,
+                },
             ),
             patch(
                 "app.dependencies.auth.driver_service.get_driver_id_by_auth_id",
@@ -450,9 +495,9 @@ class TestRequireRouteAssignedOrAdmin:
             ),
             patch.object(
                 _mock_session,
-                "execute",
+                "scalar",
                 new_callable=AsyncMock,
-                return_value=mock_result,
+                return_value=True,
             ),
         ):
             resp = await _get_route(app, route_id, {"Authorization": "Bearer tok"})
@@ -466,13 +511,14 @@ class TestRequireRouteAssignedOrAdmin:
         route_id = str(uuid4())
         driver_id = uuid4()
 
-        mock_result = AsyncMock()
-        mock_result.scalar = lambda: False
-
         with (
             patch(
                 "app.dependencies.auth.firebase_admin.auth.verify_id_token",
-                return_value={"uid": "driver-uid", "role": "driver"},
+                return_value={
+                    "uid": "driver-uid",
+                    "role": "driver",
+                    "email_verified": True,
+                },
             ),
             patch(
                 "app.dependencies.auth.driver_service.get_driver_id_by_auth_id",
@@ -481,9 +527,9 @@ class TestRequireRouteAssignedOrAdmin:
             ),
             patch.object(
                 _mock_session,
-                "execute",
+                "scalar",
                 new_callable=AsyncMock,
-                return_value=mock_result,
+                return_value=False,
             ),
         ):
             resp = await _get_route(app, route_id, {"Authorization": "Bearer tok"})
@@ -499,7 +545,11 @@ class TestRequireRouteAssignedOrAdmin:
         with (
             patch(
                 "app.dependencies.auth.firebase_admin.auth.verify_id_token",
-                return_value={"uid": "driver-uid", "role": "driver"},
+                return_value={
+                    "uid": "driver-uid",
+                    "role": "driver",
+                    "email_verified": True,
+                },
             ),
             patch(
                 "app.dependencies.auth.driver_service.get_driver_id_by_auth_id",
@@ -531,3 +581,69 @@ class TestRequireRouteAssignedOrAdmin:
         app = _make_route_id_app()
         resp = await _get_route(app, str(uuid4()))
         assert resp.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# Path-param misconfiguration — ownership dependencies must fail loudly
+# ---------------------------------------------------------------------------
+
+
+class TestPathParamMisconfiguration:
+    """
+    require_self_driver_or_admin / require_route_assigned_or_admin read their
+    UUID from a path parameter named exactly ``driver_id`` / ``route_id`` (see
+    _path_uuid in app/dependencies/auth.py).
+
+    If such a dependency is attached to a route that does NOT expose that param,
+    it must fail loudly rather than silently authorize. Otherwise FastAPI would
+    demote the missing path param to a client-supplied *query* parameter,
+    decoupling the ownership check from the resource in the URL — a silent authz
+    bypass (caller passes ?driver_id=<their own id> and reads someone else's
+    resource with a 200). These tests lock in the loud-failure behaviour.
+    """
+
+    @pytest.mark.asyncio
+    async def test_self_driver_dep_without_driver_id_param_raises(self) -> None:
+        """Attaching the self-driver guard to a route lacking {driver_id} errors."""
+        app = FastAPI()
+        app.dependency_overrides[get_session] = _override_get_session
+
+        # Path param is {other_id}, NOT {driver_id} — the guard cannot find it.
+        @app.get("/widgets/{other_id}")
+        async def get_widget(
+            other_id: str, _auth: Any = Depends(require_self_driver_or_admin)
+        ) -> dict:
+            return {"other_id": other_id}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            with pytest.raises(RuntimeError, match="driver_id"):
+                await ac.get(
+                    "/widgets/anything", headers={"Authorization": "Bearer tok"}
+                )
+
+    @pytest.mark.asyncio
+    async def test_route_assigned_dep_without_route_id_param_raises(self) -> None:
+        """Attaching the route guard to a route lacking {route_id} errors."""
+        app = FastAPI()
+        app.dependency_overrides[get_session] = _override_get_session
+
+        @app.get("/widgets/{other_id}")
+        async def get_widget(
+            other_id: str, _auth: Any = Depends(require_route_assigned_or_admin)
+        ) -> dict:
+            return {"other_id": other_id}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            with pytest.raises(RuntimeError, match="route_id"):
+                await ac.get(
+                    "/widgets/anything", headers={"Authorization": "Bearer tok"}
+                )
+
+    @pytest.mark.asyncio
+    async def test_non_uuid_driver_id_returns_422(self) -> None:
+        """A non-UUID {driver_id} is rejected with 422 before any auth logic runs."""
+        app = _make_driver_id_app()
+        resp = await _get_driver(app, "not-a-uuid", {"Authorization": "Bearer tok"})
+        assert resp.status_code == 422

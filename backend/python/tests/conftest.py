@@ -18,6 +18,7 @@ from app import create_app
 from app.dependencies.auth import (
     get_access_token,
     require_admin,
+    require_driver,
     require_driver_or_admin,
     require_route_assigned_or_admin,
     require_self_driver_or_admin,
@@ -119,6 +120,7 @@ def _apply_auth_overrides(app: Any) -> None:
     """Override auth dependencies to bypass authentication in tests."""
     app.dependency_overrides[get_access_token] = lambda: "test-token"
     app.dependency_overrides[require_admin] = lambda: True
+    app.dependency_overrides[require_driver] = lambda: True
     app.dependency_overrides[require_driver_or_admin] = lambda: True
     app.dependency_overrides[require_self_driver_or_admin] = lambda: True
     app.dependency_overrides[require_route_assigned_or_admin] = lambda: True

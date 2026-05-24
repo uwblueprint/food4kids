@@ -71,6 +71,7 @@ async def get_route(
 async def get_google_maps_link(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_route_assigned_or_admin),
 ) -> str:
     """
     Generate a Google Maps directions URL for a route.

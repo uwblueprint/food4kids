@@ -212,6 +212,7 @@ async def ingest_locations(
     request: LocationIngestRequest,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationIngestResponse:
     """
     Persist net-new locations and archive stale ones.
