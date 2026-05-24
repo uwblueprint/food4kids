@@ -328,7 +328,7 @@ async def auth_client(
     # The GCS client constructs a real google.cloud client eagerly (no creds in
     # tests). Stub it so upload-route dependency resolution succeeds and auth —
     # not a missing-credentials 500 — decides the outcome.
-    app.dependency_overrides[get_gcp_storage_client] = lambda: MagicMock()
+    app.dependency_overrides[get_gcp_storage_client] = MagicMock
 
     # raise_app_exceptions=False: an unhandled handler exception becomes a 500
     # response (as a real server would return) instead of propagating into the
