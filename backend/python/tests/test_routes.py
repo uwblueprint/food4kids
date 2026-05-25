@@ -357,6 +357,117 @@ class TestLocationGroupRoutes:
         assert len(groups) == 1
         assert groups[0]["num_locations"] == 1
 
+    @pytest.mark.asyncio
+    async def test_create_location_group_skips_unknown_location_id(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """Unknown location_ids are warned and skipped, not fatal — the group
+        is still created and links only the locations that exist."""
+        create_response = await async_client.post(
+            "/locations/", json=sample_location_data
+        )
+        location_id = create_response.json()["location_id"]
+        unknown_id = str(uuid4())
+
+        response = await async_client.post(
+            "/location-groups/",
+            json={
+                **sample_location_group_data,
+                "location_ids": [location_id, unknown_id],
+            },
+        )
+        assert response.status_code == 201
+        # Only the real location was linked
+        assert response.json()["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_create_location_group_reassigns_existing_location(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """A location already in group A is moved to a new group B when B's
+        create references it (and A loses it)."""
+        create_response = await async_client.post(
+            "/locations/", json=sample_location_data
+        )
+        location_id = create_response.json()["location_id"]
+
+        await async_client.post(
+            "/location-groups/",
+            json={
+                **sample_location_group_data,
+                "name": "Group A",
+                "location_ids": [location_id],
+            },
+        )
+
+        group_b = (
+            await async_client.post(
+                "/location-groups/",
+                json={
+                    **sample_location_group_data,
+                    "name": "Group B",
+                    "location_ids": [location_id],
+                },
+            )
+        ).json()
+
+        # The location now points at B, and B reports it
+        assert group_b["num_locations"] == 1
+        loc = (await async_client.get(f"/locations/{location_id}")).json()
+        assert loc["location_group_id"] == group_b["location_group_id"]
+
+        # A no longer counts it
+        groups = {
+            g["name"]: g for g in (await async_client.get("/location-groups/")).json()
+        }
+        assert groups["Group A"]["num_locations"] == 0
+        assert groups["Group B"]["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_update_location_group(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """PATCH /location-groups/{id} updates fields and returns the group
+        with num_locations populated (regression: previously 500'd reading the
+        lazily-loaded num_locations)."""
+        location_id = (
+            await async_client.post("/locations/", json=sample_location_data)
+        ).json()["location_id"]
+        group = (
+            await async_client.post(
+                "/location-groups/",
+                json={**sample_location_group_data, "location_ids": [location_id]},
+            )
+        ).json()
+
+        response = await async_client.patch(
+            f"/location-groups/{group['location_group_id']}",
+            json={"name": "Renamed Group"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Renamed Group"
+        assert data["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_update_location_group_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """PATCH /location-groups/{id} returns 404 for a non-existent group."""
+        response = await async_client.patch(
+            f"/location-groups/{uuid4()}", json={"name": "Nope"}
+        )
+        assert response.status_code == 404
+
 
 class TestRouteRoutes:
     """Test suite for route API routes."""
