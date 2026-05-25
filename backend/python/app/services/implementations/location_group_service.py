@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.location import Location
@@ -19,7 +20,11 @@ class LocationGroupService:
     async def get_location_groups(self, session: AsyncSession) -> list[LocationGroup]:
         """Get all location groups"""
         try:
-            statement = select(LocationGroup)
+            # Eager-load locations so LocationGroupRead.num_locations can be read
+            # without triggering an (illegal) lazy load on the async session.
+            statement = select(LocationGroup).options(
+                selectinload(LocationGroup.locations)  # type: ignore[arg-type]
+            )
             result = await session.execute(statement)
             return list(result.scalars().all())
         except Exception as error:
@@ -30,8 +35,12 @@ class LocationGroupService:
         self, session: AsyncSession, location_group_id: UUID
     ) -> LocationGroup | None:
         """Get location group by ID"""
-        statement = select(LocationGroup).where(
-            LocationGroup.location_group_id == location_group_id
+        # Eager-load locations so LocationGroupRead.num_locations can be read
+        # without triggering an (illegal) lazy load on the async session.
+        statement = (
+            select(LocationGroup)
+            .where(LocationGroup.location_group_id == location_group_id)
+            .options(selectinload(LocationGroup.locations))  # type: ignore[arg-type]
         )
         result = await session.execute(statement)
         location_group = result.scalars().first()
@@ -66,11 +75,9 @@ class LocationGroupService:
                 if location:
                     if location.location_group_id is not None:
                         self.logger.warning(
-                            f"Location with id {location_id} already has a location group set"
+                            f"Location with id {location_id} already has a location group set; reassigning"
                         )
-                        location.location_group_id = (
-                            new_location_group.location_group_id
-                        )
+                    location.location_group_id = new_location_group.location_group_id
                 else:
                     self.logger.warning(f"Location with id {location_id} not found")
 

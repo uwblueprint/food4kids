@@ -273,6 +273,91 @@ class TestLocationRoutes:
         assert get_response.status_code == 404
 
 
+class TestLocationGroupRoutes:
+    """Test suite for location group API routes."""
+
+    @pytest.mark.asyncio
+    async def test_get_location_groups_empty(self, async_client: AsyncClient) -> None:
+        """GET /location-groups returns an empty list when none exist."""
+        response = await async_client.get("/location-groups/")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_create_location_group_links_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """POST /location-groups creates a group, links the given locations,
+        and returns an accurate num_locations.
+
+        Regression test for two bugs: (1) a 500 from reading the computed
+        num_locations off a lazily-loaded relationship on the async session,
+        and (2) brand-new (ungrouped) locations never being linked because the
+        assignment was nested under `if location_group_id is not None`.
+        """
+        # Create two ungrouped locations
+        location_ids = []
+        for i in range(2):
+            data = {**sample_location_data, "contact_name": f"Contact {i}"}
+            create_response = await async_client.post("/locations/", json=data)
+            assert create_response.status_code == 201
+            location_ids.append(create_response.json()["location_id"])
+
+        # Create a group that references them
+        response = await async_client.post(
+            "/location-groups/",
+            json={**sample_location_group_data, "location_ids": location_ids},
+        )
+        assert response.status_code == 201
+        group = response.json()
+        assert group["name"] == sample_location_group_data["name"]
+        assert group["num_locations"] == 2
+
+        # Each location now reports the group via its FK
+        for location_id in location_ids:
+            loc = (await async_client.get(f"/locations/{location_id}")).json()
+            assert loc["location_group_id"] == group["location_group_id"]
+
+    @pytest.mark.asyncio
+    async def test_create_location_group_requires_location_ids(
+        self,
+        async_client: AsyncClient,
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """POST /location-groups rejects an empty location_ids list."""
+        response = await async_client.post(
+            "/location-groups/",
+            json={**sample_location_group_data, "location_ids": []},
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_location_groups_with_data(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """GET /location-groups returns groups with num_locations populated."""
+        create_response = await async_client.post(
+            "/locations/", json=sample_location_data
+        )
+        location_id = create_response.json()["location_id"]
+        await async_client.post(
+            "/location-groups/",
+            json={**sample_location_group_data, "location_ids": [location_id]},
+        )
+
+        response = await async_client.get("/location-groups/")
+        assert response.status_code == 200
+        groups = response.json()
+        assert len(groups) == 1
+        assert groups[0]["num_locations"] == 1
+
+
 class TestRouteRoutes:
     """Test suite for route API routes."""
 
