@@ -166,7 +166,7 @@ The frontend talks to the backend through a TypeScript SDK generated from FastAP
 | `openapi-ts.config.ts`     | Codegen config                                               | yes     |
 | `src/api/runtime.ts`       | Wires the generated client to reuse `src/lib/axiosClient.ts` | yes     |
 | `src/api/generated/`       | Auto-generated SDK + types + tanstack-query helpers          | yes     |
-| `src/api/announcements.ts` | Hand-written hook layer that consumes the generated SDK      | yes     |
+| `src/api/*.ts`             | Hand-written hook layer that consumes the generated SDK      | yes     |
 
 `openapi.json` and `src/api/generated/` are both committed so fresh clones and CI work without a generate step. The snapshot also doubles as a human-readable changelog of the API contract — when a PR changes the backend, the diff in `openapi.json` shows the contract change.
 
@@ -178,13 +178,13 @@ pnpm generate:api
 
 This hits `http://localhost:8080/openapi.json`, normalizes it into `openapi.json`, and runs `openapi-ts`. Point at a different URL with `OPENAPI_URL=...`.
 
-**Using the generated client.** Prefer the tanstack-query helpers from `src/api/generated/@tanstack/react-query.gen.ts` over the raw SDK functions — they produce query keys and matching `queryOptions` / mutation configs for you. See `src/api/announcements.ts` for the pattern.
+**Using the generated client.** Prefer the tanstack-query helpers from `src/api/generated/@tanstack/react-query.gen.ts` over the raw SDK functions — they produce query keys and matching `queryOptions` / mutation configs for you. See `src/api/system-settings.ts` for the query pattern and `src/api/locations.ts` for a mutation (incl. multipart upload).
 
 ```ts
 import { useQuery } from '@tanstack/react-query';
-import { getAnnouncementsOptions } from '@/api/generated/@tanstack/react-query.gen';
+import { getSystemSettingsOptions } from '@/api/generated/@tanstack/react-query.gen';
 
-const { data, isLoading } = useQuery(getAnnouncementsOptions());
+const { data, isLoading } = useQuery(getSystemSettingsOptions());
 ```
 
 ## Development

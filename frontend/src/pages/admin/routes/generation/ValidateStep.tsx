@@ -6,13 +6,13 @@ import {
   useOutletContext,
 } from 'react-router-dom';
 
-import type { Column } from '@/common/components';
-import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 import type {
   AlertCode,
   LocationImportResponse,
   LocationImportRow,
-} from '@/types/location';
+} from '@/api/generated/types.gen';
+import type { Column } from '@/common/components';
+import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
