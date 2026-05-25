@@ -1,5 +1,14 @@
-"""
-Service dependency injection module
+"""Service dependency injection module.
+
+Convention:
+- Leaf factories (no service dependencies — just a logger, settings, or an
+  expensive client like GoogleMapsClient) use ``@lru_cache`` and call
+  ``get_logger()`` directly. They are process-wide singletons.
+- Composite factories (those that depend on other services/clients) take those
+  dependencies via ``Depends(...)`` rather than calling the other factory
+  directly in the body. This keeps the dependency graph explicit and lets tests
+  swap pieces via ``app.dependency_overrides``. See ``get_auth_service`` and
+  ``get_location_service``.
 """
 
 import logging
@@ -158,12 +167,15 @@ def get_system_settings_service() -> SystemSettingsService:
     return SystemSettingsService(logger)
 
 
-@lru_cache
-def get_location_service() -> LocationService:
+def get_location_service(
+    google_maps_client: GoogleMapsClient = Depends(get_google_maps_client),
+    system_settings_service: SystemSettingsService = Depends(
+        get_system_settings_service
+    ),
+) -> LocationService:
     """Get location service instance"""
     logger = get_logger()
-    google_maps_client = get_google_maps_client()
-    return LocationService(logger, google_maps_client, get_system_settings_service())
+    return LocationService(logger, google_maps_client, system_settings_service)
 
 
 @lru_cache
