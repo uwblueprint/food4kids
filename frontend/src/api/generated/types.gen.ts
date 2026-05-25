@@ -672,7 +672,7 @@ export type LocationCreate = {
   /**
    * Location Group Id
    */
-  location_group_id?: string | null;
+  location_group_id: string;
   /**
    * Longitude
    */
@@ -956,7 +956,11 @@ export type LocationRead = {
   /**
    * Location Group Id
    */
-  location_group_id?: string | null;
+  location_group_id: string;
+  /**
+   * Location Group Name
+   */
+  location_group_name: string;
   /**
    * Location Id
    */
@@ -1775,7 +1779,7 @@ export type ValidatedLocationImportEntry = {
   /**
    * Delivery Group
    */
-  delivery_group?: string | null;
+  delivery_group: string;
   /**
    * Dietary Restrictions
    */

@@ -1095,16 +1095,9 @@
             "title": "Latitude"
           },
           "location_group_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Group Id"
+            "format": "uuid",
+            "title": "Location Group Id",
+            "type": "string"
           },
           "longitude": {
             "anyOf": [
@@ -1182,6 +1175,7 @@
           }
         },
         "required": [
+          "location_group_id",
           "contact_name",
           "address",
           "phone_number"
@@ -1599,16 +1593,13 @@
             "title": "Latitude"
           },
           "location_group_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Group Id"
+            "format": "uuid",
+            "title": "Location Group Id",
+            "type": "string"
+          },
+          "location_group_name": {
+            "title": "Location Group Name",
+            "type": "string"
           },
           "location_id": {
             "format": "uuid",
@@ -1691,10 +1682,12 @@
           }
         },
         "required": [
+          "location_group_id",
           "contact_name",
           "address",
           "phone_number",
-          "location_id"
+          "location_id",
+          "location_group_name"
         ],
         "title": "LocationRead",
         "type": "object"
@@ -3052,15 +3045,8 @@
             "type": "string"
           },
           "delivery_group": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Delivery Group"
+            "title": "Delivery Group",
+            "type": "string"
           },
           "dietary_restrictions": {
             "anyOf": [
@@ -3103,6 +3089,7 @@
         "required": [
           "contact_name",
           "address",
+          "delivery_group",
           "phone_number"
         ],
         "title": "ValidatedLocationImportEntry",
