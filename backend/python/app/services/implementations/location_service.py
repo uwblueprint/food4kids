@@ -8,6 +8,7 @@ from uuid import UUID
 import pandas as pd
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.enum import NotePermission
@@ -72,7 +73,13 @@ class LocationService:
     ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            # Eager-load location_group so LocationRead.location_group_name can be
+            # read without an (illegal) lazy load on the async session.
+            statement = (
+                select(Location)
+                .where(Location.location_id == location_id)
+                .options(selectinload(Location.location_group))  # type: ignore[arg-type]
+            )
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -92,6 +99,7 @@ class LocationService:
             statement = (
                 select(Location)
                 .where(Location.state == LocationState.ACTIVE)
+                .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 .order_by(Location.created_at.desc())  # type: ignore[union-attr]
             )
             result, total = await paginate_query(session, statement, pagination)
@@ -122,8 +130,9 @@ class LocationService:
             location.note_chain_id = note_chain.note_chain_id
             session.add(location)
             await session.commit()
-            await session.refresh(location)
-            return location
+            # Reload with location_group eager-loaded so serializing to
+            # LocationRead (location_group_name) doesn't lazy-load post-commit.
+            return await self.get_location_by_id(session, location.location_id)
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
             await session.rollback()
@@ -146,8 +155,9 @@ class LocationService:
                 setattr(location, field, value)
 
             await session.commit()
-            await session.refresh(location)
-            return location
+            # Reload with location_group eager-loaded so serializing to
+            # LocationRead (location_group_name) doesn't lazy-load post-commit.
+            return await self.get_location_by_id(session, location_id)
 
         except Exception as e:
             self.logger.error(f"Failed to update location by id: {e!s}")
@@ -427,8 +437,7 @@ class LocationService:
                 {
                     entry.delivery_group
                     for entry in request.net_new
-                    if entry.delivery_group
-                    and entry.delivery_group not in group_by_name
+                    if entry.delivery_group not in group_by_name
                 }
             )
             for name in needed_names:
@@ -453,11 +462,6 @@ class LocationService:
                 )
                 new_note_chains.append(note_chain)
 
-                entry_group = (
-                    group_by_name.get(entry.delivery_group)
-                    if entry.delivery_group
-                    else None
-                )
                 new_locations.append(
                     Location(
                         contact_name=entry.contact_name,
@@ -470,9 +474,9 @@ class LocationService:
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_boxes=entry.num_boxes or 0,
                         note_chain_id=note_chain.note_chain_id,
-                        location_group_id=(
-                            entry_group.location_group_id if entry_group else None
-                        ),
+                        location_group_id=group_by_name[
+                            entry.delivery_group
+                        ].location_group_id,
                     )
                 )
 
