@@ -221,9 +221,27 @@ def sample_location_group_data() -> dict[str, Any]:
     }
 
 
+@pytest_asyncio.fixture
+async def test_location_group(test_session: AsyncSession) -> Any:
+    """Create a location group for tests.
+
+    Locations require a group (location_group_id is non-nullable), and the
+    POST /location-groups endpoint only regroups *existing* locations, so tests
+    bootstrap an initial group directly through the session (as seed/ingest do).
+    """
+    from app.models.location_group import LocationGroup
+
+    group = LocationGroup(name="Test Delivery Group", color="#FF5733", notes="")
+    test_session.add(group)
+    await test_session.commit()
+    await test_session.refresh(group)
+    return group
+
+
 @pytest.fixture
 def sample_location_data() -> dict[str, Any]:
-    """Sample location data for testing."""
+    """Sample location data for testing. Callers must add a valid
+    ``location_group_id`` (e.g. from the ``test_location_group`` fixture)."""
     return {
         "school_name": "Central Elementary",
         "contact_name": "Jane Smith",

@@ -179,10 +179,17 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_create_location(
-        self, async_client: AsyncClient, sample_location_data: dict[str, Any]
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """Test POST /locations creates a new location."""
-        response = await async_client.post("/locations/", json=sample_location_data)
+        payload = {
+            **sample_location_data,
+            "location_group_id": str(test_location_group.location_group_id),
+        }
+        response = await async_client.post("/locations/", json=payload)
         assert response.status_code == 201
         data = response.json()
         assert data["contact_name"] == sample_location_data["contact_name"]
@@ -192,12 +199,19 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_get_locations_with_data(
-        self, async_client: AsyncClient, sample_location_data: dict[str, Any]
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """Test GET /locations returns paginated list of locations."""
         # Create a location first
         create_response = await async_client.post(
-            "/locations/", json=sample_location_data
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
         )
         assert create_response.status_code == 201
 
@@ -210,12 +224,19 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_get_location_by_id(
-        self, async_client: AsyncClient, sample_location_data: dict[str, Any]
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """Test GET /locations/{location_id} returns specific location."""
         # Create a location first
         create_response = await async_client.post(
-            "/locations/", json=sample_location_data
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
         )
         location_id = create_response.json()["location_id"]
 
@@ -235,12 +256,19 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_update_location(
-        self, async_client: AsyncClient, sample_location_data: dict[str, Any]
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """Test PATCH /locations/{location_id} updates a location."""
         # Create a location first
         create_response = await async_client.post(
-            "/locations/", json=sample_location_data
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
         )
         location_id = create_response.json()["location_id"]
 
@@ -255,12 +283,19 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_delete_location(
-        self, async_client: AsyncClient, sample_location_data: dict[str, Any]
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """Test DELETE /locations/{location_id} deletes a location."""
         # Create a location first
         create_response = await async_client.post(
-            "/locations/", json=sample_location_data
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
         )
         location_id = create_response.json()["location_id"]
 
@@ -271,6 +306,36 @@ class TestLocationRoutes:
         # Verify deletion
         get_response = await async_client.get(f"/locations/{location_id}")
         assert get_response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_locations_includes_group_name(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations (list + single) exposes location_group_name. Both
+        paths must eager-load location_group, else reading the name lazy-loads
+        and 500s on the async session."""
+        create_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        assert create_response.status_code == 201
+        location_id = create_response.json()["location_id"]
+
+        listing = await async_client.get("/locations/")
+        item = next(
+            i for i in listing.json()["items"] if i["location_id"] == location_id
+        )
+        assert item["location_group_name"] == test_location_group.name
+
+        single = await async_client.get(f"/locations/{location_id}")
+        assert single.status_code == 200
+        assert single.json()["location_group_name"] == test_location_group.name
 
 
 class TestLocationGroupRoutes:
@@ -289,24 +354,28 @@ class TestLocationGroupRoutes:
         async_client: AsyncClient,
         sample_location_data: dict[str, Any],
         sample_location_group_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
-        """POST /location-groups creates a group, links the given locations,
-        and returns an accurate num_locations.
+        """POST /location-groups creates a group, links (reassigns) the given
+        locations, and returns an accurate num_locations.
 
-        Regression test for two bugs: (1) a 500 from reading the computed
-        num_locations off a lazily-loaded relationship on the async session,
-        and (2) brand-new (ungrouped) locations never being linked because the
-        assignment was nested under `if location_group_id is not None`.
+        Regression test for the 500 from reading the computed num_locations off
+        a lazily-loaded relationship on the async session, and for the FK
+        actually being updated to the new group.
         """
-        # Create two ungrouped locations
+        # Create two locations (each starts in the bootstrap group)
         location_ids = []
         for i in range(2):
-            data = {**sample_location_data, "contact_name": f"Contact {i}"}
+            data = {
+                **sample_location_data,
+                "contact_name": f"Contact {i}",
+                "location_group_id": str(test_location_group.location_group_id),
+            }
             create_response = await async_client.post("/locations/", json=data)
             assert create_response.status_code == 201
             location_ids.append(create_response.json()["location_id"])
 
-        # Create a group that references them
+        # Create a new group that takes over those locations
         response = await async_client.post(
             "/location-groups/",
             json={**sample_location_group_data, "location_ids": location_ids},
@@ -316,7 +385,7 @@ class TestLocationGroupRoutes:
         assert group["name"] == sample_location_group_data["name"]
         assert group["num_locations"] == 2
 
-        # Each location now reports the group via its FK
+        # Each location now reports the new group via its FK
         for location_id in location_ids:
             loc = (await async_client.get(f"/locations/{location_id}")).json()
             assert loc["location_group_id"] == group["location_group_id"]
@@ -339,22 +408,24 @@ class TestLocationGroupRoutes:
         self,
         async_client: AsyncClient,
         sample_location_data: dict[str, Any],
-        sample_location_group_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """GET /location-groups returns groups with num_locations populated."""
-        create_response = await async_client.post(
-            "/locations/", json=sample_location_data
-        )
-        location_id = create_response.json()["location_id"]
         await async_client.post(
-            "/location-groups/",
-            json={**sample_location_group_data, "location_ids": [location_id]},
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
         )
 
         response = await async_client.get("/location-groups/")
         assert response.status_code == 200
         groups = response.json()
         assert len(groups) == 1
+        assert groups[0]["location_group_id"] == str(
+            test_location_group.location_group_id
+        )
         assert groups[0]["num_locations"] == 1
 
     @pytest.mark.asyncio
@@ -363,11 +434,16 @@ class TestLocationGroupRoutes:
         async_client: AsyncClient,
         sample_location_data: dict[str, Any],
         sample_location_group_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """Unknown location_ids are warned and skipped, not fatal — the group
         is still created and links only the locations that exist."""
         create_response = await async_client.post(
-            "/locations/", json=sample_location_data
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
         )
         location_id = create_response.json()["location_id"]
         unknown_id = str(uuid4())
@@ -389,22 +465,18 @@ class TestLocationGroupRoutes:
         async_client: AsyncClient,
         sample_location_data: dict[str, Any],
         sample_location_group_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
-        """A location already in group A is moved to a new group B when B's
-        create references it (and A loses it)."""
+        """A location is moved from its current group to a new group when the
+        new group's create references it (and the old group loses it)."""
         create_response = await async_client.post(
-            "/locations/", json=sample_location_data
-        )
-        location_id = create_response.json()["location_id"]
-
-        await async_client.post(
-            "/location-groups/",
+            "/locations/",
             json={
-                **sample_location_group_data,
-                "name": "Group A",
-                "location_ids": [location_id],
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
             },
         )
+        location_id = create_response.json()["location_id"]
 
         group_b = (
             await async_client.post(
@@ -422,35 +494,34 @@ class TestLocationGroupRoutes:
         loc = (await async_client.get(f"/locations/{location_id}")).json()
         assert loc["location_group_id"] == group_b["location_group_id"]
 
-        # A no longer counts it
+        # The original (bootstrap) group no longer counts it
         groups = {
-            g["name"]: g for g in (await async_client.get("/location-groups/")).json()
+            g["location_group_id"]: g
+            for g in (await async_client.get("/location-groups/")).json()
         }
-        assert groups["Group A"]["num_locations"] == 0
-        assert groups["Group B"]["num_locations"] == 1
+        assert groups[str(test_location_group.location_group_id)]["num_locations"] == 0
+        assert groups[group_b["location_group_id"]]["num_locations"] == 1
 
     @pytest.mark.asyncio
     async def test_update_location_group(
         self,
         async_client: AsyncClient,
         sample_location_data: dict[str, Any],
-        sample_location_group_data: dict[str, Any],
+        test_location_group: Any,
     ) -> None:
         """PATCH /location-groups/{id} updates fields and returns the group
         with num_locations populated (regression: previously 500'd reading the
         lazily-loaded num_locations)."""
-        location_id = (
-            await async_client.post("/locations/", json=sample_location_data)
-        ).json()["location_id"]
-        group = (
-            await async_client.post(
-                "/location-groups/",
-                json={**sample_location_group_data, "location_ids": [location_id]},
-            )
-        ).json()
+        await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
 
         response = await async_client.patch(
-            f"/location-groups/{group['location_group_id']}",
+            f"/location-groups/{test_location_group.location_group_id}",
             json={"name": "Renamed Group"},
         )
         assert response.status_code == 200
@@ -467,6 +538,38 @@ class TestLocationGroupRoutes:
             f"/location-groups/{uuid4()}", json={"name": "Nope"}
         )
         assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_empty_location_group(
+        self, async_client: AsyncClient, test_location_group: Any
+    ) -> None:
+        """DELETE /location-groups/{id} removes a group that has no locations."""
+        response = await async_client.delete(
+            f"/location-groups/{test_location_group.location_group_id}"
+        )
+        assert response.status_code == 204
+        assert (await async_client.get("/location-groups/")).json() == []
+
+    @pytest.mark.asyncio
+    async def test_delete_location_group_with_locations_conflicts(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """DELETE /location-groups/{id} returns 409 when the group still has
+        locations — they require a group, so can't be orphaned."""
+        await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        response = await async_client.delete(
+            f"/location-groups/{test_location_group.location_group_id}"
+        )
+        assert response.status_code == 409
 
 
 class TestRouteRoutes:
