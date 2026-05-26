@@ -337,6 +337,32 @@ class TestLocationRoutes:
         assert single.status_code == 200
         assert single.json()["location_group_name"] == test_location_group.name
 
+    @pytest.mark.asyncio
+    async def test_delete_all_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """DELETE /locations removes every location (bulk destructive)."""
+        for i in range(2):
+            resp = await async_client.post(
+                "/locations/",
+                json={
+                    **sample_location_data,
+                    "contact_name": f"Contact {i}",
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+            assert resp.status_code == 201
+
+        delete_response = await async_client.delete("/locations/")
+        assert delete_response.status_code == 204
+
+        listing = await async_client.get("/locations/")
+        assert listing.json()["items"] == []
+        assert listing.json()["total"] == 0
+
 
 class TestLocationGroupRoutes:
     """Test suite for location group API routes."""
@@ -571,6 +597,27 @@ class TestLocationGroupRoutes:
         )
         assert response.status_code == 409
 
+    @pytest.mark.asyncio
+    async def test_get_location_group_by_id(
+        self, async_client: AsyncClient, test_location_group: Any
+    ) -> None:
+        """GET /location-groups/{id} returns the group."""
+        response = await async_client.get(
+            f"/location-groups/{test_location_group.location_group_id}"
+        )
+        assert response.status_code == 200
+        assert response.json()["location_group_id"] == str(
+            test_location_group.location_group_id
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_location_group_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /location-groups/{id} returns 404 for an unknown id."""
+        response = await async_client.get(f"/location-groups/{uuid4()}")
+        assert response.status_code == 404
+
 
 class TestRouteRoutes:
     """Test suite for route API routes."""
@@ -597,6 +644,144 @@ class TestRouteRoutes:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data["items"], list)
+
+    @pytest.mark.asyncio
+    async def test_get_route_by_id(
+        self, async_client: AsyncClient, test_route: Any
+    ) -> None:
+        """GET /routes/{id} returns the route."""
+        response = await async_client.get(f"/routes/{test_route.route_id}")
+        assert response.status_code == 200
+        assert response.json()["route_id"] == str(test_route.route_id)
+
+    @pytest.mark.asyncio
+    async def test_get_route_not_found(self, async_client: AsyncClient) -> None:
+        """GET /routes/{id} returns 404 for an unknown route."""
+        response = await async_client.get(f"/routes/{uuid4()}")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_route(
+        self, async_client: AsyncClient, test_route: Any
+    ) -> None:
+        """DELETE /routes/{id} removes the route."""
+        response = await async_client.delete(f"/routes/{test_route.route_id}")
+        assert response.status_code == 204
+        get_response = await async_client.get(f"/routes/{test_route.route_id}")
+        assert get_response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_route_not_found(self, async_client: AsyncClient) -> None:
+        """DELETE /routes/{id} returns 404 for an unknown route."""
+        response = await async_client.delete(f"/routes/{uuid4()}")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_route_metadata(
+        self, async_client: AsyncClient, test_route: Any
+    ) -> None:
+        """PATCH /routes/{id} with name/notes updates metadata (no re-route)."""
+        response = await async_client.patch(
+            f"/routes/{test_route.route_id}",
+            json={"name": "Renamed Route", "notes": "updated"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Renamed Route"
+        assert data["notes"] == "updated"
+
+    @pytest.mark.asyncio
+    async def test_update_route_not_found(self, async_client: AsyncClient) -> None:
+        """PATCH /routes/{id} returns 404 for an unknown route."""
+        response = await async_client.patch(f"/routes/{uuid4()}", json={"name": "x"})
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_route_invalid_location_ids(
+        self, async_client: AsyncClient, test_route: Any
+    ) -> None:
+        """PATCH /routes/{id} with unknown location_ids returns 400."""
+        response = await async_client.patch(
+            f"/routes/{test_route.route_id}",
+            json={"location_ids": [str(uuid4())]},
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_update_route_reroute_without_warehouse_coords(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Re-routing needs warehouse coords; when system settings exist but
+        the warehouse coordinates aren't configured, it's a 503."""
+        from app.models.system_settings import SystemSettings
+
+        # Settings exist but have no warehouse lat/long.
+        test_session.add(SystemSettings())
+        await test_session.commit()
+
+        location_id = (
+            await async_client.post(
+                "/locations/",
+                json={
+                    **sample_location_data,
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+        ).json()["location_id"]
+        response = await async_client.patch(
+            f"/routes/{test_route.route_id}",
+            json={"location_ids": [location_id]},
+        )
+        assert response.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_update_route_reroute_without_system_settings(
+        self,
+        async_client: AsyncClient,
+        test_route: Any,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Re-routing with no system settings at all is a 503 (server not
+        configured), not a 400 — even though the error says 'not found'."""
+        location_id = (
+            await async_client.post(
+                "/locations/",
+                json={
+                    **sample_location_data,
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+        ).json()["location_id"]
+        response = await async_client.patch(
+            f"/routes/{test_route.route_id}",
+            json={"location_ids": [location_id]},
+        )
+        assert response.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_google_maps_link_route_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /routes/{id}/google-maps-link returns 404 for an unknown route."""
+        response = await async_client.get(f"/routes/{uuid4()}/google-maps-link")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_google_maps_link_no_stops(
+        self, async_client: AsyncClient, test_route: Any
+    ) -> None:
+        """GET /routes/{id}/google-maps-link returns 422 when the route has no
+        stops."""
+        response = await async_client.get(
+            f"/routes/{test_route.route_id}/google-maps-link"
+        )
+        assert response.status_code == 422
 
 
 class TestRouteGroupRoutes:
@@ -699,6 +884,43 @@ class TestRouteGroupRoutes:
         data = response.json()
         assert isinstance(data, list)
 
+    @pytest.mark.asyncio
+    async def test_get_route_groups_include_routes(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """GET /route-groups?include_routes=true returns each group's routes.
+
+        The include_routes branch walks membership.route.*; this confirms it's
+        loaded (not an async lazy-load 500) and the routes payload is returned.
+        """
+        from datetime import datetime
+
+        from app.models.route import Route
+        from app.models.route_group import RouteGroup
+        from app.models.route_group_membership import RouteGroupMembership
+
+        rg = RouteGroup(name="RG", drive_date=datetime(2026, 6, 1))
+        route = Route(name="R1", length=5.0)
+        test_session.add(rg)
+        test_session.add(route)
+        await test_session.commit()
+        await test_session.refresh(rg)
+        await test_session.refresh(route)
+        test_session.add(
+            RouteGroupMembership(
+                route_group_id=rg.route_group_id, route_id=route.route_id
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups?include_routes=true")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["num_routes"] == 1
+        assert [r["route_id"] for r in group["routes"]] == [str(route.route_id)]
+
 
 class TestNoteChainRoutes:
     """Test suite for note chain API routes."""
@@ -755,6 +977,33 @@ class TestNoteChainRoutes:
             f"/note-chains/{chain_id}/notes/{note_id}"
         )
         assert delete_note_resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_get_note_chain(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """GET /note-chains/{id} returns the chain for a permitted user."""
+        chain_id = await self._create_chain(test_session)
+        response = await authed_async_client.get(f"/note-chains/{chain_id}")
+        assert response.status_code == 200
+        assert response.json()["note_chain_id"] == chain_id
+
+    @pytest.mark.asyncio
+    async def test_delete_note_chain(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """DELETE /note-chains/{id} removes the chain (and its notes)."""
+        chain_id = await self._create_chain(test_session)
+        # Seed a note so the cascade is exercised
+        await authed_async_client.post(
+            f"/note-chains/{chain_id}/notes", json={"message": "n"}
+        )
+
+        response = await authed_async_client.delete(f"/note-chains/{chain_id}")
+        assert response.status_code == 204
+
+        get_response = await authed_async_client.get(f"/note-chains/{chain_id}")
+        assert get_response.status_code == 404
 
 
 class TestValidationErrors:
@@ -989,3 +1238,453 @@ class TestJobRoutes:
         response = await async_client.get(f"/jobs/{job.job_id}")
         assert response.status_code == 200
         assert response.json()["job_id"] == str(job.job_id)
+
+    @pytest.mark.asyncio
+    async def test_get_jobs_empty(self, async_client: AsyncClient) -> None:
+        """GET /jobs returns an empty list when none exist."""
+        response = await async_client.get("/jobs/")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_get_jobs_with_data(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """GET /jobs returns created jobs."""
+        from app.models.job import Job
+
+        job = Job()
+        test_session.add(job)
+        await test_session.commit()
+        await test_session.refresh(job)
+
+        response = await async_client.get("/jobs/")
+        assert response.status_code == 200
+        ids = [j["job_id"] for j in response.json()]
+        assert str(job.job_id) in ids
+
+    @pytest.mark.asyncio
+    async def test_generate_job(self, client_with_overrides: Any) -> None:
+        """POST /jobs/generate enqueues a job and returns its id (202).
+
+        The job service is faked so the test doesn't kick off real
+        route-generation/scheduler work.
+        """
+        from app.routers.job_routes import get_job_service
+
+        job_id = uuid4()
+
+        class _FakeJobService:
+            async def generate_job(self, _req: Any = None) -> Any:
+                return job_id
+
+            async def enqueue(self, _job_id: Any) -> None:
+                return None
+
+        client = await client_with_overrides({get_job_service: _FakeJobService})
+        body = {
+            "location_group": {"name": "Group", "color": "#FF5733", "notes": ""},
+            "settings": {"route_start_time": "2026-06-01T08:00:00", "num_routes": 2},
+        }
+        response = await client.post("/jobs/generate", json=body)
+        assert response.status_code == 202
+        assert response.json()["job_id"] == str(job_id)
+
+
+class TestSystemSettingsRoutes:
+    """Test suite for system settings API routes."""
+
+    @pytest.mark.asyncio
+    async def test_get_system_settings(self, async_client: AsyncClient) -> None:
+        """GET /system-settings returns 200 (null-safe when unset)."""
+        response = await async_client.get("/system-settings/")
+        assert response.status_code == 200
+
+
+class TestDriverAssignmentRoutes:
+    """Test suite for driver assignment API routes."""
+
+    @staticmethod
+    def _payload(test_driver: Any, test_route: Any, test_route_group: Any) -> dict:
+        return {
+            "driver_id": str(test_driver.driver_id),
+            "route_id": str(test_route.route_id),
+            "route_group_id": str(test_route_group.route_group_id),
+            "time": "2026-06-01T08:00:00",
+        }
+
+    @pytest.mark.asyncio
+    async def test_get_driver_assignments_empty(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /driver-assignments returns an empty paginated response."""
+        response = await async_client.get("/driver-assignments/")
+        assert response.status_code == 200
+        assert response.json()["items"] == []
+
+    @pytest.mark.asyncio
+    async def test_create_driver_assignment(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """POST /driver-assignments creates an assignment."""
+        response = await async_client.post(
+            "/driver-assignments/",
+            json=self._payload(test_driver, test_route, test_route_group),
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["driver_id"] == str(test_driver.driver_id)
+        assert "driver_assignment_id" in data
+
+    @pytest.mark.asyncio
+    async def test_update_driver_assignment(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """PATCH /driver-assignments/{id} updates the assignment."""
+        created = (
+            await async_client.post(
+                "/driver-assignments/",
+                json=self._payload(test_driver, test_route, test_route_group),
+            )
+        ).json()
+        response = await async_client.patch(
+            f"/driver-assignments/{created['driver_assignment_id']}",
+            json={"time": "2026-07-01T09:00:00"},
+        )
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_update_driver_assignment_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """PATCH /driver-assignments/{id} returns 404 for an unknown id."""
+        response = await async_client.patch(
+            f"/driver-assignments/{uuid4()}", json={"time": "2026-07-01T09:00:00"}
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_driver_assignment(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """DELETE /driver-assignments/{id} removes the assignment."""
+        created = (
+            await async_client.post(
+                "/driver-assignments/",
+                json=self._payload(test_driver, test_route, test_route_group),
+            )
+        ).json()
+        response = await async_client.delete(
+            f"/driver-assignments/{created['driver_assignment_id']}"
+        )
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_delete_driver_assignment_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """DELETE /driver-assignments/{id} returns 404 for an unknown id."""
+        response = await async_client.delete(f"/driver-assignments/{uuid4()}")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_suggested_driver_none(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """GET /driver-assignments/suggestions returns [] when the route belongs
+        to the group but has no prior assignment to suggest from."""
+        from app.models.route_group_membership import RouteGroupMembership
+
+        # The endpoint checks the route is a member of the group.
+        test_session.add(
+            RouteGroupMembership(
+                route_id=test_route.route_id,
+                route_group_id=test_route_group.route_group_id,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            "/driver-assignments/suggestions"
+            f"?route_id={test_route.route_id}"
+            f"&route_group_id={test_route_group.route_group_id}"
+        )
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_get_suggested_driver_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /driver-assignments/suggestions returns 404 when the route or
+        route group doesn't exist."""
+        response = await async_client.get(
+            f"/driver-assignments/suggestions?route_id={uuid4()}&route_group_id={uuid4()}"
+        )
+        assert response.status_code == 404
+
+
+class _FakeUploadResult:
+    def __init__(self, url: str, filename: str) -> None:
+        self.url = url
+        self.filename = filename
+
+
+class _FakeGCP:
+    """Stand-in for GCPStorageClient. Constructed with no args so it can be
+    passed directly as a dependency override (FastAPI inspects __init__ params);
+    set upload_error / delete_error on the instance to simulate failures.
+    """
+
+    upload_error: Exception | None = None
+    delete_error: Exception | None = None
+
+    def upload_file(self, _contents: bytes, filename: str, _content_type: str) -> Any:
+        if self.upload_error:
+            raise self.upload_error
+        return _FakeUploadResult(url=f"https://gcs.test/{filename}", filename=filename)
+
+    def delete_file(self, _filename: str) -> None:
+        if self.delete_error:
+            raise self.delete_error
+
+
+class TestUploadRoutes:
+    """Test suite for upload API routes (GCP client stubbed)."""
+
+    @pytest.mark.asyncio
+    async def test_upload_image_success(self, client_with_overrides: Any) -> None:
+        """POST /upload returns the stored file's url + filename."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
+        response = await client.post(
+            "/upload/", files={"file": ("pic.png", b"data", "image/png")}
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["filename"] == "pic.png"
+        assert body["url"].endswith("pic.png")
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_bad_content_type(
+        self, client_with_overrides: Any
+    ) -> None:
+        """POST /upload rejects unsupported content types with 400."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
+        response = await client.post(
+            "/upload/", files={"file": ("notes.txt", b"data", "text/plain")}
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_oversize(self, client_with_overrides: Any) -> None:
+        """POST /upload rejects files over the size limit with 400."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
+        big = b"x" * (5 * 1024 * 1024 + 1)
+        response = await client.post(
+            "/upload/", files={"file": ("big.png", big, "image/png")}
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_upload_permission_denied_maps_to_403(
+        self, client_with_overrides: Any
+    ) -> None:
+        """A GCS permission error maps to 403."""
+        from app.dependencies.services import get_gcp_storage_client
+        from app.utilities.gcp_client import GCSStorageError
+
+        fake = _FakeGCP()
+        fake.upload_error = GCSStorageError("upload failed: permission denied")
+        client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
+        response = await client.post(
+            "/upload/", files={"file": ("pic.png", b"data", "image/png")}
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_upload_storage_error_maps_to_503(
+        self, client_with_overrides: Any
+    ) -> None:
+        """A generic GCS error maps to 503."""
+        from app.dependencies.services import get_gcp_storage_client
+        from app.utilities.gcp_client import GCSStorageError
+
+        fake = _FakeGCP()
+        fake.upload_error = GCSStorageError("bucket unavailable")
+        client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
+        response = await client.post(
+            "/upload/", files={"file": ("pic.png", b"data", "image/png")}
+        )
+        assert response.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_delete_image_success(self, client_with_overrides: Any) -> None:
+        """DELETE /upload/{filename} succeeds."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
+        response = await client.delete("/upload/pic.png")
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_delete_image_not_found(self, client_with_overrides: Any) -> None:
+        """DELETE /upload/{filename} returns 404 when the file is missing."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        fake = _FakeGCP()
+        fake.delete_error = FileNotFoundError("missing")
+        client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
+        response = await client.delete("/upload/missing.png")
+        assert response.status_code == 404
+
+
+class TestDriverHistoryRoutes:
+    """Test suite for the driver-history sub-router."""
+
+    @staticmethod
+    def _base(test_driver: Any) -> str:
+        return f"/drivers/{test_driver.driver_id}/history"
+
+    @pytest.mark.asyncio
+    async def test_get_summary(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """GET /summary returns lifetime + current-year km for the driver."""
+        response = await async_client.get(f"{self._base(test_driver)}/summary")
+        assert response.status_code == 200
+        body = response.json()
+        assert "lifetime_km" in body
+        assert "current_year_km" in body
+
+    @pytest.mark.asyncio
+    async def test_get_summary_driver_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /summary returns 404 for an unknown driver (rather than a
+        zero-filled summary)."""
+        response = await async_client.get(f"/drivers/{uuid4()}/history/summary")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_create_driver_history(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """POST / creates a history entry."""
+        response = await async_client.post(
+            f"{self._base(test_driver)}/",
+            json={"year": 2025, "month": 1, "km": 12.5},
+        )
+        assert response.status_code == 201
+        assert response.json()["km"] == 12.5
+
+    @pytest.mark.asyncio
+    async def test_create_driver_history_driver_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """POST / returns 404 when the driver doesn't exist."""
+        response = await async_client.post(
+            f"/drivers/{uuid4()}/history/",
+            json={"year": 2025, "month": 1, "km": 5.0},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_create_driver_history_conflict(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """POST / twice for the same (driver, year, month) returns 409."""
+        body = {"year": 2025, "month": 2, "km": 3.0}
+        first = await async_client.post(f"{self._base(test_driver)}/", json=body)
+        assert first.status_code == 201
+        second = await async_client.post(f"{self._base(test_driver)}/", json=body)
+        assert second.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_list_driver_history(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """GET / lists the driver's history entries."""
+        await async_client.post(
+            f"{self._base(test_driver)}/",
+            json={"year": 2025, "month": 3, "km": 7.0},
+        )
+        response = await async_client.get(f"{self._base(test_driver)}/")
+        assert response.status_code == 200
+        assert any(h["month"] == 3 for h in response.json())
+
+    @pytest.mark.asyncio
+    async def test_list_driver_history_month_without_year(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """GET /?month=... without a year is a 400."""
+        response = await async_client.get(f"{self._base(test_driver)}/?month=1")
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_update_driver_history(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """PATCH /?year=&month= updates the km for that entry."""
+        await async_client.post(
+            f"{self._base(test_driver)}/",
+            json={"year": 2025, "month": 4, "km": 1.0},
+        )
+        response = await async_client.patch(
+            f"{self._base(test_driver)}/?year=2025&month=4",
+            json={"km": 9.0},
+        )
+        assert response.status_code == 200
+        assert response.json()["km"] == 9.0
+
+    @pytest.mark.asyncio
+    async def test_delete_driver_history(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """DELETE /?year=&month= removes the entry."""
+        await async_client.post(
+            f"{self._base(test_driver)}/",
+            json={"year": 2025, "month": 5, "km": 2.0},
+        )
+        response = await async_client.delete(
+            f"{self._base(test_driver)}/?year=2025&month=5"
+        )
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_export_driver_history(
+        self, async_client: AsyncClient, test_driver: Any
+    ) -> None:
+        """GET /drivers/all/history/{year}/export streams a CSV of all drivers'
+        history (driver_id must be the literal "all")."""
+        await async_client.post(
+            f"{self._base(test_driver)}/",
+            json={"year": 2025, "month": 6, "km": 4.0},
+        )
+        response = await async_client.get("/drivers/all/history/2025/export")
+        assert response.status_code == 200
+        assert "text/csv" in response.headers.get("content-type", "")
+        # The CSV emits a per-year distance column, proving the export ran for
+        # the requested year.
+        assert "distance (km) in 2025" in response.text
