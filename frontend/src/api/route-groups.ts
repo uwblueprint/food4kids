@@ -1,6 +1,4 @@
-// WIP shell — intentionally NOT on the generated client yet. The backend
-// GET /route-groups doesn't return the aggregates this table needs; see
-// src/types/route-group.ts for the planned contract and tracking ticket.
+// WIP shell, not yet on the generated client (see src/types/route-group.ts).
 import { useQuery } from '@tanstack/react-query';
 
 import axiosClient from '@/lib/axiosClient';
