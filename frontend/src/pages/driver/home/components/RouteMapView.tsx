@@ -11,15 +11,7 @@ const statusWrapper =
   'flex w-full items-center justify-center rounded-2xl border border-grey-300 bg-grey-150';
 
 export function RouteMapView({ routeId, className }: RouteMapViewProps) {
-  const { data: route, isPending, isError, error } = useRoute(routeId);
-
-  if (isPending) {
-    return (
-      <div className={cn(statusWrapper, 'text-p2 text-grey-400', className)}>
-        Loading route…
-      </div>
-    );
-  }
+  const { data: route, isError, error } = useRoute(routeId);
 
   if (isError || !route) {
     return (
