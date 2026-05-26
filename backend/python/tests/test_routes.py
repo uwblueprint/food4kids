@@ -357,7 +357,7 @@ class TestLocationRoutes:
             assert resp.status_code == 201
 
         delete_response = await async_client.delete("/locations/")
-        assert delete_response.status_code in (200, 204)
+        assert delete_response.status_code == 204
 
         listing = await async_client.get("/locations/")
         assert listing.json()["items"] == []
@@ -1281,9 +1281,7 @@ class TestJobRoutes:
             async def enqueue(self, _job_id: Any) -> None:
                 return None
 
-        client = await client_with_overrides(
-            {get_job_service: lambda: _FakeJobService()}
-        )
+        client = await client_with_overrides({get_job_service: _FakeJobService})
         body = {
             "location_group": {"name": "Group", "color": "#FF5733", "notes": ""},
             "settings": {"route_start_time": "2026-06-01T08:00:00", "num_routes": 2},
@@ -1449,24 +1447,20 @@ class _FakeUploadResult:
 
 
 class _FakeGCP:
-    """Stand-in for GCPStorageClient, configurable to raise on upload/delete."""
+    """Stand-in for GCPStorageClient. Constructed with no args so it can be
+    passed directly as a dependency override (FastAPI inspects __init__ params);
+    set upload_error / delete_error on the instance to simulate failures.
+    """
 
-    def __init__(
-        self,
-        upload_error: Exception | None = None,
-        delete_error: Exception | None = None,
-    ) -> None:
-        self.upload_error = upload_error
-        self.delete_error = delete_error
+    upload_error: Exception | None = None
+    delete_error: Exception | None = None
 
-    def upload_file(self, contents: bytes, filename: str, content_type: str) -> Any:
-        del contents, content_type  # mirror real signature; only filename used
+    def upload_file(self, _contents: bytes, filename: str, _content_type: str) -> Any:
         if self.upload_error:
             raise self.upload_error
         return _FakeUploadResult(url=f"https://gcs.test/{filename}", filename=filename)
 
-    def delete_file(self, filename: str) -> None:
-        del filename  # mirror real signature
+    def delete_file(self, _filename: str) -> None:
         if self.delete_error:
             raise self.delete_error
 
@@ -1479,9 +1473,7 @@ class TestUploadRoutes:
         """POST /upload returns the stored file's url + filename."""
         from app.dependencies.services import get_gcp_storage_client
 
-        client = await client_with_overrides(
-            {get_gcp_storage_client: lambda: _FakeGCP()}
-        )
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
         response = await client.post(
             "/upload/", files={"file": ("pic.png", b"data", "image/png")}
         )
@@ -1497,9 +1489,7 @@ class TestUploadRoutes:
         """POST /upload rejects unsupported content types with 400."""
         from app.dependencies.services import get_gcp_storage_client
 
-        client = await client_with_overrides(
-            {get_gcp_storage_client: lambda: _FakeGCP()}
-        )
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
         response = await client.post(
             "/upload/", files={"file": ("notes.txt", b"data", "text/plain")}
         )
@@ -1510,9 +1500,7 @@ class TestUploadRoutes:
         """POST /upload rejects files over the size limit with 400."""
         from app.dependencies.services import get_gcp_storage_client
 
-        client = await client_with_overrides(
-            {get_gcp_storage_client: lambda: _FakeGCP()}
-        )
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
         big = b"x" * (5 * 1024 * 1024 + 1)
         response = await client.post(
             "/upload/", files={"file": ("big.png", big, "image/png")}
@@ -1527,9 +1515,8 @@ class TestUploadRoutes:
         from app.dependencies.services import get_gcp_storage_client
         from app.utilities.gcp_client import GCSStorageError
 
-        fake = _FakeGCP(
-            upload_error=GCSStorageError("upload failed: permission denied")
-        )
+        fake = _FakeGCP()
+        fake.upload_error = GCSStorageError("upload failed: permission denied")
         client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
         response = await client.post(
             "/upload/", files={"file": ("pic.png", b"data", "image/png")}
@@ -1544,7 +1531,8 @@ class TestUploadRoutes:
         from app.dependencies.services import get_gcp_storage_client
         from app.utilities.gcp_client import GCSStorageError
 
-        fake = _FakeGCP(upload_error=GCSStorageError("bucket unavailable"))
+        fake = _FakeGCP()
+        fake.upload_error = GCSStorageError("bucket unavailable")
         client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
         response = await client.post(
             "/upload/", files={"file": ("pic.png", b"data", "image/png")}
@@ -1556,9 +1544,7 @@ class TestUploadRoutes:
         """DELETE /upload/{filename} succeeds."""
         from app.dependencies.services import get_gcp_storage_client
 
-        client = await client_with_overrides(
-            {get_gcp_storage_client: lambda: _FakeGCP()}
-        )
+        client = await client_with_overrides({get_gcp_storage_client: _FakeGCP})
         response = await client.delete("/upload/pic.png")
         assert response.status_code == 200
 
@@ -1567,7 +1553,8 @@ class TestUploadRoutes:
         """DELETE /upload/{filename} returns 404 when the file is missing."""
         from app.dependencies.services import get_gcp_storage_client
 
-        fake = _FakeGCP(delete_error=FileNotFoundError("missing"))
+        fake = _FakeGCP()
+        fake.delete_error = FileNotFoundError("missing")
         client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
         response = await client.delete("/upload/missing.png")
         assert response.status_code == 404
@@ -1698,3 +1685,6 @@ class TestDriverHistoryRoutes:
         response = await async_client.get("/drivers/all/history/2025/export")
         assert response.status_code == 200
         assert "text/csv" in response.headers.get("content-type", "")
+        # The CSV emits a per-year distance column, proving the export ran for
+        # the requested year.
+        assert "distance (km) in 2025" in response.text

@@ -151,29 +151,27 @@ async def client_with_overrides(
     applied (on top of the test-session override) — e.g. to swap in a fake
     GCP/auth/routing dependency. Built clients are cleaned up automatically.
     """
+    import contextlib
+
     from httpx import ASGITransport
 
-    opened: list[AsyncClient] = []
+    async with contextlib.AsyncExitStack() as stack:
 
-    async def _make(overrides: dict[Any, Any] | None = None) -> AsyncClient:
-        app = create_app()
+        async def _make(overrides: dict[Any, Any] | None = None) -> AsyncClient:
+            app = create_app()
 
-        async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
-            yield test_session
+            async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+                yield test_session
 
-        app.dependency_overrides[get_session] = override_get_session
-        for dep, override in (overrides or {}).items():
-            app.dependency_overrides[dep] = override
+            app.dependency_overrides[get_session] = override_get_session
+            for dep, override in (overrides or {}).items():
+                app.dependency_overrides[dep] = override
 
-        client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
-        await client.__aenter__()
-        opened.append(client)
-        return client
+            return await stack.enter_async_context(
+                AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+            )
 
-    yield _make
-
-    for client in opened:
-        await client.__aexit__(None, None, None)
+        yield _make
 
 
 # Authentication fixtures
