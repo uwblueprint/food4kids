@@ -1,14 +1,25 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import {
+  CatchAllErrorPage,
+  ForbiddenPage,
+  NotFoundPage,
+  ServiceUnavailablePage,
+} from './common/components';
 import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
   AdminHomePage,
+  AdminRoutesGenerationLayout,
   AdminRoutesPage,
   AdminSettingsPage,
+  ConfigureStep,
+  GenerateStep,
+  ImportStep,
+  ReviewStep,
+  ValidateStep,
 } from './pages/admin';
 import { DriverHomePage } from './pages/driver';
-import { NotFoundPage } from './pages/NotFoundPage';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { TestImageUpload } from './pages/TestImageUpload';
 
@@ -25,6 +36,18 @@ function App() {
           <Route path="home" element={<AdminHomePage />} />
           <Route path="drivers" element={<AdminDriversPage />} />
           <Route path="routes" element={<AdminRoutesPage />} />
+          {/* Route Generation */}
+          <Route
+            path="routes/generation"
+            element={<AdminRoutesGenerationLayout />}
+          >
+            <Route index element={<Navigate to="import" replace />} />
+            <Route path="import" element={<ImportStep />} />
+            <Route path="validate" element={<ValidateStep />} />
+            <Route path="review" element={<ReviewStep />} />
+            <Route path="configure" element={<ConfigureStep />} />
+            <Route path="generate" element={<GenerateStep />} />
+          </Route>
           <Route path="settings" element={<AdminSettingsPage />} />
           <Route path="test-image-upload" element={<TestImageUpload />} />
         </Route>
@@ -43,7 +66,15 @@ function App() {
           <Route path="/style-guide" element={<StyleGuidePage />} />
         )}
 
-        {/* 404 Not Found */}
+        {/* Error pages (dev preview) */}
+        {import.meta.env.DEV && (
+          <>
+            <Route path="/403" element={<ForbiddenPage />} />
+            <Route path="/404" element={<NotFoundPage />} />
+            <Route path="/503" element={<ServiceUnavailablePage />} />
+            <Route path="/error" element={<CatchAllErrorPage />} />
+          </>
+        )}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

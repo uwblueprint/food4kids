@@ -15,6 +15,7 @@
 **/*.egg-info
 switch_github.sh
 CLAUDE.md
+.claude/
 backend/python/app/data/
 **/*service-account*.json
 **/*secrets*.json

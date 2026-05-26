@@ -51,6 +51,8 @@ ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
 UNASSIGNED_LOCATION_PERCENTAGE = 0.05
 # Average number of stops per route (used to calculate number of clusters)
 AVG_STOPS_PER_ROUTE = 7.5
+# Maximum number of stops per route (Google Maps directions URLs support max 10 waypoints)
+MAX_STOPS_PER_ROUTE = 10
 # Number of months in the past to generate route groups for
 MONTHS_PAST = 2
 # Number of months in the future to generate route groups for
@@ -328,6 +330,17 @@ def create_routes_for_group(session: Session, group_locations: list[Location]) -
 
     num_clusters = max(1, int(len(group_locations) // AVG_STOPS_PER_ROUTE))
     clusters = create_clusters(group_locations, num_clusters)
+
+    # Split any cluster that exceeds the max stops per route
+    split_clusters: list[list[Location]] = []
+    for cluster in clusters:
+        while len(cluster) > MAX_STOPS_PER_ROUTE:
+            split_clusters.append(cluster[:MAX_STOPS_PER_ROUTE])
+            cluster = cluster[MAX_STOPS_PER_ROUTE:]
+        if cluster:
+            split_clusters.append(cluster)
+    clusters = split_clusters
+
     routes_created = 0
 
     for cluster_idx, cluster_locations in enumerate(clusters):
@@ -746,33 +759,42 @@ def main() -> None:
             all_drivers_result = session.execute(
                 text("SELECT driver_id FROM drivers")
             ).fetchall()
+
             for driver_row in all_drivers_result:
-                # Filter years to only include valid ones (2025-2100)
                 valid_years = [y for y in years if 2025 <= y <= 2100]
                 if not valid_years:
-                    valid_years = [current_year]  # At least use current year
+                    valid_years = [current_year]
+
                 driver_years = random.sample(
                     valid_years, random.randint(1, len(valid_years))
                 )
+
                 for year in driver_years:
                     if (
                         year == current_year
                         and random.random() < PROBABILITY_SKIP_CURRENT_YEAR_HISTORY
                     ):
                         continue
-                    driver_history = DriverHistory(
-                        driver_id=driver_row[0],  # Access first column (driver_id)
-                        year=year,
-                        km=round(
-                            random.uniform(
-                                DRIVER_HISTORY_KM_MIN, DRIVER_HISTORY_KM_MAX
+
+                    months = random.sample(range(1, 13), random.randint(3, 12))
+
+                    for month in months:
+                        driver_history = DriverHistory(
+                            driver_id=driver_row[0],
+                            year=year,
+                            month=month,
+                            km=round(
+                                random.uniform(
+                                    DRIVER_HISTORY_KM_MIN,
+                                    DRIVER_HISTORY_KM_MAX,
+                                ),
+                                2,
                             ),
-                            2,
-                        ),
-                    )
-                    set_timestamps(driver_history)
-                    session.add(driver_history)
-                    history_entries += 1
+                        )
+
+                        set_timestamps(driver_history)
+                        session.add(driver_history)
+                        history_entries += 1
 
             session.commit()
             print(f"Created {history_entries} driver history entries")
@@ -791,11 +813,14 @@ def main() -> None:
                 {"limit": PAST_ROUTE_GROUPS_LIMIT},
             ).fetchall()
 
+            jobs_created = 0
             if past_route_groups:
+                available = len(past_route_groups)
                 num_jobs = random.randint(
-                    MIN_JOBS, min(MAX_JOBS, len(past_route_groups))
+                    min(MIN_JOBS, available), min(MAX_JOBS, available)
                 )
                 selected_groups = random.sample(past_route_groups, num_jobs)
+                jobs_created = len(selected_groups)
 
                 for route_group_id, drive_date in selected_groups:
                     started_at = drive_date + timedelta(
@@ -819,7 +844,7 @@ def main() -> None:
                     session.add(job)
 
             session.commit()
-            print(f"Created {len(past_route_groups) if past_route_groups else 0} jobs")
+            print(f"Created {jobs_created} jobs")
 
             # Create system settings
             print("Creating system settings info...")

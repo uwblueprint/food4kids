@@ -31,10 +31,7 @@ class RouteBase(SQLModel):
 
 
 class Route(RouteBase, BaseModel, table=True):
-    """Database table model for Routes
-
-    Note: Routes are immutable once created
-    """
+    """Database table model for Routes"""
 
     __tablename__ = "routes"
 
@@ -87,3 +84,16 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
+
+
+class RoutePatchRequest(SQLModel):
+    """Request body for PATCH /routes/{route_id}.
+
+    All fields are optional - only provided fields will be updated.
+    If location_ids is provided, the route stops will be fully replaced
+    and the routing algorithm will be re-run to update polyline + mileage.
+    """
+
+    name: str | None = None
+    notes: str | None = None
+    location_ids: list[UUID] | None = None  # new ordered list of location IDs

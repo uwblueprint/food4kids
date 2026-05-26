@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
     "email:dev": "email dev --dir emails --port 3000",
@@ -15,15 +15,23 @@
   "dependencies": {
     "@radix-ui/react-select": "^2.2.6",
     "@react-email/tailwind": "^2.0.6",
+    "@tanstack/react-query": "^5.96.2",
+    "@tanstack/react-query-devtools": "^5.96.2",
+    "@xstate/react": "^6.1.0",
     "axios": "^1.13.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.576.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.0",
+    "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.12.0",
-    "tailwind-merge": "^3.5.0"
+    "react-syntax-highlighter": "^16.1.1",
+    "tailwind-merge": "^3.5.0",
+    "xlsx": "^0.18.5",
+    "xstate": "^5.30.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -33,6 +41,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
     "eslint": "^9.39.1",
