@@ -13,6 +13,7 @@ marked ``slow`` because each one pays a full seed cycle.
 """
 
 import os
+import random
 import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -20,6 +21,7 @@ from unittest.mock import patch
 
 import phonenumbers
 import pytest
+from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -65,6 +67,12 @@ def _run_seed_script() -> None:
         "postgresql+asyncpg://postgres:postgres@db:5432/f4k_test",
     )
     sync_db_url = async_db_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    # The seed script uses unseeded `random`/Faker, so its output (e.g. how many
+    # driver assignments get created) varies run to run — occasionally producing
+    # zero and failing assertions. Seed deterministically for reproducible runs.
+    random.seed(20250526)
+    Faker.seed(20250526)
 
     with (
         patch.object(seed_module, "DATABASE_URL", sync_db_url),
