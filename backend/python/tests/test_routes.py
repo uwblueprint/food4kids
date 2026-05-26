@@ -959,3 +959,33 @@ class TestAnnouncementRoutes:
         fake_id = uuid4()
         response = await async_client.delete(f"/announcements/{fake_id}")
         assert response.status_code == 404
+
+
+class TestJobRoutes:
+    """Test suite for job API routes."""
+
+    @pytest.mark.asyncio
+    async def test_get_job_not_found(self, async_client: AsyncClient) -> None:
+        """GET /jobs/{id} returns 404 (not 500) for an unknown job.
+
+        Regression: the 404 HTTPException was raised inside a try whose bare
+        `except Exception` swallowed it and rewrapped it as a 500.
+        """
+        response = await async_client.get(f"/jobs/{uuid4()}")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_job(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """GET /jobs/{id} returns the job."""
+        from app.models.job import Job
+
+        job = Job()
+        test_session.add(job)
+        await test_session.commit()
+        await test_session.refresh(job)
+
+        response = await async_client.get(f"/jobs/{job.job_id}")
+        assert response.status_code == 200
+        assert response.json()["job_id"] == str(job.job_id)
