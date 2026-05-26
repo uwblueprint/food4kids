@@ -597,6 +597,27 @@ class TestLocationGroupRoutes:
         )
         assert response.status_code == 409
 
+    @pytest.mark.asyncio
+    async def test_get_location_group_by_id(
+        self, async_client: AsyncClient, test_location_group: Any
+    ) -> None:
+        """GET /location-groups/{id} returns the group."""
+        response = await async_client.get(
+            f"/location-groups/{test_location_group.location_group_id}"
+        )
+        assert response.status_code == 200
+        assert response.json()["location_group_id"] == str(
+            test_location_group.location_group_id
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_location_group_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /location-groups/{id} returns 404 for an unknown id."""
+        response = await async_client.get(f"/location-groups/{uuid4()}")
+        assert response.status_code == 404
+
 
 class TestRouteRoutes:
     """Test suite for route API routes."""
@@ -1144,3 +1165,142 @@ class TestSystemSettingsRoutes:
         """GET /system-settings returns 200 (null-safe when unset)."""
         response = await async_client.get("/system-settings/")
         assert response.status_code == 200
+
+
+class TestDriverAssignmentRoutes:
+    """Test suite for driver assignment API routes."""
+
+    @staticmethod
+    def _payload(test_driver: Any, test_route: Any, test_route_group: Any) -> dict:
+        return {
+            "driver_id": str(test_driver.driver_id),
+            "route_id": str(test_route.route_id),
+            "route_group_id": str(test_route_group.route_group_id),
+            "time": "2026-06-01T08:00:00",
+        }
+
+    @pytest.mark.asyncio
+    async def test_get_driver_assignments_empty(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /driver-assignments returns an empty paginated response."""
+        response = await async_client.get("/driver-assignments/")
+        assert response.status_code == 200
+        assert response.json()["items"] == []
+
+    @pytest.mark.asyncio
+    async def test_create_driver_assignment(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """POST /driver-assignments creates an assignment."""
+        response = await async_client.post(
+            "/driver-assignments/",
+            json=self._payload(test_driver, test_route, test_route_group),
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["driver_id"] == str(test_driver.driver_id)
+        assert "driver_assignment_id" in data
+
+    @pytest.mark.asyncio
+    async def test_update_driver_assignment(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """PATCH /driver-assignments/{id} updates the assignment."""
+        created = (
+            await async_client.post(
+                "/driver-assignments/",
+                json=self._payload(test_driver, test_route, test_route_group),
+            )
+        ).json()
+        response = await async_client.patch(
+            f"/driver-assignments/{created['driver_assignment_id']}",
+            json={"time": "2026-07-01T09:00:00"},
+        )
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_update_driver_assignment_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """PATCH /driver-assignments/{id} returns 404 for an unknown id."""
+        response = await async_client.patch(
+            f"/driver-assignments/{uuid4()}", json={"time": "2026-07-01T09:00:00"}
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_driver_assignment(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """DELETE /driver-assignments/{id} removes the assignment."""
+        created = (
+            await async_client.post(
+                "/driver-assignments/",
+                json=self._payload(test_driver, test_route, test_route_group),
+            )
+        ).json()
+        response = await async_client.delete(
+            f"/driver-assignments/{created['driver_assignment_id']}"
+        )
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_delete_driver_assignment_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """DELETE /driver-assignments/{id} returns 404 for an unknown id."""
+        response = await async_client.delete(f"/driver-assignments/{uuid4()}")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_suggested_driver_none(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """GET /driver-assignments/suggestions returns [] when the route belongs
+        to the group but has no prior assignment to suggest from."""
+        from app.models.route_group_membership import RouteGroupMembership
+
+        # The endpoint checks the route is a member of the group.
+        test_session.add(
+            RouteGroupMembership(
+                route_id=test_route.route_id,
+                route_group_id=test_route_group.route_group_id,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            "/driver-assignments/suggestions"
+            f"?route_id={test_route.route_id}"
+            f"&route_group_id={test_route_group.route_group_id}"
+        )
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_get_suggested_driver_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /driver-assignments/suggestions returns 404 when the route or
+        route group doesn't exist."""
+        response = await async_client.get(
+            f"/driver-assignments/suggestions?route_id={uuid4()}&route_group_id={uuid4()}"
+        )
+        assert response.status_code == 404
