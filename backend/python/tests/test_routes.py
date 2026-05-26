@@ -1304,3 +1304,134 @@ class TestDriverAssignmentRoutes:
             f"/driver-assignments/suggestions?route_id={uuid4()}&route_group_id={uuid4()}"
         )
         assert response.status_code == 404
+
+
+class _FakeUploadResult:
+    def __init__(self, url: str, filename: str) -> None:
+        self.url = url
+        self.filename = filename
+
+
+class _FakeGCP:
+    """Stand-in for GCPStorageClient, configurable to raise on upload/delete."""
+
+    def __init__(
+        self,
+        upload_error: Exception | None = None,
+        delete_error: Exception | None = None,
+    ) -> None:
+        self.upload_error = upload_error
+        self.delete_error = delete_error
+
+    def upload_file(self, contents: bytes, filename: str, content_type: str) -> Any:
+        del contents, content_type  # mirror real signature; only filename used
+        if self.upload_error:
+            raise self.upload_error
+        return _FakeUploadResult(url=f"https://gcs.test/{filename}", filename=filename)
+
+    def delete_file(self, filename: str) -> None:
+        del filename  # mirror real signature
+        if self.delete_error:
+            raise self.delete_error
+
+
+class TestUploadRoutes:
+    """Test suite for upload API routes (GCP client stubbed)."""
+
+    @pytest.mark.asyncio
+    async def test_upload_image_success(self, client_with_overrides: Any) -> None:
+        """POST /upload returns the stored file's url + filename."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides(
+            {get_gcp_storage_client: lambda: _FakeGCP()}
+        )
+        response = await client.post(
+            "/upload/", files={"file": ("pic.png", b"data", "image/png")}
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["filename"] == "pic.png"
+        assert body["url"].endswith("pic.png")
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_bad_content_type(
+        self, client_with_overrides: Any
+    ) -> None:
+        """POST /upload rejects unsupported content types with 400."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides(
+            {get_gcp_storage_client: lambda: _FakeGCP()}
+        )
+        response = await client.post(
+            "/upload/", files={"file": ("notes.txt", b"data", "text/plain")}
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_oversize(self, client_with_overrides: Any) -> None:
+        """POST /upload rejects files over the size limit with 400."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides(
+            {get_gcp_storage_client: lambda: _FakeGCP()}
+        )
+        big = b"x" * (5 * 1024 * 1024 + 1)
+        response = await client.post(
+            "/upload/", files={"file": ("big.png", big, "image/png")}
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_upload_permission_denied_maps_to_403(
+        self, client_with_overrides: Any
+    ) -> None:
+        """A GCS permission error maps to 403."""
+        from app.dependencies.services import get_gcp_storage_client
+        from app.utilities.gcp_client import GCSStorageError
+
+        fake = _FakeGCP(
+            upload_error=GCSStorageError("upload failed: permission denied")
+        )
+        client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
+        response = await client.post(
+            "/upload/", files={"file": ("pic.png", b"data", "image/png")}
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_upload_storage_error_maps_to_503(
+        self, client_with_overrides: Any
+    ) -> None:
+        """A generic GCS error maps to 503."""
+        from app.dependencies.services import get_gcp_storage_client
+        from app.utilities.gcp_client import GCSStorageError
+
+        fake = _FakeGCP(upload_error=GCSStorageError("bucket unavailable"))
+        client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
+        response = await client.post(
+            "/upload/", files={"file": ("pic.png", b"data", "image/png")}
+        )
+        assert response.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_delete_image_success(self, client_with_overrides: Any) -> None:
+        """DELETE /upload/{filename} succeeds."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        client = await client_with_overrides(
+            {get_gcp_storage_client: lambda: _FakeGCP()}
+        )
+        response = await client.delete("/upload/pic.png")
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_delete_image_not_found(self, client_with_overrides: Any) -> None:
+        """DELETE /upload/{filename} returns 404 when the file is missing."""
+        from app.dependencies.services import get_gcp_storage_client
+
+        fake = _FakeGCP(delete_error=FileNotFoundError("missing"))
+        client = await client_with_overrides({get_gcp_storage_client: lambda: fake})
+        response = await client.delete("/upload/missing.png")
+        assert response.status_code == 404
