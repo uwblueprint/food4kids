@@ -85,7 +85,6 @@ def init_app(_app: Any | None = None) -> None:
     from .driver import Driver  # noqa: F401
     from .driver_assignment import DriverAssignment  # noqa: F401
     from .driver_history import DriverHistory  # noqa: F401
-    from .entity import Entity  # noqa: F401
     from .job import Job  # noqa: F401
     from .location import Location  # noqa: F401
     from .location_group import LocationGroup  # noqa: F401
@@ -96,7 +95,6 @@ def init_app(_app: Any | None = None) -> None:
     from .route_group import RouteGroup  # noqa: F401
     from .route_group_membership import RouteGroupMembership  # noqa: F401
     from .route_stop import RouteStop  # noqa: F401
-    from .simple_entity import SimpleEntity  # noqa: F401
     from .system_settings import SystemSettings  # noqa: F401
     from .user import User  # noqa: F401
 
