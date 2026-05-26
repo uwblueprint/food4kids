@@ -14,18 +14,15 @@ import {
   createAnnouncement,
   createDriverAssignment,
   createDriverHistory,
-  createEntity,
   createLocation,
   createLocationGroup,
   createNote,
   createRouteGroup,
-  createSimpleEntity,
   deleteAllLocations,
   deleteAnnouncement,
   deleteDriver,
   deleteDriverAssignment,
   deleteDriverHistory,
-  deleteEntity,
   deleteImage,
   deleteLocation,
   deleteLocationGroup,
@@ -33,7 +30,6 @@ import {
   deleteNoteChain,
   deleteRoute,
   deleteRouteGroup,
-  deleteSimpleEntity,
   exportAllDriversHistory,
   generateJob,
   getAnnouncement,
@@ -43,8 +39,6 @@ import {
   getDriverHistory,
   getDriverHistorySummary,
   getDrivers,
-  getEntities,
-  getEntity,
   getGoogleMapsLink,
   getJob,
   getJobs,
@@ -57,8 +51,6 @@ import {
   getRoute,
   getRouteGroups,
   getRoutes,
-  getSimpleEntities,
-  getSimpleEntity,
   getSuggestedDriver,
   getSystemSettings,
   ingestLocations,
@@ -74,13 +66,11 @@ import {
   updateDriver,
   updateDriverAssignment,
   updateDriverHistory,
-  updateEntity,
   updateLocation,
   updateLocationGroup,
   updateNote,
   updateRoute,
   updateRouteGroup,
-  updateSimpleEntity,
   uploadImage,
 } from '../sdk.gen';
 import type {
@@ -93,9 +83,6 @@ import type {
   CreateDriverHistoryData,
   CreateDriverHistoryError,
   CreateDriverHistoryResponse,
-  CreateEntityData,
-  CreateEntityError,
-  CreateEntityResponse,
   CreateLocationData,
   CreateLocationError,
   CreateLocationGroupData,
@@ -108,9 +95,6 @@ import type {
   CreateRouteGroupData,
   CreateRouteGroupError,
   CreateRouteGroupResponse,
-  CreateSimpleEntityData,
-  CreateSimpleEntityError,
-  CreateSimpleEntityResponse,
   DeleteAllLocationsData,
   DeleteAllLocationsResponse,
   DeleteAnnouncementData,
@@ -125,9 +109,6 @@ import type {
   DeleteDriverHistoryError,
   DeleteDriverHistoryResponse,
   DeleteDriverResponse,
-  DeleteEntityData,
-  DeleteEntityError,
-  DeleteEntityResponse,
   DeleteImageData,
   DeleteImageError,
   DeleteImageResponse,
@@ -149,9 +130,6 @@ import type {
   DeleteRouteGroupError,
   DeleteRouteGroupResponse,
   DeleteRouteResponse,
-  DeleteSimpleEntityData,
-  DeleteSimpleEntityError,
-  DeleteSimpleEntityResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
   GenerateJobData,
@@ -177,11 +155,6 @@ import type {
   GetDriversData,
   GetDriversError,
   GetDriversResponse,
-  GetEntitiesData,
-  GetEntitiesResponse,
-  GetEntityData,
-  GetEntityError,
-  GetEntityResponse,
   GetGoogleMapsLinkData,
   GetGoogleMapsLinkError,
   GetGoogleMapsLinkResponse,
@@ -217,11 +190,6 @@ import type {
   GetRoutesData,
   GetRoutesError,
   GetRoutesResponse,
-  GetSimpleEntitiesData,
-  GetSimpleEntitiesResponse,
-  GetSimpleEntityData,
-  GetSimpleEntityError,
-  GetSimpleEntityResponse,
   GetSuggestedDriverData,
   GetSuggestedDriverError,
   GetSuggestedDriverResponse,
@@ -261,9 +229,6 @@ import type {
   UpdateDriverHistoryError,
   UpdateDriverHistoryResponse,
   UpdateDriverResponse,
-  UpdateEntityData,
-  UpdateEntityError,
-  UpdateEntityResponse,
   UpdateLocationData,
   UpdateLocationError,
   UpdateLocationGroupData,
@@ -279,9 +244,6 @@ import type {
   UpdateRouteGroupError,
   UpdateRouteGroupResponse,
   UpdateRouteResponse,
-  UpdateSimpleEntityData,
-  UpdateSimpleEntityError,
-  UpdateSimpleEntityResponse,
   UploadImageData,
   UploadImageError,
   UploadImageResponse,
@@ -1178,147 +1140,6 @@ export const exportAllDriversHistoryOptions = (
     },
     queryKey: exportAllDriversHistoryQueryKey(options),
   });
-
-export const getEntitiesQueryKey = (options?: Options<GetEntitiesData>) =>
-  createQueryKey('getEntities', options);
-
-/**
- * Get Entities
- *
- * Retrieve all entities
- */
-export const getEntitiesOptions = (options?: Options<GetEntitiesData>) =>
-  queryOptions<
-    GetEntitiesResponse,
-    AxiosError<DefaultError>,
-    GetEntitiesResponse,
-    ReturnType<typeof getEntitiesQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getEntities({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getEntitiesQueryKey(options),
-  });
-
-/**
- * Create Entity
- *
- * Create a new entity
- */
-export const createEntityMutation = (
-  options?: Partial<Options<CreateEntityData>>
-): UseMutationOptions<
-  CreateEntityResponse,
-  AxiosError<CreateEntityError>,
-  Options<CreateEntityData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CreateEntityResponse,
-    AxiosError<CreateEntityError>,
-    Options<CreateEntityData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await createEntity({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Delete Entity
- *
- * Delete an entity
- */
-export const deleteEntityMutation = (
-  options?: Partial<Options<DeleteEntityData>>
-): UseMutationOptions<
-  DeleteEntityResponse,
-  AxiosError<DeleteEntityError>,
-  Options<DeleteEntityData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    DeleteEntityResponse,
-    AxiosError<DeleteEntityError>,
-    Options<DeleteEntityData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await deleteEntity({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-export const getEntityQueryKey = (options: Options<GetEntityData>) =>
-  createQueryKey('getEntity', options);
-
-/**
- * Get Entity
- *
- * Get a single entity by ID
- */
-export const getEntityOptions = (options: Options<GetEntityData>) =>
-  queryOptions<
-    GetEntityResponse,
-    AxiosError<GetEntityError>,
-    GetEntityResponse,
-    ReturnType<typeof getEntityQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getEntity({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getEntityQueryKey(options),
-  });
-
-/**
- * Update Entity
- *
- * Update an existing entity
- */
-export const updateEntityMutation = (
-  options?: Partial<Options<UpdateEntityData>>
-): UseMutationOptions<
-  UpdateEntityResponse,
-  AxiosError<UpdateEntityError>,
-  Options<UpdateEntityData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateEntityResponse,
-    AxiosError<UpdateEntityError>,
-    Options<UpdateEntityData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateEntity({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 export const getJobsQueryKey = (options?: Options<GetJobsData>) =>
   createQueryKey('getJobs', options);
@@ -2394,151 +2215,6 @@ export const getGoogleMapsLinkOptions = (
     },
     queryKey: getGoogleMapsLinkQueryKey(options),
   });
-
-export const getSimpleEntitiesQueryKey = (
-  options?: Options<GetSimpleEntitiesData>
-) => createQueryKey('getSimpleEntities', options);
-
-/**
- * Get Simple Entities
- *
- * Retrieve all simple entities
- */
-export const getSimpleEntitiesOptions = (
-  options?: Options<GetSimpleEntitiesData>
-) =>
-  queryOptions<
-    GetSimpleEntitiesResponse,
-    AxiosError<DefaultError>,
-    GetSimpleEntitiesResponse,
-    ReturnType<typeof getSimpleEntitiesQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getSimpleEntities({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getSimpleEntitiesQueryKey(options),
-  });
-
-/**
- * Create Simple Entity
- *
- * Create a new simple entity
- */
-export const createSimpleEntityMutation = (
-  options?: Partial<Options<CreateSimpleEntityData>>
-): UseMutationOptions<
-  CreateSimpleEntityResponse,
-  AxiosError<CreateSimpleEntityError>,
-  Options<CreateSimpleEntityData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CreateSimpleEntityResponse,
-    AxiosError<CreateSimpleEntityError>,
-    Options<CreateSimpleEntityData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await createSimpleEntity({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Delete Simple Entity
- *
- * Delete a simple entity
- */
-export const deleteSimpleEntityMutation = (
-  options?: Partial<Options<DeleteSimpleEntityData>>
-): UseMutationOptions<
-  DeleteSimpleEntityResponse,
-  AxiosError<DeleteSimpleEntityError>,
-  Options<DeleteSimpleEntityData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    DeleteSimpleEntityResponse,
-    AxiosError<DeleteSimpleEntityError>,
-    Options<DeleteSimpleEntityData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await deleteSimpleEntity({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-export const getSimpleEntityQueryKey = (
-  options: Options<GetSimpleEntityData>
-) => createQueryKey('getSimpleEntity', options);
-
-/**
- * Get Simple Entity
- *
- * Get a single simple entity by ID
- */
-export const getSimpleEntityOptions = (options: Options<GetSimpleEntityData>) =>
-  queryOptions<
-    GetSimpleEntityResponse,
-    AxiosError<GetSimpleEntityError>,
-    GetSimpleEntityResponse,
-    ReturnType<typeof getSimpleEntityQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getSimpleEntity({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getSimpleEntityQueryKey(options),
-  });
-
-/**
- * Update Simple Entity
- *
- * Update an existing simple entity
- */
-export const updateSimpleEntityMutation = (
-  options?: Partial<Options<UpdateSimpleEntityData>>
-): UseMutationOptions<
-  UpdateSimpleEntityResponse,
-  AxiosError<UpdateSimpleEntityError>,
-  Options<UpdateSimpleEntityData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateSimpleEntityResponse,
-    AxiosError<UpdateSimpleEntityError>,
-    Options<UpdateSimpleEntityData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateSimpleEntity({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 export const getSystemSettingsQueryKey = (
   options?: Options<GetSystemSettingsData>

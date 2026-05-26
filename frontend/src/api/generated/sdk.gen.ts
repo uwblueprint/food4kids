@@ -17,9 +17,6 @@ import type {
   CreateDriverHistoryData,
   CreateDriverHistoryErrors,
   CreateDriverHistoryResponses,
-  CreateEntityData,
-  CreateEntityErrors,
-  CreateEntityResponses,
   CreateLocationData,
   CreateLocationErrors,
   CreateLocationGroupData,
@@ -32,9 +29,6 @@ import type {
   CreateRouteGroupData,
   CreateRouteGroupErrors,
   CreateRouteGroupResponses,
-  CreateSimpleEntityData,
-  CreateSimpleEntityErrors,
-  CreateSimpleEntityResponses,
   DeleteAllLocationsData,
   DeleteAllLocationsResponses,
   DeleteAnnouncementData,
@@ -49,9 +43,6 @@ import type {
   DeleteDriverHistoryErrors,
   DeleteDriverHistoryResponses,
   DeleteDriverResponses,
-  DeleteEntityData,
-  DeleteEntityErrors,
-  DeleteEntityResponses,
   DeleteImageData,
   DeleteImageErrors,
   DeleteImageResponses,
@@ -73,9 +64,6 @@ import type {
   DeleteRouteGroupErrors,
   DeleteRouteGroupResponses,
   DeleteRouteResponses,
-  DeleteSimpleEntityData,
-  DeleteSimpleEntityErrors,
-  DeleteSimpleEntityResponses,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryErrors,
   ExportAllDriversHistoryResponses,
@@ -102,11 +90,6 @@ import type {
   GetDriversData,
   GetDriversErrors,
   GetDriversResponses,
-  GetEntitiesData,
-  GetEntitiesResponses,
-  GetEntityData,
-  GetEntityErrors,
-  GetEntityResponses,
   GetGoogleMapsLinkData,
   GetGoogleMapsLinkErrors,
   GetGoogleMapsLinkResponses,
@@ -142,11 +125,6 @@ import type {
   GetRoutesData,
   GetRoutesErrors,
   GetRoutesResponses,
-  GetSimpleEntitiesData,
-  GetSimpleEntitiesResponses,
-  GetSimpleEntityData,
-  GetSimpleEntityErrors,
-  GetSimpleEntityResponses,
   GetSuggestedDriverData,
   GetSuggestedDriverErrors,
   GetSuggestedDriverResponses,
@@ -186,9 +164,6 @@ import type {
   UpdateDriverHistoryErrors,
   UpdateDriverHistoryResponses,
   UpdateDriverResponses,
-  UpdateEntityData,
-  UpdateEntityErrors,
-  UpdateEntityResponses,
   UpdateLocationData,
   UpdateLocationErrors,
   UpdateLocationGroupData,
@@ -204,9 +179,6 @@ import type {
   UpdateRouteGroupErrors,
   UpdateRouteGroupResponses,
   UpdateRouteResponses,
-  UpdateSimpleEntityData,
-  UpdateSimpleEntityErrors,
-  UpdateSimpleEntityResponses,
   UploadImageData,
   UploadImageErrors,
   UploadImageResponses,
@@ -711,96 +683,6 @@ export const exportAllDriversHistory = <ThrowOnError extends boolean = false>(
     ExportAllDriversHistoryErrors,
     ThrowOnError
   >({ url: '/drivers/{driver_id}/history/{year}/export', ...options });
-
-/**
- * Get Entities
- *
- * Retrieve all entities
- */
-export const getEntities = <ThrowOnError extends boolean = false>(
-  options?: Options<GetEntitiesData, ThrowOnError>
-) =>
-  (options?.client ?? client).get<GetEntitiesResponses, unknown, ThrowOnError>({
-    responseType: 'json',
-    url: '/entities/',
-    ...options,
-  });
-
-/**
- * Create Entity
- *
- * Create a new entity
- */
-export const createEntity = <ThrowOnError extends boolean = false>(
-  options: Options<CreateEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CreateEntityResponses,
-    CreateEntityErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/entities/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Delete Entity
- *
- * Delete an entity
- */
-export const deleteEntity = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).delete<
-    DeleteEntityResponses,
-    DeleteEntityErrors,
-    ThrowOnError
-  >({ url: '/entities/{entity_id}', ...options });
-
-/**
- * Get Entity
- *
- * Get a single entity by ID
- */
-export const getEntity = <ThrowOnError extends boolean = false>(
-  options: Options<GetEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).get<
-    GetEntityResponses,
-    GetEntityErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/entities/{entity_id}',
-    ...options,
-  });
-
-/**
- * Update Entity
- *
- * Update an existing entity
- */
-export const updateEntity = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).put<
-    UpdateEntityResponses,
-    UpdateEntityErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/entities/{entity_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
 
 /**
  * Get Jobs
@@ -1424,100 +1306,6 @@ export const getGoogleMapsLink = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     url: '/routes/{route_id}/google-maps-link',
     ...options,
-  });
-
-/**
- * Get Simple Entities
- *
- * Retrieve all simple entities
- */
-export const getSimpleEntities = <ThrowOnError extends boolean = false>(
-  options?: Options<GetSimpleEntitiesData, ThrowOnError>
-) =>
-  (options?.client ?? client).get<
-    GetSimpleEntitiesResponses,
-    unknown,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/simple-entities/',
-    ...options,
-  });
-
-/**
- * Create Simple Entity
- *
- * Create a new simple entity
- */
-export const createSimpleEntity = <ThrowOnError extends boolean = false>(
-  options: Options<CreateSimpleEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CreateSimpleEntityResponses,
-    CreateSimpleEntityErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/simple-entities/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Delete Simple Entity
- *
- * Delete a simple entity
- */
-export const deleteSimpleEntity = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteSimpleEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).delete<
-    DeleteSimpleEntityResponses,
-    DeleteSimpleEntityErrors,
-    ThrowOnError
-  >({ url: '/simple-entities/{simple_entity_id}', ...options });
-
-/**
- * Get Simple Entity
- *
- * Get a single simple entity by ID
- */
-export const getSimpleEntity = <ThrowOnError extends boolean = false>(
-  options: Options<GetSimpleEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).get<
-    GetSimpleEntityResponses,
-    GetSimpleEntityErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/simple-entities/{simple_entity_id}',
-    ...options,
-  });
-
-/**
- * Update Simple Entity
- *
- * Update an existing simple entity
- */
-export const updateSimpleEntity = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateSimpleEntityData, ThrowOnError>
-) =>
-  (options.client ?? client).put<
-    UpdateSimpleEntityResponses,
-    UpdateSimpleEntityErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/simple-entities/{simple_entity_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**

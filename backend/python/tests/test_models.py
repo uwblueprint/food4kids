@@ -32,11 +32,9 @@ from app.models.driver_history import (
     DriverHistoryUpdate,
 )
 from app.models.enum import (
-    EntityEnum,
     NotePermission,
     ProgressEnum,
     RoleEnum,
-    SimpleEntityEnum,
 )
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
@@ -700,18 +698,6 @@ class TestEnumsAndSerialization:
         assert ProgressEnum.RUNNING.value == "Running"
         assert ProgressEnum.COMPLETED.value == "Completed"
         assert ProgressEnum.FAILED.value == "Failed"
-
-        # Test EntityEnum
-        assert EntityEnum.A.value == "A"
-        assert EntityEnum.B.value == "B"
-        assert EntityEnum.C.value == "C"
-        assert EntityEnum.D.value == "D"
-
-        # Test SimpleEntityEnum
-        assert SimpleEntityEnum.A.value == "A"
-        assert SimpleEntityEnum.B.value == "B"
-        assert SimpleEntityEnum.C.value == "C"
-        assert SimpleEntityEnum.D.value == "D"
 
         # Test NotePermission
         assert NotePermission.ADMIN.value == "Admin"
