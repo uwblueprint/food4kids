@@ -21,6 +21,13 @@ from app.utilities.pagination import paginate_query
 from app.utilities.routes_utils import fetch_route_polyline
 
 
+class RoutingConfigurationError(Exception):
+    """Raised when routing can't run because the server isn't configured
+    (e.g. missing system settings / warehouse coordinates). Distinct from
+    bad client input so the API can map it to 503 rather than 400.
+    """
+
+
 class RouteService:
     """
     Service class for handling route-related operations.
@@ -225,14 +232,14 @@ class RouteService:
                 system_settings = settings_result.scalars().first()
 
                 if not system_settings:
-                    raise ValueError(
+                    raise RoutingConfigurationError(
                         "System settings not found - cannot fetch warehouse coordinates for routing"
                     )
                 if (
                     system_settings.warehouse_latitude is None
                     or system_settings.warehouse_longitude is None
                 ):
-                    raise ValueError(
+                    raise RoutingConfigurationError(
                         "Warehouse coordinates not set in system settings - cannot perform routing"
                     )
 

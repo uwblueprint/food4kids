@@ -740,6 +740,31 @@ class TestRouteRoutes:
         assert response.status_code == 503
 
     @pytest.mark.asyncio
+    async def test_update_route_reroute_without_system_settings(
+        self,
+        async_client: AsyncClient,
+        test_route: Any,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Re-routing with no system settings at all is a 503 (server not
+        configured), not a 400 — even though the error says 'not found'."""
+        location_id = (
+            await async_client.post(
+                "/locations/",
+                json={
+                    **sample_location_data,
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+        ).json()["location_id"]
+        response = await async_client.patch(
+            f"/routes/{test_route.route_id}",
+            json={"location_ids": [location_id]},
+        )
+        assert response.status_code == 503
+
+    @pytest.mark.asyncio
     async def test_google_maps_link_route_not_found(
         self, async_client: AsyncClient
     ) -> None:
@@ -1565,6 +1590,15 @@ class TestDriverHistoryRoutes:
         body = response.json()
         assert "lifetime_km" in body
         assert "current_year_km" in body
+
+    @pytest.mark.asyncio
+    async def test_get_summary_driver_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /summary returns 404 for an unknown driver (rather than a
+        zero-filled summary)."""
+        response = await async_client.get(f"/drivers/{uuid4()}/history/summary")
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_create_driver_history(
