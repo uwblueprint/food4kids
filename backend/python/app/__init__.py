@@ -145,6 +145,27 @@ def _use_route_name_as_operation_id(route: APIRoute) -> str:
     return route.name
 
 
+def _assert_unique_operation_ids(app: FastAPI) -> None:
+    """Fail fast if two routes resolve to the same OpenAPI operation ID.
+
+    Operation IDs come from the route's function name (see
+    ``_use_route_name_as_operation_id``). FastAPI does not enforce uniqueness,
+    but duplicates silently produce colliding function names in the generated
+    TypeScript client. Catch the collision at startup instead of debugging a
+    confusing client later — if this fires, rename one of the route handlers.
+    """
+    seen: dict[str, str] = {}
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            if route.name in seen:
+                raise ValueError(
+                    f"Duplicate OpenAPI operation ID '{route.name}': used by "
+                    f"both {seen[route.name]} and {route.path}. Route handler "
+                    "function names must be unique across routers."
+                )
+            seen[route.name] = route.path
+
+
 def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
 
@@ -181,5 +202,6 @@ def create_app() -> FastAPI:
 
     # Initialize routers
     init_routers(app)
+    _assert_unique_operation_ids(app)
 
     return app

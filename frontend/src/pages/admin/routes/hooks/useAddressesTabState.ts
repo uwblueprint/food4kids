@@ -50,6 +50,9 @@ export function useAddressesTabState(): AddressesTabState {
   // filter chips below are local-only UI for now (they don't reach the
   // backend). Wiring server-side search/filtering is tracked as future work.
   const { data, isLoading } = useAddresses();
+  // GET /locations is paginated; we currently surface only the first page.
+  // The tab is a WIP shell, so pagination controls (and a total count) are
+  // future work alongside the server-side search/filtering above.
   const rows = data?.items ?? [];
 
   const openFilters = () => {
