@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
+import type { RouteGroupRow } from '@/api/route-groups';
 import { useRouteGroups } from '@/api/route-groups';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
-import type { RouteGroupRow } from '@/types/route-group';
 
 export interface GroupsFilterState {
   weekdays: Set<string>;
