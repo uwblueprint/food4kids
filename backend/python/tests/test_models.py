@@ -369,6 +369,7 @@ class TestCoreModels:
         """Test Location model core operations."""
         # Create with all fields
         location = Location(
+            location_group_id=uuid4(),
             school_name="Central Elementary",
             contact_name="Jane Smith",
             address="123 Main St, City, State 12345",
@@ -386,6 +387,7 @@ class TestCoreModels:
 
         # Create with minimal fields
         location_minimal = Location(
+            location_group_id=uuid4(),
             contact_name="John Doe",
             address="456 Oak Ave, City, State 12345",
             phone_number="(555) 987-6543",
@@ -400,6 +402,8 @@ class TestCoreModels:
         # Read model
         location_read = LocationRead(
             location_id=uuid4(),
+            location_group_id=uuid4(),
+            location_group_name="Central Elementary",
             contact_name="Jane Smith",
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
@@ -769,6 +773,7 @@ class TestEnumsAndSerialization:
 
         # Test default values across models
         location = Location(
+            location_group_id=uuid4(),
             contact_name="John Doe",
             address="456 Oak Ave",
             phone_number="(555) 987-6543",

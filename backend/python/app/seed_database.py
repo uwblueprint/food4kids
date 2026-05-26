@@ -15,7 +15,7 @@ import faker
 import phonenumbers
 from phonenumbers import PhoneNumberFormat
 from sklearn.cluster import KMeans  # type: ignore[import-untyped]
-from sqlalchemy import create_engine, not_, text
+from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
 from app.models.admin import Admin
@@ -47,8 +47,6 @@ fake = faker.Faker()
 ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
 
 # Configuration constants
-# Percentage of locations that will be unassigned to any location group
-UNASSIGNED_LOCATION_PERCENTAGE = 0.05
 # Average number of stops per route (used to calculate number of clusters)
 AVG_STOPS_PER_ROUTE = 7.5
 # Maximum number of stops per route (Google Maps directions URLs support max 10 waypoints)
@@ -452,26 +450,22 @@ def main() -> None:
                         )
 
                         # Determine location group
-                        group_id: str | None
-                        if random.random() < UNASSIGNED_LOCATION_PERCENTAGE:
-                            group_id = None
+                        # Every location must belong to a delivery group
+                        # (location_group_id is non-nullable).
+                        is_small_city = any(
+                            city in address.lower() for city in SMALL_CITIES
+                        )
+                        if is_small_city:
+                            # Random assignment from non-school groups for small cities
+                            group_id = random.choice(non_school_groups)
                         else:
-                            # Check for small cities that need specific group assignments
-                            is_small_city = any(
-                                city in address.lower() for city in SMALL_CITIES
-                            )
-
-                            if is_small_city:
-                                # Random assignment from non-school groups for small cities
-                                group_id = random.choice(non_school_groups)
-                            else:
-                                # Random assignment for other locations
-                                group_id = random.choice(list(group_ids.values()))
+                            # Random assignment for other locations
+                            group_id = random.choice(list(group_ids.values()))
 
                         # Generate fake data for location insertion
                         is_school = random.choice([True, False])
                         location = Location(
-                            location_group_id=uuid.UUID(group_id) if group_id else None,
+                            location_group_id=uuid.UUID(group_id),
                             school_name=fake.company() + " School"
                             if is_school
                             else None,
@@ -509,18 +503,11 @@ def main() -> None:
             print("Creating routes...")
             routes_created = 0
 
-            # Get all locations with a location group assigned
-            locations_with_group = session.exec(
-                select(Location).where(
-                    not_(Location.location_group_id.is_(None))  # type: ignore[union-attr]
-                )
-            ).all()
+            # Every location belongs to a group; group them by group id.
+            all_locations = session.exec(select(Location)).all()
 
-            # Group locations by location group
             locations_by_group: dict[str, list[Location]] = {}
-            for location in locations_with_group:
-                # Type narrowing: we filtered for non-None location_group_id in the query
-                assert location.location_group_id is not None
+            for location in all_locations:
                 group_id = str(location.location_group_id)
                 if group_id not in locations_by_group:
                     locations_by_group[group_id] = []

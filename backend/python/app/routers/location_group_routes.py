@@ -104,9 +104,13 @@ async def delete_location_group(
     """
     Delete a location group by ID
     """
-    success = await location_group_service.delete_location_group(
-        session, location_group_id
-    )
+    try:
+        success = await location_group_service.delete_location_group(
+            session, location_group_id
+        )
+    except ValueError as e:
+        # Group still has locations (they require a group, so can't be orphaned)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

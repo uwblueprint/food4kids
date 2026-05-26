@@ -21,8 +21,8 @@ class LocationState(str, Enum):
 class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
-    location_group_id: UUID | None = Field(
-        default=None, foreign_key="location_groups.location_group_id", nullable=True
+    location_group_id: UUID = Field(
+        foreign_key="location_groups.location_group_id", nullable=False
     )
     school_name: str | None = None
     contact_name: str
@@ -53,6 +53,16 @@ class Location(LocationBase, BaseModel, table=True):
     location_group: "LocationGroup" = Relationship(back_populates="locations")
     note_chain: "NoteChain" = Relationship()
 
+    @property
+    def location_group_name(self) -> str:
+        """Name of the location's (required) delivery group.
+
+        Surfaced on LocationRead so list views can show the group name without
+        a second lookup. Requires location_group to be eager-loaded (see the
+        selectinload calls in LocationService) to avoid an async lazy load.
+        """
+        return self.location_group.name
+
 
 class AlertCode(str, Enum):
     """Machine-readable reason code for an import alert."""
@@ -82,7 +92,9 @@ class ValidatedLocationImportEntry(LocationImportEntry):
     contact_name: str
     address: str
     phone_number: str
-    delivery_group: str | None = None
+    # Required: every location must belong to a delivery group (the import
+    # flags MISSING_DELIVERY_GROUP, and location_group_id is non-nullable).
+    delivery_group: str
     num_boxes: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
@@ -170,6 +182,7 @@ class LocationRead(LocationBase):
     """Read response model"""
 
     location_id: UUID
+    location_group_name: str
 
 
 class LocationUpdate(SQLModel):
