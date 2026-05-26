@@ -11,6 +11,11 @@ from pydantic import ValidationError
 # Initialize all models to ensure proper relationship resolution
 from app.models import init_app
 from app.models.admin import Admin
+from app.models.announcement import (
+    Announcement,
+    AnnouncementCreate,
+    AnnouncementUpdate,
+)
 from app.models.driver import (
     Driver,
     DriverCreate,
@@ -26,12 +31,30 @@ from app.models.driver_history import (
     DriverHistoryRead,
     DriverHistoryUpdate,
 )
-from app.models.enum import EntityEnum, ProgressEnum, RoleEnum, SimpleEntityEnum
+from app.models.enum import (
+    EntityEnum,
+    NotePermission,
+    ProgressEnum,
+    RoleEnum,
+    SimpleEntityEnum,
+)
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
-from app.models.location_group import (
-    LocationGroup,
+from app.models.location_group import LocationGroup
+from app.models.note import (
+    Attachment,
+    Note,
+    NoteCreate,
+    NoteListResponse,
+    NoteRead,
+    NoteUpdate,
 )
+from app.models.note_chain import (
+    NoteChain,
+    NoteChainCreate,
+    NoteChainRead,
+)
+from app.models.note_chain_read import NoteChainReadModel, NoteChainReadResponse
 from app.models.route import Route, RouteUpdate
 from app.models.route_group import (
     RouteGroup,
@@ -157,31 +180,42 @@ class TestCoreBusinessValidation:
         assert "password" in str(exc_info.value)
 
     def test_year_validation_business_rule(self) -> None:
-        """Test year validation business rule (2025-2100) for DriverHistory."""
-        from uuid import uuid4
-
-        # Test valid years (boundaries)
+        """Test year (2025-2100) and month (1-12) validation for DriverHistory."""
+        # Test valid years and months (boundaries)
         valid_years = [2025, 2030, 2100]
+        valid_months = [1, 6, 12]
 
         for year in valid_years:
-            history = DriverHistory(
-                driver_id=uuid4(),
-                year=year,
-                km=1000.0,
-            )
-            assert history.year == year
+            for month in valid_months:
+                history = DriverHistory(
+                    driver_id=uuid4(), year=year, month=month, km=1000.0
+                )
+                assert history.year == year
+                assert history.month == month
 
         # Test invalid years
         invalid_years = [2024, 2101, 2000]
-
         for year in invalid_years:
             with pytest.raises(ValidationError) as exc_info:
                 DriverHistory(
                     driver_id=uuid4(),
                     year=year,
+                    month=1,
                     km=1000.0,
                 )
             assert "year" in str(exc_info.value)
+
+        # Test invalid months
+        invalid_months = [0, 13, -1]
+        for month in invalid_months:
+            with pytest.raises(ValidationError) as exc_info:
+                DriverHistory(
+                    driver_id=uuid4(),
+                    year=2025,
+                    month=month,
+                    km=1000.0,
+                )
+            assert "month" in str(exc_info.value)
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
@@ -248,13 +282,9 @@ class TestCoreBusinessValidation:
             ]
         )
 
-        # Test LocationGroup required fields
-        with pytest.raises(ValidationError) as exc_info:
-            LocationGroup(  # type: ignore[call-arg]
-                name="Test Group",
-                # Missing: color
-            )
-        assert "color" in str(exc_info.value)
+        # LocationGroup auto-fills color from name when omitted
+        group = LocationGroup(name="Test Group")  # type: ignore[call-arg]
+        assert group.color in LocationGroup.DEFAULT_PALETTE
 
         # Test RouteGroup required fields
         from datetime import datetime
@@ -462,13 +492,10 @@ class TestCoreModels:
         from uuid import uuid4
 
         # Create
-        history = DriverHistory(
-            driver_id=uuid4(),
-            year=2025,
-            km=1500.5,
-        )
+        history = DriverHistory(driver_id=uuid4(), year=2025, km=1500.5, month=12)
         assert history.year == 2025
         assert history.km == 1500.5
+        assert history.month == 12
         assert history.created_at is not None
 
         # Read
@@ -476,6 +503,7 @@ class TestCoreModels:
             driver_history_id=1,
             driver_id=uuid4(),
             year=2027,
+            month=1,
             km=2200.0,
         )
         assert history_read.driver_history_id == 1
@@ -512,6 +540,124 @@ class TestCoreModels:
             finished_at=datetime(2024, 1, 15, 10, 0),
         )
         assert job_update.progress == ProgressEnum.COMPLETED
+
+    def test_note_chain_core_operations(self) -> None:
+        """Test NoteChain and Note model core operations."""
+        # Create chain with defaults
+        chain = NoteChain(
+            read_permission=NotePermission.ADMIN,
+            write_permission=NotePermission.ADMIN,
+        )
+        assert chain.read_permission == NotePermission.ADMIN
+        assert chain.created_at is not None
+
+        # Create chain with ALL permissions
+        chain_public = NoteChain(
+            read_permission=NotePermission.ALL,
+            write_permission=NotePermission.ALL,
+        )
+        assert chain_public.read_permission == NotePermission.ALL
+
+        # NoteChainCreate defaults
+        chain_create = NoteChainCreate()
+        assert chain_create.read_permission == NotePermission.ADMIN
+        assert chain_create.write_permission == NotePermission.ADMIN
+
+        # NoteChainRead
+        chain_read = NoteChainRead(
+            note_chain_id=uuid4(),
+            read_permission=NotePermission.ALL,
+            write_permission=NotePermission.ADMIN,
+        )
+        assert chain_read.note_chain_id is not None
+
+        # Create note
+        note = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="Test note",
+        )
+        assert note.message == "Test note"
+        assert note.is_system is False  # Default
+        assert note.created_at is not None
+
+        # System note (no user)
+        system_note = Note(
+            note_chain_id=uuid4(),
+            user_id=None,
+            message="System generated",
+            is_system=True,
+        )
+        assert system_note.user_id is None
+        assert system_note.is_system is True
+
+        # Note with attachments
+        note_with_attachments = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="Note with images",
+            attachments=[
+                Attachment(filename="img1.png", url="https://example.com/img1.png"),
+                Attachment(filename="img2.jpg", url="https://example.com/img2.jpg"),
+            ],
+        )
+        assert note_with_attachments.attachments == [
+            Attachment(filename="img1.png", url="https://example.com/img1.png"),
+            Attachment(filename="img2.jpg", url="https://example.com/img2.jpg"),
+        ]
+
+        # Note without attachments defaults to empty list
+        note_no_attachments = Note(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            message="No attachments",
+        )
+        assert note_no_attachments.attachments == []
+
+        # NoteCreate
+        note_create = NoteCreate(message="Hello")
+        assert note_create.message == "Hello"
+
+        # NoteRead
+        note_read = NoteRead(
+            note_id=uuid4(),
+            note_chain_id=uuid4(),
+            user_id=None,
+            message="Read test",
+            is_system=True,
+        )
+        assert note_read.note_id is not None
+
+        # NoteUpdate
+        note_update = NoteUpdate(message="Updated")
+        assert note_update.message == "Updated"
+
+        # NoteChainReadModel
+        from datetime import datetime, timezone
+
+        read_model = NoteChainReadModel(
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        assert read_model.note_chain_read_id is not None
+
+        # NoteChainReadResponse
+        read_response = NoteChainReadResponse(
+            note_chain_read_id=uuid4(),
+            note_chain_id=uuid4(),
+            user_id=uuid4(),
+            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        assert read_response.note_chain_read_id is not None
+
+        # NoteListResponse
+        list_response = NoteListResponse(
+            notes=[note_read],
+            unread_count=1,
+        )
+        assert len(list_response.notes) == 1
+        assert list_response.unread_count == 1
 
     def test_relationship_models_core_operations(self) -> None:
         """Test relationship models (RouteStop, RouteGroupMembership) core operations."""
@@ -562,6 +708,10 @@ class TestEnumsAndSerialization:
         assert SimpleEntityEnum.B.value == "B"
         assert SimpleEntityEnum.C.value == "C"
         assert SimpleEntityEnum.D.value == "D"
+
+        # Test NotePermission
+        assert NotePermission.ADMIN.value == "Admin"
+        assert NotePermission.ALL.value == "All"
 
         # Test enum serialization in models
 
@@ -666,6 +816,24 @@ class TestModelValidation:
             )
         assert "admin_phone" in str(exc_info.value)
 
+    def test_note_message_validation(self) -> None:
+        """Test note message validation (empty and too long)."""
+        with pytest.raises(ValidationError) as exc_info:
+            NoteCreate(message="")
+        assert "message" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            NoteCreate(message="x" * 2001)
+        assert "message" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            NoteUpdate(message="")
+        assert "message" in str(exc_info.value)
+
+        # Max length should be accepted
+        valid = NoteCreate(message="x" * 2000)
+        assert len(valid.message) == 2000
+
     def test_numeric_field_validation(self) -> None:
         """Test numeric field validation."""
         # Test negative int validation (if any models have this)
@@ -704,3 +872,82 @@ class TestModelValidation:
         )
         assert job.route_group_id is None
         assert job.progress == ProgressEnum.RUNNING
+
+
+class TestAnnouncementModel:
+    """Test suite for announcement model validation."""
+
+    def test_announcement_creation(self) -> None:
+        """Test creating a valid announcement."""
+        user = User(
+            name="Test Admin",
+            email="admin@example.com",
+            auth_id="test-admin-123",
+            role="admin",
+        )
+        announcement = Announcement(
+            subject="Test Subject",
+            message="Test message body",
+            user_id=user.user_id,
+            attachments=["https://example.com/image.png"],
+        )
+        assert announcement.subject == "Test Subject"
+        assert announcement.message == "Test message body"
+        assert announcement.user_id == user.user_id
+        assert announcement.attachments == ["https://example.com/image.png"]
+        assert announcement.created_at is not None
+        assert announcement.announcement_id is not None
+
+    def test_announcement_create_schema(self) -> None:
+        """Test AnnouncementCreate validation."""
+        user_id = uuid4()
+        create = AnnouncementCreate(
+            subject="New Announcement",
+            message="Details here",
+            user_id=user_id,
+        )
+        assert create.subject == "New Announcement"
+        assert create.attachments == []
+
+        create_with_attachments = AnnouncementCreate(
+            subject="With Images",
+            message="See attached",
+            user_id=user_id,
+            attachments=["https://example.com/img1.png"],
+        )
+        assert len(create_with_attachments.attachments) == 1
+
+    def test_announcement_update_schema(self) -> None:
+        """Test AnnouncementUpdate optional fields."""
+        update = AnnouncementUpdate(subject="Updated Subject")
+        assert update.subject == "Updated Subject"
+        assert update.message is None
+        assert update.attachments is None
+
+        empty_update = AnnouncementUpdate()
+        assert empty_update.subject is None
+
+    def test_announcement_required_fields(self) -> None:
+        """Test that subject and message are required."""
+        with pytest.raises(ValidationError) as exc_info:
+            AnnouncementCreate(
+                message="No subject",
+                user_id=uuid4(),
+            )
+        assert "subject" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            AnnouncementCreate(
+                subject="No message",
+                user_id=uuid4(),
+            )
+        assert "message" in str(exc_info.value)
+
+    def test_announcement_subject_validation(self) -> None:
+        """Test subject field min/max length validation."""
+        with pytest.raises(ValidationError):
+            AnnouncementCreate(
+                subject="",
+                message="Some message",
+                user_id=uuid4(),
+            )

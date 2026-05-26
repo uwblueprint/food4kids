@@ -9,6 +9,7 @@ import random
 import uuid
 from datetime import datetime, timedelta
 from typing import cast
+from zoneinfo import ZoneInfo
 
 import faker
 import phonenumbers
@@ -18,14 +19,18 @@ from sqlalchemy import create_engine, not_, text
 from sqlmodel import Session, select
 
 from app.models.admin import Admin
+from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
 from app.models.driver_history import DriverHistory
-from app.models.enum import ProgressEnum
+from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
+from app.models.note import Note
+from app.models.note_chain import NoteChain
+from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_group_membership import RouteGroupMembership
@@ -46,6 +51,8 @@ ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
 UNASSIGNED_LOCATION_PERCENTAGE = 0.05
 # Average number of stops per route (used to calculate number of clusters)
 AVG_STOPS_PER_ROUTE = 7.5
+# Maximum number of stops per route (Google Maps directions URLs support max 10 waypoints)
+MAX_STOPS_PER_ROUTE = 10
 # Number of months in the past to generate route groups for
 MONTHS_PAST = 2
 # Number of months in the future to generate route groups for
@@ -64,7 +71,14 @@ PROBABILITY_LOCATION_NOTES = 0.4
 PROBABILITY_DRIVER_NOTES = 0.3
 # Probability to skip creating driver history for the current year
 PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
-
+# Probability that a location note chain will have notes
+PROBABILITY_LOCATION_CHAIN_NOTES = 0.6
+# Probability that a route note chain will have notes
+PROBABILITY_ROUTE_CHAIN_NOTES = 0.4
+# Max notes per location chain
+MAX_LOCATION_CHAIN_NOTES = 3
+# Max notes per route chain
+MAX_ROUTE_CHAIN_NOTES = 2
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -316,6 +330,17 @@ def create_routes_for_group(session: Session, group_locations: list[Location]) -
 
     num_clusters = max(1, int(len(group_locations) // AVG_STOPS_PER_ROUTE))
     clusters = create_clusters(group_locations, num_clusters)
+
+    # Split any cluster that exceeds the max stops per route
+    split_clusters: list[list[Location]] = []
+    for cluster in clusters:
+        while len(cluster) > MAX_STOPS_PER_ROUTE:
+            split_clusters.append(cluster[:MAX_STOPS_PER_ROUTE])
+            cluster = cluster[MAX_STOPS_PER_ROUTE:]
+        if cluster:
+            split_clusters.append(cluster)
+    clusters = split_clusters
+
     routes_created = 0
 
     for cluster_idx, cluster_locations in enumerate(clusters):
@@ -362,6 +387,8 @@ def main() -> None:
             # Clear existing data
             print("Clearing existing data...")
             tables_to_clear = [
+                "notes",
+                "note_chain_reads",
                 "driver_assignments",
                 "driver_history",
                 "jobs",
@@ -373,6 +400,7 @@ def main() -> None:
                 "location_groups",
                 "drivers",
                 "admin_info",
+                "note_chains",
                 "system_settings",
                 "users",
             ]
@@ -504,6 +532,82 @@ def main() -> None:
             session.commit()
             print(f"Created {routes_created} routes")
 
+            # Create note chains for locations
+            print("Creating note chains for locations...")
+            location_chains_created = 0
+            location_notes_created = 0
+            all_locations = session.exec(select(Location)).all()
+
+            for location in all_locations:
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ALL,
+                    write_permission=NotePermission.ALL,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
+                location.note_chain_id = note_chain.note_chain_id
+                location_chains_created += 1
+
+                # Add sample notes to some location chains
+                if random.random() < PROBABILITY_LOCATION_CHAIN_NOTES:
+                    num_notes = random.randint(1, MAX_LOCATION_CHAIN_NOTES)
+                    for _ in range(num_notes):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=None,
+                            message=fake.sentence(),
+                            is_system=random.choice([True, False]),
+                        )
+                        set_timestamps(note)
+                        session.add(note)
+                        location_notes_created += 1
+
+            session.commit()
+            print(
+                f"Created {location_chains_created} location note chains "
+                f"with {location_notes_created} notes"
+            )
+
+            # Create note chains for routes
+            print("Creating note chains for routes...")
+            route_chains_created = 0
+            route_notes_created = 0
+            all_routes = session.exec(select(Route)).all()
+
+            for route in all_routes:
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ADMIN,
+                    write_permission=NotePermission.ADMIN,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
+                route.note_chain_id = note_chain.note_chain_id
+                route_chains_created += 1
+
+                # Add sample notes to some route chains
+                if random.random() < PROBABILITY_ROUTE_CHAIN_NOTES:
+                    num_notes = random.randint(1, MAX_ROUTE_CHAIN_NOTES)
+                    for _ in range(num_notes):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=None,
+                            message=fake.sentence(),
+                            is_system=True,
+                        )
+                        set_timestamps(note)
+                        session.add(note)
+                        route_notes_created += 1
+
+            session.commit()
+            print(
+                f"Created {route_chains_created} route note chains "
+                f"with {route_notes_created} notes"
+            )
+
             # Create drivers
             print("Creating drivers...")
             num_drivers = max(routes_created, MIN_DRIVERS)
@@ -582,10 +686,10 @@ def main() -> None:
                     session.add(route_group)
                     session.flush()  # Flush to get the route_group_id
 
-                    for route in group_routes:
+                    for route_row in group_routes:
                         membership = RouteGroupMembership(
                             route_group_id=route_group.route_group_id,
-                            route_id=route.route_id,
+                            route_id=route_row.route_id,
                         )
                         set_timestamps(membership)
                         session.add(membership)
@@ -655,33 +759,42 @@ def main() -> None:
             all_drivers_result = session.execute(
                 text("SELECT driver_id FROM drivers")
             ).fetchall()
+
             for driver_row in all_drivers_result:
-                # Filter years to only include valid ones (2025-2100)
                 valid_years = [y for y in years if 2025 <= y <= 2100]
                 if not valid_years:
-                    valid_years = [current_year]  # At least use current year
+                    valid_years = [current_year]
+
                 driver_years = random.sample(
                     valid_years, random.randint(1, len(valid_years))
                 )
+
                 for year in driver_years:
                     if (
                         year == current_year
                         and random.random() < PROBABILITY_SKIP_CURRENT_YEAR_HISTORY
                     ):
                         continue
-                    driver_history = DriverHistory(
-                        driver_id=driver_row[0],  # Access first column (driver_id)
-                        year=year,
-                        km=round(
-                            random.uniform(
-                                DRIVER_HISTORY_KM_MIN, DRIVER_HISTORY_KM_MAX
+
+                    months = random.sample(range(1, 13), random.randint(3, 12))
+
+                    for month in months:
+                        driver_history = DriverHistory(
+                            driver_id=driver_row[0],
+                            year=year,
+                            month=month,
+                            km=round(
+                                random.uniform(
+                                    DRIVER_HISTORY_KM_MIN,
+                                    DRIVER_HISTORY_KM_MAX,
+                                ),
+                                2,
                             ),
-                            2,
-                        ),
-                    )
-                    set_timestamps(driver_history)
-                    session.add(driver_history)
-                    history_entries += 1
+                        )
+
+                        set_timestamps(driver_history)
+                        session.add(driver_history)
+                        history_entries += 1
 
             session.commit()
             print(f"Created {history_entries} driver history entries")
@@ -700,11 +813,14 @@ def main() -> None:
                 {"limit": PAST_ROUTE_GROUPS_LIMIT},
             ).fetchall()
 
+            jobs_created = 0
             if past_route_groups:
+                available = len(past_route_groups)
                 num_jobs = random.randint(
-                    MIN_JOBS, min(MAX_JOBS, len(past_route_groups))
+                    min(MIN_JOBS, available), min(MAX_JOBS, available)
                 )
                 selected_groups = random.sample(past_route_groups, num_jobs)
+                jobs_created = len(selected_groups)
 
                 for route_group_id, drive_date in selected_groups:
                     started_at = drive_date + timedelta(
@@ -728,7 +844,7 @@ def main() -> None:
                     session.add(job)
 
             session.commit()
-            print(f"Created {len(past_route_groups) if past_route_groups else 0} jobs")
+            print(f"Created {jobs_created} jobs")
 
             # Create system settings
             print("Creating system settings info...")
@@ -751,7 +867,6 @@ def main() -> None:
 
             # Create admin info
             print("Creating admin info...")
-            # Parse route_start_time string to time object
             user = User(
                 name="Dev",
                 email="food4kids@uwblueprint.org",
@@ -770,6 +885,72 @@ def main() -> None:
 
             session.commit()
             print("Created admin info")
+
+            # Create read tracking entries for some drivers
+            print("Creating note chain read tracking entries...")
+            read_entries_created = 0
+            all_driver_users = session.execute(
+                text(
+                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
+                )
+            ).fetchall()
+
+            # Get a sample of note chains to mark as read
+            all_chain_ids = session.execute(
+                text("SELECT note_chain_id FROM note_chains")
+            ).fetchall()
+
+            for driver_user_row in all_driver_users:
+                # Each driver reads a random subset of chains
+                num_chains_to_read = random.randint(0, min(5, len(all_chain_ids)))
+                if num_chains_to_read > 0:
+                    chains_to_read = random.sample(all_chain_ids, num_chains_to_read)
+                    for chain_row in chains_to_read:
+                        read_entry = NoteChainReadModel(
+                            note_chain_id=chain_row[0],
+                            user_id=driver_user_row[0],
+                            last_read_at=datetime.now(
+                                ZoneInfo("America/New_York")
+                            ).replace(tzinfo=None)
+                            - timedelta(hours=random.randint(0, 72)),
+                        )
+                        set_timestamps(read_entry)
+                        session.add(read_entry)
+                        read_entries_created += 1
+
+            session.commit()
+            print(f"Created {read_entries_created} note chain read tracking entries")
+            # Create sample announcements
+            print("Creating sample announcements...")
+            sample_announcements = [
+                {
+                    "subject": "Welcome to Food4Kids",
+                    "message": "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
+                    "attachments": [],
+                },
+                {
+                    "subject": "Schedule Update for March",
+                    "message": "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
+                    "attachments": [],
+                },
+                {
+                    "subject": "Holiday Notice - Good Friday",
+                    "message": "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
+                    "attachments": [],
+                },
+            ]
+            for ann_data in sample_announcements:
+                announcement = Announcement(
+                    subject=ann_data["subject"],
+                    message=ann_data["message"],
+                    user_id=user.user_id,
+                    attachments=ann_data["attachments"],
+                )
+                set_timestamps(announcement)
+                session.add(announcement)
+            session.commit()
+            print("Created sample announcements")
+
             print("Comprehensive database seeding completed successfully!")
 
         except Exception as e:

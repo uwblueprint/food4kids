@@ -1,7 +1,8 @@
 import datetime
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, SQLModel
+from sqlalchemy import JSON
+from sqlmodel import Column, Field, SQLModel
 
 from .base import BaseModel
 
@@ -14,6 +15,9 @@ class SystemSettingsBase(SQLModel):
     warehouse_location: str | None = Field(default=None, min_length=1)
     warehouse_longitude: float | None = None
     warehouse_latitude: float | None = None
+    import_column_map: dict[str, str] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
 
 
 class SystemSettings(SystemSettingsBase, BaseModel, table=True):

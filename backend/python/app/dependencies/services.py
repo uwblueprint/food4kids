@@ -1,5 +1,14 @@
-"""
-Service dependency injection module
+"""Service dependency injection module.
+
+Convention:
+- Leaf factories (no service dependencies — just a logger, settings, or an
+  expensive client like GoogleMapsClient) use ``@lru_cache`` and call
+  ``get_logger()`` directly. They are process-wide singletons.
+- Composite factories (those that depend on other services/clients) take those
+  dependencies via ``Depends(...)`` rather than calling the other factory
+  directly in the body. This keeps the dependency graph explicit and lets tests
+  swap pieces via ``app.dependency_overrides``. See ``get_auth_service`` and
+  ``get_location_service``.
 """
 
 import logging
@@ -8,6 +17,7 @@ from functools import lru_cache
 from fastapi import Depends
 
 from app.config import settings
+from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
@@ -20,11 +30,14 @@ from app.services.implementations.location_service import LocationService
 from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
+from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.simple_entity_service import SimpleEntityService
+from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
 
 
@@ -32,6 +45,13 @@ from app.utilities.google_maps_client import GoogleMapsClient
 def get_logger() -> logging.Logger:
     """Get logger instance"""
     return logging.getLogger(__name__)
+
+
+@lru_cache
+def get_announcement_service() -> AnnouncementService:
+    """Get announcement service instance"""
+    logger = get_logger()
+    return AnnouncementService(logger)
 
 
 @lru_cache
@@ -90,6 +110,13 @@ def get_simple_entity_service() -> SimpleEntityService:
 
 
 @lru_cache
+def get_note_chain_service() -> NoteChainService:
+    """Get note chain service instance"""
+    logger = get_logger()
+    return NoteChainService(logger)
+
+
+@lru_cache
 def get_driver_assignment_service() -> DriverAssignmentService:
     """Get driver assignment service instance"""
     logger = get_logger()
@@ -134,8 +161,25 @@ def get_google_maps_client() -> GoogleMapsClient:
 
 
 @lru_cache
-def get_location_service() -> LocationService:
+def get_system_settings_service() -> SystemSettingsService:
+    """Get system settings service instance"""
+    logger = get_logger()
+    return SystemSettingsService(logger)
+
+
+def get_location_service(
+    google_maps_client: GoogleMapsClient = Depends(get_google_maps_client),
+    system_settings_service: SystemSettingsService = Depends(
+        get_system_settings_service
+    ),
+) -> LocationService:
     """Get location service instance"""
     logger = get_logger()
-    google_maps_client = get_google_maps_client()
-    return LocationService(logger, google_maps_client)
+    return LocationService(logger, google_maps_client, system_settings_service)
+
+
+@lru_cache
+def get_gcp_storage_client() -> GCPStorageClient:
+    """Get GCP Storage client instance"""
+    logger = get_logger()
+    return GCPStorageClient(logger, settings.gcp_bucket_name)

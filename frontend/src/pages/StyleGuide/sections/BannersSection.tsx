@@ -1,36 +1,85 @@
+import { Banner } from '@/common/components';
+
+import { ComponentPreview } from '../components/ComponentPreview';
+import { SectionDescription } from '../components/SectionDescription';
 import { SectionHeader } from '../components/SectionHeader';
+import { SectionLabel } from '../components/SectionLabel';
+
+const BANNER_SUCCESS_CODE = `import { Banner } from '@/common/components';
+
+<Banner
+  variant="success"
+  subtitle="Generated on Oct 20, 2025 at 10:42 AM"
+>
+  Routes generated successfully!
+</Banner>`;
+
+const BANNER_ERROR_CODE = `import { Banner } from '@/common/components';
+
+<Banner variant="error">
+  Unsupported format — please upload an Excel (.xlsx) file
+</Banner>`;
+
+const BANNER_WARNING_CODE = `import { Banner } from '@/common/components';
+
+<Banner variant="warning">
+  Warning — These entries will be skipped unless corrected.
+</Banner>`;
 
 export function BannersSection() {
   return (
     <section className="mb-16">
-      <SectionHeader>Banners (Token Usage Examples)</SectionHeader>
+      <SectionHeader>Banners</SectionHeader>
+      <SectionDescription>
+        System-level alerts for user feedback and notifications. Three variants
+        cover the full range of feedback scenarios: success, error, and warning.
+        Banners support an optional{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">subtitle</code> and a
+        dismiss button via the{' '}
+        <code className="text-p2 bg-grey-150 rounded px-1">onDismiss</code>{' '}
+        prop.
+      </SectionDescription>
 
+      <SectionLabel>Usage</SectionLabel>
       <div className="space-y-6">
-        <div className="border-success-stroke bg-success-fill flex items-start gap-2.5 rounded-2xl border px-4 py-6">
-          <span className="text-success-stroke">&#10003;</span>
-          <div>
-            <p className="text-success-stroke font-semibold">
+        <ComponentPreview
+          title="Success"
+          code={BANNER_SUCCESS_CODE}
+          previewClassName="min-h-24 flex items-center justify-center p-6"
+        >
+          <div className="w-full max-w-2xl">
+            <Banner
+              variant="success"
+              subtitle="Generated on Oct 20, 2025 at 10:42 AM"
+            >
               Routes generated successfully!
-            </p>
-            <p className="text-p2 text-success-stroke opacity-80">
-              Generated on Oct 20, 2025 at 10:42 AM
-            </p>
+            </Banner>
           </div>
-        </div>
+        </ComponentPreview>
 
-        <div className="bg-light-red border-red flex items-start gap-2.5 rounded-2xl border px-4 py-6">
-          <span className="text-red">&#9888;</span>
-          <p className="text-p2 text-red font-semibold">
-            Unsupported format — please upload an Excel (.xlsx) file
-          </p>
-        </div>
+        <ComponentPreview
+          title="Error"
+          code={BANNER_ERROR_CODE}
+          previewClassName="min-h-24 flex items-center justify-center p-6"
+        >
+          <div className="w-full max-w-2xl">
+            <Banner variant="error">
+              Unsupported format — please upload an Excel (.xlsx) file
+            </Banner>
+          </div>
+        </ComponentPreview>
 
-        <div className="border-dark-yellow bg-light-yellow flex items-start gap-2.5 rounded-2xl border px-4 py-6">
-          <span className="text-dark-yellow">&#9888;</span>
-          <p className="text-p2 text-dark-yellow font-semibold">
-            Warning — These entries will be skipped unless corrected.
-          </p>
-        </div>
+        <ComponentPreview
+          title="Warning"
+          code={BANNER_WARNING_CODE}
+          previewClassName="min-h-24 flex items-center justify-center p-6"
+        >
+          <div className="w-full max-w-2xl">
+            <Banner variant="warning">
+              Warning — These entries will be skipped unless corrected.
+            </Banner>
+          </div>
+        </ComponentPreview>
       </div>
     </section>
   );

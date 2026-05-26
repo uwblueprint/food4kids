@@ -1,7 +1,8 @@
+import asyncio
 import logging
 import os
 from io import BytesIO
-from typing import TypeGuard
+from typing import TYPE_CHECKING, TypeGuard
 from uuid import UUID
 
 import pandas as pd
@@ -9,22 +10,32 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.enum import NotePermission
 from app.models.location import (
     AlertCode,
-    AlertType,
     Location,
     LocationCreate,
-    LocationImportAlert,
     LocationImportEntry,
     LocationImportResponse,
     LocationImportRow,
-    LocationImportStatus,
+    LocationIngestRequest,
+    LocationIngestResponse,
+    LocationRead,
     LocationState,
     LocationUpdate,
     ValidatedLocationImportEntry,
 )
+from app.models.location_group import LocationGroup
+from app.models.note_chain import NoteChain
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.utilities.pagination import paginate_query
 from app.utilities.utils import validate_phone
+
+if TYPE_CHECKING:
+    from app.services.implementations.system_settings_service import (
+        SystemSettingsService,
+    )
 
 # Allowed file extensions for location import files
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
@@ -50,9 +61,11 @@ class LocationService:
         self,
         logger: logging.Logger,
         google_maps_client: GoogleMapsClient,
+        system_settings_service: "SystemSettingsService",
     ):
         self.logger = logger
         self.google_maps_service = google_maps_client
+        self.system_settings_service = system_settings_service
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -71,12 +84,24 @@ class LocationService:
             self.logger.error(f"Failed to get location by id: {e!s}")
             raise e
 
-    async def get_locations(self, session: AsyncSession) -> list[Location]:
-        """Get all active locations - returns SQLModel instances"""
+    async def get_locations(
+        self, session: AsyncSession, pagination: PaginationParams
+    ) -> PaginatedResponse[Location]:
+        """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
-            statement = select(Location).where(Location.state == LocationState.ACTIVE)
-            result = await session.execute(statement)
-            return list(result.scalars().all())
+            statement = (
+                select(Location)
+                .where(Location.state == LocationState.ACTIVE)
+                .order_by(Location.created_at.desc())  # type: ignore[union-attr]
+            )
+            result, total = await paginate_query(session, statement, pagination)
+            items = list(result.scalars().all())
+            return PaginatedResponse.create(
+                items=items,
+                total=total,
+                page=pagination.page,
+                page_size=pagination.page_size,
+            )
         except Exception as e:
             self.logger.error(f"Failed to get locations: {e!s}")
             raise e
@@ -86,7 +111,15 @@ class LocationService:
     ) -> Location:
         """Create a new location using a LocationCreate object - returns SQLModel instance"""
         try:
+            # Auto-create a note chain for the location
+            note_chain = NoteChain(
+                read_permission=NotePermission.ALL,
+                write_permission=NotePermission.ALL,
+            )
+            session.add(note_chain)
+            await session.flush()
             location = await self._build_location(location_data)
+            location.note_chain_id = note_chain.note_chain_id
             session.add(location)
             await session.commit()
             await session.refresh(location)
@@ -157,101 +190,77 @@ class LocationService:
             await session.rollback()
             raise e
 
-    async def validate_locations(self, file: UploadFile) -> LocationImportResponse:
-        """Validate location import data and return per-row alerts."""
+    async def review_locations(
+        self,
+        session: AsyncSession,
+        file: UploadFile,
+        column_map: dict[str, str],
+    ) -> LocationImportResponse:
+        """Review a pending location import: validate rows + (eventually) compute diff against existing locations.
+
+        Side effect: persists `column_map` to system_settings so it becomes the
+        default mapping on the next import.
+        """
         try:
+            await self.system_settings_service.set_import_column_map(
+                session, column_map
+            )
+            await session.commit()
             df = await self._read_upload_file(file)
             rows: list[LocationImportRow] = []
 
             # track local duplicates
             full_dup_keys: dict[tuple[str, str, str], int] = {}
-            address_keys: dict[str, int] = {}  # track partial duplicates by address
-            phone_keys: dict[str, int] = {}  # track partial duplicates by phone
+            address_keys: dict[str, int] = {}
+            phone_keys: dict[str, int] = {}
 
             for index, row in df.iterrows():
                 row_num = int(index) + 1  # type: ignore[call-overload]
-                location = self._parse_row(row, DEFAULT_COLUMN_MAP)
-                alerts: list[LocationImportAlert] = []
+                location = self._parse_row(row, column_map)
+                alerts: list[AlertCode] = []
 
-                # ERROR: missing required fields — also narrows type to ValidatedLocationImportEntry
+                # missing required fields
                 if not self._has_required_fields(location):
-                    alerts.append(
-                        self._alert(
-                            AlertType.ERROR,
-                            AlertCode.MISSING_FIELDS,
-                            "Missing Field(s)",
-                        )
-                    )
+                    alerts.append(AlertCode.MISSING_FIELDS)
                     rows.append(
                         LocationImportRow(row=row_num, location=location, alerts=alerts)
                     )
                     continue
 
-                # ERROR: invalid phone number format
+                # invalid phone number format
                 try:
                     location.phone_number = validate_phone(location.phone_number)
                 except ValueError:
-                    alerts.append(
-                        self._alert(
-                            AlertType.ERROR,
-                            AlertCode.INVALID_FORMAT,
-                            "Invalid Phone Number",
-                        )
-                    )
+                    alerts.append(AlertCode.INVALID_FORMAT)
                     rows.append(
                         LocationImportRow(row=row_num, location=location, alerts=alerts)
                     )
                     continue
 
-                # WARNING: missing delivery group
+                # missing delivery group
                 if not location.delivery_group:
-                    alerts.append(
-                        self._alert(
-                            AlertType.WARNING,
-                            AlertCode.MISSING_DELIVERY_GROUP,
-                            "Missing Delivery Group",
-                        )
-                    )
+                    alerts.append(AlertCode.MISSING_DELIVERY_GROUP)
 
-                # ERROR: full duplicate (same contact name, address, and phone)
+                # full duplicate (same contact name, address, and phone)
                 full_key = (
                     location.contact_name,
                     location.address,
                     location.phone_number,
                 )
-
                 if full_key in full_dup_keys:
-                    alerts.append(
-                        self._alert(
-                            AlertType.ERROR,
-                            AlertCode.LOCAL_DUPLICATE,
-                            f"Local Duplicate to Row #{full_dup_keys[full_key]}",
-                        )
-                    )
+                    alerts.append(AlertCode.LOCAL_DUPLICATE)
                 else:
                     full_dup_keys[full_key] = row_num
 
-                    # WARNING: partial duplicate — same address or same phone
-                    if location.address in address_keys:
-                        alerts.append(
-                            self._alert(
-                                AlertType.WARNING,
-                                AlertCode.PARTIAL_DUPLICATE,
-                                f"Address matches Row #{address_keys[location.address]}",
-                            )
-                        )
-                    else:
+                    # partial duplicate — same address or same phone
+                    if (
+                        location.address in address_keys
+                        or location.phone_number in phone_keys
+                    ):
+                        alerts.append(AlertCode.PARTIAL_DUPLICATE)
+                    if location.address not in address_keys:
                         address_keys[location.address] = row_num
-
-                    if location.phone_number in phone_keys:
-                        alerts.append(
-                            self._alert(
-                                AlertType.WARNING,
-                                AlertCode.PARTIAL_DUPLICATE,
-                                f"Phone matches Row #{phone_keys[location.phone_number]}",
-                            )
-                        )
-                    else:
+                    if location.phone_number not in phone_keys:
                         phone_keys[location.phone_number] = row_num
 
                 rows.append(
@@ -259,22 +268,13 @@ class LocationService:
                 )
 
             return LocationImportResponse(
-                status=self._get_import_status(rows),
+                success=not any(r.alerts for r in rows),
                 total_rows=len(rows),
                 rows=rows,
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
-
-    def _get_import_status(self, rows: list[LocationImportRow]) -> LocationImportStatus:
-        """Get the most severe status across all rows."""
-        all_alerts = [a for r in rows for a in r.alerts]
-        if any(a.type == AlertType.ERROR for a in all_alerts):
-            return LocationImportStatus.ERROR
-        if any(a.type == AlertType.WARNING for a in all_alerts):
-            return LocationImportStatus.WARNING
-        return LocationImportStatus.SUCCESS
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
@@ -387,6 +387,107 @@ class LocationService:
             notes=location_data.notes,
         )
 
-    @staticmethod
-    def _alert(type: AlertType, code: AlertCode, message: str) -> LocationImportAlert:
-        return LocationImportAlert(type=type, code=code, message=message)
+    async def ingest_locations(
+        self, session: AsyncSession, request: LocationIngestRequest
+    ) -> LocationIngestResponse:
+        """Persist net-new locations and archive stale ones."""
+        try:
+            # Fetch and archive stale locations in one SELECT IN
+            stale_ids = [loc.location_id for loc in request.stale]
+            stale_db_rows: list[Location] = []
+            if stale_ids:
+                result = await session.execute(
+                    select(Location).where(Location.location_id.in_(stale_ids))  # type: ignore[attr-defined]
+                )
+                stale_db_rows = list(result.scalars().all())
+                for loc in stale_db_rows:
+                    loc.state = LocationState.ARCHIVED
+
+            archived = [LocationRead.model_validate(loc) for loc in stale_db_rows]
+
+            if not request.net_new:
+                await session.commit()
+                return LocationIngestResponse(created=[], archived=archived)
+
+            # Geocode all addresses concurrently
+            geocode_results = await asyncio.gather(
+                *[
+                    self.google_maps_service.geocode_address(entry.address)
+                    for entry in request.net_new
+                ]
+            )
+
+            # Fetch all existing LocationGroups in one query
+            groups_result = await session.execute(select(LocationGroup))
+            group_by_name: dict[str, LocationGroup] = {
+                g.name: g for g in groups_result.scalars().all()
+            }
+
+            needed_names = sorted(
+                {
+                    entry.delivery_group
+                    for entry in request.net_new
+                    if entry.delivery_group
+                    and entry.delivery_group not in group_by_name
+                }
+            )
+            for name in needed_names:
+                group = LocationGroup(name=name)  # type: ignore[call-arg]
+                session.add(group)
+                group_by_name[name] = group
+
+            # Build and batch-insert new Location records, each with its own
+            # NoteChain so ingested locations support notes like every other
+            # creation path (see create_location).
+            new_note_chains: list[NoteChain] = []
+            new_locations: list[Location] = []
+            for entry, geocode_result in zip(
+                request.net_new, geocode_results, strict=True
+            ):
+                if not geocode_result:
+                    raise ValueError(f"Geocoding failed for address: {entry.address}")
+
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ALL,
+                    write_permission=NotePermission.ALL,
+                )
+                new_note_chains.append(note_chain)
+
+                entry_group = (
+                    group_by_name.get(entry.delivery_group)
+                    if entry.delivery_group
+                    else None
+                )
+                new_locations.append(
+                    Location(
+                        contact_name=entry.contact_name,
+                        address=geocode_result.formatted_address,
+                        phone_number=entry.phone_number,
+                        longitude=geocode_result.longitude,
+                        latitude=geocode_result.latitude,
+                        place_id=geocode_result.place_id,
+                        halal=entry.halal or False,
+                        dietary_restrictions=entry.dietary_restrictions or "",
+                        num_boxes=entry.num_boxes or 0,
+                        note_chain_id=note_chain.note_chain_id,
+                        location_group_id=(
+                            entry_group.location_group_id if entry_group else None
+                        ),
+                    )
+                )
+
+            session.add_all(new_note_chains)
+            session.add_all(new_locations)
+            await session.commit()
+
+            for loc in new_locations:
+                await session.refresh(loc)
+
+            return LocationIngestResponse(
+                created=[LocationRead.model_validate(loc) for loc in new_locations],
+                archived=archived,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to ingest locations: {e!s}")
+            await session.rollback()
+            raise e

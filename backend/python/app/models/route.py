@@ -8,6 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import BaseModel
 
 if TYPE_CHECKING:
+    from .note_chain import NoteChain
     from .route_group_membership import RouteGroupMembership
     from .route_stop import RouteStop
 
@@ -24,13 +25,13 @@ class RouteBase(SQLModel):
     )
     expires_at: datetime | None = Field(default=None)
     ends_at_warehouse: bool = Field(default=False)
+    note_chain_id: UUID | None = Field(
+        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+    )
 
 
 class Route(RouteBase, BaseModel, table=True):
-    """Database table model for Routes
-
-    Note: Routes are immutable once created
-    """
+    """Database table model for Routes"""
 
     __tablename__ = "routes"
 
@@ -44,6 +45,7 @@ class Route(RouteBase, BaseModel, table=True):
     route_group_memberships: list["RouteGroupMembership"] = Relationship(
         back_populates="route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+    note_chain: "NoteChain" = Relationship()
 
 
 class RouteCreate(RouteBase):
@@ -71,6 +73,7 @@ class RouteUpdate(SQLModel):
     polyline_updated_at: datetime | None = None
     expires_at: datetime | None = None
     ends_at_warehouse: bool | None = None
+    note_chain_id: UUID | None = None
 
 
 class RouteWithDateRead(SQLModel):
@@ -81,3 +84,16 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
+
+
+class RoutePatchRequest(SQLModel):
+    """Request body for PATCH /routes/{route_id}.
+
+    All fields are optional - only provided fields will be updated.
+    If location_ids is provided, the route stops will be fully replaced
+    and the routing algorithm will be re-run to update polyline + mileage.
+    """
+
+    name: str | None = None
+    notes: str | None = None
+    location_ids: list[UUID] | None = None  # new ordered list of location IDs

@@ -8,6 +8,7 @@ from .base import BaseModel
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
+    from .note_chain import NoteChain
 
 
 class LocationState(str, Enum):
@@ -34,8 +35,11 @@ class LocationBase(SQLModel):
     place_id: str | None = None
     num_children: int | None = None
     num_boxes: int = Field(default=0)
-    notes: str = Field(default="")
     state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
+    notes: str = Field(default="")
+    note_chain_id: UUID | None = Field(
+        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+    )
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -47,42 +51,17 @@ class Location(LocationBase, BaseModel, table=True):
 
     # Relationship back to location group
     location_group: "LocationGroup" = Relationship(back_populates="locations")
-
-
-class LocationImportStatus(str, Enum):
-    """Status of the import"""
-
-    SUCCESS = "SUCCESS"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-
-
-class AlertType(str, Enum):
-    """Severity of an import alert — drives icon/colour on the frontend."""
-
-    WARNING = "WARNING"
-    ERROR = "ERROR"
+    note_chain: "NoteChain" = Relationship()
 
 
 class AlertCode(str, Enum):
     """Machine-readable reason code for an import alert."""
 
-    # ERROR TYPES
     MISSING_FIELDS = "MISSING_FIELDS"
     INVALID_FORMAT = "INVALID_FORMAT"
     LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
-
-    # WARNING TYPES
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
     PARTIAL_DUPLICATE = "PARTIAL_DUPLICATE"
-
-
-class LocationImportAlert(SQLModel):
-    """A single alert attached to an import row."""
-
-    type: AlertType
-    code: AlertCode
-    message: str
 
 
 class LocationImportEntry(SQLModel):
@@ -112,13 +91,73 @@ class ValidatedLocationImportEntry(LocationImportEntry):
 class LocationImportRow(SQLModel):
     row: int
     location: LocationImportEntry
-    alerts: list[LocationImportAlert]
+    alerts: list[AlertCode]
+
+
+class NetNewEntry(SQLModel):
+    """A row in the import that has no matching existing location."""
+
+    row: int
+    contact_name: str
+    address: str
+    delivery_group: str | None = None
+    phone_number: str
+    num_boxes: int | None = None
+
+
+class StaleEntry(SQLModel):
+    """An existing location not present in the import; would be archived on ingest."""
+
+    location_id: UUID
+    contact_name: str
+    address: str
+    delivery_group: str | None = None
+    phone_number: str
+
+
+class ChangedFieldStr(SQLModel):
+    new_value: str
+    old_value: str
+
+
+class ChangedFieldOptStr(SQLModel):
+    new_value: str | None
+    old_value: str | None
+
+
+class ChangedFieldOptInt(SQLModel):
+    new_value: int | None
+    old_value: int | None
+
+
+class ChangedEntry(SQLModel):
+    """An existing location whose fields differ from the import row.
+
+    Each field is either the plain new value (unchanged) or a ChangedField object
+    carrying both new and old values.
+    """
+
+    contact_name: str
+    address: str | ChangedFieldStr
+    delivery_group: str | None | ChangedFieldOptStr = None
+    phone_number: str | ChangedFieldStr
+    num_children: int | None | ChangedFieldOptInt = None
 
 
 class LocationImportResponse(SQLModel):
-    status: LocationImportStatus
+    """Combined validate + review-changes payload.
+
+    success=False when any row has alerts. net_new/stale/changed describe how the
+    import would affect the existing locations table; these are placeholders until
+    the matching logic is implemented.
+    """
+
+    success: bool
     total_rows: int
     rows: list[LocationImportRow]
+    net_new: list[NetNewEntry] = []
+    stale: list[StaleEntry] = []
+    changed: list[ChangedEntry] = []
 
 
 class LocationCreate(LocationBase):
@@ -149,3 +188,14 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     num_boxes: int | None = None
     notes: str | None = None
+    note_chain_id: UUID | None = None
+
+
+class LocationIngestRequest(SQLModel):
+    net_new: list[ValidatedLocationImportEntry]
+    stale: list[LocationRead]
+
+
+class LocationIngestResponse(SQLModel):
+    created: list[LocationRead]
+    archived: list[LocationRead]

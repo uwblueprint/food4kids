@@ -1,19 +1,32 @@
 """
-Test suite for database seeding script.
+Test suite for the database seeding script.
 
-This test ensures:
-1. The seeding script runs without errors
-2. All major entity types are created properly
-3. Schema changes cause test failures (by accessing specific fields)
+These tests verify that the seeding script:
+1. Executes successfully and populates every expected table
+2. Creates the right number of rows for each entity
+3. Produces data that satisfies business validation rules
+4. Wires up route-stop sequence invariants correctly
+
+Every test re-runs the synchronous ``seed_database.main()`` and verifies
+against the async ``test_session`` fixture from ``conftest.py``. Tests are
+marked ``slow`` because each one pays a full seed cycle.
 """
 
 import os
+import re
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
+import phonenumbers
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+import app.seed_database as seed_module
 from app.models.admin import Admin
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
@@ -28,235 +41,238 @@ from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 
+EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
-@pytest.mark.asyncio
-async def test_seed_database_execution(test_session: AsyncSession) -> None:
+TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "test_locations.csv")
+
+# Driver history spans current_year-HISTORY_YEARS_BACK..current_year,
+# clamped to >= 2025 by the seed itself (seed_database.py:764).
+_CURRENT_YEAR = datetime.now().year
+_MIN_HISTORY_YEAR = max(2025, _CURRENT_YEAR - seed_module.HISTORY_YEARS_BACK)
+_MAX_HISTORY_YEAR = _CURRENT_YEAR
+
+
+def _run_seed_script() -> None:
+    """Run the synchronous seed script against the test database.
+
+    ``ADMIN_AUTH_ID`` is captured at module import time, so patching the env
+    var after import is too late — patch the module attribute directly.
+    ``LOCATIONS_CSV_PATH`` is read at runtime inside ``main()``, so an env
+    patch is fine for it.
     """
-    Test that the seed database script runs successfully and creates all expected entities.
-
-    This test also acts as a schema validation test:
-    - If model fields are renamed/removed, the seeding script will fail with AttributeError
-    - If new required fields are added without defaults, the seeding script will fail with validation errors
-    - By accessing specific fields, we ensure they exist in the schema
-    """
-
-    # Mock environment variables for admin auth ID and test CSV path
-    test_csv_path = os.path.join(
-        os.path.dirname(__file__), "data", "test_locations.csv"
+    async_db_url = os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://postgres:postgres@db:5432/f4k_test",
     )
-    with patch.dict(
-        os.environ,
-        {
-            "ADMIN_AUTH_ID": "test-admin-auth-id",
-            "LOCATIONS_CSV_PATH": test_csv_path,
-        },
+    sync_db_url = async_db_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    with (
+        patch.object(seed_module, "DATABASE_URL", sync_db_url),
+        patch.object(seed_module, "ADMIN_AUTH_ID", "test-admin-auth-id"),
+        patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
     ):
-        # Get the test database URL from environment (same as conftest.py uses)
-        # Convert from async (postgresql+asyncpg://) to sync (postgresql://) for the seeding script
-        async_db_url = os.getenv(
-            "TEST_DATABASE_URL",
-            "postgresql+asyncpg://postgres:postgres@db:5432/f4k_test",
+        seed_module.main()
+
+
+@pytest.fixture(autouse=True)
+def _seed_database(test_db_engine: Any) -> None:  # noqa: ARG001
+    """Run the seed script once per test, after the shared engine fixture has
+    reset tables. The ``test_db_engine`` parameter establishes the fixture
+    dependency so the drop/create cycle completes before seeding.
+    """
+    _run_seed_script()
+
+
+# (model, [required_fields]) — covers every entity the seed populates.
+_ENTITY_FIELDS: list[tuple[type, list[str]]] = [
+    (LocationGroup, ["name", "color"]),
+    (
+        Location,
+        [
+            "contact_name",
+            "address",
+            "phone_number",
+            "latitude",
+            "longitude",
+            "halal",
+            "num_boxes",
+        ],
+    ),
+    (Route, ["name", "length"]),
+    (RouteStop, ["route_id", "location_id", "stop_number"]),
+    (User, ["name", "email", "auth_id"]),
+    (
+        Driver,
+        ["user_id", "phone", "address", "license_plate", "car_make_model"],
+    ),
+    (RouteGroup, ["name", "drive_date"]),
+    (RouteGroupMembership, ["route_group_id", "route_id"]),
+    (DriverAssignment, ["driver_id", "route_id", "route_group_id"]),
+    (DriverHistory, ["driver_id", "year", "month", "km"]),
+    (Job, ["route_group_id", "progress", "started_at"]),
+    (
+        SystemSettings,
+        ["warehouse_location", "warehouse_latitude", "warehouse_longitude"],
+    ),
+    (Admin, ["user_id", "admin_phone"]),
+]
+
+
+@pytest.mark.slow
+class TestSeedScriptExecution:
+    """The seed script runs end-to-end and creates all expected entities."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "model,required_fields",
+        _ENTITY_FIELDS,
+        ids=[m.__name__ for m, _ in _ENTITY_FIELDS],
+    )
+    async def test_entity_populated_with_required_fields(
+        self,
+        test_session: AsyncSession,
+        model: type,
+        required_fields: list[str],
+    ) -> None:
+        rows: Sequence[Any] = (
+            (await test_session.execute(select(model))).scalars().all()
         )
-        # Convert async URL to sync URL for the synchronous seed script
-        test_db_url = async_db_url.replace("postgresql+asyncpg://", "postgresql://")
+        assert len(rows) > 0, f"No {model.__name__} rows were created"
 
-        # Import and run the seeding script
-        # Note: The seeding script uses synchronous SQLAlchemy, so we can't use our async test session
-        # Instead, we'll verify the results in our async test session after seeding completes
-        import app.seed_database as seed_module
+        first = rows[0]
+        for field in required_fields:
+            assert hasattr(first, field), f"{model.__name__} missing '{field}'"
+            assert getattr(first, field) is not None, (
+                f"{model.__name__}.{field} should not be None"
+            )
 
-        original_url = seed_module.DATABASE_URL
-        seed_module.DATABASE_URL = test_db_url
 
-        try:
-            # Run the seeding script
-            seed_module.main()
-        finally:
-            # Restore original URL
-            seed_module.DATABASE_URL = original_url
+@pytest.mark.slow
+class TestDataCounts:
+    """Counts of seeded entities match the script's declared constants."""
 
-    # Verify location groups were created
-    location_groups = await test_session.execute(select(LocationGroup))
-    location_groups_list = list(location_groups.scalars().all())
-    assert len(location_groups_list) > 0, "No location groups were created"
+    @pytest.mark.asyncio
+    async def test_location_group_count_matches_schedule(
+        self, test_session: AsyncSession
+    ) -> None:
+        groups = (await test_session.execute(select(LocationGroup))).scalars().all()
+        assert len(groups) == len(seed_module.LOCATION_GROUP_SCHEDULE), (
+            "Location group count should match LOCATION_GROUP_SCHEDULE keys"
+        )
 
-    # Verify location group has expected fields (schema validation)
-    first_group = location_groups_list[0]
-    assert hasattr(first_group, "name"), "LocationGroup missing 'name' field"
-    assert hasattr(first_group, "color"), "LocationGroup missing 'color' field"
-    assert first_group.name is not None
-    assert first_group.color is not None
+    @pytest.mark.asyncio
+    async def test_driver_count_meets_minimum(self, test_session: AsyncSession) -> None:
+        # Seed uses `max(routes_created, MIN_DRIVERS)`, so the lower bound
+        # is unconditionally MIN_DRIVERS.
+        drivers = (await test_session.execute(select(Driver))).scalars().all()
+        assert len(drivers) >= seed_module.MIN_DRIVERS, (
+            f"Expected at least {seed_module.MIN_DRIVERS} drivers, got {len(drivers)}"
+        )
 
-    # Verify locations were created
-    locations = await test_session.execute(select(Location))
-    locations_list = list(locations.scalars().all())
-    assert len(locations_list) > 0, "No locations were created"
 
-    # Verify location has expected fields (schema validation)
-    first_location = locations_list[0]
-    assert hasattr(first_location, "contact_name"), (
-        "Location missing 'contact_name' field"
-    )
-    assert hasattr(first_location, "address"), "Location missing 'address' field"
-    assert hasattr(first_location, "phone_number"), (
-        "Location missing 'phone_number' field"
-    )
-    assert hasattr(first_location, "latitude"), "Location missing 'latitude' field"
-    assert hasattr(first_location, "longitude"), "Location missing 'longitude' field"
-    assert hasattr(first_location, "halal"), "Location missing 'halal' field"
-    assert hasattr(first_location, "num_boxes"), "Location missing 'num_boxes' field"
-    assert first_location.contact_name is not None
-    assert first_location.address is not None
+@pytest.mark.slow
+class TestDataValidation:
+    """Seeded data satisfies business validation rules."""
 
-    # Verify routes were created
-    routes = await test_session.execute(select(Route))
-    routes_list = list(routes.scalars().all())
-    assert len(routes_list) > 0, "No routes were created"
+    @pytest.mark.asyncio
+    async def test_phone_numbers_are_e164(self, test_session: AsyncSession) -> None:
+        drivers = (await test_session.execute(select(Driver))).scalars().all()
+        for driver in drivers:
+            assert driver.phone.startswith("+"), (
+                f"Driver phone {driver.phone} should be E.164"
+            )
+            assert phonenumbers.is_valid_number(
+                phonenumbers.parse(driver.phone, None)
+            ), f"Driver phone {driver.phone} should parse as valid"
 
-    # Verify route has expected fields (schema validation)
-    first_route = routes_list[0]
-    assert hasattr(first_route, "name"), "Route missing 'name' field"
-    assert hasattr(first_route, "length"), "Route missing 'length' field"
-    assert first_route.name is not None
-    assert first_route.length is not None
+        locations = (await test_session.execute(select(Location))).scalars().all()
+        for location in locations:
+            assert location.phone_number.startswith("+"), (
+                f"Location phone {location.phone_number} should be E.164"
+            )
+            assert phonenumbers.is_valid_number(
+                phonenumbers.parse(location.phone_number, None)
+            ), f"Location phone {location.phone_number} should parse as valid"
 
-    # Verify route stops were created
-    route_stops = await test_session.execute(select(RouteStop))
-    route_stops_list = list(route_stops.scalars().all())
-    assert len(route_stops_list) > 0, "No route stops were created"
+        admins = (await test_session.execute(select(Admin))).scalars().all()
+        for admin in admins:
+            assert admin.admin_phone.startswith("+"), (
+                f"Admin phone {admin.admin_phone} should be E.164"
+            )
+            assert phonenumbers.is_valid_number(
+                phonenumbers.parse(admin.admin_phone, None)
+            ), f"Admin phone {admin.admin_phone} should parse as valid"
 
-    # Verify route stop has expected fields (schema validation)
-    first_stop = route_stops_list[0]
-    assert hasattr(first_stop, "route_id"), "RouteStop missing 'route_id' field"
-    assert hasattr(first_stop, "location_id"), "RouteStop missing 'location_id' field"
-    assert hasattr(first_stop, "stop_number"), "RouteStop missing 'stop_number' field"
-    assert first_stop.stop_number >= 1
+    @pytest.mark.asyncio
+    async def test_email_addresses_match_pattern(
+        self, test_session: AsyncSession
+    ) -> None:
+        users = (await test_session.execute(select(User))).scalars().all()
+        assert users, "Expected at least one user"
+        for user in users:
+            assert EMAIL_PATTERN.match(user.email), (
+                f"User email {user.email} should match email pattern"
+            )
 
-    # Verify users were created
-    users = await test_session.execute(select(User))
-    users_list = list(users.scalars().all())
-    assert len(users_list) > 0, "No users were created"
+    @pytest.mark.asyncio
+    async def test_route_lengths_non_negative(self, test_session: AsyncSession) -> None:
+        routes = (await test_session.execute(select(Route))).scalars().all()
+        for route in routes:
+            assert route.length >= 0, (
+                f"Route {route.route_id} length {route.length} should be non-negative"
+            )
 
-    # Verify user has expected fields (schema validation)
-    first_user = users_list[0]
-    assert hasattr(first_user, "name"), "User missing 'name' field"
-    assert hasattr(first_user, "email"), "User missing 'email' field"
-    assert hasattr(first_user, "auth_id"), "User missing 'auth_id' field"
-    assert first_user.name is not None
-    assert first_user.email is not None
+    @pytest.mark.asyncio
+    async def test_driver_history_years_in_range(
+        self, test_session: AsyncSession
+    ) -> None:
+        history = (await test_session.execute(select(DriverHistory))).scalars().all()
+        assert history, "No driver history seeded"
+        for entry in history:
+            assert _MIN_HISTORY_YEAR <= entry.year <= _MAX_HISTORY_YEAR, (
+                f"DriverHistory year {entry.year} should be in "
+                f"[{_MIN_HISTORY_YEAR}, {_MAX_HISTORY_YEAR}]"
+            )
 
-    # Verify drivers were created
-    drivers = await test_session.execute(select(Driver))
-    drivers_list = list(drivers.scalars().all())
-    assert len(drivers_list) > 0, "No drivers were created"
+    @pytest.mark.asyncio
+    async def test_timestamps_populated(self, test_session: AsyncSession) -> None:
+        for model in (Location, Driver, Route):
+            rows = (await test_session.execute(select(model).limit(5))).scalars().all()
+            for row in rows:
+                assert row.created_at is not None, (
+                    f"{model.__name__} {row} should have created_at"
+                )
+                assert row.updated_at is not None, (
+                    f"{model.__name__} {row} should have updated_at"
+                )
 
-    # Verify driver has expected fields (schema validation)
-    first_driver = drivers_list[0]
-    assert hasattr(first_driver, "user_id"), "Driver missing 'user_id' field"
-    assert hasattr(first_driver, "phone"), "Driver missing 'phone' field"
-    assert hasattr(first_driver, "address"), "Driver missing 'address' field"
-    assert hasattr(first_driver, "license_plate"), (
-        "Driver missing 'license_plate' field"
-    )
-    assert hasattr(first_driver, "car_make_model"), (
-        "Driver missing 'car_make_model' field"
-    )
-    assert first_driver.phone is not None
-    assert first_driver.license_plate is not None
 
-    # Verify route groups were created
-    route_groups = await test_session.execute(select(RouteGroup))
-    route_groups_list = list(route_groups.scalars().all())
-    assert len(route_groups_list) > 0, "No route groups were created"
+@pytest.mark.slow
+class TestRouteStopSequence:
+    """Route stops form a 1..N sequence — a semantic invariant the DB schema
+    does not enforce. (Pure FK existence is covered by Postgres itself.)"""
 
-    # Verify route group has expected fields (schema validation)
-    first_route_group = route_groups_list[0]
-    assert hasattr(first_route_group, "name"), "RouteGroup missing 'name' field"
-    assert hasattr(first_route_group, "drive_date"), (
-        "RouteGroup missing 'drive_date' field"
-    )
-    assert first_route_group.name is not None
-    assert first_route_group.drive_date is not None
+    @pytest.mark.asyncio
+    async def test_route_stops_are_sequential(self, test_session: AsyncSession) -> None:
+        routes = (await test_session.execute(select(Route))).scalars().all()
+        assert routes, "Need at least one route to test stops"
 
-    # Verify route group memberships were created
-    memberships = await test_session.execute(select(RouteGroupMembership))
-    memberships_list = list(memberships.scalars().all())
-    assert len(memberships_list) > 0, "No route group memberships were created"
+        for route in routes:
+            stops = (
+                (
+                    await test_session.execute(
+                        select(RouteStop)
+                        .where(RouteStop.route_id == route.route_id)
+                        .order_by("stop_number")
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            assert stops, f"Route {route.route_id} should have stops"
 
-    # Verify membership has expected fields (schema validation)
-    first_membership = memberships_list[0]
-    assert hasattr(first_membership, "route_group_id"), (
-        "RouteGroupMembership missing 'route_group_id' field"
-    )
-    assert hasattr(first_membership, "route_id"), (
-        "RouteGroupMembership missing 'route_id' field"
-    )
-
-    # Verify driver assignments were created
-    assignments = await test_session.execute(select(DriverAssignment))
-    assignments_list = list(assignments.scalars().all())
-    assert len(assignments_list) > 0, "No driver assignments were created"
-
-    # Verify driver assignment has expected fields (schema validation)
-    first_assignment = assignments_list[0]
-    assert hasattr(first_assignment, "driver_id"), (
-        "DriverAssignment missing 'driver_id' field"
-    )
-    assert hasattr(first_assignment, "route_id"), (
-        "DriverAssignment missing 'route_id' field"
-    )
-    assert hasattr(first_assignment, "route_group_id"), (
-        "DriverAssignment missing 'route_group_id' field"
-    )
-
-    # Verify driver history was created
-    history = await test_session.execute(select(DriverHistory))
-    history_list = list(history.scalars().all())
-    assert len(history_list) > 0, "No driver history entries were created"
-
-    # Verify driver history has expected fields (schema validation)
-    first_history = history_list[0]
-    assert hasattr(first_history, "driver_id"), (
-        "DriverHistory missing 'driver_id' field"
-    )
-    assert hasattr(first_history, "year"), "DriverHistory missing 'year' field"
-    assert hasattr(first_history, "km"), "DriverHistory missing 'km' field"
-    assert first_history.year >= 2025
-    assert first_history.km > 0
-
-    # Verify jobs were created (optional, may be 0)
-    jobs = await test_session.execute(select(Job))
-    jobs_list = list(jobs.scalars().all())
-    # Jobs may or may not be created depending on route groups, so we just check the schema if any exist
-    if len(jobs_list) > 0:
-        first_job = jobs_list[0]
-        assert hasattr(first_job, "progress"), "Job missing 'progress' field"
-        assert first_job.progress is not None
-
-    # Verify system settings was created
-    settings = await test_session.execute(select(SystemSettings))
-    settings_list = list(settings.scalars().all())
-    assert len(settings_list) > 0, "No system settings were created"
-
-    # Verify system settings has expected fields (schema validation)
-    first_settings = settings_list[0]
-    assert hasattr(first_settings, "warehouse_location"), (
-        "SystemSettings missing 'warehouse_location' field"
-    )
-    assert hasattr(first_settings, "warehouse_latitude"), (
-        "SystemSettings missing 'warehouse_latitude' field"
-    )
-    assert hasattr(first_settings, "warehouse_longitude"), (
-        "SystemSettings missing 'warehouse_longitude' field"
-    )
-
-    # Verify admin was created
-    admins = await test_session.execute(select(Admin))
-    admins_list = list(admins.scalars().all())
-    assert len(admins_list) > 0, "No admin was created"
-
-    # Verify admin has expected fields (schema validation)
-    first_admin = admins_list[0]
-    assert hasattr(first_admin, "user_id"), "Admin missing 'user_id' field"
-    assert hasattr(first_admin, "admin_phone"), "Admin missing 'admin_phone' field"
-    assert first_admin.admin_phone is not None
+            stop_numbers = [stop.stop_number for stop in stops]
+            assert stop_numbers == list(range(1, len(stops) + 1)), (
+                f"Route {route.route_id} stops should be 1..{len(stops)}, "
+                f"got {stop_numbers}"
+            )

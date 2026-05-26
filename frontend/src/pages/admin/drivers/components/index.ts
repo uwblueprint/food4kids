@@ -1,2 +1,1 @@
-// Export Admin Drivers page components here
-export {};
+export { AssignRouteModal } from './AssignRouteModal';

@@ -4,15 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "frontend/**"
-      - "backend/python/**"
   pull_request:
     branches:
       - main
-    paths:
-      - "frontend/**"
-      - "backend/python/**"
 
 jobs:
   run-lint:
@@ -55,7 +49,12 @@ jobs:
         working-directory: ./frontend
         run: pnpm lint
 
-      
+      - name: Type-check frontend
+        if: steps.changes.outputs.frontend == 'true'
+        working-directory: ./frontend
+        run: pnpm exec tsc -b --noEmit
+
+
       - name: Set up Python
         if: steps.changes.outputs.python-backend == 'true'
         uses: actions/setup-python@v5

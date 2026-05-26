@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.location import Location
@@ -19,7 +20,11 @@ class LocationGroupService:
     async def get_location_groups(self, session: AsyncSession) -> list[LocationGroup]:
         """Get all location groups"""
         try:
-            statement = select(LocationGroup)
+            # Eager-load locations so LocationGroupRead.num_locations can be read
+            # without triggering an (illegal) lazy load on the async session.
+            statement = select(LocationGroup).options(
+                selectinload(LocationGroup.locations)  # type: ignore[arg-type]
+            )
             result = await session.execute(statement)
             return list(result.scalars().all())
         except Exception as error:
@@ -30,8 +35,12 @@ class LocationGroupService:
         self, session: AsyncSession, location_group_id: UUID
     ) -> LocationGroup | None:
         """Get location group by ID"""
-        statement = select(LocationGroup).where(
-            LocationGroup.location_group_id == location_group_id
+        # Eager-load locations so LocationGroupRead.num_locations can be read
+        # without triggering an (illegal) lazy load on the async session.
+        statement = (
+            select(LocationGroup)
+            .where(LocationGroup.location_group_id == location_group_id)
+            .options(selectinload(LocationGroup.locations))  # type: ignore[arg-type]
         )
         result = await session.execute(statement)
         location_group = result.scalars().first()
@@ -54,25 +63,30 @@ class LocationGroupService:
 
             new_location_group = LocationGroup(**data)
             session.add(new_location_group)
-            await session.commit()
-            await session.refresh(new_location_group)
+            # flush (not commit) so the group is persistent for the FK updates
+            # below while keeping the insert + links in one atomic transaction.
+            # The PK is a Python-side uuid4 default, so it's already populated.
+            await session.flush()
 
-            # Update each location's location_group_id foreign key
-            for location_id in location_ids:
-                statement = select(Location).where(Location.location_id == location_id)
-                result = await session.execute(statement)
-                location = result.scalars().first()
+            # Link the requested locations in a single query rather than one
+            # SELECT per id.
+            result = await session.execute(
+                select(Location).where(
+                    Location.location_id.in_(location_ids)  # type: ignore[attr-defined]
+                )
+            )
+            locations = result.scalars().all()
+            found_ids = {location.location_id for location in locations}
 
-                if location:
-                    if location.location_group_id is not None:
-                        self.logger.warning(
-                            f"Location with id {location_id} already has a location group set"
-                        )
-                        location.location_group_id = (
-                            new_location_group.location_group_id
-                        )
-                else:
-                    self.logger.warning(f"Location with id {location_id} not found")
+            for location in locations:
+                if location.location_group_id is not None:
+                    self.logger.warning(
+                        f"Location with id {location.location_id} already has a location group set; reassigning"
+                    )
+                location.location_group_id = new_location_group.location_group_id
+
+            for missing_id in set(location_ids) - found_ids:
+                self.logger.warning(f"Location with id {missing_id} not found")
 
             await session.commit()
 
@@ -117,9 +131,15 @@ class LocationGroupService:
                 setattr(location_group, field, value)
 
             await session.commit()
-            await session.refresh(location_group)
 
-            return location_group
+            # Reload with locations eager-loaded so the caller can read
+            # LocationGroupRead.num_locations without an async lazy load (500).
+            reloaded_group = await self.get_location_group(session, location_group_id)
+            if not reloaded_group:
+                raise Exception(
+                    f"Failed to reload updated location group with id {location_group_id}"
+                )
+            return reloaded_group
 
         except Exception as error:
             self.logger.error(f"Failed to update location group: {error!s}")

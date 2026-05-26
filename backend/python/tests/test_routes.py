@@ -168,10 +168,14 @@ class TestLocationRoutes:
 
     @pytest.mark.asyncio
     async def test_get_locations_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /locations returns empty list when no locations exist."""
+        """Test GET /locations returns empty paginated response when no locations exist."""
         response = await async_client.get("/locations/")
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
     async def test_create_location(
@@ -184,12 +188,13 @@ class TestLocationRoutes:
         assert data["contact_name"] == sample_location_data["contact_name"]
         assert data["address"] == sample_location_data["address"]
         assert "location_id" in data
+        assert data["note_chain_id"] is not None  # auto-created
 
     @pytest.mark.asyncio
     async def test_get_locations_with_data(
         self, async_client: AsyncClient, sample_location_data: dict[str, Any]
     ) -> None:
-        """Test GET /locations returns list of locations."""
+        """Test GET /locations returns paginated list of locations."""
         # Create a location first
         create_response = await async_client.post(
             "/locations/", json=sample_location_data
@@ -200,7 +205,8 @@ class TestLocationRoutes:
         response = await async_client.get("/locations/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) >= 1
+        assert len(data["items"]) >= 1
+        assert data["total"] >= 1
 
     @pytest.mark.asyncio
     async def test_get_location_by_id(
@@ -267,15 +273,215 @@ class TestLocationRoutes:
         assert get_response.status_code == 404
 
 
+class TestLocationGroupRoutes:
+    """Test suite for location group API routes."""
+
+    @pytest.mark.asyncio
+    async def test_get_location_groups_empty(self, async_client: AsyncClient) -> None:
+        """GET /location-groups returns an empty list when none exist."""
+        response = await async_client.get("/location-groups/")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_create_location_group_links_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """POST /location-groups creates a group, links the given locations,
+        and returns an accurate num_locations.
+
+        Regression test for two bugs: (1) a 500 from reading the computed
+        num_locations off a lazily-loaded relationship on the async session,
+        and (2) brand-new (ungrouped) locations never being linked because the
+        assignment was nested under `if location_group_id is not None`.
+        """
+        # Create two ungrouped locations
+        location_ids = []
+        for i in range(2):
+            data = {**sample_location_data, "contact_name": f"Contact {i}"}
+            create_response = await async_client.post("/locations/", json=data)
+            assert create_response.status_code == 201
+            location_ids.append(create_response.json()["location_id"])
+
+        # Create a group that references them
+        response = await async_client.post(
+            "/location-groups/",
+            json={**sample_location_group_data, "location_ids": location_ids},
+        )
+        assert response.status_code == 201
+        group = response.json()
+        assert group["name"] == sample_location_group_data["name"]
+        assert group["num_locations"] == 2
+
+        # Each location now reports the group via its FK
+        for location_id in location_ids:
+            loc = (await async_client.get(f"/locations/{location_id}")).json()
+            assert loc["location_group_id"] == group["location_group_id"]
+
+    @pytest.mark.asyncio
+    async def test_create_location_group_requires_location_ids(
+        self,
+        async_client: AsyncClient,
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """POST /location-groups rejects an empty location_ids list."""
+        response = await async_client.post(
+            "/location-groups/",
+            json={**sample_location_group_data, "location_ids": []},
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_location_groups_with_data(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """GET /location-groups returns groups with num_locations populated."""
+        create_response = await async_client.post(
+            "/locations/", json=sample_location_data
+        )
+        location_id = create_response.json()["location_id"]
+        await async_client.post(
+            "/location-groups/",
+            json={**sample_location_group_data, "location_ids": [location_id]},
+        )
+
+        response = await async_client.get("/location-groups/")
+        assert response.status_code == 200
+        groups = response.json()
+        assert len(groups) == 1
+        assert groups[0]["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_create_location_group_skips_unknown_location_id(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """Unknown location_ids are warned and skipped, not fatal — the group
+        is still created and links only the locations that exist."""
+        create_response = await async_client.post(
+            "/locations/", json=sample_location_data
+        )
+        location_id = create_response.json()["location_id"]
+        unknown_id = str(uuid4())
+
+        response = await async_client.post(
+            "/location-groups/",
+            json={
+                **sample_location_group_data,
+                "location_ids": [location_id, unknown_id],
+            },
+        )
+        assert response.status_code == 201
+        # Only the real location was linked
+        assert response.json()["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_create_location_group_reassigns_existing_location(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """A location already in group A is moved to a new group B when B's
+        create references it (and A loses it)."""
+        create_response = await async_client.post(
+            "/locations/", json=sample_location_data
+        )
+        location_id = create_response.json()["location_id"]
+
+        await async_client.post(
+            "/location-groups/",
+            json={
+                **sample_location_group_data,
+                "name": "Group A",
+                "location_ids": [location_id],
+            },
+        )
+
+        group_b = (
+            await async_client.post(
+                "/location-groups/",
+                json={
+                    **sample_location_group_data,
+                    "name": "Group B",
+                    "location_ids": [location_id],
+                },
+            )
+        ).json()
+
+        # The location now points at B, and B reports it
+        assert group_b["num_locations"] == 1
+        loc = (await async_client.get(f"/locations/{location_id}")).json()
+        assert loc["location_group_id"] == group_b["location_group_id"]
+
+        # A no longer counts it
+        groups = {
+            g["name"]: g for g in (await async_client.get("/location-groups/")).json()
+        }
+        assert groups["Group A"]["num_locations"] == 0
+        assert groups["Group B"]["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_update_location_group(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        sample_location_group_data: dict[str, Any],
+    ) -> None:
+        """PATCH /location-groups/{id} updates fields and returns the group
+        with num_locations populated (regression: previously 500'd reading the
+        lazily-loaded num_locations)."""
+        location_id = (
+            await async_client.post("/locations/", json=sample_location_data)
+        ).json()["location_id"]
+        group = (
+            await async_client.post(
+                "/location-groups/",
+                json={**sample_location_group_data, "location_ids": [location_id]},
+            )
+        ).json()
+
+        response = await async_client.patch(
+            f"/location-groups/{group['location_group_id']}",
+            json={"name": "Renamed Group"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Renamed Group"
+        assert data["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_update_location_group_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """PATCH /location-groups/{id} returns 404 for a non-existent group."""
+        response = await async_client.patch(
+            f"/location-groups/{uuid4()}", json={"name": "Nope"}
+        )
+        assert response.status_code == 404
+
+
 class TestRouteRoutes:
     """Test suite for route API routes."""
 
     @pytest.mark.asyncio
     async def test_get_routes_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /routes returns empty list when no routes exist."""
+        """Test GET /routes returns empty paginated response when no routes exist."""
         response = await async_client.get("/routes")
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
     async def test_get_routes_with_data(
@@ -283,12 +489,11 @@ class TestRouteRoutes:
         async_client: AsyncClient,
         test_route: Any,  # noqa: ARG002
     ) -> None:
-        """Test GET /routes returns list of routes."""
+        """Test GET /routes returns paginated list of routes."""
         response = await async_client.get("/routes")
         assert response.status_code == 200
-        # Routes may be empty if there are no route groups
         data = response.json()
-        assert isinstance(data, list)
+        assert isinstance(data["items"], list)
 
 
 class TestRouteGroupRoutes:
@@ -392,6 +597,63 @@ class TestRouteGroupRoutes:
         assert isinstance(data, list)
 
 
+class TestNoteChainRoutes:
+    """Test suite for note chain API routes."""
+
+    @staticmethod
+    async def _create_chain(session: Any) -> str:
+        """Helper: create a NoteChain directly in DB, return its ID as string."""
+        from app.models.note_chain import NoteChain
+
+        chain = NoteChain(read_permission="All", write_permission="All")
+        session.add(chain)
+        await session.commit()
+        await session.refresh(chain)
+        return str(chain.note_chain_id)
+
+    @pytest.mark.asyncio
+    async def test_notes_crud_and_read_tracking(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """Test note create, list (with unread count + auto mark-as-read), update, delete."""
+        chain_id = await self._create_chain(test_session)
+
+        # Create
+        note_resp = await authed_async_client.post(
+            f"/note-chains/{chain_id}/notes",
+            json={"message": "Hello"},
+        )
+        assert note_resp.status_code == 201
+        note_id = note_resp.json()["note_id"]
+
+        # List - unread_count=1, then auto-marked as read
+        list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
+        assert list_resp.status_code == 200
+        data = list_resp.json()
+        assert len(data["notes"]) == 1
+        assert data["unread_count"] == 1
+
+        # List again - unread_count=0
+        list_again_resp = await authed_async_client.get(
+            f"/note-chains/{chain_id}/notes"
+        )
+        assert list_again_resp.json()["unread_count"] == 0
+
+        # Update
+        patch_resp = await authed_async_client.patch(
+            f"/note-chains/{chain_id}/notes/{note_id}",
+            json={"message": "Edited"},
+        )
+        assert patch_resp.status_code == 200
+        assert patch_resp.json()["message"] == "Edited"
+
+        # Delete
+        delete_note_resp = await authed_async_client.delete(
+            f"/note-chains/{chain_id}/notes/{note_id}"
+        )
+        assert delete_note_resp.status_code == 204
+
+
 class TestValidationErrors:
     """Test suite for validation error handling across routes."""
 
@@ -434,3 +696,163 @@ class TestValidationErrors:
         }
         response = await async_client.post("/route-groups", json=invalid_data)
         assert response.status_code == 422
+
+
+class TestAnnouncementRoutes:
+    """Test suite for announcement API routes."""
+
+    @pytest.mark.asyncio
+    async def test_get_announcements_empty(self, async_client: AsyncClient) -> None:
+        """Test GET /announcements returns empty list when none exist."""
+        response = await async_client.get("/announcements/")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_create_announcement(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test POST /announcements creates a new announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin@test.com",
+            auth_id="test-admin-ann-123",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        announcement_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        response = await async_client.post("/announcements/", json=announcement_data)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["subject"] == sample_announcement_data["subject"]
+        assert data["message"] == sample_announcement_data["message"]
+        assert data["user_id"] == str(user.user_id)
+        assert "announcement_id" in data
+        assert "created_at" in data
+
+    @pytest.mark.asyncio
+    async def test_get_announcement_by_id(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test GET /announcements/{id} returns the announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin2@test.com",
+            auth_id="test-admin-ann-456",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        create_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        create_response = await async_client.post("/announcements/", json=create_data)
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await async_client.get(f"/announcements/{announcement_id}")
+        assert response.status_code == 200
+        assert response.json()["subject"] == sample_announcement_data["subject"]
+
+    @pytest.mark.asyncio
+    async def test_get_announcement_not_found(self, async_client: AsyncClient) -> None:
+        """Test GET /announcements/{id} returns 404 for nonexistent ID."""
+        fake_id = uuid4()
+        response = await async_client.get(f"/announcements/{fake_id}")
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_update_announcement(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test PUT /announcements/{id} updates the announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin3@test.com",
+            auth_id="test-admin-ann-789",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        create_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        create_response = await async_client.post("/announcements/", json=create_data)
+        announcement_id = create_response.json()["announcement_id"]
+
+        update_data = {"subject": "Updated Subject"}
+        response = await async_client.put(
+            f"/announcements/{announcement_id}", json=update_data
+        )
+        assert response.status_code == 200
+        assert response.json()["subject"] == "Updated Subject"
+        assert response.json()["message"] == sample_announcement_data["message"]
+
+    @pytest.mark.asyncio
+    async def test_delete_announcement(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test DELETE /announcements/{id} removes the announcement."""
+        from app.models.user import User
+
+        user = User(
+            name="Test Admin",
+            email="admin4@test.com",
+            auth_id="test-admin-ann-101",
+            role="admin",
+        )
+        test_session.add(user)
+        await test_session.commit()
+        await test_session.refresh(user)
+
+        create_data = {
+            **sample_announcement_data,
+            "user_id": str(user.user_id),
+        }
+        create_response = await async_client.post("/announcements/", json=create_data)
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await async_client.delete(f"/announcements/{announcement_id}")
+        assert response.status_code == 204
+
+        get_response = await async_client.get(f"/announcements/{announcement_id}")
+        assert get_response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_announcement_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Test DELETE /announcements/{id} returns 404 for nonexistent ID."""
+        fake_id = uuid4()
+        response = await async_client.delete(f"/announcements/{fake_id}")
+        assert response.status_code == 404
