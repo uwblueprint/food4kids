@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 export const CreatePassword = () => {
@@ -7,7 +7,7 @@ export const CreatePassword = () => {
   const [feedback, setFeedback] = useState('');
   const { token } = useParams();
 
-  const submitPassword = async (e) => {
+  const submitPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFeedback('Connecting...');
 
@@ -26,7 +26,10 @@ export const CreatePassword = () => {
       setPassword(''); // Clear input on success
     } catch (err) {
       // Axios catches 4xx/5xx errors automatically
-      const errorMessage = err.response?.data?.message || 'Server unreachable';
+      let errorMessage = 'Server unreachable';
+      if (axios.isAxiosError(err)) {
+        errorMessage = err.response?.data?.message || errorMessage;
+      }
       setFeedback(`Error: ${errorMessage}`);
     }
   };
