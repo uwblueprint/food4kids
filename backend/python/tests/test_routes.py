@@ -337,6 +337,32 @@ class TestLocationRoutes:
         assert single.status_code == 200
         assert single.json()["location_group_name"] == test_location_group.name
 
+    @pytest.mark.asyncio
+    async def test_delete_all_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """DELETE /locations removes every location (bulk destructive)."""
+        for i in range(2):
+            resp = await async_client.post(
+                "/locations/",
+                json={
+                    **sample_location_data,
+                    "contact_name": f"Contact {i}",
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+            assert resp.status_code == 201
+
+        delete_response = await async_client.delete("/locations/")
+        assert delete_response.status_code in (200, 204)
+
+        listing = await async_client.get("/locations/")
+        assert listing.json()["items"] == []
+        assert listing.json()["total"] == 0
+
 
 class TestLocationGroupRoutes:
     """Test suite for location group API routes."""
@@ -598,6 +624,37 @@ class TestRouteRoutes:
         data = response.json()
         assert isinstance(data["items"], list)
 
+    @pytest.mark.asyncio
+    async def test_get_route_by_id(
+        self, async_client: AsyncClient, test_route: Any
+    ) -> None:
+        """GET /routes/{id} returns the route."""
+        response = await async_client.get(f"/routes/{test_route.route_id}")
+        assert response.status_code == 200
+        assert response.json()["route_id"] == str(test_route.route_id)
+
+    @pytest.mark.asyncio
+    async def test_get_route_not_found(self, async_client: AsyncClient) -> None:
+        """GET /routes/{id} returns 404 for an unknown route."""
+        response = await async_client.get(f"/routes/{uuid4()}")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_route(
+        self, async_client: AsyncClient, test_route: Any
+    ) -> None:
+        """DELETE /routes/{id} removes the route."""
+        response = await async_client.delete(f"/routes/{test_route.route_id}")
+        assert response.status_code == 204
+        get_response = await async_client.get(f"/routes/{test_route.route_id}")
+        assert get_response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_route_not_found(self, async_client: AsyncClient) -> None:
+        """DELETE /routes/{id} returns 404 for an unknown route."""
+        response = await async_client.delete(f"/routes/{uuid4()}")
+        assert response.status_code == 404
+
 
 class TestRouteGroupRoutes:
     """Test suite for route group API routes."""
@@ -699,6 +756,43 @@ class TestRouteGroupRoutes:
         data = response.json()
         assert isinstance(data, list)
 
+    @pytest.mark.asyncio
+    async def test_get_route_groups_include_routes(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """GET /route-groups?include_routes=true returns each group's routes.
+
+        The include_routes branch walks membership.route.*; this confirms it's
+        loaded (not an async lazy-load 500) and the routes payload is returned.
+        """
+        from datetime import datetime
+
+        from app.models.route import Route
+        from app.models.route_group import RouteGroup
+        from app.models.route_group_membership import RouteGroupMembership
+
+        rg = RouteGroup(name="RG", drive_date=datetime(2026, 6, 1))
+        route = Route(name="R1", length=5.0)
+        test_session.add(rg)
+        test_session.add(route)
+        await test_session.commit()
+        await test_session.refresh(rg)
+        await test_session.refresh(route)
+        test_session.add(
+            RouteGroupMembership(
+                route_group_id=rg.route_group_id, route_id=route.route_id
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups?include_routes=true")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["num_routes"] == 1
+        assert [r["route_id"] for r in group["routes"]] == [str(route.route_id)]
+
 
 class TestNoteChainRoutes:
     """Test suite for note chain API routes."""
@@ -755,6 +849,33 @@ class TestNoteChainRoutes:
             f"/note-chains/{chain_id}/notes/{note_id}"
         )
         assert delete_note_resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_get_note_chain(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """GET /note-chains/{id} returns the chain for a permitted user."""
+        chain_id = await self._create_chain(test_session)
+        response = await authed_async_client.get(f"/note-chains/{chain_id}")
+        assert response.status_code == 200
+        assert response.json()["note_chain_id"] == chain_id
+
+    @pytest.mark.asyncio
+    async def test_delete_note_chain(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """DELETE /note-chains/{id} removes the chain (and its notes)."""
+        chain_id = await self._create_chain(test_session)
+        # Seed a note so the cascade is exercised
+        await authed_async_client.post(
+            f"/note-chains/{chain_id}/notes", json={"message": "n"}
+        )
+
+        response = await authed_async_client.delete(f"/note-chains/{chain_id}")
+        assert response.status_code == 204
+
+        get_response = await authed_async_client.get(f"/note-chains/{chain_id}")
+        assert get_response.status_code == 404
 
 
 class TestValidationErrors:
@@ -989,3 +1110,37 @@ class TestJobRoutes:
         response = await async_client.get(f"/jobs/{job.job_id}")
         assert response.status_code == 200
         assert response.json()["job_id"] == str(job.job_id)
+
+    @pytest.mark.asyncio
+    async def test_get_jobs_empty(self, async_client: AsyncClient) -> None:
+        """GET /jobs returns an empty list when none exist."""
+        response = await async_client.get("/jobs/")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @pytest.mark.asyncio
+    async def test_get_jobs_with_data(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """GET /jobs returns created jobs."""
+        from app.models.job import Job
+
+        job = Job()
+        test_session.add(job)
+        await test_session.commit()
+        await test_session.refresh(job)
+
+        response = await async_client.get("/jobs/")
+        assert response.status_code == 200
+        ids = [j["job_id"] for j in response.json()]
+        assert str(job.job_id) in ids
+
+
+class TestSystemSettingsRoutes:
+    """Test suite for system settings API routes."""
+
+    @pytest.mark.asyncio
+    async def test_get_system_settings(self, async_client: AsyncClient) -> None:
+        """GET /system-settings returns 200 (null-safe when unset)."""
+        response = await async_client.get("/system-settings/")
+        assert response.status_code == 200
