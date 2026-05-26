@@ -178,6 +178,8 @@ pnpm generate:api
 
 This hits `http://localhost:8080/openapi.json`, normalizes it into `openapi.json`, and runs `openapi-ts`. Point at a different URL with `OPENAPI_URL=...`.
 
+CI enforces that `openapi.json` matches the backend schema (the `OpenAPI client in sync` workflow): if you change a backend model/route without regenerating, the check fails. The generated client under `src/api/generated/` is a deterministic function of `openapi.json` + the pinned `@hey-api/openapi-ts`, so keeping the snapshot in sync keeps the client in sync.
+
 **Using the generated client.** Prefer the tanstack-query helpers from `src/api/generated/@tanstack/react-query.gen.ts` over the raw SDK functions — they produce query keys and matching `queryOptions` / mutation configs for you. See `src/api/system-settings.ts` for the query pattern and `src/api/locations.ts` for a mutation (incl. multipart upload).
 
 ```ts
