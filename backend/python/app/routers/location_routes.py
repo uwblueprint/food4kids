@@ -1,7 +1,8 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from backend.python.app.models.enum import DeliveryTypeEnum
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_location_service
@@ -12,6 +13,7 @@ from app.models.location import (
     LocationIngestRequest,
     LocationIngestResponse,
     LocationRead,
+    LocationState,
     LocationUpdate,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
@@ -22,6 +24,12 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 
 @router.get("/", response_model=PaginatedResponse[LocationRead])
 async def get_locations(
+    delivery_type: list[DeliveryTypeEnum] | None = Query(
+        None, description="Filter by one or more delivery types"
+    ),
+    state: list[LocationState] | None = Query(
+        None, description="Filter by one or more route statuses"
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
@@ -30,7 +38,7 @@ async def get_locations(
     Get all locations with pagination
     """
     try:
-        result = await location_service.get_locations(session, pagination)
+        result = await location_service.get_locations(session, pagination, delivery_type, state)
         return PaginatedResponse.create(
             items=[LocationRead.model_validate(loc) for loc in result.items],
             total=result.total,
