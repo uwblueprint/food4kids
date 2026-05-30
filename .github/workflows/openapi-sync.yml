@@ -82,6 +82,14 @@ jobs:
         run: |
           if ! git diff --exit-code frontend/openapi.json; then
             echo "::error::frontend/openapi.json is out of sync with the backend schema."
-            echo "Run 'pnpm generate:api' in frontend/ (with the backend running) and commit the result."
+            echo "Normally the pre-commit hook keeps this in sync (see scripts/regen-openapi.sh)."
+            echo "To fix without a running backend, copy the patch below, save it, and apply it:"
+            echo ""
+            echo "    git apply <<'PATCH'"
+            git diff frontend/openapi.json
+            echo "PATCH"
+            echo ""
+            echo "Then run 'pnpm openapi-ts' in frontend/ and commit. (No backend needed —"
+            echo "openapi-ts reads the local openapi.json.)"
             exit 1
           fi
