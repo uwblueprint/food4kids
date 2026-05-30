@@ -623,6 +623,11 @@ export type LocationCreate = {
 };
 
 /**
+ * LocationDeliveryTypeEnum
+ */
+export type LocationDeliveryTypeEnum = 'School' | 'Family';
+
+/**
  * LocationGroup
  *
  * Location group model
@@ -920,6 +925,11 @@ export type LocationRead = {
  * State of a location
  */
 export type LocationState = 'ACTIVE' | 'ARCHIVED';
+
+/**
+ * LocationStatusEnum
+ */
+export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 
 /**
  * LocationUpdate
@@ -2719,6 +2729,18 @@ export type GetLocationsData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Delivery Type
+     *
+     * Filter by one or more delivery types
+     */
+    delivery_type?: Array<LocationDeliveryTypeEnum> | null;
+    /**
+     * Status
+     *
+     * Filter by one or more location statuses
+     */
+    status?: Array<LocationStatusEnum> | null;
     /**
      * Page
      *

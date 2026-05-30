@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any, TypeGuard, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -15,7 +15,11 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.config import settings
-from app.models.enum import LocationDeliveryTypeEnum, LocationStatusEnum, NotePermission
+from app.models.enum import (
+    LocationDeliveryTypeEnum,
+    LocationStatusEnum,
+    NotePermission,
+)
 from app.models.location import (
     AlertCode,
     Location,
@@ -115,19 +119,20 @@ class LocationService:
             )
 
             if delivery_type:
+                school_name_column = cast("Any", Location.school_name)
                 delivery_conditions: list[Any] = []
                 if LocationDeliveryTypeEnum.SCHOOL in delivery_type:
                     delivery_conditions.append(
                         and_(
-                            Location.school_name.isnot(None),  # type: ignore[union-attr]
-                            Location.school_name != "",
+                            school_name_column.isnot(None),
+                            school_name_column != "",
                         )
                     )
                 if LocationDeliveryTypeEnum.FAMILY in delivery_type:
                     delivery_conditions.append(
                         or_(
-                            Location.school_name.is_(None),  # type: ignore[union-attr]
-                            Location.school_name == "",
+                            school_name_column.is_(None),
+                            school_name_column == "",
                         )
                     )
                 if delivery_conditions:
@@ -149,25 +154,22 @@ class LocationService:
                 )
                 .where(
                     RouteStop.location_id == Location.location_id,
-                    RouteGroup.drive_date >= today_start,  # type: ignore[arg-type]
+                    RouteGroup.drive_date >= today_start,
                 )
             )
             is_scheduled = scheduled_query.exists()
 
             if status_filter:
                 status_conditions: list[Any] = []
+                state_column = cast("Any", Location.state)
+                is_active = state_column == LocationState.ACTIVE
+                is_archived = state_column == LocationState.ARCHIVED
                 if LocationStatusEnum.ACTIVE in status_filter:
-                    status_conditions.append(
-                        and_(Location.state == LocationState.ACTIVE, is_scheduled)
-                    )
+                    status_conditions.append(and_(is_active, is_scheduled))
                 if LocationStatusEnum.UNSCHEDULED in status_filter:
-                    status_conditions.append(
-                        and_(Location.state == LocationState.ACTIVE, ~is_scheduled)
-                    )
+                    status_conditions.append(and_(is_active, ~is_scheduled))
                 if LocationStatusEnum.INACTIVE in status_filter:
-                    status_conditions.append(
-                        and_(Location.state == LocationState.ARCHIVED, ~is_scheduled)
-                    )
+                    status_conditions.append(and_(is_archived, ~is_scheduled))
                 if status_conditions:
                     statement = statement.where(or_(*status_conditions))
             else:
