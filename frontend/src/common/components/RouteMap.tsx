@@ -55,9 +55,15 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
         />
         {coords.length > 0 && (
           <>
+            {/* White casing underneath for contrast against busy tiles */}
             <Polyline
               positions={coords}
-              pathOptions={{ color: POLYLINE_COLOR, weight: 5, opacity: 0.9 }}
+              pathOptions={{ color: '#ffffff', weight: 9, opacity: 0.9 }}
+            />
+            {/* Main route line on top */}
+            <Polyline
+              positions={coords}
+              pathOptions={{ color: POLYLINE_COLOR, weight: 5, opacity: 1 }}
             />
             <FitToPolyline coords={coords} />
           </>
