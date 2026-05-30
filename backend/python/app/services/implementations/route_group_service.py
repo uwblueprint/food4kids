@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, exists, func, or_
+from sqlalchemy import and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -75,9 +75,92 @@ class RouteGroupService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
-    ) -> list[RouteGroup]:
-        """Get route groups with optional date filtering"""
-        statement = select(RouteGroup)
+    ) -> list[tuple]:
+        """Get route groups with optional date filtering and aggregate stats"""
+
+        # --- Aggregate subqueries (correlated to each RouteGroup row) ---
+
+        # Distinct location IDs in this route group (used by both num_locations and num_boxes)
+        group_location_ids = (
+            select(distinct(RouteStop.location_id))
+            .select_from(RouteGroupMembership)
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
+        )
+
+        num_locations_subq = (
+            select(func.count(distinct(RouteStop.location_id)))
+            .select_from(RouteGroupMembership)
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_locations")
+        )
+
+        num_boxes_subq = (
+            select(func.coalesce(func.sum(Location.num_boxes), 0))
+            .where(Location.location_id.in_(group_location_ids))  # type: ignore[union-attr]
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_boxes")
+        )
+
+        num_drivers_subq = (
+            select(func.count(distinct(DriverAssignment.driver_id)))
+            .where(DriverAssignment.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_drivers_assigned")
+        )
+
+        # delivery_type: "School Year" if any location has school_name, "Summer" if locations exist but no schools, else None
+        has_school_subq = (
+            select(1)
+            .select_from(RouteGroupMembership)
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+            .where(
+                RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
+                Location.school_name.isnot(None),  # type: ignore[union-attr]
+                Location.school_name != "",
+            )
+            .correlate(RouteGroup)
+        )
+
+        has_locations_subq = (
+            select(1)
+            .select_from(RouteGroupMembership)
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+        )
+
+        delivery_type_expr = case(
+            (has_school_subq.exists(), DeliveryTypeEnum.SCHOOL_YEAR.value),
+            (has_locations_subq.exists(), DeliveryTypeEnum.SUMMER.value),
+            else_=None,
+        ).label("delivery_type")
+
+        # status: compute from drive_date using same thresholds as the filter
+        now = datetime.now(self.timezone).replace(tzinfo=None)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        thirty_days_ago = now - timedelta(days=30)
+
+        status_expr = case(
+            (RouteGroup.drive_date > today_start, RouteStatusEnum.UPCOMING.value),
+            (RouteGroup.drive_date >= thirty_days_ago, RouteStatusEnum.COMPLETED.value),  # type: ignore[arg-type]
+            else_=RouteStatusEnum.ARCHIVED.value,
+        ).label("status")
+
+        statement = select(
+            RouteGroup,
+            num_locations_subq,
+            num_boxes_subq,
+            num_drivers_subq,
+            delivery_type_expr,
+            status_expr,
+        )
 
         if start_date:
             statement = statement.where(RouteGroup.drive_date >= start_date)
@@ -174,16 +257,17 @@ class RouteGroupService:
         statement = statement.order_by(RouteGroup.drive_date)  # type: ignore[arg-type]
 
         result = await session.execute(statement)
-        route_groups = result.scalars().all()
+        rows = result.all()
 
         # Load relationships for all route groups to avoid lazy loading issues
-        for route_group in route_groups:
+        for row in rows:
+            route_group = row[0]
             await session.refresh(route_group, ["route_group_memberships"])
             if include_routes:
                 for membership in route_group.route_group_memberships:
                     await session.refresh(membership, ["route"])
 
-        return list(route_groups)
+        return [tuple(row) for row in rows]
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID
