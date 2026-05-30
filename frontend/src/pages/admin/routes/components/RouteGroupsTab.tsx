@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import type { RouteGroupRow } from '@/api/route-groups';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
@@ -16,7 +17,6 @@ import {
   ModalTitle,
   SearchBar,
 } from '@/common/components';
-import type { RouteGroupRow } from '@/types/route-group';
 
 import type { GroupsTabState } from '../hooks';
 import { EmptyState } from './EmptyState';

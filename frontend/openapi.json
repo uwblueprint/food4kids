@@ -1,0 +1,5758 @@
+{
+  "components": {
+    "schemas": {
+      "AlertCode": {
+        "description": "Machine-readable reason code for an import alert.",
+        "enum": [
+          "MISSING_FIELDS",
+          "INVALID_FORMAT",
+          "LOCAL_DUPLICATE",
+          "MISSING_DELIVERY_GROUP",
+          "PARTIAL_DUPLICATE"
+        ],
+        "title": "AlertCode",
+        "type": "string"
+      },
+      "AnnouncementCreate": {
+        "description": "Announcement creation request",
+        "properties": {
+          "attachments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "message",
+          "user_id"
+        ],
+        "title": "AnnouncementCreate",
+        "type": "object"
+      },
+      "AnnouncementRead": {
+        "description": "Announcement response model",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "attachments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "message",
+          "announcement_id",
+          "user_id",
+          "attachments",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AnnouncementRead",
+        "type": "object"
+      },
+      "AnnouncementUpdate": {
+        "description": "Announcement update request - all optional",
+        "properties": {
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachments"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "title": "AnnouncementUpdate",
+        "type": "object"
+      },
+      "Attachment": {
+        "description": "Attachment with filename and URL",
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "url"
+        ],
+        "title": "Attachment",
+        "type": "object"
+      },
+      "AuthResponse": {
+        "description": "Authentication response",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "id",
+          "name",
+          "email"
+        ],
+        "title": "AuthResponse",
+        "type": "object"
+      },
+      "Body_review_locations": {
+        "properties": {
+          "column_map": {
+            "title": "Column Map",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "column_map"
+        ],
+        "title": "Body_review_locations",
+        "type": "object"
+      },
+      "Body_upload_image": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_image",
+        "type": "object"
+      },
+      "ChangedEntry": {
+        "description": "An existing location whose fields differ from the import row.\n\nEach field is either the plain new value (unchanged) or a ChangedField object\ncarrying both new and old values.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldStr"
+              }
+            ],
+            "title": "Address"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldOptStr"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "num_children": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldOptInt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Children"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldStr"
+              }
+            ],
+            "title": "Phone Number"
+          }
+        },
+        "required": [
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "ChangedEntry",
+        "type": "object"
+      },
+      "ChangedFieldOptInt": {
+        "properties": {
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          }
+        },
+        "required": [
+          "new_value",
+          "old_value"
+        ],
+        "title": "ChangedFieldOptInt",
+        "type": "object"
+      },
+      "ChangedFieldOptStr": {
+        "properties": {
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          }
+        },
+        "required": [
+          "new_value",
+          "old_value"
+        ],
+        "title": "ChangedFieldOptStr",
+        "type": "object"
+      },
+      "ChangedFieldStr": {
+        "properties": {
+          "new_value": {
+            "title": "New Value",
+            "type": "string"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_value",
+          "old_value"
+        ],
+        "title": "ChangedFieldStr",
+        "type": "object"
+      },
+      "DeliveryTypeEnum": {
+        "enum": [
+          "School Year",
+          "Summer"
+        ],
+        "title": "DeliveryTypeEnum",
+        "type": "string"
+      },
+      "DriveDaysOfWeekEnum": {
+        "enum": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri"
+        ],
+        "title": "DriveDaysOfWeekEnum",
+        "type": "string"
+      },
+      "DriverAssignmentCreate": {
+        "description": "Create request model",
+        "properties": {
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver_id",
+          "route_id",
+          "route_group_id",
+          "time"
+        ],
+        "title": "DriverAssignmentCreate",
+        "type": "object"
+      },
+      "DriverAssignmentRead": {
+        "description": "Read response model",
+        "properties": {
+          "driver_assignment_id": {
+            "format": "uuid",
+            "title": "Driver Assignment Id",
+            "type": "string"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver_id",
+          "route_id",
+          "route_group_id",
+          "time",
+          "driver_assignment_id"
+        ],
+        "title": "DriverAssignmentRead",
+        "type": "object"
+      },
+      "DriverAssignmentStatusEnum": {
+        "enum": [
+          "Assigned",
+          "Unassigned"
+        ],
+        "title": "DriverAssignmentStatusEnum",
+        "type": "string"
+      },
+      "DriverAssignmentUpdate": {
+        "description": "Update request model",
+        "properties": {
+          "time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          }
+        },
+        "title": "DriverAssignmentUpdate",
+        "type": "object"
+      },
+      "DriverHistoryCreate": {
+        "description": "Create request model",
+        "properties": {
+          "km": {
+            "title": "Km",
+            "type": "number"
+          },
+          "month": {
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Month",
+            "type": "integer"
+          },
+          "year": {
+            "maximum": 2100,
+            "minimum": 2025,
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "month",
+          "km"
+        ],
+        "title": "DriverHistoryCreate",
+        "type": "object"
+      },
+      "DriverHistoryRead": {
+        "description": "Read response model",
+        "properties": {
+          "driver_history_id": {
+            "title": "Driver History Id",
+            "type": "integer"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "km": {
+            "title": "Km",
+            "type": "number"
+          },
+          "month": {
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Month",
+            "type": "integer"
+          },
+          "year": {
+            "maximum": 2100,
+            "minimum": 2025,
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "driver_id",
+          "year",
+          "month",
+          "km",
+          "driver_history_id"
+        ],
+        "title": "DriverHistoryRead",
+        "type": "object"
+      },
+      "DriverHistorySummary": {
+        "description": "Summary of driver's lifetime and current year kilometers",
+        "properties": {
+          "current_year_km": {
+            "title": "Current Year Km",
+            "type": "number"
+          },
+          "lifetime_km": {
+            "title": "Lifetime Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lifetime_km",
+          "current_year_km"
+        ],
+        "title": "DriverHistorySummary",
+        "type": "object"
+      },
+      "DriverHistoryUpdate": {
+        "description": "Update request model, all fields are required for now since we are only updating km",
+        "properties": {
+          "km": {
+            "title": "Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "km"
+        ],
+        "title": "DriverHistoryUpdate",
+        "type": "object"
+      },
+      "DriverRead": {
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "address": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Address",
+            "type": "string"
+          },
+          "auth_id": {
+            "title": "Auth Id",
+            "type": "string"
+          },
+          "car_make_model": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Car Make Model",
+            "type": "string"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "license_plate": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "License Plate",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Notes",
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Phone",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "license_plate",
+          "car_make_model",
+          "address",
+          "driver_id",
+          "user_id",
+          "auth_id",
+          "name",
+          "email",
+          "role"
+        ],
+        "title": "DriverRead",
+        "type": "object"
+      },
+      "DriverRegister": {
+        "description": "Driver registration request",
+        "properties": {
+          "address": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Address",
+            "type": "string"
+          },
+          "car_make_model": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Car Make Model",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "license_plate": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "License Plate",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password",
+          "phone",
+          "license_plate",
+          "car_make_model",
+          "address"
+        ],
+        "title": "DriverRegister",
+        "type": "object"
+      },
+      "DriverRegisterResponse": {
+        "description": "Driver registration response - contains Driver object and AuthResponse",
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/AuthResponse"
+          },
+          "driver": {
+            "$ref": "#/components/schemas/DriverRead"
+          }
+        },
+        "required": [
+          "driver",
+          "auth"
+        ],
+        "title": "DriverRegisterResponse",
+        "type": "object"
+      },
+      "DriverUpdate": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "car_make_model": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Make Model"
+          },
+          "license_plate": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Plate"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "title": "DriverUpdate",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "JobEnqueueResponse": {
+        "description": "Job creation response",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobEnqueueResponse",
+        "type": "object"
+      },
+      "JobRead": {
+        "description": "Job response model",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ProgressEnum",
+            "default": "Pending"
+          },
+          "route_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Group Id"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobRead",
+        "type": "object"
+      },
+      "LocationCreate": {
+        "description": "Create request model",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "dietary_restrictions": {
+            "default": "",
+            "title": "Dietary Restrictions",
+            "type": "string"
+          },
+          "halal": {
+            "default": false,
+            "title": "Halal",
+            "type": "boolean"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "location_group_id": {
+            "format": "uuid",
+            "title": "Location Group Id",
+            "type": "string"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "num_boxes": {
+            "default": 0,
+            "title": "Num Boxes",
+            "type": "integer"
+          },
+          "num_children": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Children"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          },
+          "place_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "state": {
+            "$ref": "#/components/schemas/LocationState",
+            "default": "ACTIVE"
+          }
+        },
+        "required": [
+          "location_group_id",
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "LocationCreate",
+        "type": "object"
+      },
+      "LocationGroup": {
+        "additionalProperties": false,
+        "description": "Location group model",
+        "properties": {
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "location_group_id": {
+            "format": "uuid",
+            "title": "Location Group Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "name",
+          "color"
+        ],
+        "title": "LocationGroup",
+        "type": "object"
+      },
+      "LocationGroupCreate": {
+        "description": "Location group creation request",
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "location_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Location Ids",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "location_ids"
+        ],
+        "title": "LocationGroupCreate",
+        "type": "object"
+      },
+      "LocationGroupRead": {
+        "description": "Location group response model",
+        "properties": {
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "location_group_id": {
+            "format": "uuid",
+            "title": "Location Group Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "num_locations": {
+            "title": "Num Locations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "location_group_id",
+          "num_locations"
+        ],
+        "title": "LocationGroupRead",
+        "type": "object"
+      },
+      "LocationGroupUpdate": {
+        "description": "Location group update request - all optional",
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "title": "LocationGroupUpdate",
+        "type": "object"
+      },
+      "LocationImportEntry": {
+        "description": "Parsed row from import file; all fields optional until validated.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "dietary_restrictions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dietary Restrictions"
+          },
+          "halal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Halal"
+          },
+          "num_boxes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Boxes"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
+          }
+        },
+        "title": "LocationImportEntry",
+        "type": "object"
+      },
+      "LocationImportResponse": {
+        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. net_new/stale/changed describe how the\nimport would affect the existing locations table; these are placeholders until\nthe matching logic is implemented.",
+        "properties": {
+          "changed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChangedEntry"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "net_new": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NetNewEntry"
+            },
+            "title": "Net New",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LocationImportRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "stale": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/StaleEntry"
+            },
+            "title": "Stale",
+            "type": "array"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "total_rows": {
+            "title": "Total Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "success",
+          "total_rows",
+          "rows"
+        ],
+        "title": "LocationImportResponse",
+        "type": "object"
+      },
+      "LocationImportRow": {
+        "properties": {
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/AlertCode"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationImportEntry"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "location",
+          "alerts"
+        ],
+        "title": "LocationImportRow",
+        "type": "object"
+      },
+      "LocationIngestRequest": {
+        "properties": {
+          "net_new": {
+            "items": {
+              "$ref": "#/components/schemas/ValidatedLocationImportEntry"
+            },
+            "title": "Net New",
+            "type": "array"
+          },
+          "stale": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Stale",
+            "type": "array"
+          }
+        },
+        "required": [
+          "net_new",
+          "stale"
+        ],
+        "title": "LocationIngestRequest",
+        "type": "object"
+      },
+      "LocationIngestResponse": {
+        "properties": {
+          "archived": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Archived",
+            "type": "array"
+          },
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Created",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created",
+          "archived"
+        ],
+        "title": "LocationIngestResponse",
+        "type": "object"
+      },
+      "LocationRead": {
+        "description": "Read response model",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "dietary_restrictions": {
+            "default": "",
+            "title": "Dietary Restrictions",
+            "type": "string"
+          },
+          "halal": {
+            "default": false,
+            "title": "Halal",
+            "type": "boolean"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "location_group_id": {
+            "format": "uuid",
+            "title": "Location Group Id",
+            "type": "string"
+          },
+          "location_group_name": {
+            "title": "Location Group Name",
+            "type": "string"
+          },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "num_boxes": {
+            "default": 0,
+            "title": "Num Boxes",
+            "type": "integer"
+          },
+          "num_children": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Children"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          },
+          "place_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "state": {
+            "$ref": "#/components/schemas/LocationState",
+            "default": "ACTIVE"
+          }
+        },
+        "required": [
+          "location_group_id",
+          "contact_name",
+          "address",
+          "phone_number",
+          "location_id",
+          "location_group_name"
+        ],
+        "title": "LocationRead",
+        "type": "object"
+      },
+      "LocationState": {
+        "description": "State of a location",
+        "enum": [
+          "ACTIVE",
+          "ARCHIVED"
+        ],
+        "title": "LocationState",
+        "type": "string"
+      },
+      "LocationUpdate": {
+        "description": "Update request model with all fields optional",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "dietary_restrictions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dietary Restrictions"
+          },
+          "halal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Halal"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "location_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Group Id"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "num_boxes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Boxes"
+          },
+          "num_children": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Children"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
+          },
+          "place_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          }
+        },
+        "title": "LocationUpdate",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "description": "Login request",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "NetNewEntry": {
+        "description": "A row in the import that has no matching existing location.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "num_boxes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Boxes"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "NetNewEntry",
+        "type": "object"
+      },
+      "NoteChainRead": {
+        "description": "Read response model",
+        "properties": {
+          "note_chain_id": {
+            "format": "uuid",
+            "title": "Note Chain Id",
+            "type": "string"
+          },
+          "read_permission": {
+            "$ref": "#/components/schemas/NotePermission",
+            "default": "Admin"
+          },
+          "write_permission": {
+            "$ref": "#/components/schemas/NotePermission",
+            "default": "Admin"
+          }
+        },
+        "required": [
+          "note_chain_id"
+        ],
+        "title": "NoteChainRead",
+        "type": "object"
+      },
+      "NoteCreate": {
+        "description": "Create request model - chain_id and user_id set by the service",
+        "properties": {
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "NoteCreate",
+        "type": "object"
+      },
+      "NoteListResponse": {
+        "description": "Response for GET notes - includes unread count",
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/NoteRead"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "unread_count": {
+            "title": "Unread Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "notes",
+          "unread_count"
+        ],
+        "title": "NoteListResponse",
+        "type": "object"
+      },
+      "NotePermission": {
+        "description": "Controls who can read/write on a note chain",
+        "enum": [
+          "Admin",
+          "All"
+        ],
+        "title": "NotePermission",
+        "type": "string"
+      },
+      "NoteRead": {
+        "description": "Read response model",
+        "properties": {
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "is_system": {
+            "default": false,
+            "title": "Is System",
+            "type": "boolean"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "format": "uuid",
+            "title": "Note Chain Id",
+            "type": "string"
+          },
+          "note_id": {
+            "format": "uuid",
+            "title": "Note Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "note_chain_id",
+          "message",
+          "note_id"
+        ],
+        "title": "NoteRead",
+        "type": "object"
+      },
+      "NoteUpdate": {
+        "description": "Update request model - only message can be edited",
+        "properties": {
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "NoteUpdate",
+        "type": "object"
+      },
+      "PaginatedResponse_DriverAssignmentRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DriverAssignmentRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[DriverAssignmentRead]",
+        "type": "object"
+      },
+      "PaginatedResponse_LocationRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[LocationRead]",
+        "type": "object"
+      },
+      "PaginatedResponse_RouteWithDateRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RouteWithDateRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[RouteWithDateRead]",
+        "type": "object"
+      },
+      "ProgressEnum": {
+        "enum": [
+          "Pending",
+          "Running",
+          "Completed",
+          "Failed"
+        ],
+        "title": "ProgressEnum",
+        "type": "string"
+      },
+      "RefreshResponse": {
+        "description": "Refresh token response - only access token, refresh token is set as httpOnly cookie",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token"
+        ],
+        "title": "RefreshResponse",
+        "type": "object"
+      },
+      "Route": {
+        "additionalProperties": false,
+        "description": "Database table model for Routes",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "encoded_polyline": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encoded Polyline"
+          },
+          "ends_at_warehouse": {
+            "default": false,
+            "title": "Ends At Warehouse",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "length": {
+            "minimum": 0,
+            "title": "Length",
+            "type": "number"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "polyline_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Polyline Updated At"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "length"
+        ],
+        "title": "Route",
+        "type": "object"
+      },
+      "RouteGenerationGroupInput": {
+        "description": "Input bundle for a single location group route generation.",
+        "properties": {
+          "location_group": {
+            "$ref": "#/components/schemas/LocationGroup"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/RouteGenerationSettings"
+          }
+        },
+        "required": [
+          "location_group",
+          "settings"
+        ],
+        "title": "RouteGenerationGroupInput",
+        "type": "object"
+      },
+      "RouteGenerationSettings": {
+        "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.",
+        "properties": {
+          "max_stops_per_route": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Stops Per Route"
+          },
+          "num_routes": {
+            "title": "Num Routes",
+            "type": "integer"
+          },
+          "return_to_warehouse": {
+            "default": false,
+            "title": "Return To Warehouse",
+            "type": "boolean"
+          },
+          "route_duration_limit_minutes": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.",
+            "title": "Route Duration Limit Minutes"
+          },
+          "route_start_time": {
+            "format": "date-time",
+            "title": "Route Start Time",
+            "type": "string"
+          },
+          "service_time_minutes": {
+            "default": 15,
+            "exclusiveMinimum": 0,
+            "title": "Service Time Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "route_start_time",
+          "num_routes"
+        ],
+        "title": "RouteGenerationSettings",
+        "type": "object"
+      },
+      "RouteGroupCreate": {
+        "description": "Create request model",
+        "properties": {
+          "drive_date": {
+            "format": "date-time",
+            "title": "Drive Date",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "drive_date"
+        ],
+        "title": "RouteGroupCreate",
+        "type": "object"
+      },
+      "RouteGroupRead": {
+        "description": "Read response model",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "drive_date": {
+            "format": "date-time",
+            "title": "Drive Date",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "num_routes": {
+            "title": "Num Routes",
+            "type": "integer"
+          },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "name",
+          "drive_date",
+          "route_group_id",
+          "num_routes"
+        ],
+        "title": "RouteGroupRead",
+        "type": "object"
+      },
+      "RouteGroupUpdate": {
+        "description": "Update request model - all optional",
+        "properties": {
+          "drive_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drive Date"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "title": "RouteGroupUpdate",
+        "type": "object"
+      },
+      "RoutePatchRequest": {
+        "description": "Request body for PATCH /routes/{route_id}.\n\nAll fields are optional - only provided fields will be updated.\nIf location_ids is provided, the route stops will be fully replaced\nand the routing algorithm will be re-run to update polyline + mileage.",
+        "properties": {
+          "location_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Ids"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "title": "RoutePatchRequest",
+        "type": "object"
+      },
+      "RouteRead": {
+        "description": "Read response model",
+        "properties": {
+          "encoded_polyline": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encoded Polyline"
+          },
+          "ends_at_warehouse": {
+            "default": false,
+            "title": "Ends At Warehouse",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "length": {
+            "minimum": 0,
+            "title": "Length",
+            "type": "number"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "polyline_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Polyline Updated At"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "length",
+          "route_id"
+        ],
+        "title": "RouteRead",
+        "type": "object"
+      },
+      "RouteStatusEnum": {
+        "enum": [
+          "Upcoming",
+          "Completed",
+          "Archived"
+        ],
+        "title": "RouteStatusEnum",
+        "type": "string"
+      },
+      "RouteWithDateRead": {
+        "description": "Read response model for routes with drive date information",
+        "properties": {
+          "drive_date": {
+            "format": "date-time",
+            "title": "Drive Date",
+            "type": "string"
+          },
+          "length": {
+            "title": "Length",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route_id",
+          "name",
+          "notes",
+          "length",
+          "drive_date"
+        ],
+        "title": "RouteWithDateRead",
+        "type": "object"
+      },
+      "StaleEntry": {
+        "description": "An existing location not present in the import; would be archived on ingest.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Group"
+          },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location_id",
+          "contact_name",
+          "address",
+          "phone_number"
+        ],
+        "title": "StaleEntry",
+        "type": "object"
+      },
+      "SuggestedDriverResponse": {
+        "description": "Response model for suggested driver (last assigned to a route).",
+        "properties": {
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "driver_name": {
+            "title": "Driver Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver_id",
+          "driver_name"
+        ],
+        "title": "SuggestedDriverResponse",
+        "type": "object"
+      },
+      "SystemSettingsRead": {
+        "description": "Read response model",
+        "properties": {
+          "default_cap": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Cap"
+          },
+          "import_column_map": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Column Map"
+          },
+          "route_start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Start Time"
+          },
+          "system_settings_id": {
+            "format": "uuid",
+            "title": "System Settings Id",
+            "type": "string"
+          },
+          "warehouse_latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Latitude"
+          },
+          "warehouse_location": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Location"
+          },
+          "warehouse_longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Longitude"
+          }
+        },
+        "required": [
+          "system_settings_id"
+        ],
+        "title": "SystemSettingsRead",
+        "type": "object"
+      },
+      "ValidatedLocationImportEntry": {
+        "description": "LocationImportEntry with required fields guaranteed non-None after validation.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_group": {
+            "title": "Delivery Group",
+            "type": "string"
+          },
+          "dietary_restrictions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dietary Restrictions"
+          },
+          "halal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Halal"
+          },
+          "num_boxes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Boxes"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contact_name",
+          "address",
+          "delivery_group",
+          "phone_number"
+        ],
+        "title": "ValidatedLocationImportEntry",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Backend API for the Food4Kids application",
+    "title": "Food4Kids API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/admins/test": {
+      "get": {
+        "description": "Admin only route example",
+        "operationId": "test",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Test",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Test",
+        "tags": [
+          "admins"
+        ]
+      }
+    },
+    "/announcements/": {
+      "get": {
+        "description": "Retrieve all announcements",
+        "operationId": "get_announcements",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnnouncementRead"
+                  },
+                  "title": "Response Get Announcements",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Announcements",
+        "tags": [
+          "announcements"
+        ]
+      },
+      "post": {
+        "description": "Create a new announcement",
+        "operationId": "create_announcement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/announcements/{announcement_id}": {
+      "delete": {
+        "description": "Delete an announcement",
+        "operationId": "delete_announcement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Announcement",
+        "tags": [
+          "announcements"
+        ]
+      },
+      "get": {
+        "description": "Get a single announcement by ID",
+        "operationId": "get_announcement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Announcement",
+        "tags": [
+          "announcements"
+        ]
+      },
+      "put": {
+        "description": "Update an existing announcement",
+        "operationId": "update_announcement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Returns access token in response body and sets refreshToken as an httpOnly cookie",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/logout/{user_id}": {
+      "post": {
+        "description": "Revokes all of the specified driver's refresh tokens",
+        "operationId": "logout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Logout",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "description": "Returns access token in response body and sets refreshToken as an httpOnly cookie",
+        "operationId": "refresh",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/resetPassword/{email}": {
+      "post": {
+        "description": "Triggers password reset for user with specified email (reset link will be emailed)",
+        "operationId": "reset_password",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "email",
+            "required": true,
+            "schema": {
+              "format": "email",
+              "title": "Email",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reset Password",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/driver-assignments/": {
+      "get": {
+        "description": "Retrieve all driver assignments with pagination",
+        "operationId": "get_driver_assignments",
+        "parameters": [
+          {
+            "description": "Page number (1-indexed)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number (1-indexed)",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items per page",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Number of items per page",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_DriverAssignmentRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Driver Assignments",
+        "tags": [
+          "driver-assignments"
+        ]
+      },
+      "post": {
+        "description": "Create a new driver assignment",
+        "operationId": "create_driver_assignment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverAssignmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverAssignmentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Driver Assignment",
+        "tags": [
+          "driver-assignments"
+        ]
+      }
+    },
+    "/driver-assignments/suggestions": {
+      "get": {
+        "description": "Get a suggested driver for a route on a certain day that is the last assigned to that same route",
+        "operationId": "get_suggested_driver",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "route_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SuggestedDriverResponse"
+                  },
+                  "title": "Response Get Suggested Driver",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Suggested Driver",
+        "tags": [
+          "driver-assignments"
+        ]
+      }
+    },
+    "/driver-assignments/{driver_assignment_id}": {
+      "delete": {
+        "description": "Delete a driver assignment",
+        "operationId": "delete_driver_assignment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Driver Assignment",
+        "tags": [
+          "driver-assignments"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing driver assignment",
+        "operationId": "update_driver_assignment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverAssignmentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverAssignmentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Driver Assignment",
+        "tags": [
+          "driver-assignments"
+        ]
+      }
+    },
+    "/drivers/": {
+      "get": {
+        "description": "Get all drivers, optionally filter by driver_id or email",
+        "operationId": "get_drivers",
+        "parameters": [
+          {
+            "description": "Filter by driver ID",
+            "in": "query",
+            "name": "driver_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by driver ID",
+              "title": "Driver Id"
+            }
+          },
+          {
+            "description": "Filter by email",
+            "in": "query",
+            "name": "email",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by email",
+              "title": "Email"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DriverRead"
+                  },
+                  "title": "Response Get Drivers",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Drivers",
+        "tags": [
+          "drivers"
+        ]
+      },
+      "post": {
+        "description": "Register a new driver, creates a User and Driver object, returns Driver and AuthResponse",
+        "operationId": "register_driver",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverRegister"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverRegisterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Driver",
+        "tags": [
+          "drivers"
+        ]
+      }
+    },
+    "/drivers/{driver_id}": {
+      "delete": {
+        "description": "Delete a driver by ID",
+        "operationId": "delete_driver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Driver",
+        "tags": [
+          "drivers"
+        ]
+      },
+      "get": {
+        "description": "Get a single driver by ID",
+        "operationId": "get_driver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Driver",
+        "tags": [
+          "drivers"
+        ]
+      },
+      "put": {
+        "description": "Update an existing driver",
+        "operationId": "update_driver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Driver",
+        "tags": [
+          "drivers"
+        ]
+      }
+    },
+    "/drivers/{driver_id}/history/": {
+      "delete": {
+        "description": "Delete a monthly driver history entry.",
+        "operationId": "delete_driver_history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2025,
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Month",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Driver History",
+        "tags": [
+          "driver-history"
+        ]
+      },
+      "get": {
+        "description": "Get driver history with optional year and month.\nRules:\n- No year, no month: return all histories\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
+        "operationId": "get_driver_history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2100,
+                  "minimum": 2025,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 12,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DriverHistoryRead"
+                  },
+                  "title": "Response Get Driver History",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Driver History",
+        "tags": [
+          "driver-history"
+        ]
+      },
+      "patch": {
+        "description": "Updates driver history\nRules:\n- Driver history must exist with (driver_id, year, month)",
+        "operationId": "update_driver_history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2025,
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Month",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverHistoryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverHistoryRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Driver History",
+        "tags": [
+          "driver-history"
+        ]
+      },
+      "post": {
+        "description": "Creates new driver history\nRules:\n- Driver must exist with driver_id\n- Must be unique: (driver_id, year, month)",
+        "operationId": "create_driver_history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverHistoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverHistoryRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Driver History",
+        "tags": [
+          "driver-history"
+        ]
+      }
+    },
+    "/drivers/{driver_id}/history/summary": {
+      "get": {
+        "description": "Get lifetime and current year KM summary for a driver",
+        "operationId": "get_driver_history_summary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverHistorySummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Driver History Summary",
+        "tags": [
+          "driver-history"
+        ]
+      }
+    },
+    "/drivers/{driver_id}/history/{year}/export": {
+      "get": {
+        "description": "Export history for all drivers for a specific year. Includes data from that year and the previous year.\n\n- driver_id: Must be \"all\"\n- year: The year to export data for",
+        "operationId": "export_all_drivers_history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "title": "Driver Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export All Drivers History",
+        "tags": [
+          "driver-history"
+        ]
+      }
+    },
+    "/jobs/": {
+      "get": {
+        "description": "Get all jobs",
+        "operationId": "get_jobs",
+        "parameters": [
+          {
+            "description": "Filter by job status",
+            "in": "query",
+            "name": "progress",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ProgressEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by job status",
+              "title": "Progress"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobRead"
+                  },
+                  "title": "Response Get Jobs",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Jobs",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/generate": {
+      "post": {
+        "operationId": "generate_job",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteGenerationGroupInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnqueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/location-groups/": {
+      "get": {
+        "description": "Get all location groups",
+        "operationId": "get_location_groups",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LocationGroupRead"
+                  },
+                  "title": "Response Get Location Groups",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Location Groups",
+        "tags": [
+          "location-groups"
+        ]
+      },
+      "post": {
+        "description": "Create a new location group",
+        "operationId": "create_location_group",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationGroupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Location Group",
+        "tags": [
+          "location-groups"
+        ]
+      }
+    },
+    "/location-groups/{location_group_id}": {
+      "delete": {
+        "description": "Delete a location group by ID",
+        "operationId": "delete_location_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Location Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Location Group",
+        "tags": [
+          "location-groups"
+        ]
+      },
+      "get": {
+        "description": "Get a single location group by ID",
+        "operationId": "get_location_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Location Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Location Group",
+        "tags": [
+          "location-groups"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing location group",
+        "operationId": "update_location_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Location Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationGroupUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Location Group",
+        "tags": [
+          "location-groups"
+        ]
+      }
+    },
+    "/locations/": {
+      "delete": {
+        "description": "Delete all locations",
+        "operationId": "delete_all_locations",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete All Locations",
+        "tags": [
+          "locations"
+        ]
+      },
+      "get": {
+        "description": "Get all locations with pagination",
+        "operationId": "get_locations",
+        "parameters": [
+          {
+            "description": "Page number (1-indexed)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number (1-indexed)",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items per page",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Number of items per page",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_LocationRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Locations",
+        "tags": [
+          "locations"
+        ]
+      },
+      "post": {
+        "description": "Create a new location",
+        "operationId": "create_location",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Location",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/locations/ingest": {
+      "post": {
+        "description": "Persist net-new locations and archive stale ones.",
+        "operationId": "ingest_locations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationIngestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationIngestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Locations",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/locations/review": {
+      "post": {
+        "description": "Review a pending location import: validate rows and (eventually) describe how\nthe import would affect existing locations (net_new / stale / changed).\nRequires a column_map JSON string mapping system field names to file headers.\n\nSide effect: the submitted column_map is persisted to system_settings so it\nbecomes the default mapping on the next import.",
+        "operationId": "review_locations",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_review_locations"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Locations",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/locations/{location_id}": {
+      "delete": {
+        "description": "Delete a location by ID",
+        "operationId": "delete_location",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Location Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Location",
+        "tags": [
+          "locations"
+        ]
+      },
+      "get": {
+        "description": "Get a single location by ID",
+        "operationId": "get_location",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Location Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Location",
+        "tags": [
+          "locations"
+        ]
+      },
+      "patch": {
+        "description": "Update a location by ID",
+        "operationId": "update_location",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Location Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Location",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/note-chains/{note_chain_id}": {
+      "delete": {
+        "description": "Delete a note chain and all its notes (admin only)",
+        "operationId": "delete_note_chain",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_chain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Chain Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Note Chain",
+        "tags": [
+          "note-chains"
+        ]
+      },
+      "get": {
+        "description": "Get a note chain by ID (checks read permission)",
+        "operationId": "get_note_chain",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_chain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Chain Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteChainRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Note Chain",
+        "tags": [
+          "note-chains"
+        ]
+      }
+    },
+    "/note-chains/{note_chain_id}/notes": {
+      "get": {
+        "description": "Get notes for a chain with pagination. Returns unread count and auto-marks as read.",
+        "operationId": "get_notes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_chain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Chain Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Notes",
+        "tags": [
+          "note-chains"
+        ]
+      },
+      "post": {
+        "description": "Add a note to a chain",
+        "operationId": "create_note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_chain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Chain Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Note",
+        "tags": [
+          "note-chains"
+        ]
+      }
+    },
+    "/note-chains/{note_chain_id}/notes/{note_id}": {
+      "delete": {
+        "description": "Delete a note (author or admin only)",
+        "operationId": "delete_note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_chain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Chain Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Note",
+        "tags": [
+          "note-chains"
+        ]
+      },
+      "patch": {
+        "description": "Edit a note's message (author or admin only)",
+        "operationId": "update_note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_chain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Chain Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Note",
+        "tags": [
+          "note-chains"
+        ]
+      }
+    },
+    "/route-groups": {
+      "get": {
+        "description": "Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.\nCan include associated routes in the response.",
+        "operationId": "get_route_groups",
+        "parameters": [
+          {
+            "description": "Filter route groups from this date",
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter route groups from this date",
+              "title": "Start Date"
+            }
+          },
+          {
+            "description": "Filter route groups until this date",
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter route groups until this date",
+              "title": "End Date"
+            }
+          },
+          {
+            "description": "Filter by one or more weekdays",
+            "in": "query",
+            "name": "weekday",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DriveDaysOfWeekEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more weekdays",
+              "title": "Weekday"
+            }
+          },
+          {
+            "description": "Filter by one or more delivery types",
+            "in": "query",
+            "name": "delivery_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryTypeEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more delivery types",
+              "title": "Delivery Type"
+            }
+          },
+          {
+            "description": "Filter by one or more route statuses",
+            "in": "query",
+            "name": "route_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/RouteStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more route statuses",
+              "title": "Route Status"
+            }
+          },
+          {
+            "description": "Filter by one or more driver assignment statuses",
+            "in": "query",
+            "name": "driver_assignment_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DriverAssignmentStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more driver assignment statuses",
+              "title": "Driver Assignment Status"
+            }
+          },
+          {
+            "description": "Include routes in the response",
+            "in": "query",
+            "name": "include_routes",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include routes in the response",
+              "title": "Include Routes",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Get Route Groups",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Route Groups",
+        "tags": [
+          "route-groups"
+        ]
+      },
+      "post": {
+        "description": "Create a new route group",
+        "operationId": "create_route_group",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteGroupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Route Group",
+        "tags": [
+          "route-groups"
+        ]
+      }
+    },
+    "/route-groups/{route_group_id}": {
+      "delete": {
+        "description": "Delete a route group and all its route group memberships",
+        "operationId": "delete_route_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Route Group",
+        "tags": [
+          "route-groups"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing route group",
+        "operationId": "update_route_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteGroupUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Route Group",
+        "tags": [
+          "route-groups"
+        ]
+      }
+    },
+    "/routes": {
+      "get": {
+        "description": "Get routes with pagination and optional filtering for unassigned routes and date range.\nReturns routes with their drive dates - routes can appear multiple times for different dates.\nWhen unassigned_only is False, returns all routes (no assignment filter).\nWhen unassigned_only is True, returns only routes that are unassigned for the given route group.",
+        "operationId": "get_routes",
+        "parameters": [
+          {
+            "description": "If true, only return unassigned routes. If false, return all routes regardless of assignment status.",
+            "in": "query",
+            "name": "unassigned_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "If true, only return unassigned routes. If false, return all routes regardless of assignment status.",
+              "title": "Unassigned Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Filter route groups from this date",
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "description": "Filter route groups from this date",
+              "title": "Start Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter route groups until this date",
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "description": "Filter route groups until this date",
+              "title": "End Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number (1-indexed)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number (1-indexed)",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items per page",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Number of items per page",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_RouteWithDateRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Routes",
+        "tags": [
+          "routes"
+        ]
+      }
+    },
+    "/routes/{route_id}": {
+      "delete": {
+        "description": "Delete a route by its unique identifier.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to delete.\n    session (AsyncSession): The database session dependency.\n    _ (bool): Indicates that the user is authenticated as a driver (injected by dependency).\n\nReturns:\n    None. Responds with HTTP 204 No Content on successful deletion.",
+        "operationId": "delete_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Route",
+        "tags": [
+          "routes"
+        ]
+      },
+      "get": {
+        "description": "Get a route by its unique identifier.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to GET.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    None. Responds with HTTP 200 OK on successful get.",
+        "operationId": "get_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Route"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Route",
+        "tags": [
+          "routes"
+        ]
+      },
+      "patch": {
+        "description": "Update a route's metadata (name, notes) and/or its stop order/locations.\n\nIf location_ids is provided in the request body:\n- The route's stops are fully replaced with the new ordered list.\n- The routing algorithm is re-run to compute the new polyline and mileage.\n- This will affect ALL route groups that share this route.\n\nIf only name/notes are provided, stops and mileage are left unchanged.",
+        "operationId": "update_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutePatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Route",
+        "tags": [
+          "routes"
+        ]
+      }
+    },
+    "/routes/{route_id}/google-maps-link": {
+      "get": {
+        "description": "Generate a Google Maps directions URL for a route.\n\nTakes a route ID, looks up its stops in order, and builds a Google Maps\ndirections link starting from the warehouse and visiting each stop.\n\nParameters:\n    route_id (UUID): The unique identifier of the route.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    The Google Maps directions URL as a plain string.",
+        "operationId": "get_google_maps_link",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Google Maps Link",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Google Maps Link",
+        "tags": [
+          "routes"
+        ]
+      }
+    },
+    "/system-settings/": {
+      "get": {
+        "description": "Return the singleton system settings row, or null if none has been created.",
+        "operationId": "get_system_settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SystemSettingsRead"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get System Settings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get System Settings",
+        "tags": [
+          "system-settings"
+        ]
+      }
+    },
+    "/upload/": {
+      "post": {
+        "description": "Create a file upload",
+        "operationId": "upload_image",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_image"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Upload Image",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Image",
+        "tags": [
+          "upload"
+        ]
+      }
+    },
+    "/upload/{filename}": {
+      "delete": {
+        "description": "Delete a file given the filename",
+        "operationId": "delete_image",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "title": "Filename",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Image",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Image",
+        "tags": [
+          "upload"
+        ]
+      }
+    }
+  }
+}

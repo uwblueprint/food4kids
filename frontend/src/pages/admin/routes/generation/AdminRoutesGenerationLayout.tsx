@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useSystemSettings } from '@/api';
+import type { LocationImportResponse } from '@/api/generated/types.gen';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
-import type { LocationImportResponse } from '@/types/location';
 
 import { ProgressStepper } from '../components';
 

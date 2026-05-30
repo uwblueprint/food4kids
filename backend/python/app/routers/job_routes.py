@@ -61,6 +61,9 @@ async def get_job(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
             )
+    except HTTPException:
+        # Don't let the 404 get swallowed and rewrapped as a 500 below.
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

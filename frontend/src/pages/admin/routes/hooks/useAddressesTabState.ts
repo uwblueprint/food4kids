@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
+import type { LocationRead } from '@/api/generated/types.gen';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
-import type { AddressRow } from '@/types/address';
 
 export interface AddressesFilterState {
   routeStatuses: Set<string>;
@@ -21,7 +21,7 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
 });
 
 export interface AddressesTabState {
-  rows: AddressRow[];
+  rows: LocationRead[];
   isLoading: boolean;
   search: UseSearchReturn;
   filterOpen: boolean;
@@ -46,17 +46,14 @@ export function useAddressesTabState(): AddressesTabState {
     (s) => s.size > 0
   );
 
-  const { data: rows = [], isLoading } = useAddresses({
-    search: search.value || undefined,
-    routeStatuses:
-      appliedFilters.routeStatuses.size > 0
-        ? [...appliedFilters.routeStatuses]
-        : undefined,
-    deliveryTypes:
-      appliedFilters.deliveryTypes.size > 0
-        ? [...appliedFilters.deliveryTypes]
-        : undefined,
-  });
+  // NOTE: GET /locations has no search/filter params yet, so search and the
+  // filter chips below are local-only UI for now (they don't reach the
+  // backend). Wiring server-side search/filtering is tracked as future work.
+  const { data, isLoading } = useAddresses();
+  // GET /locations is paginated; we currently surface only the first page.
+  // The tab is a WIP shell, so pagination controls (and a total count) are
+  // future work alongside the server-side search/filtering above.
+  const rows = data?.items ?? [];
 
   const openFilters = () => {
     setDraftFilters(copyFilters(appliedFilters));

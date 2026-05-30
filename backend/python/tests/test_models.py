@@ -32,11 +32,9 @@ from app.models.driver_history import (
     DriverHistoryUpdate,
 )
 from app.models.enum import (
-    EntityEnum,
     NotePermission,
     ProgressEnum,
     RoleEnum,
-    SimpleEntityEnum,
 )
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
@@ -369,6 +367,7 @@ class TestCoreModels:
         """Test Location model core operations."""
         # Create with all fields
         location = Location(
+            location_group_id=uuid4(),
             school_name="Central Elementary",
             contact_name="Jane Smith",
             address="123 Main St, City, State 12345",
@@ -386,6 +385,7 @@ class TestCoreModels:
 
         # Create with minimal fields
         location_minimal = Location(
+            location_group_id=uuid4(),
             contact_name="John Doe",
             address="456 Oak Ave, City, State 12345",
             phone_number="(555) 987-6543",
@@ -400,6 +400,8 @@ class TestCoreModels:
         # Read model
         location_read = LocationRead(
             location_id=uuid4(),
+            location_group_id=uuid4(),
+            location_group_name="Central Elementary",
             contact_name="Jane Smith",
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
@@ -697,18 +699,6 @@ class TestEnumsAndSerialization:
         assert ProgressEnum.COMPLETED.value == "Completed"
         assert ProgressEnum.FAILED.value == "Failed"
 
-        # Test EntityEnum
-        assert EntityEnum.A.value == "A"
-        assert EntityEnum.B.value == "B"
-        assert EntityEnum.C.value == "C"
-        assert EntityEnum.D.value == "D"
-
-        # Test SimpleEntityEnum
-        assert SimpleEntityEnum.A.value == "A"
-        assert SimpleEntityEnum.B.value == "B"
-        assert SimpleEntityEnum.C.value == "C"
-        assert SimpleEntityEnum.D.value == "D"
-
         # Test NotePermission
         assert NotePermission.ADMIN.value == "Admin"
         assert NotePermission.ALL.value == "All"
@@ -769,6 +759,7 @@ class TestEnumsAndSerialization:
 
         # Test default values across models
         location = Location(
+            location_group_id=uuid4(),
             contact_name="John Doe",
             address="456 Oak Ave",
             phone_number="(555) 987-6543",
