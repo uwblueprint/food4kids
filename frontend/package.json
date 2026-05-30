@@ -9,6 +9,8 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
+    "email:dev": "email dev --dir emails --port 3000",
+    "email:export": "email export --outDir emails/html",
     "preview": "vite preview",
     "generate:api": "node scripts/fetch-openapi.mjs && openapi-ts"
   },
