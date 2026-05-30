@@ -58,10 +58,16 @@ async def get_route_groups(
             include_routes,
         )
         result = []
-        for route_group in route_groups:
+        for row in route_groups:
+            route_group, num_locations, num_boxes, num_drivers_assigned, delivery_type_val, status_val = row
             data = RouteGroupRead.model_validate(
                 route_group, from_attributes=True
             ).model_dump()
+            data["num_locations"] = num_locations
+            data["num_boxes"] = num_boxes
+            data["num_drivers_assigned"] = num_drivers_assigned
+            data["delivery_type"] = delivery_type_val
+            data["status"] = status_val
             if include_routes:
                 data["routes"] = [
                     {
