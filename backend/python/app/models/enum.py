@@ -36,6 +36,17 @@ class DeliveryTypeEnum(str, Enum):
     SUMMER = "Summer"
 
 
+class LocationDeliveryTypeEnum(str, Enum):
+    SCHOOL = "School"
+    FAMILY = "Family"
+
+
+class LocationStatusEnum(str, Enum):
+    ACTIVE = "Active"
+    UNSCHEDULED = "Unscheduled"
+    INACTIVE = "Inactive"
+
+
 class RouteStatusEnum(str, Enum):
     UPCOMING = "Upcoming"
     COMPLETED = "Completed"

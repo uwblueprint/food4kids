@@ -1,19 +1,27 @@
 import json
 from uuid import UUID
 
-from backend.python.app.models.enum import DeliveryTypeEnum
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_location_service
 from app.models import get_session
+from app.models.enum import LocationDeliveryTypeEnum, LocationStatusEnum
 from app.models.location import (
     LocationCreate,
     LocationImportResponse,
     LocationIngestRequest,
     LocationIngestResponse,
     LocationRead,
-    LocationState,
     LocationUpdate,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
@@ -24,11 +32,11 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 
 @router.get("/", response_model=PaginatedResponse[LocationRead])
 async def get_locations(
-    delivery_type: list[DeliveryTypeEnum] | None = Query(
+    delivery_type: list[LocationDeliveryTypeEnum] | None = Query(
         None, description="Filter by one or more delivery types"
     ),
-    state: list[LocationState] | None = Query(
-        None, description="Filter by one or more route statuses"
+    status_filter: list[LocationStatusEnum] | None = Query(
+        None, alias="status", description="Filter by one or more location statuses"
     ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
@@ -38,7 +46,9 @@ async def get_locations(
     Get all locations with pagination
     """
     try:
-        result = await location_service.get_locations(session, pagination, delivery_type, state)
+        result = await location_service.get_locations(
+            session, pagination, delivery_type, status_filter
+        )
         return PaginatedResponse.create(
             items=[LocationRead.model_validate(loc) for loc in result.items],
             total=result.total,

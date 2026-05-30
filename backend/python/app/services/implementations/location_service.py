@@ -1,17 +1,21 @@
 import asyncio
 import logging
 import os
+from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, TypeGuard
+from typing import TYPE_CHECKING, Any, TypeGuard
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from fastapi import UploadFile
+from sqlalchemy import and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
-from app.models.enum import NotePermission
+from app.config import settings
+from app.models.enum import LocationDeliveryTypeEnum, LocationStatusEnum, NotePermission
 from app.models.location import (
     AlertCode,
     Location,
@@ -28,6 +32,9 @@ from app.models.location import (
 )
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
+from app.models.route_group import RouteGroup
+from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
@@ -67,6 +74,7 @@ class LocationService:
         self.logger = logger
         self.google_maps_service = google_maps_client
         self.system_settings_service = system_settings_service
+        self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -92,16 +100,79 @@ class LocationService:
             raise e
 
     async def get_locations(
-        self, session: AsyncSession, pagination: PaginationParams
+        self,
+        session: AsyncSession,
+        pagination: PaginationParams,
+        delivery_type: list[LocationDeliveryTypeEnum] | None = None,
+        status_filter: list[LocationStatusEnum] | None = None,
     ) -> PaginatedResponse[Location]:
         """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
             statement = (
                 select(Location)
-                .where(Location.state == LocationState.ACTIVE)
                 .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 .order_by(Location.created_at.desc())  # type: ignore[union-attr]
             )
+
+            if delivery_type:
+                delivery_conditions: list[Any] = []
+                if LocationDeliveryTypeEnum.SCHOOL in delivery_type:
+                    delivery_conditions.append(
+                        and_(
+                            Location.school_name.isnot(None),  # type: ignore[union-attr]
+                            Location.school_name != "",
+                        )
+                    )
+                if LocationDeliveryTypeEnum.FAMILY in delivery_type:
+                    delivery_conditions.append(
+                        or_(
+                            Location.school_name.is_(None),  # type: ignore[union-attr]
+                            Location.school_name == "",
+                        )
+                    )
+                if delivery_conditions:
+                    statement = statement.where(or_(*delivery_conditions))
+
+            today_start = datetime.now(self.timezone).replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+            )
+            scheduled_query = (
+                select(1)
+                .select_from(RouteStop)
+                .join(
+                    RouteGroupMembership,
+                    RouteStop.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
+                )
+                .join(
+                    RouteGroup,
+                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
+                )
+                .where(
+                    RouteStop.location_id == Location.location_id,
+                    RouteGroup.drive_date >= today_start,  # type: ignore[arg-type]
+                )
+            )
+            is_scheduled = scheduled_query.exists()
+
+            if status_filter:
+                status_conditions: list[Any] = []
+                if LocationStatusEnum.ACTIVE in status_filter:
+                    status_conditions.append(
+                        and_(Location.state == LocationState.ACTIVE, is_scheduled)
+                    )
+                if LocationStatusEnum.UNSCHEDULED in status_filter:
+                    status_conditions.append(
+                        and_(Location.state == LocationState.ACTIVE, ~is_scheduled)
+                    )
+                if LocationStatusEnum.INACTIVE in status_filter:
+                    status_conditions.append(
+                        and_(Location.state == LocationState.ARCHIVED, ~is_scheduled)
+                    )
+                if status_conditions:
+                    statement = statement.where(or_(*status_conditions))
+            else:
+                statement = statement.where(Location.state == LocationState.ACTIVE)
+
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
             return PaginatedResponse.create(

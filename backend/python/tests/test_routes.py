@@ -223,6 +223,161 @@ class TestLocationRoutes:
         assert data["total"] >= 1
 
     @pytest.mark.asyncio
+    async def test_get_locations_filters_by_delivery_type(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations filters school vs family locations by school_name."""
+        school_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+                "school_name": "Central Elementary",
+                "contact_name": "School Contact",
+                "phone_number": "(555) 111-1111",
+            },
+        )
+        family_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+                "school_name": None,
+                "contact_name": "Family Contact",
+                "phone_number": "(555) 222-2222",
+            },
+        )
+        assert school_response.status_code == 201
+        assert family_response.status_code == 201
+
+        school_id = school_response.json()["location_id"]
+        family_id = family_response.json()["location_id"]
+
+        school_filter = await async_client.get(
+            "/locations/", params={"delivery_type": "School"}
+        )
+        assert school_filter.status_code == 200
+        school_ids = {loc["location_id"] for loc in school_filter.json()["items"]}
+        assert school_id in school_ids
+        assert family_id not in school_ids
+
+        family_filter = await async_client.get(
+            "/locations/", params={"delivery_type": "Family"}
+        )
+        assert family_filter.status_code == 200
+        family_ids = {loc["location_id"] for loc in family_filter.json()["items"]}
+        assert family_id in family_ids
+        assert school_id not in family_ids
+
+    @pytest.mark.asyncio
+    async def test_get_locations_filters_by_status(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations derives status from import state and future route usage."""
+        from app.models.location import Location, LocationState
+        from app.models.route import Route
+        from app.models.route_group import RouteGroup
+        from app.models.route_group_membership import RouteGroupMembership
+        from app.models.route_stop import RouteStop
+
+        scheduled_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            school_name=None,
+            contact_name="Scheduled Family",
+            address="1 Scheduled St",
+            phone_number="5551111111",
+            state=LocationState.ACTIVE,
+        )
+        unscheduled_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            school_name=None,
+            contact_name="Unscheduled Family",
+            address="2 Unscheduled St",
+            phone_number="5552222222",
+            state=LocationState.ACTIVE,
+        )
+        inactive_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            school_name=None,
+            contact_name="Inactive Family",
+            address="3 Inactive St",
+            phone_number="5553333333",
+            state=LocationState.ARCHIVED,
+        )
+        route = Route(name="Future Route", length=1.0)
+        route_group = RouteGroup(
+            name="Future Route Group", drive_date=datetime(2099, 1, 1)
+        )
+        test_session.add_all(
+            [
+                scheduled_location,
+                unscheduled_location,
+                inactive_location,
+                route,
+                route_group,
+            ]
+        )
+        await test_session.commit()
+        await test_session.refresh(scheduled_location)
+        await test_session.refresh(unscheduled_location)
+        await test_session.refresh(inactive_location)
+        await test_session.refresh(route)
+        await test_session.refresh(route_group)
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=route.route_id,
+                    location_id=scheduled_location.location_id,
+                    stop_number=1,
+                ),
+                RouteGroupMembership(
+                    route_group_id=route_group.route_group_id,
+                    route_id=route.route_id,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        active_response = await async_client.get(
+            "/locations/", params={"status": "Active"}
+        )
+        unscheduled_response = await async_client.get(
+            "/locations/", params={"status": "Unscheduled"}
+        )
+        inactive_response = await async_client.get(
+            "/locations/", params={"status": "Inactive"}
+        )
+
+        assert active_response.status_code == 200
+        assert unscheduled_response.status_code == 200
+        assert inactive_response.status_code == 200
+
+        active_ids = {loc["location_id"] for loc in active_response.json()["items"]}
+        unscheduled_ids = {
+            loc["location_id"] for loc in unscheduled_response.json()["items"]
+        }
+        inactive_ids = {loc["location_id"] for loc in inactive_response.json()["items"]}
+
+        assert str(scheduled_location.location_id) in active_ids
+        assert str(unscheduled_location.location_id) not in active_ids
+        assert str(inactive_location.location_id) not in active_ids
+
+        assert str(unscheduled_location.location_id) in unscheduled_ids
+        assert str(scheduled_location.location_id) not in unscheduled_ids
+        assert str(inactive_location.location_id) not in unscheduled_ids
+
+        assert str(inactive_location.location_id) in inactive_ids
+        assert str(scheduled_location.location_id) not in inactive_ids
+        assert str(unscheduled_location.location_id) not in inactive_ids
+
+    @pytest.mark.asyncio
     async def test_get_location_by_id(
         self,
         async_client: AsyncClient,
