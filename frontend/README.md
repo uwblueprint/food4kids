@@ -1,4 +1,4 @@
-# Frontend
+ # Frontend
  
 Built with React 19, TypeScript, and Vite.
 
@@ -213,3 +213,13 @@ pnpm generate:api
 ```
 
 **Config files:** `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `.prettierrc`, `openapi-ts.config.ts`
+
+Anytime you add/remove packages in the future, you'll need to reset the volume:
+
+```
+
+docker compose down
+docker volume rm food4kids_frontend_node_modules
+docker compose up --build
+
+````
