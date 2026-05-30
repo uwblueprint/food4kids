@@ -18,7 +18,7 @@ def build_google_maps_directions_url(
     Each stop is represented by its address (URL-encoded), falling back to
     raw ``lat,lon`` coordinates when no address is available.
 
-    Google Maps ``/dir/`` URLs support a maximum of 10 waypoints (excluding
+    Google Maps ``/dir/`` URLs support a maximum of 50 waypoints (excluding
     the origin).  Browsers generally refuse URLs longer than ~2 000
     characters.  Both limits are enforced here.
 
@@ -32,10 +32,10 @@ def build_google_maps_directions_url(
 
     Raises:
         ValueError: If a location has neither an address nor coordinates,
-            if there are more than 10 stops, or if the resulting URL
+            if there are more than 50 stops, or if the resulting URL
             exceeds 2 000 characters.
     """
-    _MAX_WAYPOINTS = 10
+    _MAX_WAYPOINTS = 50
     _MAX_URL_LENGTH = 2000
 
     if len(locations) > _MAX_WAYPOINTS:
