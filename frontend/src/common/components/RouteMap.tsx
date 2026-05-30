@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const DEFAULT_CENTER: [number, number] = [43.4643, -80.5204];
 const DEFAULT_ZOOM = 12;
 const POLYLINE_COLOR = '#226ca7'; // --color-blue-300
+const POLYLINE_CASING_COLOR = '#ffffff'; // --color-grey-100
 
 export interface RouteMapProps {
   /** Google-encoded polyline string (precision 5, [lat, lng] order). */
@@ -58,7 +59,7 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
             {/* White casing underneath for contrast against busy tiles */}
             <Polyline
               positions={coords}
-              pathOptions={{ color: '#ffffff', weight: 9, opacity: 0.9 }}
+              pathOptions={{ color: POLYLINE_CASING_COLOR, weight: 9, opacity: 0.9 }}
             />
             {/* Main route line on top */}
             <Polyline
