@@ -58,6 +58,11 @@ class RouteGroupRead(RouteGroupBase):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     num_routes: int
+    num_locations: int = 0
+    num_boxes: int = 0
+    num_drivers_assigned: int = 0
+    delivery_type: str | None = None
+    status: str | None = None
 
 
 class RouteGroupUpdate(SQLModel):
