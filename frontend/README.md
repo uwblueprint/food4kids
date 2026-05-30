@@ -1,4 +1,4 @@
-# Frontend
+ # Frontend
  
 Built with React 19, TypeScript, and Vite.
 
@@ -7,7 +7,7 @@ Built with React 19, TypeScript, and Vite.
 ```
 frontend/
 ├── src/
-│   ├── api/                    # API client configuration
+│   ├── api/                    # Hand-written hooks + generated OpenAPI client (see "API Client" below)
 │   ├── assets/
 │   │   ├── fonts/             # Custom web fonts
 │   │   └── images/            # Images, logos, icons
@@ -146,13 +146,48 @@ Strict mode is enabled. Follow these placement rules:
 
 - **Global/shared types** → `src/types/`
 - **Component-specific types** → inline in the component file
-- **API response types** → `src/api/types/`
+- **API request/response types** → `src/api/generated/types.gen.ts` (auto-generated from FastAPI; see "API Client")
 
 **Best practices:**
 
 - Avoid `any` — use `unknown` with type guards
 - Use union types for string literals: `type Status = 'pending' | 'approved' | 'rejected'`
 - Always define a props interface; use named destructuring with defaults
+
+## API Client (generated from OpenAPI)
+
+The frontend talks to the backend through a TypeScript SDK generated from FastAPI's OpenAPI schema. This gives end-to-end types: a backend schema change becomes a TypeScript compile error at every call site.
+
+**Layout:**
+
+| Path                       | What it is                                                   | Commit? |
+| -------------------------- | ------------------------------------------------------------ | ------- |
+| `openapi.json`             | Snapshot of the backend's `/openapi.json`                    | yes     |
+| `openapi-ts.config.ts`     | Codegen config                                               | yes     |
+| `src/api/runtime.ts`       | Wires the generated client to reuse `src/lib/axiosClient.ts` | yes     |
+| `src/api/generated/`       | Auto-generated SDK + types + tanstack-query helpers          | yes     |
+| `src/api/*.ts`             | Hand-written hook layer that consumes the generated SDK      | yes     |
+
+`openapi.json` and `src/api/generated/` are both committed so fresh clones and CI work without a generate step. The snapshot also doubles as a human-readable changelog of the API contract — when a PR changes the backend, the diff in `openapi.json` shows the contract change.
+
+**Regenerate after backend changes** (backend must be running):
+
+```bash
+pnpm generate:api
+```
+
+This hits `http://localhost:8080/openapi.json`, normalizes it into `openapi.json`, and runs `openapi-ts`. Point at a different URL with `OPENAPI_URL=...`.
+
+CI enforces that `openapi.json` matches the backend schema (the `OpenAPI client in sync` workflow): if you change a backend model/route without regenerating, the check fails. The generated client under `src/api/generated/` is a deterministic function of `openapi.json` + the pinned `@hey-api/openapi-ts`, so keeping the snapshot in sync keeps the client in sync.
+
+**Using the generated client.** Prefer the tanstack-query helpers from `src/api/generated/@tanstack/react-query.gen.ts` over the raw SDK functions — they produce query keys and matching `queryOptions` / mutation configs for you. See `src/api/system-settings.ts` for the query pattern and `src/api/locations.ts` for a mutation (incl. multipart upload).
+
+```ts
+import { useQuery } from '@tanstack/react-query';
+import { getSystemSettingsOptions } from '@/api/generated/@tanstack/react-query.gen';
+
+const { data, isLoading } = useQuery(getSystemSettingsOptions());
+```
 
 ## Development
 
@@ -172,6 +207,19 @@ pnpm build
 pnpm lint
 pnpm lint:fix
 pnpm format
+
+# Regenerate API client after backend changes (backend must be running)
+pnpm generate:api
 ```
 
-**Config files:** `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `.prettierrc`
+**Config files:** `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `.prettierrc`, `openapi-ts.config.ts`
+
+Anytime you add/remove packages in the future, you'll need to reset the volume:
+
+```
+
+docker compose down
+docker volume rm food4kids_frontend_node_modules
+docker compose up --build
+
+````

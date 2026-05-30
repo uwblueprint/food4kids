@@ -1,0 +1,87 @@
+name: OpenAPI client in sync
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  openapi-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Only do work when something that could change the contract changed.
+      # The job still runs (and reports success) otherwise, so it can be a
+      # required check without getting stuck on unrelated PRs.
+      - name: Filter changed files
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            contract:
+              - "backend/python/**"
+              - "frontend/openapi.json"
+              - "frontend/scripts/fetch-openapi.mjs"
+
+      - name: Set up Python
+        if: steps.changes.outputs.contract == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/python/requirements.txt
+
+      - name: Install Python dependencies
+        if: steps.changes.outputs.contract == 'true'
+        working-directory: ./backend/python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up pnpm
+        if: steps.changes.outputs.contract == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        if: steps.changes.outputs.contract == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.11.1"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Node.js dependencies
+        if: steps.changes.outputs.contract == 'true'
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      # Dump the schema by introspecting the app (no server, no DB) and
+      # re-normalize it through the same script `pnpm generate:api` uses, so
+      # the comparison is byte-for-byte.
+      - name: Regenerate openapi.json from the backend
+        if: steps.changes.outputs.contract == 'true'
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend/python
+          APP_ENV: testing
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          python backend/python/scripts/dump_openapi_schema.py /tmp/openapi-raw.json
+          cd frontend
+          OPENAPI_FILE=/tmp/openapi-raw.json node scripts/fetch-openapi.mjs
+
+      - name: Fail if openapi.json is out of date
+        if: steps.changes.outputs.contract == 'true'
+        run: |
+          if ! git diff --exit-code frontend/openapi.json; then
+            echo "::error::frontend/openapi.json is out of sync with the backend schema."
+            echo "Run 'pnpm generate:api' in frontend/ (with the backend running) and commit the result."
+            exit 1
+          fi

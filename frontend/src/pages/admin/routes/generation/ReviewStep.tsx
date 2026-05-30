@@ -6,6 +6,11 @@ import {
   useOutletContext,
 } from 'react-router-dom';
 
+import type {
+  ChangedEntry,
+  NetNewEntry,
+  StaleEntry,
+} from '@/api/generated/types.gen';
 import CheckIcon from '@/assets/icons/check.svg?react';
 import XIcon from '@/assets/icons/x.svg?react';
 import type { Column } from '@/common/components';
@@ -20,12 +25,6 @@ import {
   ModalTitle,
   Tag,
 } from '@/common/components';
-import type {
-  ChangedEntry,
-  ChangedField,
-  NetNewEntry,
-  StaleEntry,
-} from '@/types/location';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
@@ -33,6 +32,13 @@ import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * A field that either holds a plain value or a before/after change pair.
+ * The generated client emits concrete variants (ChangedFieldStr, etc.); this
+ * generic mirrors their shape for the isChanged guard and ChangedCell below.
+ */
+type ChangedField<T> = { new_value: T; old_value: T };
 
 function isChanged<T>(v: T | ChangedField<T>): v is ChangedField<T> {
   return (
@@ -48,11 +54,11 @@ function ChangedCell({
 }: {
   value:
     | string
-    | null
-    | ChangedField<string | null>
-    | ChangedField<number | null>
     | number
-    | null;
+    | null
+    | undefined
+    | ChangedField<string | null>
+    | ChangedField<number | null>;
 }) {
   if (!isChanged(value)) {
     return <span>{value ?? '—'}</span>;

@@ -10,7 +10,7 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import prettier from 'eslint-config-prettier'
 
 export default [
-  { ignores: ['dist', 'build'] },
+  { ignores: ['dist', 'build', 'src/api/generated'] },
   {
     files: ['**/*.{ts,tsx}'],
     ...js.configs.recommended,
