@@ -26,4 +26,6 @@ git -C "$REPO_ROOT" add frontend/openapi.json frontend/src/api/generated
 
 if ! git -C "$REPO_ROOT" diff --cached --quiet -- frontend/openapi.json frontend/src/api/generated; then
   echo "openapi: staged regenerated client into this commit."
+else
+  echo "openapi: client already in sync — nothing to stage."
 fi

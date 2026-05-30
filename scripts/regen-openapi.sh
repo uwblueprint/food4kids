@@ -21,6 +21,8 @@ if [[ -x "$REPO_ROOT/backend/python/venv/bin/python" ]]; then
   PYTHON="$REPO_ROOT/backend/python/venv/bin/python"
 elif command -v python3 >/dev/null 2>&1; then
   PYTHON="$(command -v python3)"
+  echo "⚠ backend/python/venv not found — falling back to system python3." >&2
+  echo "  The dump will fail unless the backend deps (FastAPI, Pydantic, …) are installed there." >&2
 else
   echo "✘ No Python interpreter found (looked for backend/python/venv/bin/python and python3)." >&2
   exit 1

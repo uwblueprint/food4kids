@@ -11,7 +11,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
     "preview": "vite preview",
     "generate:api": "node scripts/fetch-openapi.mjs && openapi-ts",
-    "prepare": "git config core.hooksPath scripts/git-hooks"
+    "prepare": "node scripts/setup-hooks.mjs"
   },
   "pnpm": {
     "overrides": {
