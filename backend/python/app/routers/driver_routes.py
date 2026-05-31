@@ -221,3 +221,32 @@ async def delete_driver(
     Delete a driver by ID
     """
     await driver_service.delete_driver_by_id(session, driver_id)
+
+from app.services.implementations.email_dispatcher import EmailDispatcher
+from app.dependencies.services import get_email_dispatcher_depends
+
+@router.post("/test-event-email")
+async def test_event_email(
+    test_email: str, 
+    dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends)
+):
+    """
+    Temporary endpoint to test event-driven emails.
+    Delete this after testing!
+    """
+    simulated_db_info = {
+        "first_name": "Test-Driver-Bob",
+        "url": "https://food4kids.ca/fake-link-123"
+    }
+
+    # Test account creation email
+    await dispatcher.dispatch(
+        email_type="account-creation",
+        to=test_email,
+        context={
+            "Driver_Name_To_Replace": simulated_db_info["first_name"], 
+            "Sign_Up_URL": simulated_db_info["url"], 
+        }
+    )
+
+    return {"message": f"Test email dispatched to {test_email}!"}

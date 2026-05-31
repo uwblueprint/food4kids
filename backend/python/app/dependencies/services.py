@@ -37,6 +37,8 @@ from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
+from app.services.implementations.email_dispatcher import EmailDispatcher
+from app.templates.email_renderer import TemplateRenderer
 
 
 @lru_cache
@@ -68,6 +70,26 @@ def get_email_service() -> EmailService:
         "Food4Kids",
     )
 
+@lru_cache
+def get_template_renderer() -> TemplateRenderer:
+    """Get template renderer instance"""
+    logger = get_logger()
+    return TemplateRenderer(template_dir="./app/templates", logger=logger)
+
+
+@lru_cache
+def get_email_dispatcher() -> EmailDispatcher:
+    """Get email dispatcher instance"""
+    return EmailDispatcher(
+        email_service=get_email_service(),
+        template_renderer=get_template_renderer(),
+        logger=get_logger(),
+    )
+
+
+def get_email_dispatcher_depends() -> EmailDispatcher:
+    """Get email dispatcher for dependency injection in route handlers"""
+    return get_email_dispatcher()
 
 @lru_cache
 def get_user_service() -> UserService:

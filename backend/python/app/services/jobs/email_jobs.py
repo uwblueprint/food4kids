@@ -1,0 +1,124 @@
+"""Scheduled email sending jobs
+
+This module contains all cron-scheduled email jobs that run at specific times.
+Jobs use the unified EmailDispatcher to render and send emails.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+
+from sqlalchemy import and_
+from sqlmodel import select
+
+from app.dependencies.services import get_logger, get_email_dispatcher
+from app.models.driver import Driver
+from app.models.driver_assignment import DriverAssignment
+from app.models.route import Route
+from app.models.user import User
+
+
+async def send_route_reminders() -> None:
+    """Scheduled job: Send route reminders to drivers for tomorrow's routes.
+    
+    Runs daily (typically at 7:00 AM) and sends reminder emails to all drivers
+    assigned to routes the next day.
+    
+    This job:
+    - Queries all driver assignments for tomorrow
+    - For each driver, renders and sends a route reminder email
+    - Logs successes and failures individually
+    - Continues sending even if one email fails
+    """
+
+    from app.models import async_session_maker_instance
+
+    logger = get_logger()
+    dispatcher = get_email_dispatcher()
+
+    if async_session_maker_instance is None:
+        logger.error("Database session maker not initialized")
+        return
+
+    tomorrow = date.today() + timedelta(days=1)
+    start_of_day = datetime.combine(tomorrow, datetime.min.time())
+    end_of_day = datetime.combine(tomorrow, datetime.max.time())
+
+    try:
+        async with async_session_maker_instance() as session:
+            # Get all drivers assigned to routes tomorrow
+            statement = (
+                select(
+                    User.email,
+                    User.name,
+                    DriverAssignment.time,
+                    Route.length,
+                )
+                .join(Route, DriverAssignment.route_id == Route.route_id)  # type: ignore[arg-type]
+                .join(Driver, DriverAssignment.driver_id == Driver.driver_id)  # type: ignore[arg-type]
+                .join(User, Driver.user_id == User.user_id)  # type: ignore[arg-type]
+                .where(
+                    and_(
+                        DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
+                        DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
+                    )
+                )
+                .order_by(User.email)
+            )
+
+            result = await session.execute(statement)
+            upcoming_routes = result.all()
+
+            if not upcoming_routes:
+                logger.info("No upcoming routes found for tomorrow, skipping reminders")
+                return
+
+            sent_count = 0
+            failed_count = 0
+
+            # Send reminder email to each driver
+            for row in upcoming_routes:
+                recipient_email = row.email
+                driver_name = row.name
+                route_date: datetime = row.time
+                route_distance = row.length
+
+                # Format date, time, and distance for email
+                date_only = route_date.date().strftime("%A, %B %d, %Y")
+                time_only = route_date.time().strftime("%I:%M %p")
+                rounded_distance = str(round(route_distance))
+
+                # Prepare context for template
+                context = {
+                    "driver_name": driver_name,
+                    "route_date": date_only,
+                    "route_time": time_only,
+                    "route_length": rounded_distance,
+                    "view_url": f"https://app.example.com/routes",  # TODO: Update with actual route view URL
+                }
+
+                try:
+                    await dispatcher.dispatch(
+                        email_type="route-reminder",
+                        to=recipient_email,
+                        context=context,
+                    )
+                    sent_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(
+                        f"Failed to send route reminder to {recipient_email}: {e!s}",
+                        exc_info=True,
+                    )
+                    # Continue sending to other drivers even if one fails
+
+            logger.info(
+                f"Route reminder job completed: sent {sent_count}, failed {failed_count}"
+            )
+
+    except Exception as error:
+        logger.error(
+            f"Failed to process route reminder emails: {error!s}",
+            exc_info=True,
+        )
+        raise error
