@@ -16,7 +16,7 @@ class UserInviteService:
         self.logger = logger
 
     async def get_user_invite_by_id(
-        self, session: AsyncSession, user_invite_id: UUID
+        self, session: AsyncSession, user_invite_id: UUID, for_update: bool = False
     ) -> UserInvite | None:
         """Get user invite by ID - returns SQLModel instance or None if no UserInvite exists"""
         statement = (
@@ -24,6 +24,9 @@ class UserInviteService:
             .where(UserInvite.user_invite_id == user_invite_id)
             .options(selectinload(UserInvite.user).selectinload(User.driver))  # type: ignore[arg-type]
         )
+        if for_update:
+            statement = statement.with_for_update()
+
         result = await session.execute(statement)
         user_invite = result.scalars().first()
 

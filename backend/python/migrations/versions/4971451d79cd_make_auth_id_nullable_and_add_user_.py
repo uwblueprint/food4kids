@@ -1,15 +1,16 @@
-"""make auth_id nullable + add user_invites table
+"""make_auth_id_nullable_and_add_user_invites
 
-Revision ID: ed43fb6c4708
+Revision ID: 4971451d79cd
 Revises: c7d9e2b14a06
-Create Date: 2026-04-07 23:44:29.308591
+Create Date: 2026-05-31 22:47:34.113186
 
 """
 from alembic import op
 import sqlalchemy as sa
 
+
 # revision identifiers, used by Alembic.
-revision = 'ed43fb6c4708'
+revision = '4971451d79cd'
 down_revision = 'c7d9e2b14a06'
 branch_labels = None
 depends_on = None
@@ -24,7 +25,7 @@ def upgrade():
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('is_used', sa.Boolean(), nullable=False),
     sa.Column('user_invite_id', sa.Uuid(), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('user_invite_id')
     )
     op.create_index(op.f('ix_user_invites_user_id'), 'user_invites', ['user_id'], unique=True)

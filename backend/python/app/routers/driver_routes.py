@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_authorization_by_role
 from app.dependencies.services import (
     get_auth_service,
     get_user_invite_service,
@@ -107,6 +108,7 @@ async def initialize_driver(
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
     user_invite_service: UserInviteService = Depends(get_user_invite_service),
+    _: bool = Depends(require_authorization_by_role({"admin"})),
 ) -> DriverRead:
     """
     Register a new driver in our backend, creates a User and Driver object, returns DriverRead
@@ -180,10 +182,10 @@ async def complete_driver_registration(
     """
     try:
         async with session.begin_nested():
-            # Validate invite token
+            # Validate invite token and lock the row to prevent race conditions
             user_invite_id = registration_data.user_invite_id
             user_invite = await user_invite_service.get_user_invite_by_id(
-                session, user_invite_id
+                session, user_invite_id, for_update=True
             )
 
             if (

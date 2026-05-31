@@ -5,6 +5,7 @@ from uuid import UUID
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.schemas.auth import AuthResponse, TokenResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
@@ -135,13 +136,13 @@ class AuthService:
 
         try:
             driver_signup_link = (
-                f"http://localhost:3000/create-password/{user_invite_id}"
+                f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite_id}"
             )
             email_body = f"""
                 Hello,
                 <br><br>
                 Please click the following link to verify your email and activate your account.
-                <strong>This link is only valid for 1 hour.</strong>
+                <strong>This link is only valid for 2 days.</strong>
                 <br><br>
                 <a href={driver_signup_link}>Verify email</a>
                 """

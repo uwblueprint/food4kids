@@ -28,7 +28,7 @@ export const CreatePassword = () => {
       // Axios catches 4xx/5xx errors automatically
       let errorMessage = 'Server unreachable';
       if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || errorMessage;
+        errorMessage = err.response?.data?.detail || errorMessage;
       }
       setFeedback(`Error: ${errorMessage}`);
     }
