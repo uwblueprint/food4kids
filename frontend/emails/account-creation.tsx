@@ -23,7 +23,7 @@ export default function AccountCreationEmail() {
         <Section className="text-center mt-[30px] mb-[32px]">
           <Button 
             // REPLACE THIS WITH ACTUAL URL (unless we want to Rick Roll recipients...)
-            href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" 
+            href="Sign_Up_URL" 
             className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[44px] py-[12px] font-nunito text-grey-100 text-[16px] tracking-wide"
           >
             Verify Account
