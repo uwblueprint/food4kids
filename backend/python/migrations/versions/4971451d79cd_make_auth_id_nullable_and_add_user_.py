@@ -1,7 +1,7 @@
 """make_auth_id_nullable_and_add_user_invites
 
 Revision ID: 4971451d79cd
-Revises: c7d9e2b14a06
+Revises: d12a38cacf7c
 Create Date: 2026-05-31 22:47:34.113186
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '4971451d79cd'
-down_revision = 'c7d9e2b14a06'
+down_revision = 'd12a38cacf7c'
 branch_labels = None
 depends_on = None
 

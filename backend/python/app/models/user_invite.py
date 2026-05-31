@@ -9,7 +9,9 @@ from .base import BaseModel
 
 
 class UserInviteBase(SQLModel):
-    user_id: UUID = Field(foreign_key="users.user_id", index=True, unique=True, ondelete="CASCADE")
+    user_id: UUID = Field(
+        foreign_key="users.user_id", index=True, unique=True, ondelete="CASCADE"
+    )
     expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=2),

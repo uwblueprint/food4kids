@@ -135,9 +135,7 @@ class AuthService:
             raise Exception(error_message)
 
         try:
-            driver_signup_link = (
-                f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite_id}"
-            )
+            driver_signup_link = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite_id}"
             email_body = f"""
                 Hello,
                 <br><br>

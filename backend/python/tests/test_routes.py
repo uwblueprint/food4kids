@@ -42,6 +42,11 @@ class TestDriverRoutes:
             patch(
                 "app.services.implementations.auth_service.AuthService.send_create_password_email"
             ),
+            patch(
+                "app.dependencies.auth.auth_service.is_authorized_by_role",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
         ):
             driver_register_data = {
                 "name": sample_driver_data["name"],
@@ -52,7 +57,9 @@ class TestDriverRoutes:
                 "car_make_model": sample_driver_data["car_make_model"],
             }
             response = await async_client.post(
-                "/drivers/initialize", json=driver_register_data
+                "/drivers/initialize",
+                json=driver_register_data,
+                headers={"Authorization": "Bearer test-token"},
             )
             assert response.status_code == 201
             data = response.json()
@@ -1086,7 +1093,16 @@ class TestValidationErrors:
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
         }
-        response = await async_client.post("/drivers/initialize", json=invalid_data)
+        with patch(
+            "app.dependencies.auth.auth_service.is_authorized_by_role",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            response = await async_client.post(
+                "/drivers/initialize",
+                json=invalid_data,
+                headers={"Authorization": "Bearer test-token"},
+            )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
