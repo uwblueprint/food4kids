@@ -3,16 +3,15 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, exists
-from sqlalchemy import select as sql_select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
-from app.models.driver_assignment import DriverAssignment
+from app.models.driver import Driver
 from app.models.location import Location
 from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
 from app.schemas.pagination import PaginatedResponse, PaginationParams
@@ -28,13 +27,23 @@ class RoutingConfigurationError(Exception):
     """
 
 
+class SuggestedDriver:
+    """Driver suggestion result.
+
+    Score is a count of past completed deliveries this driver has made to
+    locations in the target route (a 'familiarity' signal). Explanation is
+    a human-readable rationale for surfacing in the UI.
+    """
+
+    def __init__(self, driver_id: UUID, score: int, explanation: str):
+        self.driver_id = driver_id
+        self.score = score
+        self.explanation = explanation
+
+
 class RouteService:
     """
     Service class for handling route-related operations.
-
-    This class provides methods to manage Route entities, such as deleting routes by their ID.
-    While currently only the delete operation is implemented, this class is intended to be extended
-    with additional route-related operations in the future.
     """
 
     def __init__(self, logger: logging.Logger):
@@ -50,24 +59,16 @@ class RouteService:
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
-        Returns routes with their drive dates - routes can appear multiple times for different dates.
-        When unassigned_only is False, returns all routes (no assignment filter).
-        When unassigned_only is True, returns only routes that are unassigned for the given route group.
+
+        Since Route → RouteGroup is now a direct FK (M2M dropped) and driver
+        is now a Route.driver_id column (DriverAssignment dropped), this is
+        a much simpler query than before.
         """
-        statement = (
-            select(
-                Route,
-                RouteGroup.route_group_id,
-                RouteGroup.drive_date,
-            )
-            .join(RouteGroupMembership, Route.route_id == RouteGroupMembership.route_id)  # type: ignore[arg-type]
-            .join(
-                RouteGroup,
-                RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
-            )
+        statement = select(Route, RouteGroup.drive_date).join(
+            RouteGroup,
+            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
         )
 
-        # Parse and filter by date range
         if start_date:
             start_dt = datetime.fromisoformat(start_date)
             statement = statement.where(RouteGroup.drive_date >= start_dt)
@@ -75,21 +76,8 @@ class RouteService:
             end_dt = datetime.fromisoformat(end_date)
             statement = statement.where(RouteGroup.drive_date <= end_dt)
 
-        # Filter for unassigned routes only
         if unassigned_only:
-            statement = statement.where(
-                ~exists(
-                    sql_select(1)
-                    .select_from(DriverAssignment)
-                    .where(
-                        and_(
-                            DriverAssignment.route_id == Route.route_id,  # type: ignore[arg-type]
-                            DriverAssignment.route_group_id
-                            == RouteGroup.route_group_id,  # type: ignore[arg-type]
-                        )
-                    )
-                )
-            )
+            statement = statement.where(col(Route.driver_id).is_(None))
 
         statement = statement.order_by(RouteGroup.drive_date, Route.name)  # type: ignore[arg-type]
 
@@ -171,10 +159,8 @@ class RouteService:
         - fetch_route_polyline is called to get the new encoded polyline + distance.
         - Route.length and Route.encoded_polyline are updated accordingly.
 
-        Metadata fields (name, notes) are updated independently if provided.
-
-        Since routes can be shared across multiple route groups, all route groups
-        that reference this route will automatically see the updated version.
+        Metadata fields (name, notes, driver_id, start_time) are updated
+        independently if provided.
 
         Args:
             session: Database session
@@ -201,6 +187,10 @@ class RouteService:
                 route.name = patch.name
             if patch.notes is not None:
                 route.notes = patch.notes
+            if patch.driver_id is not None:
+                route.driver_id = patch.driver_id
+            if patch.start_time is not None:
+                route.start_time = patch.start_time
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:
@@ -351,3 +341,71 @@ class RouteService:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
         return url
+
+    async def get_suggested_drivers_for_route(
+        self,
+        session: AsyncSession,
+        route_id: UUID,
+        limit: int = 5,
+    ) -> list[SuggestedDriver]:
+        """Suggest drivers by location familiarity.
+
+        Counts each driver's past completed deliveries (RouteStopSnapshot
+        exists, i.e. the route is frozen) to the locations in the target
+        route. Returns the top `limit` active drivers, scored by raw count.
+
+        This replaces the old "same route_id last time" heuristic, which
+        broke as soon as routes drifted; familiarity over a *cluster of
+        locations* degrades gracefully when a single stop swaps.
+
+        Cold-start (net-new locations / brand-new drivers): currently
+        returns whatever signal exists. A geographic fallback (nearest by
+        lat/lng, or shared location_group) is a sensible follow-up.
+        """
+        # Subquery: location_ids that make up the target route.
+        target_locations = (
+            select(RouteStop.location_id)
+            .where(RouteStop.route_id == route_id)
+            .subquery()
+        )
+
+        # Past completed routes' driver_id x delivery count to those locations.
+        statement = (
+            select(
+                Route.driver_id,
+                func.count().label("deliveries"),
+            )
+            .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
+            .where(
+                col(RouteStop.location_id).in_(select(target_locations.c.location_id))
+            )
+            .where(col(Route.driver_id).isnot(None))
+            .where(Route.route_id != route_id)
+            .where(col(Driver.active).is_(True))
+            .group_by(col(Route.driver_id))
+            .order_by(func.count().desc())
+            .limit(limit)
+        )
+
+        result = await session.execute(statement)
+        rows = result.all()
+
+        # Target route's total stop count, for an explainable "N of M" message.
+        total_stops_result = await session.execute(
+            select(func.count()).where(RouteStop.route_id == route_id)
+        )
+        total_stops = total_stops_result.scalar() or 0
+
+        return [
+            SuggestedDriver(
+                driver_id=row.driver_id,
+                score=row.deliveries,
+                explanation=(
+                    f"Has delivered to {row.deliveries} of {total_stops} "
+                    f"stops on this route before."
+                ),
+            )
+            for row in rows
+        ]

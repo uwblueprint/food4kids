@@ -7,7 +7,7 @@ import csv
 import os
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import cast
 from zoneinfo import ZoneInfo
 
@@ -25,7 +25,6 @@ from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
-from app.models.driver_assignment import DriverAssignment
 from app.models.driver_history import DriverHistory
 from app.models.enum import DeliveryTypeEnum, NotePermission, ProgressEnum
 from app.models.job import Job
@@ -36,8 +35,9 @@ from app.models.note_chain import NoteChain
 from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
+from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 
 # Import all models to register them with SQLModel
@@ -323,37 +323,38 @@ def calculate_route_length(
     return total_length
 
 
-def create_route_and_stops(
-    session: Session,
-    route_id: str,
-    route_order: list[str],
-    cluster_idx: int,
-    total_length: float,
-) -> None:
-    """Create route and its stops in the database"""
-    route = Route(
-        route_id=uuid.UUID(route_id),
-        name=f"Route {cluster_idx + 1}",
-        notes=fake.sentence() if random.random() < PROBABILITY_ROUTE_NOTES else "",
-        length=round(total_length, 2),
-    )
-    set_timestamps(route)
-    session.add(route)
+class ClusterPlan:
+    """Pre-computed TSP plan for one cluster within one location group.
 
-    for stop_num, location_id in enumerate(route_order, 1):
-        route_stop = RouteStop(
-            route_id=uuid.UUID(route_id),
-            location_id=uuid.UUID(location_id),
-            stop_number=stop_num,
-        )
-        set_timestamps(route_stop)
-        session.add(route_stop)
+    We cluster + TSP once per location_group, then materialize a per-day
+    Route instance from this plan for every matching drive_date. Cheaper
+    than re-clustering for every RouteGroup, and the deterministic
+    KMeans seed means we get the same plan each seed run.
+    """
+
+    def __init__(
+        self,
+        cluster_idx: int,
+        ordered_location_ids: list[str],
+        cluster_locations: list[Location],
+        length_km: float,
+    ):
+        self.cluster_idx = cluster_idx
+        self.ordered_location_ids = ordered_location_ids
+        self.cluster_locations = cluster_locations
+        self.length_km = length_km
 
 
-def create_routes_for_group(session: Session, group_locations: list[Location]) -> int:
-    """Create routes for a location group using clustering and TSP"""
+def plan_clusters_for_group(
+    group_locations: list[Location],
+) -> list[ClusterPlan]:
+    """Cluster a location_group's locations + greedily TSP each cluster.
+
+    Returns one ClusterPlan per cluster. Empty input → empty list. We
+    intentionally skip groups with <2 locations (matches old behaviour).
+    """
     if len(group_locations) < 2:
-        return 0
+        return []
 
     num_clusters = max(1, int(len(group_locations) // AVG_STOPS_PER_ROUTE))
     clusters = create_clusters(group_locations, num_clusters)
@@ -368,19 +369,16 @@ def create_routes_for_group(session: Session, group_locations: list[Location]) -
             split_clusters.append(cluster)
     clusters = split_clusters
 
-    routes_created = 0
-
+    plans: list[ClusterPlan] = []
     for cluster_idx, cluster_locations in enumerate(clusters):
         if not cluster_locations:
             continue
 
-        # All locations in seed script should have coordinates
         for loc in cluster_locations:
             assert loc.latitude is not None and loc.longitude is not None, (
                 f"Location {loc.location_id} is missing coordinates"
             )
 
-        # Type narrowing: after assert, we know coordinates are not None
         tsp_locations = cast(
             "list[tuple[float, float, str]]",
             [
@@ -392,14 +390,101 @@ def create_routes_for_group(session: Session, group_locations: list[Location]) -
         total_length = calculate_route_length(
             route_order, cluster_locations, WAREHOUSE_LAT, WAREHOUSE_LON
         )
-
-        route_id = str(uuid.uuid4())
-        create_route_and_stops(
-            session, route_id, route_order, cluster_idx, total_length
+        plans.append(
+            ClusterPlan(
+                cluster_idx=cluster_idx,
+                ordered_location_ids=route_order,
+                cluster_locations=cluster_locations,
+                length_km=round(total_length, 2),
+            )
         )
-        routes_created += 1
+    return plans
 
-    return routes_created
+
+def pick_assignment_ratio(drive_date: datetime, today: date) -> float:
+    """Date-bucketed driver-assignment density (mirrors old DriverAssignment seed)."""
+    drive_date_only = drive_date.date()
+    if drive_date_only < today:
+        return ASSIGNMENT_RATIO_PAST_ROUTES
+    if drive_date_only <= today + timedelta(days=NEXT_WEEK_DAYS):
+        return ASSIGNMENT_RATIO_NEXT_WEEK
+    return ASSIGNMENT_RATIO_FUTURE_ROUTES
+
+
+def materialize_route_for_group(
+    session: Session,
+    route_group: RouteGroup,
+    plan: ClusterPlan,
+    *,
+    drive_date: datetime,
+    today: date,
+    driver_ids: list[uuid.UUID],
+) -> Route:
+    """Create one Route (and its stops) inside the given RouteGroup.
+
+    Past routes additionally get a RouteSnapshot + RouteStopSnapshot per
+    stop, mirroring what the nightly cron would have produced.
+    """
+    assign_ratio = pick_assignment_ratio(drive_date, today)
+    driver_id: uuid.UUID | None = (
+        random.choice(driver_ids)
+        if driver_ids and random.random() < assign_ratio
+        else None
+    )
+
+    route = Route(
+        name=f"Route {plan.cluster_idx + 1}",
+        notes=fake.sentence() if random.random() < PROBABILITY_ROUTE_NOTES else "",
+        length=plan.length_km,
+        route_group_id=route_group.route_group_id,
+        driver_id=driver_id,
+    )
+    set_timestamps(route)
+    session.add(route)
+    session.flush()  # need route_id for stops
+
+    created_stops: list[RouteStop] = []
+    for stop_num, location_id in enumerate(plan.ordered_location_ids, start=1):
+        stop = RouteStop(
+            route_id=route.route_id,
+            location_id=uuid.UUID(location_id),
+            stop_number=stop_num,
+        )
+        set_timestamps(stop)
+        session.add(stop)
+        created_stops.append(stop)
+    session.flush()  # need route_stop_ids for snapshots
+
+    # Freeze past routes so historical reads work without first running the cron.
+    if drive_date.date() < today:
+        route_snap = RouteSnapshot(
+            route_id=route.route_id,
+            start_address=WAREHOUSE_ADDRESS,
+            start_latitude=WAREHOUSE_LAT,
+            start_longitude=WAREHOUSE_LON,
+        )
+        set_timestamps(route_snap)
+        session.add(route_snap)
+
+        loc_by_id = {str(loc.location_id): loc for loc in plan.cluster_locations}
+        for stop in created_stops:
+            loc = loc_by_id[str(stop.location_id)]
+            if loc.latitude is None or loc.longitude is None:
+                continue
+            stop_snap = RouteStopSnapshot(
+                route_stop_id=stop.route_stop_id,
+                address=loc.address,
+                contact_name=loc.contact_name,
+                phone_number=loc.phone_number,
+                num_boxes=loc.num_boxes,
+                notes=loc.notes,
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+            )
+            set_timestamps(stop_snap)
+            session.add(stop_snap)
+
+    return route
 
 
 def main() -> None:
@@ -415,15 +500,17 @@ def main() -> None:
 
     with Session(engine) as session:
         try:
-            # Clear existing data
+            # Clear existing data. Order matters: snapshots & stops first
+            # (FK to routes), then routes (FK to route_groups), then
+            # route_groups.
             print("Clearing existing data...")
             tables_to_clear = [
                 "notes",
                 "note_chain_reads",
-                "driver_assignments",
                 "driver_history",
                 "jobs",
-                "route_group_memberships",
+                "route_stop_snapshots",
+                "route_snapshots",
                 "route_stops",
                 "routes",
                 "route_groups",
@@ -448,7 +535,7 @@ def main() -> None:
             # Create location groups
             print("Creating location groups...")
             group_names = list(LOCATION_GROUP_SCHEDULE.keys())
-            group_ids = {}
+            group_ids: dict[str, str] = {}
             for name in group_names:
                 location_group = LocationGroup(
                     name=name,
@@ -471,6 +558,7 @@ def main() -> None:
             non_school_groups = [
                 gid for name, gid in group_ids.items() if name != "Schools"
             ]
+            schools_group_id = group_ids.get("Schools")
 
             if os.path.exists(csv_path):
                 with open(csv_path) as file:
@@ -482,9 +570,8 @@ def main() -> None:
                             float(row.get("longitude", 0)),
                         )
 
-                        # Determine location group
-                        # Every location must belong to a delivery group
-                        # (location_group_id is non-nullable).
+                        # Determine location group. Every location must
+                        # belong to a delivery group (FK is non-nullable).
                         is_small_city = any(
                             city in address.lower() for city in SMALL_CITIES
                         )
@@ -492,11 +579,22 @@ def main() -> None:
                             # Random assignment from non-school groups for small cities
                             group_id = random.choice(non_school_groups)
                         else:
-                            # Random assignment for other locations
                             group_id = random.choice(list(group_ids.values()))
 
-                        # Generate fake data for location insertion
-                        is_school = random.choice([True, False])
+                        # delivery_type follows the assigned group: anything
+                        # in the "Schools" group is a School recipient,
+                        # everything else is a Family. Matches the per-group
+                        # uniform invariant we'll later enforce at generation.
+                        is_school = (
+                            schools_group_id is not None
+                            and group_id == schools_group_id
+                        )
+                        delivery_type = (
+                            DeliveryTypeEnum.SCHOOL
+                            if is_school
+                            else DeliveryTypeEnum.FAMILY
+                        )
+
                         contact_name = fake.name()
                         location = Location(
                             location_group_id=uuid.UUID(group_id),
@@ -504,9 +602,6 @@ def main() -> None:
                             if is_school
                             else contact_name,
                             contact_name=contact_name,
-                            delivery_type=DeliveryTypeEnum.SCHOOL
-                            if is_school
-                            else DeliveryTypeEnum.FAMILY,
                             address=address,
                             phone_number=generate_valid_phone(),
                             longitude=lon,
@@ -521,6 +616,8 @@ def main() -> None:
                             if random.random() < PROBABILITY_NUM_CHILDREN
                             else None,
                             num_boxes=random.randint(NUM_BOXES_MIN, NUM_BOXES_MAX),
+                            delivery_type=delivery_type,
+                            in_roster=True,
                             notes=fake.sentence()
                             if random.random() < PROBABILITY_LOCATION_NOTES
                             else "",
@@ -531,111 +628,34 @@ def main() -> None:
             else:
                 raise FileNotFoundError(f"Locations CSV file not found at {csv_path}")
 
-            # Warehouse location is not stored in database - it's the implicit starting point for all routes
-
             session.commit()
             print(f"Created {locations_created} locations")
 
-            # Create routes
-            print("Creating routes...")
-            routes_created = 0
-
-            # Every location belongs to a group; group them by group id.
-            all_locations = session.exec(select(Location)).all()
-
+            # Cluster + TSP per location group (once each). We materialize
+            # the actual Route rows per drive_date in the loop below.
+            print("Planning route clusters per location group...")
+            all_locations = list(session.exec(select(Location)).all())
             locations_by_group: dict[str, list[Location]] = {}
-            for location in all_locations:
-                group_id = str(location.location_group_id)
-                if group_id not in locations_by_group:
-                    locations_by_group[group_id] = []
-                locations_by_group[group_id].append(location)
+            for loc in all_locations:
+                gid = str(loc.location_group_id)
+                locations_by_group.setdefault(gid, []).append(loc)
 
-            for _, group_locations in locations_by_group.items():
-                routes_created += create_routes_for_group(session, group_locations)
-
-            session.commit()
-            print(f"Created {routes_created} routes")
-
-            # Create note chains for locations
-            print("Creating note chains for locations...")
-            location_chains_created = 0
-            location_notes_created = 0
-            all_locations = session.exec(select(Location)).all()
-
-            for location in all_locations:
-                note_chain = NoteChain(
-                    read_permission=NotePermission.ALL,
-                    write_permission=NotePermission.ALL,
-                )
-                set_timestamps(note_chain)
-                session.add(note_chain)
-                session.flush()
-
-                location.note_chain_id = note_chain.note_chain_id
-                location_chains_created += 1
-
-                # Add sample notes to some location chains
-                if random.random() < PROBABILITY_LOCATION_CHAIN_NOTES:
-                    num_notes = random.randint(1, MAX_LOCATION_CHAIN_NOTES)
-                    for _ in range(num_notes):
-                        note = Note(
-                            note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
-                            message=fake.sentence(),
-                            is_system=random.choice([True, False]),
-                        )
-                        set_timestamps(note)
-                        session.add(note)
-                        location_notes_created += 1
-
-            session.commit()
-            print(
-                f"Created {location_chains_created} location note chains "
-                f"with {location_notes_created} notes"
+            cluster_plans_by_group: dict[str, list[ClusterPlan]] = {
+                gid: plan_clusters_for_group(locs)
+                for gid, locs in locations_by_group.items()
+            }
+            total_clusters = sum(
+                len(plans) for plans in cluster_plans_by_group.values()
             )
+            print(f"Planned {total_clusters} route templates across location groups")
 
-            # Create note chains for routes
-            print("Creating note chains for routes...")
-            route_chains_created = 0
-            route_notes_created = 0
-            all_routes = session.exec(select(Route)).all()
-
-            for route in all_routes:
-                note_chain = NoteChain(
-                    read_permission=NotePermission.ADMIN,
-                    write_permission=NotePermission.ADMIN,
-                )
-                set_timestamps(note_chain)
-                session.add(note_chain)
-                session.flush()
-
-                route.note_chain_id = note_chain.note_chain_id
-                route_chains_created += 1
-
-                # Add sample notes to some route chains
-                if random.random() < PROBABILITY_ROUTE_CHAIN_NOTES:
-                    num_notes = random.randint(1, MAX_ROUTE_CHAIN_NOTES)
-                    for _ in range(num_notes):
-                        note = Note(
-                            note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
-                            message=fake.sentence(),
-                            is_system=True,
-                        )
-                        set_timestamps(note)
-                        session.add(note)
-                        route_notes_created += 1
-
-            session.commit()
-            print(
-                f"Created {route_chains_created} route note chains "
-                f"with {route_notes_created} notes"
-            )
-
-            # Create drivers
+            # Drivers must exist before we materialize routes (because we
+            # assign Route.driver_id during creation now).
             print("Creating drivers...")
-            num_drivers = max(routes_created, MIN_DRIVERS)
-            drivers_created = 0
+            # Per-day route instances are materialized later from the cluster
+            # plans, so size the driver pool off total_clusters (routes don't
+            # exist yet at this point in the refactored ordering).
+            num_drivers = max(total_clusters, MIN_DRIVERS)
 
             for i in range(num_drivers):
                 n = f"{i + 1:03d}"
@@ -673,25 +693,28 @@ def main() -> None:
                 )
                 set_timestamps(driver)
                 session.add(driver)
-                drivers_created += 1
-
             session.commit()
-            print(f"Created {drivers_created} drivers")
+            print(f"Created {num_drivers} drivers")
 
-            # Create route groups
-            print("Creating route groups...")
+            # Active driver pool used for per-route assignment.
+            active_driver_rows = session.execute(
+                text("SELECT driver_id FROM drivers WHERE active = TRUE")
+            ).fetchall()
+            active_driver_ids: list[uuid.UUID] = [row[0] for row in active_driver_rows]
+            if not active_driver_ids:
+                print("Warning: No active drivers; all routes will be unassigned.")
+
+            # Create route groups + per-day route instances together.
+            print("Creating route groups + per-day route instances...")
             route_groups_created = 0
+            routes_created = 0
             today = datetime.now().date()
-
-            # Generate dates for past and future months
             start_date = today - timedelta(days=MONTHS_PAST * DAYS_PER_MONTH)
             end_date = today + timedelta(days=MONTHS_FUTURE * DAYS_PER_MONTH)
 
             current_date = start_date
             while current_date <= end_date:
-                weekday = current_date.weekday()  # 0=Monday, 6=Sunday
-
-                # Find matching location groups for this weekday
+                weekday = current_date.weekday()
                 matching_groups = [
                     name
                     for name, target_weekday in LOCATION_GROUP_SCHEDULE.items()
@@ -699,93 +722,122 @@ def main() -> None:
                 ]
 
                 for group_name in matching_groups:
-                    loc_group_id_for_route: str | None = group_ids.get(group_name)
-                    if not loc_group_id_for_route:
+                    loc_group_id = group_ids.get(group_name)
+                    if not loc_group_id:
+                        continue
+                    plans = cluster_plans_by_group.get(loc_group_id, [])
+                    if not plans:
                         continue
 
-                    # Create route group for a specific date and location group
-                    group_routes = session.execute(
-                        text(
-                            "SELECT DISTINCT r.route_id FROM routes r JOIN route_stops rs ON r.route_id = rs.route_id JOIN locations l ON rs.location_id = l.location_id WHERE l.location_group_id = :group_id"
-                        ),
-                        {"group_id": loc_group_id_for_route},
-                    ).fetchall()
-
-                    if not group_routes:
-                        continue
-
+                    drive_date = datetime.combine(current_date, datetime.min.time())
                     route_group = RouteGroup(
                         name=f"{group_name} - {current_date.strftime('%Y-%m-%d')}",
                         notes=f"Route group for {group_name} on {current_date}",
-                        drive_date=datetime.combine(current_date, datetime.min.time()),
+                        drive_date=drive_date,
                     )
                     set_timestamps(route_group)
                     session.add(route_group)
-                    session.flush()  # Flush to get the route_group_id
+                    session.flush()  # need route_group_id
 
-                    for route_row in group_routes:
-                        membership = RouteGroupMembership(
-                            route_group_id=route_group.route_group_id,
-                            route_id=route_row.route_id,
+                    for plan in plans:
+                        materialize_route_for_group(
+                            session,
+                            route_group,
+                            plan,
+                            drive_date=drive_date,
+                            today=today,
+                            driver_ids=active_driver_ids,
                         )
-                        set_timestamps(membership)
-                        session.add(membership)
+                        routes_created += 1
                     route_groups_created += 1
 
                 current_date += timedelta(days=1)
 
             session.commit()
-            print(f"Created {route_groups_created} route groups")
+            print(
+                f"Created {route_groups_created} route groups "
+                f"and {routes_created} route instances"
+            )
 
-            # Create driver assignments
-            print("Creating driver assignments...")
-            assignments_created = 0
-            active_drivers_result = session.execute(
-                text("SELECT driver_id FROM drivers WHERE active = TRUE")
-            ).fetchall()
+            # Create note chains for locations
+            print("Creating note chains for locations...")
+            location_chains_created = 0
+            location_notes_created = 0
+            all_locations = list(session.exec(select(Location)).all())
 
-            if not active_drivers_result:
-                print("Warning: No active drivers found")
-            else:
-                # Get all route groups with their routes
-                route_group_data = session.execute(
-                    text("""
-                        SELECT rg.route_group_id, rg.drive_date, r.route_id
-                        FROM route_groups rg
-                        JOIN route_group_memberships rgm ON rg.route_group_id = rgm.route_group_id
-                        JOIN routes r ON rgm.route_id = r.route_id
-                        ORDER BY rg.drive_date
-                    """)
-                ).fetchall()
+            for location in all_locations:
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ALL,
+                    write_permission=NotePermission.ALL,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
 
-                for route_group_id, drive_date, route_id in route_group_data:
-                    drive_date_obj = drive_date.date()
+                location.note_chain_id = note_chain.note_chain_id
+                location_chains_created += 1
 
-                    # Determine assignment strategy based on date
-                    if drive_date_obj < today:
-                        # Past routes: assign all
-                        assignment_ratio = ASSIGNMENT_RATIO_PAST_ROUTES
-                    elif drive_date_obj <= today + timedelta(days=NEXT_WEEK_DAYS):
-                        # Next week: assign most
-                        assignment_ratio = ASSIGNMENT_RATIO_NEXT_WEEK
-                    else:
-                        # Future routes: partial assignment
-                        assignment_ratio = ASSIGNMENT_RATIO_FUTURE_ROUTES
-
-                    if random.random() < assignment_ratio:
-                        driver_row = random.choice(active_drivers_result)
-                        assignment = DriverAssignment(
-                            driver_id=driver_row[0],  # Access first column (driver_id)
-                            route_id=route_id,
-                            route_group_id=route_group_id,
-                            time=drive_date,
+                if random.random() < PROBABILITY_LOCATION_CHAIN_NOTES:
+                    num_notes = random.randint(1, MAX_LOCATION_CHAIN_NOTES)
+                    for _ in range(num_notes):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=None,
+                            message=fake.sentence(),
+                            is_system=random.choice([True, False]),
                         )
-                        set_timestamps(assignment)
-                        session.add(assignment)
-                        assignments_created += 1
+                        set_timestamps(note)
+                        session.add(note)
+                        location_notes_created += 1
 
             session.commit()
-            print(f"Created {assignments_created} driver assignments")
+            print(
+                f"Created {location_chains_created} location note chains "
+                f"with {location_notes_created} notes"
+            )
+
+            # Create note chains for routes (only a sample, since the per-day
+            # explosion means we'd otherwise generate one per Route instance
+            # which is wasteful for seed data).
+            print("Creating note chains for routes (sampled)...")
+            route_chains_created = 0
+            route_notes_created = 0
+            all_routes = list(session.exec(select(Route)).all())
+
+            for route in all_routes:
+                # Sample so we don't blow up note_chain count; the production
+                # signal isn't 1-route-1-chain anyway.
+                if random.random() > 0.2:
+                    continue
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ADMIN,
+                    write_permission=NotePermission.ADMIN,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
+                route.note_chain_id = note_chain.note_chain_id
+                route_chains_created += 1
+
+                if random.random() < PROBABILITY_ROUTE_CHAIN_NOTES:
+                    num_notes = random.randint(1, MAX_ROUTE_CHAIN_NOTES)
+                    for _ in range(num_notes):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=None,
+                            message=fake.sentence(),
+                            is_system=True,
+                        )
+                        set_timestamps(note)
+                        session.add(note)
+                        route_notes_created += 1
+
+            session.commit()
+            print(
+                f"Created {route_chains_created} route note chains "
+                f"with {route_notes_created} notes"
+            )
 
             # Create driver history
             print("Creating driver history...")
@@ -836,17 +888,18 @@ def main() -> None:
             session.commit()
             print(f"Created {history_entries} driver history entries")
 
-            # Create jobs
+            # Create jobs (linked to past route groups)
             print("Creating jobs...")
-            # Get past route groups
             past_route_groups = session.execute(
-                text("""
-                    SELECT route_group_id, drive_date 
-                    FROM route_groups 
+                text(
+                    """
+                    SELECT route_group_id, drive_date
+                    FROM route_groups
                     WHERE drive_date < NOW()
                     ORDER BY drive_date DESC
                     LIMIT :limit
-                """),
+                    """
+                ),
                 {"limit": PAST_ROUTE_GROUPS_LIMIT},
             ).fetchall()
 
@@ -885,7 +938,6 @@ def main() -> None:
 
             # Create system settings
             print("Creating system settings info...")
-            # Parse route_start_time string to time object
             route_start_time_obj = datetime.strptime(
                 ROUTE_START_TIME, "%H:%M:%S"
             ).time()
@@ -946,13 +998,11 @@ def main() -> None:
                 )
             ).fetchall()
 
-            # Get a sample of note chains to mark as read
             all_chain_ids = session.execute(
                 text("SELECT note_chain_id FROM note_chains")
             ).fetchall()
 
             for driver_user_row in all_driver_users:
-                # Each driver reads a random subset of chains
                 num_chains_to_read = random.randint(0, min(5, len(all_chain_ids)))
                 if num_chains_to_read > 0:
                     chains_to_read = random.sample(all_chain_ids, num_chains_to_read)
@@ -971,6 +1021,7 @@ def main() -> None:
 
             session.commit()
             print(f"Created {read_entries_created} note chain read tracking entries")
+
             # Create sample announcements
             print("Creating sample announcements...")
             sample_announcements = [

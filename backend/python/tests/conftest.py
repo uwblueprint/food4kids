@@ -59,9 +59,6 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.admin import Admin  # noqa: F401
         from app.models.announcement import Announcement  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
-
-        # Import driver assignment model
-        from app.models.driver_assignment import DriverAssignment  # noqa: F401
         from app.models.driver_history import DriverHistory  # noqa: F401
         from app.models.job import Job  # noqa: F401
         from app.models.location import Location  # noqa: F401
@@ -70,12 +67,10 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.note_chain import NoteChain  # noqa: F401
         from app.models.note_chain_read import NoteChainReadModel  # noqa: F401
         from app.models.route import Route  # noqa: F401
-
-        # Import relationship models after their dependencies
-        # RouteGroup must be imported before RouteGroupMembership to avoid circular dependency
         from app.models.route_group import RouteGroup  # noqa: F401
-        from app.models.route_group_membership import RouteGroupMembership  # noqa: F401
+        from app.models.route_snapshot import RouteSnapshot  # noqa: F401
         from app.models.route_stop import RouteStop  # noqa: F401
+        from app.models.route_stop_snapshot import RouteStopSnapshot  # noqa: F401
         from app.models.system_settings import SystemSettings  # noqa: F401
         from app.models.user import User  # noqa: F401
 
@@ -415,20 +410,6 @@ async def authed_async_client(
 
 
 @pytest_asyncio.fixture
-async def test_route(
-    test_session: AsyncSession, sample_route_data: dict[str, Any]
-) -> Any:
-    """Create a test route in the database."""
-    from app.models.route import Route
-
-    route = Route(**sample_route_data)
-    test_session.add(route)
-    await test_session.commit()
-    await test_session.refresh(route)
-    return route
-
-
-@pytest_asyncio.fixture
 async def test_route_group(
     test_session: AsyncSession, sample_route_group_data: dict[str, Any]
 ) -> Any:
@@ -440,3 +421,26 @@ async def test_route_group(
     await test_session.commit()
     await test_session.refresh(route_group)
     return route_group
+
+
+@pytest_asyncio.fixture
+async def test_route(
+    test_session: AsyncSession,
+    sample_route_data: dict[str, Any],
+    test_route_group: Any,
+) -> Any:
+    """Create a test route in the database.
+
+    Depends on test_route_group because Route.route_group_id is now a
+    mandatory FK (the M2M via RouteGroupMembership was dropped).
+    """
+    from app.models.route import Route
+
+    route = Route(
+        **sample_route_data,
+        route_group_id=test_route_group.route_group_id,
+    )
+    test_session.add(route)
+    await test_session.commit()
+    await test_session.refresh(route)
+    return route

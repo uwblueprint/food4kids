@@ -19,9 +19,6 @@ from fastapi import Depends
 from app.config import settings
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
-from app.services.implementations.driver_assignment_service import (
-    DriverAssignmentService,
-)
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.location_group_service import LocationGroupService
@@ -106,13 +103,6 @@ def get_note_chain_service() -> NoteChainService:
     """Get note chain service instance"""
     logger = get_logger()
     return NoteChainService(logger)
-
-
-@lru_cache
-def get_driver_assignment_service() -> DriverAssignmentService:
-    """Get driver assignment service instance"""
-    logger = get_logger()
-    return DriverAssignmentService(logger)
 
 
 @lru_cache
