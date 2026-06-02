@@ -98,7 +98,9 @@ The repo ships a pre-commit hook that keeps the frontend OpenAPI client in sync 
 git config core.hooksPath scripts/git-hooks
 ```
 
-See [frontend/README.md](frontend/README.md#api-client-generated-from-openapi) for details. CI verifies the contract regardless, as a backstop.
+To regenerate the client it needs the backend's Python deps. It finds them, in order: a host `backend/python/venv`, then a **running `f4k_backend` container** (Docker-only devs need the backend up — `docker compose up backend`), then a system `python3` that can import the deps. If none are available it **warns and skips** rather than blocking the commit — CI verifies `openapi.json` as a backstop, so drift can't merge. You can also force-skip with `SKIP_OPENAPI_REGEN=1 git commit …`.
+
+See [frontend/README.md](frontend/README.md#api-client-generated-from-openapi) for details.
 
 ### Run
 
