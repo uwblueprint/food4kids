@@ -62,7 +62,7 @@ class RouteGroupRead(RouteGroupBase):
     num_boxes: int = 0
     num_drivers_assigned: int = 0
     delivery_type: str | None = None
-    status: str | None = None
+    status: str = "Archived"
 
 
 class RouteGroupUpdate(SQLModel):

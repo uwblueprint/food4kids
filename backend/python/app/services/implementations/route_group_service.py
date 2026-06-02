@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, NamedTuple
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -20,6 +20,15 @@ from app.models.location import Location
 from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
+
+
+class RouteGroupWithStats(NamedTuple):
+    route_group: RouteGroup
+    num_locations: int
+    num_boxes: int
+    num_drivers_assigned: int
+    delivery_type: str | None
+    status: str
 
 
 class RouteGroupService:
@@ -75,7 +84,7 @@ class RouteGroupService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
-    ) -> list[tuple]:
+    ) -> list[RouteGroupWithStats]:
         """Get route groups with optional date filtering and aggregate stats"""
 
         group_location_ids = (
@@ -243,7 +252,7 @@ class RouteGroupService:
                 for membership in route_group.route_group_memberships:
                     await session.refresh(membership, ["route"])
 
-        return [tuple(row) for row in rows]
+        return [RouteGroupWithStats(*row) for row in rows]
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID

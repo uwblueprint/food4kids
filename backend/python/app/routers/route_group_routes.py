@@ -59,15 +59,14 @@ async def get_route_groups(
         )
         result = []
         for row in route_groups:
-            route_group, num_locations, num_boxes, num_drivers_assigned, delivery_type_val, status_val = row
             data = RouteGroupRead.model_validate(
-                route_group, from_attributes=True
+                row.route_group, from_attributes=True
             ).model_dump()
-            data["num_locations"] = num_locations
-            data["num_boxes"] = num_boxes
-            data["num_drivers_assigned"] = num_drivers_assigned
-            data["delivery_type"] = delivery_type_val
-            data["status"] = status_val
+            data["num_locations"] = row.num_locations
+            data["num_boxes"] = row.num_boxes
+            data["num_drivers_assigned"] = row.num_drivers_assigned
+            data["delivery_type"] = row.delivery_type
+            data["status"] = row.status
             if include_routes:
                 data["routes"] = [
                     {
@@ -82,7 +81,7 @@ async def get_route_groups(
                         else "No notes",
                         "length": membership.route.length if membership.route else 0,
                     }
-                    for membership in route_group.route_group_memberships
+                    for membership in row.route_group.route_group_memberships
                 ]
             else:
                 data["routes"] = []
