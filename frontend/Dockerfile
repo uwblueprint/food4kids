@@ -1,7 +1,6 @@
 FROM node:24.13.0
-
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@11.5.0 --activate
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
@@ -9,7 +8,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # Copy source code
 COPY . .
@@ -18,4 +17,4 @@ COPY . .
 EXPOSE 3000
 
 # Run dev server with host flag to allow external access
-CMD ["pnpm", "dev", "--host"]
+CMD ["pnpm", "exec", "vite", "--host", "--port", "3000"]
