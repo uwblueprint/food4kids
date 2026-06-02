@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, case, distinct, exists, func, or_
+from sqlalchemy import Integer, and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -97,7 +97,7 @@ class RouteGroupService:
         )
 
         num_boxes_subq = (
-            select(func.coalesce(func.sum(func.ceil(Location.num_children / 2.0)), 0))
+            select(func.coalesce(func.cast(func.sum(func.ceil(Location.num_children / 2.0)), Integer), 0))
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[union-attr]
             .correlate(RouteGroup)
             .scalar_subquery()
@@ -145,8 +145,8 @@ class RouteGroupService:
         thirty_days_ago = now - timedelta(days=30)
 
         status_expr = case(
-            (RouteGroup.drive_date > today_start, RouteStatusEnum.UPCOMING.value),
-            (RouteGroup.drive_date >= thirty_days_ago, RouteStatusEnum.COMPLETED.value), 
+            (RouteGroup.drive_date > now, RouteStatusEnum.UPCOMING.value),
+            (RouteGroup.drive_date >= thirty_days_ago, RouteStatusEnum.COMPLETED.value),  # type: ignore[arg-type]
             else_=RouteStatusEnum.ARCHIVED.value,
         ).label("status")
 
@@ -178,35 +178,14 @@ class RouteGroupService:
                 func.extract("dow", RouteGroup.drive_date).in_(dow_values)  # type: ignore[arg-type]
             )
 
-        # Delivery type filter
+        # Delivery type filter (reuses has_school_subq / has_locations_subq defined above)
         if delivery_type:
-            # Subquery to traverse memberships -> stops -> locations to check for a school name
-            has_school_query = (
-                select(1)
-                .select_from(RouteGroupMembership)
-                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
-                .where(
-                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
-                    Location.school_name.isnot(None),  # type: ignore[union-attr]
-                    Location.school_name != "",
-                )
-            )
-
-            # Subquery to check if the route group has any locations at all (make sure we dont default empty routes to summer)
-            has_locations_query = (
-                select(1)
-                .select_from(RouteGroupMembership)
-                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
-            )
-
             delivery_conditions: list[Any] = []
             if DeliveryTypeEnum.SCHOOL_YEAR in delivery_type:
-                delivery_conditions.append(has_school_query.exists())
+                delivery_conditions.append(has_school_subq.exists())
             if DeliveryTypeEnum.SUMMER in delivery_type:
                 delivery_conditions.append(
-                    and_(has_locations_query.exists(), ~has_school_query.exists())
+                    and_(has_locations_subq.exists(), ~has_school_subq.exists())
                 )
             if delivery_conditions:
                 statement = statement.where(or_(*delivery_conditions))
