@@ -70,6 +70,14 @@ docker-compose exec frontend pnpm lint:fix
 docker-compose exec frontend pnpm format
 ```
 
+> If you run the frontend natively on Windows (see [Running the frontend on Windows](#running-the-frontend-on-windows)), the `frontend` container won't be running — run these directly from `frontend/` instead:
+>
+> ```bash
+> pnpm lint
+> pnpm lint:fix
+> pnpm format
+> ```
+
 Config: `frontend/eslint.config.js`, `frontend/.prettierrc`, `frontend/tsconfig.json`
 
 ### Package Manager
@@ -98,12 +106,13 @@ this is, but running locally is a good temporary fix.
 
 1. Install Node 24+ and pnpm 11+ on Windows (e.g. via [nvm-windows](https://github.com/coreybutler/nvm-windows) and `npm install -g pnpm`).
 2. From `frontend/`: `pnpm install`.
+3. Make sure `frontend/.env` exists (Docker mounts this same file via `env_file`). Copy it from `frontend/.env.example` if you don't have one yet: `cp .env.example .env`.
 
 ### Daily workflow
 
 ```bash
-# Terminal 1 — backend + db only (frontend service is fine to leave running in Docker, just won't be used)
-docker compose up backend db
+# Terminal 1 — backend + db only (stop or don't start the Docker frontend; it would conflict on port 3000)
+docker-compose up backend db
 
 # Terminal 2 — frontend on the host
 cd frontend
