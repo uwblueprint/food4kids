@@ -106,7 +106,8 @@ this is, but running locally is a good temporary fix.
 
 1. Install Node 24+ and pnpm 11+ on Windows (e.g. via [nvm-windows](https://github.com/coreybutler/nvm-windows) and `npm install -g pnpm`).
 2. From `frontend/`: `pnpm install`.
-3. Make sure `frontend/.env` exists (Docker mounts this same file via `env_file`). Copy it from `frontend/.env.example` if you don't have one yet: `cp .env.example .env`.
+
+No `.env` is required for native dev — the only frontend env var, `VITE_API_BASE_URL`, defaults to `http://localhost:8080` in code (`src/lib/axiosClient.ts`). Only create `frontend/.env` if you need to override that.
 
 ### Daily workflow
 
