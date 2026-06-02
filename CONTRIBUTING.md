@@ -88,10 +88,11 @@ Always commit `pnpm-lock.yaml`.
 ## Running the frontend on Windows
 
 If you're on Windows, you'll get a much faster dev loop by running the frontend
-**natively** (outside Docker) while keeping the backend and database in Docker.
+**natively** (outside Docker) using `pnpm dev`, while keeping the backend and database in Docker.
 The Docker bind-mount path on Windows (host NTFS ↔ Linux container) makes Vite's
 cold start very slow — we measured ~80–180 s for a single cold page load in the
-container, vs **~9 s natively** on the same machine.
+container, vs **~9 s natively** on the same machine. We aren't entirely sure why
+this is, but running locally is a good temporary fix.
 
 ### Setup (one time)
 
