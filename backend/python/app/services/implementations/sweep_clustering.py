@@ -9,6 +9,7 @@ from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProto
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from uuid import UUID
 
     from app.models.location import Location
 
@@ -22,6 +23,7 @@ FAR_CITY_KEYWORDS: frozenset[str] = frozenset(
         "new hamburg",
         "st. jacobs",
         "st jacobs",
+        "saint jacobs",
     }
 )
 
@@ -34,6 +36,9 @@ FAR_MAX_STOPS_PER_CLUSTER = 5
 # Rough drive-time model for balancing (minutes).
 DEFAULT_SERVICE_MINUTES_PER_STOP = 15
 AVERAGE_SPEED_KMH = 40.0
+
+# Extra minutes on far routes: approximate warehouse round-trip drive allowance.
+FAR_ROUND_TRIP_DRIVE_MINUTES = 90.0
 
 
 class LocationLatitudeError(Exception):
@@ -68,6 +73,15 @@ class _ClusterState:
     box_count: int = 0
     has_far_stop: bool = False
     estimated_minutes: float = 0.0
+
+
+@dataclass(frozen=True)
+class _LocationMetrics:
+    """Precomputed per-location values used during assignment (avoids repeat haversine)."""
+
+    distance_km: float
+    is_far: bool
+    stop_minutes: float
 
 
 class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
@@ -131,11 +145,13 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             locations=locations,
             check_timeout=check_timeout,
         )
+        metrics_by_id = self._metrics_for_locations(sorted_locations)
 
         cluster_states = [_ClusterState() for _ in range(num_clusters)]
 
         for location in sorted_locations:
             check_timeout()
+            metrics = metrics_by_id[location.location_id]
             feasible_indices = [
                 index
                 for index, cluster in enumerate(cluster_states)
@@ -144,6 +160,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     location=location,
                     max_boxes=max_boxes,
                     max_stops=max_locations_per_cluster,
+                    metrics=metrics,
                 )
             ]
 
@@ -160,12 +177,16 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 feasible_indices,
                 key=lambda index: self._cluster_load_key(cluster_states[index]),
             )
-            self._add_to_cluster(cluster_states[best_index], location)
+            self._add_to_cluster(cluster_states[best_index], location, metrics)
 
         clusters = [state.locations for state in cluster_states]
 
+        # Defensive: should be unreachable if _can_add_to_cluster stays in sync.
         for index, cluster in enumerate(clusters):
-            if max_locations_per_cluster is not None and len(cluster) > max_locations_per_cluster:
+            if (
+                max_locations_per_cluster is not None
+                and len(cluster) > max_locations_per_cluster
+            ):
                 raise ValueError(
                     f"Cluster {index + 1} would have {len(cluster)} locations, "
                     f"exceeding max_locations_per_cluster={max_locations_per_cluster}."
@@ -215,40 +236,72 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             locations=locations,
             check_timeout=check_timeout,
         )
+        metrics_by_id = self._metrics_for_locations(sorted_locations)
 
         cluster_states: list[_ClusterState] = []
         current = _ClusterState()
 
         for location in sorted_locations:
             check_timeout()
+            metrics = metrics_by_id[location.location_id]
 
-            if current.locations and not self._can_add_to_cluster(
+            can_add = self._can_add_to_cluster(
                 cluster=current,
                 location=location,
                 max_boxes=max_boxes,
                 max_stops=max_locations_per_cluster,
-            ):
+                metrics=metrics,
+            )
+
+            if current.locations and not can_add:
                 cluster_states.append(current)
                 current = _ClusterState()
+                can_add = self._can_add_to_cluster(
+                    cluster=current,
+                    location=location,
+                    max_boxes=max_boxes,
+                    max_stops=max_locations_per_cluster,
+                    metrics=metrics,
+                )
 
-            if not self._can_add_to_cluster(
-                cluster=current,
-                location=location,
-                max_boxes=max_boxes,
-                max_stops=max_locations_per_cluster,
-            ):
+            if not can_add:
                 name = location.school_name or location.contact_name
                 raise ValueError(
                     f"Cannot pack location '{name}' ({effective_boxes(location)} boxes) "
                     f"within max {max_boxes} boxes per route."
                 )
 
-            self._add_to_cluster(current, location)
+            self._add_to_cluster(current, location, metrics)
 
         if current.locations:
             cluster_states.append(current)
 
         return [state.locations for state in cluster_states]
+
+    def _metrics_for_locations(
+        self, locations: list[Location]
+    ) -> dict[UUID, _LocationMetrics]:
+        return {
+            location.location_id: self._location_metrics(location)
+            for location in locations
+        }
+
+    def _location_metrics(self, location: Location) -> _LocationMetrics:
+        distance_km = self._haversine_km(
+            self._warehouse_lat,
+            self._warehouse_lon,
+            location,
+        )
+        is_far = self._is_far_by_address(location) or (
+            distance_km >= FAR_DISTANCE_KM_THRESHOLD
+        )
+        drive_minutes = (distance_km / AVERAGE_SPEED_KMH) * 60.0
+        stop_minutes = DEFAULT_SERVICE_MINUTES_PER_STOP + drive_minutes
+        return _LocationMetrics(
+            distance_km=distance_km,
+            is_far=is_far,
+            stop_minutes=stop_minutes,
+        )
 
     def _can_add_to_cluster(
         self,
@@ -256,78 +309,70 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         location: Location,
         max_boxes: int,
         max_stops: int | None,
+        metrics: _LocationMetrics,
     ) -> bool:
         boxes = effective_boxes(location)
         if cluster.box_count + boxes > max_boxes:
             return False
 
-        stop_cap = self._effective_stop_cap(cluster, location, max_stops)
+        stop_cap = self._effective_stop_cap(cluster, metrics.is_far, max_stops)
         if stop_cap is not None and cluster.stop_count + 1 > stop_cap:
             return False
 
-        added_minutes = self._estimated_minutes_for_stop(location)
-        if cluster.has_far_stop or self._is_far_location(location):
-            if cluster.estimated_minutes + added_minutes > self._far_route_minutes_cap(
-                stop_cap
-            ):
-                return False
+        far_time_exceeded = (cluster.has_far_stop or metrics.is_far) and (
+            cluster.estimated_minutes + metrics.stop_minutes
+            > self._far_route_minutes_cap(stop_cap)
+        )
+        return not far_time_exceeded
 
-        return True
-
-    def _add_to_cluster(self, cluster: _ClusterState, location: Location) -> None:
+    def _add_to_cluster(
+        self,
+        cluster: _ClusterState,
+        location: Location,
+        metrics: _LocationMetrics,
+    ) -> None:
         cluster.locations.append(location)
         cluster.stop_count += 1
         cluster.box_count += effective_boxes(location)
-        if self._is_far_location(location):
+        if metrics.is_far:
             cluster.has_far_stop = True
-        cluster.estimated_minutes += self._estimated_minutes_for_stop(location)
+        cluster.estimated_minutes += metrics.stop_minutes
 
     def _effective_stop_cap(
         self,
         cluster: _ClusterState,
-        location: Location,
+        location_is_far: bool,
         max_stops: int | None,
     ) -> int | None:
         if max_stops is None:
+            if cluster.has_far_stop or location_is_far:
+                return FAR_MAX_STOPS_PER_CLUSTER
             return None
-        if cluster.has_far_stop or self._is_far_location(location):
+        if cluster.has_far_stop or location_is_far:
             return min(max_stops, FAR_MAX_STOPS_PER_CLUSTER)
         return max_stops
 
     def _far_route_minutes_cap(self, stop_cap: int | None) -> float:
         """Soft time budget for routes that include far deliveries."""
         stops = stop_cap if stop_cap is not None else FAR_MAX_STOPS_PER_CLUSTER
-        return stops * DEFAULT_SERVICE_MINUTES_PER_STOP + 90.0
+        return stops * DEFAULT_SERVICE_MINUTES_PER_STOP + FAR_ROUND_TRIP_DRIVE_MINUTES
 
     def _cluster_load_key(self, cluster: _ClusterState) -> tuple[float, float, float]:
-        """Lower is better — spreads stops, boxes, and time evenly across drivers."""
+        """Lower is better when assigning the next stop.
+
+        Priority: stop count first (even headcount), then boxes, then estimated
+        minutes. Stop count is primary because drivers are balanced by number of
+        deliveries; box totals can diverge when child counts vary per school.
+        """
         return (
             float(cluster.stop_count),
             float(cluster.box_count),
             cluster.estimated_minutes,
         )
 
-    def _estimated_minutes_for_stop(self, location: Location) -> float:
-        distance_km = self._haversine_km(
-            self._warehouse_lat,
-            self._warehouse_lon,
-            location,
-        )
-        drive_minutes = (distance_km / AVERAGE_SPEED_KMH) * 60.0
-        return DEFAULT_SERVICE_MINUTES_PER_STOP + drive_minutes
-
-    def _is_far_location(self, location: Location) -> bool:
+    def _is_far_by_address(self, location: Location) -> bool:
         address_lower = location.address.lower()
-        if any(keyword in address_lower for keyword in FAR_CITY_KEYWORDS):
-            return True
-        return (
-            self._haversine_km(
-                self._warehouse_lat,
-                self._warehouse_lon,
-                location,
-            )
-            >= FAR_DISTANCE_KM_THRESHOLD
-        )
+        return any(keyword in address_lower for keyword in FAR_CITY_KEYWORDS)
 
     def _haversine_km(
         self,
