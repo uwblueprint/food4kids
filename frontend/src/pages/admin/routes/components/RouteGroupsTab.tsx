@@ -22,7 +22,7 @@ import type { GroupsTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const DELIVERY_TYPES = ['School Year', 'Summer'];
+const DELIVERY_TYPES = ['School', 'Family'];
 const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
 const DRIVER_STATUSES = ['Assigned', 'Unassigned'];
 

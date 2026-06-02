@@ -32,11 +32,6 @@ class DriveDaysOfWeekEnum(str, Enum):
 
 
 class DeliveryTypeEnum(str, Enum):
-    SCHOOL_YEAR = "School Year"
-    SUMMER = "Summer"
-
-
-class LocationDeliveryTypeEnum(str, Enum):
     SCHOOL = "School"
     FAMILY = "Family"
 

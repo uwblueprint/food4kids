@@ -301,7 +301,6 @@ export type {
   JobEnqueueResponse,
   JobRead,
   LocationCreate,
-  LocationDeliveryTypeEnum,
   LocationGroup,
   LocationGroupCreate,
   LocationGroupRead,

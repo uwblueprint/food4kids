@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_location_service
 from app.models import get_session
-from app.models.enum import LocationDeliveryTypeEnum, LocationStatusEnum
+from app.models.enum import DeliveryTypeEnum, LocationStatusEnum
 from app.models.location import (
     LocationCreate,
     LocationImportResponse,
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 
 @router.get("/", response_model=PaginatedResponse[LocationRead])
 async def get_locations(
-    delivery_type: list[LocationDeliveryTypeEnum] | None = Query(
+    delivery_type: list[DeliveryTypeEnum] | None = Query(
         None, description="Filter by one or more delivery types"
     ),
     status_filter: list[LocationStatusEnum] | None = Query(

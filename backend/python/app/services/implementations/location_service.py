@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard, cast
+from typing import TYPE_CHECKING, Any, TypeGuard
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -12,11 +12,11 @@ from fastapi import UploadFile
 from sqlalchemy import and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.config import settings
 from app.models.enum import (
-    LocationDeliveryTypeEnum,
+    DeliveryTypeEnum,
     LocationStatusEnum,
     NotePermission,
 )
@@ -107,7 +107,7 @@ class LocationService:
         self,
         session: AsyncSession,
         pagination: PaginationParams,
-        delivery_type: list[LocationDeliveryTypeEnum] | None = None,
+        delivery_type: list[DeliveryTypeEnum] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
     ) -> PaginatedResponse[Location]:
         """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
@@ -119,61 +119,65 @@ class LocationService:
             )
 
             if delivery_type:
-                school_name_column = cast("Any", Location.school_name)
                 delivery_conditions: list[Any] = []
-                if LocationDeliveryTypeEnum.SCHOOL in delivery_type:
+                # A populated school_name is the primary distinction between
+                # school and family delivery locations.
+                if DeliveryTypeEnum.SCHOOL in delivery_type:
                     delivery_conditions.append(
                         and_(
-                            school_name_column.isnot(None),
-                            school_name_column != "",
+                            col(Location.school_name).isnot(None),
+                            col(Location.school_name) != "",
                         )
                     )
-                if LocationDeliveryTypeEnum.FAMILY in delivery_type:
+                if DeliveryTypeEnum.FAMILY in delivery_type:
                     delivery_conditions.append(
                         or_(
-                            school_name_column.is_(None),
-                            school_name_column == "",
+                            col(Location.school_name).is_(None),
+                            col(Location.school_name) == "",
                         )
                     )
                 if delivery_conditions:
                     statement = statement.where(or_(*delivery_conditions))
 
-            today_start = datetime.now(self.timezone).replace(
-                hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-            )
-            scheduled_query = (
-                select(1)
-                .select_from(RouteStop)
-                .join(
-                    RouteGroupMembership,
-                    RouteStop.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
-                )
-                .join(
-                    RouteGroup,
-                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
-                )
-                .where(
-                    RouteStop.location_id == Location.location_id,
-                    RouteGroup.drive_date >= today_start,
-                )
-            )
-            is_scheduled = scheduled_query.exists()
-
             if status_filter:
+                # RouteGroup.drive_date is stored as a naive local datetime, so compare it
+                # against the start of the current local day with timezone info removed.
+                today_start = datetime.now(self.timezone).replace(
+                    hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+                )
+                scheduled_query = (
+                    select(1)
+                    .select_from(RouteStop)
+                    .join(
+                        RouteGroupMembership,
+                        RouteStop.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
+                    )
+                    .join(
+                        RouteGroup,
+                        RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
+                    )
+                    .where(
+                        RouteStop.location_id == Location.location_id,
+                        RouteGroup.drive_date >= today_start,
+                    )
+                )
+                is_scheduled = scheduled_query.exists()
                 status_conditions: list[Any] = []
-                state_column = cast("Any", Location.state)
-                is_active = state_column == LocationState.ACTIVE
-                is_archived = state_column == LocationState.ARCHIVED
                 if LocationStatusEnum.ACTIVE in status_filter:
-                    status_conditions.append(and_(is_active, is_scheduled))
+                    status_conditions.append(is_scheduled)
                 if LocationStatusEnum.UNSCHEDULED in status_filter:
-                    status_conditions.append(and_(is_active, ~is_scheduled))
+                    status_conditions.append(
+                        and_(col(Location.state) == LocationState.ACTIVE, ~is_scheduled)
+                    )
                 if LocationStatusEnum.INACTIVE in status_filter:
-                    status_conditions.append(and_(is_archived, ~is_scheduled))
+                    status_conditions.append(
+                        and_(
+                            col(Location.state) == LocationState.ARCHIVED,
+                            ~is_scheduled,
+                        )
+                    )
                 if status_conditions:
                     statement = statement.where(or_(*status_conditions))
-            else:
-                statement = statement.where(Location.state == LocationState.ACTIVE)
 
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())

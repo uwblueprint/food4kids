@@ -236,7 +236,7 @@ export type ChangedFieldStr = {
 /**
  * DeliveryTypeEnum
  */
-export type DeliveryTypeEnum = 'School Year' | 'Summer';
+export type DeliveryTypeEnum = 'School' | 'Family';
 
 /**
  * DriveDaysOfWeekEnum
@@ -621,11 +621,6 @@ export type LocationCreate = {
   school_name?: string | null;
   state?: LocationState;
 };
-
-/**
- * LocationDeliveryTypeEnum
- */
-export type LocationDeliveryTypeEnum = 'School' | 'Family';
 
 /**
  * LocationGroup
@@ -2734,7 +2729,7 @@ export type GetLocationsData = {
      *
      * Filter by one or more delivery types
      */
-    delivery_type?: Array<LocationDeliveryTypeEnum> | null;
+    delivery_type?: Array<DeliveryTypeEnum> | null;
     /**
      * Status
      *

@@ -392,8 +392,8 @@
       },
       "DeliveryTypeEnum": {
         "enum": [
-          "School Year",
-          "Summer"
+          "School",
+          "Family"
         ],
         "title": "DeliveryTypeEnum",
         "type": "string"
@@ -1023,14 +1023,6 @@
         ],
         "title": "LocationCreate",
         "type": "object"
-      },
-      "LocationDeliveryTypeEnum": {
-        "enum": [
-          "School",
-          "Family"
-        ],
-        "title": "LocationDeliveryTypeEnum",
-        "type": "string"
       },
       "LocationGroup": {
         "additionalProperties": false,
@@ -4436,7 +4428,7 @@
               "anyOf": [
                 {
                   "items": {
-                    "$ref": "#/components/schemas/LocationDeliveryTypeEnum"
+                    "$ref": "#/components/schemas/DeliveryTypeEnum"
                   },
                   "type": "array"
                 },
