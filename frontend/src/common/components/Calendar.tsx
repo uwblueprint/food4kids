@@ -117,10 +117,7 @@ function Calendar({
         range_end: cn('rounded-r-md bg-blue-50', defaultClassNames.range_end),
         today: defaultClassNames.today,
         outside: defaultClassNames.outside,
-        disabled: cn(
-          'text-grey-400 opacity-50',
-          defaultClassNames.disabled
-        ),
+        disabled: cn('text-grey-400 opacity-50', defaultClassNames.disabled),
         hidden: cn('invisible', defaultClassNames.hidden),
         ...classNames,
       }}

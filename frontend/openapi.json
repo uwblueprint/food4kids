@@ -2356,15 +2356,9 @@
             "type": "string"
           },
           "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
+            "default": "Archived",
+            "title": "Status",
+            "type": "string"
           },
           "updated_at": {
             "anyOf": [

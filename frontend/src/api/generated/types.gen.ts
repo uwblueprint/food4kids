@@ -403,7 +403,7 @@ export type DriverRead = {
   /**
    * Auth Id
    */
-  auth_id: string;
+  auth_id: string | null;
   /**
    * Car Make Model
    */
@@ -468,10 +468,6 @@ export type DriverRegister = {
    * Name
    */
   name: string;
-  /**
-   * Password
-   */
-  password: string;
   /**
    * Phone
    */
@@ -1362,6 +1358,10 @@ export type RouteGroupRead = {
    */
   created_at?: string | null;
   /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
+  /**
    * Drive Date
    */
   drive_date: string;
@@ -1374,6 +1374,18 @@ export type RouteGroupRead = {
    */
   notes?: string;
   /**
+   * Num Boxes
+   */
+  num_boxes?: number;
+  /**
+   * Num Drivers Assigned
+   */
+  num_drivers_assigned?: number;
+  /**
+   * Num Locations
+   */
+  num_locations?: number;
+  /**
    * Num Routes
    */
   num_routes: number;
@@ -1381,6 +1393,10 @@ export type RouteGroupRead = {
    * Route Group Id
    */
   route_group_id: string;
+  /**
+   * Status
+   */
+  status?: string;
   /**
    * Updated At
    */
@@ -1588,6 +1604,20 @@ export type SystemSettingsRead = {
    * Warehouse Longitude
    */
   warehouse_longitude?: number | null;
+};
+
+/**
+ * UserFinalize
+ */
+export type UserFinalize = {
+  /**
+   * Password
+   */
+  password: string;
+  /**
+   * User Invite Id
+   */
+  user_invite_id: string;
 };
 
 /**
@@ -2125,32 +2155,59 @@ export type GetDriversResponses = {
 
 export type GetDriversResponse = GetDriversResponses[keyof GetDriversResponses];
 
-export type RegisterDriverData = {
+export type InitializeDriverData = {
   body: DriverRegister;
   path?: never;
   query?: never;
-  url: '/drivers/';
+  url: '/drivers/initialize';
 };
 
-export type RegisterDriverErrors = {
+export type InitializeDriverErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type RegisterDriverError =
-  RegisterDriverErrors[keyof RegisterDriverErrors];
+export type InitializeDriverError =
+  InitializeDriverErrors[keyof InitializeDriverErrors];
 
-export type RegisterDriverResponses = {
+export type InitializeDriverResponses = {
+  /**
+   * Successful Response
+   */
+  201: DriverRead;
+};
+
+export type InitializeDriverResponse =
+  InitializeDriverResponses[keyof InitializeDriverResponses];
+
+export type CompleteDriverRegistrationData = {
+  body: UserFinalize;
+  path?: never;
+  query?: never;
+  url: '/drivers/register';
+};
+
+export type CompleteDriverRegistrationErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CompleteDriverRegistrationError =
+  CompleteDriverRegistrationErrors[keyof CompleteDriverRegistrationErrors];
+
+export type CompleteDriverRegistrationResponses = {
   /**
    * Successful Response
    */
   201: DriverRegisterResponse;
 };
 
-export type RegisterDriverResponse =
-  RegisterDriverResponses[keyof RegisterDriverResponses];
+export type CompleteDriverRegistrationResponse =
+  CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
 
 export type DeleteDriverData = {
   body?: never;
