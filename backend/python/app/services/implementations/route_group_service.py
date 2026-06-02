@@ -78,20 +78,18 @@ class RouteGroupService:
     ) -> list[tuple]:
         """Get route groups with optional date filtering and aggregate stats"""
 
-        # --- Aggregate subqueries (correlated to each RouteGroup row) ---
-
-        # Distinct location IDs in this route group (used by both num_locations and num_boxes)
         group_location_ids = (
             select(distinct(RouteStop.location_id))
             .select_from(RouteGroupMembership)
-            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)
             .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
         )
 
         num_locations_subq = (
             select(func.count(distinct(RouteStop.location_id)))
             .select_from(RouteGroupMembership)
-            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)
             .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
             .correlate(RouteGroup)
             .scalar_subquery()
@@ -99,7 +97,7 @@ class RouteGroupService:
         )
 
         num_boxes_subq = (
-            select(func.coalesce(func.sum(Location.num_boxes), 0))
+            select(func.coalesce(func.sum(func.ceil(Location.num_children / 2.0)), 0))
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[union-attr]
             .correlate(RouteGroup)
             .scalar_subquery()
@@ -108,21 +106,20 @@ class RouteGroupService:
 
         num_drivers_subq = (
             select(func.count(distinct(DriverAssignment.driver_id)))
-            .where(DriverAssignment.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+            .where(DriverAssignment.route_group_id == RouteGroup.route_group_id)
             .correlate(RouteGroup)
             .scalar_subquery()
             .label("num_drivers_assigned")
         )
 
-        # delivery_type: "School Year" if any location has school_name, "Summer" if locations exist but no schools, else None
         has_school_subq = (
             select(1)
             .select_from(RouteGroupMembership)
-            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)
+            .join(Location, RouteStop.location_id == Location.location_id)
             .where(
                 RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
-                Location.school_name.isnot(None),  # type: ignore[union-attr]
+                Location.school_name.isnot(None), 
                 Location.school_name != "",
             )
             .correlate(RouteGroup)
@@ -131,7 +128,7 @@ class RouteGroupService:
         has_locations_subq = (
             select(1)
             .select_from(RouteGroupMembership)
-            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  
             .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
             .correlate(RouteGroup)
         )
@@ -142,14 +139,14 @@ class RouteGroupService:
             else_=None,
         ).label("delivery_type")
 
-        # status: compute from drive_date using same thresholds as the filter
+
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         thirty_days_ago = now - timedelta(days=30)
 
         status_expr = case(
             (RouteGroup.drive_date > today_start, RouteStatusEnum.UPCOMING.value),
-            (RouteGroup.drive_date >= thirty_days_ago, RouteStatusEnum.COMPLETED.value),  # type: ignore[arg-type]
+            (RouteGroup.drive_date >= thirty_days_ago, RouteStatusEnum.COMPLETED.value), 
             else_=RouteStatusEnum.ARCHIVED.value,
         ).label("status")
 
