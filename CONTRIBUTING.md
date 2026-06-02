@@ -85,6 +85,41 @@ pnpm remove <pkg>     # remove package
 
 Always commit `pnpm-lock.yaml`.
 
+## Running the frontend on Windows
+
+If you're on Windows, you'll get a much faster dev loop by running the frontend
+**natively** (outside Docker) while keeping the backend and database in Docker.
+The Docker bind-mount path on Windows (host NTFS ↔ Linux container) makes Vite's
+cold start very slow — we measured ~80–180 s for a single cold page load in the
+container, vs **~9 s natively** on the same machine.
+
+### Setup (one time)
+
+1. Install Node 24+ and pnpm 11+ on Windows (e.g. via [nvm-windows](https://github.com/coreybutler/nvm-windows) and `npm install -g pnpm`).
+2. From `frontend/`: `pnpm install`.
+
+### Daily workflow
+
+```bash
+# Terminal 1 — backend + db only (frontend service is fine to leave running in Docker, just won't be used)
+docker compose up backend db
+
+# Terminal 2 — frontend on the host
+cd frontend
+pnpm dev
+```
+
+Open http://localhost:3000 as usual. The axios client defaults to
+`http://localhost:8080` for the API, so it talks directly to the backend
+container's exposed port (override with `VITE_API_BASE_URL` if needed).
+
+### Why not just use Docker?
+
+It works, it's just slow on Windows. macOS and Linux users don't see the
+problem because their Docker filesystem bridge is fast. Long-term we may move
+the repo into the WSL2 filesystem (`\\wsl$\Ubuntu\...`) to fix this for
+everyone; in the meantime, running the frontend natively is the cheapest fix.
+
 ## Testing
 
 ### Backend
