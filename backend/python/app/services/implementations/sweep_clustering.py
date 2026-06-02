@@ -85,6 +85,14 @@ class _LocationMetrics:
 
 
 class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
+    """Sweep-line clustering for route generation.
+
+    Enforces both ``max_locations_per_cluster`` and ``max_boxes_per_cluster`` when
+    provided (same as ``MockClusteringAlgorithm``). The protocol allows
+    implementations to require at most one limit; this class applies both for F4K
+    driver rules (stops, boxes, and far-route caps).
+    """
+
     def __init__(self, warehouse_lat: float, warehouse_lon: float) -> None:
         self._warehouse_lat = warehouse_lat
         self._warehouse_lon = warehouse_lon
@@ -102,7 +110,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         Locations are sweep-sorted from the warehouse, then assigned greedily
         to the least-loaded feasible route so work is spread evenly while
-        respecting box, stop, and far-delivery limits.
+        respecting box, stop, and far-delivery limits. Both max stop and max box
+        limits apply together when both arguments are set.
         """
         start_time = time.time()
 
