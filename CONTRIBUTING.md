@@ -114,13 +114,6 @@ Open http://localhost:3000 as usual. The axios client defaults to
 `http://localhost:8080` for the API, so it talks directly to the backend
 container's exposed port (override with `VITE_API_BASE_URL` if needed).
 
-### Why not just use Docker?
-
-It works, it's just slow on Windows. macOS and Linux users don't see the
-problem because their Docker filesystem bridge is fast. Long-term we may move
-the repo into the WSL2 filesystem (`\\wsl$\Ubuntu\...`) to fix this for
-everyone; in the meantime, running the frontend natively is the cheapest fix.
-
 ## Testing
 
 ### Backend
