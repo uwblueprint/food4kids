@@ -122,9 +122,9 @@ class RouteGroupService:
             )
 
             delivery_conditions: list[Any] = []
-            if DeliveryTypeEnum.SCHOOL_YEAR in delivery_type:
+            if DeliveryTypeEnum.SCHOOL in delivery_type:
                 delivery_conditions.append(has_school_query.exists())
-            if DeliveryTypeEnum.SUMMER in delivery_type:
+            if DeliveryTypeEnum.FAMILY in delivery_type:
                 delivery_conditions.append(
                     and_(has_locations_query.exists(), ~has_school_query.exists())
                 )

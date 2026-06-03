@@ -392,8 +392,8 @@
       },
       "DeliveryTypeEnum": {
         "enum": [
-          "School Year",
-          "Summer"
+          "School",
+          "Family"
         ],
         "title": "DeliveryTypeEnum",
         "type": "string"
@@ -1540,6 +1540,15 @@
           "ARCHIVED"
         ],
         "title": "LocationState",
+        "type": "string"
+      },
+      "LocationStatusEnum": {
+        "enum": [
+          "Active",
+          "Unscheduled",
+          "Inactive"
+        ],
+        "title": "LocationStatusEnum",
         "type": "string"
       },
       "LocationUpdate": {
@@ -4480,6 +4489,48 @@
         "description": "Get all locations with pagination",
         "operationId": "get_locations",
         "parameters": [
+          {
+            "description": "Filter by one or more delivery types",
+            "in": "query",
+            "name": "delivery_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryTypeEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more delivery types",
+              "title": "Delivery Type"
+            }
+          },
+          {
+            "description": "Filter by one or more location statuses",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/LocationStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more location statuses",
+              "title": "Status"
+            }
+          },
           {
             "description": "Page number (1-indexed)",
             "in": "query",
