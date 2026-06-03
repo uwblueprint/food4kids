@@ -1133,6 +1133,49 @@ class TestRouteGroupRoutes:
         assert group["num_boxes"] == 5
         assert group["num_locations"] == 2
 
+    @pytest.mark.asyncio
+    async def test_get_route_groups_status_today_is_upcoming(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A route group whose drive_date is today reports status 'Upcoming'.
+
+        drive_date is stored date-only (midnight) and is computed here in the
+        scheduler timezone to match the service's clock.
+        """
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from app.config import settings
+        from app.models.route import Route
+        from app.models.route_group import RouteGroup
+        from app.models.route_group_membership import RouteGroupMembership
+
+        tz = ZoneInfo(settings.scheduler_timezone)
+        today = datetime.now(tz).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+        )
+
+        route = Route(name="Today R1", length=5.0)
+        test_session.add(route)
+
+        rg = RouteGroup(name="Today Group", drive_date=today)
+        test_session.add(rg)
+        await test_session.flush()
+
+        test_session.add(
+            RouteGroupMembership(
+                route_group_id=rg.route_group_id, route_id=route.route_id
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["status"] == "Upcoming"
+
 
 class TestNoteChainRoutes:
     """Test suite for note chain API routes."""
