@@ -156,46 +156,11 @@ interface SimpleRow {
 }
 
 const SIMPLE_ROWS: SimpleRow[] = [
-  {
-    id: 1,
-    rowNum: 12,
-    name: 'Smith',
-    address: '14 Maple St',
-    deliveryGroup: 'Monday A',
-    phone: '416 123 4850',
-  },
-  {
-    id: 2,
-    rowNum: 43,
-    name: 'Connor',
-    address: '88 Birch Ave',
-    deliveryGroup: 'Tuesday A',
-    phone: '416 343 8450',
-  },
-  {
-    id: 3,
-    rowNum: 45,
-    name: 'Dougall',
-    address: '23 Cedar Rd',
-    deliveryGroup: 'Thursday B',
-    phone: '416 233 8450',
-  },
-  {
-    id: 4,
-    rowNum: 51,
-    name: 'Morales',
-    address: '7 Elm Cres',
-    deliveryGroup: 'Tuesday A',
-    phone: '519 343 8450',
-  },
-  {
-    id: 5,
-    rowNum: 78,
-    name: 'Patel',
-    address: '400 Oak Ave',
-    deliveryGroup: 'Monday A',
-    phone: '427 284 2498',
-  },
+  { id: 1, rowNum: 12, name: 'Smith', address: '14 Maple St', deliveryGroup: 'Monday A', phone: '416 123 4850' },
+  { id: 2, rowNum: 43, name: 'Connor', address: '88 Birch Ave', deliveryGroup: 'Tuesday A', phone: '416 343 8450' },
+  { id: 3, rowNum: 45, name: 'Dougall', address: '23 Cedar Rd', deliveryGroup: 'Thursday B', phone: '416 233 8450' },
+  { id: 4, rowNum: 51, name: 'Morales', address: '7 Elm Cres', deliveryGroup: 'Tuesday A', phone: '519 343 8450' },
+  { id: 5, rowNum: 78, name: 'Patel', address: '400 Oak Ave', deliveryGroup: 'Monday A', phone: '427 284 2498' },
 ];
 
 const SIMPLE_COLUMNS: Column<SimpleRow>[] = [
@@ -244,16 +209,16 @@ export function TableSection() {
       <SectionHeader>Tables</SectionHeader>
       <SectionDescription>
         Tabular data display built around{' '}
-        <code className="text-p2 bg-grey-150 rounded px-1">DataTable</code>.
+        <code className="text-p2 rounded bg-grey-150 px-1">DataTable</code>.
         Columns are defined as a typed array with optional custom cell renderers
         and per-cell error/warning highlight via{' '}
-        <code className="text-p2 bg-grey-150 rounded px-1">
+        <code className="text-p2 rounded bg-grey-150 px-1">
           getCellClassName
         </code>
         . Use{' '}
-        <code className="text-p2 bg-grey-150 rounded px-1">AlertCell</code>{' '}
+        <code className="text-p2 rounded bg-grey-150 px-1">AlertCell</code>{' '}
         inside a column's{' '}
-        <code className="text-p2 bg-grey-150 rounded px-1">render</code> for
+        <code className="text-p2 rounded bg-grey-150 px-1">render</code> for
         inline error and warning indicators.
       </SectionDescription>
 

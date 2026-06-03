@@ -49,7 +49,7 @@ function ModalContent({
         {children}
         <DialogPrimitive.Close
           aria-label="Close"
-          className="shadow-light text-grey-400 hover:text-grey-500 absolute top-4 right-4 flex size-11 items-center justify-center rounded-full bg-white transition-colors"
+          className="shadow-light absolute top-4 right-4 flex size-11 items-center justify-center rounded-full bg-white text-grey-400 transition-colors hover:text-grey-500"
         >
           <XIcon className="size-5" />
         </DialogPrimitive.Close>
@@ -98,9 +98,7 @@ function ModalFooter({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('flex justify-between gap-3', className)} {...props} />
-  );
+  return <div className={cn('flex justify-between gap-3', className)} {...props} />;
 }
 
 export {
