@@ -154,7 +154,8 @@ class LocationService:
                     )
                     .join(
                         RouteGroup,
-                        RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
+                        RouteGroupMembership.route_group_id
+                        == RouteGroup.route_group_id,  # type: ignore[arg-type]
                     )
                     .where(
                         RouteStop.location_id == Location.location_id,
