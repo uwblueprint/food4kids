@@ -51,7 +51,7 @@ cd food4kids
 
 You need two env files: `.env` (backend) and `frontend/.env` (frontend). Never commit these files.
 
-The backend `.env` is stored in Google Secret Manager and pulled via a script. The frontend `.env` must be obtained from the PL (a `frontend/.env.example` template is provided). Currently there are no env variables for the frontend, but may be subject to change.
+The backend `.env` is stored in Google Secret Manager and pulled via a script. For the frontend, copy the `frontend/.env.example` template to `frontend/.env`. It currently holds a single variable, `VITE_API_BASE_URL` (the backend API URL, defaulting to `http://localhost:8080`).
 
 #### Pull backend `.env` via Google Secret Manager
 
