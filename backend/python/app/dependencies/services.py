@@ -33,6 +33,7 @@ from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import SystemSettingsService
+from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.gcp_client import GCPStorageClient
@@ -74,6 +75,13 @@ def get_user_service() -> UserService:
     """Get user service instance"""
     logger = get_logger()
     return UserService(logger)
+
+
+@lru_cache
+def get_user_invite_service() -> UserInviteService:
+    """Get user invite service instance"""
+    logger = get_logger()
+    return UserInviteService(logger)
 
 
 @lru_cache

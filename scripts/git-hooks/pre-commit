@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: keep the frontend OpenAPI client in sync with the backend.
+#
+# When a commit touches anything that can change the API contract, regenerate
+# frontend/openapi.json and the generated TS client and stage the results, so
+# the contract never drifts out of a commit. (CI still verifies openapi.json as
+# a backstop for commits made with --no-verify or without the hook installed.)
+#
+# Enable once per clone:  git config core.hooksPath scripts/git-hooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Mirror the CI path filter: only do work when contract inputs are staged.
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+if ! grep -qE "^(backend/python/|frontend/openapi\.json|frontend/scripts/fetch-openapi\.mjs)" <<<"$staged"; then
+  exit 0
+fi
+
+echo "openapi: contract files staged — regenerating client…"
+"$REPO_ROOT/scripts/regen-openapi.sh"
+
+# Stage whatever the regen changed so it lands in this commit.
+git -C "$REPO_ROOT" add frontend/openapi.json frontend/src/api/generated
+
+if ! git -C "$REPO_ROOT" diff --cached --quiet -- frontend/openapi.json frontend/src/api/generated; then
+  echo "openapi: staged regenerated client into this commit."
+else
+  echo "openapi: client already in sync — nothing to stage."
+fi

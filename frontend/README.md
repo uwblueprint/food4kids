@@ -1,4 +1,4 @@
-# Frontend
+ # Frontend
  
 Built with React 19, TypeScript, and Vite.
 
@@ -170,15 +170,17 @@ The frontend talks to the backend through a TypeScript SDK generated from FastAP
 
 `openapi.json` and `src/api/generated/` are both committed so fresh clones and CI work without a generate step. The snapshot also doubles as a human-readable changelog of the API contract — when a PR changes the backend, the diff in `openapi.json` shows the contract change.
 
-**Regenerate after backend changes** (backend must be running):
+**Staying in sync — the pre-commit hook does it for you.** A repo hook regenerates `openapi.json` and the client whenever a commit touches the contract (`backend/python/**`, `frontend/openapi.json`, `frontend/scripts/fetch-openapi.mjs`) and stages the result, so you rarely have to think about it. It dumps the schema by introspecting the FastAPI app — **no running backend needed**. The hook **enables itself** the first time you `pnpm install` here (the `prepare` script points `core.hooksPath` at `scripts/git-hooks`); to enable it by hand, run `git config core.hooksPath scripts/git-hooks` once per clone (worktrees share it).
+
+**Regenerate manually** with the same no-server pipeline the hook uses (from the repo root):
 
 ```bash
-pnpm generate:api
+./scripts/regen-openapi.sh
 ```
 
-This hits `http://localhost:8080/openapi.json`, normalizes it into `openapi.json`, and runs `openapi-ts`. Point at a different URL with `OPENAPI_URL=...`.
+Or, with the backend already running, `pnpm generate:api` from `frontend/` hits `http://localhost:8080/openapi.json` instead (override with `OPENAPI_URL=...`).
 
-CI enforces that `openapi.json` matches the backend schema (the `OpenAPI client in sync` workflow): if you change a backend model/route without regenerating, the check fails. The generated client under `src/api/generated/` is a deterministic function of `openapi.json` + the pinned `@hey-api/openapi-ts`, so keeping the snapshot in sync keeps the client in sync.
+CI enforces that `openapi.json` matches the backend schema (the `OpenAPI client in sync` workflow) as a backstop for commits made without the hook. If it fails, the log prints a ready-to-apply patch — `git apply` it, run `pnpm openapi-ts`, and commit (no backend needed; `openapi-ts` reads the local `openapi.json`). The generated client under `src/api/generated/` is a deterministic function of `openapi.json` + the pinned `@hey-api/openapi-ts`, so keeping the snapshot in sync keeps the client in sync.
 
 **Using the generated client.** Prefer the tanstack-query helpers from `src/api/generated/@tanstack/react-query.gen.ts` over the raw SDK functions — they produce query keys and matching `queryOptions` / mutation configs for you. See `src/api/system-settings.ts` for the query pattern and `src/api/locations.ts` for a mutation (incl. multipart upload).
 
@@ -213,3 +215,13 @@ pnpm generate:api
 ```
 
 **Config files:** `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `.prettierrc`, `openapi-ts.config.ts`
+
+Anytime you add/remove packages in the future, you'll need to reset the volume:
+
+```
+
+docker compose down
+docker volume rm food4kids_frontend_node_modules
+docker compose up --build
+
+````

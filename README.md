@@ -88,6 +88,18 @@ gcloud secrets versions access latest --secret="f4k-backend-env" --project="food
 
 This writes `.env` to the repo root. You still need `frontend/.env` from the PL.
 
+### Git hooks
+
+The repo ships a pre-commit hook that keeps the frontend OpenAPI client in sync with the backend automatically — when a commit touches the API contract it regenerates `frontend/openapi.json` and `frontend/src/api/generated/` (no running backend needed) and stages the result.
+
+**It enables itself** the first time you run `pnpm install` in `frontend/` (via a `prepare` script that points `core.hooksPath` at `scripts/git-hooks`). If you only ever run the stack through Docker and want it anyway, enable it manually once (worktrees of the same clone share it):
+
+```bash
+git config core.hooksPath scripts/git-hooks
+```
+
+See [frontend/README.md](frontend/README.md#api-client-generated-from-openapi) for details. CI verifies the contract regardless, as a backstop.
+
 ### Run
 
 ```bash

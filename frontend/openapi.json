@@ -622,8 +622,15 @@
             "type": "string"
           },
           "auth_id": {
-            "title": "Auth Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Id"
           },
           "car_make_model": {
             "maxLength": 255,
@@ -721,12 +728,6 @@
             "title": "Name",
             "type": "string"
           },
-          "password": {
-            "maxLength": 100,
-            "minLength": 8,
-            "title": "Password",
-            "type": "string"
-          },
           "phone": {
             "maxLength": 20,
             "minLength": 1,
@@ -737,7 +738,6 @@
         "required": [
           "name",
           "email",
-          "password",
           "phone",
           "license_plate",
           "car_make_model",
@@ -2724,6 +2724,27 @@
         "title": "SystemSettingsRead",
         "type": "object"
       },
+      "UserFinalize": {
+        "properties": {
+          "password": {
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "user_invite_id": {
+            "format": "uuid",
+            "title": "User Invite Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_invite_id",
+          "password"
+        ],
+        "title": "UserFinalize",
+        "type": "object"
+      },
       "ValidatedLocationImportEntry": {
         "description": "LocationImportEntry with required fields guaranteed non-None after validation.",
         "properties": {
@@ -3535,15 +3556,64 @@
         "tags": [
           "drivers"
         ]
-      },
+      }
+    },
+    "/drivers/initialize": {
       "post": {
-        "description": "Register a new driver, creates a User and Driver object, returns Driver and AuthResponse",
-        "operationId": "register_driver",
+        "description": "Register a new driver in our backend, creates a User and Driver object, returns DriverRead\nNOTE: This does not create a firebase user, ie the User is in a hanging state\nWe need to do this so that we can implement our invite only system",
+        "operationId": "initialize_driver",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DriverRegister"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Initialize Driver",
+        "tags": [
+          "drivers"
+        ]
+      }
+    },
+    "/drivers/register": {
+      "post": {
+        "description": "Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse",
+        "operationId": "complete_driver_registration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserFinalize"
               }
             }
           },
@@ -3571,7 +3641,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Register Driver",
+        "summary": "Complete Driver Registration",
         "tags": [
           "drivers"
         ]

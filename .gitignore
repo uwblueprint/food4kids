@@ -21,3 +21,4 @@ postman/globals/
 backend/python/app/data/
 **/*service-account*.json
 **/*secrets*.json
+frontend/emails/html/static/
