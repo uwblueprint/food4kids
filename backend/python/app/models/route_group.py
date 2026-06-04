@@ -51,6 +51,15 @@ class RouteGroupCreate(RouteGroupBase):
     pass
 
 
+class RouteReadSummary(SQLModel):
+    """Lightweight route info returned inside a route group response"""
+
+    route_id: UUID
+    name: str
+    notes: str = ""
+    length: float = 0
+
+
 class RouteGroupRead(RouteGroupBase):
     """Read response model"""
 
@@ -63,6 +72,7 @@ class RouteGroupRead(RouteGroupBase):
     num_drivers_assigned: int = 0
     delivery_type: str | None = None
     status: str = "Archived"
+    routes: list[RouteReadSummary] = []
 
 
 class RouteGroupUpdate(SQLModel):

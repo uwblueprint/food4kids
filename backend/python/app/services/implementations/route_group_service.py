@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Any, NamedTuple
+from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -17,18 +17,15 @@ from app.models.enum import (
     RouteStatusEnum,
 )
 from app.models.location import Location
-from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
+from app.models.route_group import (
+    RouteGroup,
+    RouteGroupCreate,
+    RouteGroupRead,
+    RouteGroupUpdate,
+    RouteReadSummary,
+)
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
-
-
-class RouteGroupWithStats(NamedTuple):
-    route_group: RouteGroup
-    num_locations: int
-    num_boxes: int
-    num_drivers_assigned: int
-    delivery_type: str | None
-    status: str
 
 
 class RouteGroupService:
@@ -84,7 +81,7 @@ class RouteGroupService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
-    ) -> list[RouteGroupWithStats]:
+    ) -> list[RouteGroupRead]:
         """Get route groups with optional date filtering and aggregate stats"""
 
         group_location_ids = (
@@ -106,7 +103,14 @@ class RouteGroupService:
         )
 
         num_boxes_subq = (
-            select(func.coalesce(func.cast(func.sum(func.ceil(Location.num_children / 2.0)), Integer), 0))
+            select(
+                func.coalesce(
+                    func.cast(
+                        func.sum(func.ceil(Location.num_children / 2.0)), Integer
+                    ),
+                    0,
+                )
+            )
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[union-attr]
             .correlate(RouteGroup)
             .scalar_subquery()
@@ -128,7 +132,7 @@ class RouteGroupService:
             .join(Location, RouteStop.location_id == Location.location_id)
             .where(
                 RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
-                Location.school_name.isnot(None), 
+                Location.school_name.isnot(None),
                 Location.school_name != "",
             )
             .correlate(RouteGroup)
@@ -137,7 +141,7 @@ class RouteGroupService:
         has_locations_subq = (
             select(1)
             .select_from(RouteGroupMembership)
-            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  
+            .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)
             .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
             .correlate(RouteGroup)
         )
@@ -148,13 +152,12 @@ class RouteGroupService:
             else_=None,
         ).label("delivery_type")
 
-
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         thirty_days_ago = now - timedelta(days=30)
 
         status_expr = case(
-            (RouteGroup.drive_date > now, RouteStatusEnum.UPCOMING.value),
+            (RouteGroup.drive_date > today_start, RouteStatusEnum.UPCOMING.value),
             (RouteGroup.drive_date >= thirty_days_ago, RouteStatusEnum.COMPLETED.value),  # type: ignore[arg-type]
             else_=RouteStatusEnum.ARCHIVED.value,
         ).label("status")
@@ -244,15 +247,44 @@ class RouteGroupService:
         result = await session.execute(statement)
         rows = result.all()
 
-        # Load relationships for all route groups to avoid lazy loading issues
+        items: list[RouteGroupRead] = []
         for row in rows:
-            route_group = row[0]
-            await session.refresh(route_group, ["route_group_memberships"])
-            if include_routes:
-                for membership in route_group.route_group_memberships:
-                    await session.refresh(membership, ["route"])
+            rg: RouteGroup = row.RouteGroup
+            await session.refresh(rg, ["route_group_memberships"])
 
-        return [RouteGroupWithStats(*row) for row in rows]
+            routes: list[RouteReadSummary] = []
+            if include_routes:
+                for membership in rg.route_group_memberships:
+                    await session.refresh(membership, ["route"])
+                    if membership.route:
+                        routes.append(
+                            RouteReadSummary(
+                                route_id=membership.route.route_id,
+                                name=membership.route.name,
+                                notes=membership.route.notes,
+                                length=membership.route.length,
+                            )
+                        )
+
+            items.append(
+                RouteGroupRead(
+                    route_group_id=rg.route_group_id,
+                    name=rg.name,
+                    notes=rg.notes,
+                    drive_date=rg.drive_date,
+                    created_at=rg.created_at,
+                    updated_at=rg.updated_at,
+                    num_routes=rg.num_routes,
+                    num_locations=row.num_locations,
+                    num_boxes=row.num_boxes,
+                    num_drivers_assigned=row.num_drivers_assigned,
+                    delivery_type=row.delivery_type,
+                    status=row.status,
+                    routes=routes,
+                )
+            )
+
+        return items
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID

@@ -41,13 +41,13 @@ async def get_route_groups(
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
-) -> list[dict]:
+) -> list[RouteGroupRead]:
     """
     Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
     Can include associated routes in the response.
     """
     try:
-        route_groups = await route_group_service.get_route_groups(
+        return await route_group_service.get_route_groups(
             session,
             start_date,
             end_date,
@@ -57,37 +57,6 @@ async def get_route_groups(
             driver_assignment_status,
             include_routes,
         )
-        result = []
-        for row in route_groups:
-            data = RouteGroupRead.model_validate(
-                row.route_group, from_attributes=True
-            ).model_dump()
-            data["num_locations"] = row.num_locations
-            data["num_boxes"] = row.num_boxes
-            data["num_drivers_assigned"] = row.num_drivers_assigned
-            data["delivery_type"] = row.delivery_type
-            data["status"] = row.status
-            if include_routes:
-                data["routes"] = [
-                    {
-                        "route_id": membership.route.route_id
-                        if membership.route
-                        else None,
-                        "name": membership.route.name
-                        if membership.route
-                        else "No route",
-                        "notes": membership.route.notes
-                        if membership.route
-                        else "No notes",
-                        "length": membership.route.length if membership.route else 0,
-                    }
-                    for membership in row.route_group.route_group_memberships
-                ]
-            else:
-                data["routes"] = []
-            result.append(data)
-
-        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
