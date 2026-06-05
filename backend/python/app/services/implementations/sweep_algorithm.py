@@ -37,7 +37,7 @@ class LocationLongitudeError(Exception):
 
 
 class SweepAlgorithm(RoutingAlgorithmProtocol):
-    """Routing via sweep sort and sweep-based clustering."""
+    """Simple mock routing algorithm that uses the mock clustering algorithm."""
 
     clustering_algorithm: ClusteringAlgorithmProtocol
 
