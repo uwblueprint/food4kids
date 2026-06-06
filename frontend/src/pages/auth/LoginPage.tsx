@@ -3,7 +3,8 @@ import { type FormEvent, useState } from 'react';
 import loginPageIllustration from '@/assets/illustrations/login-page-illustration.png';
 import loginPageIllustrationMobile from '@/assets/illustrations/login-page-illustration-mobile.png';
 import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
-import logoImgMobile from '@/assets/logos/logo_mobile_one_line.png';
+import logoImgMobile from '@/assets/logos/logo_mobile_one_line.svg';
+import { useLogin } from '@/api';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -13,17 +14,19 @@ export const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  const loginMutation = useLogin();
+
   const handleLogin = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log('Logging in with:', { email, password, rememberMe });
-    // To be integrated with backend authentication once active
+    loginMutation.mutate({ email, password });
   };
 
   return (
-    <div className="flex h-screen w-full flex-row overflow-auto lg:overflow-hidden">
+    <div className="relative flex h-screen w-full flex-row overflow-auto lg:overflow-hidden">
       {/* Left Column: Form Section */}
-      <div className="md:flex w-full lg:w-1/2 md:items-center lg:pl-30">
-        <div className="flex px-5 pt-5 lg:px-0 w-full max-w-100 flex-col gap-8">
+      <div className="md:flex w-full lg:w-1/2 md:items-center md:justify-center lg:justify-start lg:pl-[8cqw]">
+        <div className="flex px-5 pt-16 md:pt-0 md:px-0 w-full md:max-w-126 lg:max-w-100 flex-col gap-8">
           {/* Logo and Heading */}
           <div className="flex-col">
             <div className="self-start">
@@ -37,22 +40,22 @@ export const LoginPage = () => {
               <img
                 src={logoImgMobile}
                 alt="Food4Kids Waterloo Region Logo"
-                className="lg:hidden h-7 w-auto object-contain mb-4"
+                className="lg:hidden h-7 w-auto absolute top-5 left-5"
               />
             </div>
             {/* Mobile Login Illustration */}
-            <div className="flex flex-row lg:hidden justify-center items-center px-4 mb-6">
+            <div className="flex flex-row lg:hidden justify-center items-center mb-6">
               <img
                 src={loginPageIllustrationMobile}
                 alt="Food4Kids Waterloo Region Logo"
-                className="w-full h-auto object-contain"
+                className="w-[307px] h-[212px] object-contain"
               />
             </div>
             {/* Heading */}
             <h1>
               Hi there!
             </h1>
-            <p className="text-p2 lg:text-p1">
+            <p className="text-p1">
               Continue to access the app
             </p>
           </div>
@@ -136,13 +139,14 @@ export const LoginPage = () => {
                 variant="primary"
                 shape="default"
                 className="mt-6 w-full py-3"
+                disabled={loginMutation.isPending}
               >
                 Log in
               </Button>
             </form>
 
-            {/* Footer */}
-            <p className="mt-6 lg:mt-5 mb-8 lg:mb-0 text-center text-p1">
+            {/* Desktop Footer */}
+            <p className="hidden lg:block mt-6 lg:mt-5 mb-8 lg:mb-0 text-center text-p1">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
@@ -153,6 +157,19 @@ export const LoginPage = () => {
                 }}
               >
                 Get your login link
+              </a>
+            </p>
+            {/* Mobile Footer */}
+            <p className="lg:hidden mt-6 lg:mt-5 mb-8 lg:mb-0 text-center text-p1">
+              <a
+                href="/get-login-link"
+                className="text-blue-300 hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  // TODO: Implement get login link action
+                }}
+              >
+                No account yet? Sign in here.
               </a>
             </p>
           </div>
