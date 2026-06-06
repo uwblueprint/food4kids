@@ -216,3 +216,25 @@ async def test_cluster_locations_by_constraints_rejects_oversized_location() -> 
     locations = [_location(lat=43.46, lon=-80.49, num_children=29)]
     with pytest.raises(ValueError, match="Cannot pack location"):
         await algo.cluster_locations_by_constraints(locations=locations)
+
+
+@pytest.mark.asyncio
+async def test_cluster_locations_raises_when_no_feasible_driver() -> None:
+    """Greedy assignment fails when every route is full (empty feasible_indices)."""
+    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON)
+    # 11 far stops, 2 drivers -> max 5 stops per far route -> capacity 10 total.
+    far = [
+        _location(
+            lat=43.60,
+            lon=-80.70,
+            num_children=2,
+            address="10 Main St, Elmira, ON",
+        )
+        for _ in range(11)
+    ]
+    with pytest.raises(ValueError, match="Cannot assign"):
+        await algo.cluster_locations(
+            locations=far,
+            num_clusters=2,
+            max_boxes_per_cluster=14,
+        )

@@ -20,10 +20,6 @@ DEFAULT_MAX_BOXES_PER_CLUSTER = 14
 FAR_CITY_KEYWORDS: frozenset[str] = frozenset(
     {
         "elmira",
-        "new hamburg",
-        "st. jacobs",
-        "st jacobs",
-        "saint jacobs",
     }
 )
 
