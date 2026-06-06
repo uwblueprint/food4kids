@@ -27,6 +27,7 @@ def _location(
 ) -> Location:
     return Location(
         location_id=uuid4(),
+        location_group_id=None,
         contact_name=name,
         address=address,
         phone_number="5195550100",
