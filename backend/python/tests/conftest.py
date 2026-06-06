@@ -274,8 +274,9 @@ def sample_location_data() -> dict[str, Any]:
     """Sample location data for testing. Callers must add a valid
     ``location_group_id`` (e.g. from the ``test_location_group`` fixture)."""
     return {
-        "school_name": "Central Elementary",
+        "name": "Central Elementary",
         "contact_name": "Jane Smith",
+        "delivery_type": "School",
         "address": "123 Main St, City, State 12345",
         "phone_number": "(555) 123-4567",
         "longitude": -122.4194,

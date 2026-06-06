@@ -1,12 +1,21 @@
 import json
 from uuid import UUID
 
-from backend.python.app.models.enum import DeliveryTypeEnum
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import get_location_service
 from app.models import get_session
+from app.models.enum import DeliveryTypeEnum
 from app.models.location import (
     LocationCreate,
     LocationImportResponse,
@@ -38,7 +47,9 @@ async def get_locations(
     Get all locations with pagination
     """
     try:
-        result = await location_service.get_locations(session, pagination, delivery_type, state)
+        result = await location_service.get_locations(
+            session, pagination, delivery_type, state
+        )
         return PaginatedResponse.create(
             items=[LocationRead.model_validate(loc) for loc in result.items],
             total=result.total,

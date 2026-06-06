@@ -21,6 +21,7 @@ async def test_fetch_route_polyline_with_return() -> None:
     # Create mock locations
     loc1 = Location(
         location_group_id=uuid4(),
+        name="Test 1 Loc 1",
         contact_name="Test 1 Loc 1",
         address="123 Test St",
         phone_number="123-456-7890",
@@ -34,6 +35,7 @@ async def test_fetch_route_polyline_with_return() -> None:
 
     loc2 = Location(
         location_group_id=uuid4(),
+        name="Test 1 Loc 2",
         contact_name="Test 1 Loc 2",
         address="124 Test St",
         phone_number="124-456-7890",

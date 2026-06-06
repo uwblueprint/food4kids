@@ -20,13 +20,13 @@ import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
-const DELIVERY_TYPES = ['School Year', 'Summer'];
+const DELIVERY_TYPES = ['School', 'Family'];
 
 const COLUMNS: Column<LocationRead>[] = [
   {
-    key: 'contact_name',
+    key: 'name',
     header: 'School / Last Name',
-    render: (row) => row.contact_name,
+    render: (row) => row.name,
   },
   { key: 'address', header: 'Address', render: (row) => row.address },
   {

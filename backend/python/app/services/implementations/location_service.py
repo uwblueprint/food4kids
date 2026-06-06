@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
-from app.models.enum import NotePermission
+from app.models.enum import DeliveryTypeEnum, NotePermission
 from app.models.location import (
     AlertCode,
     Location,
@@ -92,16 +92,29 @@ class LocationService:
             raise e
 
     async def get_locations(
-        self, session: AsyncSession, pagination: PaginationParams
+        self,
+        session: AsyncSession,
+        pagination: PaginationParams,
+        delivery_type: list[DeliveryTypeEnum] | None = None,
+        state: list[LocationState] | None = None,
     ) -> PaginatedResponse[Location]:
         """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
             statement = (
                 select(Location)
-                .where(Location.state == LocationState.ACTIVE)
                 .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 .order_by(Location.created_at.desc())  # type: ignore[union-attr]
             )
+            if delivery_type:
+                statement = statement.where(
+                    Location.delivery_type.in_(delivery_type)  # type: ignore[attr-defined]
+                )
+            if state:
+                statement = statement.where(
+                    Location.state.in_(state)  # type: ignore[attr-defined]
+                )
+            else:
+                statement = statement.where(Location.state == LocationState.ACTIVE)
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
             return PaginatedResponse.create(
@@ -383,8 +396,9 @@ class LocationService:
 
         return Location(
             location_group_id=location_data.location_group_id,
-            school_name=location_data.school_name,
+            name=location_data.name,
             contact_name=location_data.contact_name,
+            delivery_type=location_data.delivery_type,
             address=location_data.address,
             phone_number=location_data.phone_number,
             longitude=location_data.longitude,
@@ -464,7 +478,9 @@ class LocationService:
 
                 new_locations.append(
                     Location(
+                        name=entry.contact_name,
                         contact_name=entry.contact_name,
+                        delivery_type=DeliveryTypeEnum.FAMILY,
                         address=geocode_result.formatted_address,
                         phone_number=entry.phone_number,
                         longitude=geocode_result.longitude,

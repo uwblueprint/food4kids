@@ -49,7 +49,7 @@ def _print_and_collect_rows(clusters: list[list[Location]]) -> list[dict]:
 
         cluster_boxes = 0
         for location in cluster:
-            name = location.school_name or location.contact_name
+            name = location.name
             print(f"  • {name}")
             print(f"    {location.address}")
             print(f"    Coords: ({location.latitude}, {location.longitude})")
@@ -133,7 +133,7 @@ async def main() -> None:
         print("Locations to cluster:")
         print("-" * 60)
         for loc in locations:
-            name = loc.school_name or loc.contact_name
+            name = loc.name
             print(f"  {name}")
             print(f"    Address: {loc.address}")
             print(f"    Coords: ({loc.latitude}, {loc.longitude})")

@@ -78,7 +78,7 @@ def configure_logging() -> None:
             "console": {
                 "class": "logging.StreamHandler",
                 "level": "WARNING",
-          ` `      "formatter": "simple",
+                "formatter": "simple",
                 "stream": "ext://sys.stdout",
             },
             "file": {

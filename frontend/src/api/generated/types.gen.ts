@@ -236,7 +236,7 @@ export type ChangedFieldStr = {
 /**
  * DeliveryTypeEnum
  */
-export type DeliveryTypeEnum = 'School Year' | 'Summer';
+export type DeliveryTypeEnum = 'School' | 'Family';
 
 /**
  * DriveDaysOfWeekEnum
@@ -571,6 +571,7 @@ export type LocationCreate = {
    * Contact Name
    */
   contact_name: string;
+  delivery_type?: DeliveryTypeEnum;
   /**
    * Dietary Restrictions
    */
@@ -616,9 +617,9 @@ export type LocationCreate = {
    */
   place_id?: string | null;
   /**
-   * School Name
+   * Name
    */
-  school_name?: string | null;
+  name: string;
   state?: LocationState;
 };
 
@@ -855,6 +856,7 @@ export type LocationRead = {
    * Contact Name
    */
   contact_name: string;
+  delivery_type?: DeliveryTypeEnum;
   /**
    * Dietary Restrictions
    */
@@ -908,9 +910,9 @@ export type LocationRead = {
    */
   place_id?: string | null;
   /**
-   * School Name
+   * Name
    */
-  school_name?: string | null;
+  name: string;
   state?: LocationState;
 };
 
@@ -935,6 +937,7 @@ export type LocationUpdate = {
    * Contact Name
    */
   contact_name?: string | null;
+  delivery_type?: DeliveryTypeEnum | null;
   /**
    * Dietary Restrictions
    */
@@ -980,9 +983,9 @@ export type LocationUpdate = {
    */
   place_id?: string | null;
   /**
-   * School Name
+   * Name
    */
-  school_name?: string | null;
+  name?: string | null;
 };
 
 /**

@@ -32,6 +32,7 @@ from app.models.driver_history import (
     DriverHistoryUpdate,
 )
 from app.models.enum import (
+    DeliveryTypeEnum,
     NotePermission,
     ProgressEnum,
     RoleEnum,
@@ -368,8 +369,9 @@ class TestCoreModels:
         # Create with all fields
         location = Location(
             location_group_id=uuid4(),
-            school_name="Central Elementary",
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
             longitude=-122.4194,
@@ -380,12 +382,14 @@ class TestCoreModels:
             num_boxes=25,
             notes="Main entrance on Main St",
         )
-        assert location.school_name == "Central Elementary"
+        assert location.name == "Central Elementary"
+        assert location.delivery_type == DeliveryTypeEnum.SCHOOL
         assert location.created_at is not None
 
         # Create with minimal fields
         location_minimal = Location(
             location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
             address="456 Oak Ave, City, State 12345",
             phone_number="(555) 987-6543",
@@ -394,7 +398,8 @@ class TestCoreModels:
             halal=True,
             num_boxes=10,
         )
-        assert location_minimal.school_name is None
+        assert location_minimal.name == "John Doe"
+        assert location_minimal.delivery_type == DeliveryTypeEnum.FAMILY
         assert location_minimal.notes == ""  # Default value
 
         # Read model
@@ -402,7 +407,9 @@ class TestCoreModels:
             location_id=uuid4(),
             location_group_id=uuid4(),
             location_group_name="Central Elementary",
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
             longitude=-122.4194,
@@ -760,6 +767,7 @@ class TestEnumsAndSerialization:
         # Test default values across models
         location = Location(
             location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
             address="456 Oak Ave",
             phone_number="(555) 987-6543",
@@ -769,7 +777,7 @@ class TestEnumsAndSerialization:
             num_boxes=10,
         )
         assert location.notes == ""  # Default value
-        assert location.school_name is None  # Default value
+        assert location.delivery_type == DeliveryTypeEnum.FAMILY  # Default value
         assert location.dietary_restrictions == ""  # Default value
         assert location.num_children is None  # Default value
 

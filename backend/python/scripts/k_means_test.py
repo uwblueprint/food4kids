@@ -72,7 +72,7 @@ async def main() -> None:
         print("Locations to cluster:")
         print("-" * 60)
         for loc in locations:
-            name = loc.school_name or loc.contact_name
+            name = loc.name
             print(f"  {name}")
             print(f"    Address: {loc.address}")
             print(f"    Coords: ({loc.latitude}, {loc.longitude})")
@@ -116,7 +116,7 @@ async def main() -> None:
 
                 total_boxes = 0
                 for loc in cluster:
-                    name = loc.school_name or loc.contact_name
+                    name = loc.name
                     print(f"  • {name}")
                     print(f"    {loc.address}")
                     print(f"    Coords: ({loc.latitude}, {loc.longitude})")

@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, Relationship, SQLModel, String
 
 from .base import BaseModel
+from .enum import DeliveryTypeEnum
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
@@ -24,8 +25,11 @@ class LocationBase(SQLModel):
     location_group_id: UUID = Field(
         foreign_key="location_groups.location_group_id", nullable=False
     )
-    school_name: str | None = None
+    name: str
     contact_name: str
+    delivery_type: DeliveryTypeEnum = Field(
+        default=DeliveryTypeEnum.FAMILY, sa_type=String
+    )
     address: str
     phone_number: str
     longitude: float | None = None
@@ -189,8 +193,9 @@ class LocationUpdate(SQLModel):
     """Update request model with all fields optional"""
 
     location_group_id: UUID | None = None
-    school_name: str | None = None
+    name: str | None = None
     contact_name: str | None = None
+    delivery_type: DeliveryTypeEnum | None = None
     address: str | None = None
     phone_number: str | None = None
     longitude: float | None = None

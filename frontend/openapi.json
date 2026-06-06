@@ -392,8 +392,8 @@
       },
       "DeliveryTypeEnum": {
         "enum": [
-          "School Year",
-          "Summer"
+          "School",
+          "Family"
         ],
         "title": "DeliveryTypeEnum",
         "type": "string"
@@ -999,27 +999,25 @@
             ],
             "title": "Place Id"
           },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
-          },
           "state": {
             "$ref": "#/components/schemas/LocationState",
             "default": "ACTIVE"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum",
+            "default": "Family"
           }
         },
         "required": [
           "location_group_id",
           "contact_name",
           "address",
-          "phone_number"
+          "phone_number",
+          "name"
         ],
         "title": "LocationCreate",
         "type": "object"
@@ -1506,20 +1504,17 @@
             ],
             "title": "Place Id"
           },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
-          },
           "state": {
             "$ref": "#/components/schemas/LocationState",
             "default": "ACTIVE"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum",
+            "default": "Family"
           }
         },
         "required": [
@@ -1528,7 +1523,8 @@
           "address",
           "phone_number",
           "location_id",
-          "location_group_name"
+          "location_group_name",
+          "name"
         ],
         "title": "LocationRead",
         "type": "object"
@@ -1690,7 +1686,7 @@
             ],
             "title": "Place Id"
           },
-          "school_name": {
+          "name": {
             "anyOf": [
               {
                 "type": "string"
@@ -1699,7 +1695,17 @@
                 "type": "null"
               }
             ],
-            "title": "School Name"
+            "title": "Name"
+          },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "title": "LocationUpdate",
