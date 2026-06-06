@@ -8,6 +8,9 @@ import {
 } from './client';
 import { client } from './client.gen';
 import type {
+  CompleteDriverRegistrationData,
+  CompleteDriverRegistrationErrors,
+  CompleteDriverRegistrationResponses,
   CreateAnnouncementData,
   CreateAnnouncementErrors,
   CreateAnnouncementResponses,
@@ -133,6 +136,9 @@ import type {
   IngestLocationsData,
   IngestLocationsErrors,
   IngestLocationsResponses,
+  InitializeDriverData,
+  InitializeDriverErrors,
+  InitializeDriverResponses,
   LoginData,
   LoginErrors,
   LoginResponses,
@@ -141,9 +147,6 @@ import type {
   LogoutResponses,
   RefreshData,
   RefreshResponses,
-  RegisterDriverData,
-  RegisterDriverErrors,
-  RegisterDriverResponses,
   ResetPasswordData,
   ResetPasswordErrors,
   ResetPasswordResponses,
@@ -488,20 +491,47 @@ export const getDrivers = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Register Driver
+ * Initialize Driver
  *
- * Register a new driver, creates a User and Driver object, returns Driver and AuthResponse
+ * Register a new driver in our backend, creates a User and Driver object, returns DriverRead
+ * NOTE: This does not create a firebase user, ie the User is in a hanging state
+ * We need to do this so that we can implement our invite only system
  */
-export const registerDriver = <ThrowOnError extends boolean = false>(
-  options: Options<RegisterDriverData, ThrowOnError>
+export const initializeDriver = <ThrowOnError extends boolean = false>(
+  options: Options<InitializeDriverData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    RegisterDriverResponses,
-    RegisterDriverErrors,
+    InitializeDriverResponses,
+    InitializeDriverErrors,
     ThrowOnError
   >({
     responseType: 'json',
-    url: '/drivers/',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/drivers/initialize',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Complete Driver Registration
+ *
+ * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
+ */
+export const completeDriverRegistration = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CompleteDriverRegistrationData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    CompleteDriverRegistrationResponses,
+    CompleteDriverRegistrationErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/drivers/register',
     ...options,
     headers: {
       'Content-Type': 'application/json',
