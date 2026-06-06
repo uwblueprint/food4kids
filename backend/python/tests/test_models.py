@@ -19,7 +19,6 @@ from app.models.announcement import (
 from app.models.driver import (
     Driver,
     DriverCreate,
-    DriverRegister,
     DriverUpdate,
 )
 from app.models.driver_assignment import (
@@ -62,7 +61,7 @@ from app.models.route_group import (
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
-from app.models.user import User, UserCreate
+from app.models.user import User, UserFinalize
 
 init_app()
 
@@ -154,26 +153,16 @@ class TestCoreBusinessValidation:
     def test_password_validation(self) -> None:
         """Test password validation for driver registration."""
         # Test valid password
-        driver_register = DriverRegister(
-            name="Test Driver",
-            email="test@example.com",
-            phone="+12125551234",
-            address="123 Main St",
-            license_plate="ABC123",
-            car_make_model="Toyota Camry",
+        user_finalize = UserFinalize(
+            user_invite_id=uuid4(),
             password="securepassword123",
         )
-        assert driver_register.password == "securepassword123"
+        assert user_finalize.password == "securepassword123"
 
         # Test invalid password (too short)
         with pytest.raises(ValidationError) as exc_info:
-            DriverRegister(
-                name="Test Driver",
-                email="test@example.com",
-                phone="+12125551234",
-                address="123 Main St",
-                license_plate="ABC123",
-                car_make_model="Toyota Camry",
+            UserFinalize(
+                user_invite_id=uuid4(),
                 password="123",  # Too short
             )
         assert "password" in str(exc_info.value)
@@ -344,11 +333,6 @@ class TestCoreModels:
         assert driver.created_at is not None
 
         # Create model
-        user_create = UserCreate(
-            name="Jane Doe",
-            email="jane.doe@example.com",
-            password="securepassword123",
-        )
         driver_create = DriverCreate(
             user_id=uuid4(),
             phone="+12125551234",
@@ -356,7 +340,6 @@ class TestCoreModels:
             license_plate="XYZ789",
             car_make_model="Honda Civic",
         )
-        assert user_create.name == "Jane Doe"
         assert driver_create.license_plate == "XYZ789"
 
         # Update model

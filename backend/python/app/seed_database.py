@@ -49,7 +49,8 @@ ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
 # Configuration constants
 # Average number of stops per route (used to calculate number of clusters)
 AVG_STOPS_PER_ROUTE = 7.5
-# Maximum number of stops per route (Google Maps directions URLs support max 10 waypoints)
+# Maximum number of stops per route (seeded data cap, well below the Google
+# Maps directions URL limit of 50 waypoints)
 MAX_STOPS_PER_ROUTE = 10
 # Number of months in the past to generate route groups for
 MONTHS_PAST = 2

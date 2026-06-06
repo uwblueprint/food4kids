@@ -9,8 +9,11 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
+    "email:dev": "email dev --dir emails --port 3000",
+    "email:export": "email export --outDir emails/html",
     "preview": "vite preview",
-    "generate:api": "node scripts/fetch-openapi.mjs && openapi-ts"
+    "generate:api": "node scripts/fetch-openapi.mjs && openapi-ts",
+    "prepare": "node -e \"try{const cp=require('child_process');cp.execSync('git rev-parse --is-inside-work-tree',{stdio:'ignore'});cp.execSync('git config core.hooksPath scripts/git-hooks',{stdio:'ignore'})}catch(e){}\""
   },
   "pnpm": {
     "overrides": {

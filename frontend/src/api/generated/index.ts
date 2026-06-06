@@ -312,6 +312,7 @@ export type {
   LocationIngestResponse,
   LocationRead,
   LocationState,
+  LocationStatusEnum,
   LocationUpdate,
   LoginData,
   LoginError,

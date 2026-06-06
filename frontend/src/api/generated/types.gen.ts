@@ -924,6 +924,11 @@ export type LocationRead = {
 export type LocationState = 'ACTIVE' | 'ARCHIVED';
 
 /**
+ * LocationStatusEnum
+ */
+export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
+
+/**
  * LocationUpdate
  *
  * Update request model with all fields optional
@@ -2722,6 +2727,18 @@ export type GetLocationsData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Delivery Type
+     *
+     * Filter by one or more delivery types
+     */
+    delivery_type?: Array<DeliveryTypeEnum> | null;
+    /**
+     * Status
+     *
+     * Filter by one or more location statuses
+     */
+    status?: Array<LocationStatusEnum> | null;
     /**
      * Page
      *

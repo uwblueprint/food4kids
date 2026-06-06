@@ -51,7 +51,7 @@ cd food4kids
 
 You need two env files: `.env` (backend) and `frontend/.env` (frontend). Never commit these files.
 
-The backend `.env` is stored in Google Secret Manager and pulled via a script. The frontend `.env` must be obtained from the PL (a `frontend/.env.example` template is provided). Currently there are no env variables for the frontend, but may be subject to change.
+The backend `.env` is stored in Google Secret Manager and pulled via a script. For the frontend, copy the `frontend/.env.example` template to `frontend/.env`. It currently holds a single variable, `VITE_API_BASE_URL` (the backend API URL, defaulting to `http://localhost:8080`).
 
 #### Pull backend `.env` via Google Secret Manager
 
@@ -87,6 +87,18 @@ gcloud secrets versions access latest --secret="f4k-backend-env" --project="food
 ```
 
 This writes `.env` to the repo root. You still need `frontend/.env` from the PL.
+
+### Git hooks
+
+The repo ships a pre-commit hook that keeps the frontend OpenAPI client in sync with the backend automatically — when a commit touches the API contract it regenerates `frontend/openapi.json` and `frontend/src/api/generated/` (no running backend needed) and stages the result.
+
+**It enables itself** the first time you run `pnpm install` in `frontend/` (via a `prepare` script that points `core.hooksPath` at `scripts/git-hooks`). If you only ever run the stack through Docker and want it anyway, enable it manually once (worktrees of the same clone share it):
+
+```bash
+git config core.hooksPath scripts/git-hooks
+```
+
+See [frontend/README.md](frontend/README.md#api-client-generated-from-openapi) for details. CI verifies the contract regardless, as a backstop.
 
 ### Run
 
