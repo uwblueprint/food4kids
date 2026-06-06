@@ -5776,7 +5776,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Get System Settings",
+        "summary": "Get system settings (e2e openapi-sync test)",
         "tags": [
           "system-settings"
         ]

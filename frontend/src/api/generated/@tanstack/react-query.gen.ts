@@ -11,6 +11,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import {
+  completeDriverRegistration,
   createAnnouncement,
   createDriverAssignment,
   createDriverHistory,
@@ -54,11 +55,11 @@ import {
   getSuggestedDriver,
   getSystemSettings,
   ingestLocations,
+  initializeDriver,
   login,
   logout,
   type Options,
   refresh,
-  registerDriver,
   resetPassword,
   reviewLocations,
   test,
@@ -74,6 +75,9 @@ import {
   uploadImage,
 } from '../sdk.gen';
 import type {
+  CompleteDriverRegistrationData,
+  CompleteDriverRegistrationError,
+  CompleteDriverRegistrationResponse,
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
@@ -198,6 +202,9 @@ import type {
   IngestLocationsData,
   IngestLocationsError,
   IngestLocationsResponse,
+  InitializeDriverData,
+  InitializeDriverError,
+  InitializeDriverResponse,
   LoginData,
   LoginError,
   LoginResponse,
@@ -206,9 +213,6 @@ import type {
   LogoutResponse,
   RefreshData,
   RefreshResponse2,
-  RegisterDriverData,
-  RegisterDriverError,
-  RegisterDriverResponse,
   ResetPasswordData,
   ResetPasswordError,
   ResetPasswordResponse,
@@ -838,24 +842,55 @@ export const getDriversOptions = (options?: Options<GetDriversData>) =>
   });
 
 /**
- * Register Driver
+ * Initialize Driver
  *
- * Register a new driver, creates a User and Driver object, returns Driver and AuthResponse
+ * Register a new driver in our backend, creates a User and Driver object, returns DriverRead
+ * NOTE: This does not create a firebase user, ie the User is in a hanging state
+ * We need to do this so that we can implement our invite only system
  */
-export const registerDriverMutation = (
-  options?: Partial<Options<RegisterDriverData>>
+export const initializeDriverMutation = (
+  options?: Partial<Options<InitializeDriverData>>
 ): UseMutationOptions<
-  RegisterDriverResponse,
-  AxiosError<RegisterDriverError>,
-  Options<RegisterDriverData>
+  InitializeDriverResponse,
+  AxiosError<InitializeDriverError>,
+  Options<InitializeDriverData>
 > => {
   const mutationOptions: UseMutationOptions<
-    RegisterDriverResponse,
-    AxiosError<RegisterDriverError>,
-    Options<RegisterDriverData>
+    InitializeDriverResponse,
+    AxiosError<InitializeDriverError>,
+    Options<InitializeDriverData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await registerDriver({
+      const { data } = await initializeDriver({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Complete Driver Registration
+ *
+ * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
+ */
+export const completeDriverRegistrationMutation = (
+  options?: Partial<Options<CompleteDriverRegistrationData>>
+): UseMutationOptions<
+  CompleteDriverRegistrationResponse,
+  AxiosError<CompleteDriverRegistrationError>,
+  Options<CompleteDriverRegistrationData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CompleteDriverRegistrationResponse,
+    AxiosError<CompleteDriverRegistrationError>,
+    Options<CompleteDriverRegistrationData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await completeDriverRegistration({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -2221,7 +2256,7 @@ export const getSystemSettingsQueryKey = (
 ) => createQueryKey('getSystemSettings', options);
 
 /**
- * Get System Settings
+ * Get system settings (e2e openapi-sync test)
  *
  * Return the singleton system settings row, or null if none has been created.
  */
