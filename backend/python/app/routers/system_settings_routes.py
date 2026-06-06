@@ -9,7 +9,11 @@ from app.services.implementations.system_settings_service import SystemSettingsS
 router = APIRouter(prefix="/system-settings", tags=["system-settings"])
 
 
-@router.get("/", response_model=SystemSettingsRead | None)
+@router.get(
+    "/",
+    response_model=SystemSettingsRead | None,
+    summary="Get system settings (e2e openapi-sync test)",
+)
 async def get_system_settings(
     session: AsyncSession = Depends(get_session),
     system_settings_service: SystemSettingsService = Depends(
