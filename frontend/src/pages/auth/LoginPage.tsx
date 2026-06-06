@@ -177,7 +177,7 @@ export const LoginPage = () => {
             </form>
 
             {/* Desktop Footer */}
-            <p className="hidden lg:block mt-6 lg:mt-5 mb-8 lg:mb-0 text-center text-p1">
+            <p className="hidden lg:block mt-5 text-center text-p1">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
@@ -191,7 +191,7 @@ export const LoginPage = () => {
               </a>
             </p>
             {/* Mobile Footer */}
-            <p className="lg:hidden mt-6 lg:mt-5 mb-8 lg:mb-0 text-center text-p1">
+            <p className="lg:hidden mt-6 mb-8 text-center text-p1">
               <a
                 href="/get-login-link"
                 className="text-blue-300 hover:underline"
