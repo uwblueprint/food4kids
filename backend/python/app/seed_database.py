@@ -12,12 +12,15 @@ from typing import cast
 from zoneinfo import ZoneInfo
 
 import faker
+import firebase_admin
 import phonenumbers
+from firebase_admin import auth
 from phonenumbers import PhoneNumberFormat
 from sklearn.cluster import KMeans  # type: ignore[import-untyped]
 from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
+from app import initialize_firebase
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.base import BaseModel
@@ -42,9 +45,6 @@ from app.models.user import User
 
 # Initialize Faker
 fake = faker.Faker()
-
-# Seeding sample admin with real Firebase
-ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
 
 # Configuration constants
 # Average number of stops per route (used to calculate number of clusters)
@@ -97,6 +97,10 @@ KMEANS_N_INIT = 10
 DAYS_PER_MONTH = 30
 # Minimum number of drivers to create regardless of route count
 MIN_DRIVERS = 5
+# Number of admin accounts to seed
+NUM_SEED_ADMINS = 2
+# Shared password for all seeded Firebase accounts
+SEED_PASSWORD = "test123"
 # Number of days considered as "next week" for assignment strategy
 NEXT_WEEK_DAYS = 7
 # Number of years back to generate driver history for
@@ -168,6 +172,19 @@ def set_timestamps(instance: BaseModel) -> None:
     """Set updated_at to match created_at for seed data"""
     if instance.created_at is not None and instance.updated_at is None:
         instance.updated_at = instance.created_at
+
+
+def ensure_firebase_user(uid: str, email: str, password: str, role: str) -> str:
+    """Create or update a Firebase user so it is always loginable with the given credentials."""
+    try:
+        auth.get_user(uid)
+        auth.update_user(uid, email=email, password=password, email_verified=True)
+        print(f"  Firebase user {uid} ({email}) already exists, updated")
+    except auth.UserNotFoundError:
+        auth.create_user(uid=uid, email=email, password=password, email_verified=True)
+        print(f"  Firebase user {uid} ({email}) created")
+    auth.set_custom_user_claims(uid, {"role": role})
+    return uid
 
 
 def generate_valid_phone() -> str:
