@@ -6,20 +6,33 @@ import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
 import logoImgMobile from '@/assets/logos/logo_mobile_one_line.svg';
 import { useLogin } from '@/api';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
-import { Eye, EyeOff } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loginError, setLoginError] = useState(false);
 
   const loginMutation = useLogin();
 
   const handleLogin = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log('Logging in with:', { email, password, rememberMe });
-    loginMutation.mutate({ email, password });
+    setLoginError(false);
+    loginMutation.mutate(
+      { email, password },
+      {
+        onError: () => {
+          setLoginError(true);
+        },
+        onSuccess: () => {
+          setLoginError(false);
+        },
+      }
+    );
   };
 
   return (
@@ -69,13 +82,22 @@ export const LoginPage = () => {
                 </FieldLabel>
                 <Input
                   id="email"
-                  className="px-6"
+                  className={cn('px-6', loginError && 'outline-red focus:outline-red')}
                   type="email"
                   placeholder="Enter your email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setLoginError(false);
+                  }}
                   required
                 />
+                {loginError && (
+                  <div className="flex items-center gap-1.5 text-red text-p2">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>Incorrect email or password</span>
+                  </div>
+                )}
               </Field>
 
               <div className="flex flex-col gap-4">
@@ -89,9 +111,12 @@ export const LoginPage = () => {
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
-                      className="px-6"
+                      className={cn('px-6', loginError && 'outline-red focus:outline-red')}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setLoginError(false);
+                      }}
                       required
                     />
                     <button
@@ -107,6 +132,12 @@ export const LoginPage = () => {
                       )}
                     </button>
                   </div>
+                  {loginError && (
+                    <div className="flex items-center gap-1.5 text-red text-p2">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <span>Incorrect email or password</span>
+                    </div>
+                  )}
                 </Field>
 
                 {/* Remember Me & Forgot Password */}
