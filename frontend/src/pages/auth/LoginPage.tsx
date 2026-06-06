@@ -1,12 +1,12 @@
+import { AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
+import { useLogin } from '@/api';
 import loginPageIllustration from '@/assets/illustrations/login-page-illustration.png';
 import loginPageIllustrationMobile from '@/assets/illustrations/login-page-illustration-mobile.png';
 import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
 import logoImgMobile from '@/assets/logos/logo_mobile_one_line.svg';
-import { useLogin } from '@/api';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
-import { AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const LoginPage = () => {
@@ -20,16 +20,12 @@ export const LoginPage = () => {
 
   const handleLogin = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('Logging in with:', { email, password, rememberMe });
     setLoginError(false);
     loginMutation.mutate(
       { email, password },
       {
         onError: () => {
           setLoginError(true);
-        },
-        onSuccess: () => {
-          setLoginError(false);
         },
       }
     );
@@ -60,7 +56,7 @@ export const LoginPage = () => {
             <div className="flex flex-row lg:hidden justify-center items-center mb-6">
               <img
                 src={loginPageIllustrationMobile}
-                alt="Food4Kids Waterloo Region Logo"
+                alt="Food4Kids Waterloo Region Illustration"
                 className="w-[307px] h-[212px] object-contain"
               />
             </div>
@@ -84,6 +80,7 @@ export const LoginPage = () => {
                   id="email"
                   className={cn('px-6', loginError && 'outline-red focus:outline-red')}
                   type="email"
+                  autoComplete="email"
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => {
@@ -110,6 +107,7 @@ export const LoginPage = () => {
                     <Input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
                       placeholder="Enter your password"
                       className={cn('px-6', loginError && 'outline-red focus:outline-red')}
                       value={password}
@@ -122,7 +120,7 @@ export const LoginPage = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-p1 focus:outline-none"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-p1"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? (
@@ -208,7 +206,7 @@ export const LoginPage = () => {
       </div>
 
       {/* Right Column: Illustration Section */}
-      <div className="hidden lg:block h-full w-1/2 overflow-hidden bg-[#d7f4fc]">
+      <div className="hidden lg:block h-full w-1/2 overflow-hidden">
         <img
           src={loginPageIllustration}
           alt="Food4Kids Illustration"
