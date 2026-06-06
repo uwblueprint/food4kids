@@ -403,7 +403,7 @@ export type DriverRead = {
   /**
    * Auth Id
    */
-  auth_id: string;
+  auth_id: string | null;
   /**
    * Car Make Model
    */
@@ -468,10 +468,6 @@ export type DriverRegister = {
    * Name
    */
   name: string;
-  /**
-   * Password
-   */
-  password: string;
   /**
    * Phone
    */
@@ -593,6 +589,10 @@ export type LocationCreate = {
    */
   longitude?: number | null;
   /**
+   * Name
+   */
+  name: string;
+  /**
    * Note Chain Id
    */
   note_chain_id?: string | null;
@@ -616,10 +616,6 @@ export type LocationCreate = {
    * Place Id
    */
   place_id?: string | null;
-  /**
-   * Name
-   */
-  name: string;
   state?: LocationState;
 };
 
@@ -886,6 +882,10 @@ export type LocationRead = {
    */
   longitude?: number | null;
   /**
+   * Name
+   */
+  name: string;
+  /**
    * Note Chain Id
    */
   note_chain_id?: string | null;
@@ -909,10 +909,6 @@ export type LocationRead = {
    * Place Id
    */
   place_id?: string | null;
-  /**
-   * Name
-   */
-  name: string;
   state?: LocationState;
 };
 
@@ -964,6 +960,10 @@ export type LocationUpdate = {
    */
   longitude?: number | null;
   /**
+   * Name
+   */
+  name?: string | null;
+  /**
    * Note Chain Id
    */
   note_chain_id?: string | null;
@@ -987,10 +987,6 @@ export type LocationUpdate = {
    * Place Id
    */
   place_id?: string | null;
-  /**
-   * Name
-   */
-  name?: string | null;
 };
 
 /**
@@ -1599,6 +1595,20 @@ export type SystemSettingsRead = {
 };
 
 /**
+ * UserFinalize
+ */
+export type UserFinalize = {
+  /**
+   * Password
+   */
+  password: string;
+  /**
+   * User Invite Id
+   */
+  user_invite_id: string;
+};
+
+/**
  * ValidatedLocationImportEntry
  *
  * LocationImportEntry with required fields guaranteed non-None after validation.
@@ -2133,32 +2143,59 @@ export type GetDriversResponses = {
 
 export type GetDriversResponse = GetDriversResponses[keyof GetDriversResponses];
 
-export type RegisterDriverData = {
+export type InitializeDriverData = {
   body: DriverRegister;
   path?: never;
   query?: never;
-  url: '/drivers/';
+  url: '/drivers/initialize';
 };
 
-export type RegisterDriverErrors = {
+export type InitializeDriverErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type RegisterDriverError =
-  RegisterDriverErrors[keyof RegisterDriverErrors];
+export type InitializeDriverError =
+  InitializeDriverErrors[keyof InitializeDriverErrors];
 
-export type RegisterDriverResponses = {
+export type InitializeDriverResponses = {
+  /**
+   * Successful Response
+   */
+  201: DriverRead;
+};
+
+export type InitializeDriverResponse =
+  InitializeDriverResponses[keyof InitializeDriverResponses];
+
+export type CompleteDriverRegistrationData = {
+  body: UserFinalize;
+  path?: never;
+  query?: never;
+  url: '/drivers/register';
+};
+
+export type CompleteDriverRegistrationErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CompleteDriverRegistrationError =
+  CompleteDriverRegistrationErrors[keyof CompleteDriverRegistrationErrors];
+
+export type CompleteDriverRegistrationResponses = {
   /**
    * Successful Response
    */
   201: DriverRegisterResponse;
 };
 
-export type RegisterDriverResponse =
-  RegisterDriverResponses[keyof RegisterDriverResponses];
+export type CompleteDriverRegistrationResponse =
+  CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
 
 export type DeleteDriverData = {
   body?: never;
