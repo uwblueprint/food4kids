@@ -35,7 +35,7 @@ const COLUMNS: Column<LocationReadOutput>[] = [
     render: (row) => row.location_group_name,
   },
   { key: 'notes', header: 'Notes', render: (row) => row.notes },
-  { key: 'status', header: 'Status', render: (row) => row.state ?? '—' },
+  { key: 'status', header: 'Status', render: (row) => row.status ?? '—' },
 ];
 
 type RouteAddressesTabProps = AddressesTabState;
