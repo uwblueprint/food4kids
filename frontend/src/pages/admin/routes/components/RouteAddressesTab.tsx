@@ -1,4 +1,4 @@
-import type { LocationRead } from '@/api/generated/types.gen';
+import type { LocationReadOutput } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
@@ -22,7 +22,7 @@ import { EmptyState } from './EmptyState';
 const ROUTE_STATUSES = ['Active', 'Unscheduled', 'Inactive'];
 const DELIVERY_TYPES = ['School', 'Family'];
 
-const COLUMNS: Column<LocationRead>[] = [
+const COLUMNS: Column<LocationReadOutput>[] = [
   {
     key: 'name',
     header: 'School / Last Name',
