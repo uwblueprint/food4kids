@@ -29,6 +29,9 @@ MANDATORY_DELIVERY_PENALTY = 1_000_000
 # limit. Higher values spread deliveries more aggressively across drivers.
 DURATION_OVERRUN_COST_PER_HOUR = 100
 
+# Only integers are allowed in the payload, so we count 28 half boxes instead
+MAX_HALF_BOXES_PER_DRIVER = 28
+
 
 class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
     """Routes locations using the Google Cloud Fleet Routing (optimizeTours) API."""
@@ -69,13 +72,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         """Build the optimizeTours request payload using v1 API field names."""
 
         warehouse = {"latitude": warehouse_lat, "longitude": warehouse_lon}
-        max_stops = settings.max_stops_per_route
 
-        load_limit = (
-            {"loadLimits": {"load": {"maxLoad": str(max_stops)}}}
-            if max_stops is not None
-            else {}
-        )
+        load_limit = {"loadLimits": {"load": {"maxLoad": str(MAX_HALF_BOXES_PER_DRIVER)}}}
 
         # routeDurationLimit: soft cap on total route time. The optimizer
         # penalises routes that exceed this, spreading deliveries more evenly
@@ -138,7 +136,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                             "longitude": loc.longitude,
                         },
                         "duration": service_duration,
-                        "loadDemands": {"load": {"amount": "1"}},
+                        "loadDemands": {"load": {"amount": str(loc.num_children)}},
                     }
                 ],
             }
