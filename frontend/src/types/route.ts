@@ -1,4 +1,4 @@
-export type RouteDeliveryType = 'School Year' | 'Summer';
+export type RouteDeliveryType = 'School' | 'Family';
 
 export type RouteStatus = 'Upcoming' | 'Completed' | 'Archived';
 

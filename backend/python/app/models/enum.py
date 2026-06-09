@@ -32,8 +32,14 @@ class DriveDaysOfWeekEnum(str, Enum):
 
 
 class DeliveryTypeEnum(str, Enum):
-    SCHOOL_YEAR = "School Year"
-    SUMMER = "Summer"
+    SCHOOL = "School"
+    FAMILY = "Family"
+
+
+class LocationStatusEnum(str, Enum):
+    ACTIVE = "Active"
+    UNSCHEDULED = "Unscheduled"
+    INACTIVE = "Inactive"
 
 
 class RouteStatusEnum(str, Enum):
