@@ -190,6 +190,7 @@ export const LoginPage = () => {
             </p>
             {/* Mobile Footer */}
             <p className="lg:hidden mt-6 mb-8 text-center text-p1">
+              Don't have an account?{' '}
               <a
                 href="/get-login-link"
                 className="text-blue-300 hover:underline"
@@ -198,7 +199,7 @@ export const LoginPage = () => {
                   // TODO: Implement get login link action
                 }}
               >
-                No account yet? Sign in here.
+                Get your login link
               </a>
             </p>
           </div>
