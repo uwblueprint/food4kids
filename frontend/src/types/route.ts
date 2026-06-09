@@ -1,3 +1,7 @@
+export type RouteDeliveryType = 'School Year' | 'Summer';
+
+export type RouteStatus = 'Upcoming' | 'Completed' | 'Archived';
+
 /** Matches backend app.models.route.Route serialization. */
 export interface Route {
   route_id: string;

@@ -32,7 +32,11 @@ function FitToPolyline({ coords }: { coords: [number, number][] }) {
 export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
   const coords = useMemo<[number, number][]>(() => {
     if (!encodedPolyline) return [];
-    return polyline.decode(encodedPolyline);
+    try {
+      return polyline.decode(encodedPolyline);
+    } catch (error) {
+      return [];
+    }
   }, [encodedPolyline]);
 
   const center = coords[0] ?? DEFAULT_CENTER;
