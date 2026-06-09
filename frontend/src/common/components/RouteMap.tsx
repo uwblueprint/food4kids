@@ -44,7 +44,7 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
   return (
     <div
       className={cn(
-        'w-full overflow-hidden rounded-2xl border border-grey-300',
+        'border-grey-300 w-full overflow-hidden rounded-2xl border',
         className
       )}
     >
@@ -63,7 +63,11 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
             {/* White casing underneath for contrast against busy tiles */}
             <Polyline
               positions={coords}
-              pathOptions={{ color: POLYLINE_CASING_COLOR, weight: 9, opacity: 0.9 }}
+              pathOptions={{
+                color: POLYLINE_CASING_COLOR,
+                weight: 9,
+                opacity: 0.9,
+              }}
             />
             {/* Main route line on top */}
             <Polyline

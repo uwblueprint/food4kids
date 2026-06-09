@@ -16,12 +16,16 @@ export function RouteMapView({ routeId, className }: RouteMapViewProps) {
   if (isError || !route) {
     return (
       <div className={cn(statusWrapper, 'text-p2 text-grey-500', className)}>
-        {isError ? `Failed to load route: ${error.message}` : 'Route not found.'}
+        {isError
+          ? `Failed to load route: ${error.message}`
+          : 'Route not found.'}
       </div>
     );
   }
 
   // TODO: Add loading state once design has drawn up the loading screen
 
-  return <RouteMap encodedPolyline={route.encoded_polyline} className={className} />;
+  return (
+    <RouteMap encodedPolyline={route.encoded_polyline} className={className} />
+  );
 }
