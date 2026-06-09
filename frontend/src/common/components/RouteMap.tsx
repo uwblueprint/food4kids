@@ -34,7 +34,7 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
     if (!encodedPolyline) return [];
     try {
       return polyline.decode(encodedPolyline);
-    } catch (error) {
+    } catch {
       return [];
     }
   }, [encodedPolyline]);
