@@ -262,6 +262,7 @@ class TestCoreBusinessValidation:
             field in error_str
             for field in [
                 "address",
+                "delivery_type",
                 "phone_number",
                 "longitude",
                 "latitude",
@@ -289,7 +290,10 @@ class TestCoreBusinessValidation:
         # Test Location rejects extra fields
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
+                location_group_id=uuid4(),
+                name="Jane Smith",
                 contact_name="Jane Smith",
+                delivery_type=DeliveryTypeEnum.FAMILY,
                 address="123 Main St",
                 phone_number="(555) 123-4567",
                 longitude=-122.4194,
@@ -374,6 +378,7 @@ class TestCoreModels:
             location_group_id=uuid4(),
             name="John Doe",
             contact_name="John Doe",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave, City, State 12345",
             phone_number="(555) 987-6543",
             longitude=-122.5000,
@@ -752,6 +757,7 @@ class TestEnumsAndSerialization:
             location_group_id=uuid4(),
             name="John Doe",
             contact_name="John Doe",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave",
             phone_number="(555) 987-6543",
             longitude=-122.5000,
@@ -760,7 +766,7 @@ class TestEnumsAndSerialization:
             num_boxes=10,
         )
         assert location.notes == ""  # Default value
-        assert location.delivery_type == DeliveryTypeEnum.FAMILY  # Default value
+        assert location.delivery_type == DeliveryTypeEnum.FAMILY
         assert location.dietary_restrictions == ""  # Default value
         assert location.num_children is None  # Default value
 

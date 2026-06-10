@@ -27,9 +27,7 @@ class LocationBase(SQLModel):
     )
     name: str
     contact_name: str
-    delivery_type: DeliveryTypeEnum = Field(
-        default=DeliveryTypeEnum.FAMILY, sa_type=String
-    )
+    delivery_type: DeliveryTypeEnum = Field(sa_type=String)
     address: str
     phone_number: str
     longitude: float | None = None

@@ -20,7 +20,13 @@ def upgrade() -> None:
     op.alter_column("locations", "school_name", new_column_name="name")
     op.add_column(
         "locations",
-        sa.Column("delivery_type", sa.String(), server_default="Family", nullable=True),
+        sa.Column("delivery_type", sa.String(), nullable=True),
+    )
+    op.execute(
+        """
+        UPDATE locations
+        SET delivery_type = 'Family'
+        """
     )
     op.execute(
         """

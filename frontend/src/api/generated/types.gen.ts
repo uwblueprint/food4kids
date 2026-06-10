@@ -567,7 +567,7 @@ export type LocationCreate = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type?: DeliveryTypeEnum;
+  delivery_type: DeliveryTypeEnum;
   /**
    * Dietary Restrictions
    */
@@ -852,7 +852,7 @@ export type LocationRead = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type?: DeliveryTypeEnum;
+  delivery_type: DeliveryTypeEnum;
   /**
    * Dietary Restrictions
    */

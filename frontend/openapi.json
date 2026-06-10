@@ -915,8 +915,7 @@
             "type": "string"
           },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum",
-            "default": "Family"
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
           },
           "dietary_restrictions": {
             "default": "",
@@ -1016,6 +1015,7 @@
           "location_group_id",
           "name",
           "contact_name",
+          "delivery_type",
           "address",
           "phone_number"
         ],
@@ -1411,8 +1411,7 @@
             "type": "string"
           },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum",
-            "default": "Family"
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
           },
           "dietary_restrictions": {
             "default": "",
@@ -1521,6 +1520,7 @@
           "location_group_id",
           "name",
           "contact_name",
+          "delivery_type",
           "address",
           "phone_number",
           "location_id",
