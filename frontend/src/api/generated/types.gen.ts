@@ -567,6 +567,7 @@ export type LocationCreate = {
    * Contact Name
    */
   contact_name: string;
+  delivery_type: DeliveryTypeEnum;
   /**
    * Dietary Restrictions
    */
@@ -587,6 +588,10 @@ export type LocationCreate = {
    * Longitude
    */
   longitude?: number | null;
+  /**
+   * Name
+   */
+  name: string;
   /**
    * Note Chain Id
    */
@@ -611,10 +616,6 @@ export type LocationCreate = {
    * Place Id
    */
   place_id?: string | null;
-  /**
-   * School Name
-   */
-  school_name?: string | null;
   state?: LocationState;
 };
 
@@ -851,6 +852,7 @@ export type LocationRead = {
    * Contact Name
    */
   contact_name: string;
+  delivery_type: DeliveryTypeEnum;
   /**
    * Dietary Restrictions
    */
@@ -880,6 +882,10 @@ export type LocationRead = {
    */
   longitude?: number | null;
   /**
+   * Name
+   */
+  name: string;
+  /**
    * Note Chain Id
    */
   note_chain_id?: string | null;
@@ -903,10 +909,6 @@ export type LocationRead = {
    * Place Id
    */
   place_id?: string | null;
-  /**
-   * School Name
-   */
-  school_name?: string | null;
   state?: LocationState;
 };
 
@@ -936,6 +938,7 @@ export type LocationUpdate = {
    * Contact Name
    */
   contact_name?: string | null;
+  delivery_type?: DeliveryTypeEnum | null;
   /**
    * Dietary Restrictions
    */
@@ -956,6 +959,10 @@ export type LocationUpdate = {
    * Longitude
    */
   longitude?: number | null;
+  /**
+   * Name
+   */
+  name?: string | null;
   /**
    * Note Chain Id
    */
@@ -980,10 +987,6 @@ export type LocationUpdate = {
    * Place Id
    */
   place_id?: string | null;
-  /**
-   * School Name
-   */
-  school_name?: string | null;
 };
 
 /**

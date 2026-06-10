@@ -140,9 +140,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         for location in locations:
             check_timeout()
             if effective_boxes(location) > max_boxes:
-                name = location.school_name or location.contact_name
                 raise ValueError(
-                    f"Location '{name}' requires {effective_boxes(location)} boxes, "
+                    f"Location '{location.name}' requires {effective_boxes(location)} boxes, "
                     f"which exceeds the per-driver maximum of {max_boxes}."
                 )
 
@@ -170,10 +169,9 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             ]
 
             if not feasible_indices:
-                name = location.school_name or location.contact_name
                 boxes = effective_boxes(location)
                 raise ValueError(
-                    f"Cannot assign '{name}' ({boxes} boxes) across {num_clusters} "
+                    f"Cannot assign '{location.name}' ({boxes} boxes) across {num_clusters} "
                     f"drivers without violating max {max_boxes} boxes per driver, "
                     f"stop limits, or far-route caps. Add drivers or adjust loads."
                 )
@@ -270,9 +268,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 )
 
             if not can_add:
-                name = location.school_name or location.contact_name
                 raise ValueError(
-                    f"Cannot pack location '{name}' ({effective_boxes(location)} boxes) "
+                    f"Cannot pack location '{location.name}' ({effective_boxes(location)} boxes) "
                     f"within max {max_boxes} boxes per route."
                 )
 
