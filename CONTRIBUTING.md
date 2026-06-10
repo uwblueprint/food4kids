@@ -68,6 +68,7 @@ Config: `backend/python/pyproject.toml` (Ruff), `backend/python/mypy.ini` (mypy)
 docker-compose exec frontend pnpm lint
 docker-compose exec frontend pnpm lint:fix
 docker-compose exec frontend pnpm format
+docker-compose exec frontend pnpm format:check
 ```
 
 > If you run the frontend natively on Windows (see [Running the frontend on Windows](#running-the-frontend-on-windows)), the `frontend` container won't be running — run these directly from `frontend/` instead:
@@ -76,7 +77,10 @@ docker-compose exec frontend pnpm format
 > pnpm lint
 > pnpm lint:fix
 > pnpm format
+> pnpm format:check
 > ```
+
+Prettier formatting is enforced: CI runs `pnpm format:check`, and the pre-commit hook (installed automatically by `pnpm install` in `frontend/`) auto-formats staged frontend source files via lint-staged.
 
 Config: `frontend/eslint.config.js`, `frontend/.prettierrc`, `frontend/tsconfig.json`
 

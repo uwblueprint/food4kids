@@ -1,31 +1,58 @@
 #!/usr/bin/env bash
 #
-# Pre-commit hook: keep the frontend OpenAPI client in sync with the backend.
+# Pre-commit hook, two independent steps:
 #
-# When a commit touches anything that can change the API contract, regenerate
-# frontend/openapi.json and the generated TS client and stage the results, so
-# the contract never drifts out of a commit. (CI still verifies openapi.json as
-# a backstop for commits made with --no-verify or without the hook installed.)
+#   1. prettier — auto-format staged frontend source files (via lint-staged)
+#      so unformatted code never lands in a commit. (CI runs `pnpm format:check`
+#      as a backstop for commits made with --no-verify or without the hook.)
 #
-# Enable once per clone:  git config core.hooksPath scripts/git-hooks
+#   2. openapi — when a commit touches anything that can change the API
+#      contract, regenerate frontend/openapi.json and the generated TS client
+#      and stage the results, so the contract never drifts out of a commit.
+#      (CI still verifies openapi.json as a backstop.)
+#
+# Installed automatically by frontend's `prepare` script on `pnpm install`,
+# or enable once per clone:  git config core.hooksPath scripts/git-hooks
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Mirror the CI path filter: only do work when contract inputs are staged.
 staged="$(git diff --cached --name-only --diff-filter=ACMR)"
-if ! grep -qE "^(backend/python/|frontend/openapi\.json|frontend/scripts/fetch-openapi\.mjs)" <<<"$staged"; then
-  exit 0
+
+# --- prettier: auto-format staged frontend source files -----------------------
+# lint-staged (configured in frontend/package.json) runs `prettier --write` on
+# the staged files and re-stages anything it rewrites. Scope mirrors the
+# `pnpm format` / `pnpm format:check` scripts (frontend/src only).
+if grep -q "^frontend/src/" <<<"$staged"; then
+  if command -v pnpm >/dev/null 2>&1 \
+     && [ -d "$REPO_ROOT/frontend/node_modules/lint-staged" ]; then
+    echo "prettier: formatting staged frontend files…"
+    if ! (cd "$REPO_ROOT/frontend" && pnpm exec lint-staged); then
+      echo "prettier: lint-staged failed — commit blocked." >&2
+      echo "  Usually this means prettier couldn't parse a staged file (syntax error)." >&2
+      echo "  Fix the error above and commit again." >&2
+      exit 1
+    fi
+  else
+    # e.g. Docker-only devs without host node_modules — don't block the commit;
+    # CI's `pnpm format:check` is the backstop.
+    echo "prettier: pnpm or frontend/node_modules not available — skipping auto-format." >&2
+    echo "  Run 'pnpm install' in frontend/, or rely on CI's format check." >&2
+  fi
 fi
 
-echo "openapi: contract files staged — regenerating client…"
-"$REPO_ROOT/scripts/regen-openapi.sh"
+# --- openapi: keep the frontend client in sync with the backend ---------------
+# Mirror the CI path filter: only do work when contract inputs are staged.
+if grep -qE "^(backend/python/|frontend/openapi\.json|frontend/scripts/fetch-openapi\.mjs)" <<<"$staged"; then
+  echo "openapi: contract files staged — regenerating client…"
+  "$REPO_ROOT/scripts/regen-openapi.sh"
 
-# Stage whatever the regen changed so it lands in this commit.
-git -C "$REPO_ROOT" add frontend/openapi.json frontend/src/api/generated
+  # Stage whatever the regen changed so it lands in this commit.
+  git -C "$REPO_ROOT" add frontend/openapi.json frontend/src/api/generated
 
-if ! git -C "$REPO_ROOT" diff --cached --quiet -- frontend/openapi.json frontend/src/api/generated; then
-  echo "openapi: staged regenerated client into this commit."
-else
-  echo "openapi: client already in sync — nothing to stage."
+  if ! git -C "$REPO_ROOT" diff --cached --quiet -- frontend/openapi.json frontend/src/api/generated; then
+    echo "openapi: staged regenerated client into this commit."
+  else
+    echo "openapi: client already in sync — nothing to stage."
+  fi
 fi

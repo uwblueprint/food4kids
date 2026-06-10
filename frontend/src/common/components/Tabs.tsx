@@ -33,7 +33,7 @@ function TabsTrigger({
       className={cn(
         'text-h3 cursor-pointer pb-2 capitalize transition-colors',
         'text-grey-400 font-bold',
-        'data-[state=active]:text-blue-400 data-[state=active]:border-b-2 data-[state=active]:border-blue-400',
+        'data-[state=active]:border-b-2 data-[state=active]:border-blue-400 data-[state=active]:text-blue-400',
         className
       )}
       {...props}
