@@ -23,6 +23,7 @@ from app.services.implementations.driver_assignment_service import (
     DriverAssignmentService,
 )
 from app.services.implementations.driver_service import DriverService
+from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.location_service import LocationService
@@ -35,10 +36,9 @@ from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.templates.email_renderer import TemplateRenderer
 from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
-from app.services.implementations.email_dispatcher import EmailDispatcher
-from app.templates.email_renderer import TemplateRenderer
 
 
 @lru_cache
@@ -70,6 +70,7 @@ def get_email_service() -> EmailService:
         "Food4Kids",
     )
 
+
 @lru_cache
 def get_template_renderer() -> TemplateRenderer:
     """Get template renderer instance"""
@@ -90,6 +91,7 @@ def get_email_dispatcher() -> EmailDispatcher:
 def get_email_dispatcher_depends() -> EmailDispatcher:
     """Get email dispatcher for dependency injection in route handlers"""
     return get_email_dispatcher()
+
 
 @lru_cache
 def get_user_service() -> UserService:

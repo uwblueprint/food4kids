@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import and_
 from sqlmodel import select
 
-from app.dependencies.services import get_logger, get_email_dispatcher
+from app.dependencies.services import get_email_dispatcher, get_logger
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
 from app.models.route import Route
@@ -20,10 +20,10 @@ from app.models.user import User
 
 async def send_route_reminders() -> None:
     """Scheduled job: Send route reminders to drivers for tomorrow's routes.
-    
+
     Runs daily (typically at 7:00 AM) and sends reminder emails to all drivers
     assigned to routes the next day.
-    
+
     This job:
     - Queries all driver assignments for tomorrow
     - For each driver, renders and sends a route reminder email
@@ -94,7 +94,7 @@ async def send_route_reminders() -> None:
                     "Date_To_Replace": date_only,
                     "Time_To_Replace": time_only,
                     "Route_Duration_To_Replace": rounded_distance,
-                    "Upcoming_Route_URL": f"https://app.example.com/routes",  # Note: update to actual route URL!
+                    "Upcoming_Route_URL": "https://app.example.com/routes",  # Note: update to actual route URL!
                 }
 
                 try:

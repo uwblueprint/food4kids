@@ -79,7 +79,9 @@ async def process_daily_reminder_emails() -> None:
             # Use the Jinja2 template renderer so placeholders are substituted
             from app.templates.email_renderer import TemplateRenderer
 
-            template_renderer = TemplateRenderer(template_dir="./app/templates", logger=logger)
+            template_renderer = TemplateRenderer(
+                template_dir="./app/templates", logger=logger
+            )
             template_name = "view-upcoming-route.html"
 
             for row in upcoming_routes:

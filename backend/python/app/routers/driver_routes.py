@@ -222,21 +222,22 @@ async def delete_driver(
     """
     await driver_service.delete_driver_by_id(session, driver_id)
 
-from app.services.implementations.email_dispatcher import EmailDispatcher
+
 from app.dependencies.services import get_email_dispatcher_depends
+from app.services.implementations.email_dispatcher import EmailDispatcher
+
 
 @router.post("/test-event-email")
 async def test_event_email(
-    test_email: str, 
-    dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends)
-):
+    test_email: str, dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends)
+) -> dict[str, str]:
     """
     Temporary endpoint to test event-driven emails.
     Delete this after testing!
     """
     simulated_db_info = {
         "first_name": "Test-Driver-Bob",
-        "url": "https://food4kids.ca/fake-link-123"
+        "url": "https://food4kids.ca/fake-link-123",
     }
 
     # Test email sending (feel free to change with provided params, etc. as needed!)
@@ -251,12 +252,12 @@ async def test_event_email(
         email_type="view-upcoming-route",
         to=test_email,
         context={
-            "Driver_Name_To_Replace": simulated_db_info["first_name"], 
+            "Driver_Name_To_Replace": simulated_db_info["first_name"],
             "Date_To_Replace": "2023-10-15",
             "Time_To_Replace": "10:00 AM",
             "Route_Duration_To_Replace": "2 hours",
             "Upcoming_Route_URL": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        }
+        },
     )
 
     return {"message": f"Test email dispatched to {test_email}!"}
