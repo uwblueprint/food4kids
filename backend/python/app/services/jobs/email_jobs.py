@@ -88,18 +88,18 @@ async def send_route_reminders() -> None:
                 time_only = route_date.time().strftime("%I:%M %p")
                 rounded_distance = str(round(route_distance))
 
-                # Prepare context for template
+                # Prepare context matching `view-upcoming-route` template placeholders
                 context = {
-                    "driver_name": driver_name,
-                    "route_date": date_only,
-                    "route_time": time_only,
-                    "route_length": rounded_distance,
-                    "view_url": f"https://app.example.com/routes",  # TODO: Update with actual route view URL
+                    "Driver_Name_To_Replace": driver_name,
+                    "Date_To_Replace": date_only,
+                    "Time_To_Replace": time_only,
+                    "Route_Duration_To_Replace": rounded_distance,
+                    "Upcoming_Route_URL": f"https://app.example.com/routes",  # Note: update to actual route URL!
                 }
 
                 try:
                     await dispatcher.dispatch(
-                        email_type="route-reminder",
+                        email_type="view-upcoming-route",
                         to=recipient_email,
                         context=context,
                     )

@@ -42,6 +42,7 @@ async def process_daily_reminder_emails() -> None:
             statement = (
                 select(
                     User.email,
+                    User.name,
                     DriverAssignment.time,
                     Route.length,
                 )
@@ -75,12 +76,15 @@ async def process_daily_reminder_emails() -> None:
                 settings.mailer_user,
                 "Food4Kids",
             )
+            # Use the Jinja2 template renderer so placeholders are substituted
+            from app.templates.email_renderer import TemplateRenderer
 
-            with open("./app/templates/route_reminder.html") as file:
-                formatted_email = file.read()
+            template_renderer = TemplateRenderer(template_dir="./app/templates", logger=logger)
+            template_name = "view-upcoming-route.html"
 
             for row in upcoming_routes:
                 recipient_email = row.email
+                driver_name = getattr(row, "name", "") or ""
                 route_date: datetime = row.time
                 route_distance = row.length
 
@@ -88,11 +92,16 @@ async def process_daily_reminder_emails() -> None:
                 time_only = route_date.time().strftime("%I:%M %p")
                 rounded_distance = str(round(route_distance))
 
-                formatted_email = formatted_email.replace("Date_To_Replace", date_only)
-                formatted_email = formatted_email.replace("Time_To_Replace", time_only)
-                formatted_email = formatted_email.replace(
-                    "Length_To_Replace", rounded_distance
-                )
+                context = {
+                    "Driver_Name_To_Replace": driver_name,
+                    "Date_To_Replace": date_only,
+                    "Time_To_Replace": time_only,
+                    "Route_Duration_To_Replace": rounded_distance,
+                    "Upcoming_Route_URL": "https://food4kidswr.ca",
+                }
+
+                formatted_email = template_renderer.render(template_name, context)
+
                 logger.info(f"Sending Email to {recipient_email}")
                 email_service.send_email(
                     to=recipient_email,
