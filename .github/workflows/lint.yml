@@ -49,6 +49,11 @@ jobs:
         working-directory: ./frontend
         run: pnpm lint
 
+      - name: Check frontend formatting
+        if: steps.changes.outputs.frontend == 'true'
+        working-directory: ./frontend
+        run: pnpm format:check
+
       - name: Type-check frontend
         if: steps.changes.outputs.frontend == 'true'
         working-directory: ./frontend

@@ -9,11 +9,15 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css,md}\"",
     "email:dev": "email dev --dir emails --port 3000",
     "email:export": "email export --outDir emails/html",
     "preview": "vite preview",
     "generate:api": "node scripts/fetch-openapi.mjs && openapi-ts",
     "prepare": "node -e \"try{const cp=require('child_process');cp.execSync('git rev-parse --is-inside-work-tree',{stdio:'ignore'});cp.execSync('git config core.hooksPath scripts/git-hooks',{stdio:'ignore'})}catch(e){}\""
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx,json,css,md}": "prettier --write"
   },
   "pnpm": {
     "overrides": {
@@ -63,6 +67,7 @@
     "eslint-plugin-react-refresh": "^0.4.26",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "globals": "^16.5.0",
+    "lint-staged": "^17.0.7",
     "postcss": "^8.5.15",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.4",
