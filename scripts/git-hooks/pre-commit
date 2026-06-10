@@ -27,7 +27,12 @@ if grep -q "^frontend/src/" <<<"$staged"; then
   if command -v pnpm >/dev/null 2>&1 \
      && [ -d "$REPO_ROOT/frontend/node_modules/lint-staged" ]; then
     echo "prettier: formatting staged frontend files…"
-    (cd "$REPO_ROOT/frontend" && pnpm exec lint-staged)
+    if ! (cd "$REPO_ROOT/frontend" && pnpm exec lint-staged); then
+      echo "prettier: lint-staged failed — commit blocked." >&2
+      echo "  Usually this means prettier couldn't parse a staged file (syntax error)." >&2
+      echo "  Fix the error above and commit again." >&2
+      exit 1
+    fi
   else
     # e.g. Docker-only devs without host node_modules — don't block the commit;
     # CI's `pnpm format:check` is the backstop.
