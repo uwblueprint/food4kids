@@ -528,6 +528,8 @@ class LocationService:
                     Location(
                         name=entry.contact_name,
                         contact_name=entry.contact_name,
+                        # TODO: ingest should take delivery type as a parameter,
+                        # and replace this with the actual passed-in type.
                         delivery_type=DeliveryTypeEnum.FAMILY,
                         address=geocode_result.formatted_address,
                         phone_number=entry.phone_number,
