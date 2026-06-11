@@ -18,8 +18,14 @@ class AnnouncementService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
+    def _can_manage(self, announcement: Announcement, user_id: UUID) -> bool:
+        if announcement.user_id == user_id:
+            return True
+        role = announcement.user.role if announcement.user else None
+        return role is not None and role.lower() == "admin"
+
     async def get_announcements(self, session: AsyncSession) -> list[Announcement]:
-        """Get all announcements; edited posts sort to top via updated_at."""
+        """Get all announcements, ordered by most recent first"""
         statement = (
             select(Announcement)
             .options(selectinload(Announcement.user))  # type: ignore[arg-type]
@@ -47,17 +53,22 @@ class AnnouncementService:
         return announcement
 
     async def create_announcement(
-        self, session: AsyncSession, announcement_data: AnnouncementCreate
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        announcement_data: AnnouncementCreate,
     ) -> Announcement:
         """Create new announcement"""
         try:
-            announcement = Announcement(**announcement_data.model_dump())
+            announcement = Announcement(
+                user_id=user_id,
+                **announcement_data.model_dump(),
+            )
 
             session.add(announcement)
             await session.commit()
             loaded = await self.get_announcement(session, announcement.announcement_id)
-            if loaded is None:
-                raise RuntimeError("Created announcement could not be loaded")
+            assert loaded is not None
             return loaded
 
         except Exception as error:
@@ -69,6 +80,7 @@ class AnnouncementService:
         self,
         session: AsyncSession,
         announcement_id: UUID,
+        user_id: UUID,
         announcement_data: AnnouncementUpdate,
     ) -> Announcement | None:
         """Update existing announcement"""
@@ -77,6 +89,11 @@ class AnnouncementService:
 
             if not announcement:
                 return None
+
+            if not self._can_manage(announcement, user_id):
+                raise PermissionError(
+                    "Only the author or an admin can edit this announcement"
+                )
 
             update_data = announcement_data.model_dump(exclude_unset=True)
             for field, value in update_data.items():
@@ -91,19 +108,20 @@ class AnnouncementService:
             raise error
 
     async def delete_announcement(
-        self, session: AsyncSession, announcement_id: UUID
+        self, session: AsyncSession, announcement_id: UUID, user_id: UUID
     ) -> bool:
         """Delete announcement by ID"""
         try:
-            statement = select(Announcement).where(
-                Announcement.announcement_id == announcement_id
-            )
-            result = await session.execute(statement)
-            announcement = result.scalars().first()
+            announcement = await self.get_announcement(session, announcement_id)
 
             if not announcement:
                 self.logger.error(f"Announcement with id {announcement_id} not found")
                 return False
+
+            if not self._can_manage(announcement, user_id):
+                raise PermissionError(
+                    "Only the author or an admin can delete this announcement"
+                )
 
             await session.delete(announcement)
             await session.commit()

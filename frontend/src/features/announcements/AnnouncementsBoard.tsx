@@ -133,14 +133,8 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
   }) => {
     void values.sendEmailToAll;
 
-    if (!user.userId) {
-      throw new Error(
-        'Missing user id. After seeding, set VITE_DEV_USER_ID in frontend/.env to the seeded admin users.user_id (see seed output or query the users table).'
-      );
-    }
     if (formMode === 'create') {
       await createMutation.mutateAsync({
-        user_id: user.userId,
         subject: values.subject,
         message: values.message,
         attachments: [],
