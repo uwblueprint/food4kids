@@ -213,6 +213,7 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
   }) => {
     void values.sendEmailToAll;
 
+<<<<<<< HEAD
     if (formMode === 'create') {
       await createMutation.mutateAsync({
 =======
@@ -231,6 +232,10 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
       await createMutation.mutateAsync({
         user_id: user.userId,
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+    if (formMode === 'create') {
+      await createMutation.mutateAsync({
+>>>>>>> 5e0c3ad (use get_current_database_user_id as announcement user_id)
         subject: values.subject,
         message: values.message,
         attachments: [],

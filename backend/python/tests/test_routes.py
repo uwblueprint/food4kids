@@ -3850,9 +3850,9 @@ class TestAnnouncementRoutes:
         data = response.json()
         assert data["subject"] == sample_announcement_data["subject"]
         assert data["message"] == sample_announcement_data["message"]
-        assert data["user_id"] == str(user.user_id)
-        assert data["author_name"] == "Test Admin"
-        assert data["author_role"] == "admin"
+        assert data["user_id"] == str(test_admin_user.user_id)
+        assert data["author_name"] == test_admin_user.name
+        assert data["author_role"] == test_admin_user.role
         assert "announcement_id" in data
         assert "created_at" in data
 
