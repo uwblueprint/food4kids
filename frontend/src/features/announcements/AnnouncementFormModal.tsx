@@ -21,6 +21,7 @@ interface AnnouncementFormModalProps {
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
 <<<<<<< HEAD
+<<<<<<< HEAD
   role: 'admin' | 'driver';
   announcement?: Announcement;
   onSubmit: (values: {
@@ -32,6 +33,15 @@ interface AnnouncementFormModalProps {
   announcement?: Announcement;
   onSubmit: (values: { subject: string; message: string }) => Promise<void>;
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+  role: 'admin' | 'driver';
+  announcement?: Announcement;
+  onSubmit: (values: {
+    subject: string;
+    message: string;
+    sendEmailToAll: boolean;
+  }) => Promise<void>;
+>>>>>>> b56351b (add bulk edit modal)
   isSubmitting?: boolean;
 }
 
@@ -40,9 +50,13 @@ export function AnnouncementFormModal({
   onOpenChange,
   mode,
 <<<<<<< HEAD
+<<<<<<< HEAD
   role,
 =======
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+  role,
+>>>>>>> b56351b (add bulk edit modal)
   announcement,
   onSubmit,
   isSubmitting = false,
@@ -50,9 +64,13 @@ export function AnnouncementFormModal({
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
 <<<<<<< HEAD
+<<<<<<< HEAD
   const [sendEmailToAll, setSendEmailToAll] = useState(false);
 =======
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+  const [sendEmailToAll, setSendEmailToAll] = useState(false);
+>>>>>>> b56351b (add bulk edit modal)
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,6 +82,7 @@ export function AnnouncementFormModal({
       setSubject('');
       setMessage('');
     }
+<<<<<<< HEAD
 <<<<<<< HEAD
     setSendEmailToAll(false);
     setError(null);
@@ -91,32 +110,38 @@ export function AnnouncementFormModal({
           : 'Something went wrong. Please try again.';
       setError(messageText);
 =======
+=======
+    setSendEmailToAll(false);
+>>>>>>> b56351b (add bulk edit modal)
     setError(null);
   }, [open, mode, announcement]);
 
+  const trimmedSubject = subject.trim();
+  const trimmedMessage = message.trim();
+  const canSubmit = trimmedSubject.length > 0 && trimmedMessage.length > 0;
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const trimmedSubject = subject.trim();
-    const trimmedMessage = message.trim();
-    if (!trimmedSubject) {
-      setError('Subject is required.');
-      return;
-    }
-    if (!trimmedMessage) {
-      setError('Note is required.');
-      return;
-    }
+    if (!canSubmit) return;
     setError(null);
     try {
-      await onSubmit({ subject: trimmedSubject, message: trimmedMessage });
+      await onSubmit({
+        subject: trimmedSubject,
+        message: trimmedMessage,
+        sendEmailToAll,
+      });
       onOpenChange(false);
     } catch (err) {
-      const message =
+      const messageText =
         err instanceof Error
           ? err.message
           : 'Something went wrong. Please try again.';
+<<<<<<< HEAD
       setError(message);
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+      setError(messageText);
+>>>>>>> b56351b (add bulk edit modal)
     }
   };
 
@@ -157,6 +182,9 @@ export function AnnouncementFormModal({
           </Field>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b56351b (add bulk edit modal)
           {mode === 'create' && role === 'admin' && (
             <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
               <input
@@ -169,8 +197,11 @@ export function AnnouncementFormModal({
             </label>
           )}
 
+<<<<<<< HEAD
 =======
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+>>>>>>> b56351b (add bulk edit modal)
           {error && (
             <p className="text-p2 text-red" role="alert">
               {error}
@@ -187,10 +218,14 @@ export function AnnouncementFormModal({
               Cancel
             </Button>
 <<<<<<< HEAD
+<<<<<<< HEAD
             <Button type="submit" disabled={isSubmitting || !canSubmit}>
 =======
             <Button type="submit" disabled={isSubmitting}>
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+            <Button type="submit" disabled={isSubmitting || !canSubmit}>
+>>>>>>> b56351b (add bulk edit modal)
               {isSubmitting
                 ? 'Saving…'
                 : mode === 'create'

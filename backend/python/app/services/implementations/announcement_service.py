@@ -25,7 +25,7 @@ class AnnouncementService:
         return role is not None and role.lower() == "admin"
 
     async def get_announcements(self, session: AsyncSession) -> list[Announcement]:
-        """Get all announcements, ordered by most recent first"""
+        """Get all announcements; edited posts sort to top via updated_at."""
         statement = (
             select(Announcement)
             .options(selectinload(Announcement.user))  # type: ignore[arg-type]
@@ -38,6 +38,10 @@ class AnnouncementService:
         self, session: AsyncSession, announcement_id: UUID
     ) -> Announcement | None:
         """Get announcement by ID"""
+        statement = (
+            select(Announcement)
+            .options(selectinload(Announcement.user))  # type: ignore[arg-type]
+            .where(Announcement.announcement_id == announcement_id)
         statement = (
             select(Announcement)
             .options(selectinload(Announcement.user))  # type: ignore[arg-type]
@@ -68,7 +72,8 @@ class AnnouncementService:
             session.add(announcement)
             await session.commit()
             loaded = await self.get_announcement(session, announcement.announcement_id)
-            assert loaded is not None
+            if loaded is None:
+                raise RuntimeError("Created announcement could not be loaded")
             return loaded
 
         except Exception as error:
@@ -86,6 +91,7 @@ class AnnouncementService:
         """Update existing announcement"""
         try:
             announcement = await self.get_announcement(session, announcement_id)
+            announcement = await self.get_announcement(session, announcement_id)
 
             if not announcement:
                 return None
@@ -100,6 +106,7 @@ class AnnouncementService:
                 setattr(announcement, field, value)
 
             await session.commit()
+            return await self.get_announcement(session, announcement_id)
             return await self.get_announcement(session, announcement_id)
 
         except Exception as error:

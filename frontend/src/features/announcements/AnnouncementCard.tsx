@@ -13,15 +13,19 @@ import { cn } from '@/lib/utils';
 import type { Announcement } from '@/types/announcement';
 
 import {
-  authorDisplayLabel,
-  formatAnnouncementDate,
+  announcementDateLine,
+  authorColorClass,
+  authorDisplayName,
+  isAnnouncementEdited,
   isAnnouncementNew,
 } from './utils';
 
 interface AnnouncementCardProps {
   announcement: Announcement;
   currentUserId: string;
+  readIds: Set<string>;
   canManage: boolean;
+  onOpen: (announcement: Announcement) => void;
   onEdit: (announcement: Announcement) => void;
   onDelete: (announcement: Announcement) => void;
 }
@@ -29,19 +33,36 @@ interface AnnouncementCardProps {
 export function AnnouncementCard({
   announcement,
   currentUserId,
+  readIds,
   canManage,
+  onOpen,
   onEdit,
   onDelete,
 }: AnnouncementCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const isNew = isAnnouncementNew(announcement.created_at);
+  const isNew = isAnnouncementNew(announcement, readIds);
+  const isEdited = isAnnouncementEdited(announcement);
+
+  const handleCardClick = () => {
+    onOpen(announcement);
+  };
 
   return (
     <article
       className={cn(
         'border-grey-300 bg-grey-100 relative flex flex-col gap-3 rounded-2xl border p-4',
-        'shadow-card'
+        'shadow-card w-full transition-colors',
+        canManage && 'hover:bg-grey-150'
       )}
+      onClick={handleCardClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleCardClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -54,15 +75,23 @@ export function AnnouncementCard({
                 New
               </span>
             )}
-          </div>
-          <p className="text-p2 text-grey-400">
-            {authorDisplayLabel(announcement, currentUserId)}
-            {announcement.created_at && (
-              <>
-                {' '}
-                • {formatAnnouncementDate(announcement.created_at)}
-              </>
+            {isEdited && (
+              <span className="text-p3 text-grey-400 font-semibold">Edited</span>
             )}
+          </div>
+          <p className="text-p2">
+            <span
+              className={cn(
+                'font-medium',
+                authorColorClass(announcement.author_role)
+              )}
+            >
+              {authorDisplayName(announcement, currentUserId)}
+            </span>
+            <span className="text-grey-400">
+              {' '}
+              • {announcementDateLine(announcement)}
+            </span>
           </p>
         </div>
         {canManage && (
@@ -74,6 +103,7 @@ export function AnnouncementCard({
                 shape="circular"
                 className="size-9 shrink-0"
                 aria-label="Announcement actions"
+                onClick={(event) => event.stopPropagation()}
               >
                 <MoreVerticalIcon className="size-5 text-grey-400" />
               </Button>
@@ -82,7 +112,8 @@ export function AnnouncementCard({
               <button
                 type="button"
                 className="text-p2 text-grey-500 hover:bg-grey-200 flex w-full items-center gap-2 rounded-lg px-3 py-2"
-                onClick={() => {
+                onClick={(event) => {
+                  event.stopPropagation();
                   setMenuOpen(false);
                   onEdit(announcement);
                 }}
@@ -93,7 +124,8 @@ export function AnnouncementCard({
               <button
                 type="button"
                 className="text-p2 text-red hover:bg-light-red flex w-full items-center gap-2 rounded-lg px-3 py-2"
-                onClick={() => {
+                onClick={(event) => {
+                  event.stopPropagation();
                   setMenuOpen(false);
                   onDelete(announcement);
                 }}

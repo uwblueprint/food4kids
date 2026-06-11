@@ -1,14 +1,20 @@
 import type { Announcement } from '@/types/announcement';
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 import type { UserRole } from '@/contexts/AuthContext';
 
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+>>>>>>> b56351b (add bulk edit modal)
 const SUBJECT_MAX = 100;
 const MESSAGE_MAX = 1500;
 const NEW_BADGE_DAYS = 7;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b56351b (add bulk edit modal)
 export const PANEL_WIDTH_DEFAULT = 544;
 export const PANEL_WIDTH_MIN = 480;
 export const PANEL_WIDTH_MAX = 608;
@@ -22,8 +28,11 @@ export const PANEL_SECTION_GAP = 'py-4';
 /** 16px gap between announcement cards. */
 export const PANEL_CARD_GAP = 'gap-4';
 
+<<<<<<< HEAD
 =======
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+>>>>>>> b56351b (add bulk edit modal)
 export { SUBJECT_MAX, MESSAGE_MAX };
 
 export function formatAnnouncementDate(isoDate: string | null): string {
@@ -33,6 +42,9 @@ export function formatAnnouncementDate(isoDate: string | null): string {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b56351b (add bulk edit modal)
 export function isAnnouncementEdited(announcement: Announcement): boolean {
   if (!announcement.created_at || !announcement.updated_at) return false;
   const created = new Date(announcement.created_at).getTime();
@@ -48,17 +60,21 @@ export function isAnnouncementNew(
   if (!announcement.created_at) return false;
   if (readIds.has(announcement.announcement_id)) return false;
   const created = new Date(announcement.created_at).getTime();
+<<<<<<< HEAD
 =======
 export function isAnnouncementNew(createdAt: string | null): boolean {
   if (!createdAt) return false;
   const created = new Date(createdAt).getTime();
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+>>>>>>> b56351b (add bulk edit modal)
   const cutoff = Date.now() - NEW_BADGE_DAYS * 24 * 60 * 60 * 1000;
   return created >= cutoff;
 }
 
 export function canManageAnnouncement(
   announcement: Announcement,
+<<<<<<< HEAD
 <<<<<<< HEAD
   currentUserId: string
 ): boolean {
@@ -91,18 +107,39 @@ export function announcementDateLine(announcement: Announcement): string {
 =======
   currentUserId: string,
   role: UserRole
+=======
+  currentUserId: string
+>>>>>>> b56351b (add bulk edit modal)
 ): boolean {
-  if (role === 'admin') return true;
   return announcement.user_id === currentUserId;
 }
 
-export function authorDisplayLabel(
+export function authorDisplayName(
   announcement: Announcement,
   currentUserId: string
 ): string {
+  const name = announcement.author_name || 'Unknown';
   if (announcement.user_id === currentUserId) {
-    return `${announcement.author_name || 'You'} (You)`;
+    return `${name} (You)`;
   }
+<<<<<<< HEAD
   return announcement.author_name || 'Unknown';
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+  return name;
+}
+
+export function authorColorClass(authorRole: string): string {
+  return authorRole === 'admin' ? 'text-blue-300' : 'text-grey-400';
+}
+
+export function announcementDateLine(announcement: Announcement): string {
+  const posted = formatAnnouncementDate(announcement.created_at);
+  if (!isAnnouncementEdited(announcement)) {
+    return posted;
+  }
+  const edited = formatAnnouncementDate(announcement.updated_at);
+  if (!posted) return `Edited ${edited}`;
+  return `Posted ${posted} • Edited ${edited}`;
+>>>>>>> b56351b (add bulk edit modal)
 }
