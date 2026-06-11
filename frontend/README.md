@@ -62,6 +62,27 @@ frontend/
 
 The design system is defined in [`src/index.css`](src/index.css) using Tailwind CSS v4's CSS-first config. A live reference is available at `/style-guide` ([StyleGuidePage.tsx](src/pages/StyleGuidePage.tsx)).
 
+### Breakpoints — semantic only
+
+The design system defines exactly three device tiers, and they are the
+project's **only** breakpoints (declared in `@theme`):
+
+| Tier    | Range      | Designed at | Variant            |
+| ------- | ---------- | ----------- | ------------------ |
+| mobile  | 0–499px    | 375         | (unprefixed, base) |
+| tablet  | 500–1023px | 834         | `tablet:`          |
+| desktop | 1024px+    | 1440        | `desktop:`         |
+
+Tailwind's default `sm:`/`md:`/`lg:`/`xl:`/`2xl:` are **removed from the
+theme** — their boundaries (640/768/…) don't exist in the F4K design, so they
+compile to nothing and ESLint rejects them. When copying in shadcn components,
+replace their `md:`/`lg:` with `tablet:`/`desktop:`.
+
+```tsx
+<div className="p-5 tablet:p-8">           // 20px margins on mobile, 32px from tablet up
+<div className="hidden desktop:block">     // only on desktop (≥1024px)
+```
+
 ### Design Tokens — `@theme`
 
 All colors, fonts, shadows, spacing, and typography are declared as CSS custom properties. Tailwind v4 auto-generates utility classes from them.
@@ -78,9 +99,9 @@ All colors, fonts, shadows, spacing, and typography are declared as CSS custom p
 
 ### Heading Elements
 
-`h1`–`h3` are styled globally — no `className` needed. They use a mobile-first scale that switches at `md` (768px).
+`h1`–`h3` are styled globally — no `className` needed. They use a mobile-first scale that switches at the `tablet` breakpoint (500px) — per design, tablet and desktop share one heading scale.
 
-| Element | Mobile                     | Desktop                    |
+| Element | Mobile (<500px)            | Tablet & Desktop (≥500px)  |
 | ------- | -------------------------- | -------------------------- |
 | `h1`    | Nunito Bold 24px/32px      | Nunito ExtraBold 32px/44px |
 | `h2`    | Nunito SemiBold 20px/24px  | Nunito SemiBold 20px/28px  |
@@ -88,11 +109,11 @@ All colors, fonts, shadows, spacing, and typography are declared as CSS custom p
 
 ### Paragraph Utilities
 
-| Class     | Mobile       | Desktop      |
-| --------- | ------------ | ------------ |
-| `text-p1` | 18px / 1.333 | 16px / 1.25  |
-| `text-p2` | 16px / 1.5   | 14px / 1.286 |
-| `text-p3` | 14px / 1.286 | 12px / 1.5   |
+| Class     | Mobile (<500px) | Tablet & Desktop (≥500px) |
+| --------- | --------------- | ------------------------- |
+| `text-p1` | 18px / 1.333    | 16px / 1.25               |
+| `text-p2` | 16px / 1.5      | 14px / 1.286              |
+| `text-p3` | 14px / 1.286    | 12px / 1.5                |
 
 ### Spacing
 
@@ -109,17 +130,21 @@ Tailwind's default 4px grid covers all design padding increments natively:
 | 40px         | `p-10` / `m-10` |
 | 80px         | `p-20` / `m-20` |
 
-Use `.page-margins` on top-level page wrappers for consistent page-level margins:
+Use `.page-margins` on top-level **admin** page wrappers for consistent page-level margins:
 
-| Breakpoint            | Left / Right | Top  |
-| --------------------- | ------------ | ---- |
-| Mobile (default)      | 20px         | 20px |
-| Tablet `md` (768px)   | 40px         | 20px |
-| Desktop `lg` (1024px) | 80px         | 40px |
+| Breakpoint        | Left / Right | Top  |
+| ----------------- | ------------ | ---- |
+| Mobile (default)  | 20px         | 20px |
+| Tablet (≥500px)   | 40px         | 20px |
+| Desktop (≥1024px) | 80px         | 40px |
 
 ```tsx
 <main className="page-margins">...</main>
 ```
+
+**Driver** pages don't need this — `DriverLayout` already applies the driver
+spec: content capped at 834px, centered, 20px margins on mobile and 32px from
+tablet up.
 
 ### Fonts
 

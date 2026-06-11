@@ -10,6 +10,18 @@
    * Source: Figma F4K-Designs (Design System pages)
    * ============================================== */
 
+  /* --- Breakpoints: F4K device tiers (replace Tailwind defaults) ---
+   * The design system defines exactly three tiers:
+   *   mobile  0–499px   (designed at 375) — unprefixed, mobile-first base
+   *   tablet  500–1023px (designed at 834) — `tablet:` variant
+   *   desktop 1024px+    (designed at 1440) — `desktop:` variant
+   * Tailwind's sm/md/lg/xl/2xl are removed on purpose: their boundaries
+   * (640/768/...) don't exist in this design system, so using them is
+   * always a bug. Write `tablet:` / `desktop:`, never `md:` / `lg:`. */
+  --breakpoint-*: initial;
+  --breakpoint-tablet: 31.25rem; /* 500px */
+  --breakpoint-desktop: 64rem; /* 1024px */
+
   /* --- Font Families --- */
   --font-nunito: 'Nunito', sans-serif;
   --font-nunito-sans: 'Nunito Sans', sans-serif;
@@ -58,7 +70,7 @@
    * H1: Nunito Bold       32px / 44px  → 44/32 = 1.375
    * H2: Nunito Bold       20px / 28px  → 28/20 = 1.4
    * H3: Nunito Sans Bold  16px / 20px  → 20/16 = 1.25
-   * P1: Nunito Sans       16px / 20px  → 20/16 = 1.25
+   * P1: Nunito Sans       16px / 24px  → 24/16 = 1.5
    * P2: Nunito Sans       14px / 18px  → 18/14 ≈ 1.286
    * P3: Nunito Sans       12px / 18px  → 18/12 = 1.5  */
   --text-h1: 2rem;
@@ -127,8 +139,10 @@
     font-weight: 700;
   }
 
-  /* Desktop/tablet: md breakpoint (768px) */
-  @media (min-width: 48rem) {
+  /* Desktop & Tablet scale — applies from the tablet tier up.
+   * Per design (Gurman/Fehin, 2026-06): tablet uses the DESKTOP type scale;
+   * only mobile (0–499px) uses the mobile scale. */
+  @media (width >= theme(--breakpoint-tablet)) {
     h1 {
       font-size: var(--text-h1);
       line-height: var(--text-h1--line-height);
@@ -148,14 +162,15 @@
 /* ==============================================
  * Responsive paragraph utilities
  * Use text-p1, text-p2, text-p3 directly in className.
- * Mobile size is the default; desktop kicks in at md (768px).
+ * Mobile size is the default; the desktop/tablet size applies from the
+ * tablet tier up (≥ --breakpoint-tablet).
  * ============================================== */
 @layer utilities {
   .text-p1 {
     font-size: var(--text-m-p1);
     line-height: var(--text-m-p1--line-height);
   }
-  @media (min-width: 48rem) {
+  @media (width >= theme(--breakpoint-tablet)) {
     .text-p1 {
       font-size: var(--text-p1);
       line-height: var(--text-p1--line-height);
@@ -166,7 +181,7 @@
     font-size: var(--text-m-p2);
     line-height: var(--text-m-p2--line-height);
   }
-  @media (min-width: 48rem) {
+  @media (width >= theme(--breakpoint-tablet)) {
     .text-p2 {
       font-size: var(--text-p2);
       line-height: var(--text-p2--line-height);
@@ -177,29 +192,29 @@
     font-size: var(--text-m-p3);
     line-height: var(--text-m-p3--line-height);
   }
-  @media (min-width: 48rem) {
+  @media (width >= theme(--breakpoint-tablet)) {
     .text-p3 {
       font-size: var(--text-p3);
       line-height: var(--text-p3--line-height);
     }
   }
 
-  /* Page-level margins from the F4K design system.
+  /* Page-level margins from the F4K design system (admin spec).
    * Apply to top-level page wrapper elements.
-   * Mobile: 20px · Tablet (md): 40px · Desktop (lg): 80px left/right, 40px top */
+   * Mobile: 20px · Tablet: 40px · Desktop: 80px left/right, 40px top */
   .page-margins {
     padding-left: 1.25rem; /* 20px */
     padding-right: 1.25rem;
     padding-top: 1.25rem;
     padding-bottom: 1.5rem;
   }
-  @media (min-width: 48rem) {
+  @media (width >= theme(--breakpoint-tablet)) {
     .page-margins {
       padding-left: 2.5rem; /* 40px */
       padding-right: 2.5rem;
     }
   }
-  @media (min-width: 64rem) {
+  @media (width >= theme(--breakpoint-desktop)) {
     .page-margins {
       padding-left: 5rem; /* 80px */
       padding-right: 5rem;

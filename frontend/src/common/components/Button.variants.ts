@@ -25,7 +25,7 @@ export const buttonVariants = cva(
         default: [
           'font-nunito text-h3',
           'h-[44px] min-w-[104px] px-6 py-2 rounded-[40px]',
-          'w-full md:w-auto',
+          'w-full tablet:w-auto',
         ],
         circular: 'size-[44px] rounded-full',
       },
