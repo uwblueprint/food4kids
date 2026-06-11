@@ -4,7 +4,7 @@ interface PlaceholderPageProps {
 
 export const PlaceholderPage = ({ pageName }: PlaceholderPageProps) => {
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex flex-1 items-center justify-center">
       <div className="text-center">
         <div className="mb-4 text-6xl">🚧</div>
         <h1 className="text-grey-500 mb-2 text-3xl font-bold">{pageName}</h1>
