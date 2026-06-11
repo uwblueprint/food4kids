@@ -392,8 +392,8 @@
       },
       "DeliveryTypeEnum": {
         "enum": [
-          "School Year",
-          "Summer"
+          "School",
+          "Family"
         ],
         "title": "DeliveryTypeEnum",
         "type": "string"
@@ -914,6 +914,9 @@
             "title": "Contact Name",
             "type": "string"
           },
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
+          },
           "dietary_restrictions": {
             "default": "",
             "title": "Dietary Restrictions",
@@ -950,6 +953,10 @@
               }
             ],
             "title": "Longitude"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
           },
           "note_chain_id": {
             "anyOf": [
@@ -999,17 +1006,6 @@
             ],
             "title": "Place Id"
           },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
-          },
           "state": {
             "$ref": "#/components/schemas/LocationState",
             "default": "ACTIVE"
@@ -1017,7 +1013,9 @@
         },
         "required": [
           "location_group_id",
+          "name",
           "contact_name",
+          "delivery_type",
           "address",
           "phone_number"
         ],
@@ -1412,6 +1410,9 @@
             "title": "Contact Name",
             "type": "string"
           },
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
+          },
           "dietary_restrictions": {
             "default": "",
             "title": "Dietary Restrictions",
@@ -1457,6 +1458,10 @@
               }
             ],
             "title": "Longitude"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
           },
           "note_chain_id": {
             "anyOf": [
@@ -1506,17 +1511,6 @@
             ],
             "title": "Place Id"
           },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
-          },
           "state": {
             "$ref": "#/components/schemas/LocationState",
             "default": "ACTIVE"
@@ -1524,7 +1518,9 @@
         },
         "required": [
           "location_group_id",
+          "name",
           "contact_name",
+          "delivery_type",
           "address",
           "phone_number",
           "location_id",
@@ -1540,6 +1536,15 @@
           "ARCHIVED"
         ],
         "title": "LocationState",
+        "type": "string"
+      },
+      "LocationStatusEnum": {
+        "enum": [
+          "Active",
+          "Unscheduled",
+          "Inactive"
+        ],
+        "title": "LocationStatusEnum",
         "type": "string"
       },
       "LocationUpdate": {
@@ -1566,6 +1571,16 @@
               }
             ],
             "title": "Contact Name"
+          },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "dietary_restrictions": {
             "anyOf": [
@@ -1622,6 +1637,17 @@
               }
             ],
             "title": "Longitude"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "note_chain_id": {
             "anyOf": [
@@ -1689,17 +1715,6 @@
               }
             ],
             "title": "Place Id"
-          },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
           }
         },
         "title": "LocationUpdate",
@@ -4511,6 +4526,48 @@
         "description": "Get all locations with pagination",
         "operationId": "get_locations",
         "parameters": [
+          {
+            "description": "Filter by one or more delivery types",
+            "in": "query",
+            "name": "delivery_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryTypeEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more delivery types",
+              "title": "Delivery Type"
+            }
+          },
+          {
+            "description": "Filter by one or more location statuses",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/LocationStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more location statuses",
+              "title": "Status"
+            }
+          },
           {
             "description": "Page number (1-indexed)",
             "in": "query",

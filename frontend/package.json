@@ -9,19 +9,25 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css,md}\"",
     "email:dev": "email dev --dir emails --port 3000",
     "email:export": "email export --outDir emails/html",
     "preview": "vite preview",
     "generate:api": "node scripts/fetch-openapi.mjs && openapi-ts",
     "prepare": "node -e \"try{const cp=require('child_process');cp.execSync('git rev-parse --is-inside-work-tree',{stdio:'ignore'});cp.execSync('git config core.hooksPath scripts/git-hooks',{stdio:'ignore'})}catch(e){}\""
   },
-  "overrides": {
-    "next@<16.2.6": ">=16.2.6",
-    "postcss@<8.5.10": ">=8.5.10",
-    "node-domexception": "npm:empty-package@1.0.0"
+  "lint-staged": {
+    "src/**/*.{ts,tsx,json,css,md}": "prettier --write"
+  },
+  "pnpm": {
+    "overrides": {
+      "next@<16.2.6": ">=16.2.6",
+      "postcss@<8.5.10": ">=8.5.10"
+    }
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.2.6",
+    "@react-email/tailwind": "^2.0.7",
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-query-devtools": "^5.100.14",
     "@xstate/react": "^6.1.0",
@@ -43,6 +49,8 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@hey-api/openapi-ts": "0.97.2",
+    "@react-email/components": "^1.0.12",
+    "@react-email/preview-server": "^5.2.10",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "^24.12.4",
     "@types/react": "^19.2.15",
@@ -59,6 +67,7 @@
     "eslint-plugin-react-refresh": "^0.4.26",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "globals": "^16.5.0",
+    "lint-staged": "^15.5.2",
     "postcss": "^8.5.15",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.4",

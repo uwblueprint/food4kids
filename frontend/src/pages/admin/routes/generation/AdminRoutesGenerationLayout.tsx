@@ -43,9 +43,8 @@ export function AdminRoutesGenerationLayout() {
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
   const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
-  const [reviewResult, setReviewResult] = useState<LocationImportResponse | null>(
-    null
-  );
+  const [reviewResult, setReviewResult] =
+    useState<LocationImportResponse | null>(null);
 
   if (!hasSeededColumnMap && settingsLoaded) {
     setHasSeededColumnMap(true);

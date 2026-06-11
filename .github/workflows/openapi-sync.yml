@@ -7,14 +7,55 @@ on:
   pull_request:
     branches:
       - main
+  # Daily backstop: the PR/push job below only evaluates sync when a watched
+  # contract path changes in that event. Drift that predates the check, or that
+  # enters through a path the filter doesn't watch (a generator-version bump in
+  # pnpm-lock.yaml, an edit to openapi-ts.config.ts), would otherwise sit on
+  # main undetected until the next contract PR happens to regenerate. The
+  # filter-free audit job runs unconditionally to catch exactly that.
+  schedule:
+    - cron: "0 8 * * *" # 08:00 UTC daily (~04:00 ET)
+
+# The job pushes back to PR branches using a token minted from the
+# f4k-openapi-sync GitHub App (below), not GITHUB_TOKEN — so the default token
+# only needs read access here.
+permissions:
+  contents: read
 
 jobs:
   openapi-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # PR / push-to-main behaviour only. The scheduled backstop is the separate
+    # audit job below, so skip this auto-fix job on schedule events.
+    if: github.event_name != 'schedule'
     steps:
+      # Mint a short-lived token from the f4k-openapi-sync GitHub App so we can
+      # commit the regenerated client straight back to the PR branch. We use the
+      # App (not GITHUB_TOKEN) on purpose: a GITHUB_TOKEN push does NOT trigger
+      # other workflows, so lint/pytest wouldn't re-run on the fix. An App push
+      # does, so the corrected commit gets fully checked.
+      #
+      # Gated to same-repo PRs: fork PRs don't receive secrets, so the token
+      # can't be minted there and we fall back to verify-only (see the final
+      # step). On push-to-main this step is skipped too.
+      - name: Generate GitHub App token
+        id: app-token
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # On a same-repo PR, check out the PR branch tip with the App token so
+          # we can commit & push back. Otherwise (push to main, fork PR) the
+          # token output is empty and we get the usual read-only checkout of the
+          # event ref.
+          token: ${{ steps.app-token.outputs.token || github.token }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       # Only do work when something that could change the contract changed.
       # The job still runs (and reports success) otherwise, so it can be a
@@ -63,35 +104,138 @@ jobs:
         working-directory: ./frontend
         run: pnpm install --frozen-lockfile
 
-      # Dump the schema by introspecting the app (no server, no DB) and
-      # re-normalize it through the same script `pnpm generate:api` uses, so
-      # the comparison is byte-for-byte.
-      - name: Regenerate openapi.json from the backend
+      # Regenerate the full client — openapi.json AND the generated TS — using
+      # the same no-server script the pre-commit hook runs, so CI and local
+      # produce byte-identical output. In CI it resolves to the system python3
+      # (backend deps installed above); no venv or container is needed.
+      - name: Regenerate the OpenAPI client (schema + TS)
         if: steps.changes.outputs.contract == 'true'
         env:
-          PYTHONPATH: ${{ github.workspace }}/backend/python
-          APP_ENV: testing
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-        run: |
-          python backend/python/scripts/dump_openapi_schema.py /tmp/openapi-raw.json
-          cd frontend
-          OPENAPI_FILE=/tmp/openapi-raw.json node scripts/fetch-openapi.mjs
+        run: ./scripts/regen-openapi.sh
 
-      - name: Fail if openapi.json is out of date
+      # If the regen changed anything, auto-commit it back to the PR branch. We
+      # sync BOTH frontend/openapi.json and the generated TS client, so a PR
+      # whose author skipped the hook still lands a fully-synced contract. The
+      # regen is byte-deterministic (pinned openapi-ts + normalized schema), so
+      # the push re-triggers this workflow, the second run finds nothing to
+      # change, and it terminates — no commit ping-pong. We commit with
+      # --no-verify so the pre-commit hook doesn't re-run the whole regen here.
+      - name: Sync OpenAPI client
         if: steps.changes.outputs.contract == 'true'
+        env:
+          # True only when the App token was minted (same-repo PR) — i.e. when
+          # we're actually able to push a fix back.
+          CAN_PUSH: ${{ steps.app-token.outputs.token != '' }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          if ! git diff --exit-code frontend/openapi.json; then
-            echo "::error::frontend/openapi.json is out of sync with the backend schema."
-            echo "Normally the pre-commit hook keeps this in sync (see scripts/regen-openapi.sh)."
-            echo "To fix without a running backend, copy the whole block below — from the"
-            echo "'git apply' line through the closing 'PATCH' — and paste it into your shell"
-            echo "at the repo root:"
-            echo ""
-            echo "git apply <<'PATCH'"
-            git diff frontend/openapi.json
-            echo "PATCH"
-            echo ""
-            echo "Then run 'pnpm openapi-ts' in frontend/ and commit. (No backend needed —"
-            echo "openapi-ts reads the local openapi.json.)"
-            exit 1
+          if git diff --quiet -- frontend/openapi.json frontend/src/api/generated; then
+            echo "✔ OpenAPI client is in sync with the backend schema."
+            exit 0
           fi
+
+          echo "OpenAPI client is out of sync with the backend schema."
+
+          if [ "$CAN_PUSH" = "true" ]; then
+            # Loop-breaker: if the branch tip is already a bot sync commit and
+            # the client STILL doesn't match, the regen isn't deterministic —
+            # pushing again would loop forever. Fail loudly instead.
+            if [ "$(git log -1 --format='%an')" = "f4k-openapi-sync[bot]" ]; then
+              echo "::error::OpenAPI client is still out of sync right after a bot sync commit — the regen looks non-deterministic. Refusing to push again (would loop). Investigate scripts/regen-openapi.sh."
+              git diff -- frontend/openapi.json frontend/src/api/generated
+              exit 1
+            fi
+
+            echo "→ Committing the regenerated client back to '$HEAD_REF'…"
+            git config user.name "f4k-openapi-sync[bot]"
+            git config user.email "f4k-openapi-sync[bot]@users.noreply.github.com"
+            git add frontend/openapi.json frontend/src/api/generated
+            git commit --no-verify -m "chore: sync OpenAPI client with backend schema"
+            git push origin "HEAD:$HEAD_REF"
+            echo "✔ Pushed. The updated PR will re-run checks against the synced client."
+            exit 0
+          fi
+
+          # Fork PR or push to main: we can't push a fix, so fail with a
+          # ready-to-apply patch (the manual fallback, also used when the hook
+          # wasn't installed).
+          echo "::error::OpenAPI client is out of sync and this run can't auto-fix it (fork PR or push to main)."
+          echo "Copy the whole block below — from the 'git apply' line through the"
+          echo "closing 'PATCH' — and paste it into your shell at the repo root:"
+          echo ""
+          echo "git apply <<'PATCH'"
+          git diff -- frontend/openapi.json frontend/src/api/generated
+          echo "PATCH"
+          exit 1
+
+  # Continuous, filter-free assertion that main is in sync. Unlike the job
+  # above, this runs the regen UNCONDITIONALLY — there is no paths filter — so
+  # it asserts the invariant after every merge to main and again every day,
+  # regardless of which files a given change touched. This is what closes the
+  # structural gap: the PR job can only see drift introduced through a watched
+  # path while a PR is in flight; this job sees drift no matter how it arrived
+  # (predating the check, a generator bump, a config edit, a direct push). It
+  # never pushes a fix — a red main is the signal — and prints a ready-to-apply
+  # patch so the fix is a copy-paste away.
+  openapi-drift-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/python/requirements.txt
+
+      - name: Install Python dependencies
+        working-directory: ./backend/python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.11.1"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Node.js dependencies
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      # Same byte-deterministic regen the PR job and the pre-commit hook run.
+      - name: Regenerate the OpenAPI client (schema + TS)
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: ./scripts/regen-openapi.sh
+
+      # Fail loudly if the committed client doesn't match a fresh regen. No
+      # auto-commit: this runs against main (and on schedule), where pushing a
+      # fix unprompted is the wrong move — surface it instead and let a human
+      # land the cleanup PR (or just run ./scripts/regen-openapi.sh locally).
+      - name: Assert client is in sync
+        run: |
+          if git diff --quiet -- frontend/openapi.json frontend/src/api/generated; then
+            echo "✔ main is in sync with the backend schema."
+            exit 0
+          fi
+
+          echo "::error::main's OpenAPI client has drifted from the backend schema."
+          echo "Run ./scripts/regen-openapi.sh and commit, or apply the patch below"
+          echo "from the repo root:"
+          echo ""
+          echo "git apply <<'PATCH'"
+          git diff -- frontend/openapi.json frontend/src/api/generated
+          echo "PATCH"
+          exit 1

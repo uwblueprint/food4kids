@@ -147,8 +147,8 @@ class RouteGroupService:
         )
 
         delivery_type_expr = case(
-            (has_school_subq.exists(), DeliveryTypeEnum.SCHOOL_YEAR.value),
-            (has_locations_subq.exists(), DeliveryTypeEnum.SUMMER.value),
+            (has_school_subq.exists(), DeliveryTypeEnum.SCHOOL.value),
+            (has_locations_subq.exists(), DeliveryTypeEnum.FAMILY.value),
             else_=None,
         ).label("delivery_type")
 
@@ -192,15 +192,38 @@ class RouteGroupService:
 
         # Delivery type filter (reuses has_school_subq / has_locations_subq defined above)
         if delivery_type:
+            # Subquery to traverse memberships -> stops -> locations to check for a school name
+            has_school_query = (
+                select(1)
+                .select_from(RouteGroupMembership)
+                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+                .where(
+                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
+                    Location.school_name.isnot(None),  # type: ignore[union-attr]
+                    Location.school_name != "",
+                )
+            )
+
+            # Subquery to check if the route group has any locations at all (make sure we dont default empty routes to summer)
+            has_locations_query = (
+                select(1)
+                .select_from(RouteGroupMembership)
+                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
+            )
+
             delivery_conditions: list[Any] = []
-            if DeliveryTypeEnum.SCHOOL_YEAR in delivery_type:
-                delivery_conditions.append(has_school_subq.exists())
-            if DeliveryTypeEnum.SUMMER in delivery_type:
+            if DeliveryTypeEnum.SCHOOL in delivery_type:
+                delivery_conditions.append(has_school_query.exists())
+            if DeliveryTypeEnum.FAMILY in delivery_type:
                 delivery_conditions.append(
-                    and_(has_locations_subq.exists(), ~has_school_subq.exists())
+                    and_(has_locations_query.exists(), ~has_school_query.exists())
                 )
             if delivery_conditions:
-                statement = statement.where(or_(*delivery_conditions))
+                statement = statement.where(
+                    and_(has_locations_query.exists(), or_(*delivery_conditions))
+                )
 
         if route_status:
             # Get the current date and time in the local timezone

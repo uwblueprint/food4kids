@@ -61,7 +61,7 @@ export function StatisticsCardSection() {
             <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
               Color Variants
             </p>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="tablet:grid-cols-4 grid grid-cols-2 gap-4">
               <StatisticsCard
                 color="green"
                 label="Routes Created"
@@ -93,7 +93,7 @@ export function StatisticsCardSection() {
             <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
               Character Variants
             </p>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <div className="tablet:grid-cols-5 grid grid-cols-2 gap-4">
               <StatisticsCard
                 color="green"
                 label="Boy"
