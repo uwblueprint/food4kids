@@ -11,7 +11,7 @@ import { Outlet } from 'react-router-dom';
  */
 export const DriverLayout = () => {
   return (
-    <div className="tablet:p-8 mx-auto w-full max-w-[834px] p-5">
+    <div className="tablet:p-8 mx-auto flex min-h-screen w-full max-w-[834px] flex-col p-5">
       <Outlet />
     </div>
   );
