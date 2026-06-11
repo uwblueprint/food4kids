@@ -151,6 +151,7 @@
     h2 {
       font-size: var(--text-h2);
       line-height: var(--text-h2--line-height);
+      font-weight: 700; /* Bold on desktop/tablet (SemiBold on mobile) */
     }
     h3 {
       font-size: var(--text-h3); /* 16px — smaller on desktop */

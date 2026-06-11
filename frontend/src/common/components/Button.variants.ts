@@ -27,7 +27,8 @@ export const buttonVariants = cva(
           'h-[44px] min-w-[104px] px-6 py-2 rounded-[40px]',
           'w-full tablet:w-auto',
         ],
-        circular: 'size-[44px] rounded-full',
+        /* 40px on mobile, 44px from tablet up (per CTA design frame) */
+        circular: 'size-[40px] tablet:size-[44px] rounded-full',
       },
     },
     compoundVariants: [
