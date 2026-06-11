@@ -34,10 +34,6 @@ export type AnnouncementCreate = {
    * Subject
    */
   subject: string;
-  /**
-   * User Id
-   */
-  user_id: string;
 };
 
 /**

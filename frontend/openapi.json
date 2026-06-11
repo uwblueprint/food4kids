@@ -32,17 +32,11 @@
             "minLength": 1,
             "title": "Subject",
             "type": "string"
-          },
-          "user_id": {
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
           }
         },
         "required": [
           "subject",
-          "message",
-          "user_id"
+          "message"
         ],
         "title": "AnnouncementCreate",
         "type": "object"
