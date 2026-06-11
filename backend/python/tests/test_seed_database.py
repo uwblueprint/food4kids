@@ -77,7 +77,7 @@ def _run_seed_script() -> None:
         patch.object(seed_module, "DATABASE_URL", sync_db_url),
         patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
         patch("app.seed_database.initialize_firebase"),
-        patch("app.seed_database.ensure_firebase_user", side_effect=lambda uid, **kw: uid),
+        patch("app.seed_database.ensure_firebase_user"),
     ):
         seed_module.main()
 
