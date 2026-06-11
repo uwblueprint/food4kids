@@ -1,5 +1,12 @@
 import boyAnnouncing from '@/assets/illustrations/boy-announcing.png';
 import { Button } from '@/common/components';
+import { cn } from '@/lib/utils';
+
+import {
+  PANEL_PADDING_BOTTOM,
+  PANEL_PADDING_X,
+  PANEL_SECTION_GAP,
+} from './utils';
 
 interface AnnouncementsEmptyStateProps {
   onCreateClick: () => void;
@@ -9,7 +16,14 @@ export function AnnouncementsEmptyState({
   onCreateClick,
 }: AnnouncementsEmptyStateProps) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12 text-center">
+    <div
+      className={cn(
+        'flex flex-1 flex-col items-center justify-center gap-6 text-center',
+        PANEL_PADDING_X,
+        PANEL_SECTION_GAP,
+        PANEL_PADDING_BOTTOM
+      )}
+    >
       <img
         src={boyAnnouncing}
         alt=""
@@ -21,7 +35,7 @@ export function AnnouncementsEmptyState({
           The people wanna know what you have to say!
         </p>
       </div>
-      <Button type="button" onClick={onCreateClick} className="w-full max-w-xs">
+      <Button type="button" onClick={onCreateClick} className="w-full">
         Create Announcement
       </Button>
     </div>
