@@ -2370,6 +2370,14 @@
             "title": "Route Group Id",
             "type": "string"
           },
+          "routes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RouteReadSummary"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
           "status": {
             "default": "Archived",
             "title": "Status",
@@ -2567,6 +2575,36 @@
           "route_id"
         ],
         "title": "RouteRead",
+        "type": "object"
+      },
+      "RouteReadSummary": {
+        "description": "Lightweight route info returned inside a route group response",
+        "properties": {
+          "length": {
+            "default": 0,
+            "title": "Length",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route_id",
+          "name"
+        ],
+        "title": "RouteReadSummary",
         "type": "object"
       },
       "RouteStatusEnum": {
@@ -5362,8 +5400,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/RouteGroupRead"
                   },
                   "title": "Response Get Route Groups",
                   "type": "array"
