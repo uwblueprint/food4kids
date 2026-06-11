@@ -3,9 +3,13 @@ export interface Announcement {
   user_id: string;
   author_name: string;
 <<<<<<< HEAD
+<<<<<<< HEAD
   author_role: string;
 =======
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+  author_role: string;
+>>>>>>> b56351b (add bulk edit modal)
   subject: string;
   message: string;
   attachments: string[];
