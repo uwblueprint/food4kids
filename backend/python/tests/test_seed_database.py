@@ -57,8 +57,7 @@ _MAX_HISTORY_YEAR = _CURRENT_YEAR
 def _run_seed_script() -> None:
     """Run the synchronous seed script against the test database.
 
-    ``ADMIN_AUTH_ID`` is captured at module import time, so patching the env
-    var after import is too late — patch the module attribute directly.
+    Firebase calls are mocked so tests don't need real credentials.
     ``LOCATIONS_CSV_PATH`` is read at runtime inside ``main()``, so an env
     patch is fine for it.
     """
@@ -76,8 +75,9 @@ def _run_seed_script() -> None:
 
     with (
         patch.object(seed_module, "DATABASE_URL", sync_db_url),
-        patch.object(seed_module, "ADMIN_AUTH_ID", "test-admin-auth-id"),
         patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
+        patch("app.seed_database.initialize_firebase"),
+        patch("app.seed_database.ensure_firebase_user", side_effect=lambda uid, **kw: uid),
     ):
         seed_module.main()
 

@@ -395,6 +395,10 @@ def main() -> None:
     """Main seeding function"""
     print("Starting final database seeding...")
 
+    if not firebase_admin._apps:
+        initialize_firebase()
+    print("Firebase initialized")
+
     # Create database connection
     engine = create_engine(DATABASE_URL, echo=False)
 
@@ -622,12 +626,20 @@ def main() -> None:
             num_drivers = max(routes_created, MIN_DRIVERS)
             drivers_created = 0
 
-            for _ in range(num_drivers):
-                # Create a single driver with fake data
+            for i in range(num_drivers):
+                n = f"{i + 1:03d}"
+                uid = f"seed-driver-{n}"
+                email = f"driver{n}@f4k.dev"
+
+                ensure_firebase_user(
+                    uid=uid, email=email, password=SEED_PASSWORD, role="driver"
+                )
+
                 user = User(
-                    name=fake.name(),
-                    email=fake.email(),
-                    auth_id=f"seed_driver_{uuid.uuid4().hex[:8]}",
+                    name=f"Driver {n}",
+                    email=email,
+                    auth_id=uid,
+                    role="driver",
                 )
                 set_timestamps(user)
                 session.add(user)
@@ -874,26 +886,40 @@ def main() -> None:
             session.commit()
             print("Created system settings info")
 
-            # Create admin info
-            print("Creating admin info...")
-            user = User(
-                name="Dev",
-                email="food4kids@uwblueprint.org",
-                auth_id=ADMIN_AUTH_ID,
-                role="admin",
-            )
-            set_timestamps(user)
-            session.add(user)
+            # Create admin accounts
+            print("Creating admin accounts...")
+            admin_user = None
 
-            admin = Admin(
-                admin_phone=generate_valid_phone(),
-                user_id=user.user_id,
-            )
-            set_timestamps(admin)
-            session.add(admin)
+            for i in range(NUM_SEED_ADMINS):
+                admin_num = i + 1
+                uid = f"seed-admin-{admin_num}"
+                email = f"admin{admin_num}@f4k.dev"
+
+                ensure_firebase_user(
+                    uid=uid, email=email, password=SEED_PASSWORD, role="admin"
+                )
+
+                user = User(
+                    name=f"Admin {admin_num}",
+                    email=email,
+                    auth_id=uid,
+                    role="admin",
+                )
+                set_timestamps(user)
+                session.add(user)
+
+                admin = Admin(
+                    admin_phone=generate_valid_phone(),
+                    user_id=user.user_id,
+                )
+                set_timestamps(admin)
+                session.add(admin)
+
+                if admin_user is None:
+                    admin_user = user
 
             session.commit()
-            print("Created admin info")
+            print(f"Created {NUM_SEED_ADMINS} admin accounts")
 
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")
@@ -952,7 +978,7 @@ def main() -> None:
                 announcement = Announcement(
                     subject=ann_data["subject"],
                     message=ann_data["message"],
-                    user_id=user.user_id,
+                    user_id=admin_user.user_id,
                     attachments=ann_data["attachments"],
                 )
                 set_timestamps(announcement)
@@ -961,6 +987,12 @@ def main() -> None:
             print("Created sample announcements")
 
             print("Comprehensive database seeding completed successfully!")
+
+            print("\n=== Seed Account Credentials ===")
+            print(f"Password for all accounts: {SEED_PASSWORD}")
+            print(f"Drivers: driver001@f4k.dev ... driver{num_drivers:03d}@f4k.dev")
+            print(f"Admins:  admin1@f4k.dev ... admin{NUM_SEED_ADMINS}@f4k.dev")
+            print("================================\n")
 
         except Exception as e:
             print(f"Error during seeding: {e}")
