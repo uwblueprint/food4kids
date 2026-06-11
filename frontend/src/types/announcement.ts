@@ -11,7 +11,6 @@ export interface Announcement {
 }
 
 export interface AnnouncementCreatePayload {
-  user_id: string;
   subject: string;
   message: string;
   attachments?: string[];

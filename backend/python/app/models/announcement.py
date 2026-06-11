@@ -34,7 +34,6 @@ class Announcement(AnnouncementBase, BaseModel, table=True):
 class AnnouncementCreate(AnnouncementBase):
     """Announcement creation request"""
 
-    user_id: UUID
     attachments: list[str] = Field(default_factory=list)
 
 

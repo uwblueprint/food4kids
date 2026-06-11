@@ -57,12 +57,12 @@ async def create_announcement(
     announcement: AnnouncementCreate,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> AnnouncementRead:
     """Create a new announcement"""
     try:
         created_announcement = await announcement_service.create_announcement(
-            session, announcement
+            session, current_user_id, announcement
         )
         return AnnouncementRead.from_announcement(created_announcement)
     except Exception as e:
@@ -80,9 +80,16 @@ async def update_announcement(
     _auth: bool = Depends(require_announcement_owner_or_admin),
 ) -> AnnouncementRead:
     """Update an existing announcement"""
-    updated_announcement = await announcement_service.update_announcement(
-        session, announcement_id, announcement
-    )
+    try:
+        updated_announcement = await announcement_service.update_announcement(
+            session, announcement_id, current_user_id, announcement
+        )
+    except PermissionError as pe:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(pe),
+        ) from pe
+
     if not updated_announcement:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -99,7 +106,16 @@ async def delete_announcement(
     _auth: bool = Depends(require_announcement_owner_or_admin),
 ) -> None:
     """Delete an announcement"""
-    success = await announcement_service.delete_announcement(session, announcement_id)
+    try:
+        success = await announcement_service.delete_announcement(
+            session, announcement_id, current_user_id
+        )
+    except PermissionError as pe:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(pe),
+        ) from pe
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

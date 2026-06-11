@@ -892,11 +892,9 @@ class TestAnnouncementModel:
 
     def test_announcement_create_schema(self) -> None:
         """Test AnnouncementCreate validation."""
-        user_id = uuid4()
         create = AnnouncementCreate(
             subject="New Announcement",
             message="Details here",
-            user_id=user_id,
         )
         assert create.subject == "New Announcement"
         assert create.attachments == []
@@ -904,7 +902,6 @@ class TestAnnouncementModel:
         create_with_attachments = AnnouncementCreate(
             subject="With Images",
             message="See attached",
-            user_id=user_id,
             attachments=["https://example.com/img1.png"],
         )
         assert len(create_with_attachments.attachments) == 1
@@ -924,14 +921,12 @@ class TestAnnouncementModel:
         with pytest.raises(ValidationError) as exc_info:
             AnnouncementCreate(
                 message="No subject",
-                user_id=uuid4(),
             )
         assert "subject" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
             AnnouncementCreate(
                 subject="No message",
-                user_id=uuid4(),
             )
         assert "message" in str(exc_info.value)
 
@@ -941,5 +936,4 @@ class TestAnnouncementModel:
             AnnouncementCreate(
                 subject="",
                 message="Some message",
-                user_id=uuid4(),
             )
