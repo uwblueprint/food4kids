@@ -20,8 +20,13 @@ interface AnnouncementFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
+  role: 'admin' | 'driver';
   announcement?: Announcement;
-  onSubmit: (values: { subject: string; message: string }) => Promise<void>;
+  onSubmit: (values: {
+    subject: string;
+    message: string;
+    sendEmailToAll: boolean;
+  }) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -29,12 +34,14 @@ export function AnnouncementFormModal({
   open,
   onOpenChange,
   mode,
+  role,
   announcement,
   onSubmit,
   isSubmitting = false,
 }: AnnouncementFormModalProps) {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [sendEmailToAll, setSendEmailToAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,31 +53,31 @@ export function AnnouncementFormModal({
       setSubject('');
       setMessage('');
     }
+    setSendEmailToAll(false);
     setError(null);
   }, [open, mode, announcement]);
 
+  const trimmedSubject = subject.trim();
+  const trimmedMessage = message.trim();
+  const canSubmit = trimmedSubject.length > 0 && trimmedMessage.length > 0;
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const trimmedSubject = subject.trim();
-    const trimmedMessage = message.trim();
-    if (!trimmedSubject) {
-      setError('Subject is required.');
-      return;
-    }
-    if (!trimmedMessage) {
-      setError('Note is required.');
-      return;
-    }
+    if (!canSubmit) return;
     setError(null);
     try {
-      await onSubmit({ subject: trimmedSubject, message: trimmedMessage });
+      await onSubmit({
+        subject: trimmedSubject,
+        message: trimmedMessage,
+        sendEmailToAll,
+      });
       onOpenChange(false);
     } catch (err) {
-      const message =
+      const messageText =
         err instanceof Error
           ? err.message
           : 'Something went wrong. Please try again.';
-      setError(message);
+      setError(messageText);
     }
   };
 
@@ -110,6 +117,18 @@ export function AnnouncementFormModal({
             />
           </Field>
 
+          {mode === 'create' && role === 'admin' && (
+            <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                className="border-grey-300 text-blue-300 size-4 rounded"
+                checked={sendEmailToAll}
+                onChange={(event) => setSendEmailToAll(event.target.checked)}
+              />
+              Send email to all
+            </label>
+          )}
+
           {error && (
             <p className="text-p2 text-red" role="alert">
               {error}
@@ -125,7 +144,7 @@ export function AnnouncementFormModal({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || !canSubmit}>
               {isSubmitting
                 ? 'Saving…'
                 : mode === 'create'

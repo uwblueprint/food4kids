@@ -45,9 +45,27 @@ class AnnouncementRead(AnnouncementBase):
 
     announcement_id: UUID
     user_id: UUID
+    author_name: str
+    author_role: str
     attachments: list[str]
     created_at: datetime | None
     updated_at: datetime | None
+
+    @classmethod
+    def from_announcement(cls, announcement: Announcement) -> "AnnouncementRead":
+        author_name = announcement.user.name if announcement.user else "Unknown"
+        author_role = announcement.user.role if announcement.user else "driver"
+        return cls(
+            announcement_id=announcement.announcement_id,
+            user_id=announcement.user_id,
+            subject=announcement.subject,
+            message=announcement.message,
+            attachments=announcement.attachments,
+            created_at=announcement.created_at,
+            updated_at=announcement.updated_at,
+            author_name=author_name,
+            author_role=author_role,
+        )
 
 
 class AnnouncementUpdate(SQLModel):

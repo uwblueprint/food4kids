@@ -3851,6 +3851,8 @@ class TestAnnouncementRoutes:
         assert data["subject"] == sample_announcement_data["subject"]
         assert data["message"] == sample_announcement_data["message"]
         assert data["user_id"] == str(user.user_id)
+        assert data["author_name"] == "Test Admin"
+        assert data["author_role"] == "admin"
         assert "announcement_id" in data
         assert "created_at" in data
 

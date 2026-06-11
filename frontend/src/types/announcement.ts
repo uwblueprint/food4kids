@@ -2,6 +2,7 @@ export interface Announcement {
   announcement_id: string;
   user_id: string;
   author_name: string;
+  author_role: string;
   subject: string;
   message: string;
   attachments: string[];

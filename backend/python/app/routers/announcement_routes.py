@@ -28,7 +28,7 @@ async def get_announcements(
     """Retrieve all announcements"""
     try:
         announcements = await announcement_service.get_announcements(session)
-        return [AnnouncementRead.model_validate(a) for a in announcements]
+        return [AnnouncementRead.from_announcement(a) for a in announcements]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -49,7 +49,7 @@ async def get_announcement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Announcement with id {announcement_id} not found",
         )
-    return AnnouncementRead.model_validate(announcement)
+    return AnnouncementRead.from_announcement(announcement)
 
 
 @router.post("/", response_model=AnnouncementRead, status_code=status.HTTP_201_CREATED)
@@ -64,7 +64,7 @@ async def create_announcement(
         created_announcement = await announcement_service.create_announcement(
             session, announcement
         )
-        return AnnouncementRead.model_validate(created_announcement)
+        return AnnouncementRead.from_announcement(created_announcement)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -88,7 +88,7 @@ async def update_announcement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Announcement with id {announcement_id} not found",
         )
-    return AnnouncementRead.model_validate(updated_announcement)
+    return AnnouncementRead.from_announcement(updated_announcement)
 
 
 @router.delete("/{announcement_id}", status_code=status.HTTP_204_NO_CONTENT)
