@@ -62,6 +62,14 @@
             "title": "Attachments",
             "type": "array"
           },
+          "author_name": {
+            "title": "Author Name",
+            "type": "string"
+          },
+          "author_role": {
+            "title": "Author Role",
+            "type": "string"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -107,6 +115,8 @@
           "message",
           "announcement_id",
           "user_id",
+          "author_name",
+          "author_role",
           "attachments",
           "created_at",
           "updated_at"

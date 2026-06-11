@@ -55,6 +55,14 @@ export type AnnouncementRead = {
    */
   attachments: Array<string>;
   /**
+   * Author Name
+   */
+  author_name: string;
+  /**
+   * Author Role
+   */
+  author_role: string;
+  /**
    * Created At
    */
   created_at: string | null;
