@@ -107,13 +107,46 @@ All colors, fonts, shadows, spacing, and typography are declared as CSS custom p
 | `h2`    | Nunito SemiBold 20px/24px  | Nunito Bold 20px/28px      |
 | `h3`    | Nunito Sans Bold 18px/24px | Nunito Sans Bold 16px/20px |
 
+The **`text-h1/h2/h3` utilities are responsive** (the same scale as the table
+above), for non-heading elements that should carry a heading style — e.g.
+field labels (`text-h3` → 18px mobile / 16px desktop) and tabs (the design
+binds tabs to H3). Don't put a `tablet:`/`desktop:` variant on them (already
+responsive).
+
+For **constant-size UI text** that is _not_ a heading — buttons — use
+**`text-button`** (Nunito 16px/20px, fixed at every width). It's why buttons
+don't borrow `text-h3`.
+
 ### Paragraph Utilities
+
+**`text-p1/p2/p3` are responsive** — Mobile/Pn below the `tablet` breakpoint,
+Desktop/Pn from tablet up. This is the default for body/paragraph text:
 
 | Class     | Mobile (<500px) | Tablet & Desktop (≥500px) |
 | --------- | --------------- | ------------------------- |
-| `text-p1` | 18px / 1.333    | 16px / 1.25               |
+| `text-p1` | 18px / 1.333    | 16px / 1.5                |
 | `text-p2` | 16px / 1.5      | 14px / 1.286              |
 | `text-p3` | 14px / 1.286    | 12px / 1.5                |
+
+```tsx
+<p className="text-p1">Body text</p> // one class, adapts at the breakpoint
+```
+
+For the rare element whose size must **not** change across tiers, use the
+static **`text-m-p1/p2/p3`** utilities (the Mobile sizes — 18 / 16 / 14px):
+
+```tsx
+// inputs are 16px at every width → the static Mobile/P2 size
+<input className="text-m-p2" />
+```
+
+(There's deliberately no static `text-d-*` family. `text-m-*` aren't "the
+mobile tier you pin to" — they're just the static size utilities, and they
+happen to be the mobile values, which are the sizes you'd realistically hold
+constant (16px input, etc.). A desktop-static family would only let you pin a
+_larger_ desktop size onto mobile — a 32px H1 or 12px P3 at phone width — which
+you never want. Never put a `tablet:`/`desktop:` variant on a `text-p*`/`text-h*`
+— it's already responsive; use a `text-m-*` for a constant size.)
 
 ### Spacing
 
