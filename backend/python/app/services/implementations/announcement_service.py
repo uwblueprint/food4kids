@@ -25,7 +25,7 @@ class AnnouncementService:
         return role is not None and role.lower() == "admin"
 
     async def get_announcements(self, session: AsyncSession) -> list[Announcement]:
-        """Get all announcements; edited posts sort to top via updated_at."""
+        """Get all announcements, ordered by most recent first"""
         statement = (
             select(Announcement)
             .options(selectinload(Announcement.user))  # type: ignore[arg-type]
@@ -72,8 +72,7 @@ class AnnouncementService:
             session.add(announcement)
             await session.commit()
             loaded = await self.get_announcement(session, announcement.announcement_id)
-            if loaded is None:
-                raise RuntimeError("Created announcement could not be loaded")
+            assert loaded is not None
             return loaded
 
         except Exception as error:

@@ -19,9 +19,12 @@ export interface Announcement {
 
 export interface AnnouncementCreatePayload {
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   user_id: string;
 >>>>>>> fa70cf5 (add board and crud functionality)
+=======
+>>>>>>> 5e0c3ad (use get_current_database_user_id as announcement user_id)
   subject: string;
   message: string;
   attachments?: string[];
