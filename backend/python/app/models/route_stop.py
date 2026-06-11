@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -23,6 +24,18 @@ class RouteStop(RouteStopBase, BaseModel, table=True):
     """Database table model for Route Stops"""
 
     __tablename__ = "route_stops"
+    __table_args__ = (
+        # Stop ordering within a route must be unambiguous.
+        UniqueConstraint(
+            "route_id", "stop_number", name="uq_route_stops_route_id_stop_number"
+        ),
+        # A location appears at most once per route — structural guard against
+        # double-delivering to the same family within one route. (Duplicates
+        # across routes in the same RouteGroup still need an app-level check.)
+        UniqueConstraint(
+            "route_id", "location_id", name="uq_route_stops_route_id_location_id"
+        ),
+    )
 
     route_stop_id: UUID = Field(default_factory=uuid4, primary_key=True, nullable=False)
 

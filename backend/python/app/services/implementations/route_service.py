@@ -251,6 +251,13 @@ class RouteService:
                 for stop in existing_stops_result.scalars().all():
                     await session.delete(stop)
 
+                # Flush the deletes before inserting replacements: route_stops
+                # has UNIQUE(route_id, stop_number) and UNIQUE(route_id,
+                # location_id), and SQLAlchemy's unit of work may otherwise
+                # emit the INSERTs before the DELETEs, transiently violating
+                # the constraints even though the end state is valid.
+                await session.flush()
+
                 # Create new route stops in the given order
                 for stop_number, location in enumerate(ordered_locations, start=1):
                     new_stop = RouteStop(
