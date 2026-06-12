@@ -1273,7 +1273,6 @@ class TestRouteGroupRoutes:
         assert group["num_routes"] == 1
         assert [r["route_id"] for r in group["routes"]] == [str(route.route_id)]
 
-
     @pytest.mark.asyncio
     async def test_get_route_groups_aggregate_defaults(
         self, async_client: AsyncClient, test_session: AsyncSession
@@ -1335,10 +1334,14 @@ class TestRouteGroupRoutes:
         await test_session.flush()
 
         test_session.add(
-            RouteGroupMembership(route_group_id=rg.route_group_id, route_id=route.route_id)
+            RouteGroupMembership(
+                route_group_id=rg.route_group_id, route_id=route.route_id
+            )
         )
         test_session.add(
-            RouteStop(route_id=route.route_id, location_id=location.location_id, stop_number=1)
+            RouteStop(
+                route_id=route.route_id, location_id=location.location_id, stop_number=1
+            )
         )
         await test_session.commit()
 
@@ -1393,13 +1396,19 @@ class TestRouteGroupRoutes:
         await test_session.flush()
 
         test_session.add(
-            RouteGroupMembership(route_group_id=rg.route_group_id, route_id=route.route_id)
+            RouteGroupMembership(
+                route_group_id=rg.route_group_id, route_id=route.route_id
+            )
         )
         test_session.add(
-            RouteStop(route_id=route.route_id, location_id=loc_a.location_id, stop_number=1)
+            RouteStop(
+                route_id=route.route_id, location_id=loc_a.location_id, stop_number=1
+            )
         )
         test_session.add(
-            RouteStop(route_id=route.route_id, location_id=loc_b.location_id, stop_number=2)
+            RouteStop(
+                route_id=route.route_id, location_id=loc_b.location_id, stop_number=2
+            )
         )
         await test_session.commit()
 
