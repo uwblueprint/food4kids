@@ -655,13 +655,18 @@ def main() -> None:
                 set_timestamps(user)
                 session.add(user)
 
+                # Ensure at least the first half of drivers are active
+                is_active = (
+                    True if i < num_drivers // 2 else random.choice([True, False])
+                )
+
                 driver = Driver(
                     user_id=user.user_id,
                     phone=generate_valid_phone(),
                     address=fake.address(),
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),
-                    active=random.choice([True, False]),
+                    active=is_active,
                     notes=fake.sentence()
                     if random.random() < PROBABILITY_DRIVER_NOTES
                     else "",

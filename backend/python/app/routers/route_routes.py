@@ -4,6 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import (
+    require_admin,
+    require_driver_or_admin,
+    require_route_assigned_or_admin,
+)
 from app.models import get_session
 from app.models.route import Route, RoutePatchRequest, RouteRead, RouteWithDateRead
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
@@ -29,6 +34,7 @@ async def get_routes(
     end_date: str = Query(None, description="Filter route groups until this date"),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> PaginatedResponse[RouteWithDateRead]:
     """
     Get routes with pagination and optional filtering for unassigned routes and date range.
@@ -45,6 +51,7 @@ async def get_routes(
 async def get_route(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_route_assigned_or_admin),
 ) -> Route:
     """
     Get a route by its unique identifier.
@@ -67,6 +74,7 @@ async def get_route(
 async def get_google_maps_link(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_route_assigned_or_admin),
 ) -> str:
     """
     Generate a Google Maps directions URL for a route.
@@ -88,6 +96,7 @@ async def get_google_maps_link(
 async def delete_route(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete a route by its unique identifier.
@@ -113,6 +122,7 @@ async def update_route(
     route_id: UUID,
     patch: RoutePatchRequest,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
 ) -> RouteRead:
     """
     Update a route's metadata (name, notes) and/or its stop order/locations.

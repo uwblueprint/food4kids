@@ -2001,6 +2001,25 @@ export type CreateDriverAssignmentResponses = {
 export type CreateDriverAssignmentResponse =
   CreateDriverAssignmentResponses[keyof CreateDriverAssignmentResponses];
 
+export type GetMyDriverAssignmentsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/driver-assignments/me';
+};
+
+export type GetMyDriverAssignmentsResponses = {
+  /**
+   * Response Get My Driver Assignments
+   *
+   * Successful Response
+   */
+  200: Array<DriverAssignmentRead>;
+};
+
+export type GetMyDriverAssignmentsResponse =
+  GetMyDriverAssignmentsResponses[keyof GetMyDriverAssignmentsResponses];
+
 export type GetSuggestedDriverData = {
   body?: never;
   path?: never;

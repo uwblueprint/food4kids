@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_admin
 from app.dependencies.services import get_system_settings_service
 from app.models import get_session
 from app.models.system_settings import SystemSettingsRead
@@ -15,6 +16,7 @@ async def get_system_settings(
     system_settings_service: SystemSettingsService = Depends(
         get_system_settings_service
     ),
+    _auth: bool = Depends(require_admin),
 ) -> SystemSettingsRead | None:
     """Return the singleton system settings row, or null if none has been created."""
     try:

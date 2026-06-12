@@ -2916,6 +2916,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Announcements",
         "tags": [
           "announcements"
@@ -2956,6 +2961,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Create Announcement",
         "tags": [
           "announcements"
@@ -2993,6 +3003,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Announcement",
         "tags": [
           "announcements"
@@ -3035,6 +3050,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Announcement",
         "tags": [
           "announcements"
@@ -3087,6 +3107,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Announcement",
         "tags": [
           "announcements"
@@ -3243,7 +3268,7 @@
     },
     "/driver-assignments/": {
       "get": {
-        "description": "Retrieve all driver assignments with pagination",
+        "description": "Retrieve all driver assignments with pagination (admin only). Drivers should use /me.",
         "operationId": "get_driver_assignments",
         "parameters": [
           {
@@ -3296,6 +3321,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Driver Assignments",
         "tags": [
           "driver-assignments"
@@ -3336,7 +3366,43 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Create Driver Assignment",
+        "tags": [
+          "driver-assignments"
+        ]
+      }
+    },
+    "/driver-assignments/me": {
+      "get": {
+        "description": "Retrieve driver assignments for the currently authenticated driver.\n\nDrivers only: an admin's UID does not map to a driver record. Admins should\nuse GET /driver-assignments/ for the full list.",
+        "operationId": "get_my_driver_assignments",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DriverAssignmentRead"
+                  },
+                  "title": "Response Get My Driver Assignments",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get My Driver Assignments",
         "tags": [
           "driver-assignments"
         ]
@@ -3394,6 +3460,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Suggested Driver",
         "tags": [
           "driver-assignments"
@@ -3431,6 +3502,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Driver Assignment",
         "tags": [
           "driver-assignments"
@@ -3483,6 +3559,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Driver Assignment",
         "tags": [
           "driver-assignments"
@@ -3558,6 +3639,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Drivers",
         "tags": [
           "drivers"
@@ -3684,6 +3770,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Driver",
         "tags": [
           "drivers"
@@ -3726,6 +3817,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Driver",
         "tags": [
           "drivers"
@@ -3778,6 +3874,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Driver",
         "tags": [
           "drivers"
@@ -3837,6 +3938,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Driver History",
         "tags": [
           "driver-history"
@@ -3919,6 +4025,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Driver History",
         "tags": [
           "driver-history"
@@ -3993,6 +4104,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Driver History",
         "tags": [
           "driver-history"
@@ -4045,6 +4161,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Create Driver History",
         "tags": [
           "driver-history"
@@ -4089,6 +4210,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Driver History Summary",
         "tags": [
           "driver-history"
@@ -4134,6 +4260,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Export All Drivers History",
         "tags": [
           "driver-history"
@@ -4190,6 +4321,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Jobs",
         "tags": [
           "jobs"
@@ -4231,6 +4367,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Generate Job",
         "tags": [
           "jobs"
@@ -4274,6 +4415,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Job",
         "tags": [
           "jobs"
@@ -4300,6 +4446,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Location Groups",
         "tags": [
           "location-groups"
@@ -4340,6 +4491,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Create Location Group",
         "tags": [
           "location-groups"
@@ -4377,6 +4533,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Location Group",
         "tags": [
           "location-groups"
@@ -4419,6 +4580,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Location Group",
         "tags": [
           "location-groups"
@@ -4471,6 +4637,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Location Group",
         "tags": [
           "location-groups"
@@ -4486,6 +4657,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete All Locations",
         "tags": [
           "locations"
@@ -4587,6 +4763,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Locations",
         "tags": [
           "locations"
@@ -4627,6 +4808,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Create Location",
         "tags": [
           "locations"
@@ -4669,6 +4855,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Ingest Locations",
         "tags": [
           "locations"
@@ -4711,6 +4902,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Review Locations",
         "tags": [
           "locations"
@@ -4748,6 +4944,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Location",
         "tags": [
           "locations"
@@ -4790,6 +4991,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Location",
         "tags": [
           "locations"
@@ -4842,6 +5048,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Location",
         "tags": [
           "locations"
@@ -5352,6 +5563,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Route Groups",
         "tags": [
           "route-groups"
@@ -5392,6 +5608,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Create Route Group",
         "tags": [
           "route-groups"
@@ -5429,6 +5650,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Route Group",
         "tags": [
           "route-groups"
@@ -5481,6 +5707,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Route Group",
         "tags": [
           "route-groups"
@@ -5576,6 +5807,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Routes",
         "tags": [
           "routes"
@@ -5613,6 +5849,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Route",
         "tags": [
           "routes"
@@ -5655,6 +5896,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Route",
         "tags": [
           "routes"
@@ -5707,6 +5953,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Update Route",
         "tags": [
           "routes"
@@ -5752,6 +6003,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Google Maps Link",
         "tags": [
           "routes"
@@ -5782,6 +6038,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get System Settings",
         "tags": [
           "system-settings"
@@ -5828,6 +6089,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Upload Image",
         "tags": [
           "upload"
@@ -5875,6 +6141,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Image",
         "tags": [
           "upload"

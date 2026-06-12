@@ -13,6 +13,7 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_admin
 from app.dependencies.services import get_location_service
 from app.models import get_session
 from app.models.enum import DeliveryTypeEnum, LocationStatusEnum
@@ -41,6 +42,7 @@ async def get_locations(
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> PaginatedResponse[LocationRead]:
     """
     Get all locations with pagination
@@ -67,6 +69,7 @@ async def get_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationRead:
     """
     Get a single location by ID
@@ -91,6 +94,7 @@ async def create_location(
     location: LocationCreate,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationRead:
     """
     Create a new location
@@ -113,6 +117,7 @@ async def update_location(
     updated_location_data: LocationUpdate,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationRead:
     """
     Update a location by ID
@@ -139,6 +144,7 @@ async def update_location(
 async def delete_all_locations(
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete all locations
@@ -157,6 +163,7 @@ async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete a location by ID
@@ -185,6 +192,7 @@ async def review_locations(
     column_map: str = Form(...),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationImportResponse:
     """
     Review a pending location import: validate rows and (eventually) describe how
@@ -222,6 +230,7 @@ async def ingest_locations(
     request: LocationIngestRequest,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationIngestResponse:
     """
     Persist net-new locations and archive stale ones.
