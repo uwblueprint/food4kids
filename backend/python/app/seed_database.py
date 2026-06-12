@@ -636,7 +636,7 @@ def main() -> None:
                 )
 
                 user = User(
-                    name=f"Driver {n}",
+                    name=fake.name(),
                     email=email,
                     auth_id=uid,
                     role="driver",
@@ -900,7 +900,7 @@ def main() -> None:
                 )
 
                 user = User(
-                    name=f"Admin {admin_num}",
+                    name=fake.name(),
                     email=email,
                     auth_id=uid,
                     role="admin",
