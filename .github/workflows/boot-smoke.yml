@@ -79,6 +79,7 @@ jobs:
           FIREBASE_SVC_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_ID }}
           FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL }}
           FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           if [ -n "$FIREBASE_PROJECT_ID" ]; then
             echo "Real Firebase credentials available — authed API smoke enabled."
@@ -114,6 +115,7 @@ jobs:
             -e FIREBASE_SVC_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs \
             -e FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL \
             -e FIREBASE_WEB_API_KEY \
+            -e GOOGLE_MAPS_API_KEY \
             f4k-backend:ci
 
       - name: Wait for healthy server
