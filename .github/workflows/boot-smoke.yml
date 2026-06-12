@@ -1,0 +1,112 @@
+name: Backend boot smoke
+
+# Builds the real backend Docker image and boots it against a fresh Postgres,
+# exactly like `docker compose up` / a deploy would: the entrypoint runs
+# `alembic upgrade head && python server.py`. This catches problems unit tests
+# can't see — broken or multi-headed migration graphs, startup crashes, missing
+# imports — before they land on main.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: boot-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:12-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: f4k
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Same pattern as pytest.yml: run the job on every PR so a required
+      # check always reports a status, but only do the expensive work when
+      # backend code changed.
+      - name: Filter changed files
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            python-backend:
+              - "backend/python/**"
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.python-backend == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        if: steps.changes.outputs.python-backend == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/python
+          tags: f4k-backend:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Boot backend (runs migrations, then the server)
+        if: steps.changes.outputs.python-backend == 'true'
+        run: |
+          # Firebase Admin parses the service-account key at startup, so it
+          # needs a syntactically valid (but throwaway) RSA key.
+          DUMMY_KEY=$(openssl genrsa 2048 2>/dev/null)
+
+          docker run -d --name f4k_backend_smoke --network host \
+            -e APP_ENV=development \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=password \
+            -e POSTGRES_DB_DEV=f4k \
+            -e POSTGRES_DB_TEST=f4k_test \
+            -e DB_HOST=localhost \
+            -e FIREBASE_PROJECT_ID=ci-dummy \
+            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID=dummy \
+            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY="$DUMMY_KEY" \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL=ci-dummy@ci-dummy.iam.gserviceaccount.com \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_ID=000000000000000000000 \
+            -e FIREBASE_SVC_ACCOUNT_AUTH_URI=https://accounts.google.com/o/oauth2/auth \
+            -e FIREBASE_SVC_ACCOUNT_TOKEN_URI=https://oauth2.googleapis.com/token \
+            -e FIREBASE_SVC_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/dummy \
+            f4k-backend:ci
+
+      - name: Wait for healthy server
+        if: steps.changes.outputs.python-backend == 'true'
+        run: |
+          for i in $(seq 1 45); do
+            if [ "$(docker inspect -f '{{.State.Running}}' f4k_backend_smoke)" != "true" ]; then
+              echo "::error::Backend container exited during boot (migrations or startup failed)"
+              docker logs f4k_backend_smoke
+              exit 1
+            fi
+            if curl -fsS -o /dev/null http://localhost:8080/docs; then
+              echo "Backend booted: migrations applied and server responding."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend did not become healthy within 90s"
+          docker logs f4k_backend_smoke
+          exit 1
