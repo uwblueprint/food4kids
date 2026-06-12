@@ -164,8 +164,19 @@ SMALL_CITIES = ["cambridge", "elmira", "new hamburg"]
 WAREHOUSE_LAT, WAREHOUSE_LON = 43.402343, -80.464610
 WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 
-# Database connection
-DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
+
+def get_database_url() -> str:
+    """Build the database URL from the environment, like migrations/env.py.
+
+    Indexes os.environ directly so a missing variable fails loudly instead
+    of silently seeding the wrong database.
+    """
+    return "postgresql://{username}:{password}@{host}:5432/{db}".format(
+        username=os.environ["POSTGRES_USER"],
+        password=os.environ["POSTGRES_PASSWORD"],
+        host=os.environ["DB_HOST"],
+        db=os.environ["POSTGRES_DB_DEV"],
+    )
 
 
 def set_timestamps(instance: BaseModel) -> None:
@@ -400,7 +411,7 @@ def main() -> None:
     print("Firebase initialized")
 
     # Create database connection
-    engine = create_engine(DATABASE_URL, echo=False)
+    engine = create_engine(get_database_url(), echo=False)
 
     with Session(engine) as session:
         try:
