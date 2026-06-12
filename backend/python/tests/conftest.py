@@ -163,6 +163,37 @@ async def async_client(
         yield ac
 
 
+@pytest_asyncio.fixture(scope="function")
+async def client_with_overrides(
+    test_session: AsyncSession,
+) -> AsyncGenerator[Any, None]:
+    """Factory for an AsyncClient whose app has extra dependency overrides
+    applied (on top of the test-session override) — e.g. to swap in a fake
+    GCP/auth/routing dependency. Built clients are cleaned up automatically.
+    """
+    import contextlib
+
+    from httpx import ASGITransport
+
+    async with contextlib.AsyncExitStack() as stack:
+
+        async def _make(overrides: dict[Any, Any] | None = None) -> AsyncClient:
+            app = create_app()
+
+            async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+                yield test_session
+
+            app.dependency_overrides[get_session] = override_get_session
+            for dep, override in (overrides or {}).items():
+                app.dependency_overrides[dep] = override
+
+            return await stack.enter_async_context(
+                AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+            )
+
+        yield _make
+
+
 # Authentication fixtures
 @pytest.fixture
 def mock_firebase_auth(mocker: Any) -> Any:
@@ -241,12 +272,31 @@ def sample_location_group_data() -> dict[str, Any]:
     }
 
 
+@pytest_asyncio.fixture
+async def test_location_group(test_session: AsyncSession) -> Any:
+    """Create a location group for tests.
+
+    Locations require a group (location_group_id is non-nullable), and the
+    POST /location-groups endpoint only regroups *existing* locations, so tests
+    bootstrap an initial group directly through the session (as seed/ingest do).
+    """
+    from app.models.location_group import LocationGroup
+
+    group = LocationGroup(name="Test Delivery Group", color="#FF5733", notes="")
+    test_session.add(group)
+    await test_session.commit()
+    await test_session.refresh(group)
+    return group
+
+
 @pytest.fixture
 def sample_location_data() -> dict[str, Any]:
-    """Sample location data for testing."""
+    """Sample location data for testing. Callers must add a valid
+    ``location_group_id`` (e.g. from the ``test_location_group`` fixture)."""
     return {
-        "school_name": "Central Elementary",
+        "name": "Central Elementary",
         "contact_name": "Jane Smith",
+        "delivery_type": "School",
         "address": "123 Main St, City, State 12345",
         "phone_number": "(555) 123-4567",
         "longitude": -122.4194,

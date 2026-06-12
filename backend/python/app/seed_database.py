@@ -12,19 +12,22 @@ from typing import cast
 from zoneinfo import ZoneInfo
 
 import faker
+import firebase_admin
 import phonenumbers
+from firebase_admin import auth
 from phonenumbers import PhoneNumberFormat
 from sklearn.cluster import KMeans  # type: ignore[import-untyped]
-from sqlalchemy import create_engine, not_, text
+from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
+from app import initialize_firebase
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
 from app.models.driver_history import DriverHistory
-from app.models.enum import NotePermission, ProgressEnum
+from app.models.enum import DeliveryTypeEnum, NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -43,15 +46,11 @@ from app.models.user import User
 # Initialize Faker
 fake = faker.Faker()
 
-# Seeding sample admin with real Firebase
-ADMIN_AUTH_ID = os.getenv("ADMIN_AUTH_ID")
-
 # Configuration constants
-# Percentage of locations that will be unassigned to any location group
-UNASSIGNED_LOCATION_PERCENTAGE = 0.05
 # Average number of stops per route (used to calculate number of clusters)
 AVG_STOPS_PER_ROUTE = 7.5
-# Maximum number of stops per route (Google Maps directions URLs support max 10 waypoints)
+# Maximum number of stops per route (seeded data cap, well below the Google
+# Maps directions URL limit of 50 waypoints)
 MAX_STOPS_PER_ROUTE = 10
 # Number of months in the past to generate route groups for
 MONTHS_PAST = 2
@@ -98,6 +97,10 @@ KMEANS_N_INIT = 10
 DAYS_PER_MONTH = 30
 # Minimum number of drivers to create regardless of route count
 MIN_DRIVERS = 5
+# Number of admin accounts to seed
+NUM_SEED_ADMINS = 2
+# Shared password for all seeded Firebase accounts
+SEED_PASSWORD = "test123"
 # Number of days considered as "next week" for assignment strategy
 NEXT_WEEK_DAYS = 7
 # Number of years back to generate driver history for
@@ -161,14 +164,38 @@ SMALL_CITIES = ["cambridge", "elmira", "new hamburg"]
 WAREHOUSE_LAT, WAREHOUSE_LON = 43.402343, -80.464610
 WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 
-# Database connection
-DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
+
+def get_database_url() -> str:
+    """Build the database URL from the environment, like migrations/env.py.
+
+    Indexes os.environ directly so a missing variable fails loudly instead
+    of silently seeding the wrong database.
+    """
+    return "postgresql://{username}:{password}@{host}:5432/{db}".format(
+        username=os.environ["POSTGRES_USER"],
+        password=os.environ["POSTGRES_PASSWORD"],
+        host=os.environ["DB_HOST"],
+        db=os.environ["POSTGRES_DB_DEV"],
+    )
 
 
 def set_timestamps(instance: BaseModel) -> None:
     """Set updated_at to match created_at for seed data"""
     if instance.created_at is not None and instance.updated_at is None:
         instance.updated_at = instance.created_at
+
+
+def ensure_firebase_user(uid: str, email: str, password: str, role: str) -> str:
+    """Create or update a Firebase user so it is always loginable with the given credentials."""
+    try:
+        auth.get_user(uid)
+        auth.update_user(uid, email=email, password=password, email_verified=True)
+        print(f"  Firebase user {uid} ({email}) already exists, updated")
+    except auth.UserNotFoundError:
+        auth.create_user(uid=uid, email=email, password=password, email_verified=True)
+        print(f"  Firebase user {uid} ({email}) created")
+    auth.set_custom_user_claims(uid, {"role": role})
+    return uid
 
 
 def generate_valid_phone() -> str:
@@ -379,8 +406,12 @@ def main() -> None:
     """Main seeding function"""
     print("Starting final database seeding...")
 
+    if not firebase_admin._apps:  # type: ignore[attr-defined]
+        initialize_firebase()
+    print("Firebase initialized")
+
     # Create database connection
-    engine = create_engine(DATABASE_URL, echo=False)
+    engine = create_engine(get_database_url(), echo=False)
 
     with Session(engine) as session:
         try:
@@ -452,30 +483,30 @@ def main() -> None:
                         )
 
                         # Determine location group
-                        group_id: str | None
-                        if random.random() < UNASSIGNED_LOCATION_PERCENTAGE:
-                            group_id = None
+                        # Every location must belong to a delivery group
+                        # (location_group_id is non-nullable).
+                        is_small_city = any(
+                            city in address.lower() for city in SMALL_CITIES
+                        )
+                        if is_small_city:
+                            # Random assignment from non-school groups for small cities
+                            group_id = random.choice(non_school_groups)
                         else:
-                            # Check for small cities that need specific group assignments
-                            is_small_city = any(
-                                city in address.lower() for city in SMALL_CITIES
-                            )
-
-                            if is_small_city:
-                                # Random assignment from non-school groups for small cities
-                                group_id = random.choice(non_school_groups)
-                            else:
-                                # Random assignment for other locations
-                                group_id = random.choice(list(group_ids.values()))
+                            # Random assignment for other locations
+                            group_id = random.choice(list(group_ids.values()))
 
                         # Generate fake data for location insertion
                         is_school = random.choice([True, False])
+                        contact_name = fake.name()
                         location = Location(
-                            location_group_id=uuid.UUID(group_id) if group_id else None,
-                            school_name=fake.company() + " School"
+                            location_group_id=uuid.UUID(group_id),
+                            name=f"{fake.company()} School"
                             if is_school
-                            else None,
-                            contact_name=fake.name(),
+                            else contact_name,
+                            contact_name=contact_name,
+                            delivery_type=DeliveryTypeEnum.SCHOOL
+                            if is_school
+                            else DeliveryTypeEnum.FAMILY,
                             address=address,
                             phone_number=generate_valid_phone(),
                             longitude=lon,
@@ -509,18 +540,11 @@ def main() -> None:
             print("Creating routes...")
             routes_created = 0
 
-            # Get all locations with a location group assigned
-            locations_with_group = session.exec(
-                select(Location).where(
-                    not_(Location.location_group_id.is_(None))  # type: ignore[union-attr]
-                )
-            ).all()
+            # Every location belongs to a group; group them by group id.
+            all_locations = session.exec(select(Location)).all()
 
-            # Group locations by location group
             locations_by_group: dict[str, list[Location]] = {}
-            for location in locations_with_group:
-                # Type narrowing: we filtered for non-None location_group_id in the query
-                assert location.location_group_id is not None
+            for location in all_locations:
                 group_id = str(location.location_group_id)
                 if group_id not in locations_by_group:
                     locations_by_group[group_id] = []
@@ -614,11 +638,19 @@ def main() -> None:
             drivers_created = 0
 
             for i in range(num_drivers):
-                # Create a single driver with fake data
+                n = f"{i + 1:03d}"
+                uid = f"seed-driver-{n}"
+                email = f"driver{n}@f4k.dev"
+
+                ensure_firebase_user(
+                    uid=uid, email=email, password=SEED_PASSWORD, role="driver"
+                )
+
                 user = User(
                     name=fake.name(),
-                    email=fake.email(),
-                    auth_id=f"seed_driver_{uuid.uuid4().hex[:8]}",
+                    email=email,
+                    auth_id=uid,
+                    role="driver",
                 )
                 set_timestamps(user)
                 session.add(user)
@@ -870,26 +902,40 @@ def main() -> None:
             session.commit()
             print("Created system settings info")
 
-            # Create admin info
-            print("Creating admin info...")
-            user = User(
-                name="Dev",
-                email="food4kids@uwblueprint.org",
-                auth_id=ADMIN_AUTH_ID,
-                role="admin",
-            )
-            set_timestamps(user)
-            session.add(user)
+            # Create admin accounts
+            print("Creating admin accounts...")
+            admin_user = None
 
-            admin = Admin(
-                admin_phone=generate_valid_phone(),
-                user_id=user.user_id,
-            )
-            set_timestamps(admin)
-            session.add(admin)
+            for i in range(NUM_SEED_ADMINS):
+                admin_num = i + 1
+                uid = f"seed-admin-{admin_num}"
+                email = f"admin{admin_num}@f4k.dev"
+
+                ensure_firebase_user(
+                    uid=uid, email=email, password=SEED_PASSWORD, role="admin"
+                )
+
+                user = User(
+                    name=fake.name(),
+                    email=email,
+                    auth_id=uid,
+                    role="admin",
+                )
+                set_timestamps(user)
+                session.add(user)
+
+                admin = Admin(
+                    admin_phone=generate_valid_phone(),
+                    user_id=user.user_id,
+                )
+                set_timestamps(admin)
+                session.add(admin)
+
+                if admin_user is None:
+                    admin_user = user
 
             session.commit()
-            print("Created admin info")
+            print(f"Created {NUM_SEED_ADMINS} admin accounts")
 
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")
@@ -948,7 +994,7 @@ def main() -> None:
                 announcement = Announcement(
                     subject=ann_data["subject"],
                     message=ann_data["message"],
-                    user_id=user.user_id,
+                    user_id=admin_user.user_id,  # type: ignore[union-attr]
                     attachments=ann_data["attachments"],
                 )
                 set_timestamps(announcement)
@@ -957,6 +1003,12 @@ def main() -> None:
             print("Created sample announcements")
 
             print("Comprehensive database seeding completed successfully!")
+
+            print("\n=== Seed Account Credentials ===")
+            print(f"Password for all accounts: {SEED_PASSWORD}")
+            print(f"Drivers: driver001@f4k.dev ... driver{num_drivers:03d}@f4k.dev")
+            print(f"Admins:  admin1@f4k.dev ... admin{NUM_SEED_ADMINS}@f4k.dev")
+            print("================================\n")
 
         except Exception as e:
             print(f"Error during seeding: {e}")

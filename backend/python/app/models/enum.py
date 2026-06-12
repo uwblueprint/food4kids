@@ -1,24 +1,6 @@
 from enum import Enum
 
 
-class EntityEnum(str, Enum):
-    """Entity enum with string values"""
-
-    A = "A"
-    B = "B"
-    C = "C"
-    D = "D"
-
-
-class SimpleEntityEnum(str, Enum):
-    """Simple entity enum with string values"""
-
-    A = "A"
-    B = "B"
-    C = "C"
-    D = "D"
-
-
 class RoleEnum(str, Enum):
     """User role enum with string values"""
 
@@ -50,8 +32,14 @@ class DriveDaysOfWeekEnum(str, Enum):
 
 
 class DeliveryTypeEnum(str, Enum):
-    SCHOOL_YEAR = "School Year"
-    SUMMER = "Summer"
+    SCHOOL = "School"
+    FAMILY = "Family"
+
+
+class LocationStatusEnum(str, Enum):
+    ACTIVE = "Active"
+    UNSCHEDULED = "Unscheduled"
+    INACTIVE = "Inactive"
 
 
 class RouteStatusEnum(str, Enum):

@@ -13,6 +13,7 @@ marked ``slow`` because each one pays a full seed cycle.
 """
 
 import os
+import random
 import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -20,6 +21,7 @@ from unittest.mock import patch
 
 import phonenumbers
 import pytest
+from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -55,8 +57,7 @@ _MAX_HISTORY_YEAR = _CURRENT_YEAR
 def _run_seed_script() -> None:
     """Run the synchronous seed script against the test database.
 
-    ``ADMIN_AUTH_ID`` is captured at module import time, so patching the env
-    var after import is too late — patch the module attribute directly.
+    Firebase calls are mocked so tests don't need real credentials.
     ``LOCATIONS_CSV_PATH`` is read at runtime inside ``main()``, so an env
     patch is fine for it.
     """
@@ -66,10 +67,17 @@ def _run_seed_script() -> None:
     )
     sync_db_url = async_db_url.replace("postgresql+asyncpg://", "postgresql://")
 
+    # The seed script uses unseeded `random`/Faker, so its output (e.g. how many
+    # driver assignments get created) varies run to run — occasionally producing
+    # zero and failing assertions. Seed deterministically for reproducible runs.
+    random.seed(20250526)
+    Faker.seed(20250526)
+
     with (
-        patch.object(seed_module, "DATABASE_URL", sync_db_url),
-        patch.object(seed_module, "ADMIN_AUTH_ID", "test-admin-auth-id"),
+        patch.object(seed_module, "get_database_url", return_value=sync_db_url),
         patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
+        patch("app.seed_database.initialize_firebase"),
+        patch("app.seed_database.ensure_firebase_user"),
     ):
         seed_module.main()
 

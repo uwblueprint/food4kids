@@ -44,6 +44,19 @@ backend/python/
 4. Add a service protocol in `app/services/protocols/` and implementation in `app/services/implementations/`
 5. Wire the service in `app/dependencies/`
 6. Add a router in `app/routers/` and register it in `server.py`
+7. If you changed any request/response model or route, regenerate the frontend API client (see below)
+
+## Regenerating the Frontend API Client
+
+The frontend talks to the backend through a TypeScript client generated from this app's OpenAPI schema (`/openapi.json`). **Any change to a request/response model, a route, or its path/method changes that contract**, so after such a change you must regenerate the client so the committed snapshot and types stay in sync:
+
+```bash
+# with the backend running (e.g. docker-compose up)
+cd frontend
+pnpm generate:api
+```
+
+This updates `frontend/openapi.json` and `frontend/src/api/generated/`. Commit those alongside your backend change. See the [frontend README](../frontend/README.md#api-client-generated-from-openapi) for the full workflow.
 
 ## Scheduled Jobs
 

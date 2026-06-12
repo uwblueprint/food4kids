@@ -1,3 +1,4 @@
+import type { LocationRead } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
@@ -14,28 +15,27 @@ import {
   ModalTitle,
   SearchBar,
 } from '@/common/components';
-import type { AddressRow } from '@/types/address';
 
 import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
-const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
-const DELIVERY_TYPES = ['School Year', 'Summer'];
+const ROUTE_STATUSES = ['Active', 'Unscheduled', 'Inactive'];
+const DELIVERY_TYPES = ['School', 'Family'];
 
-const COLUMNS: Column<AddressRow>[] = [
+const COLUMNS: Column<LocationRead>[] = [
   {
-    key: 'contact_name',
+    key: 'name',
     header: 'School / Last Name',
-    render: (row) => row.contact_name,
+    render: (row) => row.name,
   },
   { key: 'address', header: 'Address', render: (row) => row.address },
   {
     key: 'delivery_group',
     header: 'Delivery Group',
-    render: (row) => row.delivery_group,
+    render: (row) => row.location_group_name,
   },
   { key: 'notes', header: 'Notes', render: (row) => row.notes },
-  { key: 'status', header: 'Status', render: (row) => row.status },
+  { key: 'status', header: 'Status', render: (row) => row.state ?? '—' },
 ];
 
 type RouteAddressesTabProps = AddressesTabState;
@@ -76,7 +76,7 @@ export function RouteAddressesTab({
       <DataTable
         columns={COLUMNS}
         rows={rows}
-        getRowKey={(r) => r.id}
+        getRowKey={(r) => r.location_id}
         emptyState={
           <EmptyState
             title="No addresses found"

@@ -16,6 +16,9 @@
 switch_github.sh
 CLAUDE.md
 .claude/
+.postman/
+postman/globals/
 backend/python/app/data/
 **/*service-account*.json
 **/*secrets*.json
+frontend/emails/html/static/

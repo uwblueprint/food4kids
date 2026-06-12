@@ -5,6 +5,7 @@ from uuid import UUID
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.schemas.auth import AuthResponse, TokenResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
@@ -124,26 +125,24 @@ class AuthService:
             )
             raise e
 
-    def send_email_verification_link(self, email: str) -> None:
+    def send_create_password_email(self, email: str, user_invite_id: UUID) -> None:
         if not self.email_service:
             error_message = """
-                Attempted to call send_email_verification_link but this instance of AuthService 
+                Attempted to call send_create_password_email but this instance of AuthService 
                 does not have an EmailService instance
                 """
             self.logger.error(error_message)
             raise Exception(error_message)
 
         try:
-            verification_link = firebase_admin.auth.generate_email_verification_link(
-                email
-            )
+            driver_signup_link = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite_id}"
             email_body = f"""
                 Hello,
                 <br><br>
                 Please click the following link to verify your email and activate your account.
-                <strong>This link is only valid for 1 hour.</strong>
+                <strong>This link is only valid for 2 days.</strong>
                 <br><br>
-                <a href={verification_link}>Verify email</a>
+                <a href={driver_signup_link}>Verify email</a>
                 """
             self.email_service.send_email(email, "Verify your email", email_body)
         except Exception as e:

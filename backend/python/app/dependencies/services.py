@@ -1,5 +1,14 @@
-"""
-Service dependency injection module
+"""Service dependency injection module.
+
+Convention:
+- Leaf factories (no service dependencies — just a logger, settings, or an
+  expensive client like GoogleMapsClient) use ``@lru_cache`` and call
+  ``get_logger()`` directly. They are process-wide singletons.
+- Composite factories (those that depend on other services/clients) take those
+  dependencies via ``Depends(...)`` rather than calling the other factory
+  directly in the body. This keeps the dependency graph explicit and lets tests
+  swap pieces via ``app.dependency_overrides``. See ``get_auth_service`` and
+  ``get_location_service``.
 """
 
 import logging
@@ -15,7 +24,6 @@ from app.services.implementations.driver_assignment_service import (
 )
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
-from app.services.implementations.entity_service import EntityService
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.location_service import LocationService
 from app.services.implementations.mock_routing_algorithm import (
@@ -24,8 +32,8 @@ from app.services.implementations.mock_routing_algorithm import (
 from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
-from app.services.implementations.simple_entity_service import SimpleEntityService
 from app.services.implementations.system_settings_service import SystemSettingsService
+from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.gcp_client import GCPStorageClient
@@ -70,6 +78,13 @@ def get_user_service() -> UserService:
 
 
 @lru_cache
+def get_user_invite_service() -> UserInviteService:
+    """Get user invite service instance"""
+    logger = get_logger()
+    return UserInviteService(logger)
+
+
+@lru_cache
 def get_driver_service() -> DriverService:
     """Get driver service instance"""
     logger = get_logger()
@@ -84,20 +99,6 @@ def get_auth_service(
     """Get auth service instance"""
     logger = get_logger()
     return AuthService(logger, user_service, driver_service, email_service)
-
-
-@lru_cache
-def get_entity_service() -> EntityService:
-    """Get entity service instance"""
-    logger = get_logger()
-    return EntityService(logger)
-
-
-@lru_cache
-def get_simple_entity_service() -> SimpleEntityService:
-    """Get simple entity service instance"""
-    logger = get_logger()
-    return SimpleEntityService(logger)
 
 
 @lru_cache
@@ -158,12 +159,15 @@ def get_system_settings_service() -> SystemSettingsService:
     return SystemSettingsService(logger)
 
 
-@lru_cache
-def get_location_service() -> LocationService:
+def get_location_service(
+    google_maps_client: GoogleMapsClient = Depends(get_google_maps_client),
+    system_settings_service: SystemSettingsService = Depends(
+        get_system_settings_service
+    ),
+) -> LocationService:
     """Get location service instance"""
     logger = get_logger()
-    google_maps_client = get_google_maps_client()
-    return LocationService(logger, google_maps_client, get_system_settings_service())
+    return LocationService(logger, google_maps_client, system_settings_service)
 
 
 @lru_cache

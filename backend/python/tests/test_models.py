@@ -19,7 +19,6 @@ from app.models.announcement import (
 from app.models.driver import (
     Driver,
     DriverCreate,
-    DriverRegister,
     DriverUpdate,
 )
 from app.models.driver_assignment import (
@@ -32,11 +31,10 @@ from app.models.driver_history import (
     DriverHistoryUpdate,
 )
 from app.models.enum import (
-    EntityEnum,
+    DeliveryTypeEnum,
     NotePermission,
     ProgressEnum,
     RoleEnum,
-    SimpleEntityEnum,
 )
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
@@ -63,7 +61,7 @@ from app.models.route_group import (
 from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
-from app.models.user import User, UserCreate
+from app.models.user import User, UserFinalize
 
 init_app()
 
@@ -155,26 +153,16 @@ class TestCoreBusinessValidation:
     def test_password_validation(self) -> None:
         """Test password validation for driver registration."""
         # Test valid password
-        driver_register = DriverRegister(
-            name="Test Driver",
-            email="test@example.com",
-            phone="+12125551234",
-            address="123 Main St",
-            license_plate="ABC123",
-            car_make_model="Toyota Camry",
+        user_finalize = UserFinalize(
+            user_invite_id=uuid4(),
             password="securepassword123",
         )
-        assert driver_register.password == "securepassword123"
+        assert user_finalize.password == "securepassword123"
 
         # Test invalid password (too short)
         with pytest.raises(ValidationError) as exc_info:
-            DriverRegister(
-                name="Test Driver",
-                email="test@example.com",
-                phone="+12125551234",
-                address="123 Main St",
-                license_plate="ABC123",
-                car_make_model="Toyota Camry",
+            UserFinalize(
+                user_invite_id=uuid4(),
                 password="123",  # Too short
             )
         assert "password" in str(exc_info.value)
@@ -274,6 +262,7 @@ class TestCoreBusinessValidation:
             field in error_str
             for field in [
                 "address",
+                "delivery_type",
                 "phone_number",
                 "longitude",
                 "latitude",
@@ -301,7 +290,10 @@ class TestCoreBusinessValidation:
         # Test Location rejects extra fields
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
+                location_group_id=uuid4(),
+                name="Jane Smith",
                 contact_name="Jane Smith",
+                delivery_type=DeliveryTypeEnum.FAMILY,
                 address="123 Main St",
                 phone_number="(555) 123-4567",
                 longitude=-122.4194,
@@ -345,11 +337,6 @@ class TestCoreModels:
         assert driver.created_at is not None
 
         # Create model
-        user_create = UserCreate(
-            name="Jane Doe",
-            email="jane.doe@example.com",
-            password="securepassword123",
-        )
         driver_create = DriverCreate(
             user_id=uuid4(),
             phone="+12125551234",
@@ -357,7 +344,6 @@ class TestCoreModels:
             license_plate="XYZ789",
             car_make_model="Honda Civic",
         )
-        assert user_create.name == "Jane Doe"
         assert driver_create.license_plate == "XYZ789"
 
         # Update model
@@ -369,8 +355,10 @@ class TestCoreModels:
         """Test Location model core operations."""
         # Create with all fields
         location = Location(
-            school_name="Central Elementary",
+            location_group_id=uuid4(),
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
             longitude=-122.4194,
@@ -381,12 +369,16 @@ class TestCoreModels:
             num_boxes=25,
             notes="Main entrance on Main St",
         )
-        assert location.school_name == "Central Elementary"
+        assert location.name == "Central Elementary"
+        assert location.delivery_type == DeliveryTypeEnum.SCHOOL
         assert location.created_at is not None
 
         # Create with minimal fields
         location_minimal = Location(
+            location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave, City, State 12345",
             phone_number="(555) 987-6543",
             longitude=-122.5000,
@@ -394,13 +386,18 @@ class TestCoreModels:
             halal=True,
             num_boxes=10,
         )
-        assert location_minimal.school_name is None
+        assert location_minimal.name == "John Doe"
+        assert location_minimal.delivery_type == DeliveryTypeEnum.FAMILY
         assert location_minimal.notes == ""  # Default value
 
         # Read model
         location_read = LocationRead(
             location_id=uuid4(),
+            location_group_id=uuid4(),
+            location_group_name="Central Elementary",
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
             longitude=-122.4194,
@@ -697,18 +694,6 @@ class TestEnumsAndSerialization:
         assert ProgressEnum.COMPLETED.value == "Completed"
         assert ProgressEnum.FAILED.value == "Failed"
 
-        # Test EntityEnum
-        assert EntityEnum.A.value == "A"
-        assert EntityEnum.B.value == "B"
-        assert EntityEnum.C.value == "C"
-        assert EntityEnum.D.value == "D"
-
-        # Test SimpleEntityEnum
-        assert SimpleEntityEnum.A.value == "A"
-        assert SimpleEntityEnum.B.value == "B"
-        assert SimpleEntityEnum.C.value == "C"
-        assert SimpleEntityEnum.D.value == "D"
-
         # Test NotePermission
         assert NotePermission.ADMIN.value == "Admin"
         assert NotePermission.ALL.value == "All"
@@ -769,7 +754,10 @@ class TestEnumsAndSerialization:
 
         # Test default values across models
         location = Location(
+            location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave",
             phone_number="(555) 987-6543",
             longitude=-122.5000,
@@ -778,7 +766,7 @@ class TestEnumsAndSerialization:
             num_boxes=10,
         )
         assert location.notes == ""  # Default value
-        assert location.school_name is None  # Default value
+        assert location.delivery_type == DeliveryTypeEnum.FAMILY
         assert location.dietary_restrictions == ""  # Default value
         assert location.num_children is None  # Default value
 

@@ -100,7 +100,7 @@ class RouteGroupService:
 
         # Delivery type filter
         if delivery_type:
-            # Subquery to traverse memberships -> stops -> locations to check for a school name
+            # Subquery to traverse memberships -> stops -> locations by stored delivery type.
             has_school_query = (
                 select(1)
                 .select_from(RouteGroupMembership)
@@ -108,8 +108,17 @@ class RouteGroupService:
                 .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
                 .where(
                     RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
-                    Location.school_name.isnot(None),  # type: ignore[union-attr]
-                    Location.school_name != "",
+                    Location.delivery_type == DeliveryTypeEnum.SCHOOL,
+                )
+            )
+            has_family_query = (
+                select(1)
+                .select_from(RouteGroupMembership)
+                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+                .where(
+                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
+                    Location.delivery_type == DeliveryTypeEnum.FAMILY,
                 )
             )
 
@@ -122,14 +131,14 @@ class RouteGroupService:
             )
 
             delivery_conditions: list[Any] = []
-            if DeliveryTypeEnum.SCHOOL_YEAR in delivery_type:
+            if DeliveryTypeEnum.SCHOOL in delivery_type:
                 delivery_conditions.append(has_school_query.exists())
-            if DeliveryTypeEnum.SUMMER in delivery_type:
-                delivery_conditions.append(
-                    and_(has_locations_query.exists(), ~has_school_query.exists())
-                )
+            if DeliveryTypeEnum.FAMILY in delivery_type:
+                delivery_conditions.append(has_family_query.exists())
             if delivery_conditions:
-                statement = statement.where(or_(*delivery_conditions))
+                statement = statement.where(
+                    and_(has_locations_query.exists(), or_(*delivery_conditions))
+                )
 
         if route_status:
             # Get the current date and time in the local timezone

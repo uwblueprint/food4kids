@@ -10,7 +10,7 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import prettier from 'eslint-config-prettier'
 
 export default [
-  { ignores: ['dist', 'build'] },
+  { ignores: ['dist', 'build', 'src/api/generated'] },
   {
     files: ['**/*.{ts,tsx}'],
     ...js.configs.recommended,
@@ -61,6 +61,26 @@ export default [
       'import/first': 'error',
       'import/newline-after-import': 'error',
       'import/no-duplicates': 'error',
+      // F4K uses semantic breakpoints only (tablet: 500px, desktop: 1024px),
+      // defined in src/index.css. Tailwind's sm/md/lg/xl/2xl are removed from
+      // the theme, so these variants silently compile to nothing — ban them.
+      // (Watch out when copying in shadcn components: replace md:/lg: with
+      // tablet:/desktop:.)
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'Literal[value=/(^|[^a-zA-Z0-9-])(sm|md|lg|xl|2xl):[a-z]/]',
+          message:
+            'Tailwind default breakpoints (sm/md/lg/xl/2xl) are not defined in this project and compile to nothing. Use the F4K semantic breakpoints: tablet: (500px) or desktop: (1024px).',
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/(^|[^a-zA-Z0-9-])(sm|md|lg|xl|2xl):[a-z]/]',
+          message:
+            'Tailwind default breakpoints (sm/md/lg/xl/2xl) are not defined in this project and compile to nothing. Use the F4K semantic breakpoints: tablet: (500px) or desktop: (1024px).',
+        },
+      ],
     },
   },
   prettier, // Must be last

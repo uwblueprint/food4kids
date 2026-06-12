@@ -37,6 +37,11 @@ async def get_driver_history_summary(
 ) -> DriverHistorySummary:
     """Get lifetime and current year KM summary for a driver"""
     try:
+        if not await driver_history_service.driver_exists(session, driver_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver with id {driver_id} does not exist",
+            )
         driver_history_summary = (
             await driver_history_service.get_driver_history_summary(session, driver_id)
         )

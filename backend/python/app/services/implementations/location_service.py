@@ -1,16 +1,25 @@
 import asyncio
 import logging
 import os
+from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, TypeGuard
+from typing import TYPE_CHECKING, Any, TypeGuard
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from fastapi import UploadFile
+from sqlalchemy import and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlalchemy.orm import selectinload
+from sqlmodel import col, select
 
-from app.models.enum import NotePermission
+from app.config import settings
+from app.models.enum import (
+    DeliveryTypeEnum,
+    LocationStatusEnum,
+    NotePermission,
+)
 from app.models.location import (
     AlertCode,
     Location,
@@ -27,6 +36,9 @@ from app.models.location import (
 )
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
+from app.models.route_group import RouteGroup
+from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
@@ -66,13 +78,20 @@ class LocationService:
         self.logger = logger
         self.google_maps_service = google_maps_client
         self.system_settings_service = system_settings_service
+        self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
     ) -> Location:
         """Get location by ID - returns SQLModel instance"""
         try:
-            statement = select(Location).where(Location.location_id == location_id)
+            # Eager-load location_group so LocationRead.location_group_name can be
+            # read without an (illegal) lazy load on the async session.
+            statement = (
+                select(Location)
+                .where(Location.location_id == location_id)
+                .options(selectinload(Location.location_group))  # type: ignore[arg-type]
+            )
             result = await session.execute(statement)
             location = result.scalars().first()
 
@@ -85,15 +104,65 @@ class LocationService:
             raise e
 
     async def get_locations(
-        self, session: AsyncSession, pagination: PaginationParams
+        self,
+        session: AsyncSession,
+        pagination: PaginationParams,
+        delivery_type: list[DeliveryTypeEnum] | None = None,
+        status_filter: list[LocationStatusEnum] | None = None,
     ) -> PaginatedResponse[Location]:
         """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
         try:
             statement = (
                 select(Location)
-                .where(Location.state == LocationState.ACTIVE)
+                .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 .order_by(Location.created_at.desc())  # type: ignore[union-attr]
             )
+            if delivery_type:
+                statement = statement.where(
+                    Location.delivery_type.in_(delivery_type)  # type: ignore[attr-defined]
+                )
+
+            if status_filter:
+                # RouteGroup.drive_date is stored as a naive local datetime, so compare it
+                # against the start of the current local day with timezone info removed.
+                today_start = datetime.now(self.timezone).replace(
+                    hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+                )
+                scheduled_query = (
+                    select(1)
+                    .select_from(RouteStop)
+                    .join(
+                        RouteGroupMembership,
+                        RouteStop.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
+                    )
+                    .join(
+                        RouteGroup,
+                        RouteGroupMembership.route_group_id
+                        == RouteGroup.route_group_id,  # type: ignore[arg-type]
+                    )
+                    .where(
+                        RouteStop.location_id == Location.location_id,
+                        RouteGroup.drive_date >= today_start,
+                    )
+                )
+                is_scheduled = scheduled_query.exists()
+                status_conditions: list[Any] = []
+                if LocationStatusEnum.ACTIVE in status_filter:
+                    status_conditions.append(is_scheduled)
+                if LocationStatusEnum.UNSCHEDULED in status_filter:
+                    status_conditions.append(
+                        and_(col(Location.state) == LocationState.ACTIVE, ~is_scheduled)
+                    )
+                if LocationStatusEnum.INACTIVE in status_filter:
+                    status_conditions.append(
+                        and_(
+                            col(Location.state) == LocationState.ARCHIVED,
+                            ~is_scheduled,
+                        )
+                    )
+                if status_conditions:
+                    statement = statement.where(or_(*status_conditions))
+
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
             return PaginatedResponse.create(
@@ -122,8 +191,9 @@ class LocationService:
             location.note_chain_id = note_chain.note_chain_id
             session.add(location)
             await session.commit()
-            await session.refresh(location)
-            return location
+            # Reload with location_group eager-loaded so serializing to
+            # LocationRead (location_group_name) doesn't lazy-load post-commit.
+            return await self.get_location_by_id(session, location.location_id)
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
             await session.rollback()
@@ -146,8 +216,9 @@ class LocationService:
                 setattr(location, field, value)
 
             await session.commit()
-            await session.refresh(location)
-            return location
+            # Reload with location_group eager-loaded so serializing to
+            # LocationRead (location_group_name) doesn't lazy-load post-commit.
+            return await self.get_location_by_id(session, location_id)
 
         except Exception as e:
             self.logger.error(f"Failed to update location by id: {e!s}")
@@ -373,8 +444,9 @@ class LocationService:
 
         return Location(
             location_group_id=location_data.location_group_id,
-            school_name=location_data.school_name,
+            name=location_data.name,
             contact_name=location_data.contact_name,
+            delivery_type=location_data.delivery_type,
             address=location_data.address,
             phone_number=location_data.phone_number,
             longitude=location_data.longitude,
@@ -427,8 +499,7 @@ class LocationService:
                 {
                     entry.delivery_group
                     for entry in request.net_new
-                    if entry.delivery_group
-                    and entry.delivery_group not in group_by_name
+                    if entry.delivery_group not in group_by_name
                 }
             )
             for name in needed_names:
@@ -453,14 +524,13 @@ class LocationService:
                 )
                 new_note_chains.append(note_chain)
 
-                entry_group = (
-                    group_by_name.get(entry.delivery_group)
-                    if entry.delivery_group
-                    else None
-                )
                 new_locations.append(
                     Location(
+                        name=entry.contact_name,
                         contact_name=entry.contact_name,
+                        # TODO: ingest should take delivery type as a parameter,
+                        # and replace this with the actual passed-in type.
+                        delivery_type=DeliveryTypeEnum.FAMILY,
                         address=geocode_result.formatted_address,
                         phone_number=entry.phone_number,
                         longitude=geocode_result.longitude,
@@ -470,9 +540,9 @@ class LocationService:
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_boxes=entry.num_boxes or 0,
                         note_chain_id=note_chain.note_chain_id,
-                        location_group_id=(
-                            entry_group.location_group_id if entry_group else None
-                        ),
+                        location_group_id=group_by_name[
+                            entry.delivery_group
+                        ].location_group_id,
                     )
                 )
 

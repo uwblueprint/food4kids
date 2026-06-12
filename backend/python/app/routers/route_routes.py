@@ -12,7 +12,10 @@ from app.dependencies.auth import (
 from app.models import get_session
 from app.models.route import Route, RoutePatchRequest, RouteRead, RouteWithDateRead
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
-from app.services.implementations.route_service import RouteService
+from app.services.implementations.route_service import (
+    RouteService,
+    RoutingConfigurationError,
+)
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -133,15 +136,15 @@ async def update_route(
     """
     try:
         updated_route = await route_service.update_route(session, route_id, patch)
-    except ValueError as e:
-        msg = str(e)
-        if "not found" in msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=msg
-            ) from None
-        # Missing system settings / warehouse config
+    except RoutingConfigurationError as e:
+        # Server isn't configured for routing (missing settings/warehouse coords)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=msg
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        ) from None
+    except ValueError as e:
+        # Bad client input (e.g. unknown location_ids)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from None
     if not updated_route:
         raise HTTPException(
