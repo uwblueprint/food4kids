@@ -1402,6 +1402,10 @@ export type RouteGroupRead = {
    */
   route_group_id: string;
   /**
+   * Routes
+   */
+  routes?: Array<RouteReadSummary>;
+  /**
    * Status
    */
   status?: string;
@@ -1493,6 +1497,30 @@ export type RouteRead = {
    * Polyline Updated At
    */
   polyline_updated_at?: string | null;
+  /**
+   * Route Id
+   */
+  route_id: string;
+};
+
+/**
+ * RouteReadSummary
+ *
+ * Lightweight route info returned inside a route group response
+ */
+export type RouteReadSummary = {
+  /**
+   * Length
+   */
+  length?: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Notes
+   */
+  notes?: string;
   /**
    * Route Id
    */
@@ -3273,9 +3301,7 @@ export type GetRouteGroupsResponses = {
    *
    * Successful Response
    */
-  200: Array<{
-    [key: string]: unknown;
-  }>;
+  200: Array<RouteGroupRead>;
 };
 
 export type GetRouteGroupsResponse =
