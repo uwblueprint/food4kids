@@ -4,12 +4,15 @@ Used to send both event-driven and scheduled emails
 
 from __future__ import annotations
 
-import logging
-from typing import Any, Sequence, List
+from typing import TYPE_CHECKING, Any
 
 from app.constants.email_config import EMAIL_TEMPLATES, validate_email_context
-from app.services.implementations.email_service import EmailService
-from app.templates.email_renderer import TemplateRenderer
+
+if TYPE_CHECKING:
+    import logging
+
+    from app.services.implementations.email_service import EmailService
+    from app.templates.email_renderer import TemplateRenderer
 
 
 class EmailDispatcher:
@@ -49,9 +52,9 @@ class EmailDispatcher:
         template_name = template_config["filename"]
 
         # Use provided subject or template default (ensure non-None str)
-        subject_str: str = subject if subject is not None else template_config[
-            "default_subject"
-        ]
+        subject_str: str = (
+            subject if subject is not None else template_config["default_subject"]
+        )
 
         # Render template with context
         try:
@@ -64,7 +67,7 @@ class EmailDispatcher:
             raise
 
         # Normalize recipients to concrete list
-        recipients: List[str] = [to] if isinstance(to, str) else list(to)
+        recipients: list[str] = [to] if isinstance(to, str) else list(to)
 
         # Send to each recipient
         for recipient_email in recipients:

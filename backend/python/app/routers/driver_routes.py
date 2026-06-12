@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.services import (
     get_auth_service,
+    get_email_dispatcher_depends,
     get_user_service,
 )
 from app.models import get_session
@@ -22,6 +23,7 @@ from app.models.user import UserCreate
 from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
+from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import get_cookie_options
 
@@ -221,10 +223,6 @@ async def delete_driver(
     Delete a driver by ID
     """
     await driver_service.delete_driver_by_id(session, driver_id)
-
-
-from app.dependencies.services import get_email_dispatcher_depends
-from app.services.implementations.email_dispatcher import EmailDispatcher
 
 
 @router.post("/test-event-email")
