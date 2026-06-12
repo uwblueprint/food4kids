@@ -65,7 +65,9 @@ jobs:
           tags: f4k-backend:ci
           load: true
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # ignore-error: cache export to the GHA backend is flaky (layer blob
+          # not_found); a failed export should not fail the build it caches.
+          cache-to: type=gha,ignore-error=true
 
       - name: Boot backend (runs migrations, then the server)
         if: steps.changes.outputs.python-backend == 'true'
