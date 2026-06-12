@@ -1,7 +1,7 @@
 """Routes/locations refactor: per-day routes, snapshots, in_roster + delivery_type
 
 Revision ID: e8f7d6c5b4a3
-Revises: 4971451d79cd, e4f6a7b8c9d0
+Revises: a9c4e7f21b38
 Create Date: 2026-05-26 00:00:00.000000
 
 Destructive refactor with no prod data. Re-seed afterwards.
@@ -35,9 +35,9 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e8f7d6c5b4a3"
-# Merge revision: main had two open heads (user-invites and the location
-# name/delivery_type rename); this migration joins them and builds on both.
-down_revision = ("4971451d79cd", "e4f6a7b8c9d0")
+# main's two open heads (user-invites and the location name/delivery_type
+# rename) are joined by the a9c4e7f21b38 merge migration; build on that.
+down_revision = "a9c4e7f21b38"
 branch_labels = None
 depends_on = None
 
