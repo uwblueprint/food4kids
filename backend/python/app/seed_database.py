@@ -27,7 +27,7 @@ from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_assignment import DriverAssignment
 from app.models.driver_history import DriverHistory
-from app.models.enum import NotePermission, ProgressEnum
+from app.models.enum import DeliveryTypeEnum, NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -486,12 +486,16 @@ def main() -> None:
 
                         # Generate fake data for location insertion
                         is_school = random.choice([True, False])
+                        contact_name = fake.name()
                         location = Location(
                             location_group_id=uuid.UUID(group_id),
-                            school_name=fake.company() + " School"
+                            name=f"{fake.company()} School"
                             if is_school
-                            else None,
-                            contact_name=fake.name(),
+                            else contact_name,
+                            contact_name=contact_name,
+                            delivery_type=DeliveryTypeEnum.SCHOOL
+                            if is_school
+                            else DeliveryTypeEnum.FAMILY,
                             address=address,
                             phone_number=generate_valid_phone(),
                             longitude=lon,

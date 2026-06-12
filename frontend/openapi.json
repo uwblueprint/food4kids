@@ -914,6 +914,9 @@
             "title": "Contact Name",
             "type": "string"
           },
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
+          },
           "dietary_restrictions": {
             "default": "",
             "title": "Dietary Restrictions",
@@ -950,6 +953,10 @@
               }
             ],
             "title": "Longitude"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
           },
           "note_chain_id": {
             "anyOf": [
@@ -999,17 +1006,6 @@
             ],
             "title": "Place Id"
           },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
-          },
           "state": {
             "$ref": "#/components/schemas/LocationState",
             "default": "ACTIVE"
@@ -1017,7 +1013,9 @@
         },
         "required": [
           "location_group_id",
+          "name",
           "contact_name",
+          "delivery_type",
           "address",
           "phone_number"
         ],
@@ -1412,6 +1410,9 @@
             "title": "Contact Name",
             "type": "string"
           },
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
+          },
           "dietary_restrictions": {
             "default": "",
             "title": "Dietary Restrictions",
@@ -1457,6 +1458,10 @@
               }
             ],
             "title": "Longitude"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
           },
           "note_chain_id": {
             "anyOf": [
@@ -1506,17 +1511,6 @@
             ],
             "title": "Place Id"
           },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
-          },
           "state": {
             "$ref": "#/components/schemas/LocationState",
             "default": "ACTIVE"
@@ -1524,7 +1518,9 @@
         },
         "required": [
           "location_group_id",
+          "name",
           "contact_name",
+          "delivery_type",
           "address",
           "phone_number",
           "location_id",
@@ -1575,6 +1571,16 @@
               }
             ],
             "title": "Contact Name"
+          },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "dietary_restrictions": {
             "anyOf": [
@@ -1631,6 +1637,17 @@
               }
             ],
             "title": "Longitude"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "note_chain_id": {
             "anyOf": [
@@ -1698,17 +1715,6 @@
               }
             ],
             "title": "Place Id"
-          },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
           }
         },
         "title": "LocationUpdate",
