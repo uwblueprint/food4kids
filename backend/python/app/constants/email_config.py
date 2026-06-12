@@ -15,7 +15,7 @@ EMAIL_TEMPLATES: Dict[str, EmailTemplateConfig] = {
     "account-creation": {
         "filename": "account-creation.html",
         "default_subject": "Your Food4Kids Driver Account is Ready",
-        "required_context": ["Driver_Name_To_Replace", "Sign_Up_URL"],
+        "required_context": ["Driver_Name_To_Replace", "Sign_Up_URL", "Hours_Till_Expiry"],
     },
     "check-latest-announcement": {
         "filename": "check-latest-announcement.html",
@@ -30,7 +30,7 @@ EMAIL_TEMPLATES: Dict[str, EmailTemplateConfig] = {
     "reset-password": {
         "filename": "reset-password.html",
         "default_subject": "Reset Your F4K Account Password!",
-        "required_context": ["Driver_Name_To_Replace", "Reset_Password_URL"],
+        "required_context": ["Driver_Name_To_Replace", "Reset_Password_URL", "Days_Till_Expiry"],
     },
     "view-upcoming-route": {
         "filename": "view-upcoming-route.html",

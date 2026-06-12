@@ -30,7 +30,7 @@ export default function ResetPasswordEmail() {
         </Section>
 
         <Text className="text-[14px] text-grey-400 m-0 mb-[14px] leading-[18px]">
-          This link will expire in 3 days. If you didn't request this, you can safely ignore this email.
+          This link will expire in Days_Till_Expiry days. If you didn't request this, you can safely ignore this email.
         </Text>
       </Section>
       

@@ -31,7 +31,7 @@ export default function AccountCreationEmail() {
         </Section>
 
         <Text className="text-[14px] text-grey-400 m-0 mb-[4px] leading-[18px]">
-          This link will expire in 2 hours. If you're not an F4K Waterloo driver, please disregard this message.
+          This link will expire in Days_Till_Expiry hours. If you're not an F4K Waterloo driver, please disregard this message.
         </Text>
       </Section>
       
