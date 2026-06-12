@@ -101,7 +101,9 @@ jobs:
               docker logs f4k_backend_smoke
               exit 1
             fi
-            if curl -fsS -o /dev/null http://localhost:8080/docs; then
+            # /openapi.json forces FastAPI to build the full schema for every
+            # route, so this also catches bad response-model definitions.
+            if curl -fsS -o /dev/null http://localhost:8080/openapi.json; then
               echo "Backend booted: migrations applied and server responding."
               exit 0
             fi
@@ -110,3 +112,12 @@ jobs:
           echo "::error::Backend did not become healthy within 90s"
           docker logs f4k_backend_smoke
           exit 1
+
+      # `alembic check` runs autogenerate against the freshly migrated DB and
+      # fails if the models expect a different schema than the migration chain
+      # produces. Unit tests can't catch this: pytest builds its schema from
+      # the models directly (create_all), so a model edited without a matching
+      # migration passes tests but breaks in compose/deploys.
+      - name: Check model/migration schema drift
+        if: steps.changes.outputs.python-backend == 'true'
+        run: docker exec f4k_backend_smoke alembic check

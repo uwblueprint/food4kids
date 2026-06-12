@@ -40,7 +40,10 @@ class LocationBase(SQLModel):
     state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
     notes: str = Field(default="")
     note_chain_id: UUID | None = Field(
-        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+        default=None,
+        foreign_key="note_chains.note_chain_id",
+        nullable=True,
+        ondelete="SET NULL",
     )
 
 
