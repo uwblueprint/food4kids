@@ -184,6 +184,9 @@ async def client_with_overrides(
                 yield test_session
 
             app.dependency_overrides[get_session] = override_get_session
+            # Bypass auth like the other client fixtures; explicit overrides
+            # below can still replace individual auth dependencies.
+            _apply_auth_overrides(app)
             for dep, override in (overrides or {}).items():
                 app.dependency_overrides[dep] = override
 

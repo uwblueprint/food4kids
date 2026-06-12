@@ -176,7 +176,24 @@ jobs:
           fi
           echo "Login OK"
 
-          # Authenticated call — round-trips Admin SDK verify_id_token
+          # Endpoints require auth — an unauthenticated read must be rejected
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/locations/)
+          if [ "$CODE" != "401" ]; then
+            echo "::error::Unauthed /locations/ returned HTTP $CODE (expected 401)"
+            exit 1
+          fi
+          echo "Unauthed request rejected OK"
+
+          # Authed read of seeded data — round-trips Admin SDK verify_id_token
+          # and the admin role check. Run before logout (which revokes tokens).
+          TOTAL=$(curl -fsS http://localhost:8080/locations/ \
+            -H "Authorization: Bearer $TOKEN" | jq .total)
+          if ! [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+            echo "::error::Expected seeded locations, got total=$TOTAL"
+            exit 1
+          fi
+          echo "Seeded data readable ($TOTAL locations)"
+
           CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             "http://localhost:8080/auth/logout/$USER_ID" \
             -H "Authorization: Bearer $TOKEN")
@@ -184,14 +201,7 @@ jobs:
             echo "::error::Authed logout returned HTTP $CODE (expected 204)"
             exit 1
           fi
-          echo "Authed call OK"
-
-          TOTAL=$(curl -fsS http://localhost:8080/locations/ | jq .total)
-          if ! [ "$TOTAL" -gt 0 ] 2>/dev/null; then
-            echo "::error::Expected seeded locations, got total=$TOTAL"
-            exit 1
-          fi
-          echo "Seeded data readable ($TOTAL locations)"
+          echo "Authed logout OK"
 
       - name: Dump backend logs on failure
         if: failure() && steps.changes.outputs.python-backend == 'true'

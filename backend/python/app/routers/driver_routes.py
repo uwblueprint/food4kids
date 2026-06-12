@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import (
     require_admin,
-    require_authorization_by_role,
     require_driver_or_admin,
     require_self_driver_or_admin,
 )
@@ -115,7 +114,7 @@ async def initialize_driver(
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
     user_invite_service: UserInviteService = Depends(get_user_invite_service),
-    _: bool = Depends(require_authorization_by_role({"admin"})),
+    _: bool = Depends(require_admin),
 ) -> DriverRead:
     """
     Register a new driver in our backend, creates a User and Driver object, returns DriverRead

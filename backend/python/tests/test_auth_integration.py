@@ -105,7 +105,6 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/auth/resetPassword/{email}"): Policy.PUBLIC,
     # --- drivers ---
     ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/drivers/"): Policy.PUBLIC,  # self-registration (pending review #5)
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
@@ -115,6 +114,10 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/summary"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/{year}/export"): Policy.ADMIN_ONLY,
+    # Two-step registration (#117): an admin creates the invite/initial user;
+    # /register is auth'd by the invite token in the body, not a bearer token.
+    ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
+    ("POST", "/drivers/register"): Policy.PUBLIC,
     # --- driver assignments ---
     ("GET", "/driver-assignments/"): Policy.ADMIN_ONLY,
     ("POST", "/driver-assignments/"): Policy.ADMIN_ONLY,
@@ -122,12 +125,6 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/driver-assignments/suggestions"): Policy.DRIVER_OR_ADMIN,
     ("PATCH", "/driver-assignments/{driver_assignment_id}"): Policy.ADMIN_ONLY,
     ("DELETE", "/driver-assignments/{driver_assignment_id}"): Policy.ADMIN_ONLY,
-    # --- entities ---
-    ("GET", "/entities/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/entities/"): Policy.DRIVER_OR_ADMIN,
-    ("GET", "/entities/{entity_id}"): Policy.DRIVER_OR_ADMIN,
-    ("PUT", "/entities/{entity_id}"): Policy.DRIVER_OR_ADMIN,
-    ("DELETE", "/entities/{entity_id}"): Policy.DRIVER_OR_ADMIN,
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
