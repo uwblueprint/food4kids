@@ -71,10 +71,31 @@ jobs:
 
       - name: Boot backend (runs migrations, then the server)
         if: steps.changes.outputs.python-backend == 'true'
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID }}
+          FIREBASE_SVC_ACCOUNT_PRIVATE_KEY: ${{ secrets.FIREBASE_SVC_ACCOUNT_PRIVATE_KEY }}
+          FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL }}
+          FIREBASE_SVC_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_ID }}
+          FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
         run: |
-          # Firebase Admin parses the service-account key at startup, so it
-          # needs a syntactically valid (but throwaway) RSA key.
-          DUMMY_KEY=$(openssl genrsa 2048 2>/dev/null)
+          if [ -n "$FIREBASE_PROJECT_ID" ]; then
+            echo "Real Firebase credentials available — authed API smoke enabled."
+            echo "AUTH_SMOKE=true" >> "$GITHUB_ENV"
+          else
+            # Forks and dependabot PRs can't read repo secrets. Firebase Admin
+            # parses the service-account key at startup, so boot with a
+            # syntactically valid throwaway key and skip the authed smoke.
+            echo "::warning::Firebase secrets unavailable — booting with a dummy key; seed + authed API smoke SKIPPED."
+            echo "AUTH_SMOKE=false" >> "$GITHUB_ENV"
+            export FIREBASE_PROJECT_ID=ci-dummy
+            export FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID=dummy
+            export FIREBASE_SVC_ACCOUNT_PRIVATE_KEY="$(openssl genrsa 2048 2>/dev/null)"
+            export FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL=ci-dummy@ci-dummy.iam.gserviceaccount.com
+            export FIREBASE_SVC_ACCOUNT_CLIENT_ID=000000000000000000000
+            export FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/dummy
+          fi
 
           docker run -d --name f4k_backend_smoke --network host \
             -e APP_ENV=development \
@@ -83,15 +104,16 @@ jobs:
             -e POSTGRES_DB_DEV=f4k \
             -e POSTGRES_DB_TEST=f4k_test \
             -e DB_HOST=localhost \
-            -e FIREBASE_PROJECT_ID=ci-dummy \
-            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID=dummy \
-            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY="$DUMMY_KEY" \
-            -e FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL=ci-dummy@ci-dummy.iam.gserviceaccount.com \
-            -e FIREBASE_SVC_ACCOUNT_CLIENT_ID=000000000000000000000 \
+            -e FIREBASE_PROJECT_ID \
+            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID \
+            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_ID \
             -e FIREBASE_SVC_ACCOUNT_AUTH_URI=https://accounts.google.com/o/oauth2/auth \
             -e FIREBASE_SVC_ACCOUNT_TOKEN_URI=https://oauth2.googleapis.com/token \
             -e FIREBASE_SVC_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs \
-            -e FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/dummy \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL \
+            -e FIREBASE_WEB_API_KEY \
             f4k-backend:ci
 
       - name: Wait for healthy server
@@ -123,3 +145,48 @@ jobs:
       - name: Check model/migration schema drift
         if: steps.changes.outputs.python-backend == 'true'
         run: docker exec f4k_backend_smoke alembic check
+
+      # End-to-end authed smoke: seed the DB (creates sign-in-able Firebase
+      # users — admin1@f4k.dev etc., see app/seed_database.py), log in through
+      # the API, make an authenticated call, and read seeded data back. This
+      # exercises the full stack: Firebase REST sign-in, Admin SDK token
+      # verification, and DB queries against the real migrated schema (which
+      # pytest can't cover — it builds its schema from the models directly).
+      - name: Seed database
+        if: steps.changes.outputs.python-backend == 'true' && env.AUTH_SMOKE == 'true'
+        run: docker exec f4k_backend_smoke python -m app.seed_database
+
+      - name: Authed API smoke
+        if: steps.changes.outputs.python-backend == 'true' && env.AUTH_SMOKE == 'true'
+        run: |
+          RESP=$(curl -fsS -X POST http://localhost:8080/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin1@f4k.dev","password":"test123"}')
+          TOKEN=$(jq -r .access_token <<<"$RESP")
+          USER_ID=$(jq -r .id <<<"$RESP")
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::Login succeeded but returned no access_token"
+            exit 1
+          fi
+          echo "Login OK"
+
+          # Authenticated call — round-trips Admin SDK verify_id_token
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "http://localhost:8080/auth/logout/$USER_ID" \
+            -H "Authorization: Bearer $TOKEN")
+          if [ "$CODE" != "204" ]; then
+            echo "::error::Authed logout returned HTTP $CODE (expected 204)"
+            exit 1
+          fi
+          echo "Authed call OK"
+
+          TOTAL=$(curl -fsS http://localhost:8080/locations/ | jq .total)
+          if ! [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+            echo "::error::Expected seeded locations, got total=$TOTAL"
+            exit 1
+          fi
+          echo "Seeded data readable ($TOTAL locations)"
+
+      - name: Dump backend logs on failure
+        if: failure() && steps.changes.outputs.python-backend == 'true'
+        run: docker logs f4k_backend_smoke 2>&1 | tail -100
