@@ -395,7 +395,7 @@ def main() -> None:
     """Main seeding function"""
     print("Starting final database seeding...")
 
-    if not firebase_admin._apps:
+    if not firebase_admin._apps:  # type: ignore[attr-defined]
         initialize_firebase()
     print("Firebase initialized")
 
@@ -978,7 +978,7 @@ def main() -> None:
                 announcement = Announcement(
                     subject=ann_data["subject"],
                     message=ann_data["message"],
-                    user_id=admin_user.user_id,
+                    user_id=admin_user.user_id,  # type: ignore[union-attr]
                     attachments=ann_data["attachments"],
                 )
                 set_timestamps(announcement)
