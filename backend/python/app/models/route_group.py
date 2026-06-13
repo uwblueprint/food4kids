@@ -22,8 +22,7 @@ class RouteGroup(RouteGroupBase, BaseModel, table=True):
     """Database table model for Route Groups.
 
     A RouteGroup is one day's batch of routes (one generation run). Routes
-    belong to exactly one RouteGroup via Route.route_group_id; the old M2M
-    via RouteGroupMembership is gone.
+    belong to exactly one RouteGroup via Route.route_group_id.
     """
 
     __tablename__ = "route_groups"

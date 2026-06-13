@@ -76,10 +76,9 @@ class RouteGroupService:
     ) -> list[RouteGroup]:
         """Get route groups with optional filtering.
 
-        `delivery_type` used to be inferred from school_name presence; it's
-        now an explicit per-Location column joined via Route.route_group_id.
-        `driver_assignment_status` similarly reads Route.driver_id directly
-        instead of going through the dropped DriverAssignment table.
+        `delivery_type` filters on the per-Location delivery_type of a group's
+        stops; `driver_assignment_status` filters on whether a group's routes
+        have a driver_id set.
         """
         statement = select(RouteGroup)
 
@@ -102,8 +101,8 @@ class RouteGroupService:
                 func.extract("dow", RouteGroup.drive_date).in_(dow_values)  # type: ignore[arg-type]
             )
 
-        # Delivery type filter — true per-Location lookup now (was previously
-        # derived from school_name).
+        # Delivery type filter: a group matches if any of its stops' locations
+        # has one of the requested delivery types.
         if delivery_type:
             delivery_conditions: list[Any] = []
             for dt in delivery_type:
@@ -143,9 +142,8 @@ class RouteGroupService:
             if status_conditions:
                 statement = statement.where(or_(*status_conditions))
 
-        # Driver assignment status filter — driver_id now lives directly on
-        # Route (DriverAssignment table dropped). "Assigned" means at least
-        # one route in this group has a driver; "Unassigned" means none do.
+        # Driver assignment status filter: "Assigned" means at least one route
+        # in this group has a driver_id; "Unassigned" means none do.
         if driver_assignment_status:
             assigned_exists = (
                 exists()

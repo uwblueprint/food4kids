@@ -541,8 +541,7 @@ class LocationService:
         """Persist net-new locations and mark stale ones out-of-roster.
 
         Stale rows are not deleted — they keep their note_chain so a future
-        reappearance can revive them (one of the reasons we kept Location as
-        a stable roster entry instead of a per-route snapshot).
+        reappearance can revive them.
         """
         try:
             # Fetch and mark stale locations out-of-roster in one SELECT IN

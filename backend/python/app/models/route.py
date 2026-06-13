@@ -22,8 +22,7 @@ class RouteBase(SQLModel):
     notes: str = Field(default="", max_length=1000)
     length: float = Field(ge=0.0)  # in km, must be non-negative
     # Explicit TEXT (not VARCHAR) so we can't hit a hard failure on long
-    # routes. VARCHAR(10000) was a latent landmine. sa_type keeps the model in
-    # sync with the migration (alembic check enforces this).
+    # routes.
     encoded_polyline: str | None = Field(default=None, sa_type=Text)
     polyline_updated_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
@@ -32,8 +31,7 @@ class RouteBase(SQLModel):
     # Per-driver start time. Nullable: callers can fall back to
     # SystemSettings.route_start_time when absent.
     start_time: time | None = Field(default=None)
-    # Each Route belongs to exactly one RouteGroup (one drive_date). The old
-    # M2M via RouteGroupMembership was dropped along with shared routes.
+    # Each Route belongs to exactly one RouteGroup (one drive_date).
     route_group_id: UUID = Field(
         foreign_key="route_groups.route_group_id",
         nullable=False,

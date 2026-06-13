@@ -190,9 +190,7 @@ async def require_route_assigned_or_admin(
             detail="You are not authorized to access this resource.",
         )
 
-    # Driver assignment now lives directly on the route (the DriverAssignment
-    # join table was dropped): a driver "owns" a route iff route.driver_id
-    # matches their driver_id.
+    # A driver "owns" a route iff route.driver_id matches their driver_id.
     is_assigned = await session.scalar(
         select(
             select(Route)

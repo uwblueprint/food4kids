@@ -9,8 +9,7 @@ Runs nightly at 23:59. Two jobs in one:
    RouteSnapshot (e.g. if the job is re-run after a crash).
 
 2. **Mileage aggregation.** Sum each driver's route lengths for the day
-   and update DriverHistory. Now reads Route.driver_id directly (the
-   DriverAssignment table is gone).
+   (grouped by Route.driver_id) and update DriverHistory.
 """
 
 from __future__ import annotations

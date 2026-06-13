@@ -397,8 +397,8 @@ class TestLocationRoutes:
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=False,
         )
-        # RouteGroup must exist before Routes (Route.route_group_id is now a
-        # mandatory FK; the M2M via RouteGroupMembership was dropped).
+        # RouteGroup must exist before Routes (Route.route_group_id is a
+        # mandatory FK).
         route_group = RouteGroup(
             name="Future Route Group", drive_date=datetime(2099, 1, 1)
         )
@@ -1044,6 +1044,60 @@ class TestRouteRoutes:
         assert data["notes"] == "updated"
 
     @pytest.mark.asyncio
+    async def test_assign_and_reassign_driver(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_driver: Any,
+    ) -> None:
+        """A driver is assigned to a route via PATCH driver_id, and the route
+        drops out of the unassigned list once assigned; reassigning to a
+        different driver updates driver_id."""
+        from app.models.driver import Driver
+        from app.models.user import User
+
+        route_id = str(test_route.route_id)
+
+        # Starts unassigned -> appears in the unassigned-only listing.
+        unassigned = await async_client.get("/routes?unassigned_only=true")
+        assert unassigned.status_code == 200
+        assert route_id in {r["route_id"] for r in unassigned.json()["items"]}
+
+        # Assign the driver.
+        assign = await async_client.patch(
+            f"/routes/{route_id}", json={"driver_id": str(test_driver.driver_id)}
+        )
+        assert assign.status_code == 200
+        assert assign.json()["driver_id"] == str(test_driver.driver_id)
+
+        # No longer unassigned.
+        unassigned_after = await async_client.get("/routes?unassigned_only=true")
+        assert route_id not in {r["route_id"] for r in unassigned_after.json()["items"]}
+
+        # Reassign to a second driver.
+        other_user = User(
+            name="Other Driver", email="other-driver@test.dev", auth_id="other-drv"
+        )
+        test_session.add(other_user)
+        other_driver = Driver(
+            user_id=other_user.user_id,
+            phone="+12125550000",
+            address="9 Other St",
+            license_plate="XYZ789",
+            car_make_model="Honda Civic",
+        )
+        test_session.add(other_driver)
+        await test_session.commit()
+        await test_session.refresh(other_driver)
+
+        reassign = await async_client.patch(
+            f"/routes/{route_id}", json={"driver_id": str(other_driver.driver_id)}
+        )
+        assert reassign.status_code == 200
+        assert reassign.json()["driver_id"] == str(other_driver.driver_id)
+
+    @pytest.mark.asyncio
     async def test_update_route_not_found(self, async_client: AsyncClient) -> None:
         """PATCH /routes/{id} returns 404 for an unknown route."""
         response = await async_client.patch(f"/routes/{uuid4()}", json={"name": "x"})
@@ -1344,8 +1398,7 @@ class TestRouteGroupRoutes:
         await test_session.commit()
         await test_session.refresh(rg)
 
-        # Route now FKs directly to RouteGroup via route_group_id (the M2M
-        # via RouteGroupMembership was dropped).
+        # Route FKs to RouteGroup via route_group_id.
         route = Route(name="R1", length=5.0, route_group_id=rg.route_group_id)
         test_session.add(route)
         await test_session.commit()

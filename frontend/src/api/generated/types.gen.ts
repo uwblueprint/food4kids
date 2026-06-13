@@ -249,11 +249,8 @@ export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
 /**
  * DriverAssignmentStatusEnum
  *
- * Whether the routes in a RouteGroup have drivers assigned.
- *
- * Kept (despite the DriverAssignment table being dropped) because the
- * *concept* of assigned/unassigned remains — it just now reads from
- * Route.driver_id rather than a separate join table.
+ * Whether the routes in a RouteGroup have drivers assigned (read from
+ * Route.driver_id).
  */
 export type DriverAssignmentStatusEnum = 'Assigned' | 'Unassigned';
 

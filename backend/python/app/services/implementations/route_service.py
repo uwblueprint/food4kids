@@ -60,9 +60,8 @@ class RouteService:
         """
         Get routes with optional filtering for unassigned routes and date range.
 
-        Since Route → RouteGroup is now a direct FK (M2M dropped) and driver
-        is now a Route.driver_id column (DriverAssignment dropped), this is
-        a much simpler query than before.
+        unassigned_only filters to routes with no driver_id. The date range
+        filters on the route's RouteGroup.drive_date.
         """
         statement = select(Route, RouteGroup.drive_date).join(
             RouteGroup,

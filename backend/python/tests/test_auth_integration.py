@@ -118,7 +118,6 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # /register is auth'd by the invite token in the body, not a bearer token.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
     ("POST", "/drivers/register"): Policy.PUBLIC,
-    # (driver-assignment endpoints removed: assignment now lives on Route.driver_id)
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
@@ -281,9 +280,7 @@ async def seed(test_session: AsyncSession) -> Seed:
     await test_session.refresh(self_driver)
     await test_session.refresh(route_group)
 
-    # SELF is assigned to the route; OTHER is not. Assignment now lives directly
-    # on the route via driver_id (the DriverAssignment join table was dropped),
-    # and route_group_id is a mandatory FK.
+    # SELF is assigned to the route (via driver_id); OTHER is not.
     route = Route(
         name="Test Route",
         notes="",

@@ -411,7 +411,7 @@
         "type": "string"
       },
       "DriverAssignmentStatusEnum": {
-        "description": "Whether the routes in a RouteGroup have drivers assigned.\n\nKept (despite the DriverAssignment table being dropped) because the\n*concept* of assigned/unassigned remains — it just now reads from\nRoute.driver_id rather than a separate join table.",
+        "description": "Whether the routes in a RouteGroup have drivers assigned (read from\nRoute.driver_id).",
         "enum": [
           "Assigned",
           "Unassigned"

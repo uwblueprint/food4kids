@@ -19,9 +19,8 @@ from app.services.implementations.email_service import EmailService
 async def process_daily_reminder_emails() -> None:
     """Sends out daily reminder emails for the day - runs at 7:00 AM every day.
 
-    Driver assignment now lives directly on Route (Route.driver_id); the old
-    DriverAssignment join table is gone. Tomorrow's drive_date comes from
-    Route.route_group.drive_date.
+    Emails each driver assigned (via Route.driver_id) to a route whose
+    RouteGroup.drive_date is tomorrow.
     """
 
     from app.models import (
