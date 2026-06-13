@@ -14,7 +14,7 @@ const POLYLINE_CASING_COLOR = '#ffffff'; // --color-grey-100
 
 export interface RouteMapProps {
   /** Google-encoded polyline string (precision 5, [lat, lng] order). */
-  encodedPolyline: string | null;
+  encodedPolyline: string | null | undefined;
   className?: string;
 }
 
