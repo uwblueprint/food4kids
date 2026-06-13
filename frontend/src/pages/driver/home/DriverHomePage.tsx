@@ -34,7 +34,7 @@ export const DriverHomePage = () => {
       </div>
 
       {routeId && (
-        <RouteMapView routeId={routeId} className="h-[60vh] md:h-[500px]" />
+        <RouteMapView routeId={routeId} className="tablet:h-[500px] h-[60vh]" />
       )}
     </main>
   );
