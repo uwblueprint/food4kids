@@ -30,7 +30,9 @@ class FakeLocation:
 
 # Sample locations around Kitchener-Waterloo
 LOCATIONS = [
-    FakeLocation(43.6072, -80.5786, "Elmira Golf Club", 2), # Far location from warehouse
+    FakeLocation(
+        43.6072, -80.5786, "Elmira Golf Club", 2
+    ),  # Far location from warehouse
     FakeLocation(43.4516, -80.4925, "Kitchener City Hall", 10),
     FakeLocation(43.4643, -80.5204, "Waterloo Town Square", 2),
     FakeLocation(43.4506, -80.4983, "Victoria Park", 3),

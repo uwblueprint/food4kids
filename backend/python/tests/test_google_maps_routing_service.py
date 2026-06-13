@@ -12,6 +12,7 @@ import pytest
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     MANDATORY_DELIVERY_PENALTY,
+    MAX_HALF_BOXES_PER_DRIVER,
     GoogleMapsFleetRoutingAlgorithm,
 )
 
@@ -24,6 +25,7 @@ class FakeLocation:
     longitude: float = -79.0
     address: str = "123 Test St"
     location_id: UUID = field(default_factory=uuid4)
+    num_children: int = 2
 
 
 @pytest.fixture()
@@ -40,12 +42,14 @@ def make_location() -> Any:
         longitude: float = -79.0,
         address: str = "123 Test St",
         location_id: UUID | None = None,
+        num_children: int = 2,
     ) -> FakeLocation:
         return FakeLocation(
             latitude=latitude,
             longitude=longitude,
             address=address,
             location_id=location_id or uuid4(),
+            num_children=num_children,
         )
 
     return _make
@@ -55,7 +59,7 @@ def make_location() -> Any:
 def sample_settings() -> RouteGenerationSettings:
     return RouteGenerationSettings(
         num_routes=2,
-        max_stops_per_route=5,
+        max_stops_per_route=0,  # Deprecated for Google Maps Routing
         route_start_time=datetime(2025, 1, 1, 9, 0),
     )
 
@@ -88,7 +92,9 @@ class TestBuildPayload:
         for i, v in enumerate(vehicles):
             assert v["displayName"] == f"driver_{i}"
             assert v["startLocation"] == {"latitude": 43.0, "longitude": -79.0}
-            assert v["loadLimits"] == {"load": {"maxLoad": "5"}}
+            assert v["loadLimits"] == {
+                "load": {"maxLoad": str(MAX_HALF_BOXES_PER_DRIVER)}
+            }
 
         # --- shipments = forced_pickups + deliveries ---
         shipments = model["shipments"]
@@ -113,7 +119,9 @@ class TestBuildPayload:
                 "latitude": loc.latitude,
                 "longitude": loc.longitude,
             }
-            assert delivery["loadDemands"] == {"load": {"amount": "1"}}
+            assert delivery["loadDemands"] == {
+                "load": {"amount": str(loc.num_children)}
+            }
 
     def test_service_duration_on_deliveries(
         self,
@@ -141,7 +149,6 @@ class TestBuildPayload:
         """When return_to_warehouse is True, vehicles get endLocation."""
         settings = RouteGenerationSettings(
             num_routes=1,
-            max_stops_per_route=5,
             route_start_time=datetime(2025, 1, 1, 9, 0),
             return_to_warehouse=True,
         )
@@ -165,30 +172,6 @@ class TestBuildPayload:
 
         vehicle = payload["model"]["vehicles"][0]
         assert "endLocation" not in vehicle
-
-    def test_no_max_stops_omits_load_limits(
-        self,
-        algorithm: GoogleMapsFleetRoutingAlgorithm,
-        make_location: Any,
-    ) -> None:
-        """When max_stops_per_route is None, loadLimits is omitted on vehicles.
-
-        Deliveries still carry loadDemands (1 per stop) — harmless without a
-        cap but keeps the payload consistent.
-        """
-        settings = RouteGenerationSettings(
-            num_routes=2,
-            max_stops_per_route=None,
-            route_start_time=datetime(2025, 1, 1, 9, 0),
-        )
-        locs = [make_location()]
-
-        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
-
-        model = payload["model"]
-
-        for v in model["vehicles"]:
-            assert "loadLimits" not in v
 
     def test_route_duration_limit(
         self,

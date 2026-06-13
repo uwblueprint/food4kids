@@ -73,7 +73,9 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         warehouse = {"latitude": warehouse_lat, "longitude": warehouse_lon}
 
-        load_limit = {"loadLimits": {"load": {"maxLoad": str(MAX_HALF_BOXES_PER_DRIVER)}}}
+        load_limit = {
+            "loadLimits": {"load": {"maxLoad": str(MAX_HALF_BOXES_PER_DRIVER)}}
+        }
 
         # routeDurationLimit: soft cap on total route time. The optimizer
         # penalises routes that exceed this, spreading deliveries more evenly
