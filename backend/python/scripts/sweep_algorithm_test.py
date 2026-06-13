@@ -30,7 +30,7 @@ import pandas as pd
 from matplotlib.patches import Ellipse
 from sqlmodel import Session, create_engine, select
 
-from app.models.location import Location, LocationState
+from app.models.location import Location
 from app.models.route_stop import RouteStop  # noqa: F401
 from app.models.system_settings import SystemSettings
 from app.services.implementations.sweep_clustering import (
@@ -359,7 +359,9 @@ async def main() -> None:
         statement = select(Location).where(
             Location.latitude != None,  # noqa: E711
             Location.longitude != None,  # noqa: E711
-            Location.state == LocationState.ACTIVE,
+            # 'state' was replaced by the stored roster bit (in_roster);
+            # this dev script wants current-roster locations.
+            Location.in_roster == True,  # noqa: E712
         )
         locations = list(session.exec(statement).all())
         print(f"Fetched {len(locations)} active locations from database\n")

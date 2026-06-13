@@ -2,7 +2,7 @@ from datetime import datetime, time
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -21,9 +21,10 @@ class RouteBase(SQLModel):
     name: str = Field(default="", min_length=1, max_length=255)
     notes: str = Field(default="", max_length=1000)
     length: float = Field(ge=0.0)  # in km, must be non-negative
-    # No max_length on encoded_polyline: maps to TEXT in Postgres so we can't
-    # hit a hard failure on long routes. VARCHAR(10000) was a latent landmine.
-    encoded_polyline: str | None = Field(default=None)
+    # Explicit TEXT (not VARCHAR) so we can't hit a hard failure on long
+    # routes. VARCHAR(10000) was a latent landmine. sa_type keeps the model in
+    # sync with the migration (alembic check enforces this).
+    encoded_polyline: str | None = Field(default=None, sa_type=Text)
     polyline_updated_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
@@ -37,6 +38,7 @@ class RouteBase(SQLModel):
         foreign_key="route_groups.route_group_id",
         nullable=False,
         ondelete="CASCADE",
+        index=True,
     )
     # Nullable: a route is "unassigned" iff driver_id IS NULL. Driver deletion
     # nullifies rather than cascades (driver leaving shouldn't delete routes).
@@ -45,6 +47,7 @@ class RouteBase(SQLModel):
         foreign_key="drivers.driver_id",
         nullable=True,
         ondelete="SET NULL",
+        index=True,
     )
     # Lineage pointer: set by Duplicate Route Group (when that ships) so a
     # bulk-edit-forward operation can walk the chain. Nullable; freshly
@@ -55,6 +58,7 @@ class RouteBase(SQLModel):
         foreign_key="routes.route_id",
         nullable=True,
         ondelete="SET NULL",
+        index=True,
     )
     note_chain_id: UUID | None = Field(
         default=None,

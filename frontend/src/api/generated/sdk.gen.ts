@@ -14,9 +14,6 @@ import type {
   CreateAnnouncementData,
   CreateAnnouncementErrors,
   CreateAnnouncementResponses,
-  CreateDriverAssignmentData,
-  CreateDriverAssignmentErrors,
-  CreateDriverAssignmentResponses,
   CreateDriverHistoryData,
   CreateDriverHistoryErrors,
   CreateDriverHistoryResponses,
@@ -37,9 +34,6 @@ import type {
   DeleteAnnouncementData,
   DeleteAnnouncementErrors,
   DeleteAnnouncementResponses,
-  DeleteDriverAssignmentData,
-  DeleteDriverAssignmentErrors,
-  DeleteDriverAssignmentResponses,
   DeleteDriverData,
   DeleteDriverErrors,
   DeleteDriverHistoryData,
@@ -78,9 +72,6 @@ import type {
   GetAnnouncementResponses,
   GetAnnouncementsData,
   GetAnnouncementsResponses,
-  GetDriverAssignmentsData,
-  GetDriverAssignmentsErrors,
-  GetDriverAssignmentsResponses,
   GetDriverData,
   GetDriverErrors,
   GetDriverHistoryData,
@@ -113,8 +104,6 @@ import type {
   GetLocationsData,
   GetLocationsErrors,
   GetLocationsResponses,
-  GetMyDriverAssignmentsData,
-  GetMyDriverAssignmentsResponses,
   GetNoteChainData,
   GetNoteChainErrors,
   GetNoteChainResponses,
@@ -130,9 +119,6 @@ import type {
   GetRoutesData,
   GetRoutesErrors,
   GetRoutesResponses,
-  GetSuggestedDriverData,
-  GetSuggestedDriverErrors,
-  GetSuggestedDriverResponses,
   GetSystemSettingsData,
   GetSystemSettingsResponses,
   IngestLocationsData,
@@ -160,9 +146,6 @@ import type {
   UpdateAnnouncementData,
   UpdateAnnouncementErrors,
   UpdateAnnouncementResponses,
-  UpdateDriverAssignmentData,
-  UpdateDriverAssignmentErrors,
-  UpdateDriverAssignmentResponses,
   UpdateDriverData,
   UpdateDriverErrors,
   UpdateDriverHistoryData,
@@ -386,130 +369,6 @@ export const resetPassword = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/auth/resetPassword/{email}',
     ...options,
-  });
-
-/**
- * Get Driver Assignments
- *
- * Retrieve all driver assignments with pagination (admin only). Drivers should use /me.
- */
-export const getDriverAssignments = <ThrowOnError extends boolean = false>(
-  options?: Options<GetDriverAssignmentsData, ThrowOnError>
-) =>
-  (options?.client ?? client).get<
-    GetDriverAssignmentsResponses,
-    GetDriverAssignmentsErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/driver-assignments/',
-    ...options,
-  });
-
-/**
- * Create Driver Assignment
- *
- * Create a new driver assignment
- */
-export const createDriverAssignment = <ThrowOnError extends boolean = false>(
-  options: Options<CreateDriverAssignmentData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CreateDriverAssignmentResponses,
-    CreateDriverAssignmentErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/driver-assignments/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Get My Driver Assignments
- *
- * Retrieve driver assignments for the currently authenticated driver.
- *
- * Drivers only: an admin's UID does not map to a driver record. Admins should
- * use GET /driver-assignments/ for the full list.
- */
-export const getMyDriverAssignments = <ThrowOnError extends boolean = false>(
-  options?: Options<GetMyDriverAssignmentsData, ThrowOnError>
-) =>
-  (options?.client ?? client).get<
-    GetMyDriverAssignmentsResponses,
-    unknown,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/driver-assignments/me',
-    ...options,
-  });
-
-/**
- * Get Suggested Driver
- *
- * Get a suggested driver for a route on a certain day that is the last assigned to that same route
- */
-export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
-  options: Options<GetSuggestedDriverData, ThrowOnError>
-) =>
-  (options.client ?? client).get<
-    GetSuggestedDriverResponses,
-    GetSuggestedDriverErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/driver-assignments/suggestions',
-    ...options,
-  });
-
-/**
- * Delete Driver Assignment
- *
- * Delete a driver assignment
- */
-export const deleteDriverAssignment = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteDriverAssignmentData, ThrowOnError>
-) =>
-  (options.client ?? client).delete<
-    DeleteDriverAssignmentResponses,
-    DeleteDriverAssignmentErrors,
-    ThrowOnError
-  >({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/driver-assignments/{driver_assignment_id}',
-    ...options,
-  });
-
-/**
- * Update Driver Assignment
- *
- * Update an existing driver assignment
- */
-export const updateDriverAssignment = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateDriverAssignmentData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateDriverAssignmentResponses,
-    UpdateDriverAssignmentErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/driver-assignments/{driver_assignment_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**

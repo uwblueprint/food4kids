@@ -11,7 +11,7 @@ from sqlmodel import select
 
 from app.config import settings
 from app.models import get_session
-from app.models.driver_assignment import DriverAssignment
+from app.models.route import Route
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
@@ -190,12 +190,15 @@ async def require_route_assigned_or_admin(
             detail="You are not authorized to access this resource.",
         )
 
+    # Driver assignment now lives directly on the route (the DriverAssignment
+    # join table was dropped): a driver "owns" a route iff route.driver_id
+    # matches their driver_id.
     is_assigned = await session.scalar(
         select(
-            select(DriverAssignment)
+            select(Route)
             .where(
-                DriverAssignment.driver_id == token_driver_id,
-                DriverAssignment.route_id == route_id,
+                Route.route_id == route_id,
+                Route.driver_id == token_driver_id,
             )
             .exists()
         )

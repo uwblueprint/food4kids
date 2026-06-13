@@ -391,6 +391,7 @@
         "type": "object"
       },
       "DeliveryTypeEnum": {
+        "description": "Kind of recipient at a Location — set per location, enforced uniform\nwithin a RouteGroup at generation time.",
         "enum": [
           "School",
           "Family"
@@ -409,104 +410,14 @@
         "title": "DriveDaysOfWeekEnum",
         "type": "string"
       },
-      "DriverAssignmentCreate": {
-        "description": "Create request model",
-        "properties": {
-          "driver_id": {
-            "format": "uuid",
-            "title": "Driver Id",
-            "type": "string"
-          },
-          "route_group_id": {
-            "format": "uuid",
-            "title": "Route Group Id",
-            "type": "string"
-          },
-          "route_id": {
-            "format": "uuid",
-            "title": "Route Id",
-            "type": "string"
-          },
-          "time": {
-            "format": "date-time",
-            "title": "Time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "driver_id",
-          "route_id",
-          "route_group_id",
-          "time"
-        ],
-        "title": "DriverAssignmentCreate",
-        "type": "object"
-      },
-      "DriverAssignmentRead": {
-        "description": "Read response model",
-        "properties": {
-          "driver_assignment_id": {
-            "format": "uuid",
-            "title": "Driver Assignment Id",
-            "type": "string"
-          },
-          "driver_id": {
-            "format": "uuid",
-            "title": "Driver Id",
-            "type": "string"
-          },
-          "route_group_id": {
-            "format": "uuid",
-            "title": "Route Group Id",
-            "type": "string"
-          },
-          "route_id": {
-            "format": "uuid",
-            "title": "Route Id",
-            "type": "string"
-          },
-          "time": {
-            "format": "date-time",
-            "title": "Time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "driver_id",
-          "route_id",
-          "route_group_id",
-          "time",
-          "driver_assignment_id"
-        ],
-        "title": "DriverAssignmentRead",
-        "type": "object"
-      },
       "DriverAssignmentStatusEnum": {
+        "description": "Whether the routes in a RouteGroup have drivers assigned.\n\nKept (despite the DriverAssignment table being dropped) because the\n*concept* of assigned/unassigned remains — it just now reads from\nRoute.driver_id rather than a separate join table.",
         "enum": [
           "Assigned",
           "Unassigned"
         ],
         "title": "DriverAssignmentStatusEnum",
         "type": "string"
-      },
-      "DriverAssignmentUpdate": {
-        "description": "Update request model",
-        "properties": {
-          "time": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Time"
-          }
-        },
-        "title": "DriverAssignmentUpdate",
-        "type": "object"
       },
       "DriverHistoryCreate": {
         "description": "Create request model",
@@ -927,6 +838,11 @@
             "title": "Halal",
             "type": "boolean"
           },
+          "in_roster": {
+            "default": true,
+            "title": "In Roster",
+            "type": "boolean"
+          },
           "latitude": {
             "anyOf": [
               {
@@ -1005,19 +921,15 @@
               }
             ],
             "title": "Place Id"
-          },
-          "state": {
-            "$ref": "#/components/schemas/LocationState",
-            "default": "ACTIVE"
           }
         },
         "required": [
           "location_group_id",
           "name",
           "contact_name",
-          "delivery_type",
           "address",
-          "phone_number"
+          "phone_number",
+          "delivery_type"
         ],
         "title": "LocationCreate",
         "type": "object"
@@ -1352,7 +1264,11 @@
         "type": "object"
       },
       "LocationIngestRequest": {
+        "description": "Ingest request — `delivery_type` applies to every net-new row in this\nimport (one Apricot sheet = one delivery type).",
         "properties": {
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
+          },
           "net_new": {
             "items": {
               "$ref": "#/components/schemas/ValidatedLocationImportEntry"
@@ -1362,13 +1278,14 @@
           },
           "stale": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead"
+              "$ref": "#/components/schemas/LocationRead-Input"
             },
             "title": "Stale",
             "type": "array"
           }
         },
         "required": [
+          "delivery_type",
           "net_new",
           "stale"
         ],
@@ -1379,14 +1296,14 @@
         "properties": {
           "archived": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead"
+              "$ref": "#/components/schemas/LocationRead-Output"
             },
             "title": "Archived",
             "type": "array"
           },
           "created": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead"
+              "$ref": "#/components/schemas/LocationRead-Output"
             },
             "title": "Created",
             "type": "array"
@@ -1399,8 +1316,8 @@
         "title": "LocationIngestResponse",
         "type": "object"
       },
-      "LocationRead": {
-        "description": "Read response model",
+      "LocationRead-Input": {
+        "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
         "properties": {
           "address": {
             "title": "Address",
@@ -1421,6 +1338,152 @@
           "halal": {
             "default": false,
             "title": "Halal",
+            "type": "boolean"
+          },
+          "has_future_route": {
+            "default": false,
+            "title": "Has Future Route",
+            "type": "boolean"
+          },
+          "in_roster": {
+            "default": true,
+            "title": "In Roster",
+            "type": "boolean"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "location_group_id": {
+            "format": "uuid",
+            "title": "Location Group Id",
+            "type": "string"
+          },
+          "location_group_name": {
+            "title": "Location Group Name",
+            "type": "string"
+          },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "num_boxes": {
+            "default": 0,
+            "title": "Num Boxes",
+            "type": "integer"
+          },
+          "num_children": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Children"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          },
+          "place_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Id"
+          }
+        },
+        "required": [
+          "location_group_id",
+          "name",
+          "contact_name",
+          "address",
+          "phone_number",
+          "delivery_type",
+          "location_id",
+          "location_group_name"
+        ],
+        "title": "LocationRead",
+        "type": "object"
+      },
+      "LocationRead-Output": {
+        "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "delivery_type": {
+            "$ref": "#/components/schemas/DeliveryTypeEnum"
+          },
+          "dietary_restrictions": {
+            "default": "",
+            "title": "Dietary Restrictions",
+            "type": "string"
+          },
+          "halal": {
+            "default": false,
+            "title": "Halal",
+            "type": "boolean"
+          },
+          "has_future_route": {
+            "default": false,
+            "title": "Has Future Route",
+            "type": "boolean"
+          },
+          "in_roster": {
+            "default": true,
+            "title": "In Roster",
             "type": "boolean"
           },
           "latitude": {
@@ -1511,34 +1574,27 @@
             ],
             "title": "Place Id"
           },
-          "state": {
-            "$ref": "#/components/schemas/LocationState",
-            "default": "ACTIVE"
+          "status": {
+            "$ref": "#/components/schemas/LocationStatusEnum",
+            "readOnly": true
           }
         },
         "required": [
           "location_group_id",
           "name",
           "contact_name",
-          "delivery_type",
           "address",
           "phone_number",
+          "delivery_type",
           "location_id",
-          "location_group_name"
+          "location_group_name",
+          "status"
         ],
         "title": "LocationRead",
         "type": "object"
       },
-      "LocationState": {
-        "description": "State of a location",
-        "enum": [
-          "ACTIVE",
-          "ARCHIVED"
-        ],
-        "title": "LocationState",
-        "type": "string"
-      },
       "LocationStatusEnum": {
+        "description": "Derived status surfaced on LocationRead. Not stored — computed from\nLocation.in_roster + whether the location appears in a present/future\nroute. Precedence: any present/future route → ACTIVE (regardless of\nroster); otherwise in_roster → UNSCHEDULED; otherwise → INACTIVE.",
         "enum": [
           "Active",
           "Unscheduled",
@@ -1603,6 +1659,17 @@
               }
             ],
             "title": "Halal"
+          },
+          "in_roster": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Roster"
           },
           "latitude": {
             "anyOf": [
@@ -1962,47 +2029,11 @@
         "title": "NoteUpdate",
         "type": "object"
       },
-      "PaginatedResponse_DriverAssignmentRead_": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/DriverAssignmentRead"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "page": {
-            "title": "Page",
-            "type": "integer"
-          },
-          "page_size": {
-            "title": "Page Size",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          },
-          "total_pages": {
-            "title": "Total Pages",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total",
-          "page",
-          "page_size",
-          "total_pages"
-        ],
-        "title": "PaginatedResponse[DriverAssignmentRead]",
-        "type": "object"
-      },
       "PaginatedResponse_LocationRead_": {
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead"
+              "$ref": "#/components/schemas/LocationRead-Output"
             },
             "title": "Items",
             "type": "array"
@@ -2098,6 +2129,18 @@
         "additionalProperties": false,
         "description": "Database table model for Routes",
         "properties": {
+          "cloned_from_route_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloned From Route Id"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -2110,10 +2153,21 @@
             ],
             "title": "Created At"
           },
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
           "encoded_polyline": {
             "anyOf": [
               {
-                "maxLength": 10000,
                 "type": "string"
               },
               {
@@ -2126,18 +2180,6 @@
             "default": false,
             "title": "Ends At Warehouse",
             "type": "boolean"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
           },
           "length": {
             "minimum": 0,
@@ -2181,10 +2223,27 @@
             ],
             "title": "Polyline Updated At"
           },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
           "route_id": {
             "format": "uuid",
             "title": "Route Id",
             "type": "string"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
           },
           "updated_at": {
             "anyOf": [
@@ -2200,7 +2259,8 @@
           }
         },
         "required": [
-          "length"
+          "length",
+          "route_group_id"
         ],
         "title": "Route",
         "type": "object"
@@ -2410,6 +2470,18 @@
       "RoutePatchRequest": {
         "description": "Request body for PATCH /routes/{route_id}.\n\nAll fields are optional - only provided fields will be updated.\nIf location_ids is provided, the route stops will be fully replaced\nand the routing algorithm will be re-run to update polyline + mileage.",
         "properties": {
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
           "location_ids": {
             "anyOf": [
               {
@@ -2446,6 +2518,18 @@
               }
             ],
             "title": "Notes"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
           }
         },
         "title": "RoutePatchRequest",
@@ -2454,10 +2538,33 @@
       "RouteRead": {
         "description": "Read response model",
         "properties": {
+          "cloned_from_route_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloned From Route Id"
+          },
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
           "encoded_polyline": {
             "anyOf": [
               {
-                "maxLength": 10000,
                 "type": "string"
               },
               {
@@ -2470,18 +2577,6 @@
             "default": false,
             "title": "Ends At Warehouse",
             "type": "boolean"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
           },
           "length": {
             "minimum": 0,
@@ -2525,14 +2620,32 @@
             ],
             "title": "Polyline Updated At"
           },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
           "route_id": {
             "format": "uuid",
             "title": "Route Id",
             "type": "string"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
           }
         },
         "required": [
           "length",
+          "route_group_id",
           "route_id"
         ],
         "title": "RouteRead",
@@ -2548,7 +2661,7 @@
         "type": "string"
       },
       "RouteWithDateRead": {
-        "description": "Read response model for routes with drive date information",
+        "description": "Read response model for routes with drive date information.\n\ndrive_date is sourced from RouteGroup.drive_date via the route_group\nrelationship.",
         "properties": {
           "drive_date": {
             "format": "date-time",
@@ -2584,7 +2697,7 @@
         "type": "object"
       },
       "StaleEntry": {
-        "description": "An existing location not present in the import; would be archived on ingest.",
+        "description": "An existing location not present in the import; would be set\nin_roster=False on ingest.",
         "properties": {
           "address": {
             "title": "Address",
@@ -2622,26 +2735,6 @@
           "phone_number"
         ],
         "title": "StaleEntry",
-        "type": "object"
-      },
-      "SuggestedDriverResponse": {
-        "description": "Response model for suggested driver (last assigned to a route).",
-        "properties": {
-          "driver_id": {
-            "format": "uuid",
-            "title": "Driver Id",
-            "type": "string"
-          },
-          "driver_name": {
-            "title": "Driver Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "driver_id",
-          "driver_name"
-        ],
-        "title": "SuggestedDriverResponse",
         "type": "object"
       },
       "SystemSettingsRead": {
@@ -3263,310 +3356,6 @@
         "summary": "Reset Password",
         "tags": [
           "authentication"
-        ]
-      }
-    },
-    "/driver-assignments/": {
-      "get": {
-        "description": "Retrieve all driver assignments with pagination (admin only). Drivers should use /me.",
-        "operationId": "get_driver_assignments",
-        "parameters": [
-          {
-            "description": "Page number (1-indexed)",
-            "in": "query",
-            "name": "page",
-            "required": false,
-            "schema": {
-              "default": 1,
-              "description": "Page number (1-indexed)",
-              "minimum": 1,
-              "title": "Page",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Number of items per page",
-            "in": "query",
-            "name": "page_size",
-            "required": false,
-            "schema": {
-              "default": 50,
-              "description": "Number of items per page",
-              "maximum": 200,
-              "minimum": 1,
-              "title": "Page Size",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedResponse_DriverAssignmentRead_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Driver Assignments",
-        "tags": [
-          "driver-assignments"
-        ]
-      },
-      "post": {
-        "description": "Create a new driver assignment",
-        "operationId": "create_driver_assignment",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DriverAssignmentCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverAssignmentRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Create Driver Assignment",
-        "tags": [
-          "driver-assignments"
-        ]
-      }
-    },
-    "/driver-assignments/me": {
-      "get": {
-        "description": "Retrieve driver assignments for the currently authenticated driver.\n\nDrivers only: an admin's UID does not map to a driver record. Admins should\nuse GET /driver-assignments/ for the full list.",
-        "operationId": "get_my_driver_assignments",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DriverAssignmentRead"
-                  },
-                  "title": "Response Get My Driver Assignments",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get My Driver Assignments",
-        "tags": [
-          "driver-assignments"
-        ]
-      }
-    },
-    "/driver-assignments/suggestions": {
-      "get": {
-        "description": "Get a suggested driver for a route on a certain day that is the last assigned to that same route",
-        "operationId": "get_suggested_driver",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "route_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Route Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "route_group_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Route Group Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SuggestedDriverResponse"
-                  },
-                  "title": "Response Get Suggested Driver",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Suggested Driver",
-        "tags": [
-          "driver-assignments"
-        ]
-      }
-    },
-    "/driver-assignments/{driver_assignment_id}": {
-      "delete": {
-        "description": "Delete a driver assignment",
-        "operationId": "delete_driver_assignment",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_assignment_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Assignment Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Delete Driver Assignment",
-        "tags": [
-          "driver-assignments"
-        ]
-      },
-      "patch": {
-        "description": "Update an existing driver assignment",
-        "operationId": "update_driver_assignment",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_assignment_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Assignment Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DriverAssignmentUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverAssignmentRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Update Driver Assignment",
-        "tags": [
-          "driver-assignments"
         ]
       }
     },
@@ -4791,7 +4580,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead"
+                  "$ref": "#/components/schemas/LocationRead-Output"
                 }
               }
             },
@@ -4974,7 +4763,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead"
+                  "$ref": "#/components/schemas/LocationRead-Output"
                 }
               }
             },
@@ -5031,7 +4820,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead"
+                  "$ref": "#/components/schemas/LocationRead-Output"
                 }
               }
             },

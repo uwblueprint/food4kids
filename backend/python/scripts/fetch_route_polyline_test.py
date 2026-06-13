@@ -12,6 +12,11 @@ import pytest
 
 from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
+
+# Register the snapshot models so SQLAlchemy can resolve the RouteStop.snapshot
+# / Route.snapshot relationship strings when it configures all mappers.
+from app.models.route_snapshot import RouteSnapshot  # noqa: F401
+from app.models.route_stop_snapshot import RouteStopSnapshot  # noqa: F401
 from app.utilities.routes_utils import fetch_route_polyline
 
 

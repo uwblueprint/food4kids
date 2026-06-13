@@ -118,13 +118,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # /register is auth'd by the invite token in the body, not a bearer token.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
     ("POST", "/drivers/register"): Policy.PUBLIC,
-    # --- driver assignments ---
-    ("GET", "/driver-assignments/"): Policy.ADMIN_ONLY,
-    ("POST", "/driver-assignments/"): Policy.ADMIN_ONLY,
-    ("GET", "/driver-assignments/me"): Policy.DRIVER_ONLY,
-    ("GET", "/driver-assignments/suggestions"): Policy.DRIVER_OR_ADMIN,
-    ("PATCH", "/driver-assignments/{driver_assignment_id}"): Policy.ADMIN_ONLY,
-    ("DELETE", "/driver-assignments/{driver_assignment_id}"): Policy.ADMIN_ONLY,
+    # (driver-assignment endpoints removed: assignment now lives on Route.driver_id)
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
@@ -246,14 +240,12 @@ def firebase_auth_mock() -> Iterator[None]:
 class Seed(SimpleNamespace):
     self_driver_id: Any
     route_id: Any
-    assignment_id: Any
 
 
 @pytest_asyncio.fixture
 async def seed(test_session: AsyncSession) -> Seed:
     """Create the minimal records the auth dependencies look up by auth_id."""
     from app.models.driver import Driver
-    from app.models.driver_assignment import DriverAssignment
     from app.models.route import Route
     from app.models.route_group import RouteGroup
     from app.models.user import User
@@ -282,32 +274,31 @@ async def seed(test_session: AsyncSession) -> Seed:
     )
     test_session.add(admin_user)
 
-    route = Route(name="Test Route", notes="", length=10.0)
-    test_session.add(route)
     route_group = RouteGroup(name="Test Group", drive_date=datetime(2025, 3, 1, 8, 0))
     test_session.add(route_group)
 
     await test_session.commit()
     await test_session.refresh(self_driver)
-    await test_session.refresh(route)
     await test_session.refresh(route_group)
 
-    # SELF is assigned to the route; OTHER is not.
-    assignment = DriverAssignment(
-        driver_id=self_driver.driver_id,
-        route_id=route.route_id,
+    # SELF is assigned to the route; OTHER is not. Assignment now lives directly
+    # on the route via driver_id (the DriverAssignment join table was dropped),
+    # and route_group_id is a mandatory FK.
+    route = Route(
+        name="Test Route",
+        notes="",
+        length=10.0,
         route_group_id=route_group.route_group_id,
-        time=datetime(2025, 3, 1, 8, 0),
+        driver_id=self_driver.driver_id,
     )
-    test_session.add(assignment)
+    test_session.add(route)
     await test_session.commit()
-    await test_session.refresh(assignment)
+    await test_session.refresh(route)
 
     _ = other_driver  # seeded so OTHER resolves to a real (non-owning) driver
     return Seed(
         self_driver_id=self_driver.driver_id,
         route_id=route.route_id,
-        assignment_id=assignment.driver_assignment_id,
     )
 
 
@@ -346,7 +337,6 @@ def _fill_path(path: str, seed: Seed) -> str:
     values = {
         "driver_id": str(seed.self_driver_id),
         "route_id": str(seed.route_id),
-        "driver_assignment_id": str(seed.assignment_id),
         "year": "2025",
     }
     unrelated = str(uuid4())  # for params that ownership doesn't hinge on
