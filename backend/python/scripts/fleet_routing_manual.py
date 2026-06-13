@@ -55,7 +55,6 @@ async def test_fleet_routing_live() -> None:
 
     settings = RouteGenerationSettings(
         num_routes=2,
-        max_stops_per_route=4,
         route_start_time=datetime(2025, 6, 1, 9, 0),
         return_to_warehouse=True,
     )

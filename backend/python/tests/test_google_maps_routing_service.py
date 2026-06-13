@@ -59,7 +59,6 @@ def make_location() -> Any:
 def sample_settings() -> RouteGenerationSettings:
     return RouteGenerationSettings(
         num_routes=2,
-        max_stops_per_route=0,  # Deprecated for Google Maps Routing
         route_start_time=datetime(2025, 1, 1, 9, 0),
     )
 
@@ -76,7 +75,7 @@ class TestBuildPayload:
         make_location: Any,
         sample_settings: RouteGenerationSettings,
     ) -> None:
-        """2 locations, 2 routes, max_stops=5 — verify v1 field names."""
+        """2 locations, 2 routes — verify v1 field names."""
         locs = [
             make_location(latitude=43.1, longitude=-79.1),
             make_location(latitude=43.2, longitude=-79.2),
