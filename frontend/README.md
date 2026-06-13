@@ -1,5 +1,5 @@
- # Frontend
- 
+# Frontend
+
 Built with React 19, TypeScript, and Vite.
 
 ## Project Structure
@@ -62,13 +62,34 @@ frontend/
 
 The design system is defined in [`src/index.css`](src/index.css) using Tailwind CSS v4's CSS-first config. A live reference is available at `/style-guide` ([StyleGuidePage.tsx](src/pages/StyleGuidePage.tsx)).
 
+### Breakpoints — semantic only
+
+The design system defines exactly three device tiers, and they are the
+project's **only** breakpoints (declared in `@theme`):
+
+| Tier    | Range      | Designed at | Variant            |
+| ------- | ---------- | ----------- | ------------------ |
+| mobile  | 0–499px    | 375         | (unprefixed, base) |
+| tablet  | 500–1023px | 834         | `tablet:`          |
+| desktop | 1024px+    | 1440        | `desktop:`         |
+
+Tailwind's default `sm:`/`md:`/`lg:`/`xl:`/`2xl:` are **removed from the
+theme** — their boundaries (640/768/…) don't exist in the F4K design, so they
+compile to nothing and ESLint rejects them. When copying in shadcn components,
+replace their `md:`/`lg:` with `tablet:`/`desktop:`.
+
+```tsx
+<div className="p-5 tablet:p-8">           // 20px margins on mobile, 32px from tablet up
+<div className="hidden desktop:block">     // only on desktop (≥1024px)
+```
+
 ### Design Tokens — `@theme`
 
 All colors, fonts, shadows, spacing, and typography are declared as CSS custom properties. Tailwind v4 auto-generates utility classes from them.
 
 ```css
 @theme {
-  --font-nunito: "Nunito", sans-serif;
+  --font-nunito: 'Nunito', sans-serif;
   --color-blue-300: #226ca7; /* → bg-blue-300, text-blue-300, border-blue-300 */
   --shadow-card: 0px 4px 10px rgba(0, 0, 0, 0.05); /* → shadow-card */
   --text-h1: 2rem; /* → text-h1 */
@@ -78,21 +99,21 @@ All colors, fonts, shadows, spacing, and typography are declared as CSS custom p
 
 ### Heading Elements
 
-`h1`–`h3` are styled globally — no `className` needed. They use a mobile-first scale that switches at `md` (768px).
+`h1`–`h3` are styled globally — no `className` needed. They use a mobile-first scale that switches at the `tablet` breakpoint (500px) — per design, tablet and desktop share one heading scale.
 
-| Element | Mobile                     | Desktop                    |
+| Element | Mobile (<500px)            | Tablet & Desktop (≥500px)  |
 | ------- | -------------------------- | -------------------------- |
-| `h1`    | Nunito Bold 24px/32px      | Nunito ExtraBold 32px/44px |
-| `h2`    | Nunito SemiBold 20px/24px  | Nunito SemiBold 20px/28px  |
+| `h1`    | Nunito Bold 24px/32px      | Nunito Bold 32px/44px      |
+| `h2`    | Nunito SemiBold 20px/24px  | Nunito Bold 20px/28px      |
 | `h3`    | Nunito Sans Bold 18px/24px | Nunito Sans Bold 16px/20px |
 
 ### Paragraph Utilities
 
-| Class     | Mobile       | Desktop      |
-| --------- | ------------ | ------------ |
-| `text-p1` | 18px / 1.333 | 16px / 1.25  |
-| `text-p2` | 16px / 1.5   | 14px / 1.286 |
-| `text-p3` | 14px / 1.286 | 12px / 1.5   |
+| Class     | Mobile (<500px) | Tablet & Desktop (≥500px) |
+| --------- | --------------- | ------------------------- |
+| `text-p1` | 18px / 1.333    | 16px / 1.25               |
+| `text-p2` | 16px / 1.5      | 14px / 1.286              |
+| `text-p3` | 14px / 1.286    | 12px / 1.5                |
 
 ### Spacing
 
@@ -109,17 +130,21 @@ Tailwind's default 4px grid covers all design padding increments natively:
 | 40px         | `p-10` / `m-10` |
 | 80px         | `p-20` / `m-20` |
 
-Use `.page-margins` on top-level page wrappers for consistent page-level margins:
+Use `.page-margins` on top-level **admin** page wrappers for consistent page-level margins:
 
-| Breakpoint            | Left / Right | Top  |
-| --------------------- | ------------ | ---- |
-| Mobile (default)      | 20px         | 20px |
-| Tablet `md` (768px)   | 40px         | 20px |
-| Desktop `lg` (1024px) | 80px         | 40px |
+| Breakpoint        | Left / Right | Top  |
+| ----------------- | ------------ | ---- |
+| Mobile (default)  | 20px         | 20px |
+| Tablet (≥500px)   | 40px         | 20px |
+| Desktop (≥1024px) | 80px         | 40px |
 
 ```tsx
 <main className="page-margins">...</main>
 ```
+
+**Driver** pages don't need this — `DriverLayout` already applies the driver
+spec: content capped at 834px, centered, 20px margins on mobile and 32px from
+tablet up.
 
 ### Fonts
 
@@ -128,12 +153,12 @@ Loaded via Google Fonts in [`index.html`](index.html). Use `font-nunito` for hea
 ### Example
 
 ```tsx
-<div className="rounded-2xl border border-grey-300 bg-grey-150 p-6 shadow-card">
-  <h2 className="mb-1 text-grey-500">Route Generated</h2>
+<div className="border-grey-300 bg-grey-150 shadow-card rounded-2xl border p-6">
+  <h2 className="text-grey-500 mb-1">Route Generated</h2>
   <p className="text-p2 text-grey-400">Oct 20, 2025 at 10:42 AM</p>
-  <div className="mt-4 flex items-center gap-2 rounded-xl border border-success-stroke bg-success-fill px-4 py-3">
+  <div className="border-success-stroke bg-success-fill mt-4 flex items-center gap-2 rounded-xl border px-4 py-3">
     <span className="text-success-stroke">✓</span>
-    <p className="text-p2 font-semibold text-success-stroke">
+    <p className="text-p2 text-success-stroke font-semibold">
       All 12 stops assigned successfully.
     </p>
   </div>
@@ -160,13 +185,13 @@ The frontend talks to the backend through a TypeScript SDK generated from FastAP
 
 **Layout:**
 
-| Path                       | What it is                                                   | Commit? |
-| -------------------------- | ------------------------------------------------------------ | ------- |
-| `openapi.json`             | Snapshot of the backend's `/openapi.json`                    | yes     |
-| `openapi-ts.config.ts`     | Codegen config                                               | yes     |
-| `src/api/runtime.ts`       | Wires the generated client to reuse `src/lib/axiosClient.ts` | yes     |
-| `src/api/generated/`       | Auto-generated SDK + types + tanstack-query helpers          | yes     |
-| `src/api/*.ts`             | Hand-written hook layer that consumes the generated SDK      | yes     |
+| Path                   | What it is                                                   | Commit? |
+| ---------------------- | ------------------------------------------------------------ | ------- |
+| `openapi.json`         | Snapshot of the backend's `/openapi.json`                    | yes     |
+| `openapi-ts.config.ts` | Codegen config                                               | yes     |
+| `src/api/runtime.ts`   | Wires the generated client to reuse `src/lib/axiosClient.ts` | yes     |
+| `src/api/generated/`   | Auto-generated SDK + types + tanstack-query helpers          | yes     |
+| `src/api/*.ts`         | Hand-written hook layer that consumes the generated SDK      | yes     |
 
 `openapi.json` and `src/api/generated/` are both committed so fresh clones and CI work without a generate step. The snapshot also doubles as a human-readable changelog of the API contract — when a PR changes the backend, the diff in `openapi.json` shows the contract change.
 
@@ -224,4 +249,4 @@ docker compose down
 docker volume rm food4kids_frontend_node_modules
 docker compose up --build
 
-````
+```

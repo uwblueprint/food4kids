@@ -47,6 +47,7 @@ import {
   getLocationGroup,
   getLocationGroups,
   getLocations,
+  getMyDriverAssignments,
   getNoteChain,
   getNotes,
   getRoute,
@@ -179,6 +180,8 @@ import type {
   GetLocationsData,
   GetLocationsError,
   GetLocationsResponse,
+  GetMyDriverAssignmentsData,
+  GetMyDriverAssignmentsResponse,
   GetNoteChainData,
   GetNoteChainError,
   GetNoteChainResponse,
@@ -588,7 +591,7 @@ export const getDriverAssignmentsQueryKey = (
 /**
  * Get Driver Assignments
  *
- * Retrieve all driver assignments with pagination
+ * Retrieve all driver assignments with pagination (admin only). Drivers should use /me.
  */
 export const getDriverAssignmentsOptions = (
   options?: Options<GetDriverAssignmentsData>
@@ -653,7 +656,7 @@ export const getDriverAssignmentsInfiniteQueryKey = (
 /**
  * Get Driver Assignments
  *
- * Retrieve all driver assignments with pagination
+ * Retrieve all driver assignments with pagination (admin only). Drivers should use /me.
  */
 export const getDriverAssignmentsInfiniteOptions = (
   options?: Options<GetDriverAssignmentsData>
@@ -725,6 +728,39 @@ export const createDriverAssignmentMutation = (
   };
   return mutationOptions;
 };
+
+export const getMyDriverAssignmentsQueryKey = (
+  options?: Options<GetMyDriverAssignmentsData>
+) => createQueryKey('getMyDriverAssignments', options);
+
+/**
+ * Get My Driver Assignments
+ *
+ * Retrieve driver assignments for the currently authenticated driver.
+ *
+ * Drivers only: an admin's UID does not map to a driver record. Admins should
+ * use GET /driver-assignments/ for the full list.
+ */
+export const getMyDriverAssignmentsOptions = (
+  options?: Options<GetMyDriverAssignmentsData>
+) =>
+  queryOptions<
+    GetMyDriverAssignmentsResponse,
+    AxiosError<DefaultError>,
+    GetMyDriverAssignmentsResponse,
+    ReturnType<typeof getMyDriverAssignmentsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getMyDriverAssignments({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getMyDriverAssignmentsQueryKey(options),
+  });
 
 export const getSuggestedDriverQueryKey = (
   options: Options<GetSuggestedDriverData>

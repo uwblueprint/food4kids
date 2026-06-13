@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 from app.utilities.routes_utils import fetch_route_polyline
 
@@ -21,7 +22,9 @@ async def test_fetch_route_polyline_with_return() -> None:
     # Create mock locations
     loc1 = Location(
         location_group_id=uuid4(),
+        name="Test 1 Loc 1",
         contact_name="Test 1 Loc 1",
+        delivery_type=DeliveryTypeEnum.FAMILY,
         address="123 Test St",
         phone_number="123-456-7890",
         longitude=-80.50,
@@ -34,7 +37,9 @@ async def test_fetch_route_polyline_with_return() -> None:
 
     loc2 = Location(
         location_group_id=uuid4(),
+        name="Test 1 Loc 2",
         contact_name="Test 1 Loc 2",
+        delivery_type=DeliveryTypeEnum.FAMILY,
         address="124 Test St",
         phone_number="124-456-7890",
         longitude=-80.51,

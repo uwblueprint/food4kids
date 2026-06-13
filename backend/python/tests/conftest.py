@@ -15,6 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 from app import create_app
+from app.dependencies.auth import (
+    get_access_token,
+    require_admin,
+    require_driver,
+    require_driver_or_admin,
+    require_route_assigned_or_admin,
+    require_self_driver_or_admin,
+)
 from app.models import get_session
 
 # Set test environment
@@ -108,6 +116,16 @@ async def test_session(test_db_engine: Any) -> AsyncGenerator[AsyncSession, None
                 await transaction.rollback()
 
 
+def _apply_auth_overrides(app: Any) -> None:
+    """Override auth dependencies to bypass authentication in tests."""
+    app.dependency_overrides[get_access_token] = lambda: "test-token"
+    app.dependency_overrides[require_admin] = lambda: True
+    app.dependency_overrides[require_driver] = lambda: True
+    app.dependency_overrides[require_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_self_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_route_assigned_or_admin] = lambda: True
+
+
 @pytest.fixture(scope="function")
 def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
     """Create a test client with database session override."""
@@ -118,6 +136,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
         yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
+    _apply_auth_overrides(app)
 
     with TestClient(app) as test_client:
         yield test_client
@@ -135,6 +154,7 @@ async def async_client(
         yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
+    _apply_auth_overrides(app)
 
     from httpx import ASGITransport
 
@@ -164,6 +184,9 @@ async def client_with_overrides(
                 yield test_session
 
             app.dependency_overrides[get_session] = override_get_session
+            # Bypass auth like the other client fixtures; explicit overrides
+            # below can still replace individual auth dependencies.
+            _apply_auth_overrides(app)
             for dep, override in (overrides or {}).items():
                 app.dependency_overrides[dep] = override
 
@@ -274,8 +297,9 @@ def sample_location_data() -> dict[str, Any]:
     """Sample location data for testing. Callers must add a valid
     ``location_group_id`` (e.g. from the ``test_location_group`` fixture)."""
     return {
-        "school_name": "Central Elementary",
+        "name": "Central Elementary",
         "contact_name": "Jane Smith",
+        "delivery_type": "School",
         "address": "123 Main St, City, State 12345",
         "phone_number": "(555) 123-4567",
         "longitude": -122.4194,

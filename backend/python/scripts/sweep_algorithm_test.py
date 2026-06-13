@@ -106,7 +106,7 @@ def _location_plot_row(
     group: int | None,
     far_label: str,
 ) -> dict[str, object]:
-    name = location.school_name or location.contact_name
+    name = location.name
     is_far = far_label != "near"
     row: dict[str, object] = {
         "name": name,
@@ -129,7 +129,7 @@ def _print_far_summary(
     far_count = 0
     for loc in locations:
         label = _far_reason_label(algo, loc)
-        name = loc.school_name or loc.contact_name
+        name = loc.name
         metrics = algo._location_metrics(loc)
         if label != "near":
             far_count += 1
@@ -264,7 +264,7 @@ def _print_and_collect_rows(
                 print("  (empty cluster)")
                 continue
             for location in cluster:
-                name = location.school_name or location.contact_name
+                name = location.name
                 far_label = _far_reason_label(algo, location)
                 print(f"  • {name}" + (" [FAR]" if far_label != "near" else ""))
                 print(f"    {location.address}")

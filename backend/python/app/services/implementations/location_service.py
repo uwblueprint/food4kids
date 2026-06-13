@@ -117,27 +117,10 @@ class LocationService:
                 .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 .order_by(Location.created_at.desc())  # type: ignore[union-attr]
             )
-
             if delivery_type:
-                delivery_conditions: list[Any] = []
-                # A populated school_name is the primary distinction between
-                # school and family delivery locations.
-                if DeliveryTypeEnum.SCHOOL in delivery_type:
-                    delivery_conditions.append(
-                        and_(
-                            col(Location.school_name).isnot(None),
-                            col(Location.school_name) != "",
-                        )
-                    )
-                if DeliveryTypeEnum.FAMILY in delivery_type:
-                    delivery_conditions.append(
-                        or_(
-                            col(Location.school_name).is_(None),
-                            col(Location.school_name) == "",
-                        )
-                    )
-                if delivery_conditions:
-                    statement = statement.where(or_(*delivery_conditions))
+                statement = statement.where(
+                    Location.delivery_type.in_(delivery_type)  # type: ignore[attr-defined]
+                )
 
             if status_filter:
                 # RouteGroup.drive_date is stored as a naive local datetime, so compare it
@@ -461,8 +444,9 @@ class LocationService:
 
         return Location(
             location_group_id=location_data.location_group_id,
-            school_name=location_data.school_name,
+            name=location_data.name,
             contact_name=location_data.contact_name,
+            delivery_type=location_data.delivery_type,
             address=location_data.address,
             phone_number=location_data.phone_number,
             longitude=location_data.longitude,
@@ -542,7 +526,11 @@ class LocationService:
 
                 new_locations.append(
                     Location(
+                        name=entry.contact_name,
                         contact_name=entry.contact_name,
+                        # TODO: ingest should take delivery type as a parameter,
+                        # and replace this with the actual passed-in type.
+                        delivery_type=DeliveryTypeEnum.FAMILY,
                         address=geocode_result.formatted_address,
                         phone_number=entry.phone_number,
                         longitude=geocode_result.longitude,

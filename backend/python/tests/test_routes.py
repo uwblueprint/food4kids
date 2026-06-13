@@ -18,6 +18,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location, LocationState
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -308,14 +309,15 @@ class TestLocationRoutes:
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
-        """GET /locations filters school vs family locations by school_name."""
+        """GET /locations filters school vs family locations by delivery_type."""
         school_response = await async_client.post(
             "/locations/",
             json={
                 **sample_location_data,
                 "location_group_id": str(test_location_group.location_group_id),
-                "school_name": "Central Elementary",
+                "name": "Central Elementary",
                 "contact_name": "School Contact",
+                "delivery_type": "School",
                 "phone_number": "(555) 111-1111",
             },
         )
@@ -324,8 +326,9 @@ class TestLocationRoutes:
             json={
                 **sample_location_data,
                 "location_group_id": str(test_location_group.location_group_id),
-                "school_name": None,
+                "name": "Family Contact",
                 "contact_name": "Family Contact",
+                "delivery_type": "Family",
                 "phone_number": "(555) 222-2222",
             },
         )
@@ -361,32 +364,36 @@ class TestLocationRoutes:
         """GET /locations derives status from import state and future route usage."""
         scheduled_location = Location(
             location_group_id=test_location_group.location_group_id,
-            school_name=None,
+            name="Scheduled Family",
             contact_name="Scheduled Family",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="1 Scheduled St",
             phone_number="5551111111",
             state=LocationState.ACTIVE,
         )
         unscheduled_location = Location(
             location_group_id=test_location_group.location_group_id,
-            school_name=None,
+            name="Unscheduled Family",
             contact_name="Unscheduled Family",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="2 Unscheduled St",
             phone_number="5552222222",
             state=LocationState.ACTIVE,
         )
         inactive_location = Location(
             location_group_id=test_location_group.location_group_id,
-            school_name=None,
+            name="Inactive Family",
             contact_name="Inactive Family",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="3 Inactive St",
             phone_number="5553333333",
             state=LocationState.ARCHIVED,
         )
         archived_scheduled_location = Location(
             location_group_id=test_location_group.location_group_id,
-            school_name=None,
+            name="Archived Scheduled Family",
             contact_name="Archived Scheduled Family",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="4 Archived Scheduled St",
             phone_number="5554444444",
             state=LocationState.ARCHIVED,
@@ -485,24 +492,27 @@ class TestLocationRoutes:
         """GET /locations combines delivery type and status filters."""
         active_school_location = Location(
             location_group_id=test_location_group.location_group_id,
-            school_name="Central Elementary",
+            name="Central Elementary",
             contact_name="Active School",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="1 School St",
             phone_number="5555555555",
             state=LocationState.ACTIVE,
         )
         active_family_location = Location(
             location_group_id=test_location_group.location_group_id,
-            school_name=None,
+            name="Active Family",
             contact_name="Active Family",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="1 Family St",
             phone_number="5556666666",
             state=LocationState.ACTIVE,
         )
         unscheduled_school_location = Location(
             location_group_id=test_location_group.location_group_id,
-            school_name="Unscheduled Elementary",
+            name="Unscheduled Elementary",
             contact_name="Unscheduled School",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="2 School St",
             phone_number="5557777777",
             state=LocationState.ACTIVE,

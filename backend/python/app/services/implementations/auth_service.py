@@ -170,28 +170,6 @@ class AuthService:
             self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
             return False
 
-    async def is_authorized_by_driver_id(
-        self, session: AsyncSession, access_token: str, requested_driver_id: UUID
-    ) -> bool:
-        try:
-            decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True
-            )
-            token_driver_id = await self.driver_service.get_driver_id_by_auth_id(
-                session, decoded_id_token["uid"]
-            )
-            firebase_user: UserRecord = firebase_admin.auth.get_user(
-                decoded_id_token["uid"]
-            )
-            return bool(
-                firebase_user.email_verified and token_driver_id == requested_driver_id
-            )
-        except Exception as e:
-            self.logger.error(
-                f"Authorization by driver ID failed: {type(e).__name__}: {e!s}"
-            )
-            return False
-
     def is_authorized_by_email(self, access_token: str, requested_email: str) -> bool:
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(

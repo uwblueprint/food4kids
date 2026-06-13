@@ -26,7 +26,10 @@ class RouteBase(SQLModel):
     expires_at: datetime | None = Field(default=None)
     ends_at_warehouse: bool = Field(default=False)
     note_chain_id: UUID | None = Field(
-        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+        default=None,
+        foreign_key="note_chains.note_chain_id",
+        nullable=True,
+        ondelete="SET NULL",
     )
 
 

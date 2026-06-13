@@ -24,9 +24,9 @@ const DELIVERY_TYPES = ['School', 'Family'];
 
 const COLUMNS: Column<LocationRead>[] = [
   {
-    key: 'contact_name',
+    key: 'name',
     header: 'School / Last Name',
-    render: (row) => row.contact_name,
+    render: (row) => row.name,
   },
   { key: 'address', header: 'Address', render: (row) => row.address },
   {

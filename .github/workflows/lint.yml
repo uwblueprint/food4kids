@@ -54,10 +54,13 @@ jobs:
         working-directory: ./frontend
         run: pnpm format:check
 
-      - name: Type-check frontend
+      # `pnpm build` runs `tsc -b && vite build`, so this both type-checks and
+      # catches production-build-only failures (vite config, asset imports,
+      # build-time env usage) that tsc alone can't see.
+      - name: Build frontend
         if: steps.changes.outputs.frontend == 'true'
         working-directory: ./frontend
-        run: pnpm exec tsc -b --noEmit
+        run: pnpm build
 
 
       - name: Set up Python

@@ -6,7 +6,7 @@ export function TypekitSection() {
       <SectionHeader>Typekit</SectionHeader>
 
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
-        <div className="divide-grey-300 grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
+        <div className="divide-grey-300 tablet:grid-cols-3 tablet:divide-x tablet:divide-y-0 grid grid-cols-1 divide-y">
           {/* Column 1: Typeface & Weights */}
           <div className="min-w-0 p-6">
             <p className="text-p3 mb-3 font-semibold tracking-wider text-blue-300 uppercase">
