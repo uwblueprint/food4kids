@@ -42,6 +42,8 @@ class EmailDispatcher:
     ) -> None:
         """Send email(s) from template with variable substitution.
         Works for both one-off and batch sends, treating single-recipient strings and lists uniformly.
+        Attempts delivery to all recipients and collects per-recipient failures; if any sends
+        fail, a RuntimeError summarizing failed recipients is raised after all attempts.
         Raises ValueError if email_type is unknown or required context is missing
         """
         # Validate email type and context
@@ -69,7 +71,8 @@ class EmailDispatcher:
         # Normalize recipients to concrete list
         recipients: list[str] = [to] if isinstance(to, str) else list(to)
 
-        # Send to each recipient
+        # Send to each recipient, collecting failures but attempting all deliveries
+        failures: list[tuple[str, Exception]] = []
         for recipient_email in recipients:
             try:
                 self.email_service.send_email(
@@ -83,4 +86,13 @@ class EmailDispatcher:
                     f"Failed to send {email_type} email to {recipient_email}: {e!s}",
                     exc_info=True,
                 )
-                raise
+                failures.append((recipient_email, e))
+
+        if failures:
+            failed_addresses = [addr for addr, _ in failures]
+            self.logger.error(
+                f"Failed to send {email_type} email to {len(failures)} recipients: {failed_addresses}"
+            )
+            raise RuntimeError(
+                f"Failed to send {email_type} email to {len(failures)} recipients: {failed_addresses}"
+            )

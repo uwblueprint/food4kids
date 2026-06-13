@@ -31,15 +31,6 @@ class TemplateRenderer:
         try:
             template = self.env.get_template(template_name)
             rendered = template.render(context)
-            # Fallback: replace any literal placeholders (e.g. Date_To_Replace) with context values
-            # This supports older templates that used raw tokens instead of Jinja placeholders.
-            try:
-                for k, v in context.items():
-                    # Only replace simple string tokens; convert values to str
-                    rendered = rendered.replace(k, str(v))
-            except Exception:
-                # If replacement fails for any reason, continue with the rendered output
-                pass
             self.logger.debug(f"Successfully rendered template: {template_name}")
             return rendered
         except Exception as e:

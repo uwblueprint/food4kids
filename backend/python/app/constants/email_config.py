@@ -58,6 +58,9 @@ def validate_email_context(email_type: str, context: dict[str, Any]) -> None:
     """
     Checks if all required variables are present in the context dict. Raise ValueError if missing.
     """
+    if email_type not in EMAIL_TEMPLATES:
+        raise ValueError(f"Unknown email type: {email_type}")
+
     required_vars = set(EMAIL_TEMPLATES[email_type]["required_context"])
     provided_vars = set(context.keys())
     missing = sorted(required_vars - provided_vars)
@@ -66,4 +69,6 @@ def validate_email_context(email_type: str, context: dict[str, Any]) -> None:
 
 
 def get_email_template_config(email_type: str) -> EmailTemplateConfig:
+    if email_type not in EMAIL_TEMPLATES:
+        raise ValueError(f"Unknown email type: {email_type}")
     return EMAIL_TEMPLATES[email_type]
