@@ -30,6 +30,7 @@ MANDATORY_DELIVERY_PENALTY = 1_000_000
 DURATION_OVERRUN_COST_PER_HOUR = 100
 
 # Only integers are allowed in the payload, so we count 28 half boxes instead
+# One half box per child
 MAX_HALF_BOXES_PER_DRIVER = 28
 
 
@@ -138,7 +139,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                             "longitude": loc.longitude,
                         },
                         "duration": service_duration,
-                        "loadDemands": {"load": {"amount": str(loc.num_children)}},
+                        "loadDemands": {"load": {"amount": str(loc.num_children or 0)}},
                     }
                 ],
             }
