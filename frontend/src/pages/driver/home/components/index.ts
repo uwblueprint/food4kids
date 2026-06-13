@@ -1,2 +1,2 @@
 // Export Driver Home page components here
-export {};
+export { RouteMapView } from './RouteMapView';
