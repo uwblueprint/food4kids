@@ -1111,6 +1111,12 @@ class TestRouteRoutes:
         unassigned_again = await async_client.get("/routes?unassigned_only=true")
         assert route_id in {r["route_id"] for r in unassigned_again.json()["items"]}
 
+    # NOTE: the GET /routes driver_id filter is ownership-scoped (a driver can
+    # only see their own routes; admins may scope to any). Because that rule is
+    # enforced by an auth dependency, it's exercised end-to-end against the real
+    # auth stack in tests/test_auth_integration.py::TestGetRoutesDriverScoping
+    # rather than here (this module bypasses auth).
+
     @pytest.mark.asyncio
     async def test_update_route_not_found(self, async_client: AsyncClient) -> None:
         """PATCH /routes/{id} returns 404 for an unknown route."""

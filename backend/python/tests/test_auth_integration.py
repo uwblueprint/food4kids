@@ -35,7 +35,6 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -167,7 +166,9 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
     # --- upload (any driver/admin; feeds note + announcement attachments) ---
     ("POST", "/upload/"): Policy.DRIVER_OR_ADMIN,
-    ("DELETE", "/upload/{filename:path}"): Policy.DRIVER_OR_ADMIN,
+    # The route declares a :path converter (/upload/{filename:path}); the
+    # OpenAPI schema (our completeness source) renders it without the converter.
+    ("DELETE", "/upload/{filename}"): Policy.DRIVER_OR_ADMIN,
 }
 
 
@@ -239,6 +240,8 @@ def firebase_auth_mock() -> Iterator[None]:
 
 class Seed(SimpleNamespace):
     self_driver_id: Any
+    other_driver_id: Any
+    route_group_id: Any
     route_id: Any
 
 
@@ -279,6 +282,7 @@ async def seed(test_session: AsyncSession) -> Seed:
 
     await test_session.commit()
     await test_session.refresh(self_driver)
+    await test_session.refresh(other_driver)
     await test_session.refresh(route_group)
 
     # SELF is assigned to the route (via driver_id); OTHER is not.
@@ -293,9 +297,10 @@ async def seed(test_session: AsyncSession) -> Seed:
     await test_session.commit()
     await test_session.refresh(route)
 
-    _ = other_driver  # seeded so OTHER resolves to a real (non-owning) driver
     return Seed(
         self_driver_id=self_driver.driver_id,
+        other_driver_id=other_driver.driver_id,
+        route_group_id=route_group.route_group_id,
         route_id=route.route_id,
     )
 
@@ -407,11 +412,19 @@ def test_every_exposed_route_is_classified() -> None:
     test_route_auth_matrix above.
     """
     app = create_app()
+    # Enumerate exposed routes from the public OpenAPI schema rather than walking
+    # app.routes: FastAPI's internal route structure is version-sensitive (0.137
+    # nests included routers behind a lazy wrapper instead of flattening them
+    # into app.routes), but the generated schema's path+method map is the stable
+    # public contract for what the app exposes. Docs/openapi routes are not in
+    # the schema, which is exactly what we want (they carry no auth policy).
+    http_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+    schema = app.openapi()
     exposed = {
-        (method, route.path)
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        for method in route.methods - {"HEAD", "OPTIONS"}
+        (method.upper(), path)
+        for path, operations in schema["paths"].items()
+        for method in operations
+        if method.upper() in http_methods
     }
     registered = set(ROUTE_POLICIES)
 
@@ -427,3 +440,165 @@ def test_every_exposed_route_is_classified() -> None:
         "ROUTE_POLICIES has entries for routes that no longer exist — remove "
         "them:\n  " + "\n  ".join(f"{m} {p}" for m, p in sorted(stale))
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /routes driver-scoping (ownership *within* the DRIVER_OR_ADMIN role gate)
+# ---------------------------------------------------------------------------
+#
+# The auth matrix above only checks the role gate (any driver/admin may call
+# GET /routes). It does NOT exercise the driver_id query param, which carries a
+# finer-grained ownership rule resolved by resolve_route_list_driver_filter:
+# admins may scope to any driver (or omit it for all routes); a driver is always
+# scoped to their own routes and cannot read another driver's. These tests drive
+# the real app (auth NOT bypassed) to lock that rule in.
+
+
+@pytest_asyncio.fixture
+async def scoping_routes(test_session: AsyncSession, seed: Seed) -> dict[str, Any]:
+    """Alongside seed's self-assigned route, add an other-driver route and an
+    unassigned route in the same group, so a scoped query is distinguishable
+    from "all routes"."""
+    from app.models.route import Route
+
+    other_route = Route(
+        name="Other Route",
+        notes="",
+        length=4.0,
+        route_group_id=seed.route_group_id,
+        driver_id=seed.other_driver_id,
+    )
+    unassigned_route = Route(
+        name="Unassigned Route",
+        notes="",
+        length=5.0,
+        route_group_id=seed.route_group_id,
+    )
+    test_session.add_all([other_route, unassigned_route])
+    await test_session.commit()
+    await test_session.refresh(other_route)
+    await test_session.refresh(unassigned_route)
+    return {
+        "self_route_id": str(seed.route_id),
+        "other_route_id": str(other_route.route_id),
+        "unassigned_route_id": str(unassigned_route.route_id),
+    }
+
+
+def _route_ids(resp: Any) -> set[str]:
+    return {item["route_id"] for item in resp.json()["items"]}
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("firebase_auth_mock")
+class TestGetRoutesDriverScoping:
+    """Ownership rules for the GET /routes driver_id filter."""
+
+    async def test_driver_unscoped_sees_only_own_routes(
+        self, auth_client: AsyncClient, scoping_routes: dict[str, Any]
+    ) -> None:
+        """A driver omitting driver_id is auto-scoped to themselves — they get
+        their own route, not the other driver's or the unassigned one."""
+        resp = await auth_client.get("/routes", headers=_HEADERS[Actor.SELF])
+        assert resp.status_code == 200
+        ids = _route_ids(resp)
+        assert ids == {scoping_routes["self_route_id"]}
+
+    async def test_driver_scoped_to_self_is_allowed(
+        self, auth_client: AsyncClient, seed: Seed, scoping_routes: dict[str, Any]
+    ) -> None:
+        """A driver may pass their own driver_id explicitly."""
+        resp = await auth_client.get(
+            "/routes",
+            params={"driver_id": str(seed.self_driver_id)},
+            headers=_HEADERS[Actor.SELF],
+        )
+        assert resp.status_code == 200
+        assert _route_ids(resp) == {scoping_routes["self_route_id"]}
+
+    async def test_driver_cannot_request_another_drivers_routes(
+        self,
+        auth_client: AsyncClient,
+        seed: Seed,
+        scoping_routes: dict[str, Any],  # noqa: ARG002
+    ) -> None:
+        """A driver passing another driver's id is rejected with 403 (not
+        silently re-scoped, and never returning the other driver's routes)."""
+        resp = await auth_client.get(
+            "/routes",
+            params={"driver_id": str(seed.other_driver_id)},
+            headers=_HEADERS[Actor.SELF],
+        )
+        assert resp.status_code == 403
+
+    async def test_admin_can_scope_to_any_driver(
+        self, auth_client: AsyncClient, seed: Seed, scoping_routes: dict[str, Any]
+    ) -> None:
+        """An admin may scope to an arbitrary driver and gets exactly that
+        driver's routes."""
+        resp = await auth_client.get(
+            "/routes",
+            params={"driver_id": str(seed.other_driver_id)},
+            headers=_HEADERS[Actor.ADMIN],
+        )
+        assert resp.status_code == 200
+        assert _route_ids(resp) == {scoping_routes["other_route_id"]}
+
+    async def test_admin_unscoped_sees_all_routes(
+        self, auth_client: AsyncClient, scoping_routes: dict[str, Any]
+    ) -> None:
+        """An admin omitting driver_id sees every route regardless of
+        assignment."""
+        resp = await auth_client.get("/routes", headers=_HEADERS[Actor.ADMIN])
+        assert resp.status_code == 200
+        ids = _route_ids(resp)
+        assert ids == {
+            scoping_routes["self_route_id"],
+            scoping_routes["other_route_id"],
+            scoping_routes["unassigned_route_id"],
+        }
+
+    async def test_driver_unassigned_only_is_rejected(
+        self,
+        auth_client: AsyncClient,
+        scoping_routes: dict[str, Any],  # noqa: ARG002
+    ) -> None:
+        """A driver is auto-scoped to themselves, so unassigned_only (which
+        means driver_id IS NULL) is contradictory and rejected with 400 — a
+        driver can never list unassigned routes."""
+        resp = await auth_client.get(
+            "/routes",
+            params={"unassigned_only": "true"},
+            headers=_HEADERS[Actor.SELF],
+        )
+        assert resp.status_code == 400
+
+    async def test_admin_unassigned_only_with_driver_id_is_rejected(
+        self,
+        auth_client: AsyncClient,
+        seed: Seed,
+        scoping_routes: dict[str, Any],  # noqa: ARG002
+    ) -> None:
+        """unassigned_only + an explicit driver scope is contradictory -> 400."""
+        resp = await auth_client.get(
+            "/routes",
+            params={
+                "unassigned_only": "true",
+                "driver_id": str(seed.other_driver_id),
+            },
+            headers=_HEADERS[Actor.ADMIN],
+        )
+        assert resp.status_code == 400
+
+    async def test_admin_unassigned_only_alone_is_allowed(
+        self, auth_client: AsyncClient, scoping_routes: dict[str, Any]
+    ) -> None:
+        """unassigned_only without a driver scope still works for admins and
+        returns only the unassigned route."""
+        resp = await auth_client.get(
+            "/routes",
+            params={"unassigned_only": "true"},
+            headers=_HEADERS[Actor.ADMIN],
+        )
+        assert resp.status_code == 200
+        assert _route_ids(resp) == {scoping_routes["unassigned_route_id"]}

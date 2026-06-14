@@ -48,12 +48,14 @@ class RouteService:
         start_date: str | None = None,
         end_date: str | None = None,
         pagination: PaginationParams | None = None,
+        driver_id: UUID | None = None,
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
 
-        unassigned_only filters to routes with no driver_id. The date range
-        filters on the route's RouteGroup.drive_date.
+        unassigned_only filters to routes with no driver_id. driver_id filters
+        to routes assigned to that specific driver (powers the driver homepage
+        feed). The date range filters on the route's RouteGroup.drive_date.
         """
         statement = select(Route, RouteGroup.drive_date).join(
             RouteGroup,
@@ -69,6 +71,9 @@ class RouteService:
 
         if unassigned_only:
             statement = statement.where(col(Route.driver_id).is_(None))
+
+        if driver_id is not None:
+            statement = statement.where(Route.driver_id == driver_id)
 
         statement = statement.order_by(RouteGroup.drive_date, Route.name)  # type: ignore[arg-type]
 

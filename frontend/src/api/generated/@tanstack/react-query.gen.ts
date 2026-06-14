@@ -1816,6 +1816,11 @@ export const getRoutesQueryKey = (options?: Options<GetRoutesData>) =>
  * Returns routes with their drive dates - routes can appear multiple times for different dates.
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
+ *
+ * Requires a driver or admin caller.
+ * Admins may scope to any driver via driver_id (or omit it for all routes).
+ * Drivers are always scoped to their own routes: omitting driver_id returns
+ * their own routes, and requesting another driver's is rejected.
  */
 export const getRoutesOptions = (options?: Options<GetRoutesData>) =>
   queryOptions<
@@ -1848,6 +1853,11 @@ export const getRoutesInfiniteQueryKey = (
  * Returns routes with their drive dates - routes can appear multiple times for different dates.
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
+ *
+ * Requires a driver or admin caller.
+ * Admins may scope to any driver via driver_id (or omit it for all routes).
+ * Drivers are always scoped to their own routes: omitting driver_id returns
+ * their own routes, and requesting another driver's is rejected.
  */
 export const getRoutesInfiniteOptions = (options?: Options<GetRoutesData>) =>
   infiniteQueryOptions<
