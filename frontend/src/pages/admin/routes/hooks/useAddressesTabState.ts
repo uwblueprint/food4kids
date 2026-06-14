@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
-import type { LocationRead } from '@/api/generated/types.gen';
+import type { LocationReadOutput } from '@/api/generated/types.gen';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
 
@@ -21,7 +21,7 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
 });
 
 export interface AddressesTabState {
-  rows: LocationRead[];
+  rows: LocationReadOutput[];
   isLoading: boolean;
   search: UseSearchReturn;
   filterOpen: boolean;

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from collections.abc import Iterable
 from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, TypeGuard
@@ -30,14 +31,14 @@ from app.models.location import (
     LocationIngestRequest,
     LocationIngestResponse,
     LocationRead,
-    LocationState,
     LocationUpdate,
     ValidatedLocationImportEntry,
 )
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
+from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
@@ -80,13 +81,25 @@ class LocationService:
         self.system_settings_service = system_settings_service
         self.timezone = ZoneInfo(settings.scheduler_timezone)
 
+    def _today_start(self) -> datetime:
+        """Midnight at the start of today in the project's configured timezone.
+
+        Naive datetime to match how drive_date is stored (drive_date columns
+        are naive — see RouteGroup).
+        """
+        return datetime.now(self.timezone).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+        )
+
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
     ) -> Location:
-        """Get location by ID - returns SQLModel instance"""
+        """Get location by ID - returns SQLModel instance.
+
+        Eager-loads location_group so LocationRead.location_group_name can be
+        accessed without an (illegal) async lazy load.
+        """
         try:
-            # Eager-load location_group so LocationRead.location_group_name can be
-            # read without an (illegal) lazy load on the async session.
             statement = (
                 select(Location)
                 .where(Location.location_id == location_id)
@@ -103,70 +116,93 @@ class LocationService:
             self.logger.error(f"Failed to get location by id: {e!s}")
             raise e
 
+    async def get_location_read_by_id(
+        self, session: AsyncSession, location_id: UUID
+    ) -> LocationRead:
+        """Get a LocationRead with derived status populated.
+
+        Wraps get_location_by_id with a single-row has_future_route lookup so
+        the response includes the three-state status that the list endpoint
+        already does. Use this from routers that respond with LocationRead.
+        """
+        location = await self.get_location_by_id(session, location_id)
+        future_set = await self.load_has_future_route_set(session, [location_id])
+        return self._to_read(location, has_future_route=location_id in future_set)
+
     async def get_locations(
         self,
         session: AsyncSession,
         pagination: PaginationParams,
         delivery_type: list[DeliveryTypeEnum] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
-    ) -> PaginatedResponse[Location]:
-        """Get paginated locations - returns PaginatedResponse of SQLModel instances"""
+    ) -> PaginatedResponse[LocationRead]:
+        """Get paginated locations.
+
+        Returns LocationRead objects with the derived ``status`` populated.
+        Surfaces every location (no implicit ACTIVE-only filter); the
+        three-state status (Active / Unscheduled / Inactive) is computed
+        from in_roster + whether the location appears in a present/future
+        route. Callers can narrow via the optional ``status_filter`` and
+        ``delivery_type`` query params.
+        """
         try:
             statement = (
                 select(Location)
                 .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 .order_by(Location.created_at.desc())  # type: ignore[union-attr]
             )
+
             if delivery_type:
                 statement = statement.where(
                     Location.delivery_type.in_(delivery_type)  # type: ignore[attr-defined]
                 )
 
             if status_filter:
-                # RouteGroup.drive_date is stored as a naive local datetime, so compare it
-                # against the start of the current local day with timezone info removed.
-                today_start = datetime.now(self.timezone).replace(
-                    hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-                )
-                scheduled_query = (
+                today_start = self._today_start()
+                # Subquery: this location has a stop in a route whose group's
+                # drive_date is today/future AND the route isn't yet frozen.
+                is_scheduled = (
                     select(1)
                     .select_from(RouteStop)
-                    .join(
-                        RouteGroupMembership,
-                        RouteStop.route_id == RouteGroupMembership.route_id,  # type: ignore[arg-type]
-                    )
+                    .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
                     .join(
                         RouteGroup,
-                        RouteGroupMembership.route_group_id
-                        == RouteGroup.route_group_id,  # type: ignore[arg-type]
+                        RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
                     )
-                    .where(
-                        RouteStop.location_id == Location.location_id,
-                        RouteGroup.drive_date >= today_start,
+                    .outerjoin(
+                        RouteSnapshot,
+                        RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
                     )
+                    .where(RouteStop.location_id == Location.location_id)
+                    .where(RouteGroup.drive_date >= today_start)
+                    .where(col(RouteSnapshot.route_id).is_(None))
+                    .exists()
                 )
-                is_scheduled = scheduled_query.exists()
                 status_conditions: list[Any] = []
                 if LocationStatusEnum.ACTIVE in status_filter:
                     status_conditions.append(is_scheduled)
                 if LocationStatusEnum.UNSCHEDULED in status_filter:
                     status_conditions.append(
-                        and_(col(Location.state) == LocationState.ACTIVE, ~is_scheduled)
+                        and_(col(Location.in_roster).is_(True), ~is_scheduled)
                     )
                 if LocationStatusEnum.INACTIVE in status_filter:
                     status_conditions.append(
-                        and_(
-                            col(Location.state) == LocationState.ARCHIVED,
-                            ~is_scheduled,
-                        )
+                        and_(col(Location.in_roster).is_(False), ~is_scheduled)
                     )
                 if status_conditions:
                     statement = statement.where(or_(*status_conditions))
 
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
+            future_set = await self.load_has_future_route_set(
+                session, [loc.location_id for loc in items]
+            )
+            reads = [
+                self._to_read(loc, has_future_route=loc.location_id in future_set)
+                for loc in items
+            ]
             return PaginatedResponse.create(
-                items=items,
+                items=reads,
                 total=total,
                 page=pagination.page,
                 page_size=pagination.page_size,
@@ -174,6 +210,45 @@ class LocationService:
         except Exception as e:
             self.logger.error(f"Failed to get locations: {e!s}")
             raise e
+
+    async def load_has_future_route_set(
+        self, session: AsyncSession, location_ids: Iterable[UUID]
+    ) -> set[UUID]:
+        """Return the subset of ``location_ids`` that appear in any present/
+        future route — i.e. a RouteStop whose Route is in a RouteGroup with
+        drive_date >= today AND that Route is not yet frozen (no RouteSnapshot).
+
+        One indexed query rather than per-location N+1.
+        """
+        ids = list(location_ids)
+        if not ids:
+            return set()
+        today_start = self._today_start()
+        statement = (
+            select(RouteStop.location_id)
+            .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+            .outerjoin(
+                RouteSnapshot,
+                RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
+            )
+            .where(col(RouteStop.location_id).in_(ids))
+            .where(RouteGroup.drive_date >= today_start)
+            .where(col(RouteSnapshot.route_id).is_(None))
+            .distinct()
+        )
+        result = await session.execute(statement)
+        return {row[0] for row in result.all()}
+
+    def _to_read(self, loc: Location, has_future_route: bool) -> LocationRead:
+        """Build a LocationRead with the derived has_future_route populated.
+
+        Status is then a @computed_field on LocationRead; no separate work
+        needed at the service layer.
+        """
+        read = LocationRead.model_validate(loc, from_attributes=True)
+        read.has_future_route = has_future_route
+        return read
 
     async def create_location(
         self, session: AsyncSession, location_data: LocationCreate
@@ -446,7 +521,6 @@ class LocationService:
             location_group_id=location_data.location_group_id,
             name=location_data.name,
             contact_name=location_data.contact_name,
-            delivery_type=location_data.delivery_type,
             address=location_data.address,
             phone_number=location_data.phone_number,
             longitude=location_data.longitude,
@@ -456,15 +530,21 @@ class LocationService:
             dietary_restrictions=location_data.dietary_restrictions,
             num_children=location_data.num_children,
             num_boxes=location_data.num_boxes,
+            delivery_type=location_data.delivery_type,
+            in_roster=location_data.in_roster,
             notes=location_data.notes,
         )
 
     async def ingest_locations(
         self, session: AsyncSession, request: LocationIngestRequest
     ) -> LocationIngestResponse:
-        """Persist net-new locations and archive stale ones."""
+        """Persist net-new locations and mark stale ones out-of-roster.
+
+        Stale rows are not deleted — they keep their note_chain so a future
+        reappearance can revive them.
+        """
         try:
-            # Fetch and archive stale locations in one SELECT IN
+            # Fetch and mark stale locations out-of-roster in one SELECT IN
             stale_ids = [loc.location_id for loc in request.stale]
             stale_db_rows: list[Location] = []
             if stale_ids:
@@ -473,12 +553,24 @@ class LocationService:
                 )
                 stale_db_rows = list(result.scalars().all())
                 for loc in stale_db_rows:
-                    loc.state = LocationState.ARCHIVED
+                    loc.in_roster = False
 
-            archived = [LocationRead.model_validate(loc) for loc in stale_db_rows]
+            archived = [
+                self._to_read(loc, has_future_route=False) for loc in stale_db_rows
+            ]
 
             if not request.net_new:
                 await session.commit()
+                # Recompute has_future_route for archived locations now that
+                # we've committed (their roster bit changed, but route stops
+                # didn't, so the answer is the same — we just want it accurate).
+                future_set = await self.load_has_future_route_set(
+                    session, [loc.location_id for loc in stale_db_rows]
+                )
+                archived = [
+                    self._to_read(loc, has_future_route=loc.location_id in future_set)
+                    for loc in stale_db_rows
+                ]
                 return LocationIngestResponse(created=[], archived=archived)
 
             # Geocode all addresses concurrently
@@ -499,7 +591,8 @@ class LocationService:
                 {
                     entry.delivery_group
                     for entry in request.net_new
-                    if entry.delivery_group not in group_by_name
+                    if entry.delivery_group
+                    and entry.delivery_group not in group_by_name
                 }
             )
             for name in needed_names:
@@ -528,9 +621,6 @@ class LocationService:
                     Location(
                         name=entry.contact_name,
                         contact_name=entry.contact_name,
-                        # TODO: ingest should take delivery type as a parameter,
-                        # and replace this with the actual passed-in type.
-                        delivery_type=DeliveryTypeEnum.FAMILY,
                         address=geocode_result.formatted_address,
                         phone_number=entry.phone_number,
                         longitude=geocode_result.longitude,
@@ -539,6 +629,8 @@ class LocationService:
                         halal=entry.halal or False,
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_boxes=entry.num_boxes or 0,
+                        delivery_type=request.delivery_type,
+                        in_roster=True,
                         note_chain_id=note_chain.note_chain_id,
                         location_group_id=group_by_name[
                             entry.delivery_group
@@ -553,9 +645,22 @@ class LocationService:
             for loc in new_locations:
                 await session.refresh(loc)
 
+            # Newly-created locations have no route stops yet, so
+            # has_future_route is False by definition; same logic as before
+            # for the (newly-marked) stale set.
+            stale_future_set = await self.load_has_future_route_set(
+                session, [loc.location_id for loc in stale_db_rows]
+            )
             return LocationIngestResponse(
-                created=[LocationRead.model_validate(loc) for loc in new_locations],
-                archived=archived,
+                created=[
+                    self._to_read(loc, has_future_route=False) for loc in new_locations
+                ],
+                archived=[
+                    self._to_read(
+                        loc, has_future_route=loc.location_id in stale_future_set
+                    )
+                    for loc in stale_db_rows
+                ],
             )
         except Exception as e:
             self.logger.error(f"Failed to ingest locations: {e!s}")

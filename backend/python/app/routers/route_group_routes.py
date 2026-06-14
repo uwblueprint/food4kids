@@ -57,7 +57,6 @@ async def get_route_groups(
             delivery_type,
             route_status,
             driver_assignment_status,
-            include_routes,
         )
         result = []
         for route_group in route_groups:
@@ -67,18 +66,12 @@ async def get_route_groups(
             if include_routes:
                 data["routes"] = [
                     {
-                        "route_id": membership.route.route_id
-                        if membership.route
-                        else None,
-                        "name": membership.route.name
-                        if membership.route
-                        else "No route",
-                        "notes": membership.route.notes
-                        if membership.route
-                        else "No notes",
-                        "length": membership.route.length if membership.route else 0,
+                        "route_id": route.route_id,
+                        "name": route.name,
+                        "notes": route.notes,
+                        "length": route.length,
                     }
-                    for membership in route_group.route_group_memberships
+                    for route in route_group.routes
                 ]
             else:
                 data["routes"] = []

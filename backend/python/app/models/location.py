@@ -2,21 +2,15 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from pydantic import computed_field
 from sqlmodel import Field, Relationship, SQLModel, String
 
 from .base import BaseModel
-from .enum import DeliveryTypeEnum
+from .enum import DeliveryTypeEnum, LocationStatusEnum
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
     from .note_chain import NoteChain
-
-
-class LocationState(str, Enum):
-    """State of a location"""
-
-    ACTIVE = "ACTIVE"
-    ARCHIVED = "ARCHIVED"
 
 
 class LocationBase(SQLModel):
@@ -27,7 +21,6 @@ class LocationBase(SQLModel):
     )
     name: str
     contact_name: str
-    delivery_type: DeliveryTypeEnum = Field(sa_type=String)
     address: str
     phone_number: str
     longitude: float | None = None
@@ -37,7 +30,15 @@ class LocationBase(SQLModel):
     place_id: str | None = None
     num_children: int | None = None
     num_boxes: int = Field(default=0)
-    state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
+    # Kind of recipient (School/Family). Required — no default — per main's
+    # rename/persist migration; enforced uniform within a RouteGroup at
+    # generation time.
+    delivery_type: DeliveryTypeEnum = Field(sa_type=String)
+    # Stored bit: was this location in the most recent relevant spreadsheet
+    # upload? The user-facing three-state status (Active/Unscheduled/Inactive)
+    # is derived from this plus whether the location appears in a present/
+    # future route — see LocationRead.status.
+    in_roster: bool = Field(default=True)
     notes: str = Field(default="")
     note_chain_id: UUID | None = Field(
         default=None,
@@ -123,7 +124,8 @@ class NetNewEntry(SQLModel):
 
 
 class StaleEntry(SQLModel):
-    """An existing location not present in the import; would be archived on ingest."""
+    """An existing location not present in the import; would be set
+    in_roster=False on ingest."""
 
     location_id: UUID
     contact_name: str
@@ -184,10 +186,27 @@ class LocationCreate(LocationBase):
 
 
 class LocationRead(LocationBase):
-    """Read response model"""
+    """Read response model.
+
+    `has_future_route` is populated by the service layer (one batched query
+    against route_stops + route_groups), and `status` is derived from it +
+    in_roster. See LocationStatusEnum for the precedence rule.
+    """
 
     location_id: UUID
     location_group_name: str
+    # Populated by the service; defaulted to False so single-row construction
+    # without a service round-trip still works (will report UNSCHEDULED/INACTIVE).
+    has_future_route: bool = False
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> LocationStatusEnum:
+        if self.has_future_route:
+            return LocationStatusEnum.ACTIVE
+        if self.in_roster:
+            return LocationStatusEnum.UNSCHEDULED
+        return LocationStatusEnum.INACTIVE
 
 
 class LocationUpdate(SQLModel):
@@ -196,7 +215,6 @@ class LocationUpdate(SQLModel):
     location_group_id: UUID | None = None
     name: str | None = None
     contact_name: str | None = None
-    delivery_type: DeliveryTypeEnum | None = None
     address: str | None = None
     phone_number: str | None = None
     longitude: float | None = None
@@ -206,11 +224,17 @@ class LocationUpdate(SQLModel):
     place_id: str | None = None
     num_children: int | None = None
     num_boxes: int | None = None
+    delivery_type: DeliveryTypeEnum | None = None
+    in_roster: bool | None = None
     notes: str | None = None
     note_chain_id: UUID | None = None
 
 
 class LocationIngestRequest(SQLModel):
+    """Ingest request — `delivery_type` applies to every net-new row in this
+    import (one Apricot sheet = one delivery type)."""
+
+    delivery_type: DeliveryTypeEnum
     net_new: list[ValidatedLocationImportEntry]
     stale: list[LocationRead]
 

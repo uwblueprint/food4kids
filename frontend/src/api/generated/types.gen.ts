@@ -235,6 +235,9 @@ export type ChangedFieldStr = {
 
 /**
  * DeliveryTypeEnum
+ *
+ * Kind of recipient at a Location — set per location, enforced uniform
+ * within a RouteGroup at generation time.
  */
 export type DeliveryTypeEnum = 'School' | 'Family';
 
@@ -244,73 +247,12 @@ export type DeliveryTypeEnum = 'School' | 'Family';
 export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
 
 /**
- * DriverAssignmentCreate
- *
- * Create request model
- */
-export type DriverAssignmentCreate = {
-  /**
-   * Driver Id
-   */
-  driver_id: string;
-  /**
-   * Route Group Id
-   */
-  route_group_id: string;
-  /**
-   * Route Id
-   */
-  route_id: string;
-  /**
-   * Time
-   */
-  time: string;
-};
-
-/**
- * DriverAssignmentRead
- *
- * Read response model
- */
-export type DriverAssignmentRead = {
-  /**
-   * Driver Assignment Id
-   */
-  driver_assignment_id: string;
-  /**
-   * Driver Id
-   */
-  driver_id: string;
-  /**
-   * Route Group Id
-   */
-  route_group_id: string;
-  /**
-   * Route Id
-   */
-  route_id: string;
-  /**
-   * Time
-   */
-  time: string;
-};
-
-/**
  * DriverAssignmentStatusEnum
+ *
+ * Whether the routes in a RouteGroup have drivers assigned (read from
+ * Route.driver_id).
  */
 export type DriverAssignmentStatusEnum = 'Assigned' | 'Unassigned';
-
-/**
- * DriverAssignmentUpdate
- *
- * Update request model
- */
-export type DriverAssignmentUpdate = {
-  /**
-   * Time
-   */
-  time?: string | null;
-};
 
 /**
  * DriverHistoryCreate
@@ -577,6 +519,10 @@ export type LocationCreate = {
    */
   halal?: boolean;
   /**
+   * In Roster
+   */
+  in_roster?: boolean;
+  /**
    * Latitude
    */
   latitude?: number | null;
@@ -616,7 +562,6 @@ export type LocationCreate = {
    * Place Id
    */
   place_id?: string | null;
-  state?: LocationState;
 };
 
 /**
@@ -812,8 +757,12 @@ export type LocationImportRow = {
 
 /**
  * LocationIngestRequest
+ *
+ * Ingest request — `delivery_type` applies to every net-new row in this
+ * import (one Apricot sheet = one delivery type).
  */
 export type LocationIngestRequest = {
+  delivery_type: DeliveryTypeEnum;
   /**
    * Net New
    */
@@ -821,7 +770,7 @@ export type LocationIngestRequest = {
   /**
    * Stale
    */
-  stale: Array<LocationRead>;
+  stale: Array<LocationReadInput>;
 };
 
 /**
@@ -831,19 +780,23 @@ export type LocationIngestResponse = {
   /**
    * Archived
    */
-  archived: Array<LocationRead>;
+  archived: Array<LocationReadOutput>;
   /**
    * Created
    */
-  created: Array<LocationRead>;
+  created: Array<LocationReadOutput>;
 };
 
 /**
  * LocationRead
  *
- * Read response model
+ * Read response model.
+ *
+ * `has_future_route` is populated by the service layer (one batched query
+ * against route_stops + route_groups), and `status` is derived from it +
+ * in_roster. See LocationStatusEnum for the precedence rule.
  */
-export type LocationRead = {
+export type LocationReadInput = {
   /**
    * Address
    */
@@ -861,6 +814,14 @@ export type LocationRead = {
    * Halal
    */
   halal?: boolean;
+  /**
+   * Has Future Route
+   */
+  has_future_route?: boolean;
+  /**
+   * In Roster
+   */
+  in_roster?: boolean;
   /**
    * Latitude
    */
@@ -909,18 +870,101 @@ export type LocationRead = {
    * Place Id
    */
   place_id?: string | null;
-  state?: LocationState;
 };
 
 /**
- * LocationState
+ * LocationRead
  *
- * State of a location
+ * Read response model.
+ *
+ * `has_future_route` is populated by the service layer (one batched query
+ * against route_stops + route_groups), and `status` is derived from it +
+ * in_roster. See LocationStatusEnum for the precedence rule.
  */
-export type LocationState = 'ACTIVE' | 'ARCHIVED';
+export type LocationReadOutput = {
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  delivery_type: DeliveryTypeEnum;
+  /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string;
+  /**
+   * Halal
+   */
+  halal?: boolean;
+  /**
+   * Has Future Route
+   */
+  has_future_route?: boolean;
+  /**
+   * In Roster
+   */
+  in_roster?: boolean;
+  /**
+   * Latitude
+   */
+  latitude?: number | null;
+  /**
+   * Location Group Id
+   */
+  location_group_id: string;
+  /**
+   * Location Group Name
+   */
+  location_group_name: string;
+  /**
+   * Location Id
+   */
+  location_id: string;
+  /**
+   * Longitude
+   */
+  longitude?: number | null;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Notes
+   */
+  notes?: string;
+  /**
+   * Num Boxes
+   */
+  num_boxes?: number;
+  /**
+   * Num Children
+   */
+  num_children?: number | null;
+  /**
+   * Phone Number
+   */
+  phone_number: string;
+  /**
+   * Place Id
+   */
+  place_id?: string | null;
+  readonly status: LocationStatusEnum;
+};
 
 /**
  * LocationStatusEnum
+ *
+ * Derived status surfaced on LocationRead. Not stored — computed from
+ * Location.in_roster + whether the location appears in a present/future
+ * route. Precedence: any present/future route → ACTIVE (regardless of
+ * roster); otherwise in_roster → UNSCHEDULED; otherwise → INACTIVE.
  */
 export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 
@@ -947,6 +991,10 @@ export type LocationUpdate = {
    * Halal
    */
   halal?: boolean | null;
+  /**
+   * In Roster
+   */
+  in_roster?: boolean | null;
   /**
    * Latitude
    */
@@ -1143,39 +1191,13 @@ export type NoteUpdate = {
 };
 
 /**
- * PaginatedResponse[DriverAssignmentRead]
- */
-export type PaginatedResponseDriverAssignmentRead = {
-  /**
-   * Items
-   */
-  items: Array<DriverAssignmentRead>;
-  /**
-   * Page
-   */
-  page: number;
-  /**
-   * Page Size
-   */
-  page_size: number;
-  /**
-   * Total
-   */
-  total: number;
-  /**
-   * Total Pages
-   */
-  total_pages: number;
-};
-
-/**
  * PaginatedResponse[LocationRead]
  */
 export type PaginatedResponseLocationRead = {
   /**
    * Items
    */
-  items: Array<LocationRead>;
+  items: Array<LocationReadOutput>;
   /**
    * Page
    */
@@ -1244,9 +1266,17 @@ export type RefreshResponse = {
  */
 export type Route = {
   /**
+   * Cloned From Route Id
+   */
+  cloned_from_route_id?: string | null;
+  /**
    * Created At
    */
   created_at?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
   /**
    * Encoded Polyline
    */
@@ -1255,10 +1285,6 @@ export type Route = {
    * Ends At Warehouse
    */
   ends_at_warehouse?: boolean;
-  /**
-   * Expires At
-   */
-  expires_at?: string | null;
   /**
    * Length
    */
@@ -1280,9 +1306,17 @@ export type Route = {
    */
   polyline_updated_at?: string | null;
   /**
+   * Route Group Id
+   */
+  route_group_id: string;
+  /**
    * Route Id
    */
   route_id?: string;
+  /**
+   * Start Time
+   */
+  start_time?: string | null;
   /**
    * Updated At
    */
@@ -1422,6 +1456,10 @@ export type RouteGroupUpdate = {
  */
 export type RoutePatchRequest = {
   /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Location Ids
    */
   location_ids?: Array<string> | null;
@@ -1433,6 +1471,10 @@ export type RoutePatchRequest = {
    * Notes
    */
   notes?: string | null;
+  /**
+   * Start Time
+   */
+  start_time?: string | null;
 };
 
 /**
@@ -1442,6 +1484,14 @@ export type RoutePatchRequest = {
  */
 export type RouteRead = {
   /**
+   * Cloned From Route Id
+   */
+  cloned_from_route_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Encoded Polyline
    */
   encoded_polyline?: string | null;
@@ -1449,10 +1499,6 @@ export type RouteRead = {
    * Ends At Warehouse
    */
   ends_at_warehouse?: boolean;
-  /**
-   * Expires At
-   */
-  expires_at?: string | null;
   /**
    * Length
    */
@@ -1474,9 +1520,17 @@ export type RouteRead = {
    */
   polyline_updated_at?: string | null;
   /**
+   * Route Group Id
+   */
+  route_group_id: string;
+  /**
    * Route Id
    */
   route_id: string;
+  /**
+   * Start Time
+   */
+  start_time?: string | null;
 };
 
 /**
@@ -1487,7 +1541,10 @@ export type RouteStatusEnum = 'Upcoming' | 'Completed' | 'Archived';
 /**
  * RouteWithDateRead
  *
- * Read response model for routes with drive date information
+ * Read response model for routes with drive date information.
+ *
+ * drive_date is sourced from RouteGroup.drive_date via the route_group
+ * relationship.
  */
 export type RouteWithDateRead = {
   /**
@@ -1515,7 +1572,8 @@ export type RouteWithDateRead = {
 /**
  * StaleEntry
  *
- * An existing location not present in the import; would be archived on ingest.
+ * An existing location not present in the import; would be set
+ * in_roster=False on ingest.
  */
 export type StaleEntry = {
   /**
@@ -1543,7 +1601,8 @@ export type StaleEntry = {
 /**
  * SuggestedDriverResponse
  *
- * Response model for suggested driver (last assigned to a route).
+ * A driver suggested for a route (most familiar with its locations from
+ * past completed deliveries).
  */
 export type SuggestedDriverResponse = {
   /**
@@ -1670,6 +1729,131 @@ export type ValidationError = {
    * Error Type
    */
   type: string;
+};
+
+/**
+ * LocationIngestResponse
+ */
+export type LocationIngestResponseWritable = {
+  /**
+   * Archived
+   */
+  archived: Array<LocationReadOutputWritable>;
+  /**
+   * Created
+   */
+  created: Array<LocationReadOutputWritable>;
+};
+
+/**
+ * LocationRead
+ *
+ * Read response model.
+ *
+ * `has_future_route` is populated by the service layer (one batched query
+ * against route_stops + route_groups), and `status` is derived from it +
+ * in_roster. See LocationStatusEnum for the precedence rule.
+ */
+export type LocationReadOutputWritable = {
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  delivery_type: DeliveryTypeEnum;
+  /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string;
+  /**
+   * Halal
+   */
+  halal?: boolean;
+  /**
+   * Has Future Route
+   */
+  has_future_route?: boolean;
+  /**
+   * In Roster
+   */
+  in_roster?: boolean;
+  /**
+   * Latitude
+   */
+  latitude?: number | null;
+  /**
+   * Location Group Id
+   */
+  location_group_id: string;
+  /**
+   * Location Group Name
+   */
+  location_group_name: string;
+  /**
+   * Location Id
+   */
+  location_id: string;
+  /**
+   * Longitude
+   */
+  longitude?: number | null;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Notes
+   */
+  notes?: string;
+  /**
+   * Num Boxes
+   */
+  num_boxes?: number;
+  /**
+   * Num Children
+   */
+  num_children?: number | null;
+  /**
+   * Phone Number
+   */
+  phone_number: string;
+  /**
+   * Place Id
+   */
+  place_id?: string | null;
+};
+
+/**
+ * PaginatedResponse[LocationRead]
+ */
+export type PaginatedResponseLocationReadWritable = {
+  /**
+   * Items
+   */
+  items: Array<LocationReadOutputWritable>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
 };
 
 export type TestData = {
@@ -1933,194 +2117,6 @@ export type ResetPasswordResponses = {
 
 export type ResetPasswordResponse =
   ResetPasswordResponses[keyof ResetPasswordResponses];
-
-export type GetDriverAssignmentsData = {
-  body?: never;
-  path?: never;
-  query?: {
-    /**
-     * Page
-     *
-     * Page number (1-indexed)
-     */
-    page?: number;
-    /**
-     * Page Size
-     *
-     * Number of items per page
-     */
-    page_size?: number;
-  };
-  url: '/driver-assignments/';
-};
-
-export type GetDriverAssignmentsErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type GetDriverAssignmentsError =
-  GetDriverAssignmentsErrors[keyof GetDriverAssignmentsErrors];
-
-export type GetDriverAssignmentsResponses = {
-  /**
-   * Successful Response
-   */
-  200: PaginatedResponseDriverAssignmentRead;
-};
-
-export type GetDriverAssignmentsResponse =
-  GetDriverAssignmentsResponses[keyof GetDriverAssignmentsResponses];
-
-export type CreateDriverAssignmentData = {
-  body: DriverAssignmentCreate;
-  path?: never;
-  query?: never;
-  url: '/driver-assignments/';
-};
-
-export type CreateDriverAssignmentErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CreateDriverAssignmentError =
-  CreateDriverAssignmentErrors[keyof CreateDriverAssignmentErrors];
-
-export type CreateDriverAssignmentResponses = {
-  /**
-   * Successful Response
-   */
-  201: DriverAssignmentRead;
-};
-
-export type CreateDriverAssignmentResponse =
-  CreateDriverAssignmentResponses[keyof CreateDriverAssignmentResponses];
-
-export type GetMyDriverAssignmentsData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/driver-assignments/me';
-};
-
-export type GetMyDriverAssignmentsResponses = {
-  /**
-   * Response Get My Driver Assignments
-   *
-   * Successful Response
-   */
-  200: Array<DriverAssignmentRead>;
-};
-
-export type GetMyDriverAssignmentsResponse =
-  GetMyDriverAssignmentsResponses[keyof GetMyDriverAssignmentsResponses];
-
-export type GetSuggestedDriverData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Route Id
-     */
-    route_id: string;
-    /**
-     * Route Group Id
-     */
-    route_group_id: string;
-  };
-  url: '/driver-assignments/suggestions';
-};
-
-export type GetSuggestedDriverErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type GetSuggestedDriverError =
-  GetSuggestedDriverErrors[keyof GetSuggestedDriverErrors];
-
-export type GetSuggestedDriverResponses = {
-  /**
-   * Response Get Suggested Driver
-   *
-   * Successful Response
-   */
-  200: Array<SuggestedDriverResponse>;
-};
-
-export type GetSuggestedDriverResponse =
-  GetSuggestedDriverResponses[keyof GetSuggestedDriverResponses];
-
-export type DeleteDriverAssignmentData = {
-  body?: never;
-  path: {
-    /**
-     * Driver Assignment Id
-     */
-    driver_assignment_id: string;
-  };
-  query?: never;
-  url: '/driver-assignments/{driver_assignment_id}';
-};
-
-export type DeleteDriverAssignmentErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type DeleteDriverAssignmentError =
-  DeleteDriverAssignmentErrors[keyof DeleteDriverAssignmentErrors];
-
-export type DeleteDriverAssignmentResponses = {
-  /**
-   * Successful Response
-   */
-  204: void;
-};
-
-export type DeleteDriverAssignmentResponse =
-  DeleteDriverAssignmentResponses[keyof DeleteDriverAssignmentResponses];
-
-export type UpdateDriverAssignmentData = {
-  body: DriverAssignmentUpdate;
-  path: {
-    /**
-     * Driver Assignment Id
-     */
-    driver_assignment_id: string;
-  };
-  query?: never;
-  url: '/driver-assignments/{driver_assignment_id}';
-};
-
-export type UpdateDriverAssignmentErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateDriverAssignmentError =
-  UpdateDriverAssignmentErrors[keyof UpdateDriverAssignmentErrors];
-
-export type UpdateDriverAssignmentResponses = {
-  /**
-   * Successful Response
-   */
-  200: DriverAssignmentRead;
-};
-
-export type UpdateDriverAssignmentResponse =
-  UpdateDriverAssignmentResponses[keyof UpdateDriverAssignmentResponses];
 
 export type GetDriversData = {
   body?: never;
@@ -2851,7 +2847,7 @@ export type CreateLocationResponses = {
   /**
    * Successful Response
    */
-  201: LocationRead;
+  201: LocationReadOutput;
 };
 
 export type CreateLocationResponse =
@@ -2968,7 +2964,7 @@ export type GetLocationResponses = {
   /**
    * Successful Response
    */
-  200: LocationRead;
+  200: LocationReadOutput;
 };
 
 export type GetLocationResponse =
@@ -3000,7 +2996,7 @@ export type UpdateLocationResponses = {
   /**
    * Successful Response
    */
-  200: LocationRead;
+  200: LocationReadOutput;
 };
 
 export type UpdateLocationResponse =
@@ -3552,6 +3548,47 @@ export type GetGoogleMapsLinkResponses = {
 
 export type GetGoogleMapsLinkResponse =
   GetGoogleMapsLinkResponses[keyof GetGoogleMapsLinkResponses];
+
+export type GetSuggestedDriverData = {
+  body?: never;
+  path: {
+    /**
+     * Route Id
+     */
+    route_id: string;
+  };
+  query: {
+    /**
+     * Route Group Id
+     *
+     * Route group the route is being assigned within
+     */
+    route_group_id: string;
+  };
+  url: '/routes/{route_id}/suggested-driver';
+};
+
+export type GetSuggestedDriverErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetSuggestedDriverError =
+  GetSuggestedDriverErrors[keyof GetSuggestedDriverErrors];
+
+export type GetSuggestedDriverResponses = {
+  /**
+   * Response Get Suggested Driver
+   *
+   * Successful Response
+   */
+  200: SuggestedDriverResponse | null;
+};
+
+export type GetSuggestedDriverResponse =
+  GetSuggestedDriverResponses[keyof GetSuggestedDriverResponses];
 
 export type GetSystemSettingsData = {
   body?: never;

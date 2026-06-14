@@ -10,7 +10,13 @@ from app.dependencies.auth import (
     require_route_assigned_or_admin,
 )
 from app.models import get_session
-from app.models.route import Route, RoutePatchRequest, RouteRead, RouteWithDateRead
+from app.models.route import (
+    Route,
+    RoutePatchRequest,
+    RouteRead,
+    RouteWithDateRead,
+    SuggestedDriverResponse,
+)
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.route_service import (
     RouteService,
@@ -90,6 +96,35 @@ async def get_google_maps_link(
         The Google Maps directions URL as a plain string.
     """
     return await route_service.get_google_maps_link(session, route_id)
+
+
+@router.get(
+    "/{route_id}/suggested-driver",
+    response_model=SuggestedDriverResponse | None,
+    status_code=status.HTTP_200_OK,
+)
+async def get_suggested_driver(
+    route_id: UUID,
+    route_group_id: UUID = Query(
+        ..., description="Route group the route is being assigned within"
+    ),
+    session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
+) -> SuggestedDriverResponse | None:
+    """
+    Suggest a driver to assign to a route: the active driver most familiar
+    with the route's locations (by past completed deliveries), excluding
+    drivers already assigned within the given route group.
+
+    Parameters:
+        route_id (UUID): The route to suggest a driver for.
+        route_group_id (UUID): The route group the assignment is within.
+        session (AsyncSession): The database session dependency.
+
+    Returns:
+        The suggested driver, or null if there's no candidate.
+    """
+    return await route_service.get_suggested_driver(session, route_id, route_group_id)
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

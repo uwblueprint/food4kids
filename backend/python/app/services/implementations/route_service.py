@@ -3,18 +3,23 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, exists
-from sqlalchemy import select as sql_select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
-from app.models.driver_assignment import DriverAssignment
+from app.models.driver import Driver
 from app.models.location import Location
-from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
+from app.models.route import (
+    Route,
+    RoutePatchRequest,
+    RouteWithDateRead,
+    SuggestedDriverResponse,
+)
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
+from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_link import build_google_maps_directions_url
 from app.utilities.pagination import paginate_query
@@ -31,10 +36,6 @@ class RoutingConfigurationError(Exception):
 class RouteService:
     """
     Service class for handling route-related operations.
-
-    This class provides methods to manage Route entities, such as deleting routes by their ID.
-    While currently only the delete operation is implemented, this class is intended to be extended
-    with additional route-related operations in the future.
     """
 
     def __init__(self, logger: logging.Logger):
@@ -50,24 +51,15 @@ class RouteService:
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
-        Returns routes with their drive dates - routes can appear multiple times for different dates.
-        When unassigned_only is False, returns all routes (no assignment filter).
-        When unassigned_only is True, returns only routes that are unassigned for the given route group.
+
+        unassigned_only filters to routes with no driver_id. The date range
+        filters on the route's RouteGroup.drive_date.
         """
-        statement = (
-            select(
-                Route,
-                RouteGroup.route_group_id,
-                RouteGroup.drive_date,
-            )
-            .join(RouteGroupMembership, Route.route_id == RouteGroupMembership.route_id)  # type: ignore[arg-type]
-            .join(
-                RouteGroup,
-                RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
-            )
+        statement = select(Route, RouteGroup.drive_date).join(
+            RouteGroup,
+            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
         )
 
-        # Parse and filter by date range
         if start_date:
             start_dt = datetime.fromisoformat(start_date)
             statement = statement.where(RouteGroup.drive_date >= start_dt)
@@ -75,21 +67,8 @@ class RouteService:
             end_dt = datetime.fromisoformat(end_date)
             statement = statement.where(RouteGroup.drive_date <= end_dt)
 
-        # Filter for unassigned routes only
         if unassigned_only:
-            statement = statement.where(
-                ~exists(
-                    sql_select(1)
-                    .select_from(DriverAssignment)
-                    .where(
-                        and_(
-                            DriverAssignment.route_id == Route.route_id,  # type: ignore[arg-type]
-                            DriverAssignment.route_group_id
-                            == RouteGroup.route_group_id,  # type: ignore[arg-type]
-                        )
-                    )
-                )
-            )
+            statement = statement.where(col(Route.driver_id).is_(None))
 
         statement = statement.order_by(RouteGroup.drive_date, Route.name)  # type: ignore[arg-type]
 
@@ -171,10 +150,8 @@ class RouteService:
         - fetch_route_polyline is called to get the new encoded polyline + distance.
         - Route.length and Route.encoded_polyline are updated accordingly.
 
-        Metadata fields (name, notes) are updated independently if provided.
-
-        Since routes can be shared across multiple route groups, all route groups
-        that reference this route will automatically see the updated version.
+        Metadata fields (name, notes, driver_id, start_time) are updated
+        independently if provided.
 
         Args:
             session: Database session
@@ -201,6 +178,14 @@ class RouteService:
                 route.name = patch.name
             if patch.notes is not None:
                 route.notes = patch.notes
+            # driver_id and start_time are nullable, so an explicit null means
+            # "clear it" (unassign / unschedule) — they typically travel
+            # together. Use model_fields_set to tell an explicit null apart
+            # from an omitted field (both are None on the model).
+            if "driver_id" in patch.model_fields_set:
+                route.driver_id = patch.driver_id
+            if "start_time" in patch.model_fields_set:
+                route.start_time = patch.start_time
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:
@@ -260,6 +245,13 @@ class RouteService:
                 )
                 for stop in existing_stops_result.scalars().all():
                     await session.delete(stop)
+
+                # Flush the deletes before inserting replacements: route_stops
+                # has UNIQUE(route_id, stop_number) and UNIQUE(route_id,
+                # location_id), and SQLAlchemy's unit of work may otherwise
+                # emit the INSERTs before the DELETEs, transiently violating
+                # the constraints even though the end state is valid.
+                await session.flush()
 
                 # Create new route stops in the given order
                 for stop_number, location in enumerate(ordered_locations, start=1):
@@ -351,3 +343,53 @@ class RouteService:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
         return url
+
+    async def get_suggested_driver(
+        self,
+        session: AsyncSession,
+        route_id: UUID,
+        route_group_id: UUID,
+    ) -> SuggestedDriverResponse | None:
+        """Suggest the single best driver to assign to a route: the active
+        driver most familiar with its locations (by count of past completed,
+        frozen deliveries there), excluding drivers already assigned to a
+        route in this route_group (a driver can't run two routes the same
+        day). Returns None if there's no candidate.
+        """
+        # Location IDs that make up the target route.
+        target_locations = (
+            select(RouteStop.location_id)
+            .where(RouteStop.route_id == route_id)
+            .subquery()
+        )
+
+        # Drivers already assigned within this route group — exclude them so
+        # we don't double-book a driver on the same day.
+        already_assigned = (
+            select(Route.driver_id)
+            .where(Route.route_group_id == route_group_id)
+            .where(col(Route.driver_id).isnot(None))
+        )
+
+        statement = (
+            select(Route.driver_id, User.name)
+            .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
+            .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
+            .where(
+                col(RouteStop.location_id).in_(select(target_locations.c.location_id))
+            )
+            .where(col(Route.driver_id).isnot(None))
+            .where(Route.route_id != route_id)
+            .where(col(Driver.active).is_(True))
+            .where(col(Route.driver_id).not_in(already_assigned))
+            .group_by(col(Route.driver_id), User.name)
+            .order_by(func.count().desc())
+            .limit(1)
+        )
+
+        row = (await session.execute(statement)).first()
+        if row is None:
+            return None
+        return SuggestedDriverResponse(driver_id=row.driver_id, driver_name=row.name)

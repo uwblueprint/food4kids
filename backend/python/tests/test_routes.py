@@ -19,10 +19,9 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enum import DeliveryTypeEnum
-from app.models.location import Location, LocationState
+from app.models.location import Location
 from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 
 
@@ -317,8 +316,8 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Central Elementary",
                 "contact_name": "School Contact",
-                "delivery_type": "School",
                 "phone_number": "(555) 111-1111",
+                "delivery_type": DeliveryTypeEnum.SCHOOL.value,
             },
         )
         family_response = await async_client.post(
@@ -328,8 +327,8 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Family Contact",
                 "contact_name": "Family Contact",
-                "delivery_type": "Family",
                 "phone_number": "(555) 222-2222",
+                "delivery_type": DeliveryTypeEnum.FAMILY.value,
             },
         )
         assert school_response.status_code == 201
@@ -361,67 +360,76 @@ class TestLocationRoutes:
         test_session: AsyncSession,
         test_location_group: Any,
     ) -> None:
-        """GET /locations derives status from import state and future route usage."""
+        """GET /locations derives status from in_roster + future route usage."""
         scheduled_location = Location(
             location_group_id=test_location_group.location_group_id,
             name="Scheduled Family",
             contact_name="Scheduled Family",
-            delivery_type=DeliveryTypeEnum.FAMILY,
             address="1 Scheduled St",
             phone_number="5551111111",
-            state=LocationState.ACTIVE,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
         )
         unscheduled_location = Location(
             location_group_id=test_location_group.location_group_id,
             name="Unscheduled Family",
             contact_name="Unscheduled Family",
-            delivery_type=DeliveryTypeEnum.FAMILY,
             address="2 Unscheduled St",
             phone_number="5552222222",
-            state=LocationState.ACTIVE,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
         )
         inactive_location = Location(
             location_group_id=test_location_group.location_group_id,
             name="Inactive Family",
             contact_name="Inactive Family",
-            delivery_type=DeliveryTypeEnum.FAMILY,
             address="3 Inactive St",
             phone_number="5553333333",
-            state=LocationState.ARCHIVED,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=False,
         )
         archived_scheduled_location = Location(
             location_group_id=test_location_group.location_group_id,
             name="Archived Scheduled Family",
             contact_name="Archived Scheduled Family",
-            delivery_type=DeliveryTypeEnum.FAMILY,
             address="4 Archived Scheduled St",
             phone_number="5554444444",
-            state=LocationState.ARCHIVED,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=False,
         )
-        route = Route(name="Future Route", length=1.0)
-        archived_route = Route(name="Future Archived Route", length=1.0)
+        # RouteGroup must exist before Routes (Route.route_group_id is a
+        # mandatory FK).
         route_group = RouteGroup(
             name="Future Route Group", drive_date=datetime(2099, 1, 1)
         )
+        test_session.add(route_group)
         test_session.add_all(
             [
                 scheduled_location,
                 unscheduled_location,
                 inactive_location,
                 archived_scheduled_location,
-                route,
-                archived_route,
-                route_group,
             ]
         )
         await test_session.commit()
+        await test_session.refresh(route_group)
         await test_session.refresh(scheduled_location)
         await test_session.refresh(unscheduled_location)
         await test_session.refresh(inactive_location)
         await test_session.refresh(archived_scheduled_location)
+
+        route = Route(
+            name="Future Route", length=1.0, route_group_id=route_group.route_group_id
+        )
+        archived_route = Route(
+            name="Future Archived Route",
+            length=1.0,
+            route_group_id=route_group.route_group_id,
+        )
+        test_session.add_all([route, archived_route])
+        await test_session.commit()
         await test_session.refresh(route)
         await test_session.refresh(archived_route)
-        await test_session.refresh(route_group)
 
         test_session.add_all(
             [
@@ -434,14 +442,6 @@ class TestLocationRoutes:
                     route_id=archived_route.route_id,
                     location_id=archived_scheduled_location.location_id,
                     stop_number=1,
-                ),
-                RouteGroupMembership(
-                    route_group_id=route_group.route_group_id,
-                    route_id=route.route_id,
-                ),
-                RouteGroupMembership(
-                    route_group_id=route_group.route_group_id,
-                    route_id=archived_route.route_id,
                 ),
             ]
         )
@@ -494,51 +494,60 @@ class TestLocationRoutes:
             location_group_id=test_location_group.location_group_id,
             name="Central Elementary",
             contact_name="Active School",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="1 School St",
             phone_number="5555555555",
-            state=LocationState.ACTIVE,
+            delivery_type=DeliveryTypeEnum.SCHOOL,
+            in_roster=True,
         )
         active_family_location = Location(
             location_group_id=test_location_group.location_group_id,
             name="Active Family",
             contact_name="Active Family",
-            delivery_type=DeliveryTypeEnum.FAMILY,
             address="1 Family St",
             phone_number="5556666666",
-            state=LocationState.ACTIVE,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
         )
         unscheduled_school_location = Location(
             location_group_id=test_location_group.location_group_id,
             name="Unscheduled Elementary",
             contact_name="Unscheduled School",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="2 School St",
             phone_number="5557777777",
-            state=LocationState.ACTIVE,
+            delivery_type=DeliveryTypeEnum.SCHOOL,
+            in_roster=True,
         )
-        school_route = Route(name="Future School Route", length=1.0)
-        family_route = Route(name="Future Family Route", length=1.0)
         route_group = RouteGroup(
             name="Future Combined Route Group", drive_date=datetime(2099, 1, 1)
         )
+        test_session.add(route_group)
         test_session.add_all(
             [
                 active_school_location,
                 active_family_location,
                 unscheduled_school_location,
-                school_route,
-                family_route,
-                route_group,
             ]
         )
         await test_session.commit()
+        await test_session.refresh(route_group)
         await test_session.refresh(active_school_location)
         await test_session.refresh(active_family_location)
         await test_session.refresh(unscheduled_school_location)
+
+        school_route = Route(
+            name="Future School Route",
+            length=1.0,
+            route_group_id=route_group.route_group_id,
+        )
+        family_route = Route(
+            name="Future Family Route",
+            length=1.0,
+            route_group_id=route_group.route_group_id,
+        )
+        test_session.add_all([school_route, family_route])
+        await test_session.commit()
         await test_session.refresh(school_route)
         await test_session.refresh(family_route)
-        await test_session.refresh(route_group)
 
         test_session.add_all(
             [
@@ -551,14 +560,6 @@ class TestLocationRoutes:
                     route_id=family_route.route_id,
                     location_id=active_family_location.location_id,
                     stop_number=1,
-                ),
-                RouteGroupMembership(
-                    route_group_id=route_group.route_group_id,
-                    route_id=school_route.route_id,
-                ),
-                RouteGroupMembership(
-                    route_group_id=route_group.route_group_id,
-                    route_id=family_route.route_id,
                 ),
             ]
         )
@@ -1043,6 +1044,74 @@ class TestRouteRoutes:
         assert data["notes"] == "updated"
 
     @pytest.mark.asyncio
+    async def test_assign_reassign_and_unassign_driver(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_driver: Any,
+    ) -> None:
+        """Full driver-assignment lifecycle via PATCH driver_id: assign (route
+        drops out of the unassigned list), reassign to a different driver, and
+        unassign with an explicit null (route returns to the unassigned list)."""
+        from app.models.driver import Driver
+        from app.models.user import User
+
+        route_id = str(test_route.route_id)
+
+        # Starts unassigned -> appears in the unassigned-only listing.
+        unassigned = await async_client.get("/routes?unassigned_only=true")
+        assert unassigned.status_code == 200
+        assert route_id in {r["route_id"] for r in unassigned.json()["items"]}
+
+        # Assign the driver (with a start time — they travel together).
+        assign = await async_client.patch(
+            f"/routes/{route_id}",
+            json={"driver_id": str(test_driver.driver_id), "start_time": "08:30:00"},
+        )
+        assert assign.status_code == 200
+        assert assign.json()["driver_id"] == str(test_driver.driver_id)
+        assert assign.json()["start_time"] == "08:30:00"
+
+        # No longer unassigned.
+        unassigned_after = await async_client.get("/routes?unassigned_only=true")
+        assert route_id not in {r["route_id"] for r in unassigned_after.json()["items"]}
+
+        # Reassign to a second driver.
+        other_user = User(
+            name="Other Driver", email="other-driver@test.dev", auth_id="other-drv"
+        )
+        test_session.add(other_user)
+        other_driver = Driver(
+            user_id=other_user.user_id,
+            phone="+12125550000",
+            address="9 Other St",
+            license_plate="XYZ789",
+            car_make_model="Honda Civic",
+        )
+        test_session.add(other_driver)
+        await test_session.commit()
+        await test_session.refresh(other_driver)
+
+        reassign = await async_client.patch(
+            f"/routes/{route_id}", json={"driver_id": str(other_driver.driver_id)}
+        )
+        assert reassign.status_code == 200
+        assert reassign.json()["driver_id"] == str(other_driver.driver_id)
+
+        # Unassign via explicit null -> driver_id and start_time both cleared,
+        # route back in the unassigned listing.
+        unassign = await async_client.patch(
+            f"/routes/{route_id}", json={"driver_id": None, "start_time": None}
+        )
+        assert unassign.status_code == 200
+        assert unassign.json()["driver_id"] is None
+        assert unassign.json()["start_time"] is None
+
+        unassigned_again = await async_client.get("/routes?unassigned_only=true")
+        assert route_id in {r["route_id"] for r in unassigned_again.json()["items"]}
+
+    @pytest.mark.asyncio
     async def test_update_route_not_found(self, async_client: AsyncClient) -> None:
         """PATCH /routes/{id} returns 404 for an unknown route."""
         response = await async_client.patch(f"/routes/{uuid4()}", json={"name": "x"})
@@ -1134,6 +1203,208 @@ class TestRouteRoutes:
             f"/routes/{test_route.route_id}/google-maps-link"
         )
         assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_suggested_driver_by_past_deliveries(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_location_group: Any,
+    ) -> None:
+        """GET /routes/{id}/suggested-driver returns the active driver most
+        familiar with the route's locations from past frozen deliveries."""
+        from datetime import datetime
+
+        from app.models.driver import Driver
+        from app.models.route import Route
+        from app.models.route_group import RouteGroup
+        from app.models.route_snapshot import RouteSnapshot
+        from app.models.user import User
+
+        group_id = test_location_group.location_group_id
+
+        loc_a = Location(
+            location_group_id=group_id,
+            name="Fam A",
+            contact_name="Fam A",
+            address="1 A St",
+            phone_number="5550000001",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        loc_b = Location(
+            location_group_id=group_id,
+            name="Fam B",
+            contact_name="Fam B",
+            address="2 B St",
+            phone_number="5550000002",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        user = User(name="Veteran", email="veteran@test.dev", auth_id="veteran-uid")
+        driver = Driver(
+            user_id=user.user_id,
+            phone="+12125551111",
+            address="1 Depot Rd",
+            license_plate="VET1",
+            car_make_model="Toyota Corolla",
+            active=True,
+        )
+        # The driver's past route lives in its own (earlier) group, so the
+        # no-double-book exclusion doesn't remove them from the target group.
+        past_group = RouteGroup(name="Past Day", drive_date=datetime(2020, 1, 1))
+        test_session.add_all([loc_a, loc_b, user, driver, past_group])
+        await test_session.commit()
+        await test_session.refresh(loc_a)
+        await test_session.refresh(loc_b)
+        await test_session.refresh(driver)
+        await test_session.refresh(past_group)
+
+        # Past route driven by the driver, frozen (RouteSnapshot present),
+        # visiting both locations.
+        past = Route(
+            name="Past",
+            length=5.0,
+            route_group_id=past_group.route_group_id,
+            driver_id=driver.driver_id,
+        )
+        test_session.add(past)
+        await test_session.commit()
+        await test_session.refresh(past)
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=past.route_id,
+                    location_id=loc_a.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=past.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=2,
+                ),
+                RouteSnapshot(
+                    route_id=past.route_id,
+                    start_address="Warehouse",
+                    start_latitude=0.0,
+                    start_longitude=0.0,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        # Target route (in the fixture group) visiting location A.
+        target = Route(
+            name="Target",
+            length=3.0,
+            route_group_id=test_route_group.route_group_id,
+        )
+        test_session.add(target)
+        await test_session.commit()
+        await test_session.refresh(target)
+        test_session.add(
+            RouteStop(
+                route_id=target.route_id, location_id=loc_a.location_id, stop_number=1
+            )
+        )
+        await test_session.commit()
+
+        resp = await async_client.get(
+            f"/routes/{target.route_id}/suggested-driver",
+            params={"route_group_id": str(test_route_group.route_group_id)},
+        )
+        assert resp.status_code == 200
+        suggestion = resp.json()
+        assert suggestion is not None
+        assert suggestion["driver_id"] == str(driver.driver_id)
+        assert suggestion["driver_name"] == "Veteran"
+
+
+class TestRouteStopConstraints:
+    """DB-level uniqueness guards on route_stops."""
+
+    @staticmethod
+    def _make_location(test_location_group: Any, n: int) -> Location:
+        return Location(
+            location_group_id=test_location_group.location_group_id,
+            name=f"Constraint Family {n}",
+            contact_name=f"Constraint Family {n}",
+            address=f"{n} Constraint St",
+            phone_number=f"555000{n:04d}",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_duplicate_stop_number_rejected(
+        self,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """Two stops with the same stop_number on one route violate
+        UNIQUE(route_id, stop_number)."""
+        from sqlalchemy.exc import IntegrityError
+
+        loc_a = self._make_location(test_location_group, 1)
+        loc_b = self._make_location(test_location_group, 2)
+        test_session.add_all([loc_a, loc_b])
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=loc_a.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=loc_b.location_id,
+                stop_number=1,  # duplicate position on the same route
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await test_session.flush()
+        await test_session.rollback()
+
+    @pytest.mark.asyncio
+    async def test_duplicate_location_rejected(
+        self,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """The same location twice on one route violates
+        UNIQUE(route_id, location_id) — a family can't be double-delivered
+        within a single route."""
+        from sqlalchemy.exc import IntegrityError
+
+        loc = self._make_location(test_location_group, 3)
+        test_session.add(loc)
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=loc.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=loc.location_id,  # same family again
+                stop_number=2,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await test_session.flush()
+        await test_session.rollback()
 
 
 class TestRouteGroupRoutes:
@@ -1242,28 +1513,24 @@ class TestRouteGroupRoutes:
     ) -> None:
         """GET /route-groups?include_routes=true returns each group's routes.
 
-        The include_routes branch walks membership.route.*; this confirms it's
-        loaded (not an async lazy-load 500) and the routes payload is returned.
+        Confirms the routes relationship loads without an async lazy-load 500
+        and the routes payload is correctly populated.
         """
         from datetime import datetime
 
         from app.models.route import Route
         from app.models.route_group import RouteGroup
-        from app.models.route_group_membership import RouteGroupMembership
 
         rg = RouteGroup(name="RG", drive_date=datetime(2026, 6, 1))
-        route = Route(name="R1", length=5.0)
         test_session.add(rg)
-        test_session.add(route)
         await test_session.commit()
         await test_session.refresh(rg)
-        await test_session.refresh(route)
-        test_session.add(
-            RouteGroupMembership(
-                route_group_id=rg.route_group_id, route_id=route.route_id
-            )
-        )
+
+        # Route FKs to RouteGroup via route_group_id.
+        route = Route(name="R1", length=5.0, route_group_id=rg.route_group_id)
+        test_session.add(route)
         await test_session.commit()
+        await test_session.refresh(route)
 
         response = await async_client.get("/route-groups?include_routes=true")
         assert response.status_code == 200
@@ -1659,145 +1926,6 @@ class TestSystemSettingsRoutes:
         """GET /system-settings returns 200 (null-safe when unset)."""
         response = await async_client.get("/system-settings/")
         assert response.status_code == 200
-
-
-class TestDriverAssignmentRoutes:
-    """Test suite for driver assignment API routes."""
-
-    @staticmethod
-    def _payload(test_driver: Any, test_route: Any, test_route_group: Any) -> dict:
-        return {
-            "driver_id": str(test_driver.driver_id),
-            "route_id": str(test_route.route_id),
-            "route_group_id": str(test_route_group.route_group_id),
-            "time": "2026-06-01T08:00:00",
-        }
-
-    @pytest.mark.asyncio
-    async def test_get_driver_assignments_empty(
-        self, async_client: AsyncClient
-    ) -> None:
-        """GET /driver-assignments returns an empty paginated response."""
-        response = await async_client.get("/driver-assignments/")
-        assert response.status_code == 200
-        assert response.json()["items"] == []
-
-    @pytest.mark.asyncio
-    async def test_create_driver_assignment(
-        self,
-        async_client: AsyncClient,
-        test_driver: Any,
-        test_route: Any,
-        test_route_group: Any,
-    ) -> None:
-        """POST /driver-assignments creates an assignment."""
-        response = await async_client.post(
-            "/driver-assignments/",
-            json=self._payload(test_driver, test_route, test_route_group),
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert data["driver_id"] == str(test_driver.driver_id)
-        assert "driver_assignment_id" in data
-
-    @pytest.mark.asyncio
-    async def test_update_driver_assignment(
-        self,
-        async_client: AsyncClient,
-        test_driver: Any,
-        test_route: Any,
-        test_route_group: Any,
-    ) -> None:
-        """PATCH /driver-assignments/{id} updates the assignment."""
-        created = (
-            await async_client.post(
-                "/driver-assignments/",
-                json=self._payload(test_driver, test_route, test_route_group),
-            )
-        ).json()
-        response = await async_client.patch(
-            f"/driver-assignments/{created['driver_assignment_id']}",
-            json={"time": "2026-07-01T09:00:00"},
-        )
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_update_driver_assignment_not_found(
-        self, async_client: AsyncClient
-    ) -> None:
-        """PATCH /driver-assignments/{id} returns 404 for an unknown id."""
-        response = await async_client.patch(
-            f"/driver-assignments/{uuid4()}", json={"time": "2026-07-01T09:00:00"}
-        )
-        assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_delete_driver_assignment(
-        self,
-        async_client: AsyncClient,
-        test_driver: Any,
-        test_route: Any,
-        test_route_group: Any,
-    ) -> None:
-        """DELETE /driver-assignments/{id} removes the assignment."""
-        created = (
-            await async_client.post(
-                "/driver-assignments/",
-                json=self._payload(test_driver, test_route, test_route_group),
-            )
-        ).json()
-        response = await async_client.delete(
-            f"/driver-assignments/{created['driver_assignment_id']}"
-        )
-        assert response.status_code == 204
-
-    @pytest.mark.asyncio
-    async def test_delete_driver_assignment_not_found(
-        self, async_client: AsyncClient
-    ) -> None:
-        """DELETE /driver-assignments/{id} returns 404 for an unknown id."""
-        response = await async_client.delete(f"/driver-assignments/{uuid4()}")
-        assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_get_suggested_driver_none(
-        self,
-        async_client: AsyncClient,
-        test_session: AsyncSession,
-        test_route: Any,
-        test_route_group: Any,
-    ) -> None:
-        """GET /driver-assignments/suggestions returns [] when the route belongs
-        to the group but has no prior assignment to suggest from."""
-        from app.models.route_group_membership import RouteGroupMembership
-
-        # The endpoint checks the route is a member of the group.
-        test_session.add(
-            RouteGroupMembership(
-                route_id=test_route.route_id,
-                route_group_id=test_route_group.route_group_id,
-            )
-        )
-        await test_session.commit()
-
-        response = await async_client.get(
-            "/driver-assignments/suggestions"
-            f"?route_id={test_route.route_id}"
-            f"&route_group_id={test_route_group.route_group_id}"
-        )
-        assert response.status_code == 200
-        assert response.json() == []
-
-    @pytest.mark.asyncio
-    async def test_get_suggested_driver_not_found(
-        self, async_client: AsyncClient
-    ) -> None:
-        """GET /driver-assignments/suggestions returns 404 when the route or
-        route group doesn't exist."""
-        response = await async_client.get(
-            f"/driver-assignments/suggestions?route_id={uuid4()}&route_group_id={uuid4()}"
-        )
-        assert response.status_code == 404
 
 
 class _FakeUploadResult:
