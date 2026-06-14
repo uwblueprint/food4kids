@@ -178,12 +178,13 @@ class RouteService:
                 route.name = patch.name
             if patch.notes is not None:
                 route.notes = patch.notes
-            # driver_id is nullable, so an explicit null means "unassign". Use
-            # model_fields_set to tell an explicit null apart from an omitted
-            # field (both are None on the model).
+            # driver_id and start_time are nullable, so an explicit null means
+            # "clear it" (unassign / unschedule) — they typically travel
+            # together. Use model_fields_set to tell an explicit null apart
+            # from an omitted field (both are None on the model).
             if "driver_id" in patch.model_fields_set:
                 route.driver_id = patch.driver_id
-            if patch.start_time is not None:
+            if "start_time" in patch.model_fields_set:
                 route.start_time = patch.start_time
 
             # Update stops + re-run routing if location_ids provided

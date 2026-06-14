@@ -1064,12 +1064,14 @@ class TestRouteRoutes:
         assert unassigned.status_code == 200
         assert route_id in {r["route_id"] for r in unassigned.json()["items"]}
 
-        # Assign the driver.
+        # Assign the driver (with a start time — they travel together).
         assign = await async_client.patch(
-            f"/routes/{route_id}", json={"driver_id": str(test_driver.driver_id)}
+            f"/routes/{route_id}",
+            json={"driver_id": str(test_driver.driver_id), "start_time": "08:30:00"},
         )
         assert assign.status_code == 200
         assert assign.json()["driver_id"] == str(test_driver.driver_id)
+        assert assign.json()["start_time"] == "08:30:00"
 
         # No longer unassigned.
         unassigned_after = await async_client.get("/routes?unassigned_only=true")
@@ -1097,13 +1099,14 @@ class TestRouteRoutes:
         assert reassign.status_code == 200
         assert reassign.json()["driver_id"] == str(other_driver.driver_id)
 
-        # Unassign via explicit null -> driver_id cleared, route back in the
-        # unassigned listing.
+        # Unassign via explicit null -> driver_id and start_time both cleared,
+        # route back in the unassigned listing.
         unassign = await async_client.patch(
-            f"/routes/{route_id}", json={"driver_id": None}
+            f"/routes/{route_id}", json={"driver_id": None, "start_time": None}
         )
         assert unassign.status_code == 200
         assert unassign.json()["driver_id"] is None
+        assert unassign.json()["start_time"] is None
 
         unassigned_again = await async_client.get("/routes?unassigned_only=true")
         assert route_id in {r["route_id"] for r in unassigned_again.json()["items"]}

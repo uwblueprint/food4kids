@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
 from app.config import settings
@@ -80,7 +81,9 @@ class RouteGroupService:
         stops; `driver_assignment_status` filters on whether a group's routes
         have a driver_id set.
         """
-        statement = select(RouteGroup)
+        # Eager-load routes in the same query (one round-trip) rather than a
+        # per-group refresh below.
+        statement = select(RouteGroup).options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
 
         if start_date:
             statement = statement.where(RouteGroup.drive_date >= start_date)
@@ -163,14 +166,9 @@ class RouteGroupService:
         statement = statement.order_by(RouteGroup.drive_date)  # type: ignore[arg-type]
 
         result = await session.execute(statement)
-        route_groups = result.scalars().all()
-
-        # Eager-load routes for each group (avoids async lazy-load surprises
-        # in route_group_routes.py and so callers can access num_routes).
-        for route_group in route_groups:
-            await session.refresh(route_group, ["routes"])
-
-        return list(route_groups)
+        # routes are eager-loaded via selectinload on the statement, so they're
+        # safe to access (num_routes, route_group_routes.py) without lazy loads.
+        return list(result.scalars().all())
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID

@@ -8,8 +8,10 @@ Runs nightly at 23:59. Two jobs in one:
    no separate flag column. Idempotent: skip routes that already have a
    RouteSnapshot (e.g. if the job is re-run after a crash).
 
-2. **Mileage aggregation.** Sum each driver's route lengths for the day
-   (grouped by Route.driver_id) and update DriverHistory.
+2. **Mileage aggregation.** Sum each driver's route lengths and update
+   DriverHistory — but only for the routes frozen *in this run*, so a
+   re-run never double-counts a driver's km (the freeze in step 1 is the
+   idempotency gate for both steps).
 """
 
 from __future__ import annotations
@@ -45,6 +47,7 @@ async def process_daily_driver_history() -> None:
 
     today = date.today()
     current_year = today.year
+    current_month = today.month
     start_of_day = datetime.combine(today, datetime.min.time())
     end_of_day = datetime.combine(today, datetime.max.time())
 
@@ -104,9 +107,13 @@ async def process_daily_driver_history() -> None:
 
             snapshots_created = 0
             stop_snapshots_created = 0
+            # Routes frozen in THIS run — only these get their mileage
+            # aggregated below, so re-running the job can't double-count.
+            newly_frozen: list[Route] = []
             for route in todays_routes:
                 if route.snapshot is not None:
-                    # Already frozen; idempotent skip.
+                    # Already frozen on a prior run (mileage counted then);
+                    # idempotent skip.
                     continue
                 if not warehouse_ready:
                     continue
@@ -124,6 +131,7 @@ async def process_daily_driver_history() -> None:
                 )
                 session.add(route_snap)
                 snapshots_created += 1
+                newly_frozen.append(route)
 
                 for stop in route.route_stops:
                     if stop.snapshot is not None:
@@ -158,15 +166,16 @@ async def process_daily_driver_history() -> None:
                 )
 
             # ----------------------------------------------------------
-            # 3. Mileage aggregation: routes today x Route.driver_id.
+            # 3. Mileage aggregation: only routes frozen in this run (so a
+            #    re-run never double-counts), grouped by Route.driver_id.
             # ----------------------------------------------------------
-            assigned_today = [r for r in todays_routes if r.driver_id is not None]
-            if not assigned_today:
-                logger.info("No assigned routes today; nothing to aggregate.")
+            assigned = [r for r in newly_frozen if r.driver_id is not None]
+            if not assigned:
+                logger.info("No newly-frozen assigned routes; nothing to aggregate.")
                 return
 
             driver_distances: dict[UUID, float] = {}
-            for route in assigned_today:
+            for route in assigned:
                 assert route.driver_id is not None  # narrowed above
                 driver_distances[route.driver_id] = (
                     driver_distances.get(route.driver_id, 0.0) + route.length
@@ -180,6 +189,7 @@ async def process_daily_driver_history() -> None:
                                 and_(
                                     col(DriverHistory.driver_id) == driver_id,
                                     col(DriverHistory.year) == current_year,
+                                    col(DriverHistory.month) == current_month,
                                 )
                             )
                         )
@@ -198,6 +208,7 @@ async def process_daily_driver_history() -> None:
                     new_history = DriverHistory(
                         driver_id=driver_id,
                         year=current_year,
+                        month=current_month,
                         km=total_distance,
                     )
                     session.add(new_history)
@@ -208,7 +219,7 @@ async def process_daily_driver_history() -> None:
 
             await session.commit()
             logger.info(
-                f"Successfully aggregated {len(assigned_today)} routes "
+                f"Successfully aggregated {len(assigned)} routes "
                 f"for {len(driver_distances)} drivers"
             )
 
