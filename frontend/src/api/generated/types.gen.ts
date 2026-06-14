@@ -1599,24 +1599,20 @@ export type StaleEntry = {
 };
 
 /**
- * SuggestedDriverRead
+ * SuggestedDriverResponse
  *
- * A driver suggested for a route, ranked by how many of the route's
- * locations they've delivered to on past (completed) routes.
+ * A driver suggested for a route (most familiar with its locations from
+ * past completed deliveries).
  */
-export type SuggestedDriverRead = {
+export type SuggestedDriverResponse = {
   /**
    * Driver Id
    */
   driver_id: string;
   /**
-   * Name
+   * Driver Name
    */
-  name: string;
-  /**
-   * Score
-   */
-  score: number;
+  driver_name: string;
 };
 
 /**
@@ -3553,7 +3549,7 @@ export type GetGoogleMapsLinkResponses = {
 export type GetGoogleMapsLinkResponse =
   GetGoogleMapsLinkResponses[keyof GetGoogleMapsLinkResponses];
 
-export type GetSuggestedDriversData = {
+export type GetSuggestedDriverData = {
   body?: never;
   path: {
     /**
@@ -3561,38 +3557,38 @@ export type GetSuggestedDriversData = {
      */
     route_id: string;
   };
-  query?: {
+  query: {
     /**
-     * Limit
+     * Route Group Id
      *
-     * Max number of drivers to suggest
+     * Route group the route is being assigned within
      */
-    limit?: number;
+    route_group_id: string;
   };
-  url: '/routes/{route_id}/suggested-drivers';
+  url: '/routes/{route_id}/suggested-driver';
 };
 
-export type GetSuggestedDriversErrors = {
+export type GetSuggestedDriverErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type GetSuggestedDriversError =
-  GetSuggestedDriversErrors[keyof GetSuggestedDriversErrors];
+export type GetSuggestedDriverError =
+  GetSuggestedDriverErrors[keyof GetSuggestedDriverErrors];
 
-export type GetSuggestedDriversResponses = {
+export type GetSuggestedDriverResponses = {
   /**
-   * Response Get Suggested Drivers
+   * Response Get Suggested Driver
    *
    * Successful Response
    */
-  200: Array<SuggestedDriverRead>;
+  200: SuggestedDriverResponse | null;
 };
 
-export type GetSuggestedDriversResponse =
-  GetSuggestedDriversResponses[keyof GetSuggestedDriversResponses];
+export type GetSuggestedDriverResponse =
+  GetSuggestedDriverResponses[keyof GetSuggestedDriverResponses];
 
 export type GetSystemSettingsData = {
   body?: never;

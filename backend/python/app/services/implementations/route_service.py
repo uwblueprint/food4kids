@@ -13,7 +13,7 @@ from app.models.route import (
     Route,
     RoutePatchRequest,
     RouteWithDateRead,
-    SuggestedDriverRead,
+    SuggestedDriverResponse,
 )
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
@@ -343,30 +343,35 @@ class RouteService:
 
         return url
 
-    async def get_suggested_drivers_for_route(
+    async def get_suggested_driver(
         self,
         session: AsyncSession,
         route_id: UUID,
-        limit: int = 5,
-    ) -> list[SuggestedDriverRead]:
-        """Suggest drivers by location familiarity: rank active drivers by
-        their count of past completed (frozen) deliveries to this route's
-        locations, and return the top `limit`.
+        route_group_id: UUID,
+    ) -> SuggestedDriverResponse | None:
+        """Suggest the single best driver to assign to a route: the active
+        driver most familiar with its locations (by count of past completed,
+        frozen deliveries there), excluding drivers already assigned to a
+        route in this route_group (a driver can't run two routes the same
+        day). Returns None if there's no candidate.
         """
-        # Subquery: location_ids that make up the target route.
+        # Location IDs that make up the target route.
         target_locations = (
             select(RouteStop.location_id)
             .where(RouteStop.route_id == route_id)
             .subquery()
         )
 
-        # Past completed routes' driver_id x delivery count to those locations.
+        # Drivers already assigned within this route group — exclude them so
+        # we don't double-book a driver on the same day.
+        already_assigned = (
+            select(Route.driver_id)
+            .where(Route.route_group_id == route_group_id)
+            .where(col(Route.driver_id).isnot(None))
+        )
+
         statement = (
-            select(
-                Route.driver_id,
-                User.name,
-                func.count().label("deliveries"),
-            )
+            select(Route.driver_id, User.name)
             .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
             .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
             .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
@@ -377,17 +382,13 @@ class RouteService:
             .where(col(Route.driver_id).isnot(None))
             .where(Route.route_id != route_id)
             .where(col(Driver.active).is_(True))
+            .where(col(Route.driver_id).not_in(already_assigned))
             .group_by(col(Route.driver_id), User.name)
             .order_by(func.count().desc())
-            .limit(limit)
+            .limit(1)
         )
 
-        result = await session.execute(statement)
-        return [
-            SuggestedDriverRead(
-                driver_id=row.driver_id,
-                name=row.name,
-                score=row.deliveries,
-            )
-            for row in result.all()
-        ]
+        row = (await session.execute(statement)).first()
+        if row is None:
+            return None
+        return SuggestedDriverResponse(driver_id=row.driver_id, driver_name=row.name)

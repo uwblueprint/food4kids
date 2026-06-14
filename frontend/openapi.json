@@ -2737,29 +2737,24 @@
         "title": "StaleEntry",
         "type": "object"
       },
-      "SuggestedDriverRead": {
-        "description": "A driver suggested for a route, ranked by how many of the route's\nlocations they've delivered to on past (completed) routes.",
+      "SuggestedDriverResponse": {
+        "description": "A driver suggested for a route (most familiar with its locations from\npast completed deliveries).",
         "properties": {
           "driver_id": {
             "format": "uuid",
             "title": "Driver Id",
             "type": "string"
           },
-          "name": {
-            "title": "Name",
+          "driver_name": {
+            "title": "Driver Name",
             "type": "string"
-          },
-          "score": {
-            "title": "Score",
-            "type": "integer"
           }
         },
         "required": [
           "driver_id",
-          "name",
-          "score"
+          "driver_name"
         ],
-        "title": "SuggestedDriverRead",
+        "title": "SuggestedDriverResponse",
         "type": "object"
       },
       "SystemSettingsRead": {
@@ -5828,10 +5823,10 @@
         ]
       }
     },
-    "/routes/{route_id}/suggested-drivers": {
+    "/routes/{route_id}/suggested-driver": {
       "get": {
-        "description": "Suggest drivers to assign to a route, ranked by how many of the route's\nlocations each active driver has delivered to on past (completed) routes.\n\nParameters:\n    route_id (UUID): The route to suggest drivers for.\n    limit (int): Max number of drivers to return.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    Up to `limit` suggested drivers, highest familiarity first.",
-        "operationId": "get_suggested_drivers",
+        "description": "Suggest a driver to assign to a route: the active driver most familiar\nwith the route's locations (by past completed deliveries), excluding\ndrivers already assigned within the given route group.\n\nParameters:\n    route_id (UUID): The route to suggest a driver for.\n    route_group_id (UUID): The route group the assignment is within.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    The suggested driver, or null if there's no candidate.",
+        "operationId": "get_suggested_driver",
         "parameters": [
           {
             "in": "path",
@@ -5844,16 +5839,15 @@
             }
           },
           {
-            "description": "Max number of drivers to suggest",
+            "description": "Route group the route is being assigned within",
             "in": "query",
-            "name": "limit",
-            "required": false,
+            "name": "route_group_id",
+            "required": true,
             "schema": {
-              "default": 5,
-              "description": "Max number of drivers to suggest",
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
+              "description": "Route group the route is being assigned within",
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
             }
           }
         ],
@@ -5862,11 +5856,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SuggestedDriverRead"
-                  },
-                  "title": "Response Get Suggested Drivers",
-                  "type": "array"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SuggestedDriverResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Suggested Driver"
                 }
               }
             },
@@ -5888,7 +5886,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Suggested Drivers",
+        "summary": "Get Suggested Driver",
         "tags": [
           "routes"
         ]

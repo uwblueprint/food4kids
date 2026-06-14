@@ -49,7 +49,7 @@ import {
   getRoute,
   getRouteGroups,
   getRoutes,
-  getSuggestedDrivers,
+  getSuggestedDriver,
   getSystemSettings,
   ingestLocations,
   initializeDriver,
@@ -181,9 +181,9 @@ import type {
   GetRoutesData,
   GetRoutesError,
   GetRoutesResponse,
-  GetSuggestedDriversData,
-  GetSuggestedDriversError,
-  GetSuggestedDriversResponse,
+  GetSuggestedDriverData,
+  GetSuggestedDriverError,
+  GetSuggestedDriverResponse,
   GetSystemSettingsData,
   GetSystemSettingsResponse,
   IngestLocationsData,
@@ -2036,35 +2036,36 @@ export const getGoogleMapsLinkOptions = (
     queryKey: getGoogleMapsLinkQueryKey(options),
   });
 
-export const getSuggestedDriversQueryKey = (
-  options: Options<GetSuggestedDriversData>
-) => createQueryKey('getSuggestedDrivers', options);
+export const getSuggestedDriverQueryKey = (
+  options: Options<GetSuggestedDriverData>
+) => createQueryKey('getSuggestedDriver', options);
 
 /**
- * Get Suggested Drivers
+ * Get Suggested Driver
  *
- * Suggest drivers to assign to a route, ranked by how many of the route's
- * locations each active driver has delivered to on past (completed) routes.
+ * Suggest a driver to assign to a route: the active driver most familiar
+ * with the route's locations (by past completed deliveries), excluding
+ * drivers already assigned within the given route group.
  *
  * Parameters:
- * route_id (UUID): The route to suggest drivers for.
- * limit (int): Max number of drivers to return.
+ * route_id (UUID): The route to suggest a driver for.
+ * route_group_id (UUID): The route group the assignment is within.
  * session (AsyncSession): The database session dependency.
  *
  * Returns:
- * Up to `limit` suggested drivers, highest familiarity first.
+ * The suggested driver, or null if there's no candidate.
  */
-export const getSuggestedDriversOptions = (
-  options: Options<GetSuggestedDriversData>
+export const getSuggestedDriverOptions = (
+  options: Options<GetSuggestedDriverData>
 ) =>
   queryOptions<
-    GetSuggestedDriversResponse,
-    AxiosError<GetSuggestedDriversError>,
-    GetSuggestedDriversResponse,
-    ReturnType<typeof getSuggestedDriversQueryKey>
+    GetSuggestedDriverResponse,
+    AxiosError<GetSuggestedDriverError>,
+    GetSuggestedDriverResponse,
+    ReturnType<typeof getSuggestedDriverQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getSuggestedDrivers({
+      const { data } = await getSuggestedDriver({
         ...options,
         ...queryKey[0],
         signal,
@@ -2072,7 +2073,7 @@ export const getSuggestedDriversOptions = (
       });
       return data;
     },
-    queryKey: getSuggestedDriversQueryKey(options),
+    queryKey: getSuggestedDriverQueryKey(options),
   });
 
 export const getSystemSettingsQueryKey = (

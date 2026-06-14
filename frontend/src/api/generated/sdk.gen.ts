@@ -119,9 +119,9 @@ import type {
   GetRoutesData,
   GetRoutesErrors,
   GetRoutesResponses,
-  GetSuggestedDriversData,
-  GetSuggestedDriversErrors,
-  GetSuggestedDriversResponses,
+  GetSuggestedDriverData,
+  GetSuggestedDriverErrors,
+  GetSuggestedDriverResponses,
   GetSystemSettingsData,
   GetSystemSettingsResponses,
   IngestLocationsData,
@@ -1300,30 +1300,31 @@ export const getGoogleMapsLink = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get Suggested Drivers
+ * Get Suggested Driver
  *
- * Suggest drivers to assign to a route, ranked by how many of the route's
- * locations each active driver has delivered to on past (completed) routes.
+ * Suggest a driver to assign to a route: the active driver most familiar
+ * with the route's locations (by past completed deliveries), excluding
+ * drivers already assigned within the given route group.
  *
  * Parameters:
- * route_id (UUID): The route to suggest drivers for.
- * limit (int): Max number of drivers to return.
+ * route_id (UUID): The route to suggest a driver for.
+ * route_group_id (UUID): The route group the assignment is within.
  * session (AsyncSession): The database session dependency.
  *
  * Returns:
- * Up to `limit` suggested drivers, highest familiarity first.
+ * The suggested driver, or null if there's no candidate.
  */
-export const getSuggestedDrivers = <ThrowOnError extends boolean = false>(
-  options: Options<GetSuggestedDriversData, ThrowOnError>
+export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
+  options: Options<GetSuggestedDriverData, ThrowOnError>
 ) =>
   (options.client ?? client).get<
-    GetSuggestedDriversResponses,
-    GetSuggestedDriversErrors,
+    GetSuggestedDriverResponses,
+    GetSuggestedDriverErrors,
     ThrowOnError
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/routes/{route_id}/suggested-drivers',
+    url: '/routes/{route_id}/suggested-driver',
     ...options,
   });
 

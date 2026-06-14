@@ -1202,22 +1202,24 @@ class TestRouteRoutes:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_suggested_drivers_by_past_deliveries(
+    async def test_suggested_driver_by_past_deliveries(
         self,
         async_client: AsyncClient,
         test_session: AsyncSession,
         test_route_group: Any,
         test_location_group: Any,
     ) -> None:
-        """GET /routes/{id}/suggested-drivers returns active drivers ranked by
-        their past frozen deliveries to the target route's locations."""
+        """GET /routes/{id}/suggested-driver returns the active driver most
+        familiar with the route's locations from past frozen deliveries."""
+        from datetime import datetime
+
         from app.models.driver import Driver
         from app.models.route import Route
+        from app.models.route_group import RouteGroup
         from app.models.route_snapshot import RouteSnapshot
         from app.models.user import User
 
         group_id = test_location_group.location_group_id
-        rg_id = test_route_group.route_group_id
 
         loc_a = Location(
             location_group_id=group_id,
@@ -1244,16 +1246,23 @@ class TestRouteRoutes:
             car_make_model="Toyota Corolla",
             active=True,
         )
-        test_session.add_all([loc_a, loc_b, user, driver])
+        # The driver's past route lives in its own (earlier) group, so the
+        # no-double-book exclusion doesn't remove them from the target group.
+        past_group = RouteGroup(name="Past Day", drive_date=datetime(2020, 1, 1))
+        test_session.add_all([loc_a, loc_b, user, driver, past_group])
         await test_session.commit()
         await test_session.refresh(loc_a)
         await test_session.refresh(loc_b)
         await test_session.refresh(driver)
+        await test_session.refresh(past_group)
 
         # Past route driven by the driver, frozen (RouteSnapshot present),
         # visiting both locations.
         past = Route(
-            name="Past", length=5.0, route_group_id=rg_id, driver_id=driver.driver_id
+            name="Past",
+            length=5.0,
+            route_group_id=past_group.route_group_id,
+            driver_id=driver.driver_id,
         )
         test_session.add(past)
         await test_session.commit()
@@ -1280,8 +1289,12 @@ class TestRouteRoutes:
         )
         await test_session.commit()
 
-        # Target route visiting location A.
-        target = Route(name="Target", length=3.0, route_group_id=rg_id)
+        # Target route (in the fixture group) visiting location A.
+        target = Route(
+            name="Target",
+            length=3.0,
+            route_group_id=test_route_group.route_group_id,
+        )
         test_session.add(target)
         await test_session.commit()
         await test_session.refresh(target)
@@ -1292,15 +1305,15 @@ class TestRouteRoutes:
         )
         await test_session.commit()
 
-        resp = await async_client.get(f"/routes/{target.route_id}/suggested-drivers")
-        assert resp.status_code == 200
-        suggestions = resp.json()
-        match = next(
-            (s for s in suggestions if s["driver_id"] == str(driver.driver_id)), None
+        resp = await async_client.get(
+            f"/routes/{target.route_id}/suggested-driver",
+            params={"route_group_id": str(test_route_group.route_group_id)},
         )
-        assert match is not None
-        assert match["name"] == "Veteran"
-        assert match["score"] >= 1
+        assert resp.status_code == 200
+        suggestion = resp.json()
+        assert suggestion is not None
+        assert suggestion["driver_id"] == str(driver.driver_id)
+        assert suggestion["driver_name"] == "Veteran"
 
 
 class TestRouteStopConstraints:

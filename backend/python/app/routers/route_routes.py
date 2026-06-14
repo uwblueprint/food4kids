@@ -15,7 +15,7 @@ from app.models.route import (
     RoutePatchRequest,
     RouteRead,
     RouteWithDateRead,
-    SuggestedDriverRead,
+    SuggestedDriverResponse,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.route_service import (
@@ -99,29 +99,32 @@ async def get_google_maps_link(
 
 
 @router.get(
-    "/{route_id}/suggested-drivers",
-    response_model=list[SuggestedDriverRead],
+    "/{route_id}/suggested-driver",
+    response_model=SuggestedDriverResponse | None,
     status_code=status.HTTP_200_OK,
 )
-async def get_suggested_drivers(
+async def get_suggested_driver(
     route_id: UUID,
-    limit: int = Query(5, ge=1, description="Max number of drivers to suggest"),
+    route_group_id: UUID = Query(
+        ..., description="Route group the route is being assigned within"
+    ),
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
-) -> list[SuggestedDriverRead]:
+) -> SuggestedDriverResponse | None:
     """
-    Suggest drivers to assign to a route, ranked by how many of the route's
-    locations each active driver has delivered to on past (completed) routes.
+    Suggest a driver to assign to a route: the active driver most familiar
+    with the route's locations (by past completed deliveries), excluding
+    drivers already assigned within the given route group.
 
     Parameters:
-        route_id (UUID): The route to suggest drivers for.
-        limit (int): Max number of drivers to return.
+        route_id (UUID): The route to suggest a driver for.
+        route_group_id (UUID): The route group the assignment is within.
         session (AsyncSession): The database session dependency.
 
     Returns:
-        Up to `limit` suggested drivers, highest familiarity first.
+        The suggested driver, or null if there's no candidate.
     """
-    return await route_service.get_suggested_drivers_for_route(session, route_id, limit)
+    return await route_service.get_suggested_driver(session, route_id, route_group_id)
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

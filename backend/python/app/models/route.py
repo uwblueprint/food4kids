@@ -139,13 +139,12 @@ class RouteWithDateRead(SQLModel):
     drive_date: datetime
 
 
-class SuggestedDriverRead(SQLModel):
-    """A driver suggested for a route, ranked by how many of the route's
-    locations they've delivered to on past (completed) routes."""
+class SuggestedDriverResponse(SQLModel):
+    """A driver suggested for a route (most familiar with its locations from
+    past completed deliveries)."""
 
     driver_id: UUID
-    name: str
-    score: int
+    driver_name: str
 
 
 class RoutePatchRequest(SQLModel):

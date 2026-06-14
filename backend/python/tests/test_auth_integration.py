@@ -158,7 +158,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("PATCH", "/routes/{route_id}"): Policy.ADMIN_ONLY,
     ("DELETE", "/routes/{route_id}"): Policy.ADMIN_ONLY,
     ("GET", "/routes/{route_id}/google-maps-link"): Policy.ROUTE_ASSIGNED_OR_ADMIN,
-    ("GET", "/routes/{route_id}/suggested-drivers"): Policy.ADMIN_ONLY,
+    ("GET", "/routes/{route_id}/suggested-driver"): Policy.ADMIN_ONLY,
     # --- announcements (any authenticated driver/admin) ---
     ("GET", "/announcements/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/announcements/"): Policy.DRIVER_OR_ADMIN,
