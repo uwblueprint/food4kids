@@ -5529,7 +5529,7 @@
     },
     "/routes": {
       "get": {
-        "description": "Get routes with pagination and optional filtering for unassigned routes and date range.\nReturns routes with their drive dates - routes can appear multiple times for different dates.\nWhen unassigned_only is False, returns all routes (no assignment filter).\nWhen unassigned_only is True, returns only routes that are unassigned for the given route group.\nWhen driver_id is set, returns only routes assigned to that driver.",
+        "description": "Get routes with pagination and optional filtering for unassigned routes and date range.\nReturns routes with their drive dates - routes can appear multiple times for different dates.\nWhen unassigned_only is False, returns all routes (no assignment filter).\nWhen unassigned_only is True, returns only routes that are unassigned for the given route group.\n\nAdmins may scope to any driver via driver_id (or omit it for all routes).\nDrivers are always scoped to their own routes: omitting driver_id returns\ntheir own routes, and requesting another driver's is rejected.",
         "operationId": "get_routes",
         "parameters": [
           {
@@ -5542,25 +5542,6 @@
               "description": "If true, only return unassigned routes. If false, return all routes regardless of assignment status.",
               "title": "Unassigned Only",
               "type": "boolean"
-            }
-          },
-          {
-            "description": "If set, only return routes assigned to this driver. Powers the driver homepage feed.",
-            "in": "query",
-            "name": "driver_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "format": "uuid",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "If set, only return routes assigned to this driver. Powers the driver homepage feed.",
-              "title": "Driver Id"
             }
           },
           {
@@ -5610,6 +5591,25 @@
               "minimum": 1,
               "title": "Page Size",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Filter routes by assigned driver. Admins may pass any driver_id, or omit it to get all routes. Drivers are always scoped to themselves: omitting it returns their own routes, and passing another driver's id is rejected with 403.",
+            "in": "query",
+            "name": "driver_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter routes by assigned driver. Admins may pass any driver_id, or omit it to get all routes. Drivers are always scoped to themselves: omitting it returns their own routes, and passing another driver's id is rejected with 403.",
+              "title": "Driver Id"
             }
           }
         ],

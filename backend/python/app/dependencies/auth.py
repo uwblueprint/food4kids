@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 import firebase_admin.auth
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -213,6 +213,55 @@ async def require_route_assigned_or_admin(
 require_admin = require_authorization_by_role({"admin"})
 require_driver = require_authorization_by_role({"driver"})
 require_driver_or_admin = require_authorization_by_role({"driver", "admin"})
+
+
+async def resolve_route_list_driver_filter(
+    driver_id: UUID | None = Query(
+        None,
+        description=(
+            "Filter routes by assigned driver. Admins may pass any driver_id, "
+            "or omit it to get all routes. Drivers are always scoped to "
+            "themselves: omitting it returns their own routes, and passing "
+            "another driver's id is rejected with 403."
+        ),
+    ),
+    access_token: str = Depends(get_access_token),
+    session: AsyncSession = Depends(get_session),
+) -> UUID | None:
+    """Resolve the effective ``driver_id`` filter for GET /routes, enforcing
+    that a driver can only ever see their own routes.
+
+    This is an *ownership* check on top of the endpoint's role gate
+    (``require_driver_or_admin``): without it, the role gate alone would let any
+    authenticated driver read another driver's routes by passing their id —
+    derive the scope from the token instead of trusting the client value.
+
+    Returns the driver_id to filter by, or ``None`` for "all routes" (admins
+    only). The token is verified here (with ``email_verified`` enforced for
+    everyone, admins included).
+    """
+    decoded_token = _verified_token(access_token)
+
+    if decoded_token.get("role") == "admin":
+        # Admins may scope to any driver, or see everything (driver_id is None).
+        return driver_id
+
+    # Non-admin: the role gate restricts this to drivers. Force self-scoping so
+    # one driver can never read another driver's routes.
+    own_driver_id = await driver_service.get_driver_id_by_auth_id(
+        session, decoded_token["uid"]
+    )
+    if own_driver_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No driver record found for current user",
+        )
+    if driver_id is not None and driver_id != own_driver_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Drivers may only view their own routes.",
+        )
+    return own_driver_id
 
 
 def get_current_user_email(access_token: str = Depends(get_access_token)) -> str:

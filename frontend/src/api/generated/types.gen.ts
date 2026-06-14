@@ -3378,12 +3378,6 @@ export type GetRoutesData = {
      */
     unassigned_only?: boolean;
     /**
-     * Driver Id
-     *
-     * If set, only return routes assigned to this driver. Powers the driver homepage feed.
-     */
-    driver_id?: string | null;
-    /**
      * Start Date
      *
      * Filter route groups from this date
@@ -3407,6 +3401,12 @@ export type GetRoutesData = {
      * Number of items per page
      */
     page_size?: number;
+    /**
+     * Driver Id
+     *
+     * Filter routes by assigned driver. Admins may pass any driver_id, or omit it to get all routes. Drivers are always scoped to themselves: omitting it returns their own routes, and passing another driver's id is rejected with 403.
+     */
+    driver_id?: string | null;
   };
   url: '/routes';
 };
