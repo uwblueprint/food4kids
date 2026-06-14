@@ -357,19 +357,9 @@ class RouteService:
         route_id: UUID,
         limit: int = 5,
     ) -> list[SuggestedDriver]:
-        """Suggest drivers by location familiarity.
-
-        Counts each driver's past completed deliveries (RouteStopSnapshot
-        exists, i.e. the route is frozen) to the locations in the target
-        route. Returns the top `limit` active drivers, scored by raw count.
-
-        This replaces the old "same route_id last time" heuristic, which
-        broke as soon as routes drifted; familiarity over a *cluster of
-        locations* degrades gracefully when a single stop swaps.
-
-        Cold-start (net-new locations / brand-new drivers): currently
-        returns whatever signal exists. A geographic fallback (nearest by
-        lat/lng, or shared location_group) is a sensible follow-up.
+        """Suggest drivers by location familiarity: rank active drivers by
+        their count of past completed (frozen) deliveries to this route's
+        locations, and return the top `limit`.
         """
         # Subquery: location_ids that make up the target route.
         target_locations = (
