@@ -1817,6 +1817,7 @@ export const getRoutesQueryKey = (options?: Options<GetRoutesData>) =>
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
  *
+ * Requires a driver or admin caller.
  * Admins may scope to any driver via driver_id (or omit it for all routes).
  * Drivers are always scoped to their own routes: omitting driver_id returns
  * their own routes, and requesting another driver's is rejected.
@@ -1853,6 +1854,7 @@ export const getRoutesInfiniteQueryKey = (
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
  *
+ * Requires a driver or admin caller.
  * Admins may scope to any driver via driver_id (or omit it for all routes).
  * Drivers are always scoped to their own routes: omitting driver_id returns
  * their own routes, and requesting another driver's is rejected.

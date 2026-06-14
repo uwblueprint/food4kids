@@ -22,6 +22,7 @@ from app.dependencies.auth import (
     require_driver_or_admin,
     require_route_assigned_or_admin,
     require_self_driver_or_admin,
+    resolve_route_list_driver_filter,
 )
 from app.models import get_session
 
@@ -119,6 +120,10 @@ def _apply_auth_overrides(app: Any) -> None:
     app.dependency_overrides[require_driver_or_admin] = lambda: True
     app.dependency_overrides[require_self_driver_or_admin] = lambda: True
     app.dependency_overrides[require_route_assigned_or_admin] = lambda: True
+    # GET /routes' sole auth dependency also resolves the driver_id filter;
+    # bypass it to the "all routes" scope (driver_id=None), matching the admin
+    # view, so router tests that hit GET /routes aren't gated by token checks.
+    app.dependency_overrides[resolve_route_list_driver_filter] = lambda: None
 
 
 @pytest.fixture(scope="function")

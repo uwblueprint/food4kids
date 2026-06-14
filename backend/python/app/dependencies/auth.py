@@ -228,26 +228,36 @@ async def resolve_route_list_driver_filter(
     access_token: str = Depends(get_access_token),
     session: AsyncSession = Depends(get_session),
 ) -> UUID | None:
-    """Resolve the effective ``driver_id`` filter for GET /routes, enforcing
-    that a driver can only ever see their own routes.
+    """Sole auth dependency for GET /routes: gates access to drivers/admins AND
+    resolves the effective ``driver_id`` filter, so the token is verified
+    exactly once (mirroring ``require_route_assigned_or_admin`` for
+    GET /routes/{route_id}).
 
-    This is an *ownership* check on top of the endpoint's role gate
-    (``require_driver_or_admin``): without it, the role gate alone would let any
-    authenticated driver read another driver's routes by passing their id —
-    derive the scope from the token instead of trusting the client value.
+    Without the ownership half, a plain ``require_driver_or_admin`` role gate
+    would let any authenticated driver read another driver's routes by passing
+    their id — so the scope is derived from the token, never the client value:
+
+    - admins may pass any ``driver_id`` (or omit it for all routes);
+    - drivers are always scoped to themselves — omitting ``driver_id`` returns
+      their own routes, and passing another driver's id is rejected with 403.
 
     Returns the driver_id to filter by, or ``None`` for "all routes" (admins
-    only). The token is verified here (with ``email_verified`` enforced for
-    everyone, admins included).
+    only). ``email_verified`` is enforced for everyone, admins included.
     """
     decoded_token = _verified_token(access_token)
+    role = decoded_token.get("role")
 
-    if decoded_token.get("role") == "admin":
+    if role == "admin":
         # Admins may scope to any driver, or see everything (driver_id is None).
         return driver_id
 
-    # Non-admin: the role gate restricts this to drivers. Force self-scoping so
-    # one driver can never read another driver's routes.
+    if role != "driver":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to make this request.",
+        )
+
+    # Driver: force self-scoping so one driver can never read another's routes.
     own_driver_id = await driver_service.get_driver_id_by_auth_id(
         session, decoded_token["uid"]
     )

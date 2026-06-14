@@ -35,7 +35,6 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -167,7 +166,9 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
     # --- upload (any driver/admin; feeds note + announcement attachments) ---
     ("POST", "/upload/"): Policy.DRIVER_OR_ADMIN,
-    ("DELETE", "/upload/{filename:path}"): Policy.DRIVER_OR_ADMIN,
+    # The route declares a :path converter (/upload/{filename:path}); the
+    # OpenAPI schema (our completeness source) renders it without the converter.
+    ("DELETE", "/upload/{filename}"): Policy.DRIVER_OR_ADMIN,
 }
 
 
@@ -411,11 +412,19 @@ def test_every_exposed_route_is_classified() -> None:
     test_route_auth_matrix above.
     """
     app = create_app()
+    # Enumerate exposed routes from the public OpenAPI schema rather than walking
+    # app.routes: FastAPI's internal route structure is version-sensitive (0.137
+    # nests included routers behind a lazy wrapper instead of flattening them
+    # into app.routes), but the generated schema's path+method map is the stable
+    # public contract for what the app exposes. Docs/openapi routes are not in
+    # the schema, which is exactly what we want (they carry no auth policy).
+    http_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+    schema = app.openapi()
     exposed = {
-        (method, route.path)
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        for method in route.methods - {"HEAD", "OPTIONS"}
+        (method.upper(), path)
+        for path, operations in schema["paths"].items()
+        for method in operations
+        if method.upper() in http_methods
     }
     registered = set(ROUTE_POLICIES)
 
