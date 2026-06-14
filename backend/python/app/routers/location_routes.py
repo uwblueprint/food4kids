@@ -48,11 +48,10 @@ async def get_locations(
     Get all locations with pagination
     """
     try:
-        # The service returns LocationRead items with `has_future_route`
-        # already populated (so the computed `status` field is correct).
-        # Re-validating here would reset has_future_route to its default and
-        # mis-report status — return the result as-is.
-        return await location_service.get_locations(  # type: ignore[return-value]
+        # Return the service result as-is: it already builds LocationRead
+        # items with has_future_route populated (so the computed `status` is
+        # correct). Re-validating each item here would reset has_future_route.
+        return await location_service.get_locations(
             session, pagination, delivery_type, status_filter
         )
     except Exception as e:

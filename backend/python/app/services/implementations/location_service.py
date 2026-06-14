@@ -135,7 +135,7 @@ class LocationService:
         pagination: PaginationParams,
         delivery_type: list[DeliveryTypeEnum] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
-    ) -> PaginatedResponse[Location]:
+    ) -> PaginatedResponse[LocationRead]:
         """Get paginated locations.
 
         Returns LocationRead objects with the derived ``status`` populated.
@@ -202,7 +202,7 @@ class LocationService:
                 for loc in items
             ]
             return PaginatedResponse.create(
-                items=reads,  # type: ignore[arg-type]
+                items=reads,
                 total=total,
                 page=pagination.page,
                 page_size=pagination.page_size,
