@@ -1112,6 +1112,111 @@ class TestRouteRoutes:
         assert route_id in {r["route_id"] for r in unassigned_again.json()["items"]}
 
     @pytest.mark.asyncio
+    async def test_get_routes_filters_by_driver_id(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """GET /routes?driver_id=<id> returns only that driver's routes, and
+        excludes routes assigned to other drivers and unassigned routes."""
+        from app.models.driver import Driver
+        from app.models.route import Route
+        from app.models.user import User
+
+        rg_id = test_route_group.route_group_id
+
+        # Two drivers.
+        user_a = User(name="Driver A", email="driver-a@test.dev", auth_id="drv-a")
+        user_b = User(name="Driver B", email="driver-b@test.dev", auth_id="drv-b")
+        test_session.add_all([user_a, user_b])
+        driver_a = Driver(
+            user_id=user_a.user_id,
+            phone="+12125550001",
+            address="1 A St",
+            license_plate="AAA111",
+            car_make_model="Toyota Corolla",
+        )
+        driver_b = Driver(
+            user_id=user_b.user_id,
+            phone="+12125550002",
+            address="2 B St",
+            license_plate="BBB222",
+            car_make_model="Honda Civic",
+        )
+        test_session.add_all([driver_a, driver_b])
+        await test_session.commit()
+        await test_session.refresh(driver_a)
+        await test_session.refresh(driver_b)
+
+        # Two routes for A, one for B, one unassigned — all in the same group.
+        a1 = Route(
+            name="A1", length=1.0, route_group_id=rg_id, driver_id=driver_a.driver_id
+        )
+        a2 = Route(
+            name="A2", length=2.0, route_group_id=rg_id, driver_id=driver_a.driver_id
+        )
+        b1 = Route(
+            name="B1", length=3.0, route_group_id=rg_id, driver_id=driver_b.driver_id
+        )
+        unassigned = Route(name="U1", length=4.0, route_group_id=rg_id)
+        test_session.add_all([a1, a2, b1, unassigned])
+        await test_session.commit()
+        for r in (a1, a2, b1, unassigned):
+            await test_session.refresh(r)
+
+        resp = await async_client.get(f"/routes?driver_id={driver_a.driver_id}")
+        assert resp.status_code == 200
+        returned = {item["route_id"] for item in resp.json()["items"]}
+        assert returned == {str(a1.route_id), str(a2.route_id)}
+
+    @pytest.mark.asyncio
+    async def test_get_routes_driver_id_no_matches(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """GET /routes?driver_id=<id> returns an empty page for a driver with
+        no assigned routes (rather than erroring or returning everything)."""
+        from app.models.driver import Driver
+        from app.models.route import Route
+        from app.models.user import User
+
+        rg_id = test_route_group.route_group_id
+
+        # A route exists, but it's unassigned.
+        test_session.add(Route(name="Lonely", length=1.0, route_group_id=rg_id))
+        user = User(name="No Routes", email="noroutes@test.dev", auth_id="drv-none")
+        test_session.add(user)
+        driver = Driver(
+            user_id=user.user_id,
+            phone="+12125550003",
+            address="3 C St",
+            license_plate="CCC333",
+            car_make_model="Mazda 3",
+        )
+        test_session.add(driver)
+        await test_session.commit()
+        await test_session.refresh(driver)
+
+        resp = await async_client.get(f"/routes?driver_id={driver.driver_id}")
+        assert resp.status_code == 200
+        assert resp.json()["items"] == []
+        assert resp.json()["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_get_routes_driver_id_with_unassigned_only_is_400(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /routes rejects combining driver_id with unassigned_only — a
+        route can't be both unassigned and assigned to a specific driver."""
+        resp = await async_client.get(
+            f"/routes?unassigned_only=true&driver_id={uuid4()}"
+        )
+        assert resp.status_code == 400
+
+    @pytest.mark.asyncio
     async def test_update_route_not_found(self, async_client: AsyncClient) -> None:
         """PATCH /routes/{id} returns 404 for an unknown route."""
         response = await async_client.patch(f"/routes/{uuid4()}", json={"name": "x"})

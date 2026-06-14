@@ -3378,6 +3378,12 @@ export type GetRoutesData = {
      */
     unassigned_only?: boolean;
     /**
+     * Driver Id
+     *
+     * If set, only return routes assigned to this driver. Powers the driver homepage feed.
+     */
+    driver_id?: string | null;
+    /**
      * Start Date
      *
      * Filter route groups from this date

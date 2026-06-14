@@ -1173,6 +1173,7 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
  * Returns routes with their drive dates - routes can appear multiple times for different dates.
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
+ * When driver_id is set, returns only routes assigned to that driver.
  */
 export const getRoutes = <ThrowOnError extends boolean = false>(
   options?: Options<GetRoutesData, ThrowOnError>

@@ -5529,7 +5529,7 @@
     },
     "/routes": {
       "get": {
-        "description": "Get routes with pagination and optional filtering for unassigned routes and date range.\nReturns routes with their drive dates - routes can appear multiple times for different dates.\nWhen unassigned_only is False, returns all routes (no assignment filter).\nWhen unassigned_only is True, returns only routes that are unassigned for the given route group.",
+        "description": "Get routes with pagination and optional filtering for unassigned routes and date range.\nReturns routes with their drive dates - routes can appear multiple times for different dates.\nWhen unassigned_only is False, returns all routes (no assignment filter).\nWhen unassigned_only is True, returns only routes that are unassigned for the given route group.\nWhen driver_id is set, returns only routes assigned to that driver.",
         "operationId": "get_routes",
         "parameters": [
           {
@@ -5542,6 +5542,25 @@
               "description": "If true, only return unassigned routes. If false, return all routes regardless of assignment status.",
               "title": "Unassigned Only",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "If set, only return routes assigned to this driver. Powers the driver homepage feed.",
+            "in": "query",
+            "name": "driver_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "If set, only return routes assigned to this driver. Powers the driver homepage feed.",
+              "title": "Driver Id"
             }
           },
           {

@@ -36,6 +36,10 @@ async def get_routes(
         False,
         description="If true, only return unassigned routes. If false, return all routes regardless of assignment status.",
     ),
+    driver_id: UUID | None = Query(
+        None,
+        description="If set, only return routes assigned to this driver. Powers the driver homepage feed.",
+    ),
     start_date: str = Query(None, description="Filter route groups from this date"),
     end_date: str = Query(None, description="Filter route groups until this date"),
     pagination: PaginationParams = Depends(get_pagination),
@@ -47,9 +51,16 @@ async def get_routes(
     Returns routes with their drive dates - routes can appear multiple times for different dates.
     When unassigned_only is False, returns all routes (no assignment filter).
     When unassigned_only is True, returns only routes that are unassigned for the given route group.
+    When driver_id is set, returns only routes assigned to that driver.
     """
+    if unassigned_only and driver_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot combine unassigned_only with driver_id: a route is "
+            "either unassigned or assigned to a specific driver, not both.",
+        )
     return await route_service.get_routes(
-        session, unassigned_only, start_date, end_date, pagination
+        session, unassigned_only, start_date, end_date, pagination, driver_id
     )
 
 
