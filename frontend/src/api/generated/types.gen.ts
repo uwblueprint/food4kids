@@ -1599,6 +1599,27 @@ export type StaleEntry = {
 };
 
 /**
+ * SuggestedDriverRead
+ *
+ * A driver suggested for a route, ranked by how many of the route's
+ * locations they've delivered to on past (completed) routes.
+ */
+export type SuggestedDriverRead = {
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Score
+   */
+  score: number;
+};
+
+/**
  * SystemSettingsRead
  *
  * Read response model
@@ -3531,6 +3552,47 @@ export type GetGoogleMapsLinkResponses = {
 
 export type GetGoogleMapsLinkResponse =
   GetGoogleMapsLinkResponses[keyof GetGoogleMapsLinkResponses];
+
+export type GetSuggestedDriversData = {
+  body?: never;
+  path: {
+    /**
+     * Route Id
+     */
+    route_id: string;
+  };
+  query?: {
+    /**
+     * Limit
+     *
+     * Max number of drivers to suggest
+     */
+    limit?: number;
+  };
+  url: '/routes/{route_id}/suggested-drivers';
+};
+
+export type GetSuggestedDriversErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetSuggestedDriversError =
+  GetSuggestedDriversErrors[keyof GetSuggestedDriversErrors];
+
+export type GetSuggestedDriversResponses = {
+  /**
+   * Response Get Suggested Drivers
+   *
+   * Successful Response
+   */
+  200: Array<SuggestedDriverRead>;
+};
+
+export type GetSuggestedDriversResponse =
+  GetSuggestedDriversResponses[keyof GetSuggestedDriversResponses];
 
 export type GetSystemSettingsData = {
   body?: never;

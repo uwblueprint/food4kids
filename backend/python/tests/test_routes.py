@@ -1201,6 +1201,107 @@ class TestRouteRoutes:
         )
         assert response.status_code == 422
 
+    @pytest.mark.asyncio
+    async def test_suggested_drivers_by_past_deliveries(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_location_group: Any,
+    ) -> None:
+        """GET /routes/{id}/suggested-drivers returns active drivers ranked by
+        their past frozen deliveries to the target route's locations."""
+        from app.models.driver import Driver
+        from app.models.route import Route
+        from app.models.route_snapshot import RouteSnapshot
+        from app.models.user import User
+
+        group_id = test_location_group.location_group_id
+        rg_id = test_route_group.route_group_id
+
+        loc_a = Location(
+            location_group_id=group_id,
+            name="Fam A",
+            contact_name="Fam A",
+            address="1 A St",
+            phone_number="5550000001",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        loc_b = Location(
+            location_group_id=group_id,
+            name="Fam B",
+            contact_name="Fam B",
+            address="2 B St",
+            phone_number="5550000002",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        user = User(name="Veteran", email="veteran@test.dev", auth_id="veteran-uid")
+        driver = Driver(
+            user_id=user.user_id,
+            phone="+12125551111",
+            address="1 Depot Rd",
+            license_plate="VET1",
+            car_make_model="Toyota Corolla",
+            active=True,
+        )
+        test_session.add_all([loc_a, loc_b, user, driver])
+        await test_session.commit()
+        await test_session.refresh(loc_a)
+        await test_session.refresh(loc_b)
+        await test_session.refresh(driver)
+
+        # Past route driven by the driver, frozen (RouteSnapshot present),
+        # visiting both locations.
+        past = Route(
+            name="Past", length=5.0, route_group_id=rg_id, driver_id=driver.driver_id
+        )
+        test_session.add(past)
+        await test_session.commit()
+        await test_session.refresh(past)
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=past.route_id,
+                    location_id=loc_a.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=past.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=2,
+                ),
+                RouteSnapshot(
+                    route_id=past.route_id,
+                    start_address="Warehouse",
+                    start_latitude=0.0,
+                    start_longitude=0.0,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        # Target route visiting location A.
+        target = Route(name="Target", length=3.0, route_group_id=rg_id)
+        test_session.add(target)
+        await test_session.commit()
+        await test_session.refresh(target)
+        test_session.add(
+            RouteStop(
+                route_id=target.route_id, location_id=loc_a.location_id, stop_number=1
+            )
+        )
+        await test_session.commit()
+
+        resp = await async_client.get(f"/routes/{target.route_id}/suggested-drivers")
+        assert resp.status_code == 200
+        suggestions = resp.json()
+        match = next(
+            (s for s in suggestions if s["driver_id"] == str(driver.driver_id)), None
+        )
+        assert match is not None
+        assert match["name"] == "Veteran"
+        assert match["score"] >= 1
+
 
 class TestRouteStopConstraints:
     """DB-level uniqueness guards on route_stops."""

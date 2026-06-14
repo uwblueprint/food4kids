@@ -10,7 +10,13 @@ from app.dependencies.auth import (
     require_route_assigned_or_admin,
 )
 from app.models import get_session
-from app.models.route import Route, RoutePatchRequest, RouteRead, RouteWithDateRead
+from app.models.route import (
+    Route,
+    RoutePatchRequest,
+    RouteRead,
+    RouteWithDateRead,
+    SuggestedDriverRead,
+)
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.route_service import (
     RouteService,
@@ -90,6 +96,32 @@ async def get_google_maps_link(
         The Google Maps directions URL as a plain string.
     """
     return await route_service.get_google_maps_link(session, route_id)
+
+
+@router.get(
+    "/{route_id}/suggested-drivers",
+    response_model=list[SuggestedDriverRead],
+    status_code=status.HTTP_200_OK,
+)
+async def get_suggested_drivers(
+    route_id: UUID,
+    limit: int = Query(5, ge=1, description="Max number of drivers to suggest"),
+    session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
+) -> list[SuggestedDriverRead]:
+    """
+    Suggest drivers to assign to a route, ranked by how many of the route's
+    locations each active driver has delivered to on past (completed) routes.
+
+    Parameters:
+        route_id (UUID): The route to suggest drivers for.
+        limit (int): Max number of drivers to return.
+        session (AsyncSession): The database session dependency.
+
+    Returns:
+        Up to `limit` suggested drivers, highest familiarity first.
+    """
+    return await route_service.get_suggested_drivers_for_route(session, route_id, limit)
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

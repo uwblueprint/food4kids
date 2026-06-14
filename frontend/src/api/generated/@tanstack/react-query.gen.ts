@@ -49,6 +49,7 @@ import {
   getRoute,
   getRouteGroups,
   getRoutes,
+  getSuggestedDrivers,
   getSystemSettings,
   ingestLocations,
   initializeDriver,
@@ -180,6 +181,9 @@ import type {
   GetRoutesData,
   GetRoutesError,
   GetRoutesResponse,
+  GetSuggestedDriversData,
+  GetSuggestedDriversError,
+  GetSuggestedDriversResponse,
   GetSystemSettingsData,
   GetSystemSettingsResponse,
   IngestLocationsData,
@@ -2030,6 +2034,45 @@ export const getGoogleMapsLinkOptions = (
       return data;
     },
     queryKey: getGoogleMapsLinkQueryKey(options),
+  });
+
+export const getSuggestedDriversQueryKey = (
+  options: Options<GetSuggestedDriversData>
+) => createQueryKey('getSuggestedDrivers', options);
+
+/**
+ * Get Suggested Drivers
+ *
+ * Suggest drivers to assign to a route, ranked by how many of the route's
+ * locations each active driver has delivered to on past (completed) routes.
+ *
+ * Parameters:
+ * route_id (UUID): The route to suggest drivers for.
+ * limit (int): Max number of drivers to return.
+ * session (AsyncSession): The database session dependency.
+ *
+ * Returns:
+ * Up to `limit` suggested drivers, highest familiarity first.
+ */
+export const getSuggestedDriversOptions = (
+  options: Options<GetSuggestedDriversData>
+) =>
+  queryOptions<
+    GetSuggestedDriversResponse,
+    AxiosError<GetSuggestedDriversError>,
+    GetSuggestedDriversResponse,
+    ReturnType<typeof getSuggestedDriversQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getSuggestedDrivers({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getSuggestedDriversQueryKey(options),
   });
 
 export const getSystemSettingsQueryKey = (

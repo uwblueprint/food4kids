@@ -9,11 +9,17 @@ from sqlmodel import col, select
 
 from app.models.driver import Driver
 from app.models.location import Location
-from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
+from app.models.route import (
+    Route,
+    RoutePatchRequest,
+    RouteWithDateRead,
+    SuggestedDriverRead,
+)
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
+from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_link import build_google_maps_directions_url
 from app.utilities.pagination import paginate_query
@@ -25,20 +31,6 @@ class RoutingConfigurationError(Exception):
     (e.g. missing system settings / warehouse coordinates). Distinct from
     bad client input so the API can map it to 503 rather than 400.
     """
-
-
-class SuggestedDriver:
-    """Driver suggestion result.
-
-    Score is a count of past completed deliveries this driver has made to
-    locations in the target route (a 'familiarity' signal). Explanation is
-    a human-readable rationale for surfacing in the UI.
-    """
-
-    def __init__(self, driver_id: UUID, score: int, explanation: str):
-        self.driver_id = driver_id
-        self.score = score
-        self.explanation = explanation
 
 
 class RouteService:
@@ -356,7 +348,7 @@ class RouteService:
         session: AsyncSession,
         route_id: UUID,
         limit: int = 5,
-    ) -> list[SuggestedDriver]:
+    ) -> list[SuggestedDriverRead]:
         """Suggest drivers by location familiarity: rank active drivers by
         their count of past completed (frozen) deliveries to this route's
         locations, and return the top `limit`.
@@ -372,39 +364,30 @@ class RouteService:
         statement = (
             select(
                 Route.driver_id,
+                User.name,
                 func.count().label("deliveries"),
             )
             .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
             .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
             .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
+            .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
             .where(
                 col(RouteStop.location_id).in_(select(target_locations.c.location_id))
             )
             .where(col(Route.driver_id).isnot(None))
             .where(Route.route_id != route_id)
             .where(col(Driver.active).is_(True))
-            .group_by(col(Route.driver_id))
+            .group_by(col(Route.driver_id), User.name)
             .order_by(func.count().desc())
             .limit(limit)
         )
 
         result = await session.execute(statement)
-        rows = result.all()
-
-        # Target route's total stop count, for an explainable "N of M" message.
-        total_stops_result = await session.execute(
-            select(func.count()).where(RouteStop.route_id == route_id)
-        )
-        total_stops = total_stops_result.scalar() or 0
-
         return [
-            SuggestedDriver(
+            SuggestedDriverRead(
                 driver_id=row.driver_id,
+                name=row.name,
                 score=row.deliveries,
-                explanation=(
-                    f"Has delivered to {row.deliveries} of {total_stops} "
-                    f"stops on this route before."
-                ),
             )
-            for row in rows
+            for row in result.all()
         ]

@@ -2737,6 +2737,31 @@
         "title": "StaleEntry",
         "type": "object"
       },
+      "SuggestedDriverRead": {
+        "description": "A driver suggested for a route, ranked by how many of the route's\nlocations they've delivered to on past (completed) routes.",
+        "properties": {
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "driver_id",
+          "name",
+          "score"
+        ],
+        "title": "SuggestedDriverRead",
+        "type": "object"
+      },
       "SystemSettingsRead": {
         "description": "Read response model",
         "properties": {
@@ -5798,6 +5823,72 @@
           }
         ],
         "summary": "Get Google Maps Link",
+        "tags": [
+          "routes"
+        ]
+      }
+    },
+    "/routes/{route_id}/suggested-drivers": {
+      "get": {
+        "description": "Suggest drivers to assign to a route, ranked by how many of the route's\nlocations each active driver has delivered to on past (completed) routes.\n\nParameters:\n    route_id (UUID): The route to suggest drivers for.\n    limit (int): Max number of drivers to return.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    Up to `limit` suggested drivers, highest familiarity first.",
+        "operationId": "get_suggested_drivers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max number of drivers to suggest",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "description": "Max number of drivers to suggest",
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SuggestedDriverRead"
+                  },
+                  "title": "Response Get Suggested Drivers",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Suggested Drivers",
         "tags": [
           "routes"
         ]

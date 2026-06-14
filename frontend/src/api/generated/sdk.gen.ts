@@ -119,6 +119,9 @@ import type {
   GetRoutesData,
   GetRoutesErrors,
   GetRoutesResponses,
+  GetSuggestedDriversData,
+  GetSuggestedDriversErrors,
+  GetSuggestedDriversResponses,
   GetSystemSettingsData,
   GetSystemSettingsResponses,
   IngestLocationsData,
@@ -1293,6 +1296,34 @@ export const getGoogleMapsLink = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/routes/{route_id}/google-maps-link',
+    ...options,
+  });
+
+/**
+ * Get Suggested Drivers
+ *
+ * Suggest drivers to assign to a route, ranked by how many of the route's
+ * locations each active driver has delivered to on past (completed) routes.
+ *
+ * Parameters:
+ * route_id (UUID): The route to suggest drivers for.
+ * limit (int): Max number of drivers to return.
+ * session (AsyncSession): The database session dependency.
+ *
+ * Returns:
+ * Up to `limit` suggested drivers, highest familiarity first.
+ */
+export const getSuggestedDrivers = <ThrowOnError extends boolean = false>(
+  options: Options<GetSuggestedDriversData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetSuggestedDriversResponses,
+    GetSuggestedDriversErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/routes/{route_id}/suggested-drivers',
     ...options,
   });
 
