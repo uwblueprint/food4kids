@@ -28,8 +28,8 @@ class RouteBase(SQLModel):
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
     ends_at_warehouse: bool = Field(default=False)
-    # Per-driver start time. Nullable: callers can fall back to
-    # SystemSettings.route_start_time when absent.
+    # Per-driver start time for this route (driver start times are staggered).
+    # Nullable: unset until scheduled.
     start_time: time | None = Field(default=None)
     # Each Route belongs to exactly one RouteGroup (one drive_date).
     route_group_id: UUID = Field(

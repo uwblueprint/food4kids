@@ -186,7 +186,10 @@ class RouteService:
                 route.name = patch.name
             if patch.notes is not None:
                 route.notes = patch.notes
-            if patch.driver_id is not None:
+            # driver_id is nullable, so an explicit null means "unassign". Use
+            # model_fields_set to tell an explicit null apart from an omitted
+            # field (both are None on the model).
+            if "driver_id" in patch.model_fields_set:
                 route.driver_id = patch.driver_id
             if patch.start_time is not None:
                 route.start_time = patch.start_time

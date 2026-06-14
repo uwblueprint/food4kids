@@ -1044,16 +1044,16 @@ class TestRouteRoutes:
         assert data["notes"] == "updated"
 
     @pytest.mark.asyncio
-    async def test_assign_and_reassign_driver(
+    async def test_assign_reassign_and_unassign_driver(
         self,
         async_client: AsyncClient,
         test_session: AsyncSession,
         test_route: Any,
         test_driver: Any,
     ) -> None:
-        """A driver is assigned to a route via PATCH driver_id, and the route
-        drops out of the unassigned list once assigned; reassigning to a
-        different driver updates driver_id."""
+        """Full driver-assignment lifecycle via PATCH driver_id: assign (route
+        drops out of the unassigned list), reassign to a different driver, and
+        unassign with an explicit null (route returns to the unassigned list)."""
         from app.models.driver import Driver
         from app.models.user import User
 
@@ -1096,6 +1096,17 @@ class TestRouteRoutes:
         )
         assert reassign.status_code == 200
         assert reassign.json()["driver_id"] == str(other_driver.driver_id)
+
+        # Unassign via explicit null -> driver_id cleared, route back in the
+        # unassigned listing.
+        unassign = await async_client.patch(
+            f"/routes/{route_id}", json={"driver_id": None}
+        )
+        assert unassign.status_code == 200
+        assert unassign.json()["driver_id"] is None
+
+        unassigned_again = await async_client.get("/routes?unassigned_only=true")
+        assert route_id in {r["route_id"] for r in unassigned_again.json()["items"]}
 
     @pytest.mark.asyncio
     async def test_update_route_not_found(self, async_client: AsyncClient) -> None:
