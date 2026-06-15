@@ -22,7 +22,8 @@ class LocationBase(SQLModel):
     name: str
     contact_name: str
     address: str
-    phone_number: str
+    phone_primary: str
+    phone_secondary: str | None = None
     longitude: float | None = None
     latitude: float | None = None
     halal: bool = Field(default=False)
@@ -86,7 +87,8 @@ class LocationImportEntry(SQLModel):
     contact_name: str | None = None
     address: str | None = None
     delivery_group: str | None = None
-    phone_number: str | None = None
+    phone_primary: str | None = None
+    phone_secondary: str | None = None
     num_boxes: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
@@ -97,7 +99,8 @@ class ValidatedLocationImportEntry(LocationImportEntry):
 
     contact_name: str
     address: str
-    phone_number: str
+    phone_primary: str
+    phone_secondary: str | None = None
     # Required: every location must belong to a delivery group (the import
     # flags MISSING_DELIVERY_GROUP, and location_group_id is non-nullable).
     delivery_group: str
@@ -119,7 +122,8 @@ class NetNewEntry(SQLModel):
     contact_name: str
     address: str
     delivery_group: str | None = None
-    phone_number: str
+    phone_primary: str
+    phone_secondary: str | None = None
     num_boxes: int | None = None
 
 
@@ -131,7 +135,8 @@ class StaleEntry(SQLModel):
     contact_name: str
     address: str
     delivery_group: str | None = None
-    phone_number: str
+    phone_primary: str
+    phone_secondary: str | None = None
 
 
 class ChangedFieldStr(SQLModel):
@@ -159,7 +164,8 @@ class ChangedEntry(SQLModel):
     contact_name: str
     address: str | ChangedFieldStr
     delivery_group: str | None | ChangedFieldOptStr = None
-    phone_number: str | ChangedFieldStr
+    phone_primary: str | ChangedFieldStr
+    phone_secondary: str | None | ChangedFieldOptStr = None
     num_children: int | None | ChangedFieldOptInt = None
 
 
@@ -216,7 +222,8 @@ class LocationUpdate(SQLModel):
     name: str | None = None
     contact_name: str | None = None
     address: str | None = None
-    phone_number: str | None = None
+    phone_primary: str | None = None
+    phone_secondary: str | None = None
     longitude: float | None = None
     latitude: float | None = None
     halal: bool | None = None

@@ -97,7 +97,7 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
         [
             "contact_name",
             "address",
-            "phone_number",
+            "phone_primary",
             "latitude",
             "longitude",
             "halal",
@@ -106,10 +106,17 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
     ),
     (Route, ["name", "length"]),
     (RouteStop, ["route_id", "location_id", "stop_number"]),
-    (User, ["name", "email", "auth_id"]),
+    (User, ["first_name", "last_name", "email", "auth_id"]),
     (
         Driver,
-        ["user_id", "phone", "address", "license_plate", "car_make_model"],
+        [
+            "user_id",
+            "phone",
+            "availability",
+            "address",
+            "license_plate",
+            "car_make_model",
+        ],
     ),
     (RouteGroup, ["name", "drive_date"]),
     (DriverHistory, ["driver_id", "year", "month", "km"]),
@@ -185,18 +192,19 @@ class TestDataValidation:
             assert driver.phone.startswith("+"), (
                 f"Driver phone {driver.phone} should be E.164"
             )
+            assert len(driver.availability) == 7
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(driver.phone, None)
             ), f"Driver phone {driver.phone} should parse as valid"
 
         locations = (await test_session.execute(select(Location))).scalars().all()
         for location in locations:
-            assert location.phone_number.startswith("+"), (
-                f"Location phone {location.phone_number} should be E.164"
+            assert location.phone_primary.startswith("+"), (
+                f"Location phone {location.phone_primary} should be E.164"
             )
             assert phonenumbers.is_valid_number(
-                phonenumbers.parse(location.phone_number, None)
-            ), f"Location phone {location.phone_number} should parse as valid"
+                phonenumbers.parse(location.phone_primary, None)
+            ), f"Location phone {location.phone_primary} should parse as valid"
 
         admins = (await test_session.execute(select(Admin))).scalars().all()
         for admin in admins:

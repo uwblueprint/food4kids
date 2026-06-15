@@ -34,7 +34,12 @@ async def _seed_today(maker: async_sessionmaker[AsyncSession]) -> dict[str, Any]
     runs today, visiting one geocoded location, with warehouse coords set."""
     async with maker() as s:
         group = LocationGroup(name="G", color="#fff", notes="")
-        user = User(name="Drv", email="drv@test.dev", auth_id="drv-uid")
+        user = User(
+            first_name="Test",
+            last_name="Driver",
+            email="drv@test.dev",
+            auth_id="drv-uid",
+        )
         settings = SystemSettings(
             warehouse_location="Warehouse",
             warehouse_latitude=43.0,
@@ -58,7 +63,7 @@ async def _seed_today(maker: async_sessionmaker[AsyncSession]) -> dict[str, Any]
             name="Fam",
             contact_name="Fam",
             address="1 A St",
-            phone_number="+12125550001",
+            phone_primary="+12125550001",
             latitude=43.1,
             longitude=-80.1,
             num_boxes=3,

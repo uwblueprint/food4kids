@@ -254,7 +254,13 @@ async def seed(test_session: AsyncSession) -> Seed:
     from app.models.user import User
 
     def _driver(auth_id: str, email: str) -> Driver:
-        user = User(name=auth_id, email=email, auth_id=auth_id, role="driver")
+        user = User(
+            first_name=auth_id,
+            last_name="Driver",
+            email=email,
+            auth_id=auth_id,
+            role="driver",
+        )
         test_session.add(user)
         driver = Driver(
             user_id=user.user_id,
@@ -270,7 +276,8 @@ async def seed(test_session: AsyncSession) -> Seed:
     other_driver = _driver("other-uid", "other@test.dev")
 
     admin_user = User(
-        name="admin",
+        first_name="Admin",
+        last_name="User",
         email="admin@test.dev",
         auth_id="admin-uid",
         role="admin",

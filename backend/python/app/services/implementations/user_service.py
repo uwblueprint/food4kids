@@ -87,7 +87,8 @@ class UserService:
         """Create new user without Firebase integration"""
         # Create database user
         user = User(
-            name=user_data.name,
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
             email=user_data.email,
             auth_id=None,
         )
@@ -111,9 +112,15 @@ class UserService:
                 email=user.email,
                 password=password,
                 email_verified=True,
+                display_name=user.full_name,
             )
             firebase_admin.auth.set_custom_user_claims(
-                firebase_user.uid, {"role": user.role}
+                firebase_user.uid,
+                {
+                    "role": user.role,
+                    "given_name": user.first_name,
+                    "family_name": user.last_name,
+                },
             )
 
             # Update user
@@ -147,12 +154,15 @@ class UserService:
                 return None
 
             # Store old values for rollback
-            old_name = user.name
+            old_first_name = user.first_name
+            old_last_name = user.last_name
             old_email = user.email
 
             # Update user fields
-            if user_data.name is not None:
-                user.name = user_data.name
+            if user_data.first_name is not None:
+                user.first_name = user_data.first_name
+            if user_data.last_name is not None:
+                user.last_name = user_data.last_name
             if user_data.email is not None:
                 user.email = user_data.email
 
@@ -160,14 +170,32 @@ class UserService:
 
             # Update Firebase email
             try:
+                firebase_updates = {}
                 if user_data.email is not None:
-                    firebase_admin.auth.update_user(user.auth_id, email=user_data.email)
+                    firebase_updates["email"] = user_data.email
+                if (
+                    user_data.first_name is not None
+                    or user_data.last_name is not None
+                ):
+                    firebase_updates["display_name"] = user.full_name
+                if firebase_updates:
+                    firebase_admin.auth.update_user(user.auth_id, **firebase_updates)
+                if user_data.first_name is not None or user_data.last_name is not None:
+                    firebase_admin.auth.set_custom_user_claims(
+                        user.auth_id,
+                        {
+                            "role": user.role,
+                            "given_name": user.first_name,
+                            "family_name": user.last_name,
+                        },
+                    )
                 await session.refresh(user)
                 return user
 
             except Exception as firebase_error:
                 # Rollback database changes
-                user.name = old_name
+                user.first_name = old_first_name
+                user.last_name = old_last_name
                 user.email = old_email
                 await session.commit()
                 raise firebase_error
