@@ -173,10 +173,7 @@ class UserService:
                 firebase_updates = {}
                 if user_data.email is not None:
                     firebase_updates["email"] = user_data.email
-                if (
-                    user_data.first_name is not None
-                    or user_data.last_name is not None
-                ):
+                if user_data.first_name is not None or user_data.last_name is not None:
                     firebase_updates["display_name"] = user.full_name
                 if firebase_updates:
                     firebase_admin.auth.update_user(user.auth_id, **firebase_updates)
