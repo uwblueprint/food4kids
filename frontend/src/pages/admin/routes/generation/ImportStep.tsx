@@ -28,14 +28,16 @@ const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
 interface SystemField {
   key: string;
   label: string;
+  required?: boolean;
 }
 
 const SYSTEM_FIELDS: SystemField[] = [
-  { key: 'contact_name', label: 'School Name / Last Name' },
-  { key: 'address', label: 'Address' },
-  { key: 'delivery_group', label: 'Delivery Group' },
-  { key: 'phone_number', label: 'Phone Number' },
-  { key: 'num_boxes', label: 'Number of Children' },
+  { key: 'contact_name', label: 'School Name / Last Name', required: true },
+  { key: 'address', label: 'Address', required: true },
+  { key: 'delivery_group', label: 'Delivery Group', required: true },
+  { key: 'phone_primary', label: 'Primary Phone', required: true },
+  { key: 'phone_secondary', label: 'Secondary Phone' },
+  { key: 'num_boxes', label: 'Number of Children', required: true },
   { key: 'dietary_restrictions', label: 'Food Restrictions' },
 ];
 
@@ -119,7 +121,7 @@ export function ImportStep() {
       render: (row) => (
         <span className="text-p2 text-grey-500">
           {row.label}
-          <span className="text-red ml-0.5">*</span>
+          {row.required && <span className="text-red ml-0.5">*</span>}
         </span>
       ),
     },
@@ -149,7 +151,8 @@ export function ImportStep() {
   ];
 
   const canContinue =
-    file !== null && SYSTEM_FIELDS.every((f) => !!columnMap[f.key]);
+    file !== null &&
+    SYSTEM_FIELDS.filter((f) => f.required).every((f) => !!columnMap[f.key]);
 
   const handleContinue = async () => {
     if (!file) return;

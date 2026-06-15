@@ -104,6 +104,8 @@ class DriverService:
             user_id=driver_data.user_id,
             address=driver_data.address,
             phone=driver_data.phone,
+            partner_driver_name=driver_data.partner_driver_name,
+            availability=driver_data.availability,
             license_plate=driver_data.license_plate,
             car_make_model=driver_data.car_make_model,
             active=driver_data.active,
@@ -133,6 +135,8 @@ class DriverService:
 
             # Store old values for rollback
             old_phone = driver.phone
+            old_partner_driver_name = driver.partner_driver_name
+            old_availability = driver.availability
             old_address = driver.address
             old_license_plate = driver.license_plate
             old_car_make_model = driver.car_make_model
@@ -142,6 +146,10 @@ class DriverService:
             # Update driver fields
             if driver_data.phone is not None:
                 driver.phone = driver_data.phone
+            if driver_data.partner_driver_name is not None:
+                driver.partner_driver_name = driver_data.partner_driver_name
+            if driver_data.availability is not None:
+                driver.availability = driver_data.availability
             if driver_data.address is not None:
                 driver.address = driver_data.address
             if driver_data.license_plate is not None:
@@ -161,6 +169,8 @@ class DriverService:
             # Rollback database changes
             assert driver is not None
             driver.phone = old_phone
+            driver.partner_driver_name = old_partner_driver_name
+            driver.availability = old_availability
             driver.address = old_address
             driver.license_plate = old_license_plate
             driver.car_make_model = old_car_make_model
