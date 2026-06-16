@@ -12,15 +12,16 @@ from app.dependencies.services import get_logger
 from app.models.driver import Driver
 from app.models.route import Route
 from app.models.route_group import RouteGroup
+from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.services.implementations.email_service import EmailService
 
 
 async def process_daily_reminder_emails() -> None:
-    """Sends out daily reminder emails for the day - runs at 7:00 AM every day.
+    """Sends out daily reminder emails for the configured reminder window.
 
     Emails each driver assigned (via Route.driver_id) to a route whose
-    RouteGroup.drive_date is tomorrow.
+    RouteGroup.drive_date falls on one of the configured lead days.
     """
 
     from app.models import (
@@ -33,11 +34,20 @@ async def process_daily_reminder_emails() -> None:
         logger.error("Database session maker not initialized")
         return
 
-    tomorrow = date.today() + timedelta(days=1)
-    start_of_day = datetime.combine(tomorrow, datetime.min.time())
-    end_of_day = datetime.combine(tomorrow, datetime.max.time())
     try:
         async with async_session_maker_instance() as session:
+            settings_result = await session.execute(select(SystemSettings).limit(1))
+            system_settings = settings_result.scalars().first()
+            reminder_days = (
+                system_settings.email_reminder_days_before
+                if system_settings and system_settings.email_reminder_days_before
+                else [1]
+            )
+            target_dates = {
+                date.today() + timedelta(days=day) for day in reminder_days
+            }
+            start_of_day = datetime.combine(min(target_dates), datetime.min.time())
+            end_of_day = datetime.combine(max(target_dates), datetime.max.time())
             statement = (
                 select(
                     User.email,
@@ -59,7 +69,11 @@ async def process_daily_reminder_emails() -> None:
             )
 
             result = await session.execute(statement)
-            upcoming_routes = result.all()
+            upcoming_routes = [
+                row
+                for row in result.all()
+                if row.drive_date.date() in target_dates
+            ]
 
             if not upcoming_routes:
                 logger.info("No Upcoming Routes found for tomorrow, skipping emails")

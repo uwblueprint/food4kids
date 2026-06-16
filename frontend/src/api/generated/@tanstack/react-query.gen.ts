@@ -56,6 +56,7 @@ import {
   login,
   logout,
   type Options,
+  patchSystemSettings,
   refresh,
   resetPassword,
   reviewLocations,
@@ -198,6 +199,9 @@ import type {
   LogoutData,
   LogoutError,
   LogoutResponse,
+  PatchSystemSettingsData,
+  PatchSystemSettingsError,
+  PatchSystemSettingsResponse,
   RefreshData,
   RefreshResponse2,
   ResetPasswordData,
@@ -2115,6 +2119,35 @@ export const getSystemSettingsOptions = (
     },
     queryKey: getSystemSettingsQueryKey(options),
   });
+
+/**
+ * Patch System Settings
+ *
+ * Patch the singleton system settings row.
+ */
+export const patchSystemSettingsMutation = (
+  options?: Partial<Options<PatchSystemSettingsData>>
+): UseMutationOptions<
+  PatchSystemSettingsResponse,
+  AxiosError<PatchSystemSettingsError>,
+  Options<PatchSystemSettingsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    PatchSystemSettingsResponse,
+    AxiosError<PatchSystemSettingsError>,
+    Options<PatchSystemSettingsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await patchSystemSettings({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 /**
  * Upload Image

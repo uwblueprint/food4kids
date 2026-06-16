@@ -26,6 +26,6 @@ def init_jobs(scheduler_service: SchedulerService) -> None:
     scheduler_service.add_cron_job(
         process_daily_reminder_emails,
         job_id="daily_reminder_emails",
-        hour=12,
+        hour=9,
         minute=0,
     )

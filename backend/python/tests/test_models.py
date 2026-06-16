@@ -3,6 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
+from datetime import time
 from uuid import uuid4
 
 import pytest
@@ -854,6 +855,11 @@ class TestModelValidation:
         assert system_settings.default_cap is None
         assert system_settings.route_start_time is None
         assert system_settings.warehouse_location is None
+        assert system_settings.boxes_per_car == 10
+        assert system_settings.dropoff_minutes == 3
+        assert system_settings.children_per_box == 2
+        assert system_settings.email_reminder_days_before == [1]
+        assert system_settings.email_reminder_time == time(9, 0)
 
         # Test Job without route_group_id
         job = Job(

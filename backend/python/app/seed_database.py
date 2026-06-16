@@ -985,6 +985,18 @@ def main() -> None:
                 warehouse_location=WAREHOUSE_ADDRESS,
                 warehouse_longitude=WAREHOUSE_LON,
                 warehouse_latitude=WAREHOUSE_LAT,
+                boxes_per_car=10,
+                dropoff_minutes=3,
+                children_per_box=2,
+                contact_name="Emily Loro",
+                contact_phone=generate_valid_phone(),
+                f4k_wr_instagram="https://instagram.com/food4kidswr",
+                f4k_wr_facebook="https://facebook.com/food4kidswr",
+                f4k_wr_email="hello@food4kidswr.ca",
+                f4k_wr_website="https://food4kidswr.ca",
+                f4k_wr_address=WAREHOUSE_ADDRESS,
+                email_reminder_days_before=[1],
+                email_reminder_time=datetime.strptime("09:00:00", "%H:%M:%S").time(),
             )
             set_timestamps(system_settings)
             session.add(system_settings)

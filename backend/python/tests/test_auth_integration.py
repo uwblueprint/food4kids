@@ -166,6 +166,8 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
     # --- upload (any driver/admin; feeds note + announcement attachments) ---
     ("POST", "/upload/"): Policy.DRIVER_OR_ADMIN,
+    # --- system settings ---
+    ("PATCH", "/system-settings/"): Policy.ADMIN_ONLY,
     # The route declares a :path converter (/upload/{filename:path}); the
     # OpenAPI schema (our completeness source) renders it without the converter.
     ("DELETE", "/upload/{filename}"): Policy.DRIVER_OR_ADMIN,
