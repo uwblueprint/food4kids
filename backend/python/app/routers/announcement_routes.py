@@ -57,6 +57,7 @@ async def create_announcement(
     announcement: AnnouncementCreate,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
+    _auth: bool = Depends(require_driver_or_admin),
     current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> AnnouncementRead:
     """Create a new announcement"""
