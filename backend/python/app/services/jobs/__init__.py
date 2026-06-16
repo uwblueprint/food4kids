@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-
 class DailyReminderScheduler(Protocol):
     scheduler: object | None
 
@@ -31,6 +30,7 @@ class DailyReminderScheduler(Protocol):
         day: int | str = "*",
         month: int | str = "*",
     ) -> None: ...
+
 
 DEFAULT_DAILY_REMINDER_TIME = time(9, 0)
 DAILY_REMINDER_JOB_ID = "daily_reminder_emails"
