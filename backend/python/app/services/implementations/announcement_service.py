@@ -10,6 +10,7 @@ from app.models.announcement import (
     AnnouncementCreate,
     AnnouncementUpdate,
 )
+from app.models.user import User
 
 
 class AnnouncementService:
@@ -18,11 +19,18 @@ class AnnouncementService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def _can_manage(self, announcement: Announcement, user_id: UUID) -> bool:
+    async def _get_user_role(self, session: AsyncSession, user_id: UUID) -> str | None:
+        statement = select(User.role).where(User.user_id == user_id)
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def _can_manage(
+        self, session: AsyncSession, announcement: Announcement, user_id: UUID
+    ) -> bool:
         if announcement.user_id == user_id:
             return True
-        role = announcement.user.role if announcement.user else None
-        return role is not None and role.lower() == "admin"
+        user_role = await self._get_user_role(session, user_id)
+        return user_role is not None and user_role.lower() == "admin"
 
     async def get_announcements(self, session: AsyncSession) -> list[Announcement]:
         """Get all announcements, ordered by most recent first"""
@@ -38,10 +46,6 @@ class AnnouncementService:
         self, session: AsyncSession, announcement_id: UUID
     ) -> Announcement | None:
         """Get announcement by ID"""
-        statement = (
-            select(Announcement)
-            .options(selectinload(Announcement.user))  # type: ignore[arg-type]
-            .where(Announcement.announcement_id == announcement_id)
         statement = (
             select(Announcement)
             .options(selectinload(Announcement.user))  # type: ignore[arg-type]
@@ -90,12 +94,11 @@ class AnnouncementService:
         """Update existing announcement"""
         try:
             announcement = await self.get_announcement(session, announcement_id)
-            announcement = await self.get_announcement(session, announcement_id)
 
             if not announcement:
                 return None
 
-            if not self._can_manage(announcement, user_id):
+            if not await self._can_manage(session, announcement, user_id):
                 raise PermissionError(
                     "Only the author or an admin can edit this announcement"
                 )
@@ -105,7 +108,6 @@ class AnnouncementService:
                 setattr(announcement, field, value)
 
             await session.commit()
-            return await self.get_announcement(session, announcement_id)
             return await self.get_announcement(session, announcement_id)
 
         except Exception as error:
@@ -124,7 +126,7 @@ class AnnouncementService:
                 self.logger.error(f"Announcement with id {announcement_id} not found")
                 return False
 
-            if not self._can_manage(announcement, user_id):
+            if not await self._can_manage(session, announcement, user_id):
                 raise PermissionError(
                     "Only the author or an admin can delete this announcement"
                 )

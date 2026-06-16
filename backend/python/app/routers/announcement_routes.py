@@ -3,7 +3,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import get_current_database_user_id
+from app.dependencies.auth import (
+    get_current_database_user_id,
+    require_driver_or_admin,
+)
 from app.dependencies.services import get_announcement_service
 from app.models import get_session
 from app.models.announcement import (
@@ -54,6 +57,7 @@ async def create_announcement(
     announcement: AnnouncementCreate,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
+    _auth: bool = Depends(require_driver_or_admin),
     current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> AnnouncementRead:
     """Create a new announcement"""
@@ -74,6 +78,7 @@ async def update_announcement(
     announcement: AnnouncementUpdate,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
+    _auth: bool = Depends(require_driver_or_admin),
     current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> AnnouncementRead:
     """Update an existing announcement"""
@@ -100,6 +105,7 @@ async def delete_announcement(
     announcement_id: UUID,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
+    _auth: bool = Depends(require_driver_or_admin),
     current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> None:
     """Delete an announcement"""
