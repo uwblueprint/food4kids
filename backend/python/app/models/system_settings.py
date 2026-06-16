@@ -5,8 +5,9 @@ from pydantic import EmailStr, field_validator
 from sqlalchemy import JSON
 from sqlmodel import Column, Field, SQLModel
 
-from .base import BaseModel
 from app.utilities.utils import validate_phone
+
+from .base import BaseModel
 
 
 class SystemSettingsBase(SQLModel):

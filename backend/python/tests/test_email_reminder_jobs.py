@@ -1,7 +1,7 @@
 """Tests for the reminder email scheduled job."""
 
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -15,7 +15,7 @@ from app.services.jobs import email_reminder_jobs
 
 
 class _FakeEmailService:
-    sent: list[dict[str, str]] = []
+    sent: ClassVar[list[dict[str, str]]] = []
 
     def __init__(self, *_args: Any, **_kwargs: Any) -> None:
         pass
