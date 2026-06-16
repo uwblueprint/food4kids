@@ -145,6 +145,9 @@ import type {
   ReviewLocationsErrors,
   ReviewLocationsResponses,
   TestData,
+  TestEventEmailData,
+  TestEventEmailErrors,
+  TestEventEmailResponses,
   TestResponses,
   UpdateAnnouncementData,
   UpdateAnnouncementErrors,
@@ -440,6 +443,25 @@ export const completeDriverRegistration = <
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Test Event Email
+ *
+ * Temporary endpoint to test event-driven emails.
+ * Delete this after testing!
+ */
+export const testEventEmail = <ThrowOnError extends boolean = false>(
+  options: Options<TestEventEmailData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    TestEventEmailResponses,
+    TestEventEmailErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/drivers/test-event-email',
+    ...options,
   });
 
 /**
