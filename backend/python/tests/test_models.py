@@ -21,10 +21,6 @@ from app.models.driver import (
     DriverCreate,
     DriverUpdate,
 )
-from app.models.driver_assignment import (
-    DriverAssignment,
-    DriverAssignmentUpdate,
-)
 from app.models.driver_history import (
     DriverHistory,
     DriverHistoryRead,
@@ -58,7 +54,6 @@ from app.models.route_group import (
     RouteGroup,
     RouteGroupRead,
 )
-from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
 from app.models.user import User, UserFinalize
@@ -207,6 +202,8 @@ class TestCoreBusinessValidation:
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
+        from uuid import uuid4
+
         # Test valid lengths
         valid_lengths = [0.0, 10.5, 100.0]
 
@@ -214,6 +211,7 @@ class TestCoreBusinessValidation:
             route = Route(
                 name="Test Route",
                 length=length,
+                route_group_id=uuid4(),
             )
             assert route.length == length
 
@@ -222,6 +220,7 @@ class TestCoreBusinessValidation:
             Route(
                 name="Test Route",
                 length=-5.0,  # Negative length should fail
+                route_group_id=uuid4(),
             )
         assert "length" in str(exc_info.value)
 
@@ -409,11 +408,14 @@ class TestCoreModels:
 
     def test_route_core_operations(self) -> None:
         """Test Route model core operations."""
+        from uuid import uuid4
+
         # Create
         route = Route(
             name="Downtown Route",
             notes="Route through downtown area",
             length=15.5,
+            route_group_id=uuid4(),
         )
         assert route.name == "Downtown Route"
         assert route.length == 15.5
@@ -423,6 +425,7 @@ class TestCoreModels:
         route_minimal = Route(
             name="Basic Route",
             length=10.0,
+            route_group_id=uuid4(),
         )
         assert route_minimal.notes == ""  # Default value
 
@@ -463,26 +466,6 @@ class TestCoreModels:
             num_routes=3,
         )
         assert route_group_read.route_group_id is not None
-
-    def test_driver_assignment_core_operations(self) -> None:
-        """Test DriverAssignment model core operations."""
-        from datetime import datetime
-        from uuid import uuid4
-
-        # Create
-        assignment = DriverAssignment(
-            driver_id=uuid4(),
-            route_id=uuid4(),
-            route_group_id=uuid4(),
-            time=datetime(2024, 1, 15, 8, 0),
-        )
-        assert assignment.created_at is not None
-
-        # Update
-        assignment_update = DriverAssignmentUpdate(
-            time=datetime(2024, 1, 15, 9, 0),
-        )
-        assert assignment_update.time == datetime(2024, 1, 15, 9, 0)
 
     def test_driver_history_core_operations(self) -> None:
         """Test DriverHistory model core operations."""
@@ -657,7 +640,7 @@ class TestCoreModels:
         assert list_response.unread_count == 1
 
     def test_relationship_models_core_operations(self) -> None:
-        """Test relationship models (RouteStop, RouteGroupMembership) core operations."""
+        """Test RouteStop creation."""
         from uuid import uuid4
 
         # RouteStop
@@ -668,15 +651,6 @@ class TestCoreModels:
         )
         assert route_stop.stop_number == 1
         assert route_stop.created_at is not None
-
-        # RouteGroupMembership
-        membership = RouteGroupMembership(
-            route_group_id=uuid4(),
-            route_id=uuid4(),
-        )
-        assert membership.route_group_id is not None
-        assert membership.route_id is not None
-        assert membership.created_at is not None
 
 
 class TestEnumsAndSerialization:
@@ -832,6 +806,7 @@ class TestModelValidation:
             Route(
                 name="Test Route",
                 length=-5.0,  # Negative length should fail
+                route_group_id=uuid4(),
             )
         assert "length" in str(exc_info.value)
 

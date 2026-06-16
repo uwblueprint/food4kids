@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_admin, require_self_driver_or_admin
 from app.models import get_session
 from app.models.driver_history import (
     MAX_YEAR,
@@ -32,6 +33,7 @@ router = APIRouter(prefix="/drivers/{driver_id}/history", tags=["driver-history"
 async def get_driver_history_summary(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_self_driver_or_admin),
 ) -> DriverHistorySummary:
     """Get lifetime and current year KM summary for a driver"""
     try:
@@ -62,6 +64,7 @@ async def export_all_drivers_history(
     driver_id: str,
     year: int,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
 ) -> StreamingResponse:
     """
     Export history for all drivers for a specific year. Includes data from that year and the previous year.
@@ -120,6 +123,7 @@ async def get_driver_history(
     year: int | None = Query(default=None, ge=2025, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_self_driver_or_admin),
 ) -> list[DriverHistoryRead]:
     """
     Get driver history with optional year and month.
@@ -177,6 +181,7 @@ async def create_driver_history(
     driver_id: UUID,
     create: DriverHistoryCreate,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_self_driver_or_admin),
 ) -> DriverHistoryRead:
     """
     Creates new driver history
@@ -225,6 +230,7 @@ async def update_driver_history(
     year: int = Query(ge=MIN_YEAR, le=MAX_YEAR),
     month: int = Query(ge=1, le=12),
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_self_driver_or_admin),
 ) -> DriverHistoryRead:
     """
     Updates driver history
@@ -263,6 +269,7 @@ async def delete_driver_history(
     year: int = Query(ge=MIN_YEAR, le=MAX_YEAR),
     month: int = Query(ge=1, le=12),
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_self_driver_or_admin),
 ) -> None:
     """
     Delete a monthly driver history entry.

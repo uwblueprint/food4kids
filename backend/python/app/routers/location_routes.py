@@ -13,6 +13,7 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_admin
 from app.dependencies.services import get_location_service
 from app.models import get_session
 from app.models.enum import DeliveryTypeEnum, LocationStatusEnum
@@ -41,19 +42,17 @@ async def get_locations(
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> PaginatedResponse[LocationRead]:
     """
     Get all locations with pagination
     """
     try:
-        result = await location_service.get_locations(
+        # Return the service result as-is: it already builds LocationRead
+        # items with has_future_route populated (so the computed `status` is
+        # correct). Re-validating each item here would reset has_future_route.
+        return await location_service.get_locations(
             session, pagination, delivery_type, status_filter
-        )
-        return PaginatedResponse.create(
-            items=[LocationRead.model_validate(loc) for loc in result.items],
-            total=result.total,
-            page=result.page,
-            page_size=result.page_size,
         )
     except Exception as e:
         raise HTTPException(
@@ -67,13 +66,13 @@ async def get_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationRead:
     """
     Get a single location by ID
     """
     try:
-        location = await location_service.get_location_by_id(session, location_id)
-        return LocationRead.model_validate(location)
+        return await location_service.get_location_read_by_id(session, location_id)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -91,6 +90,7 @@ async def create_location(
     location: LocationCreate,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationRead:
     """
     Create a new location
@@ -113,6 +113,7 @@ async def update_location(
     updated_location_data: LocationUpdate,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationRead:
     """
     Update a location by ID
@@ -139,6 +140,7 @@ async def update_location(
 async def delete_all_locations(
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete all locations
@@ -157,6 +159,7 @@ async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete a location by ID
@@ -185,6 +188,7 @@ async def review_locations(
     column_map: str = Form(...),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationImportResponse:
     """
     Review a pending location import: validate rows and (eventually) describe how
@@ -222,6 +226,7 @@ async def ingest_locations(
     request: LocationIngestRequest,
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
+    _auth: bool = Depends(require_admin),
 ) -> LocationIngestResponse:
     """
     Persist net-new locations and archive stale ones.

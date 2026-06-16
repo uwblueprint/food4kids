@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import String
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -13,8 +14,13 @@ if TYPE_CHECKING:
 class NoteChainBase(SQLModel):
     """Shared fields between table and API models"""
 
-    read_permission: NotePermission = Field(default=NotePermission.ADMIN)
-    write_permission: NotePermission = Field(default=NotePermission.ADMIN)
+    # Stored as a string column (NOT a native PG enum), matching the migration
+    read_permission: NotePermission = Field(
+        default=NotePermission.ADMIN, sa_type=String
+    )
+    write_permission: NotePermission = Field(
+        default=NotePermission.ADMIN, sa_type=String
+    )
 
 
 class NoteChain(NoteChainBase, BaseModel, table=True):
