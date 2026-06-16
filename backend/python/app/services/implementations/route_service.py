@@ -68,17 +68,14 @@ class RouteService:
             .subquery()
         )
 
-        statement = (
-            select(
-                Route,
-                RouteGroup.drive_date,
-                func.coalesce(route_totals.c.num_stops, 0).label("num_stops"),
-                func.coalesce(route_totals.c.box_total, 0).label("box_total"),
-            )
-            .join(
-                RouteGroup,
-                RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
-            )
+        statement = select(
+            Route,
+            RouteGroup.drive_date,
+            func.coalesce(route_totals.c.num_stops, 0).label("num_stops"),
+            func.coalesce(route_totals.c.box_total, 0).label("box_total"),
+        ).join(
+            RouteGroup,
+            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
         )
         statement = statement.outerjoin(
             route_totals, route_totals.c.route_id == Route.route_id

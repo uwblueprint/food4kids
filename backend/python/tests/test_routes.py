@@ -1088,7 +1088,9 @@ class TestRouteRoutes:
         data = response.json()
         assert isinstance(data["items"], list)
         route = next(
-            item for item in data["items"] if item["route_id"] == str(test_route.route_id)
+            item
+            for item in data["items"]
+            if item["route_id"] == str(test_route.route_id)
         )
         assert route["num_stops"] == 2
         assert route["box_total"] == 8
