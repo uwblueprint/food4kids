@@ -43,9 +43,7 @@ async def process_daily_reminder_emails() -> None:
                 if system_settings and system_settings.email_reminder_days_before
                 else [1]
             )
-            target_dates = {
-                date.today() + timedelta(days=day) for day in reminder_days
-            }
+            target_dates = {date.today() + timedelta(days=day) for day in reminder_days}
             start_of_day = datetime.combine(min(target_dates), datetime.min.time())
             end_of_day = datetime.combine(max(target_dates), datetime.max.time())
             statement = (
@@ -70,9 +68,7 @@ async def process_daily_reminder_emails() -> None:
 
             result = await session.execute(statement)
             upcoming_routes = [
-                row
-                for row in result.all()
-                if row.drive_date.date() in target_dates
+                row for row in result.all() if row.drive_date.date() in target_dates
             ]
 
             if not upcoming_routes:
