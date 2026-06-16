@@ -90,6 +90,7 @@ def init_app(_app: Any | None = None) -> None:
     from .note import Note  # noqa: F401
     from .note_chain import NoteChain  # noqa: F401
     from .note_chain_read import NoteChainReadModel  # noqa: F401
+    from .password_reset_token import PasswordResetToken
     from .route import Route  # noqa: F401
     from .route_group import RouteGroup  # noqa: F401
     from .route_snapshot import RouteSnapshot  # noqa: F401
