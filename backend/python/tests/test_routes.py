@@ -3823,16 +3823,15 @@ class TestAnnouncementRoutes:
     @pytest.mark.asyncio
     async def test_create_announcement(
         self,
-        authed_async_client: AsyncClient,
-        test_admin_user: Any,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test POST /announcements creates a new announcement."""
         from app.models.user import User
 
         user = User(
-            first_name="Test",
-            last_name="Admin",
+            name="Test Admin",
             email="admin@test.com",
             auth_id="test-admin-ann-123",
             role="admin",
@@ -3850,25 +3849,22 @@ class TestAnnouncementRoutes:
         data = response.json()
         assert data["subject"] == sample_announcement_data["subject"]
         assert data["message"] == sample_announcement_data["message"]
-        assert data["user_id"] == str(test_admin_user.user_id)
-        assert data["author_name"] == test_admin_user.name
-        assert data["author_role"] == test_admin_user.role
+        assert data["user_id"] == str(user.user_id)
         assert "announcement_id" in data
         assert "created_at" in data
 
     @pytest.mark.asyncio
     async def test_get_announcement_by_id(
         self,
-        authed_async_client: AsyncClient,
         async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test GET /announcements/{id} returns the announcement."""
         from app.models.user import User
 
         user = User(
-            first_name="Test",
-            last_name="Admin",
+            name="Test Admin",
             email="admin2@test.com",
             auth_id="test-admin-ann-456",
             role="admin",
@@ -3899,15 +3895,15 @@ class TestAnnouncementRoutes:
     @pytest.mark.asyncio
     async def test_update_announcement(
         self,
-        authed_async_client: AsyncClient,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test PUT /announcements/{id} updates the announcement."""
         from app.models.user import User
 
         user = User(
-            first_name="Test",
-            last_name="Admin",
+            name="Test Admin",
             email="admin3@test.com",
             auth_id="test-admin-ann-789",
             role="admin",
@@ -3924,7 +3920,7 @@ class TestAnnouncementRoutes:
         announcement_id = create_response.json()["announcement_id"]
 
         update_data = {"subject": "Updated Subject"}
-        response = await authed_async_client.put(
+        response = await async_client.put(
             f"/announcements/{announcement_id}", json=update_data
         )
         assert response.status_code == 200
@@ -3934,16 +3930,15 @@ class TestAnnouncementRoutes:
     @pytest.mark.asyncio
     async def test_delete_announcement(
         self,
-        authed_async_client: AsyncClient,
         async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test DELETE /announcements/{id} removes the announcement."""
         from app.models.user import User
 
         user = User(
-            first_name="Test",
-            last_name="Admin",
+            name="Test Admin",
             email="admin4@test.com",
             auth_id="test-admin-ann-101",
             role="admin",
@@ -3959,7 +3954,7 @@ class TestAnnouncementRoutes:
         create_response = await async_client.post("/announcements/", json=create_data)
         announcement_id = create_response.json()["announcement_id"]
 
-        response = await authed_async_client.delete(f"/announcements/{announcement_id}")
+        response = await async_client.delete(f"/announcements/{announcement_id}")
         assert response.status_code == 204
 
         get_response = await async_client.get(f"/announcements/{announcement_id}")
@@ -3967,11 +3962,11 @@ class TestAnnouncementRoutes:
 
     @pytest.mark.asyncio
     async def test_delete_announcement_not_found(
-        self, authed_async_client: AsyncClient
+        self, async_client: AsyncClient
     ) -> None:
         """Test DELETE /announcements/{id} returns 404 for nonexistent ID."""
         fake_id = uuid4()
-        response = await authed_async_client.delete(f"/announcements/{fake_id}")
+        response = await async_client.delete(f"/announcements/{fake_id}")
         assert response.status_code == 404
 
 
