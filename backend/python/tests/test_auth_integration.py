@@ -117,6 +117,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # /register is auth'd by the invite token in the body, not a bearer token.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
     ("POST", "/drivers/register"): Policy.PUBLIC,
+    ("POST", "/drivers/test-event-email"): Policy.PUBLIC,
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
