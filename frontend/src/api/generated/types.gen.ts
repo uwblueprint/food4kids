@@ -1414,6 +1414,10 @@ export type RouteGenerationGroupInput = {
  */
 export type RouteGenerationSettings = {
   /**
+   * Max Half Boxes Per Driver
+   */
+  max_half_boxes_per_driver?: number;
+  /**
    * Max Stops Per Route
    */
   max_stops_per_route?: number | null;

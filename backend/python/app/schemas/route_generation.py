@@ -16,7 +16,8 @@ class RouteGenerationSettings(SQLModel):
     return_to_warehouse: bool = False
     route_start_time: datetime
     num_routes: int
-    max_stops_per_route: int | None = None
+    max_stops_per_route: int | None = None  # Does not apply to Google Maps Routing
+    max_half_boxes_per_driver: int = Field(default=28, gt=0)
     service_time_minutes: int = Field(default=15, gt=0)
     route_duration_limit_minutes: int | None = Field(
         default=None,
