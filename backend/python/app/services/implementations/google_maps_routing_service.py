@@ -69,13 +69,10 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         """Build the optimizeTours request payload using v1 API field names."""
 
         warehouse = {"latitude": warehouse_lat, "longitude": warehouse_lon}
-        max_stops = settings.max_stops_per_route
 
-        load_limit = (
-            {"loadLimits": {"load": {"maxLoad": str(max_stops)}}}
-            if max_stops is not None
-            else {}
-        )
+        load_limit = {
+            "loadLimits": {"load": {"maxLoad": str(settings.max_half_boxes_per_driver)}}
+        }
 
         # routeDurationLimit: soft cap on total route time. The optimizer
         # penalises routes that exceed this, spreading deliveries more evenly
@@ -138,7 +135,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                             "longitude": loc.longitude,
                         },
                         "duration": service_duration,
-                        "loadDemands": {"load": {"amount": "1"}},
+                        "loadDemands": {"load": {"amount": str(loc.num_children or 0)}},
                     }
                 ],
             }
