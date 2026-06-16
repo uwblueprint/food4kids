@@ -1037,13 +1037,61 @@ class TestRouteRoutes:
     async def test_get_routes_with_data(
         self,
         async_client: AsyncClient,
-        test_route: Any,  # noqa: ARG002
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
     ) -> None:
         """Test GET /routes returns paginated list of routes."""
+        from app.models.location import Location
+        from app.models.route_stop import RouteStop
+
+        loc_a = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Route Stop A",
+            contact_name="Route Stop A",
+            address="1 Route St",
+            phone_primary="5550000001",
+            num_boxes=3,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        loc_b = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Route Stop B",
+            contact_name="Route Stop B",
+            address="2 Route St",
+            phone_primary="5550000002",
+            num_boxes=5,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        test_session.add_all([loc_a, loc_b])
+        await test_session.commit()
+        await test_session.refresh(loc_a)
+        await test_session.refresh(loc_b)
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=loc_a.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=2,
+                ),
+            ]
+        )
+        await test_session.commit()
+
         response = await async_client.get("/routes")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data["items"], list)
+        route = next(
+            item for item in data["items"] if item["route_id"] == str(test_route.route_id)
+        )
+        assert route["num_stops"] == 2
+        assert route["box_total"] == 8
 
     @pytest.mark.asyncio
     async def test_get_route_by_id(

@@ -2842,6 +2842,10 @@
       "RouteWithDateRead": {
         "description": "Read response model for routes with drive date information.\n\ndrive_date is sourced from RouteGroup.drive_date via the route_group\nrelationship.",
         "properties": {
+          "box_total": {
+            "title": "Box Total",
+            "type": "integer"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2859,6 +2863,10 @@
             "title": "Notes",
             "type": "string"
           },
+          "num_stops": {
+            "title": "Num Stops",
+            "type": "integer"
+          },
           "route_id": {
             "format": "uuid",
             "title": "Route Id",
@@ -2870,7 +2878,9 @@
           "name",
           "notes",
           "length",
-          "drive_date"
+          "drive_date",
+          "num_stops",
+          "box_total"
         ],
         "title": "RouteWithDateRead",
         "type": "object"

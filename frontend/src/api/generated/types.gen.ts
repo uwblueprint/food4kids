@@ -1628,6 +1628,10 @@ export type RouteWithDateRead = {
    */
   drive_date: string;
   /**
+   * Box Total
+   */
+  box_total: number;
+  /**
    * Length
    */
   length: number;
@@ -1643,6 +1647,10 @@ export type RouteWithDateRead = {
    * Route Id
    */
   route_id: string;
+  /**
+   * Num Stops
+   */
+  num_stops: number;
 };
 
 /**
