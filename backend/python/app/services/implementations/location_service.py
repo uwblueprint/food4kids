@@ -60,7 +60,8 @@ DEFAULT_COLUMN_MAP = {
     "contact_name": "Guardian Name",
     "address": "Address",
     "delivery_group": "Delivery Day",
-    "phone_number": "Primary Phone",
+    "phone_primary": "Primary Phone",
+    "phone_secondary": "Secondary Phone",
     "num_boxes": "Number of Boxes",
     "halal": "Halal?",
     "dietary_restrictions": "Specific Food Restrictions",
@@ -375,7 +376,11 @@ class LocationService:
 
                 # invalid phone number format
                 try:
-                    location.phone_number = validate_phone(location.phone_number)
+                    location.phone_primary = validate_phone(location.phone_primary)
+                    if location.phone_secondary:
+                        location.phone_secondary = validate_phone(
+                            location.phone_secondary
+                        )
                 except ValueError:
                     alerts.append(AlertCode.INVALID_FORMAT)
                     rows.append(
@@ -391,7 +396,7 @@ class LocationService:
                 full_key = (
                     location.contact_name,
                     location.address,
-                    location.phone_number,
+                    location.phone_primary,
                 )
                 if full_key in full_dup_keys:
                     alerts.append(AlertCode.LOCAL_DUPLICATE)
@@ -401,13 +406,13 @@ class LocationService:
                     # partial duplicate — same address or same phone
                     if (
                         location.address in address_keys
-                        or location.phone_number in phone_keys
+                        or location.phone_primary in phone_keys
                     ):
                         alerts.append(AlertCode.PARTIAL_DUPLICATE)
                     if location.address not in address_keys:
                         address_keys[location.address] = row_num
-                    if location.phone_number not in phone_keys:
-                        phone_keys[location.phone_number] = row_num
+                    if location.phone_primary not in phone_keys:
+                        phone_keys[location.phone_primary] = row_num
 
                 rows.append(
                     LocationImportRow(row=row_num, location=location, alerts=alerts)
@@ -483,7 +488,8 @@ class LocationService:
             contact_name=get_value("contact_name"),
             address=get_value("address"),
             delivery_group=get_value("delivery_group"),
-            phone_number=get_value("phone_number"),
+            phone_primary=get_value("phone_primary"),
+            phone_secondary=get_value("phone_secondary"),
             num_boxes=parse_int("num_boxes"),
             halal=parse_bool("halal"),
             dietary_restrictions=get_value("dietary_restrictions"),
@@ -498,7 +504,7 @@ class LocationService:
         return (
             entry.contact_name is not None
             and entry.address is not None
-            and entry.phone_number is not None
+            and entry.phone_primary is not None
         )
 
     async def _build_location(self, location_data: LocationCreate) -> Location:
@@ -522,7 +528,8 @@ class LocationService:
             name=location_data.name,
             contact_name=location_data.contact_name,
             address=location_data.address,
-            phone_number=location_data.phone_number,
+            phone_primary=location_data.phone_primary,
+            phone_secondary=location_data.phone_secondary,
             longitude=location_data.longitude,
             latitude=location_data.latitude,
             place_id=location_data.place_id,
@@ -622,7 +629,8 @@ class LocationService:
                         name=entry.contact_name,
                         contact_name=entry.contact_name,
                         address=geocode_result.formatted_address,
-                        phone_number=entry.phone_number,
+                        phone_primary=entry.phone_primary,
+                        phone_secondary=entry.phone_secondary,
                         longitude=geocode_result.longitude,
                         latitude=geocode_result.latitude,
                         place_id=geocode_result.place_id,

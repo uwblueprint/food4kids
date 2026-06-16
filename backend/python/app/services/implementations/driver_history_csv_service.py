@@ -49,14 +49,10 @@ class DriverHistoryCSVGenerator:
                 continue
 
             driver = driver_lookup[driver_id]
-            name_parts = driver.name.split(" ", 1)  # Split on first space only
-            first_name = name_parts[0]
-            last_name = name_parts[1] if len(name_parts) > 1 else ""
-
             csv_data.append(
                 {
-                    "first": first_name,
-                    "last": last_name,
+                    "first": driver.first_name,
+                    "last": driver.last_name,
                     "email": driver.email,
                     f"distance (km) in {year}": current_year_lookup.get(driver_id, 0),
                     f"distance (km) in {year - 1}": past_year_lookup.get(driver_id, 0),
@@ -75,8 +71,8 @@ class DriverHistoryCSVGenerator:
                 not x[
                     f"distance (km) in {year}"
                 ],  # current year drivers first, no people with 0 km
-                str(x["first"]).lower(),
                 str(x["last"]).lower(),
+                str(x["first"]).lower(),
             )
         )
 

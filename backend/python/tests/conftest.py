@@ -255,7 +255,8 @@ def auth_headers() -> dict[str, str]:
 def sample_driver_data() -> dict[str, Any]:
     """Sample driver data for testing."""
     return {
-        "name": "John Doe",
+        "first_name": "John",
+        "last_name": "Doe",
         "email": "john.doe@example.com",
         "phone": "+12125551234",  # Valid international format
         "address": "123 Main St, City, State 12345",
@@ -301,7 +302,7 @@ def sample_location_data() -> dict[str, Any]:
         "contact_name": "Jane Smith",
         "delivery_type": "School",
         "address": "123 Main St, City, State 12345",
-        "phone_number": "(555) 123-4567",
+        "phone_primary": "(555) 123-4567",
         "longitude": -122.4194,
         "latitude": 37.7749,
         "halal": False,
@@ -331,7 +332,8 @@ async def test_driver(
     from app.models.user import User
 
     user = User(
-        name=sample_driver_data["name"],
+        first_name=sample_driver_data["first_name"],
+        last_name=sample_driver_data["last_name"],
         email=sample_driver_data["email"],
         auth_id=sample_driver_data["auth_id"],
     )
@@ -377,7 +379,8 @@ async def test_admin_user(test_session: AsyncSession) -> Any:
     from app.models.user import User
 
     user = User(
-        name="Admin User",
+        first_name="Admin",
+        last_name="User",
         email="admin@food4kids.org",
         auth_id="admin-auth-001",
         role="admin",
