@@ -5,22 +5,22 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import and_
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.config import settings
 from app.dependencies.services import get_logger
 from app.models.driver import Driver
-from app.models.driver_assignment import DriverAssignment
 from app.models.route import Route
+from app.models.route_group import RouteGroup
 from app.models.user import User
 from app.services.implementations.email_service import EmailService
 
 
 async def process_daily_reminder_emails() -> None:
-    """Sends out daily reminder emails for the day - runs at 7:00 AM every day
+    """Sends out daily reminder emails for the day - runs at 7:00 AM every day.
 
-    This job:
-    - Finds all drivers who are assigned to routes tomorrow
+    Emails each driver assigned (via Route.driver_id) to a route whose
+    RouteGroup.drive_date is tomorrow.
     """
 
     from app.models import (
@@ -38,7 +38,6 @@ async def process_daily_reminder_emails() -> None:
     end_of_day = datetime.combine(tomorrow, datetime.max.time())
     try:
         async with async_session_maker_instance() as session:
-            # Get all drivers assigned to routes tomorrow
             statement = (
                 select(
                     User.email,
@@ -46,13 +45,14 @@ async def process_daily_reminder_emails() -> None:
                     DriverAssignment.time,
                     Route.length,
                 )
-                .join(Route, DriverAssignment.route_id == Route.route_id)  # type: ignore[arg-type]
-                .join(Driver, DriverAssignment.driver_id == Driver.driver_id)  # type: ignore[arg-type]
-                .join(User, Driver.user_id == User.user_id)  # type: ignore[arg-type]
+                .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+                .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
+                .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
-                        DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
+                        RouteGroup.drive_date >= start_of_day,  # type: ignore[arg-type]
+                        RouteGroup.drive_date <= end_of_day,  # type: ignore[arg-type]
+                        col(Route.driver_id).isnot(None),
                     )
                 )
                 .order_by(User.email)
@@ -90,8 +90,10 @@ async def process_daily_reminder_emails() -> None:
                 route_date: datetime = row.time
                 route_distance = row.length
 
-                date_only = route_date.date().strftime("%A, %B %d, %Y")
-                time_only = route_date.time().strftime("%I:%M %p")
+                date_only = drive_date.date().strftime("%A, %B %d, %Y")
+                # Per-route start time if set, else fall back to a sensible default.
+                start_time = row.start_time
+                time_only = start_time.strftime("%I:%M %p") if start_time else "TBD"
                 rounded_distance = str(round(route_distance))
 
                 context = {

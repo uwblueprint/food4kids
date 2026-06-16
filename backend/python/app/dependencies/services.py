@@ -19,9 +19,6 @@ from fastapi import Depends
 from app.config import settings
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
-from app.services.implementations.driver_assignment_service import (
-    DriverAssignmentService,
-)
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
@@ -34,6 +31,7 @@ from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import SystemSettingsService
+from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.templates.email_renderer import TemplateRenderer
@@ -101,6 +99,13 @@ def get_user_service() -> UserService:
 
 
 @lru_cache
+def get_user_invite_service() -> UserInviteService:
+    """Get user invite service instance"""
+    logger = get_logger()
+    return UserInviteService(logger)
+
+
+@lru_cache
 def get_driver_service() -> DriverService:
     """Get driver service instance"""
     logger = get_logger()
@@ -122,13 +127,6 @@ def get_note_chain_service() -> NoteChainService:
     """Get note chain service instance"""
     logger = get_logger()
     return NoteChainService(logger)
-
-
-@lru_cache
-def get_driver_assignment_service() -> DriverAssignmentService:
-    """Get driver assignment service instance"""
-    logger = get_logger()
-    return DriverAssignmentService(logger)
 
 
 @lru_cache

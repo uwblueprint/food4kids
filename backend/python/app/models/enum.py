@@ -32,8 +32,22 @@ class DriveDaysOfWeekEnum(str, Enum):
 
 
 class DeliveryTypeEnum(str, Enum):
-    SCHOOL_YEAR = "School Year"
-    SUMMER = "Summer"
+    """Kind of recipient at a Location — set per location, enforced uniform
+    within a RouteGroup at generation time."""
+
+    SCHOOL = "School"
+    FAMILY = "Family"
+
+
+class LocationStatusEnum(str, Enum):
+    """Derived status surfaced on LocationRead. Not stored — computed from
+    Location.in_roster + whether the location appears in a present/future
+    route. Precedence: any present/future route → ACTIVE (regardless of
+    roster); otherwise in_roster → UNSCHEDULED; otherwise → INACTIVE."""
+
+    ACTIVE = "Active"
+    UNSCHEDULED = "Unscheduled"
+    INACTIVE = "Inactive"
 
 
 class RouteStatusEnum(str, Enum):
@@ -43,5 +57,8 @@ class RouteStatusEnum(str, Enum):
 
 
 class DriverAssignmentStatusEnum(str, Enum):
+    """Whether the routes in a RouteGroup have drivers assigned (read from
+    Route.driver_id)."""
+
     ASSIGNED = "Assigned"
     UNASSIGNED = "Unassigned"

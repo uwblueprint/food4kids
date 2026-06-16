@@ -1,5 +1,8 @@
 # Core web framework
-fastapi>=0.104.1
+# Pinned with an upper bound: unbounded `>=` let CI resolve fastapi 0.137.0,
+# whose included-router restructuring broke app.routes introspection. Bump
+# deliberately (and re-verify route introspection) rather than float.
+fastapi>=0.137.0,<0.138
 uvicorn[standard]>=0.24.0
 python-multipart>=0.0.6
 

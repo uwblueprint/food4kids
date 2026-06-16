@@ -4,8 +4,9 @@ import math
 import time
 from typing import TYPE_CHECKING
 
-from app.services.implementations.mock_clustering_algorithm import (
-    MockClusteringAlgorithm,
+from app.services.implementations.sweep_clustering import (
+    DEFAULT_MAX_BOXES_PER_CLUSTER,
+    SweepClusteringAlgorithm,
 )
 from app.services.protocols.routing_algorithm import (
     RoutingAlgorithmProtocol,
@@ -40,8 +41,11 @@ class SweepAlgorithm(RoutingAlgorithmProtocol):
 
     clustering_algorithm: ClusteringAlgorithmProtocol
 
-    def __init__(self) -> None:
-        self.clustering_algorithm = MockClusteringAlgorithm()
+    def __init__(self, warehouse_lat: float, warehouse_lon: float) -> None:
+        self.clustering_algorithm = SweepClusteringAlgorithm(
+            warehouse_lat=warehouse_lat,
+            warehouse_lon=warehouse_lon,
+        )
 
     async def generate_routes(
         self,
@@ -85,7 +89,8 @@ class SweepAlgorithm(RoutingAlgorithmProtocol):
         clusters = await self.clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
-            max_locations_per_cluster=getattr(settings, "max_stops_per_route", None),
+            max_locations_per_cluster=settings.max_stops_per_route,
+            max_boxes_per_cluster=DEFAULT_MAX_BOXES_PER_CLUSTER,
         )
         check_timeout()
 

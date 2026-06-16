@@ -1,4 +1,4 @@
-import type { LocationRead } from '@/api/generated/types.gen';
+import type { LocationReadOutput } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
@@ -19,14 +19,14 @@ import {
 import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
-const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
-const DELIVERY_TYPES = ['School Year', 'Summer'];
+const ROUTE_STATUSES = ['Active', 'Unscheduled', 'Inactive'];
+const DELIVERY_TYPES = ['School', 'Family'];
 
-const COLUMNS: Column<LocationRead>[] = [
+const COLUMNS: Column<LocationReadOutput>[] = [
   {
-    key: 'contact_name',
+    key: 'name',
     header: 'School / Last Name',
-    render: (row) => row.contact_name,
+    render: (row) => row.name,
   },
   { key: 'address', header: 'Address', render: (row) => row.address },
   {
@@ -35,7 +35,7 @@ const COLUMNS: Column<LocationRead>[] = [
     render: (row) => row.location_group_name,
   },
   { key: 'notes', header: 'Notes', render: (row) => row.notes },
-  { key: 'status', header: 'Status', render: (row) => row.state ?? '—' },
+  { key: 'status', header: 'Status', render: (row) => row.status ?? '—' },
 ];
 
 type RouteAddressesTabProps = AddressesTabState;

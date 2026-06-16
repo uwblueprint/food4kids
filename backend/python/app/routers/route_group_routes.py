@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_admin
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
 from app.models.enum import (
@@ -41,6 +42,7 @@ async def get_route_groups(
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
+    _auth: bool = Depends(require_admin),
 ) -> list[dict]:
     """
     Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
@@ -55,7 +57,6 @@ async def get_route_groups(
             delivery_type,
             route_status,
             driver_assignment_status,
-            include_routes,
         )
         result = []
         for route_group in route_groups:
@@ -65,18 +66,12 @@ async def get_route_groups(
             if include_routes:
                 data["routes"] = [
                     {
-                        "route_id": membership.route.route_id
-                        if membership.route
-                        else None,
-                        "name": membership.route.name
-                        if membership.route
-                        else "No route",
-                        "notes": membership.route.notes
-                        if membership.route
-                        else "No notes",
-                        "length": membership.route.length if membership.route else 0,
+                        "route_id": route.route_id,
+                        "name": route.name,
+                        "notes": route.notes,
+                        "length": route.length,
                     }
-                    for membership in route_group.route_group_memberships
+                    for route in route_group.routes
                 ]
             else:
                 data["routes"] = []
@@ -94,6 +89,7 @@ async def create_route_group(
     route_group: RouteGroupCreate,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
+    _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Create a new route group
@@ -115,6 +111,7 @@ async def update_route_group(
     route_group: RouteGroupUpdate,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
+    _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Update an existing route group
@@ -142,6 +139,7 @@ async def delete_route_group(
     route_group_id: UUID,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete a route group and all its route group memberships

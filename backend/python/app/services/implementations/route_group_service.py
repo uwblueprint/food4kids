@@ -6,10 +6,10 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlalchemy.orm import selectinload
+from sqlmodel import col, select
 
 from app.config import settings
-from app.models.driver_assignment import DriverAssignment
 from app.models.enum import (
     DeliveryTypeEnum,
     DriveDaysOfWeekEnum,
@@ -17,8 +17,8 @@ from app.models.enum import (
     RouteStatusEnum,
 )
 from app.models.location import Location
+from app.models.route import Route
 from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
-from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 
 
@@ -36,7 +36,7 @@ class RouteGroupService:
         route_group = RouteGroup.model_validate(route_group_data)
         session.add(route_group)
         await session.commit()
-        await session.refresh(route_group, ["route_group_memberships"])
+        await session.refresh(route_group, ["routes"])
         return route_group
 
     async def update_route_group(
@@ -61,7 +61,7 @@ class RouteGroupService:
             setattr(route_group, field, value)
 
         await session.commit()
-        await session.refresh(route_group, ["route_group_memberships"])
+        await session.refresh(route_group, ["routes"])
 
         return route_group
 
@@ -74,10 +74,16 @@ class RouteGroupService:
         delivery_type: list[DeliveryTypeEnum] | None = None,
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
-        include_routes: bool = False,
     ) -> list[RouteGroup]:
-        """Get route groups with optional date filtering"""
-        statement = select(RouteGroup)
+        """Get route groups with optional filtering.
+
+        `delivery_type` filters on the per-Location delivery_type of a group's
+        stops; `driver_assignment_status` filters on whether a group's routes
+        have a driver_id set.
+        """
+        # Eager-load routes in the same query (one round-trip) rather than a
+        # per-group refresh below.
+        statement = select(RouteGroup).options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
 
         if start_date:
             statement = statement.where(RouteGroup.drive_date >= start_date)
@@ -98,35 +104,18 @@ class RouteGroupService:
                 func.extract("dow", RouteGroup.drive_date).in_(dow_values)  # type: ignore[arg-type]
             )
 
-        # Delivery type filter
+        # Delivery type filter: a group matches if any of its stops' locations
+        # has one of the requested delivery types.
         if delivery_type:
-            # Subquery to traverse memberships -> stops -> locations to check for a school name
-            has_school_query = (
-                select(1)
-                .select_from(RouteGroupMembership)
-                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
-                .where(
-                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
-                    Location.school_name.isnot(None),  # type: ignore[union-attr]
-                    Location.school_name != "",
-                )
-            )
-
-            # Subquery to check if the route group has any locations at all (make sure we dont default empty routes to summer)
-            has_locations_query = (
-                select(1)
-                .select_from(RouteGroupMembership)
-                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
-            )
-
             delivery_conditions: list[Any] = []
-            if DeliveryTypeEnum.SCHOOL_YEAR in delivery_type:
-                delivery_conditions.append(has_school_query.exists())
-            if DeliveryTypeEnum.SUMMER in delivery_type:
+            for dt in delivery_type:
                 delivery_conditions.append(
-                    and_(has_locations_query.exists(), ~has_school_query.exists())
+                    exists()
+                    .select_from(Route)
+                    .join(RouteStop, RouteStop.route_id == Route.route_id)
+                    .join(Location, Location.location_id == RouteStop.location_id)
+                    .where(Route.route_group_id == RouteGroup.route_group_id)
+                    .where(Location.delivery_type == dt)
                 )
             if delivery_conditions:
                 statement = statement.where(or_(*delivery_conditions))
@@ -156,39 +145,36 @@ class RouteGroupService:
             if status_conditions:
                 statement = statement.where(or_(*status_conditions))
 
-        # Driver assignment status filter
+        # Driver assignment status filter: "Assigned" means at least one route
+        # in this group has a driver_id; "Unassigned" means none do.
         if driver_assignment_status:
-            # Create subquery that checks for existing assignment
-            assignment_exists = exists().where(
-                DriverAssignment.route_group_id == RouteGroup.route_group_id  # type: ignore[arg-type]
+            assigned_exists = (
+                exists()
+                .select_from(Route)
+                .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+                .where(col(Route.driver_id).isnot(None))
             )
 
             assignment_conditions: list[Any] = []
             if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
-                assignment_conditions.append(assignment_exists)
+                assignment_conditions.append(assigned_exists)
             if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
-                assignment_conditions.append(~assignment_exists)
+                assignment_conditions.append(~assigned_exists)
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 
         statement = statement.order_by(RouteGroup.drive_date)  # type: ignore[arg-type]
 
         result = await session.execute(statement)
-        route_groups = result.scalars().all()
-
-        # Load relationships for all route groups to avoid lazy loading issues
-        for route_group in route_groups:
-            await session.refresh(route_group, ["route_group_memberships"])
-            if include_routes:
-                for membership in route_group.route_group_memberships:
-                    await session.refresh(membership, ["route"])
-
-        return list(route_groups)
+        # routes are eager-loaded via selectinload on the statement, so they're
+        # safe to access (num_routes, route_group_routes.py) without lazy loads.
+        return list(result.scalars().all())
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID
     ) -> bool:
-        """Delete a route group and all its route group memberships"""
+        """Delete a route group. Cascades to its routes (and their stops +
+        snapshots via further cascades)."""
         statement = select(RouteGroup).where(
             RouteGroup.route_group_id == route_group_id
         )

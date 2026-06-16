@@ -19,12 +19,7 @@ from app.models.announcement import (
 from app.models.driver import (
     Driver,
     DriverCreate,
-    DriverRegister,
     DriverUpdate,
-)
-from app.models.driver_assignment import (
-    DriverAssignment,
-    DriverAssignmentUpdate,
 )
 from app.models.driver_history import (
     DriverHistory,
@@ -32,6 +27,7 @@ from app.models.driver_history import (
     DriverHistoryUpdate,
 )
 from app.models.enum import (
+    DeliveryTypeEnum,
     NotePermission,
     ProgressEnum,
     RoleEnum,
@@ -58,10 +54,9 @@ from app.models.route_group import (
     RouteGroup,
     RouteGroupRead,
 )
-from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
-from app.models.user import User, UserCreate
+from app.models.user import User, UserFinalize
 
 init_app()
 
@@ -153,26 +148,16 @@ class TestCoreBusinessValidation:
     def test_password_validation(self) -> None:
         """Test password validation for driver registration."""
         # Test valid password
-        driver_register = DriverRegister(
-            name="Test Driver",
-            email="test@example.com",
-            phone="+12125551234",
-            address="123 Main St",
-            license_plate="ABC123",
-            car_make_model="Toyota Camry",
+        user_finalize = UserFinalize(
+            user_invite_id=uuid4(),
             password="securepassword123",
         )
-        assert driver_register.password == "securepassword123"
+        assert user_finalize.password == "securepassword123"
 
         # Test invalid password (too short)
         with pytest.raises(ValidationError) as exc_info:
-            DriverRegister(
-                name="Test Driver",
-                email="test@example.com",
-                phone="+12125551234",
-                address="123 Main St",
-                license_plate="ABC123",
-                car_make_model="Toyota Camry",
+            UserFinalize(
+                user_invite_id=uuid4(),
                 password="123",  # Too short
             )
         assert "password" in str(exc_info.value)
@@ -217,6 +202,8 @@ class TestCoreBusinessValidation:
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
+        from uuid import uuid4
+
         # Test valid lengths
         valid_lengths = [0.0, 10.5, 100.0]
 
@@ -224,6 +211,7 @@ class TestCoreBusinessValidation:
             route = Route(
                 name="Test Route",
                 length=length,
+                route_group_id=uuid4(),
             )
             assert route.length == length
 
@@ -232,6 +220,7 @@ class TestCoreBusinessValidation:
             Route(
                 name="Test Route",
                 length=-5.0,  # Negative length should fail
+                route_group_id=uuid4(),
             )
         assert "length" in str(exc_info.value)
 
@@ -272,6 +261,7 @@ class TestCoreBusinessValidation:
             field in error_str
             for field in [
                 "address",
+                "delivery_type",
                 "phone_number",
                 "longitude",
                 "latitude",
@@ -299,7 +289,10 @@ class TestCoreBusinessValidation:
         # Test Location rejects extra fields
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
+                location_group_id=uuid4(),
+                name="Jane Smith",
                 contact_name="Jane Smith",
+                delivery_type=DeliveryTypeEnum.FAMILY,
                 address="123 Main St",
                 phone_number="(555) 123-4567",
                 longitude=-122.4194,
@@ -343,11 +336,6 @@ class TestCoreModels:
         assert driver.created_at is not None
 
         # Create model
-        user_create = UserCreate(
-            name="Jane Doe",
-            email="jane.doe@example.com",
-            password="securepassword123",
-        )
         driver_create = DriverCreate(
             user_id=uuid4(),
             phone="+12125551234",
@@ -355,7 +343,6 @@ class TestCoreModels:
             license_plate="XYZ789",
             car_make_model="Honda Civic",
         )
-        assert user_create.name == "Jane Doe"
         assert driver_create.license_plate == "XYZ789"
 
         # Update model
@@ -368,8 +355,9 @@ class TestCoreModels:
         # Create with all fields
         location = Location(
             location_group_id=uuid4(),
-            school_name="Central Elementary",
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
             longitude=-122.4194,
@@ -380,13 +368,16 @@ class TestCoreModels:
             num_boxes=25,
             notes="Main entrance on Main St",
         )
-        assert location.school_name == "Central Elementary"
+        assert location.name == "Central Elementary"
+        assert location.delivery_type == DeliveryTypeEnum.SCHOOL
         assert location.created_at is not None
 
         # Create with minimal fields
         location_minimal = Location(
             location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave, City, State 12345",
             phone_number="(555) 987-6543",
             longitude=-122.5000,
@@ -394,7 +385,8 @@ class TestCoreModels:
             halal=True,
             num_boxes=10,
         )
-        assert location_minimal.school_name is None
+        assert location_minimal.name == "John Doe"
+        assert location_minimal.delivery_type == DeliveryTypeEnum.FAMILY
         assert location_minimal.notes == ""  # Default value
 
         # Read model
@@ -402,7 +394,9 @@ class TestCoreModels:
             location_id=uuid4(),
             location_group_id=uuid4(),
             location_group_name="Central Elementary",
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
             phone_number="(555) 123-4567",
             longitude=-122.4194,
@@ -414,11 +408,14 @@ class TestCoreModels:
 
     def test_route_core_operations(self) -> None:
         """Test Route model core operations."""
+        from uuid import uuid4
+
         # Create
         route = Route(
             name="Downtown Route",
             notes="Route through downtown area",
             length=15.5,
+            route_group_id=uuid4(),
         )
         assert route.name == "Downtown Route"
         assert route.length == 15.5
@@ -428,6 +425,7 @@ class TestCoreModels:
         route_minimal = Route(
             name="Basic Route",
             length=10.0,
+            route_group_id=uuid4(),
         )
         assert route_minimal.notes == ""  # Default value
 
@@ -468,26 +466,6 @@ class TestCoreModels:
             num_routes=3,
         )
         assert route_group_read.route_group_id is not None
-
-    def test_driver_assignment_core_operations(self) -> None:
-        """Test DriverAssignment model core operations."""
-        from datetime import datetime
-        from uuid import uuid4
-
-        # Create
-        assignment = DriverAssignment(
-            driver_id=uuid4(),
-            route_id=uuid4(),
-            route_group_id=uuid4(),
-            time=datetime(2024, 1, 15, 8, 0),
-        )
-        assert assignment.created_at is not None
-
-        # Update
-        assignment_update = DriverAssignmentUpdate(
-            time=datetime(2024, 1, 15, 9, 0),
-        )
-        assert assignment_update.time == datetime(2024, 1, 15, 9, 0)
 
     def test_driver_history_core_operations(self) -> None:
         """Test DriverHistory model core operations."""
@@ -662,7 +640,7 @@ class TestCoreModels:
         assert list_response.unread_count == 1
 
     def test_relationship_models_core_operations(self) -> None:
-        """Test relationship models (RouteStop, RouteGroupMembership) core operations."""
+        """Test RouteStop creation."""
         from uuid import uuid4
 
         # RouteStop
@@ -673,15 +651,6 @@ class TestCoreModels:
         )
         assert route_stop.stop_number == 1
         assert route_stop.created_at is not None
-
-        # RouteGroupMembership
-        membership = RouteGroupMembership(
-            route_group_id=uuid4(),
-            route_id=uuid4(),
-        )
-        assert membership.route_group_id is not None
-        assert membership.route_id is not None
-        assert membership.created_at is not None
 
 
 class TestEnumsAndSerialization:
@@ -760,7 +729,9 @@ class TestEnumsAndSerialization:
         # Test default values across models
         location = Location(
             location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave",
             phone_number="(555) 987-6543",
             longitude=-122.5000,
@@ -769,7 +740,7 @@ class TestEnumsAndSerialization:
             num_boxes=10,
         )
         assert location.notes == ""  # Default value
-        assert location.school_name is None  # Default value
+        assert location.delivery_type == DeliveryTypeEnum.FAMILY
         assert location.dietary_restrictions == ""  # Default value
         assert location.num_children is None  # Default value
 
@@ -835,6 +806,7 @@ class TestModelValidation:
             Route(
                 name="Test Route",
                 length=-5.0,  # Negative length should fail
+                route_group_id=uuid4(),
             )
         assert "length" in str(exc_info.value)
 

@@ -8,12 +8,12 @@ import {
 } from './client';
 import { client } from './client.gen';
 import type {
+  CompleteDriverRegistrationData,
+  CompleteDriverRegistrationErrors,
+  CompleteDriverRegistrationResponses,
   CreateAnnouncementData,
   CreateAnnouncementErrors,
   CreateAnnouncementResponses,
-  CreateDriverAssignmentData,
-  CreateDriverAssignmentErrors,
-  CreateDriverAssignmentResponses,
   CreateDriverHistoryData,
   CreateDriverHistoryErrors,
   CreateDriverHistoryResponses,
@@ -34,9 +34,6 @@ import type {
   DeleteAnnouncementData,
   DeleteAnnouncementErrors,
   DeleteAnnouncementResponses,
-  DeleteDriverAssignmentData,
-  DeleteDriverAssignmentErrors,
-  DeleteDriverAssignmentResponses,
   DeleteDriverData,
   DeleteDriverErrors,
   DeleteDriverHistoryData,
@@ -75,9 +72,6 @@ import type {
   GetAnnouncementResponses,
   GetAnnouncementsData,
   GetAnnouncementsResponses,
-  GetDriverAssignmentsData,
-  GetDriverAssignmentsErrors,
-  GetDriverAssignmentsResponses,
   GetDriverData,
   GetDriverErrors,
   GetDriverHistoryData,
@@ -133,6 +127,9 @@ import type {
   IngestLocationsData,
   IngestLocationsErrors,
   IngestLocationsResponses,
+  InitializeDriverData,
+  InitializeDriverErrors,
+  InitializeDriverResponses,
   LoginData,
   LoginErrors,
   LoginResponses,
@@ -141,9 +138,6 @@ import type {
   LogoutResponses,
   RefreshData,
   RefreshResponses,
-  RegisterDriverData,
-  RegisterDriverErrors,
-  RegisterDriverResponses,
   ResetPasswordData,
   ResetPasswordErrors,
   ResetPasswordResponses,
@@ -155,9 +149,6 @@ import type {
   UpdateAnnouncementData,
   UpdateAnnouncementErrors,
   UpdateAnnouncementResponses,
-  UpdateDriverAssignmentData,
-  UpdateDriverAssignmentErrors,
-  UpdateDriverAssignmentResponses,
   UpdateDriverData,
   UpdateDriverErrors,
   UpdateDriverHistoryData,
@@ -231,6 +222,7 @@ export const getAnnouncements = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/',
     ...options,
   });
@@ -249,6 +241,7 @@ export const createAnnouncement = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/',
     ...options,
     headers: {
@@ -269,7 +262,11 @@ export const deleteAnnouncement = <ThrowOnError extends boolean = false>(
     DeleteAnnouncementResponses,
     DeleteAnnouncementErrors,
     ThrowOnError
-  >({ url: '/announcements/{announcement_id}', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/announcements/{announcement_id}',
+    ...options,
+  });
 
 /**
  * Get Announcement
@@ -285,6 +282,7 @@ export const getAnnouncement = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/{announcement_id}',
     ...options,
   });
@@ -303,6 +301,7 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/{announcement_id}',
     ...options,
     headers: {
@@ -376,100 +375,6 @@ export const resetPassword = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get Driver Assignments
- *
- * Retrieve all driver assignments with pagination
- */
-export const getDriverAssignments = <ThrowOnError extends boolean = false>(
-  options?: Options<GetDriverAssignmentsData, ThrowOnError>
-) =>
-  (options?.client ?? client).get<
-    GetDriverAssignmentsResponses,
-    GetDriverAssignmentsErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/driver-assignments/',
-    ...options,
-  });
-
-/**
- * Create Driver Assignment
- *
- * Create a new driver assignment
- */
-export const createDriverAssignment = <ThrowOnError extends boolean = false>(
-  options: Options<CreateDriverAssignmentData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CreateDriverAssignmentResponses,
-    CreateDriverAssignmentErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/driver-assignments/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Get Suggested Driver
- *
- * Get a suggested driver for a route on a certain day that is the last assigned to that same route
- */
-export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
-  options: Options<GetSuggestedDriverData, ThrowOnError>
-) =>
-  (options.client ?? client).get<
-    GetSuggestedDriverResponses,
-    GetSuggestedDriverErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/driver-assignments/suggestions',
-    ...options,
-  });
-
-/**
- * Delete Driver Assignment
- *
- * Delete a driver assignment
- */
-export const deleteDriverAssignment = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteDriverAssignmentData, ThrowOnError>
-) =>
-  (options.client ?? client).delete<
-    DeleteDriverAssignmentResponses,
-    DeleteDriverAssignmentErrors,
-    ThrowOnError
-  >({ url: '/driver-assignments/{driver_assignment_id}', ...options });
-
-/**
- * Update Driver Assignment
- *
- * Update an existing driver assignment
- */
-export const updateDriverAssignment = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateDriverAssignmentData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateDriverAssignmentResponses,
-    UpdateDriverAssignmentErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/driver-assignments/{driver_assignment_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
@@ -483,25 +388,53 @@ export const getDrivers = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/',
     ...options,
   });
 
 /**
- * Register Driver
+ * Initialize Driver
  *
- * Register a new driver, creates a User and Driver object, returns Driver and AuthResponse
+ * Register a new driver in our backend, creates a User and Driver object, returns DriverRead
+ * NOTE: This does not create a firebase user, ie the User is in a hanging state
+ * We need to do this so that we can implement our invite only system
  */
-export const registerDriver = <ThrowOnError extends boolean = false>(
-  options: Options<RegisterDriverData, ThrowOnError>
+export const initializeDriver = <ThrowOnError extends boolean = false>(
+  options: Options<InitializeDriverData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    RegisterDriverResponses,
-    RegisterDriverErrors,
+    InitializeDriverResponses,
+    InitializeDriverErrors,
     ThrowOnError
   >({
     responseType: 'json',
-    url: '/drivers/',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/drivers/initialize',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Complete Driver Registration
+ *
+ * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
+ */
+export const completeDriverRegistration = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CompleteDriverRegistrationData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    CompleteDriverRegistrationResponses,
+    CompleteDriverRegistrationErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/drivers/register',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -521,7 +454,11 @@ export const deleteDriver = <ThrowOnError extends boolean = false>(
     DeleteDriverResponses,
     DeleteDriverErrors,
     ThrowOnError
-  >({ url: '/drivers/{driver_id}', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/drivers/{driver_id}',
+    ...options,
+  });
 
 /**
  * Get Driver
@@ -537,6 +474,7 @@ export const getDriver = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}',
     ...options,
   });
@@ -555,6 +493,7 @@ export const updateDriver = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}',
     ...options,
     headers: {
@@ -575,7 +514,11 @@ export const deleteDriverHistory = <ThrowOnError extends boolean = false>(
     DeleteDriverHistoryResponses,
     DeleteDriverHistoryErrors,
     ThrowOnError
-  >({ url: '/drivers/{driver_id}/history/', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/drivers/{driver_id}/history/',
+    ...options,
+  });
 
 /**
  * Get Driver History
@@ -596,6 +539,7 @@ export const getDriverHistory = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}/history/',
     ...options,
   });
@@ -616,6 +560,7 @@ export const updateDriverHistory = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}/history/',
     ...options,
     headers: {
@@ -641,6 +586,7 @@ export const createDriverHistory = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}/history/',
     ...options,
     headers: {
@@ -663,6 +609,7 @@ export const getDriverHistorySummary = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}/history/summary',
     ...options,
   });
@@ -682,7 +629,11 @@ export const exportAllDriversHistory = <ThrowOnError extends boolean = false>(
     ExportAllDriversHistoryResponses,
     ExportAllDriversHistoryErrors,
     ThrowOnError
-  >({ url: '/drivers/{driver_id}/history/{year}/export', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/drivers/{driver_id}/history/{year}/export',
+    ...options,
+  });
 
 /**
  * Get Jobs
@@ -698,6 +649,7 @@ export const getJobs = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/jobs/',
     ...options,
   });
@@ -714,6 +666,7 @@ export const generateJob = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/jobs/generate',
     ...options,
     headers: {
@@ -730,6 +683,7 @@ export const getJob = <ThrowOnError extends boolean = false>(
 ) =>
   (options.client ?? client).get<GetJobResponses, GetJobErrors, ThrowOnError>({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/jobs/{job_id}',
     ...options,
   });
@@ -748,6 +702,7 @@ export const getLocationGroups = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/location-groups/',
     ...options,
   });
@@ -766,6 +721,7 @@ export const createLocationGroup = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/location-groups/',
     ...options,
     headers: {
@@ -786,7 +742,11 @@ export const deleteLocationGroup = <ThrowOnError extends boolean = false>(
     DeleteLocationGroupResponses,
     DeleteLocationGroupErrors,
     ThrowOnError
-  >({ url: '/location-groups/{location_group_id}', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/location-groups/{location_group_id}',
+    ...options,
+  });
 
 /**
  * Get Location Group
@@ -802,6 +762,7 @@ export const getLocationGroup = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/location-groups/{location_group_id}',
     ...options,
   });
@@ -820,6 +781,7 @@ export const updateLocationGroup = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/location-groups/{location_group_id}',
     ...options,
     headers: {
@@ -840,7 +802,11 @@ export const deleteAllLocations = <ThrowOnError extends boolean = false>(
     DeleteAllLocationsResponses,
     unknown,
     ThrowOnError
-  >({ url: '/locations/', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/locations/',
+    ...options,
+  });
 
 /**
  * Get Locations
@@ -856,6 +822,7 @@ export const getLocations = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/',
     ...options,
   });
@@ -874,6 +841,7 @@ export const createLocation = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/',
     ...options,
     headers: {
@@ -896,6 +864,7 @@ export const ingestLocations = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/ingest',
     ...options,
     headers: {
@@ -924,6 +893,7 @@ export const reviewLocations = <ThrowOnError extends boolean = false>(
   >({
     ...formDataBodySerializer,
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/review',
     ...options,
     headers: {
@@ -944,7 +914,11 @@ export const deleteLocation = <ThrowOnError extends boolean = false>(
     DeleteLocationResponses,
     DeleteLocationErrors,
     ThrowOnError
-  >({ url: '/locations/{location_id}', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/locations/{location_id}',
+    ...options,
+  });
 
 /**
  * Get Location
@@ -960,6 +934,7 @@ export const getLocation = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/{location_id}',
     ...options,
   });
@@ -978,6 +953,7 @@ export const updateLocation = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/{location_id}',
     ...options,
     headers: {
@@ -1121,6 +1097,7 @@ export const getRouteGroups = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/route-groups',
     ...options,
   });
@@ -1139,6 +1116,7 @@ export const createRouteGroup = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/route-groups',
     ...options,
     headers: {
@@ -1159,7 +1137,11 @@ export const deleteRouteGroup = <ThrowOnError extends boolean = false>(
     DeleteRouteGroupResponses,
     DeleteRouteGroupErrors,
     ThrowOnError
-  >({ url: '/route-groups/{route_group_id}', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/route-groups/{route_group_id}',
+    ...options,
+  });
 
 /**
  * Update Route Group
@@ -1175,6 +1157,7 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/route-groups/{route_group_id}',
     ...options,
     headers: {
@@ -1190,6 +1173,11 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
  * Returns routes with their drive dates - routes can appear multiple times for different dates.
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
+ *
+ * Requires a driver or admin caller.
+ * Admins may scope to any driver via driver_id (or omit it for all routes).
+ * Drivers are always scoped to their own routes: omitting driver_id returns
+ * their own routes, and requesting another driver's is rejected.
  */
 export const getRoutes = <ThrowOnError extends boolean = false>(
   options?: Options<GetRoutesData, ThrowOnError>
@@ -1200,6 +1188,7 @@ export const getRoutes = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/routes',
     ...options,
   });
@@ -1224,7 +1213,11 @@ export const deleteRoute = <ThrowOnError extends boolean = false>(
     DeleteRouteResponses,
     DeleteRouteErrors,
     ThrowOnError
-  >({ url: '/routes/{route_id}', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/routes/{route_id}',
+    ...options,
+  });
 
 /**
  * Get Route
@@ -1247,6 +1240,7 @@ export const getRoute = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/routes/{route_id}',
     ...options,
   });
@@ -1272,6 +1266,7 @@ export const updateRoute = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/routes/{route_id}',
     ...options,
     headers: {
@@ -1304,7 +1299,37 @@ export const getGoogleMapsLink = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/routes/{route_id}/google-maps-link',
+    ...options,
+  });
+
+/**
+ * Get Suggested Driver
+ *
+ * Suggest a driver to assign to a route: the active driver most familiar
+ * with the route's locations (by past completed deliveries), excluding
+ * drivers already assigned within the given route group.
+ *
+ * Parameters:
+ * route_id (UUID): The route to suggest a driver for.
+ * route_group_id (UUID): The route group the assignment is within.
+ * session (AsyncSession): The database session dependency.
+ *
+ * Returns:
+ * The suggested driver, or null if there's no candidate.
+ */
+export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
+  options: Options<GetSuggestedDriverData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetSuggestedDriverResponses,
+    GetSuggestedDriverErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/routes/{route_id}/suggested-driver',
     ...options,
   });
 
@@ -1322,6 +1347,7 @@ export const getSystemSettings = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/system-settings/',
     ...options,
   });
@@ -1341,6 +1367,7 @@ export const uploadImage = <ThrowOnError extends boolean = false>(
   >({
     ...formDataBodySerializer,
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/upload/',
     ...options,
     headers: {
@@ -1363,6 +1390,7 @@ export const deleteImage = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/upload/{filename}',
     ...options,
   });

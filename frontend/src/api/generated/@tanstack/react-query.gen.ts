@@ -11,8 +11,8 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import {
+  completeDriverRegistration,
   createAnnouncement,
-  createDriverAssignment,
   createDriverHistory,
   createLocation,
   createLocationGroup,
@@ -21,7 +21,6 @@ import {
   deleteAllLocations,
   deleteAnnouncement,
   deleteDriver,
-  deleteDriverAssignment,
   deleteDriverHistory,
   deleteImage,
   deleteLocation,
@@ -35,7 +34,6 @@ import {
   getAnnouncement,
   getAnnouncements,
   getDriver,
-  getDriverAssignments,
   getDriverHistory,
   getDriverHistorySummary,
   getDrivers,
@@ -54,17 +52,16 @@ import {
   getSuggestedDriver,
   getSystemSettings,
   ingestLocations,
+  initializeDriver,
   login,
   logout,
   type Options,
   refresh,
-  registerDriver,
   resetPassword,
   reviewLocations,
   test,
   updateAnnouncement,
   updateDriver,
-  updateDriverAssignment,
   updateDriverHistory,
   updateLocation,
   updateLocationGroup,
@@ -74,12 +71,12 @@ import {
   uploadImage,
 } from '../sdk.gen';
 import type {
+  CompleteDriverRegistrationData,
+  CompleteDriverRegistrationError,
+  CompleteDriverRegistrationResponse,
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
-  CreateDriverAssignmentData,
-  CreateDriverAssignmentError,
-  CreateDriverAssignmentResponse,
   CreateDriverHistoryData,
   CreateDriverHistoryError,
   CreateDriverHistoryResponse,
@@ -100,9 +97,6 @@ import type {
   DeleteAnnouncementData,
   DeleteAnnouncementError,
   DeleteAnnouncementResponse,
-  DeleteDriverAssignmentData,
-  DeleteDriverAssignmentError,
-  DeleteDriverAssignmentResponse,
   DeleteDriverData,
   DeleteDriverError,
   DeleteDriverHistoryData,
@@ -140,9 +134,6 @@ import type {
   GetAnnouncementResponse,
   GetAnnouncementsData,
   GetAnnouncementsResponse,
-  GetDriverAssignmentsData,
-  GetDriverAssignmentsError,
-  GetDriverAssignmentsResponse,
   GetDriverData,
   GetDriverError,
   GetDriverHistoryData,
@@ -198,6 +189,9 @@ import type {
   IngestLocationsData,
   IngestLocationsError,
   IngestLocationsResponse,
+  InitializeDriverData,
+  InitializeDriverError,
+  InitializeDriverResponse,
   LoginData,
   LoginError,
   LoginResponse,
@@ -206,9 +200,6 @@ import type {
   LogoutResponse,
   RefreshData,
   RefreshResponse2,
-  RegisterDriverData,
-  RegisterDriverError,
-  RegisterDriverResponse,
   ResetPasswordData,
   ResetPasswordError,
   ResetPasswordResponse,
@@ -220,9 +211,6 @@ import type {
   UpdateAnnouncementData,
   UpdateAnnouncementError,
   UpdateAnnouncementResponse,
-  UpdateDriverAssignmentData,
-  UpdateDriverAssignmentError,
-  UpdateDriverAssignmentResponse,
   UpdateDriverData,
   UpdateDriverError,
   UpdateDriverHistoryData,
@@ -577,239 +565,6 @@ export const resetPasswordMutation = (
   return mutationOptions;
 };
 
-export const getDriverAssignmentsQueryKey = (
-  options?: Options<GetDriverAssignmentsData>
-) => createQueryKey('getDriverAssignments', options);
-
-/**
- * Get Driver Assignments
- *
- * Retrieve all driver assignments with pagination
- */
-export const getDriverAssignmentsOptions = (
-  options?: Options<GetDriverAssignmentsData>
-) =>
-  queryOptions<
-    GetDriverAssignmentsResponse,
-    AxiosError<GetDriverAssignmentsError>,
-    GetDriverAssignmentsResponse,
-    ReturnType<typeof getDriverAssignmentsQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getDriverAssignments({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getDriverAssignmentsQueryKey(options),
-  });
-
-const createInfiniteParams = <
-  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
->(
-  queryKey: QueryKey<Options>,
-  page: K
-) => {
-  const params = { ...queryKey[0] };
-  if (page.body) {
-    params.body = {
-      ...(queryKey[0].body as any),
-      ...(page.body as any),
-    };
-  }
-  if (page.headers) {
-    params.headers = {
-      ...queryKey[0].headers,
-      ...page.headers,
-    };
-  }
-  if (page.path) {
-    params.path = {
-      ...(queryKey[0].path as any),
-      ...(page.path as any),
-    };
-  }
-  if (page.query) {
-    params.query = {
-      ...(queryKey[0].query as any),
-      ...(page.query as any),
-    };
-  }
-  return params as unknown as typeof page;
-};
-
-export const getDriverAssignmentsInfiniteQueryKey = (
-  options?: Options<GetDriverAssignmentsData>
-): QueryKey<Options<GetDriverAssignmentsData>> =>
-  createQueryKey('getDriverAssignments', options, true);
-
-/**
- * Get Driver Assignments
- *
- * Retrieve all driver assignments with pagination
- */
-export const getDriverAssignmentsInfiniteOptions = (
-  options?: Options<GetDriverAssignmentsData>
-) =>
-  infiniteQueryOptions<
-    GetDriverAssignmentsResponse,
-    AxiosError<GetDriverAssignmentsError>,
-    InfiniteData<GetDriverAssignmentsResponse>,
-    QueryKey<Options<GetDriverAssignmentsData>>,
-    | number
-    | Pick<
-        QueryKey<Options<GetDriverAssignmentsData>>[0],
-        'body' | 'headers' | 'path' | 'query'
-      >
-  >(
-    // @ts-ignore
-    {
-      queryFn: async ({ pageParam, queryKey, signal }) => {
-        // @ts-ignore
-        const page: Pick<
-          QueryKey<Options<GetDriverAssignmentsData>>[0],
-          'body' | 'headers' | 'path' | 'query'
-        > =
-          typeof pageParam === 'object'
-            ? pageParam
-            : {
-                query: {
-                  page: pageParam,
-                },
-              };
-        const params = createInfiniteParams(queryKey, page);
-        const { data } = await getDriverAssignments({
-          ...options,
-          ...params,
-          signal,
-          throwOnError: true,
-        });
-        return data;
-      },
-      queryKey: getDriverAssignmentsInfiniteQueryKey(options),
-    }
-  );
-
-/**
- * Create Driver Assignment
- *
- * Create a new driver assignment
- */
-export const createDriverAssignmentMutation = (
-  options?: Partial<Options<CreateDriverAssignmentData>>
-): UseMutationOptions<
-  CreateDriverAssignmentResponse,
-  AxiosError<CreateDriverAssignmentError>,
-  Options<CreateDriverAssignmentData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CreateDriverAssignmentResponse,
-    AxiosError<CreateDriverAssignmentError>,
-    Options<CreateDriverAssignmentData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await createDriverAssignment({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-export const getSuggestedDriverQueryKey = (
-  options: Options<GetSuggestedDriverData>
-) => createQueryKey('getSuggestedDriver', options);
-
-/**
- * Get Suggested Driver
- *
- * Get a suggested driver for a route on a certain day that is the last assigned to that same route
- */
-export const getSuggestedDriverOptions = (
-  options: Options<GetSuggestedDriverData>
-) =>
-  queryOptions<
-    GetSuggestedDriverResponse,
-    AxiosError<GetSuggestedDriverError>,
-    GetSuggestedDriverResponse,
-    ReturnType<typeof getSuggestedDriverQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getSuggestedDriver({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getSuggestedDriverQueryKey(options),
-  });
-
-/**
- * Delete Driver Assignment
- *
- * Delete a driver assignment
- */
-export const deleteDriverAssignmentMutation = (
-  options?: Partial<Options<DeleteDriverAssignmentData>>
-): UseMutationOptions<
-  DeleteDriverAssignmentResponse,
-  AxiosError<DeleteDriverAssignmentError>,
-  Options<DeleteDriverAssignmentData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    DeleteDriverAssignmentResponse,
-    AxiosError<DeleteDriverAssignmentError>,
-    Options<DeleteDriverAssignmentData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await deleteDriverAssignment({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Update Driver Assignment
- *
- * Update an existing driver assignment
- */
-export const updateDriverAssignmentMutation = (
-  options?: Partial<Options<UpdateDriverAssignmentData>>
-): UseMutationOptions<
-  UpdateDriverAssignmentResponse,
-  AxiosError<UpdateDriverAssignmentError>,
-  Options<UpdateDriverAssignmentData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateDriverAssignmentResponse,
-    AxiosError<UpdateDriverAssignmentError>,
-    Options<UpdateDriverAssignmentData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateDriverAssignment({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
 export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
   createQueryKey('getDrivers', options);
 
@@ -838,24 +593,55 @@ export const getDriversOptions = (options?: Options<GetDriversData>) =>
   });
 
 /**
- * Register Driver
+ * Initialize Driver
  *
- * Register a new driver, creates a User and Driver object, returns Driver and AuthResponse
+ * Register a new driver in our backend, creates a User and Driver object, returns DriverRead
+ * NOTE: This does not create a firebase user, ie the User is in a hanging state
+ * We need to do this so that we can implement our invite only system
  */
-export const registerDriverMutation = (
-  options?: Partial<Options<RegisterDriverData>>
+export const initializeDriverMutation = (
+  options?: Partial<Options<InitializeDriverData>>
 ): UseMutationOptions<
-  RegisterDriverResponse,
-  AxiosError<RegisterDriverError>,
-  Options<RegisterDriverData>
+  InitializeDriverResponse,
+  AxiosError<InitializeDriverError>,
+  Options<InitializeDriverData>
 > => {
   const mutationOptions: UseMutationOptions<
-    RegisterDriverResponse,
-    AxiosError<RegisterDriverError>,
-    Options<RegisterDriverData>
+    InitializeDriverResponse,
+    AxiosError<InitializeDriverError>,
+    Options<InitializeDriverData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await registerDriver({
+      const { data } = await initializeDriver({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Complete Driver Registration
+ *
+ * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
+ */
+export const completeDriverRegistrationMutation = (
+  options?: Partial<Options<CompleteDriverRegistrationData>>
+): UseMutationOptions<
+  CompleteDriverRegistrationResponse,
+  AxiosError<CompleteDriverRegistrationError>,
+  Options<CompleteDriverRegistrationData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CompleteDriverRegistrationResponse,
+    AxiosError<CompleteDriverRegistrationError>,
+    Options<CompleteDriverRegistrationData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await completeDriverRegistration({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1422,6 +1208,40 @@ export const getLocationsOptions = (options?: Options<GetLocationsData>) =>
     },
     queryKey: getLocationsQueryKey(options),
   });
+
+const createInfiniteParams = <
+  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
+>(
+  queryKey: QueryKey<Options>,
+  page: K
+) => {
+  const params = { ...queryKey[0] };
+  if (page.body) {
+    params.body = {
+      ...(queryKey[0].body as any),
+      ...(page.body as any),
+    };
+  }
+  if (page.headers) {
+    params.headers = {
+      ...queryKey[0].headers,
+      ...page.headers,
+    };
+  }
+  if (page.path) {
+    params.path = {
+      ...(queryKey[0].path as any),
+      ...(page.path as any),
+    };
+  }
+  if (page.query) {
+    params.query = {
+      ...(queryKey[0].query as any),
+      ...(page.query as any),
+    };
+  }
+  return params as unknown as typeof page;
+};
 
 export const getLocationsInfiniteQueryKey = (
   options?: Options<GetLocationsData>
@@ -1996,6 +1816,11 @@ export const getRoutesQueryKey = (options?: Options<GetRoutesData>) =>
  * Returns routes with their drive dates - routes can appear multiple times for different dates.
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
+ *
+ * Requires a driver or admin caller.
+ * Admins may scope to any driver via driver_id (or omit it for all routes).
+ * Drivers are always scoped to their own routes: omitting driver_id returns
+ * their own routes, and requesting another driver's is rejected.
  */
 export const getRoutesOptions = (options?: Options<GetRoutesData>) =>
   queryOptions<
@@ -2028,6 +1853,11 @@ export const getRoutesInfiniteQueryKey = (
  * Returns routes with their drive dates - routes can appear multiple times for different dates.
  * When unassigned_only is False, returns all routes (no assignment filter).
  * When unassigned_only is True, returns only routes that are unassigned for the given route group.
+ *
+ * Requires a driver or admin caller.
+ * Admins may scope to any driver via driver_id (or omit it for all routes).
+ * Drivers are always scoped to their own routes: omitting driver_id returns
+ * their own routes, and requesting another driver's is rejected.
  */
 export const getRoutesInfiniteOptions = (options?: Options<GetRoutesData>) =>
   infiniteQueryOptions<
@@ -2214,6 +2044,46 @@ export const getGoogleMapsLinkOptions = (
       return data;
     },
     queryKey: getGoogleMapsLinkQueryKey(options),
+  });
+
+export const getSuggestedDriverQueryKey = (
+  options: Options<GetSuggestedDriverData>
+) => createQueryKey('getSuggestedDriver', options);
+
+/**
+ * Get Suggested Driver
+ *
+ * Suggest a driver to assign to a route: the active driver most familiar
+ * with the route's locations (by past completed deliveries), excluding
+ * drivers already assigned within the given route group.
+ *
+ * Parameters:
+ * route_id (UUID): The route to suggest a driver for.
+ * route_group_id (UUID): The route group the assignment is within.
+ * session (AsyncSession): The database session dependency.
+ *
+ * Returns:
+ * The suggested driver, or null if there's no candidate.
+ */
+export const getSuggestedDriverOptions = (
+  options: Options<GetSuggestedDriverData>
+) =>
+  queryOptions<
+    GetSuggestedDriverResponse,
+    AxiosError<GetSuggestedDriverError>,
+    GetSuggestedDriverResponse,
+    ReturnType<typeof getSuggestedDriverQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getSuggestedDriver({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getSuggestedDriverQueryKey(options),
   });
 
 export const getSystemSettingsQueryKey = (

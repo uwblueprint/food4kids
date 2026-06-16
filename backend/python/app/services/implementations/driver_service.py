@@ -100,29 +100,19 @@ class DriverService:
         driver_data: DriverCreate,
     ) -> Driver:
         """Create new driver with Firebase integration"""
-        try:
-            driver = Driver(
-                user_id=driver_data.user_id,
-                address=driver_data.address,
-                phone=driver_data.phone,
-                license_plate=driver_data.license_plate,
-                car_make_model=driver_data.car_make_model,
-                active=driver_data.active,
-                notes=driver_data.notes,
-            )
+        driver = Driver(
+            user_id=driver_data.user_id,
+            address=driver_data.address,
+            phone=driver_data.phone,
+            license_plate=driver_data.license_plate,
+            car_make_model=driver_data.car_make_model,
+            active=driver_data.active,
+            notes=driver_data.notes,
+        )
 
-            try:
-                session.add(driver)
-                await session.commit()
-                await session.refresh(driver, attribute_names=["user"])
-                return driver
-
-            except Exception as db_error:
-                raise db_error
-
-        except Exception as e:
-            self.logger.error(f"Failed to create driver: {e!s}")
-            raise e
+        session.add(driver)
+        await session.flush()
+        return driver
 
     async def update_driver_by_id(
         self, session: AsyncSession, driver_id: UUID, driver_data: DriverUpdate

@@ -1,0 +1,208 @@
+name: Backend boot smoke
+
+# Builds the real backend Docker image and boots it against a fresh Postgres,
+# exactly like `docker compose up` / a deploy would: the entrypoint runs
+# `alembic upgrade head && python server.py`. This catches problems unit tests
+# can't see — broken or multi-headed migration graphs, startup crashes, missing
+# imports — before they land on main.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: boot-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:12-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: f4k
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Same pattern as pytest.yml: run the job on every PR so a required
+      # check always reports a status, but only do the expensive work when
+      # backend code changed.
+      - name: Filter changed files
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            python-backend:
+              - "backend/python/**"
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.python-backend == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        if: steps.changes.outputs.python-backend == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/python
+          tags: f4k-backend:ci
+          load: true
+          cache-from: type=gha
+          # ignore-error: cache export to the GHA backend is flaky (layer blob
+          # not_found); a failed export should not fail the build it caches.
+          cache-to: type=gha,ignore-error=true
+
+      - name: Boot backend (runs migrations, then the server)
+        if: steps.changes.outputs.python-backend == 'true'
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID }}
+          FIREBASE_SVC_ACCOUNT_PRIVATE_KEY: ${{ secrets.FIREBASE_SVC_ACCOUNT_PRIVATE_KEY }}
+          FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL }}
+          FIREBASE_SVC_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_ID }}
+          FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          if [ -n "$FIREBASE_PROJECT_ID" ]; then
+            echo "Real Firebase credentials available — authed API smoke enabled."
+            echo "AUTH_SMOKE=true" >> "$GITHUB_ENV"
+          else
+            # Forks and dependabot PRs can't read repo secrets. Firebase Admin
+            # parses the service-account key at startup, so boot with a
+            # syntactically valid throwaway key and skip the authed smoke.
+            echo "::warning::Firebase secrets unavailable — booting with a dummy key; seed + authed API smoke SKIPPED."
+            echo "AUTH_SMOKE=false" >> "$GITHUB_ENV"
+            export FIREBASE_PROJECT_ID=ci-dummy
+            export FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID=dummy
+            export FIREBASE_SVC_ACCOUNT_PRIVATE_KEY="$(openssl genrsa 2048 2>/dev/null)"
+            export FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL=ci-dummy@ci-dummy.iam.gserviceaccount.com
+            export FIREBASE_SVC_ACCOUNT_CLIENT_ID=000000000000000000000
+            export FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/dummy
+          fi
+
+          docker run -d --name f4k_backend_smoke --network host \
+            -e APP_ENV=development \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=password \
+            -e POSTGRES_DB_DEV=f4k \
+            -e POSTGRES_DB_TEST=f4k_test \
+            -e DB_HOST=localhost \
+            -e FIREBASE_PROJECT_ID \
+            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY_ID \
+            -e FIREBASE_SVC_ACCOUNT_PRIVATE_KEY \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_ID \
+            -e FIREBASE_SVC_ACCOUNT_AUTH_URI=https://accounts.google.com/o/oauth2/auth \
+            -e FIREBASE_SVC_ACCOUNT_TOKEN_URI=https://oauth2.googleapis.com/token \
+            -e FIREBASE_SVC_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs \
+            -e FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL \
+            -e FIREBASE_WEB_API_KEY \
+            -e GOOGLE_MAPS_API_KEY \
+            f4k-backend:ci
+
+      - name: Wait for healthy server
+        if: steps.changes.outputs.python-backend == 'true'
+        run: |
+          for i in $(seq 1 45); do
+            if [ "$(docker inspect -f '{{.State.Running}}' f4k_backend_smoke)" != "true" ]; then
+              echo "::error::Backend container exited during boot (migrations or startup failed)"
+              docker logs f4k_backend_smoke
+              exit 1
+            fi
+            # /openapi.json forces FastAPI to build the full schema for every
+            # route, so this also catches bad response-model definitions.
+            if curl -fsS -o /dev/null http://localhost:8080/openapi.json; then
+              echo "Backend booted: migrations applied and server responding."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend did not become healthy within 90s"
+          docker logs f4k_backend_smoke
+          exit 1
+
+      # `alembic check` runs autogenerate against the freshly migrated DB and
+      # fails if the models expect a different schema than the migration chain
+      # produces. Unit tests can't catch this: pytest builds its schema from
+      # the models directly (create_all), so a model edited without a matching
+      # migration passes tests but breaks in compose/deploys.
+      - name: Check model/migration schema drift
+        if: steps.changes.outputs.python-backend == 'true'
+        run: docker exec f4k_backend_smoke alembic check
+
+      # End-to-end authed smoke: seed the DB (creates sign-in-able Firebase
+      # users — admin1@f4k.dev etc., see app/seed_database.py), log in through
+      # the API, make an authenticated call, and read seeded data back. This
+      # exercises the full stack: Firebase REST sign-in, Admin SDK token
+      # verification, and DB queries against the real migrated schema (which
+      # pytest can't cover — it builds its schema from the models directly).
+      # app/data/locations.csv (real location data) is gitignored and not in
+      # the image, so seed from the committed fake-data fixture CSV instead.
+      - name: Seed database
+        if: steps.changes.outputs.python-backend == 'true' && env.AUTH_SMOKE == 'true'
+        run: |
+          docker exec -e LOCATIONS_CSV_PATH=tests/data/test_locations.csv \
+            f4k_backend_smoke python -m app.seed_database
+
+      - name: Authed API smoke
+        if: steps.changes.outputs.python-backend == 'true' && env.AUTH_SMOKE == 'true'
+        run: |
+          RESP=$(curl -fsS -X POST http://localhost:8080/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin1@f4k.dev","password":"test123"}')
+          TOKEN=$(jq -r .access_token <<<"$RESP")
+          USER_ID=$(jq -r .id <<<"$RESP")
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::Login succeeded but returned no access_token"
+            exit 1
+          fi
+          echo "Login OK"
+
+          # Endpoints require auth — an unauthenticated read must be rejected
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/locations/)
+          if [ "$CODE" != "401" ]; then
+            echo "::error::Unauthed /locations/ returned HTTP $CODE (expected 401)"
+            exit 1
+          fi
+          echo "Unauthed request rejected OK"
+
+          # Authed read of seeded data — round-trips Admin SDK verify_id_token
+          # and the admin role check. Run before logout (which revokes tokens).
+          TOTAL=$(curl -fsS http://localhost:8080/locations/ \
+            -H "Authorization: Bearer $TOKEN" | jq .total)
+          if ! [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+            echo "::error::Expected seeded locations, got total=$TOTAL"
+            exit 1
+          fi
+          echo "Seeded data readable ($TOTAL locations)"
+
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "http://localhost:8080/auth/logout/$USER_ID" \
+            -H "Authorization: Bearer $TOKEN")
+          if [ "$CODE" != "204" ]; then
+            echo "::error::Authed logout returned HTTP $CODE (expected 204)"
+            exit 1
+          fi
+          echo "Authed logout OK"
+
+      - name: Dump backend logs on failure
+        if: failure() && steps.changes.outputs.python-backend == 'true'
+        run: docker logs f4k_backend_smoke 2>&1 | tail -100
