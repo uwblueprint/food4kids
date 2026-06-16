@@ -3,23 +3,41 @@
 from __future__ import annotations
 
 from datetime import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 from sqlmodel import select
 
 from app.models.system_settings import SystemSettings
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.services.implementations.scheduler_service import SchedulerService
+
+
+class DailyReminderScheduler(Protocol):
+    scheduler: object | None
+
+    def remove_job(self, job_id: str) -> None: ...
+
+    def add_cron_job(
+        self,
+        func: Callable[..., Any],
+        job_id: str,
+        hour: int | str = "*",
+        minute: int | str = "*",
+        day_of_week: int | str = "*",
+        day: int | str = "*",
+        month: int | str = "*",
+    ) -> None: ...
 
 DEFAULT_DAILY_REMINDER_TIME = time(9, 0)
 DAILY_REMINDER_JOB_ID = "daily_reminder_emails"
 
 
 def _schedule_daily_reminder_emails(
-    scheduler_service: SchedulerService, reminder_time: time
+    scheduler_service: DailyReminderScheduler, reminder_time: time
 ) -> None:
     from .email_reminder_jobs import process_daily_reminder_emails
 
@@ -33,7 +51,7 @@ def _schedule_daily_reminder_emails(
 
 
 async def refresh_daily_reminder_email_schedule(
-    scheduler_service: SchedulerService, session: AsyncSession
+    scheduler_service: DailyReminderScheduler, session: AsyncSession
 ) -> None:
     """Reschedule the reminder job from the persisted system settings."""
     if getattr(scheduler_service, "scheduler", None) is None:
@@ -49,7 +67,9 @@ async def refresh_daily_reminder_email_schedule(
     _schedule_daily_reminder_emails(scheduler_service, reminder_time)
 
 
-async def init_jobs(scheduler_service: SchedulerService, session: AsyncSession) -> None:
+async def init_jobs(
+    scheduler_service: DailyReminderScheduler, session: AsyncSession
+) -> None:
     """Initialize all scheduled jobs - add new jobs here
 
     This function follows the same pattern as app.routers.init_app().
