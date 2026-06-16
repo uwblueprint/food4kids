@@ -1318,7 +1318,8 @@ class TestRouteGroupRoutes:
 
         location = Location(
             location_group_id=loc_group.location_group_id,
-            school_name="Central Elementary",
+            name="Central Elementary",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
             contact_name="Jane",
             address="123 Main St",
             phone_number="555-1234",
@@ -1350,7 +1351,7 @@ class TestRouteGroupRoutes:
         group = next(
             g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
         )
-        assert group["delivery_type"] == "School Year"
+        assert group["delivery_type"] == "School"
         assert group["num_locations"] == 1
 
     @pytest.mark.asyncio
@@ -1374,6 +1375,8 @@ class TestRouteGroupRoutes:
 
         loc_a = Location(
             location_group_id=loc_group.location_group_id,
+            name="Location A",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             contact_name="A",
             address="1 St",
             phone_number="555-0001",
@@ -1381,6 +1384,8 @@ class TestRouteGroupRoutes:
         )
         loc_b = Location(
             location_group_id=loc_group.location_group_id,
+            name="Location B",
+            delivery_type=DeliveryTypeEnum.FAMILY,
             contact_name="B",
             address="2 St",
             phone_number="555-0002",
