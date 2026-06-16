@@ -25,7 +25,7 @@ export const AdminDriversPage = () => {
         <h1>Driver Management</h1>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
-            <AnnouncementsBoard role="admin" />
+            <AnnouncementsBoard />
             <Button variant="tertiary" shape="circular">
               <SearchIcon className="size-5 text-blue-300" />
             </Button>
