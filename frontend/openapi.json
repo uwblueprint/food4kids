@@ -2285,6 +2285,12 @@
       "RouteGenerationSettings": {
         "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.",
         "properties": {
+          "max_half_boxes_per_driver": {
+            "default": 28,
+            "exclusiveMinimum": 0,
+            "title": "Max Half Boxes Per Driver",
+            "type": "integer"
+          },
           "max_stops_per_route": {
             "anyOf": [
               {
