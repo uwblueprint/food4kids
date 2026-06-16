@@ -12,7 +12,6 @@ import pytest
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     MANDATORY_DELIVERY_PENALTY,
-    MAX_HALF_BOXES_PER_DRIVER,
     GoogleMapsFleetRoutingAlgorithm,
 )
 
@@ -92,7 +91,7 @@ class TestBuildPayload:
             assert v["displayName"] == f"driver_{i}"
             assert v["startLocation"] == {"latitude": 43.0, "longitude": -79.0}
             assert v["loadLimits"] == {
-                "load": {"maxLoad": str(MAX_HALF_BOXES_PER_DRIVER)}
+                "load": {"maxLoad": str(sample_settings.max_half_boxes_per_driver)}
             }
 
         # --- shipments = forced_pickups + deliveries ---
