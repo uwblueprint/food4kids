@@ -13,8 +13,8 @@ from sqlmodel import select
 
 from app.dependencies.services import get_email_dispatcher, get_logger
 from app.models.driver import Driver
-from app.models.driver_assignment import DriverAssignment
 from app.models.route import Route
+from app.models.route_group import RouteGroup
 from app.models.user import User
 
 
@@ -51,16 +51,20 @@ async def send_route_reminders() -> None:
                 select(
                     User.email,
                     User.name,
-                    DriverAssignment.time,
+                    Route.start_time,
                     Route.length,
+                    Route.route_id,
+                    Route.driver_id,
+                    RouteGroup.drive_date,
                 )
-                .join(Route, DriverAssignment.route_id == Route.route_id)  # type: ignore[arg-type]
-                .join(Driver, DriverAssignment.driver_id == Driver.driver_id)  # type: ignore[arg-type]
+                .join(Route, Route.driver_id == Driver.driver_id)  # type: ignore[arg-type]
                 .join(User, Driver.user_id == User.user_id)  # type: ignore[arg-type]
+                .join(RouteGroup, Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        DriverAssignment.time >= start_of_day,  # type: ignore[arg-type]
-                        DriverAssignment.time <= end_of_day,  # type: ignore[arg-type]
+                        RouteGroup.drive_date >= start_of_day,  # type: ignore[arg-type]
+                        RouteGroup.drive_date <= end_of_day,  # type: ignore[arg-type]
+                        Route.driver_id != None,  # type: ignore[arg-type]
                     )
                 )
                 .order_by(User.email)
@@ -80,7 +84,11 @@ async def send_route_reminders() -> None:
             for row in upcoming_routes:
                 recipient_email = row.email
                 driver_name = row.name
-                route_date: datetime = row.time
+                # Combine drive_date (date) with route start_time (time) if present
+                if getattr(row, "start_time", None):
+                    route_date = datetime.combine(row.drive_date.date(), row.start_time)
+                else:
+                    route_date = row.drive_date
                 route_distance = row.length
 
                 # Format date, time, and distance for email
