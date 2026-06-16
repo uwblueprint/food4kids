@@ -59,12 +59,12 @@ class RouteService:
         """
         route_totals = (
             select(
-                RouteStop.route_id.label("route_id"),
-                func.count(RouteStop.route_stop_id).label("num_stops"),
-                func.coalesce(func.sum(Location.num_boxes), 0).label("box_total"),
+                col(RouteStop.route_id).label("route_id"),
+                func.count(col(RouteStop.route_stop_id)).label("num_stops"),
+                func.coalesce(func.sum(col(Location.num_boxes)), 0).label("box_total"),
             )
-            .join(Location, Location.location_id == RouteStop.location_id)
-            .group_by(RouteStop.route_id)
+            .join(Location, col(Location.location_id) == col(RouteStop.location_id))
+            .group_by(col(RouteStop.route_id))
             .subquery()
         )
 
