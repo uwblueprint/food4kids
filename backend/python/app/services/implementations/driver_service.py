@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,6 +105,8 @@ class DriverService:
             user_id=driver_data.user_id,
             address=driver_data.address,
             phone=driver_data.phone,
+            partner_driver_name=driver_data.partner_driver_name,
+            availability=driver_data.availability,
             license_plate=driver_data.license_plate,
             car_make_model=driver_data.car_make_model,
             active=driver_data.active,
@@ -118,6 +121,8 @@ class DriverService:
         self, session: AsyncSession, driver_id: UUID, driver_data: DriverUpdate
     ) -> Driver | None:
         """Update driver by ID"""
+        driver: Driver | None = None
+        old_values: dict[str, Any] = {}
         try:
             statement = (
                 select(Driver)
@@ -131,27 +136,11 @@ class DriverService:
                 self.logger.error(f"Driver with id {driver_id} not found")
                 return None
 
-            # Store old values for rollback
-            old_phone = driver.phone
-            old_address = driver.address
-            old_license_plate = driver.license_plate
-            old_car_make_model = driver.car_make_model
-            old_active = driver.active
-            old_notes = driver.notes
+            update_data = driver_data.model_dump(exclude_unset=True)
+            old_values = {field: getattr(driver, field) for field in update_data}
 
-            # Update driver fields
-            if driver_data.phone is not None:
-                driver.phone = driver_data.phone
-            if driver_data.address is not None:
-                driver.address = driver_data.address
-            if driver_data.license_plate is not None:
-                driver.license_plate = driver_data.license_plate
-            if driver_data.car_make_model is not None:
-                driver.car_make_model = driver_data.car_make_model
-            if driver_data.active is not None:
-                driver.active = driver_data.active
-            if driver_data.notes is not None:
-                driver.notes = driver_data.notes
+            for field, value in update_data.items():
+                setattr(driver, field, value)
 
             await session.commit()
             await session.refresh(driver, attribute_names=["user"])
@@ -160,12 +149,8 @@ class DriverService:
         except Exception as e:
             # Rollback database changes
             assert driver is not None
-            driver.phone = old_phone
-            driver.address = old_address
-            driver.license_plate = old_license_plate
-            driver.car_make_model = old_car_make_model
-            driver.active = old_active
-            driver.notes = old_notes
+            for field, value in old_values.items():
+                setattr(driver, field, value)
             await session.commit()
             self.logger.error(f"Failed to update driver: {e!s}")
             raise e

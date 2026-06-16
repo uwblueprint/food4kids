@@ -65,7 +65,8 @@ class AuthService:
             auth_response = AuthResponse(
                 access_token=token.access_token,
                 id=user.user_id,
-                name=user.name,
+                first_name=user.first_name,
+                last_name=user.last_name,
                 email=user.email,
             )
             return auth_response, token.refresh_token

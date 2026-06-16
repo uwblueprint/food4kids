@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator
+from pydantic import EmailStr, computed_field, field_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.user import User
@@ -49,10 +49,16 @@ class AdminRead(AdminBase):
     user_id: UUID
 
     # pulled from User
-    name: str
+    first_name: str
+    last_name: str
     email: EmailStr
     auth_id: str
     role: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
 
 
 class AdminUpdate(SQLModel):
@@ -62,5 +68,6 @@ class AdminUpdate(SQLModel):
     admin_phone: str | None = Field(default=None, min_length=1, max_length=100)
 
     # user fields
-    name: str | None = Field(default=None, min_length=1, max_length=255)
+    first_name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None)

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, computed_field
 
 from app.models.driver import DriverRead
 
@@ -17,8 +17,14 @@ class AuthResponse(BaseModel):
 
     access_token: str
     id: UUID
-    name: str
+    first_name: str
+    last_name: str
     email: EmailStr
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
 
 
 class DriverRegisterResponse(BaseModel):

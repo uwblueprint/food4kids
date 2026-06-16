@@ -377,7 +377,7 @@ class RouteService:
         )
 
         statement = (
-            select(Route.driver_id, User.name)
+            select(Route.driver_id, User.first_name, User.last_name)
             .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
             .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
             .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
@@ -389,7 +389,7 @@ class RouteService:
             .where(Route.route_id != route_id)
             .where(col(Driver.active).is_(True))
             .where(col(Route.driver_id).not_in(already_assigned))
-            .group_by(col(Route.driver_id), User.name)
+            .group_by(col(Route.driver_id), User.first_name, User.last_name)
             .order_by(func.count().desc())
             .limit(1)
         )
@@ -397,4 +397,7 @@ class RouteService:
         row = (await session.execute(statement)).first()
         if row is None:
             return None
-        return SuggestedDriverResponse(driver_id=row.driver_id, driver_name=row.name)
+        return SuggestedDriverResponse(
+            driver_id=row.driver_id,
+            driver_name=f"{row.first_name} {row.last_name}",
+        )

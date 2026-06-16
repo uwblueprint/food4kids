@@ -39,21 +39,21 @@ DEMO_LOCATIONS = [
     {
         "contact_name": "Bogda Restaurant",
         "address": "62 Balsam St unit B-103, Waterloo, ON N2L 3H2",
-        "phone_number": "(519) 555-0001",
+        "phone_primary": "(519) 555-0001",
         "latitude": 43.4764456,
         "longitude": -80.5300104,
     },
     {
         "contact_name": "Exclamation Waterloo",
         "address": "63 Hickory St W, Waterloo, ON N2L 0J1",
-        "phone_number": "(519) 555-0002",
+        "phone_primary": "(519) 555-0002",
         "latitude": 43.4772111,
         "longitude": -80.5309449,
     },
     {
         "contact_name": "The Humble Lotus",
         "address": "388 King St E, Kitchener, ON N2G 0C6",
-        "phone_number": "(519) 555-0003",
+        "phone_primary": "(519) 555-0003",
         "latitude": 43.4473068,
         "longitude": -80.4826182,
     },
@@ -66,6 +66,8 @@ def main() -> None:
 
     # IDs for cleanup
     route_id = uuid.uuid4()
+    route_group_id = uuid.uuid4()
+    location_group_id = uuid.uuid4()
     location_ids: list[uuid.UUID] = []
     system_settings_id = uuid.uuid4()
 
@@ -94,8 +96,23 @@ def main() -> None:
             print(f"Created system settings ({system_settings_id})")
 
             # ----------------------------------------------------------
-            # 2. Create locations
+            # 2. Create location group and locations
             # ----------------------------------------------------------
+            session.execute(
+                text(
+                    """
+                    INSERT INTO location_groups
+                        (location_group_id, name, color, notes, created_at)
+                    VALUES (:id, :name, :color, '', :now)
+                    """
+                ),
+                {
+                    "id": location_group_id,
+                    "name": "Demo Google Maps Group",
+                    "color": "#4E8BED",
+                    "now": now,
+                },
+            )
             for loc_data in DEMO_LOCATIONS:
                 loc_id = uuid.uuid4()
                 location_ids.append(loc_id)
@@ -103,20 +120,24 @@ def main() -> None:
                     text(
                         """
                         INSERT INTO locations
-                            (location_id, contact_name, address, phone_number,
+                            (location_id, location_group_id, name, contact_name,
+                             address, phone_primary, phone_secondary,
                              latitude, longitude, halal, num_boxes, notes,
-                             dietary_restrictions, state, created_at)
+                             dietary_restrictions, delivery_type, in_roster, created_at)
                         VALUES
-                            (:id, :contact, :addr, :phone,
+                            (:id, :location_group_id, :name, :contact,
+                             :addr, :phone, null,
                              :lat, :lon, false, 5, '',
-                             '', 'ACTIVE', :now)
+                             '', 'Family', true, :now)
                         """
                     ),
                     {
                         "id": loc_id,
+                        "location_group_id": location_group_id,
+                        "name": loc_data["contact_name"],
                         "contact": loc_data["contact_name"],
                         "addr": loc_data["address"],
-                        "phone": loc_data["phone_number"],
+                        "phone": loc_data["phone_primary"],
                         "lat": loc_data["latitude"],
                         "lon": loc_data["longitude"],
                         "now": now,
@@ -126,17 +147,34 @@ def main() -> None:
             print(f"Created {len(location_ids)} locations")
 
             # ----------------------------------------------------------
-            # 3. Create route
+            # 3. Create route group and route
             # ----------------------------------------------------------
             session.execute(
                 text(
                     """
-                    INSERT INTO routes (route_id, name, notes, length, created_at)
-                    VALUES (:id, :name, :notes, :length, :now)
+                    INSERT INTO route_groups
+                        (route_group_id, name, drive_date, notes, created_at)
+                    VALUES (:id, :name, :drive_date, '', :now)
+                    """
+                ),
+                {
+                    "id": route_group_id,
+                    "name": "Demo Google Maps Route Group",
+                    "drive_date": now,
+                    "now": now,
+                },
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO routes
+                        (route_id, route_group_id, name, notes, length, created_at)
+                    VALUES (:id, :route_group_id, :name, :notes, :length, :now)
                     """
                 ),
                 {
                     "id": route_id,
+                    "route_group_id": route_group_id,
                     "name": "Demo Google Maps Route",
                     "notes": "Created by demo_google_maps_link.py",
                     "length": 7.3,
@@ -204,11 +242,19 @@ def main() -> None:
                 text("DELETE FROM routes WHERE route_id = :rid"),
                 {"rid": route_id},
             )
+            session.execute(
+                text("DELETE FROM route_groups WHERE route_group_id = :id"),
+                {"id": route_group_id},
+            )
             for loc_id in location_ids:
                 session.execute(
                     text("DELETE FROM locations WHERE location_id = :lid"),
                     {"lid": loc_id},
                 )
+            session.execute(
+                text("DELETE FROM location_groups WHERE location_group_id = :id"),
+                {"id": location_group_id},
+            )
             session.execute(
                 text("DELETE FROM system_settings WHERE system_settings_id = :id"),
                 {"id": system_settings_id},
