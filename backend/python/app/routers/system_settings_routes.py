@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_admin
-from app.dependencies.services import get_system_settings_service
+from app.dependencies.services import get_scheduler_service, get_system_settings_service
 from app.models import get_session
 from app.models.system_settings import SystemSettingsRead, SystemSettingsUpdate
+from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import SystemSettingsService
+from app.services.jobs import refresh_daily_reminder_email_schedule
 
 router = APIRouter(prefix="/system-settings", tags=["system-settings"])
 
@@ -36,6 +38,7 @@ async def patch_system_settings(
     system_settings_service: SystemSettingsService = Depends(
         get_system_settings_service
     ),
+    scheduler_service: SchedulerService = Depends(get_scheduler_service),
     _auth: bool = Depends(require_admin),
 ) -> SystemSettingsRead:
     """Patch the singleton system settings row."""
@@ -45,6 +48,7 @@ async def patch_system_settings(
         )
         await session.commit()
         await session.refresh(settings)
+        await refresh_daily_reminder_email_schedule(scheduler_service, session)
         return SystemSettingsRead.model_validate(settings)
     except Exception as e:
         raise HTTPException(

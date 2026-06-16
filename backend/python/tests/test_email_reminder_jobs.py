@@ -11,7 +11,10 @@ from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.system_settings import SystemSettings
 from app.models.user import User
-from app.services.jobs import email_reminder_jobs
+from app.services.jobs import (
+    email_reminder_jobs,
+    refresh_daily_reminder_email_schedule,
+)
 
 
 class _FakeEmailService:
@@ -80,4 +83,70 @@ async def test_process_daily_reminder_emails_uses_configured_lead_days(
 
     assert len(_FakeEmailService.sent) == 2
     assert {item["to"] for item in _FakeEmailService.sent} == {"driver@test.dev"}
-    assert all(item["subject"] == "Upcoming Route Reminder" for item in _FakeEmailService.sent)
+    assert all(
+        item["subject"] == "Upcoming Route Reminder" for item in _FakeEmailService.sent
+    )
+
+
+class _FakeScheduler:
+    def __init__(self) -> None:
+        self.scheduler = object()
+        self.removed: list[str] = []
+        self.added: list[dict[str, int | str]] = []
+
+    def remove_job(self, job_id: str) -> None:
+        self.removed.append(job_id)
+
+    def add_cron_job(
+        self,
+        _func: Any,
+        job_id: str,
+        hour: int | str = "*",
+        minute: int | str = "*",
+        day_of_week: int | str = "*",
+        day: int | str = "*",
+        month: int | str = "*",
+    ) -> None:
+        self.added.append(
+            {
+                "job_id": job_id,
+                "hour": hour,
+                "minute": minute,
+                "day_of_week": day_of_week,
+                "day": day,
+                "month": month,
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_refresh_daily_reminder_email_schedule_uses_db_time(
+    test_db_engine: Any,
+) -> None:
+    """The cron registration reads the stored reminder time from settings."""
+    maker = async_sessionmaker(
+        test_db_engine, class_=AsyncSession, expire_on_commit=False
+    )
+    async with maker() as session:
+        session.add(
+            SystemSettings(
+                email_reminder_time=datetime.strptime("08:30:00", "%H:%M:%S").time()
+            )
+        )
+        await session.commit()
+
+    scheduler = _FakeScheduler()
+    async with maker() as session:
+        await refresh_daily_reminder_email_schedule(scheduler, session)
+
+    assert scheduler.removed == ["daily_reminder_emails"]
+    assert scheduler.added == [
+        {
+            "job_id": "daily_reminder_emails",
+            "hour": 8,
+            "minute": 30,
+            "day_of_week": "*",
+            "day": "*",
+            "month": "*",
+        }
+    ]
