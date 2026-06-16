@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { useCallback, useState } from 'react';
-=======
-import { useState } from 'react';
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
-import { useCallback, useState } from 'react';
->>>>>>> b56351b (add bulk edit modal)
 
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import {
@@ -15,12 +7,10 @@ import {
   useDeleteAnnouncement,
   useUpdateAnnouncement,
 } from '@/api/announcements';
+import { useCurrentUser } from '@/api/currentUser';
 import { Button } from '@/common/components';
-import { useAuth } from '@/contexts/AuthContext';
 import type { Announcement } from '@/types/announcement';
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { AnnouncementConfirmModal } from './AnnouncementConfirmModal';
 import { AnnouncementFormModal } from './AnnouncementFormModal';
 import {
@@ -30,88 +20,36 @@ import {
 import { EditAnnouncementsModal } from './EditAnnouncementsModal';
 import { PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from './utils';
 import { useAnnouncementReads } from './useAnnouncementReads';
-=======
-import { AnnouncementFormModal } from './AnnouncementFormModal';
-import { AnnouncementsPanel } from './AnnouncementsPanel';
-import { useBootstrapCurrentUser } from './useBootstrapCurrentUser';
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
-import { AnnouncementConfirmModal } from './AnnouncementConfirmModal';
-import { AnnouncementFormModal } from './AnnouncementFormModal';
-import {
-  AnnouncementsPanel,
-  PANEL_WIDTH_DEFAULT,
-} from './AnnouncementsPanel';
-import { EditAnnouncementsModal } from './EditAnnouncementsModal';
-import { PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from './utils';
-import { useAnnouncementReads } from './useAnnouncementReads';
->>>>>>> b56351b (add bulk edit modal)
 
-interface AnnouncementsBoardProps {
-  /** Override role when not using route-based layout (optional). */
-  role?: 'admin' | 'driver';
-}
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b56351b (add bulk edit modal)
 type ConfirmState =
   | { type: 'delete'; announcement: Announcement }
   | { type: 'save-edit-board' }
   | { type: 'unsaved-edit-board' };
 
-<<<<<<< HEAD
-export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardProps) {
-  const { user } = useAuth();
-  const role = roleOverride ?? user.role;
+export function AnnouncementsBoard() {
+  const { data: currentUser } = useCurrentUser();
+  const currentUserId = currentUser?.user_id ?? '';
+  const role = currentUser?.role === 'admin' ? 'admin' : 'driver';
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelWidth, setPanelWidth] = useState(PANEL_WIDTH_DEFAULT);
-=======
-=======
->>>>>>> b56351b (add bulk edit modal)
-export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardProps) {
-  const { user } = useAuth();
-  const role = roleOverride ?? user.role;
-
-  const [panelOpen, setPanelOpen] = useState(false);
-<<<<<<< HEAD
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
-  const [panelWidth, setPanelWidth] = useState(PANEL_WIDTH_DEFAULT);
->>>>>>> b56351b (add bulk edit modal)
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [editingAnnouncement, setEditingAnnouncement] = useState<
     Announcement | undefined
   >();
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b56351b (add bulk edit modal)
   const [editBoardOpen, setEditBoardOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(
     () => new Set()
   );
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
-  const { readIds, markAsRead } = useAnnouncementReads(user.userId);
-<<<<<<< HEAD
-=======
-
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
->>>>>>> b56351b (add bulk edit modal)
+  const { readIds, markAsRead } = useAnnouncementReads(currentUserId);
   const { data: announcements = [], isLoading } = useAnnouncements();
   const createMutation = useCreateAnnouncement();
   const updateMutation = useUpdateAnnouncement();
   const deleteMutation = useDeleteAnnouncement();
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b56351b (add bulk edit modal)
   const hasPendingDeletes = pendingDeleteIds.size > 0;
 
   const clampPanelWidth = useCallback((width: number) => {
@@ -131,11 +69,6 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
     resetEditBoardState();
   };
 
-<<<<<<< HEAD
-=======
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
->>>>>>> b56351b (add bulk edit modal)
   const openCreateForm = () => {
     setFormMode('create');
     setEditingAnnouncement(undefined);
@@ -148,10 +81,6 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
     setFormOpen(true);
   };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b56351b (add bulk edit modal)
   const handleDeleteRequest = (announcement: Announcement) => {
     setConfirmState({ type: 'delete', announcement });
   };
@@ -191,51 +120,17 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
   const handleConfirmDiscardEditBoard = () => {
     resetEditBoardState();
     setConfirmState(null);
-<<<<<<< HEAD
-=======
-  const handleDelete = async (announcement: Announcement) => {
-    const confirmed = window.confirm(
-      `Delete "${announcement.subject}"? This cannot be undone.`
-    );
-    if (!confirmed) return;
-    await deleteMutation.mutateAsync(announcement.announcement_id);
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
->>>>>>> b56351b (add bulk edit modal)
   };
 
   const handleFormSubmit = async (values: {
     subject: string;
     message: string;
-<<<<<<< HEAD
-<<<<<<< HEAD
     sendEmailToAll: boolean;
   }) => {
     void values.sendEmailToAll;
 
-<<<<<<< HEAD
     if (formMode === 'create') {
       await createMutation.mutateAsync({
-=======
-=======
-    sendEmailToAll: boolean;
->>>>>>> b56351b (add bulk edit modal)
-  }) => {
-    void values.sendEmailToAll;
-
-    if (!user.userId) {
-      throw new Error(
-        'Missing user id. After seeding, set VITE_DEV_USER_ID in frontend/.env to the seeded admin users.user_id (see seed output or query the users table).'
-      );
-    }
-    if (formMode === 'create') {
-      await createMutation.mutateAsync({
-        user_id: user.userId,
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
-    if (formMode === 'create') {
-      await createMutation.mutateAsync({
->>>>>>> 5e0c3ad (use get_current_database_user_id as announcement user_id)
         subject: values.subject,
         message: values.message,
         attachments: [],
@@ -251,29 +146,14 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
     }
   };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b56351b (add bulk edit modal)
   const handleAnnouncementOpen = (announcement: Announcement) => {
     markAsRead(announcement.announcement_id);
   };
 
-<<<<<<< HEAD
   const isSubmitting =
     createMutation.isPending ||
     updateMutation.isPending ||
     deleteMutation.isPending;
-=======
-  const isSubmitting =
-    createMutation.isPending || updateMutation.isPending;
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
-  const isSubmitting =
-    createMutation.isPending ||
-    updateMutation.isPending ||
-    deleteMutation.isPending;
->>>>>>> b56351b (add bulk edit modal)
 
   return (
     <>
@@ -292,9 +172,7 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
         onClose={() => setPanelOpen(false)}
         announcements={announcements}
         isLoading={isLoading}
-        currentUserId={user.userId}
-<<<<<<< HEAD
-<<<<<<< HEAD
+        currentUserId={currentUserId}
         readIds={readIds}
         role={role}
         panelWidth={panelWidth}
@@ -312,67 +190,24 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
           if (!open) requestCloseEditBoard();
         }}
         announcements={announcements}
-        currentUserId={user.userId}
+        currentUserId={currentUserId}
         pendingDeleteIds={pendingDeleteIds}
         onToggleDelete={handleToggleEditBoardDelete}
         onCancel={requestCloseEditBoard}
         onSave={handleSaveEditBoardRequest}
         onAddNew={openCreateForm}
         isSaving={deleteMutation.isPending}
-=======
-=======
-        readIds={readIds}
->>>>>>> b56351b (add bulk edit modal)
-        role={role}
-        panelWidth={panelWidth}
-        onPanelWidthChange={(width) => setPanelWidth(clampPanelWidth(width))}
-        onCreateClick={openCreateForm}
-        onEditBoardClick={() => setEditBoardOpen(true)}
-        onAnnouncementOpen={handleAnnouncementOpen}
-        onEdit={openEditForm}
-<<<<<<< HEAD
-        onDelete={handleDelete}
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
-        onDelete={handleDeleteRequest}
-      />
-
-      <EditAnnouncementsModal
-        open={editBoardOpen}
-        onOpenChange={(open) => {
-          if (!open) requestCloseEditBoard();
-        }}
-        announcements={announcements}
-        currentUserId={user.userId}
-        pendingDeleteIds={pendingDeleteIds}
-        onToggleDelete={handleToggleEditBoardDelete}
-        onCancel={requestCloseEditBoard}
-        onSave={handleSaveEditBoardRequest}
-        onAddNew={openCreateForm}
-        isSaving={deleteMutation.isPending}
->>>>>>> b56351b (add bulk edit modal)
       />
 
       <AnnouncementFormModal
         open={formOpen}
         onOpenChange={setFormOpen}
         mode={formMode}
-<<<<<<< HEAD
-<<<<<<< HEAD
         role={role}
-=======
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
-        role={role}
->>>>>>> b56351b (add bulk edit modal)
         announcement={editingAnnouncement}
         onSubmit={handleFormSubmit}
         isSubmitting={isSubmitting}
       />
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b56351b (add bulk edit modal)
 
       <AnnouncementConfirmModal
         open={confirmState?.type === 'delete'}
@@ -402,11 +237,6 @@ export function AnnouncementsBoard({ role: roleOverride }: AnnouncementsBoardPro
         }}
         onConfirm={handleConfirmDiscardEditBoard}
       />
-<<<<<<< HEAD
-=======
->>>>>>> fa70cf5 (add board and crud functionality)
-=======
->>>>>>> b56351b (add bulk edit modal)
     </>
   );
 }

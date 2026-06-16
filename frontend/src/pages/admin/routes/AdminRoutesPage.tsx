@@ -19,7 +19,7 @@ export const AdminRoutesPage = () => {
       <div className="flex items-start justify-between">
         <h1>Routes</h1>
         <div className="flex items-center gap-6">
-          <AnnouncementsBoard role="admin" />
+          <AnnouncementsBoard />
           <Account />
         </div>
       </div>
