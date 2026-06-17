@@ -87,7 +87,7 @@ async def process_daily_reminder_emails() -> None:
                 "Food4Kids",
             )
 
-            with open("./app/templates/route_reminder.html") as file:
+            with open("./app/templates/view-upcoming-route.html") as file:
                 formatted_email = file.read()
 
             for row in upcoming_routes:
