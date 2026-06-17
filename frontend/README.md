@@ -140,13 +140,7 @@ static **`text-m-p1/p2/p3`** utilities (the Mobile sizes — 18 / 16 / 14px):
 <input className="text-m-p2" />
 ```
 
-(There's deliberately no static `text-d-*` family. `text-m-*` aren't "the
-mobile tier you pin to" — they're just the static size utilities, and they
-happen to be the mobile values, which are the sizes you'd realistically hold
-constant (16px input, etc.). A desktop-static family would only let you pin a
-_larger_ desktop size onto mobile — a 32px H1 or 12px P3 at phone width — which
-you never want. Never put a `tablet:`/`desktop:` variant on a `text-p*`/`text-h*`
-— it's already responsive; use a `text-m-*` for a constant size.)
+(For now, there's no static `text-d-*` family, but we can add it later if needed.)
 
 ### Spacing
 
