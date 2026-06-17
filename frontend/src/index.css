@@ -76,9 +76,12 @@
 
   /* UI/Button — a non-tier-scaled UI style (Nunito Medium, 16px/20px, constant
    * across breakpoints). Its own static token so buttons don't borrow a
-   * responsive heading size. */
+   * responsive heading size. The Medium weight is baked in (overridable by a
+   * later font-* utility) so `text-button` matches the Figma UI/Button style on
+   * its own. */
   --text-button: 1rem; /* 16px */
   --text-button--line-height: 1.25;
+  --text-button--font-weight: 500; /* Nunito Medium */
 
   /* --- Typography Scale: Mobile ---
    * text-m-* are STATIC utilities for the mobile sizes. They back the
@@ -163,9 +166,21 @@
  * Desktop/Pn from tablet up. This is the default for body/paragraph text:
  *   text-p1 → 18→16px   text-p2 → 16→14px   text-p3 → 14→12px
  *
- * text-m-p1/p2/p3 are STATIC (Mobile sizes, 18/16/14) — for the rare element
- * whose size must stay constant across tiers (e.g. a 16px-everywhere field →
- * text-m-p2). Generated from the @theme --text-m-* tokens above.
+ * WEIGHT is part of the style. Per Figma, only P1 is non-Regular, and its
+ * weight is RESPONSIVE: Mobile/P1 is Regular (400), Desktop/P1 is Medium (500)
+ * — so text-p1 sets font-weight 400→500 itself (you can't express a per-tier
+ * weight with a single font-* utility). P2 and P3 are Regular (400) at every
+ * tier, i.e. the browser default, so text-p2/p3 don't set a weight.
+ *
+ * text-m-p1/p2/p3 are STATIC (Mobile sizes, 18/16/14, all Regular) — for the
+ * rare element whose size must stay constant across tiers (e.g. a 16px-
+ * everywhere field → text-m-p2). Generated from the @theme --text-m-* tokens.
+ *
+ * Ramp gotcha: the mobile and desktop scales are offset by one tier, so
+ * "16px body text" is P2 (Regular) on mobile but P1 (Medium) on desktop. For a
+ * constant-16px element that should pick up Medium on larger screens (e.g. the
+ * login subtitle/footer), use `text-m-p2 tablet:font-medium` — NOT text-p1,
+ * which would also shrink the size 18→16.
  *
  * The Desktop paragraph values live in :root (NOT @theme) on purpose: a
  * --text-* token in @theme would make Tailwind auto-generate a STATIC
@@ -223,9 +238,11 @@
 @utility text-p1 {
   font-size: var(--text-m-p1);
   line-height: var(--text-m-p1--line-height);
+  font-weight: 400; /* Mobile/P1: Nunito Sans Regular */
   @media (width >= theme(--breakpoint-tablet)) {
     font-size: var(--text-p1);
     line-height: var(--text-p1--line-height);
+    font-weight: 500; /* Desktop/P1: Nunito Sans Medium */
   }
 }
 @utility text-p2 {
