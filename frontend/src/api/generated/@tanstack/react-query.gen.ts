@@ -61,6 +61,7 @@ import {
   resetPassword,
   reviewLocations,
   test,
+  testEventEmail,
   updateAnnouncement,
   updateDriver,
   updateDriverHistory,
@@ -211,6 +212,9 @@ import type {
   ReviewLocationsError,
   ReviewLocationsResponse,
   TestData,
+  TestEventEmailData,
+  TestEventEmailError,
+  TestEventEmailResponse,
   TestResponse,
   UpdateAnnouncementData,
   UpdateAnnouncementError,
@@ -646,6 +650,36 @@ export const completeDriverRegistrationMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await completeDriverRegistration({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Test Event Email
+ *
+ * Temporary endpoint to test event-driven emails.
+ * Delete this after testing!
+ */
+export const testEventEmailMutation = (
+  options?: Partial<Options<TestEventEmailData>>
+): UseMutationOptions<
+  TestEventEmailResponse,
+  AxiosError<TestEventEmailError>,
+  Options<TestEventEmailData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    TestEventEmailResponse,
+    AxiosError<TestEventEmailError>,
+    Options<TestEventEmailData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await testEventEmail({
         ...options,
         ...fnOptions,
         throwOnError: true,

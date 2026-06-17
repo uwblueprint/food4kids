@@ -2534,6 +2534,42 @@ export type CompleteDriverRegistrationResponses = {
 export type CompleteDriverRegistrationResponse =
   CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
 
+export type TestEventEmailData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Test Email
+     */
+    test_email: string;
+  };
+  url: '/drivers/test-event-email';
+};
+
+export type TestEventEmailErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type TestEventEmailError =
+  TestEventEmailErrors[keyof TestEventEmailErrors];
+
+export type TestEventEmailResponses = {
+  /**
+   * Response Test Event Email
+   *
+   * Successful Response
+   */
+  200: {
+    [key: string]: string;
+  };
+};
+
+export type TestEventEmailResponse =
+  TestEventEmailResponses[keyof TestEventEmailResponses];
+
 export type DeleteDriverData = {
   body?: never;
   path: {

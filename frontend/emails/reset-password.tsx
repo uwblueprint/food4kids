@@ -22,7 +22,7 @@ export default function ResetPasswordEmail() {
         <Section className="text-center mt-[33px] mb-[33px]">
           <Button 
             // REPLACE THIS WITH ACTUAL URL (unless we want to Rick Roll recipients...)
-            href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" 
+            href="Reset_Password_URL" 
             className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[42px] py-[10px] font-nunito text-grey-100 text-[16px] tracking-wide"
           >
             Reset Password
@@ -30,7 +30,7 @@ export default function ResetPasswordEmail() {
         </Section>
 
         <Text className="text-[14px] text-grey-400 m-0 mb-[14px] leading-[18px]">
-          This link will expire in 3 days. If you didn't request this, you can safely ignore this email.
+          This link will expire in Days_Till_Expiry days. If you didn't request this, you can safely ignore this email.
         </Text>
       </Section>
       

@@ -79,6 +79,7 @@ async def init_jobs(
     3. Import and register it here
     """
     from .driver_history_jobs import process_daily_driver_history
+    from .email_jobs import send_route_reminders
 
     # Driver history mark daily routes as complete
     scheduler_service.add_cron_job(
@@ -89,3 +90,10 @@ async def init_jobs(
     )
 
     await refresh_daily_reminder_email_schedule(scheduler_service, session)
+    # Route reminders stay on the existing daily schedule.
+    scheduler_service.add_cron_job(
+        send_route_reminders,
+        job_id="route_reminders",
+        hour=7,
+        minute=0,
+    )

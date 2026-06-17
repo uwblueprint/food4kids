@@ -204,6 +204,25 @@ class TestDriverRoutes:
         assert data["address"] == "456 New Address St"
 
     @pytest.mark.asyncio
+    async def test_update_driver_clears_nullable_fields(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Test PUT /drivers/{driver_id} clears explicit null values."""
+        test_driver.partner_driver_name = "Pat Partner"
+        await test_session.commit()
+
+        response = await async_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={"partner_driver_name": None},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["partner_driver_name"] is None
+
+    @pytest.mark.asyncio
     async def test_update_driver_not_found(self, async_client: AsyncClient) -> None:
         """Test PUT /drivers/{driver_id} returns 404 for non-existent driver."""
         fake_id = uuid4()
@@ -636,6 +655,31 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["notes"] == "Updated notes"
+
+    @pytest.mark.asyncio
+    async def test_update_location_clears_nullable_fields(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Test PATCH /locations/{location_id} clears explicit null values."""
+        create_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "phone_secondary": "555-222-3333",
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        location_id = create_response.json()["location_id"]
+
+        response = await async_client.patch(
+            f"/locations/{location_id}", json={"phone_secondary": None}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["phone_secondary"] is None
 
     @pytest.mark.asyncio
     async def test_delete_location(

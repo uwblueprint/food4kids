@@ -20,6 +20,7 @@ from app.config import settings
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
+from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.location_service import LocationService
@@ -33,6 +34,7 @@ from app.services.implementations.system_settings_service import SystemSettingsS
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.templates.email_renderer import TemplateRenderer
 from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
 
@@ -65,6 +67,28 @@ def get_email_service() -> EmailService:
         settings.mailer_user,
         "Food4Kids",
     )
+
+
+@lru_cache
+def get_template_renderer() -> TemplateRenderer:
+    """Get template renderer instance"""
+    logger = get_logger()
+    return TemplateRenderer(template_dir="./app/templates", logger=logger)
+
+
+@lru_cache
+def get_email_dispatcher() -> EmailDispatcher:
+    """Get email dispatcher instance"""
+    return EmailDispatcher(
+        email_service=get_email_service(),
+        template_renderer=get_template_renderer(),
+        logger=get_logger(),
+    )
+
+
+def get_email_dispatcher_depends() -> EmailDispatcher:
+    """Get email dispatcher for dependency injection in route handlers"""
+    return get_email_dispatcher()
 
 
 @lru_cache
