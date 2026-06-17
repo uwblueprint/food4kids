@@ -10,11 +10,11 @@ from . import (
     location_group_routes,
     location_routes,
     note_chain_routes,
+    report_routes,
     route_group_routes,
     route_routes,
     system_settings_routes,
     upload_routes,
-    report_routes,
 )
 
 

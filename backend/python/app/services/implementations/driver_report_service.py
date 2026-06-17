@@ -1,18 +1,19 @@
 import logging
 from datetime import datetime, timezone
+from typing import Any, cast
 from zoneinfo import ZoneInfo
-from typing import List
 
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.config import settings
 from app.models.driver import Driver
-from app.models.user import User
 from app.models.driver_history import DriverHistory
 from app.models.route_group import RouteGroup
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.models.user import User
+
 
 class DriverReportService:
     def __init__(self, logger: logging.Logger) -> None:
@@ -21,20 +22,25 @@ class DriverReportService:
 
     async def get_monthly_km_ranking(
         self, session: AsyncSession, year: int, month: int
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Return per-driver km for given year/month ordered desc by km."""
         try:
+            # Build explicit ON clauses but cast their type for mypy
+            on_driver = cast("Any", Driver.driver_id == DriverHistory.driver_id)
+            on_user = cast("Any", User.user_id == Driver.user_id)
+
             statement = (
                 select(DriverHistory, Driver, User)
-                .join(Driver, Driver.driver_id == DriverHistory.driver_id)
-                .join(User, User.user_id == Driver.user_id)
+                .select_from(DriverHistory)
+                .join(Driver, on_driver)
+                .join(User, on_user)
                 .where(DriverHistory.year == year, DriverHistory.month == month)
-                .order_by(DriverHistory.km.desc())
+                .order_by(col(DriverHistory.km).desc())
             )
             result = await session.execute(statement)
             rows = result.all()
 
-            rankings: List[dict] = []
+            rankings: list[dict] = []
             for history, driver, user in rows:
                 rankings.append(
                     {
@@ -53,9 +59,8 @@ class DriverReportService:
         self, session: AsyncSession, year: int, month: int
     ) -> float:
         try:
-            statement = (
-                select(func.coalesce(func.sum(DriverHistory.km), 0.0))
-                .where(DriverHistory.year == year, DriverHistory.month == month)
+            statement = select(func.coalesce(func.sum(DriverHistory.km), 0.0)).where(
+                DriverHistory.year == year, DriverHistory.month == month
             )
             result = await session.execute(statement)
             total = result.scalar_one()
@@ -79,18 +84,19 @@ class DriverReportService:
                 end_dt = end_dt.astimezone(timezone.utc).replace(tzinfo=None)
 
             # Join route_stop_snapshots -> route_stops -> routes -> route_groups
-            from app.models.route_stop import RouteStop
             from app.models.route import Route
+            from app.models.route_stop import RouteStop
 
+            # Use model-based joins so sqlalchemy resolves FK-based ON clauses
             stmt = (
                 select(func.count())
                 .select_from(RouteStopSnapshot)
-                .join(RouteStop, RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id)
-                .join(Route, Route.route_id == RouteStop.route_id)
-                .join(
-                    RouteGroup, Route.route_group_id == RouteGroup.route_group_id
+                .join(RouteStop)
+                .join(Route)
+                .join(RouteGroup)
+                .where(
+                    RouteGroup.drive_date >= start_dt, RouteGroup.drive_date <= end_dt
                 )
-                .where(RouteGroup.drive_date >= start_dt, RouteGroup.drive_date <= end_dt)
             )
 
             result = await session.execute(stmt)
