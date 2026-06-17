@@ -4,7 +4,7 @@ import { extendTailwindMerge } from 'tailwind-merge';
 /**
  * Custom tailwind-merge config for F4K design tokens.
  *
- * Our @theme defines text-h1…h3, text-p1…p3 (font-size tokens) which
+ * Our @theme defines text-h1…h3, text-p1…p3, text-m-* (font-size tokens) which
  * collide with Tailwind's text-<color> utilities in tailwind-merge's
  * default grouping. Registering them explicitly as font-size classes
  * prevents twMerge from stripping color utilities like text-grey-100.
@@ -28,6 +28,7 @@ const twMerge = extendTailwindMerge({
         'text-m-p1',
         'text-m-p2',
         'text-m-p3',
+        'text-button',
       ],
     },
   },
