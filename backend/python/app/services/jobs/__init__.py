@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 class DailyReminderScheduler(Protocol):
     scheduler: object | None
 
-    def remove_job(self, job_id: str) -> None: ...
+    def remove_job(self, job_id: str) -> None:
+        pass
 
     def add_cron_job(
         self,
@@ -29,7 +30,8 @@ class DailyReminderScheduler(Protocol):
         day_of_week: int | str = "*",
         day: int | str = "*",
         month: int | str = "*",
-    ) -> None: ...
+    ) -> None:
+        pass
 
 
 DEFAULT_DAILY_REMINDER_TIME = time(9, 0)
