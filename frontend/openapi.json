@@ -5453,6 +5453,194 @@
         ]
       }
     },
+    "/reports/deliveries/count": {
+      "get": {
+        "description": "Return total deliveries (route stop snapshots) between start and end.\nQuery params are treated as EST if no timezone is provided.",
+        "operationId": "get_total_deliveries_between",
+        "parameters": [
+          {
+            "description": "Start datetime (assumed EST if no tz)",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "Start datetime (assumed EST if no tz)",
+              "format": "date-time",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "End datetime (assumed EST if no tz)",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "End datetime (assumed EST if no tz)",
+              "format": "date-time",
+              "title": "End",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Get Total Deliveries Between",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Total Deliveries Between",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/monthly/{year}/{month}/ranking": {
+      "get": {
+        "description": "Return monthly ranking list of drivers by km (descending).",
+        "operationId": "get_monthly_ranking",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "title": "Month",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Get Monthly Ranking",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Monthly Ranking",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/monthly/{year}/{month}/totals": {
+      "get": {
+        "description": "Return total distance driven and total deliveries for the month.",
+        "operationId": "get_monthly_totals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "title": "Month",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Monthly Totals",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Monthly Totals",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/route-groups": {
       "get": {
         "description": "Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.\nCan include associated routes in the response.",
