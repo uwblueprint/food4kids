@@ -114,8 +114,8 @@ binds tabs to H3). Don't put a `tablet:`/`desktop:` variant on them (already
 responsive).
 
 For **constant-size UI text** that is _not_ a heading — buttons — use
-**`text-button`** (Nunito 16px/20px, fixed at every width). It's why buttons
-don't borrow `text-h3`.
+**`text-button`** (Nunito **Medium** 16px/20px, fixed at every width; the
+weight is baked in). It's why buttons don't borrow `text-h3`.
 
 ### Paragraph Utilities
 

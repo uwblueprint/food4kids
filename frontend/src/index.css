@@ -76,9 +76,12 @@
 
   /* UI/Button — a non-tier-scaled UI style (Nunito Medium, 16px/20px, constant
    * across breakpoints). Its own static token so buttons don't borrow a
-   * responsive heading size. */
+   * responsive heading size. The Medium weight is baked in (overridable by a
+   * later font-* utility) so `text-button` matches the Figma UI/Button style on
+   * its own. */
   --text-button: 1rem; /* 16px */
   --text-button--line-height: 1.25;
+  --text-button--font-weight: 500; /* Nunito Medium */
 
   /* --- Typography Scale: Mobile ---
    * text-m-* are STATIC utilities for the mobile sizes. They back the
