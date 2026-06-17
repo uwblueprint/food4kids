@@ -122,15 +122,20 @@ don't borrow `text-h3`.
 **`text-p1/p2/p3` are responsive** — Mobile/Pn below the `tablet` breakpoint,
 Desktop/Pn from tablet up. This is the default for body/paragraph text:
 
-| Class     | Mobile (<500px) | Tablet & Desktop (≥500px) |
-| --------- | --------------- | ------------------------- |
-| `text-p1` | 18px / 1.333    | 16px / 1.5                |
-| `text-p2` | 16px / 1.5      | 14px / 1.286              |
-| `text-p3` | 14px / 1.286    | 12px / 1.5                |
+| Class     | Mobile (<500px)        | Tablet & Desktop (≥500px) |
+| --------- | ---------------------- | ------------------------- |
+| `text-p1` | 18px / 1.333 · Regular | 16px / 1.5 · **Medium**   |
+| `text-p2` | 16px / 1.5 · Regular   | 14px / 1.286 · Regular    |
+| `text-p3` | 14px / 1.286 · Regular | 12px / 1.5 · Regular      |
 
 ```tsx
 <p className="text-p1">Body text</p> // one class, adapts at the breakpoint
 ```
+
+**Weight is baked in.** Per Figma, P1's weight is responsive — Regular on
+mobile, **Medium** from tablet up — so `text-p1` sets it for you. P2/P3 are
+Regular (the default) at every tier. Don't add a `font-*` utility to override
+`text-p1`'s weight.
 
 For the rare element whose size must **not** change across tiers, use the
 static **`text-m-p1/p2/p3`** utilities (the Mobile sizes — 18 / 16 / 14px):
@@ -139,6 +144,12 @@ static **`text-m-p1/p2/p3`** utilities (the Mobile sizes — 18 / 16 / 14px):
 // inputs are 16px at every width → the static Mobile/P2 size
 <input className="text-m-p2" />
 ```
+
+**Ramp gotcha.** The mobile and desktop scales are offset by one tier, so
+"16px body text" is **P2 (Regular) on mobile** but **P1 (Medium) on desktop**.
+For a constant-16px element that should pick up Medium on larger screens (e.g.
+the login subtitle/footer/links), reach for `text-m-p2 tablet:font-medium` —
+_not_ `text-p1`, which would also shrink the size 18→16.
 
 (For now, there's no static `text-d-*` family, but we can add it later if needed.)
 

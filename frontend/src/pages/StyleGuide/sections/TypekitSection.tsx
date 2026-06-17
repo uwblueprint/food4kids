@@ -61,8 +61,8 @@ export function TypekitSection() {
               />
               <TypekitRow
                 label="Desktop/Paragraph/P1"
-                className="text-grey-500 text-[var(--text-p1)]"
-                spec="Nunito Sans | Text size: 16px | Line height: 20px"
+                className="text-grey-500 font-medium text-[var(--text-p1)]"
+                spec="Nunito Sans Medium | Text size: 16px | Line height: 24px"
                 code="text-p1"
               />
               <TypekitRow
