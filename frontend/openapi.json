@@ -2388,13 +2388,12 @@
           "delivery_type": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/DeliveryTypeEnum"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Delivery Type"
+            ]
           },
           "drive_date": {
             "format": "date-time",
@@ -2445,9 +2444,7 @@
             "type": "array"
           },
           "status": {
-            "default": "Archived",
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/RouteStatusEnum"
           },
           "updated_at": {
             "anyOf": [
@@ -2466,7 +2463,8 @@
           "name",
           "drive_date",
           "route_group_id",
-          "num_routes"
+          "num_routes",
+          "status"
         ],
         "title": "RouteGroupRead",
         "type": "object"

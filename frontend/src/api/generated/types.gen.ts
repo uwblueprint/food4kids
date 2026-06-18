@@ -1403,10 +1403,7 @@ export type RouteGroupRead = {
    * Created At
    */
   created_at?: string | null;
-  /**
-   * Delivery Type
-   */
-  delivery_type?: string | null;
+  delivery_type?: DeliveryTypeEnum | null;
   /**
    * Drive Date
    */
@@ -1443,10 +1440,7 @@ export type RouteGroupRead = {
    * Routes
    */
   routes?: Array<RouteReadSummary>;
-  /**
-   * Status
-   */
-  status?: string;
+  status: RouteStatusEnum;
   /**
    * Updated At
    */
