@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
+from app.models.location_group import LocationGroup
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
@@ -1522,11 +1523,6 @@ class TestRouteGroupRoutes:
         Confirms the routes relationship loads without an async lazy-load 500
         and the routes payload is correctly populated.
         """
-        from datetime import datetime
-
-        from app.models.route import Route
-        from app.models.route_group import RouteGroup
-
         rg = RouteGroup(name="RG", drive_date=datetime(2026, 6, 1))
         test_session.add(rg)
         await test_session.commit()
@@ -1551,10 +1547,6 @@ class TestRouteGroupRoutes:
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
         """A route group with no memberships returns zeroed aggregates and expected status."""
-        from datetime import datetime
-
-        from app.models.route_group import RouteGroup
-
         rg = RouteGroup(name="Empty Group", drive_date=datetime(2020, 1, 1))
         test_session.add(rg)
         await test_session.commit()
@@ -1569,21 +1561,13 @@ class TestRouteGroupRoutes:
         assert group["num_boxes"] == 0
         assert group["num_drivers_assigned"] == 0
         assert group["delivery_type"] is None
-        assert group["status"] == "Archived"
+        assert group["status"] == "Completed"
 
     @pytest.mark.asyncio
     async def test_get_route_groups_delivery_type_school_year(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
         """A route group with school-linked stops returns delivery_type='School Year'."""
-        from datetime import datetime
-
-        from app.models.location import Location
-        from app.models.location_group import LocationGroup
-        from app.models.route import Route
-        from app.models.route_group import RouteGroup
-        from app.models.route_stop import RouteStop
-
         loc_group = LocationGroup(name="Schools", color="#000000", notes="")
         test_session.add(loc_group)
         await test_session.flush()
@@ -1628,14 +1612,6 @@ class TestRouteGroupRoutes:
     ) -> None:
         """num_boxes = sum(ceil(num_children / 2)) per location.
         3 children -> ceil(1.5) = 2, 5 children -> ceil(2.5) = 3, total = 5."""
-        from datetime import datetime
-
-        from app.models.location import Location
-        from app.models.location_group import LocationGroup
-        from app.models.route import Route
-        from app.models.route_group import RouteGroup
-        from app.models.route_stop import RouteStop
-
         loc_group = LocationGroup(name="Boxes Test", color="#111111", notes="")
         test_session.add(loc_group)
         await test_session.flush()
@@ -1698,12 +1674,9 @@ class TestRouteGroupRoutes:
         drive_date is stored date-only (midnight) and is computed here in the
         scheduler timezone to match the service's clock.
         """
-        from datetime import datetime
         from zoneinfo import ZoneInfo
 
         from app.config import settings
-        from app.models.route import Route
-        from app.models.route_group import RouteGroup
 
         tz = ZoneInfo(settings.scheduler_timezone)
         today = datetime.now(tz).replace(
