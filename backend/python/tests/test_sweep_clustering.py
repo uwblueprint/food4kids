@@ -33,7 +33,7 @@ def _location(
         contact_name=name,
         delivery_type=DeliveryTypeEnum.SCHOOL,
         address=address,
-        phone_number="5195550100",
+        phone_primary="5195550100",
         latitude=lat,
         longitude=lon,
         num_children=num_children,

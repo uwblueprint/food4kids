@@ -117,6 +117,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # /register is auth'd by the invite token in the body, not a bearer token.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
     ("POST", "/drivers/register"): Policy.PUBLIC,
+    ("POST", "/drivers/test-event-email"): Policy.PUBLIC,
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
@@ -254,7 +255,13 @@ async def seed(test_session: AsyncSession) -> Seed:
     from app.models.user import User
 
     def _driver(auth_id: str, email: str) -> Driver:
-        user = User(name=auth_id, email=email, auth_id=auth_id, role="driver")
+        user = User(
+            first_name=auth_id,
+            last_name="Driver",
+            email=email,
+            auth_id=auth_id,
+            role="driver",
+        )
         test_session.add(user)
         driver = Driver(
             user_id=user.user_id,
@@ -270,7 +277,8 @@ async def seed(test_session: AsyncSession) -> Seed:
     other_driver = _driver("other-uid", "other@test.dev")
 
     admin_user = User(
-        name="admin",
+        first_name="Admin",
+        last_name="User",
         email="admin@test.dev",
         auth_id="admin-uid",
         role="admin",

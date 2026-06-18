@@ -127,13 +127,21 @@ export type AuthResponse = {
    */
   email: string;
   /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Full Name
+   */
+  readonly full_name: string;
+  /**
    * Id
    */
   id: string;
   /**
-   * Name
+   * Last Name
    */
-  name: string;
+  last_name: string;
 };
 
 /**
@@ -186,9 +194,13 @@ export type ChangedEntry = {
    */
   num_children?: number | ChangedFieldOptInt | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string | ChangedFieldStr;
+  phone_primary: string | ChangedFieldStr;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | ChangedFieldOptStr | null;
 };
 
 /**
@@ -347,6 +359,10 @@ export type DriverRead = {
    */
   auth_id: string | null;
   /**
+   * Availability
+   */
+  availability?: Array<boolean>;
+  /**
    * Car Make Model
    */
   car_make_model: string;
@@ -359,17 +375,29 @@ export type DriverRead = {
    */
   email: string;
   /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Full Name
+   */
+  readonly full_name: string;
+  /**
+   * Last Name
+   */
+  last_name: string;
+  /**
    * License Plate
    */
   license_plate: string;
   /**
-   * Name
-   */
-  name: string;
-  /**
    * Notes
    */
   notes?: string;
+  /**
+   * Partner Driver Name
+   */
+  partner_driver_name?: string | null;
   /**
    * Phone
    */
@@ -395,6 +423,10 @@ export type DriverRegister = {
    */
   address: string;
   /**
+   * Availability
+   */
+  availability?: Array<boolean>;
+  /**
    * Car Make Model
    */
   car_make_model: string;
@@ -403,13 +435,21 @@ export type DriverRegister = {
    */
   email: string;
   /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Last Name
+   */
+  last_name: string;
+  /**
    * License Plate
    */
   license_plate: string;
   /**
-   * Name
+   * Partner Driver Name
    */
-  name: string;
+  partner_driver_name?: string | null;
   /**
    * Phone
    */
@@ -439,6 +479,10 @@ export type DriverUpdate = {
    */
   address?: string | null;
   /**
+   * Availability
+   */
+  availability?: Array<boolean> | null;
+  /**
    * Car Make Model
    */
   car_make_model?: string | null;
@@ -450,6 +494,10 @@ export type DriverUpdate = {
    * Notes
    */
   notes?: string | null;
+  /**
+   * Partner Driver Name
+   */
+  partner_driver_name?: string | null;
   /**
    * Phone
    */
@@ -555,9 +603,13 @@ export type LocationCreate = {
    */
   num_children?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string;
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
   /**
    * Place Id
    */
@@ -699,9 +751,13 @@ export type LocationImportEntry = {
    */
   num_boxes?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number?: string | null;
+  phone_primary?: string | null;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
 };
 
 /**
@@ -863,9 +919,13 @@ export type LocationReadInput = {
    */
   num_children?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string;
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
   /**
    * Place Id
    */
@@ -948,9 +1008,13 @@ export type LocationReadOutput = {
    */
   num_children?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string;
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
   /**
    * Place Id
    */
@@ -1028,9 +1092,13 @@ export type LocationUpdate = {
    */
   num_children?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number?: string | null;
+  phone_primary?: string | null;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
   /**
    * Place Id
    */
@@ -1076,9 +1144,13 @@ export type NetNewEntry = {
    */
   num_boxes?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string;
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
   /**
    * Row
    */
@@ -1639,9 +1711,13 @@ export type StaleEntry = {
    */
   location_id: string;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string;
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
 };
 
 /**
@@ -1744,9 +1820,13 @@ export type ValidatedLocationImportEntry = {
    */
   num_boxes?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string;
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
 };
 
 /**
@@ -1775,6 +1855,110 @@ export type ValidationError = {
    * Error Type
    */
   type: string;
+};
+
+/**
+ * AuthResponse
+ *
+ * Authentication response
+ */
+export type AuthResponseWritable = {
+  /**
+   * Access Token
+   */
+  access_token: string;
+  /**
+   * Email
+   */
+  email: string;
+  /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Last Name
+   */
+  last_name: string;
+};
+
+/**
+ * DriverRead
+ */
+export type DriverReadWritable = {
+  /**
+   * Active
+   */
+  active?: boolean;
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Auth Id
+   */
+  auth_id: string | null;
+  /**
+   * Availability
+   */
+  availability?: Array<boolean>;
+  /**
+   * Car Make Model
+   */
+  car_make_model: string;
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Email
+   */
+  email: string;
+  /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Last Name
+   */
+  last_name: string;
+  /**
+   * License Plate
+   */
+  license_plate: string;
+  /**
+   * Notes
+   */
+  notes?: string;
+  /**
+   * Partner Driver Name
+   */
+  partner_driver_name?: string | null;
+  /**
+   * Phone
+   */
+  phone: string;
+  /**
+   * Role
+   */
+  role: string;
+  /**
+   * User Id
+   */
+  user_id: string;
+};
+
+/**
+ * DriverRegisterResponse
+ *
+ * Driver registration response - contains Driver object and AuthResponse
+ */
+export type DriverRegisterResponseWritable = {
+  auth: AuthResponseWritable;
+  driver: DriverReadWritable;
 };
 
 /**
@@ -1867,9 +2051,13 @@ export type LocationReadOutputWritable = {
    */
   num_children?: number | null;
   /**
-   * Phone Number
+   * Phone Primary
    */
-  phone_number: string;
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
   /**
    * Place Id
    */
@@ -2257,6 +2445,42 @@ export type CompleteDriverRegistrationResponses = {
 
 export type CompleteDriverRegistrationResponse =
   CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
+
+export type TestEventEmailData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Test Email
+     */
+    test_email: string;
+  };
+  url: '/drivers/test-event-email';
+};
+
+export type TestEventEmailErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type TestEventEmailError =
+  TestEventEmailErrors[keyof TestEventEmailErrors];
+
+export type TestEventEmailResponses = {
+  /**
+   * Response Test Event Email
+   *
+   * Successful Response
+   */
+  200: {
+    [key: string]: string;
+  };
+};
+
+export type TestEventEmailResponse =
+  TestEventEmailResponses[keyof TestEventEmailResponses];
 
 export type DeleteDriverData = {
   body?: never;

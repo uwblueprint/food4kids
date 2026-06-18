@@ -190,21 +190,32 @@
             "title": "Email",
             "type": "string"
           },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "full_name": {
+            "readOnly": true,
+            "title": "Full Name",
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
           },
-          "name": {
-            "title": "Name",
+          "last_name": {
+            "title": "Last Name",
             "type": "string"
           }
         },
         "required": [
           "access_token",
           "id",
-          "name",
-          "email"
+          "first_name",
+          "last_name",
+          "email",
+          "full_name"
         ],
         "title": "AuthResponse",
         "type": "object"
@@ -288,7 +299,7 @@
             ],
             "title": "Num Children"
           },
-          "phone_number": {
+          "phone_primary": {
             "anyOf": [
               {
                 "type": "string"
@@ -297,13 +308,27 @@
                 "$ref": "#/components/schemas/ChangedFieldStr"
               }
             ],
-            "title": "Phone Number"
+            "title": "Phone Primary"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldOptStr"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           }
         },
         "required": [
           "contact_name",
           "address",
-          "phone_number"
+          "phone_primary"
         ],
         "title": "ChangedEntry",
         "type": "object"
@@ -543,6 +568,13 @@
             ],
             "title": "Auth Id"
           },
+          "availability": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Availability",
+            "type": "array"
+          },
           "car_make_model": {
             "maxLength": 255,
             "minLength": 1,
@@ -559,14 +591,23 @@
             "title": "Email",
             "type": "string"
           },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "full_name": {
+            "readOnly": true,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
           "license_plate": {
             "maxLength": 20,
             "minLength": 1,
             "title": "License Plate",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
             "type": "string"
           },
           "notes": {
@@ -574,6 +615,18 @@
             "maxLength": 1024,
             "title": "Notes",
             "type": "string"
+          },
+          "partner_driver_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Driver Name"
           },
           "phone": {
             "maxLength": 20,
@@ -599,9 +652,11 @@
           "driver_id",
           "user_id",
           "auth_id",
-          "name",
+          "first_name",
+          "last_name",
           "email",
-          "role"
+          "role",
+          "full_name"
         ],
         "title": "DriverRead",
         "type": "object"
@@ -615,6 +670,13 @@
             "title": "Address",
             "type": "string"
           },
+          "availability": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Availability",
+            "type": "array"
+          },
           "car_make_model": {
             "maxLength": 255,
             "minLength": 1,
@@ -627,17 +689,35 @@
             "title": "Email",
             "type": "string"
           },
+          "first_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Last Name",
+            "type": "string"
+          },
           "license_plate": {
             "maxLength": 20,
             "minLength": 1,
             "title": "License Plate",
             "type": "string"
           },
-          "name": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
+          "partner_driver_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Driver Name"
           },
           "phone": {
             "maxLength": 20,
@@ -647,7 +727,8 @@
           }
         },
         "required": [
-          "name",
+          "first_name",
+          "last_name",
           "email",
           "phone",
           "license_plate",
@@ -700,6 +781,20 @@
             ],
             "title": "Address"
           },
+          "availability": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "boolean"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability"
+          },
           "car_make_model": {
             "anyOf": [
               {
@@ -737,6 +832,18 @@
               }
             ],
             "title": "Notes"
+          },
+          "partner_driver_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Driver Name"
           },
           "phone": {
             "anyOf": [
@@ -907,9 +1014,20 @@
             ],
             "title": "Num Children"
           },
-          "phone_number": {
-            "title": "Phone Number",
+          "phone_primary": {
+            "title": "Phone Primary",
             "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           },
           "place_id": {
             "anyOf": [
@@ -928,7 +1046,7 @@
           "name",
           "contact_name",
           "address",
-          "phone_number",
+          "phone_primary",
           "delivery_type"
         ],
         "title": "LocationCreate",
@@ -1172,7 +1290,7 @@
             ],
             "title": "Num Boxes"
           },
-          "phone_number": {
+          "phone_primary": {
             "anyOf": [
               {
                 "type": "string"
@@ -1181,7 +1299,18 @@
                 "type": "null"
               }
             ],
-            "title": "Phone Number"
+            "title": "Phone Primary"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           }
         },
         "title": "LocationImportEntry",
@@ -1423,9 +1552,20 @@
             ],
             "title": "Num Children"
           },
-          "phone_number": {
-            "title": "Phone Number",
+          "phone_primary": {
+            "title": "Phone Primary",
             "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           },
           "place_id": {
             "anyOf": [
@@ -1444,7 +1584,7 @@
           "name",
           "contact_name",
           "address",
-          "phone_number",
+          "phone_primary",
           "delivery_type",
           "location_id",
           "location_group_name"
@@ -1559,9 +1699,20 @@
             ],
             "title": "Num Children"
           },
-          "phone_number": {
-            "title": "Phone Number",
+          "phone_primary": {
+            "title": "Phone Primary",
             "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           },
           "place_id": {
             "anyOf": [
@@ -1584,7 +1735,7 @@
           "name",
           "contact_name",
           "address",
-          "phone_number",
+          "phone_primary",
           "delivery_type",
           "location_id",
           "location_group_name",
@@ -1761,7 +1912,7 @@
             ],
             "title": "Num Children"
           },
-          "phone_number": {
+          "phone_primary": {
             "anyOf": [
               {
                 "type": "string"
@@ -1770,7 +1921,18 @@
                 "type": "null"
               }
             ],
-            "title": "Phone Number"
+            "title": "Phone Primary"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           },
           "place_id": {
             "anyOf": [
@@ -1840,9 +2002,20 @@
             ],
             "title": "Num Boxes"
           },
-          "phone_number": {
-            "title": "Phone Number",
+          "phone_primary": {
+            "title": "Phone Primary",
             "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           },
           "row": {
             "title": "Row",
@@ -1853,7 +2026,7 @@
           "row",
           "contact_name",
           "address",
-          "phone_number"
+          "phone_primary"
         ],
         "title": "NetNewEntry",
         "type": "object"
@@ -2796,16 +2969,27 @@
             "title": "Location Id",
             "type": "string"
           },
-          "phone_number": {
-            "title": "Phone Number",
+          "phone_primary": {
+            "title": "Phone Primary",
             "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           }
         },
         "required": [
           "location_id",
           "contact_name",
           "address",
-          "phone_number"
+          "phone_primary"
         ],
         "title": "StaleEntry",
         "type": "object"
@@ -2985,16 +3169,27 @@
             ],
             "title": "Num Boxes"
           },
-          "phone_number": {
-            "title": "Phone Number",
+          "phone_primary": {
+            "title": "Phone Primary",
             "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
           }
         },
         "required": [
           "contact_name",
           "address",
           "delivery_group",
-          "phone_number"
+          "phone_primary"
         ],
         "title": "ValidatedLocationImportEntry",
         "type": "object"
@@ -3616,6 +3811,53 @@
           }
         },
         "summary": "Complete Driver Registration",
+        "tags": [
+          "drivers"
+        ]
+      }
+    },
+    "/drivers/test-event-email": {
+      "post": {
+        "description": "Temporary endpoint to test event-driven emails.\nDelete this after testing!",
+        "operationId": "test_event_email",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "test_email",
+            "required": true,
+            "schema": {
+              "title": "Test Email",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Test Event Email",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Event Email",
         "tags": [
           "drivers"
         ]

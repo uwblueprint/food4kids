@@ -185,16 +185,39 @@ def set_timestamps(instance: BaseModel) -> None:
         instance.updated_at = instance.created_at
 
 
-def ensure_firebase_user(uid: str, email: str, password: str, role: str) -> str:
+def ensure_firebase_user(
+    uid: str,
+    email: str,
+    password: str,
+    role: str,
+    first_name: str,
+    last_name: str,
+) -> str:
     """Create or update a Firebase user so it is always loginable with the given credentials."""
+    full_name = f"{first_name} {last_name}"
     try:
         auth.get_user(uid)
-        auth.update_user(uid, email=email, password=password, email_verified=True)
+        auth.update_user(
+            uid,
+            email=email,
+            password=password,
+            email_verified=True,
+            display_name=full_name,
+        )
         print(f"  Firebase user {uid} ({email}) already exists, updated")
     except auth.UserNotFoundError:
-        auth.create_user(uid=uid, email=email, password=password, email_verified=True)
+        auth.create_user(
+            uid=uid,
+            email=email,
+            password=password,
+            email_verified=True,
+            display_name=full_name,
+        )
         print(f"  Firebase user {uid} ({email}) created")
-    auth.set_custom_user_claims(uid, {"role": role})
+    auth.set_custom_user_claims(
+        uid,
+        {"role": role, "given_name": first_name, "family_name": last_name},
+    )
     return uid
 
 
@@ -475,7 +498,7 @@ def materialize_route_for_group(
                 route_stop_id=stop.route_stop_id,
                 address=loc.address,
                 contact_name=loc.contact_name,
-                phone_number=loc.phone_number,
+                phone_number=loc.phone_primary,
                 num_boxes=loc.num_boxes,
                 notes=loc.notes,
                 latitude=loc.latitude,
@@ -603,7 +626,10 @@ def main() -> None:
                             else contact_name,
                             contact_name=contact_name,
                             address=address,
-                            phone_number=generate_valid_phone(),
+                            phone_primary=generate_valid_phone(),
+                            phone_secondary=generate_valid_phone()
+                            if random.choice([True, False])
+                            else None,
                             longitude=lon,
                             latitude=lat,
                             halal=random.choice([True, False]),
@@ -661,13 +687,21 @@ def main() -> None:
                 n = f"{i + 1:03d}"
                 uid = f"seed-driver-{n}"
                 email = f"driver{n}@f4k.dev"
+                first_name = fake.first_name()
+                last_name = fake.last_name()
 
                 ensure_firebase_user(
-                    uid=uid, email=email, password=SEED_PASSWORD, role="driver"
+                    uid=uid,
+                    email=email,
+                    password=SEED_PASSWORD,
+                    role="driver",
+                    first_name=first_name,
+                    last_name=last_name,
                 )
 
                 user = User(
-                    name=fake.name(),
+                    first_name=first_name,
+                    last_name=last_name,
                     email=email,
                     auth_id=uid,
                     role="driver",
@@ -683,6 +717,10 @@ def main() -> None:
                 driver = Driver(
                     user_id=user.user_id,
                     phone=generate_valid_phone(),
+                    partner_driver_name=fake.name()
+                    if random.choice([True, False])
+                    else None,
+                    availability=[random.choice([True, False]) for _ in range(7)],
                     address=fake.address(),
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),
@@ -962,13 +1000,21 @@ def main() -> None:
                 admin_num = i + 1
                 uid = f"seed-admin-{admin_num}"
                 email = f"admin{admin_num}@f4k.dev"
+                first_name = fake.first_name()
+                last_name = fake.last_name()
 
                 ensure_firebase_user(
-                    uid=uid, email=email, password=SEED_PASSWORD, role="admin"
+                    uid=uid,
+                    email=email,
+                    password=SEED_PASSWORD,
+                    role="admin",
+                    first_name=first_name,
+                    last_name=last_name,
                 )
 
                 user = User(
-                    name=fake.name(),
+                    first_name=first_name,
+                    last_name=last_name,
                     email=email,
                     auth_id=uid,
                     role="admin",

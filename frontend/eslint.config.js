@@ -80,6 +80,22 @@ export default [
           message:
             'Tailwind default breakpoints (sm/md/lg/xl/2xl) are not defined in this project and compile to nothing. Use the F4K semantic breakpoints: tablet: (500px) or desktop: (1024px).',
         },
+        // text-h1/h2/h3 and text-p1/p2/p3 are already responsive; a breakpoint
+        // variant on them composes incorrectly (the value differs per tier
+        // inside the utility). Use the bare utility, or a static text-m-* to pin
+        // a tier (or text-button for constant-size UI text like buttons).
+        {
+          selector:
+            'Literal[value=/(^|[^a-zA-Z0-9-])(tablet|desktop):text-[hp][123]/]',
+          message:
+            'text-h1/h2/h3 and text-p1/p2/p3 are already responsive — don\'t add a tablet:/desktop: variant (it won\'t compose, since the utility has its own internal breakpoint). Use the bare utility, or a static text-m-* for a constant (non-responsive) size.',
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/(^|[^a-zA-Z0-9-])(tablet|desktop):text-[hp][123]/]',
+          message:
+            'text-h1/h2/h3 and text-p1/p2/p3 are already responsive — don\'t add a tablet:/desktop: variant (it won\'t compose, since the utility has its own internal breakpoint). Use the bare utility, or a static text-m-* for a constant (non-responsive) size.',
+        },
       ],
     },
   },

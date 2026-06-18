@@ -23,7 +23,8 @@ export const buttonVariants = cva(
       },
       shape: {
         default: [
-          'font-nunito text-h3',
+          'font-nunito text-button', // UI/Button: Nunito 16/20, constant
+
           'h-[44px] min-w-[104px] px-6 py-2 rounded-[40px]',
           'w-full tablet:w-auto',
         ],

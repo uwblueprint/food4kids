@@ -1,7 +1,8 @@
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, field_validator, model_validator
+from pydantic import EmailStr, computed_field, field_validator, model_validator
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.user import User
@@ -12,6 +13,12 @@ from .base import BaseModel
 
 class DriverBase(SQLModel):
     phone: str = Field(min_length=1, max_length=20)
+    partner_driver_name: str | None = Field(default=None, max_length=255)
+    # Seven slots, Monday = 0 through Sunday = 6; use availability[date.weekday()].
+    availability: list[bool] = Field(
+        default_factory=lambda: [False] * 7,
+        sa_column=Column(JSON, nullable=False),
+    )
     license_plate: str = Field(min_length=1, max_length=20)
     car_make_model: str = Field(min_length=1, max_length=255)
     active: bool = Field(default=True)
@@ -23,6 +30,13 @@ class DriverBase(SQLModel):
     def validate_phone(cls, v: str) -> str:
         """Validate phone number using phonenumbers library"""
         return validate_phone(v)
+
+    @field_validator("availability")
+    @classmethod
+    def validate_availability(cls, v: list[bool]) -> list[bool]:
+        if len(v) != 7:
+            raise ValueError("availability must contain 7 slots, Monday = 0")
+        return v
 
 
 class Driver(DriverBase, BaseModel, table=True):
@@ -47,9 +61,15 @@ class DriverRead(DriverBase):
 
     # These are from the User
     auth_id: str | None
-    name: str
+    first_name: str
+    last_name: str
     email: EmailStr
     role: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
 
     @model_validator(mode="before")
     @classmethod
@@ -64,13 +84,16 @@ class DriverRead(DriverBase):
                 "driver_id": data.driver_id,
                 "user_id": data.user_id,
                 "phone": data.phone,
+                "partner_driver_name": data.partner_driver_name,
+                "availability": data.availability,
                 "license_plate": data.license_plate,
                 "car_make_model": data.car_make_model,
                 "active": data.active,
                 "notes": data.notes,
                 "address": data.address,
                 "auth_id": user.auth_id,
-                "name": user.name,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
                 "email": user.email,
                 "role": user.role,
             }
@@ -79,33 +102,55 @@ class DriverRead(DriverBase):
 
 class DriverUpdate(SQLModel):
     phone: str | None = Field(default=None, min_length=1, max_length=20)
+    partner_driver_name: str | None = Field(default=None, max_length=255)
+    availability: list[bool] | None = Field(default=None)
     address: str | None = Field(default=None, min_length=1, max_length=255)
     license_plate: str | None = Field(default=None, min_length=1, max_length=20)
     car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
     active: bool | None = Field(default=None)
     notes: str | None = Field(default=None, max_length=1024)
+
+    @field_validator("availability")
+    @classmethod
+    def validate_availability(cls, v: list[bool] | None) -> list[bool] | None:
+        if v is not None and len(v) != 7:
+            raise ValueError("availability must contain 7 slots, Monday = 0")
+        return v
 
 
 class DriverUpdatePayload(SQLModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
+    first_name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=254)
     phone: str | None = Field(default=None, min_length=1, max_length=20)
+    partner_driver_name: str | None = Field(default=None, max_length=255)
+    availability: list[bool] | None = Field(default=None)
     address: str | None = Field(default=None, min_length=1, max_length=255)
     license_plate: str | None = Field(default=None, min_length=1, max_length=20)
     car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
     active: bool | None = Field(default=None)
     notes: str | None = Field(default=None, max_length=1024)
+
+    @field_validator("availability")
+    @classmethod
+    def validate_availability(cls, v: list[bool] | None) -> list[bool] | None:
+        if v is not None and len(v) != 7:
+            raise ValueError("availability must contain 7 slots, Monday = 0")
+        return v
 
 
 class DriverRegister(SQLModel):
     """Driver registration request"""
 
     # User fields
-    name: str = Field(min_length=1, max_length=255)
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=254)
 
     # Driver fields
     phone: str = Field(min_length=1, max_length=20)
+    partner_driver_name: str | None = Field(default=None, max_length=255)
+    availability: list[bool] = Field(default_factory=lambda: [False] * 7)
     license_plate: str = Field(min_length=1, max_length=20)
     car_make_model: str = Field(min_length=1, max_length=255)
     address: str = Field(min_length=1, max_length=255)
@@ -115,3 +160,10 @@ class DriverRegister(SQLModel):
     def validate_phone(cls, v: str) -> str:
         """Validate phone number using phonenumbers library"""
         return validate_phone(v)
+
+    @field_validator("availability")
+    @classmethod
+    def validate_availability(cls, v: list[bool]) -> list[bool]:
+        if len(v) != 7:
+            raise ValueError("availability must contain 7 slots, Monday = 0")
+        return v

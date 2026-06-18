@@ -93,9 +93,14 @@ const netNewColumns: Column<NetNewEntry>[] = [
     render: (r) => r.delivery_group ?? '—',
   },
   {
-    key: 'phone_number',
-    header: 'Phone Number',
-    render: (r) => r.phone_number,
+    key: 'phone_primary',
+    header: 'Primary Phone',
+    render: (r) => r.phone_primary,
+  },
+  {
+    key: 'phone_secondary',
+    header: 'Secondary Phone',
+    render: (r) => r.phone_secondary ?? '—',
   },
 ];
 
@@ -112,9 +117,14 @@ const staleColumns: Column<StaleEntry>[] = [
     render: (r) => r.delivery_group ?? '—',
   },
   {
-    key: 'phone_number',
-    header: 'Phone Number',
-    render: (r) => r.phone_number,
+    key: 'phone_primary',
+    header: 'Primary Phone',
+    render: (r) => r.phone_primary,
+  },
+  {
+    key: 'phone_secondary',
+    header: 'Secondary Phone',
+    render: (r) => r.phone_secondary ?? '—',
   },
 ];
 
@@ -172,9 +182,14 @@ export function ReviewStep() {
       render: (r) => <ChangedCell value={r.delivery_group} />,
     },
     {
-      key: 'phone_number',
-      header: 'Phone Number',
-      render: (r) => <ChangedCell value={r.phone_number} />,
+      key: 'phone_primary',
+      header: 'Primary Phone',
+      render: (r) => <ChangedCell value={r.phone_primary} />,
+    },
+    {
+      key: 'phone_secondary',
+      header: 'Secondary Phone',
+      render: (r) => <ChangedCell value={r.phone_secondary} />,
     },
     {
       key: 'num_children',

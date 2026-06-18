@@ -56,7 +56,8 @@ class TestDriverRoutes:
             ),
         ):
             driver_register_data = {
-                "name": sample_driver_data["name"],
+                "first_name": sample_driver_data["first_name"],
+                "last_name": sample_driver_data["last_name"],
                 "email": "newdriver@example.com",
                 "phone": sample_driver_data["phone"],
                 "address": sample_driver_data["address"],
@@ -95,7 +96,8 @@ class TestDriverRoutes:
             user_id=uuid4(),
             auth_id=None,
             email="testemail@gmail.com",
-            name="Test User",
+            first_name="Test",
+            last_name="User",
             role="driver",
         )
 
@@ -118,7 +120,8 @@ class TestDriverRoutes:
 
         fake_auth_dto = {
             "access_token": "fake-access-token",
-            "name": sample_driver_data["name"],
+            "first_name": sample_driver_data["first_name"],
+            "last_name": sample_driver_data["last_name"],
             "id": str(uuid4()),
             "email": "newdriver@example.com",
         }
@@ -200,6 +203,25 @@ class TestDriverRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["address"] == "456 New Address St"
+
+    @pytest.mark.asyncio
+    async def test_update_driver_clears_nullable_fields(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Test PUT /drivers/{driver_id} clears explicit null values."""
+        test_driver.partner_driver_name = "Pat Partner"
+        await test_session.commit()
+
+        response = await async_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={"partner_driver_name": None},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["partner_driver_name"] is None
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, async_client: AsyncClient) -> None:
@@ -317,7 +339,7 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Central Elementary",
                 "contact_name": "School Contact",
-                "phone_number": "(555) 111-1111",
+                "phone_primary": "(555) 111-1111",
                 "delivery_type": DeliveryTypeEnum.SCHOOL.value,
             },
         )
@@ -328,7 +350,7 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Family Contact",
                 "contact_name": "Family Contact",
-                "phone_number": "(555) 222-2222",
+                "phone_primary": "(555) 222-2222",
                 "delivery_type": DeliveryTypeEnum.FAMILY.value,
             },
         )
@@ -367,7 +389,7 @@ class TestLocationRoutes:
             name="Scheduled Family",
             contact_name="Scheduled Family",
             address="1 Scheduled St",
-            phone_number="5551111111",
+            phone_primary="5551111111",
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=True,
         )
@@ -376,7 +398,7 @@ class TestLocationRoutes:
             name="Unscheduled Family",
             contact_name="Unscheduled Family",
             address="2 Unscheduled St",
-            phone_number="5552222222",
+            phone_primary="5552222222",
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=True,
         )
@@ -385,7 +407,7 @@ class TestLocationRoutes:
             name="Inactive Family",
             contact_name="Inactive Family",
             address="3 Inactive St",
-            phone_number="5553333333",
+            phone_primary="5553333333",
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=False,
         )
@@ -394,7 +416,7 @@ class TestLocationRoutes:
             name="Archived Scheduled Family",
             contact_name="Archived Scheduled Family",
             address="4 Archived Scheduled St",
-            phone_number="5554444444",
+            phone_primary="5554444444",
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=False,
         )
@@ -496,7 +518,7 @@ class TestLocationRoutes:
             name="Central Elementary",
             contact_name="Active School",
             address="1 School St",
-            phone_number="5555555555",
+            phone_primary="5555555555",
             delivery_type=DeliveryTypeEnum.SCHOOL,
             in_roster=True,
         )
@@ -505,7 +527,7 @@ class TestLocationRoutes:
             name="Active Family",
             contact_name="Active Family",
             address="1 Family St",
-            phone_number="5556666666",
+            phone_primary="5556666666",
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=True,
         )
@@ -514,7 +536,7 @@ class TestLocationRoutes:
             name="Unscheduled Elementary",
             contact_name="Unscheduled School",
             address="2 School St",
-            phone_number="5557777777",
+            phone_primary="5557777777",
             delivery_type=DeliveryTypeEnum.SCHOOL,
             in_roster=True,
         )
@@ -634,6 +656,31 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["notes"] == "Updated notes"
+
+    @pytest.mark.asyncio
+    async def test_update_location_clears_nullable_fields(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Test PATCH /locations/{location_id} clears explicit null values."""
+        create_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "phone_secondary": "555-222-3333",
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        location_id = create_response.json()["location_id"]
+
+        response = await async_client.patch(
+            f"/locations/{location_id}", json={"phone_secondary": None}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["phone_secondary"] is None
 
     @pytest.mark.asyncio
     async def test_delete_location(
@@ -1080,7 +1127,10 @@ class TestRouteRoutes:
 
         # Reassign to a second driver.
         other_user = User(
-            name="Other Driver", email="other-driver@test.dev", auth_id="other-drv"
+            first_name="Other",
+            last_name="Driver",
+            email="other-driver@test.dev",
+            auth_id="other-drv",
         )
         test_session.add(other_user)
         other_driver = Driver(
@@ -1236,7 +1286,7 @@ class TestRouteRoutes:
             name="Fam A",
             contact_name="Fam A",
             address="1 A St",
-            phone_number="5550000001",
+            phone_primary="5550000001",
             delivery_type=DeliveryTypeEnum.FAMILY,
         )
         loc_b = Location(
@@ -1244,10 +1294,15 @@ class TestRouteRoutes:
             name="Fam B",
             contact_name="Fam B",
             address="2 B St",
-            phone_number="5550000002",
+            phone_primary="5550000002",
             delivery_type=DeliveryTypeEnum.FAMILY,
         )
-        user = User(name="Veteran", email="veteran@test.dev", auth_id="veteran-uid")
+        user = User(
+            first_name="Veteran",
+            last_name="Driver",
+            email="veteran@test.dev",
+            auth_id="veteran-uid",
+        )
         driver = Driver(
             user_id=user.user_id,
             phone="+12125551111",
@@ -1323,7 +1378,7 @@ class TestRouteRoutes:
         suggestion = resp.json()
         assert suggestion is not None
         assert suggestion["driver_id"] == str(driver.driver_id)
-        assert suggestion["driver_name"] == "Veteran"
+        assert suggestion["driver_name"] == "Veteran Driver"
 
 
 class TestRouteStopConstraints:
@@ -1336,7 +1391,7 @@ class TestRouteStopConstraints:
             name=f"Constraint Family {n}",
             contact_name=f"Constraint Family {n}",
             address=f"{n} Constraint St",
-            phone_number=f"555000{n:04d}",
+            phone_primary=f"555000{n:04d}",
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=True,
         )
@@ -1790,7 +1845,8 @@ class TestValidationErrors:
     async def test_create_driver_invalid_phone(self, async_client: AsyncClient) -> None:
         """Test POST /drivers with invalid phone number returns validation error."""
         invalid_data = {
-            "name": "Test Driver",
+            "first_name": "Test",
+            "last_name": "Driver",
             "email": "test@example.com",
             "phone": "invalid-phone",  # Invalid phone format
             "address": "123 Main St",
@@ -1816,7 +1872,7 @@ class TestValidationErrors:
         """Test POST /locations with missing required fields returns validation error."""
         invalid_data = {
             "contact_name": "Jane Smith",
-            # Missing: address, phone_number, longitude, latitude, halal, num_boxes
+            # Missing: address, phone_primary, longitude, latitude, halal, num_boxes
         }
         response = await async_client.post("/locations/", json=invalid_data)
         assert response.status_code == 422
@@ -1856,7 +1912,8 @@ class TestAnnouncementRoutes:
         from app.models.user import User
 
         user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin@test.com",
             auth_id="test-admin-ann-123",
             role="admin",
@@ -1889,7 +1946,8 @@ class TestAnnouncementRoutes:
         from app.models.user import User
 
         user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin2@test.com",
             auth_id="test-admin-ann-456",
             role="admin",
@@ -1928,7 +1986,8 @@ class TestAnnouncementRoutes:
         from app.models.user import User
 
         user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin3@test.com",
             auth_id="test-admin-ann-789",
             role="admin",
@@ -1963,7 +2022,8 @@ class TestAnnouncementRoutes:
         from app.models.user import User
 
         user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin4@test.com",
             auth_id="test-admin-ann-101",
             role="admin",

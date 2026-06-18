@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr
+from pydantic import EmailStr, computed_field
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -11,8 +11,14 @@ if TYPE_CHECKING:
 
 
 class UserBase(SQLModel):
-    name: str = Field(min_length=1, max_length=255)
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(unique=True, index=True, max_length=254)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
 
 
 class User(UserBase, BaseModel, table=True):
@@ -34,7 +40,8 @@ class UserRead(UserBase):
 
 
 class UserUpdate(SQLModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
+    first_name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=254)
 
 

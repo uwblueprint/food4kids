@@ -147,7 +147,7 @@ async def process_daily_driver_history() -> None:
                         route_stop_id=stop.route_stop_id,
                         address=loc.address,
                         contact_name=loc.contact_name,
-                        phone_number=loc.phone_number,
+                        phone_number=loc.phone_primary,
                         num_boxes=loc.num_boxes,
                         notes=loc.notes,
                         latitude=loc.latitude,

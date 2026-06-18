@@ -34,7 +34,7 @@ function getAlertDisplay(
       const missing: string[] = [];
       if (!location.contact_name) missing.push('Name');
       if (!location.address) missing.push('Address');
-      if (!location.phone_number) missing.push('Phone');
+      if (!location.phone_primary) missing.push('Phone');
       const label =
         missing.length === 1 ? `Missing ${missing[0]}` : 'Missing Fields';
       return { type: 'error', label };
@@ -137,9 +137,9 @@ export function ValidateStep() {
         ),
     },
     {
-      key: 'phone_number',
-      header: 'Phone Number',
-      render: (row) => row.location.phone_number ?? '',
+      key: 'phone_primary',
+      header: 'Primary Phone',
+      render: (row) => row.location.phone_primary ?? '',
       getCellClassName: (row) =>
         getCellClass(
           row,

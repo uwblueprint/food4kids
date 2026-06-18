@@ -71,7 +71,8 @@ class TestCoreBusinessValidation:
 
         # Test Driver phone validation
         driver_user = User(
-            name="Test Driver",
+            first_name="Test",
+            last_name="Driver",
             email="test@example.com",
             auth_id="test-123",
         )
@@ -87,7 +88,8 @@ class TestCoreBusinessValidation:
 
         # Test Admin phone validation
         admin_user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin@example.com",
             auth_id="test-1234",
         )
@@ -103,7 +105,8 @@ class TestCoreBusinessValidation:
         for phone in invalid_phones:
             with pytest.raises(ValidationError) as exc_info:
                 user = User(
-                    name="Test Driver",
+                    first_name="Test",
+                    last_name="Driver",
                     email="test@example.com",
                     auth_id="test-123",
                 )
@@ -127,7 +130,8 @@ class TestCoreBusinessValidation:
 
         for email in valid_emails:
             driver_user = User(
-                name="Test Driver",
+                first_name="Test",
+                last_name="Driver",
                 email=email,
                 auth_id="test-123",
             )
@@ -139,7 +143,8 @@ class TestCoreBusinessValidation:
         for email in invalid_emails:
             with pytest.raises(ValidationError) as exc_info:
                 User(
-                    name="Test Driver",
+                    first_name="Test",
+                    last_name="Driver",
                     email=email,
                     auth_id="test-123",
                 )
@@ -254,7 +259,7 @@ class TestCoreBusinessValidation:
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
                 contact_name="Jane Smith",
-                # Missing: address, phone_number, longitude, latitude, halal, num_boxes
+                # Missing: address, phone_primary, longitude, latitude, halal, num_boxes
             )
         error_str = str(exc_info.value)
         assert any(
@@ -262,7 +267,7 @@ class TestCoreBusinessValidation:
             for field in [
                 "address",
                 "delivery_type",
-                "phone_number",
+                "phone_primary",
                 "longitude",
                 "latitude",
                 "halal",
@@ -294,7 +299,7 @@ class TestCoreBusinessValidation:
                 contact_name="Jane Smith",
                 delivery_type=DeliveryTypeEnum.FAMILY,
                 address="123 Main St",
-                phone_number="(555) 123-4567",
+                phone_primary="(555) 123-4567",
                 longitude=-122.4194,
                 latitude=37.7749,
                 halal=False,
@@ -320,7 +325,8 @@ class TestCoreModels:
         """Test Driver model core operations."""
         # Create
         driver_user = User(
-            name="John Doe",
+            first_name="John",
+            last_name="Doe",
             email="john.doe@example.com",
             auth_id="auth-123",
         )
@@ -331,7 +337,7 @@ class TestCoreModels:
             license_plate="ABC123",
             car_make_model="Toyota Camry",
         )
-        assert driver_user.name == "John Doe"
+        assert driver_user.full_name == "John Doe"
         assert driver.active is True  # Default value
         assert driver.created_at is not None
 
@@ -359,7 +365,7 @@ class TestCoreModels:
             contact_name="Jane Smith",
             delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
-            phone_number="(555) 123-4567",
+            phone_primary="(555) 123-4567",
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
@@ -379,7 +385,7 @@ class TestCoreModels:
             contact_name="John Doe",
             delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave, City, State 12345",
-            phone_number="(555) 987-6543",
+            phone_primary="(555) 987-6543",
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
@@ -398,7 +404,7 @@ class TestCoreModels:
             contact_name="Jane Smith",
             delivery_type=DeliveryTypeEnum.SCHOOL,
             address="123 Main St, City, State 12345",
-            phone_number="(555) 123-4567",
+            phone_primary="(555) 123-4567",
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
@@ -685,7 +691,8 @@ class TestEnumsAndSerialization:
 
         # Test RoleEnum serialization (if used in models)
         user = User(
-            name="Test Driver",
+            first_name="Test",
+            last_name="Driver",
             email="test@example.com",
             auth_id="test-123",
         )
@@ -698,7 +705,9 @@ class TestEnumsAndSerialization:
         )
         user_dict = user.model_dump()
         driver_dict = driver.model_dump()
-        assert user_dict["name"] == "Test Driver"
+        assert user_dict["first_name"] == "Test"
+        assert user_dict["last_name"] == "Driver"
+        assert user_dict["full_name"] == "Test Driver"
         assert user_dict["email"] == "test@example.com"
         assert driver_dict["phone"] == "+12125551234"
         assert driver_dict["license_plate"] == "ABC123"
@@ -707,7 +716,8 @@ class TestEnumsAndSerialization:
         """Test model serialization and default value handling."""
         # Test that model_dump works correctly
         user = User(
-            name="Test Driver",
+            first_name="Test",
+            last_name="Driver",
             email="test@example.com",
             auth_id="test-123",
         )
@@ -721,7 +731,9 @@ class TestEnumsAndSerialization:
 
         user_dict = user.model_dump()
         driver_dict = driver.model_dump()
-        assert "name" in user_dict
+        assert "first_name" in user_dict
+        assert "last_name" in user_dict
+        assert "full_name" in user_dict
         assert "created_at" in driver_dict
         # updated_at should be None and might be excluded
         assert driver_dict["active"] is True  # Default value
@@ -734,7 +746,7 @@ class TestEnumsAndSerialization:
             contact_name="John Doe",
             delivery_type=DeliveryTypeEnum.FAMILY,
             address="456 Oak Ave",
-            phone_number="(555) 987-6543",
+            phone_primary="(555) 987-6543",
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
@@ -754,7 +766,8 @@ class TestModelValidation:
         # Test empty string validation
         with pytest.raises(ValidationError) as exc_info:
             user = User(
-                name="",  # Empty name should fail
+                first_name="",  # Empty first name should fail
+                last_name="Driver",
                 email="test@example.com",
                 auth_id="test-123",
             )
@@ -765,11 +778,12 @@ class TestModelValidation:
                 license_plate="ABC123",
                 car_make_model="Toyota Camry",
             )
-        assert "name" in str(exc_info.value)
+        assert "first_name" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
             user = User(
-                name="test-admin",
+                first_name="Test",
+                last_name="Admin",
                 email="admin@example.com",
                 auth_id="test-123",
             )
@@ -778,6 +792,17 @@ class TestModelValidation:
                 admin_phone="",  # Empty phone fails
             )
         assert "admin_phone" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            Driver(
+                user_id=uuid4(),
+                phone="+12125551234",
+                availability=[True, False],
+                address="123 Main St",
+                license_plate="ABC123",
+                car_make_model="Toyota Camry",
+            )
+        assert "availability" in str(exc_info.value)
 
     def test_note_message_validation(self) -> None:
         """Test note message validation (empty and too long)."""
@@ -815,7 +840,8 @@ class TestModelValidation:
         """Test that optional fields work correctly."""
         # Test Admin with only required fields
         user = User(
-            name="Jane Admin",
+            first_name="Jane",
+            last_name="Admin",
             email="jane@example.com",
             auth_id="test-123",
             role="admin",
@@ -844,7 +870,8 @@ class TestAnnouncementModel:
     def test_announcement_creation(self) -> None:
         """Test creating a valid announcement."""
         user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin@example.com",
             auth_id="test-admin-123",
             role="admin",
