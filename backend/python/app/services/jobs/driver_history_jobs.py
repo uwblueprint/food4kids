@@ -148,7 +148,7 @@ async def process_daily_driver_history() -> None:
                         address=loc.address,
                         contact_name=loc.contact_name,
                         phone_number=loc.phone_primary,
-                        num_boxes=loc.num_boxes,
+                        num_children=loc.num_children,
                         notes=loc.notes,
                         latitude=loc.latitude,
                         longitude=loc.longitude,

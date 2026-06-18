@@ -117,10 +117,6 @@ MAX_JOBS = 5
 NUM_CHILDREN_MIN = 1
 # Maximum number of children at a location
 NUM_CHILDREN_MAX = 4
-# Minimum number of boxes at a location
-NUM_BOXES_MIN = 1
-# Maximum number of boxes at a location
-NUM_BOXES_MAX = 5
 # Minimum kilometers driven in driver history (per year)
 DRIVER_HISTORY_KM_MIN = 500
 # Maximum kilometers driven in driver history (per year)
@@ -499,7 +495,7 @@ def materialize_route_for_group(
                 address=loc.address,
                 contact_name=loc.contact_name,
                 phone_number=loc.phone_primary,
-                num_boxes=loc.num_boxes,
+                num_children=loc.num_children,
                 notes=loc.notes,
                 latitude=loc.latitude,
                 longitude=loc.longitude,
@@ -636,12 +632,13 @@ def main() -> None:
                             dietary_restrictions=fake.sentence()
                             if random.random() < PROBABILITY_DIETARY_RESTRICTIONS
                             else "",
+                            # num_children is required; box count is derived from
+                            # it. Seed a 0 sometimes to exercise the zero-box case.
                             num_children=random.randint(
                                 NUM_CHILDREN_MIN, NUM_CHILDREN_MAX
                             )
                             if random.random() < PROBABILITY_NUM_CHILDREN
-                            else None,
-                            num_boxes=random.randint(NUM_BOXES_MIN, NUM_BOXES_MAX),
+                            else 0,
                             delivery_type=delivery_type,
                             in_roster=True,
                             notes=fake.sentence()

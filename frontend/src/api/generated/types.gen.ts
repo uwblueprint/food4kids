@@ -643,13 +643,9 @@ export type LocationCreate = {
    */
   notes?: string;
   /**
-   * Num Boxes
-   */
-  num_boxes?: number;
-  /**
    * Num Children
    */
-  num_children?: number | null;
+  num_children?: number;
   /**
    * Phone Primary
    */
@@ -795,9 +791,9 @@ export type LocationImportEntry = {
    */
   halal?: boolean | null;
   /**
-   * Num Boxes
+   * Num Children
    */
-  num_boxes?: number | null;
+  num_children?: number | null;
   /**
    * Phone Primary
    */
@@ -959,13 +955,9 @@ export type LocationReadInput = {
    */
   notes?: string;
   /**
-   * Num Boxes
-   */
-  num_boxes?: number;
-  /**
    * Num Children
    */
-  num_children?: number | null;
+  num_children?: number;
   /**
    * Phone Primary
    */
@@ -1048,13 +1040,9 @@ export type LocationReadOutput = {
    */
   notes?: string;
   /**
-   * Num Boxes
-   */
-  num_boxes?: number;
-  /**
    * Num Children
    */
-  num_children?: number | null;
+  num_children?: number;
   /**
    * Phone Primary
    */
@@ -1132,10 +1120,6 @@ export type LocationUpdate = {
    */
   notes?: string | null;
   /**
-   * Num Boxes
-   */
-  num_boxes?: number | null;
-  /**
    * Num Children
    */
   num_children?: number | null;
@@ -1210,9 +1194,9 @@ export type NetNewEntry = {
    */
   delivery_group?: string | null;
   /**
-   * Num Boxes
+   * Num Children
    */
-  num_boxes?: number | null;
+  num_children?: number | null;
   /**
    * Phone Primary
    */
@@ -1483,6 +1467,10 @@ export type RouteGenerationGroupInput = {
  * These are not persisted to the database; used as inputs to services.
  */
 export type RouteGenerationSettings = {
+  /**
+   * Children Per Box
+   */
+  children_per_box?: number;
   /**
    * Max Half Boxes Per Driver
    */
@@ -2016,9 +2004,9 @@ export type ValidatedLocationImportEntry = {
    */
   halal?: boolean | null;
   /**
-   * Num Boxes
+   * Num Children
    */
-  num_boxes?: number | null;
+  num_children?: number | null;
   /**
    * Phone Primary
    */
@@ -2243,13 +2231,9 @@ export type LocationReadOutputWritable = {
    */
   notes?: string;
   /**
-   * Num Boxes
-   */
-  num_boxes?: number;
-  /**
    * Num Children
    */
-  num_children?: number | null;
+  num_children?: number;
   /**
    * Phone Primary
    */

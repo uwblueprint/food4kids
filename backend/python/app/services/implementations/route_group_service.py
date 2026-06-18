@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import Integer, and_, case, distinct, exists, func, or_
+from sqlalchemy import and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
@@ -26,6 +26,7 @@ from app.models.route_group import (
     RouteReadSummary,
 )
 from app.models.route_stop import RouteStop
+from app.utilities.boxes import box_count_expr, resolve_children_per_box
 
 
 class RouteGroupService:
@@ -84,6 +85,8 @@ class RouteGroupService:
     ) -> list[RouteGroupRead]:
         """Get route groups with optional date filtering and aggregate stats."""
 
+        children_per_box = await resolve_children_per_box(session)
+
         group_location_ids: Any = (
             select(distinct(RouteStop.location_id))  # type: ignore[arg-type]
             .select_from(Route)
@@ -105,12 +108,7 @@ class RouteGroupService:
         num_boxes_subq = (
             select(
                 func.coalesce(
-                    func.cast(
-                        func.sum(
-                            func.ceil(func.coalesce(Location.num_children, 0) / 2.0)
-                        ),
-                        Integer,
-                    ),
+                    func.sum(box_count_expr(Location.num_children, children_per_box)),
                     0,
                 )
             )

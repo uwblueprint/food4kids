@@ -42,6 +42,9 @@ from app.services.implementations.sweep_clustering import (
 # Use the same connection string as seed_database.py
 DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
 
+# Children-per-box divisor for box estimates in this dev script.
+CHILDREN_PER_BOX = 2
+
 # Minimum drivers for exact-N mode; actual count scales up with location count.
 NUM_CLUSTERS = 10
 MAX_LOCATIONS_PER_CLUSTER = 5
@@ -252,7 +255,7 @@ def _print_and_collect_rows(
             far_label = _far_reason_label(algo, location)
             if far_label != "near":
                 cluster_has_far = True
-            cluster_boxes += effective_boxes(location)
+            cluster_boxes += effective_boxes(location, CHILDREN_PER_BOX)
             df_rows.append(
                 _location_plot_row(location, group=index, far_label=far_label)
             )
@@ -268,7 +271,9 @@ def _print_and_collect_rows(
                 far_label = _far_reason_label(algo, location)
                 print(f"  • {name}" + (" [FAR]" if far_label != "near" else ""))
                 print(f"    {location.address}")
-                print(f"    Boxes: {effective_boxes(location)} | {far_label}")
+                print(
+                    f"    Boxes: {effective_boxes(location, CHILDREN_PER_BOX)} | {far_label}"
+                )
             far_note = " (includes far — max 5 stops/route)" if cluster_has_far else ""
             print(f"\n  Total boxes in cluster: {cluster_boxes}{far_note}")
 
@@ -391,6 +396,7 @@ async def main() -> None:
         clustering_algo = SweepClusteringAlgorithm(
             warehouse_lat=warehouse_lat,
             warehouse_lon=warehouse_lon,
+            children_per_box=CHILDREN_PER_BOX,
         )
 
         _print_far_summary(locations, clustering_algo)
@@ -404,7 +410,7 @@ async def main() -> None:
         )
         num_clusters_exact = _num_clusters_for_exact(len(locations), far_count)
 
-        total_boxes = sum(effective_boxes(loc) for loc in locations)
+        total_boxes = sum(effective_boxes(loc, CHILDREN_PER_BOX) for loc in locations)
 
         print(f"Total effective boxes: {total_boxes}")
         print(f"Total locations: {len(locations)}")

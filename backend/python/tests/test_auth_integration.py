@@ -323,7 +323,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         contact_name="Seed Location",
         address="123 Seed St",
         phone_primary="5550000001",
-        num_boxes=4,
+        num_children=8,
         delivery_type=DeliveryTypeEnum.FAMILY,
     )
     test_session.add_all([route, location])

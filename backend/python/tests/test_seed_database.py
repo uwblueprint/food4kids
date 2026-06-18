@@ -101,7 +101,7 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
             "latitude",
             "longitude",
             "halal",
-            "num_boxes",
+            "num_children",
         ],
     ),
     (Route, ["name", "length"]),
