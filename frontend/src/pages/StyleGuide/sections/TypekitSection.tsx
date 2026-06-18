@@ -61,8 +61,8 @@ export function TypekitSection() {
               />
               <TypekitRow
                 label="Desktop/Paragraph/P1"
-                className="text-grey-500 text-[var(--text-p1)]"
-                spec="Nunito Sans | Text size: 16px | Line height: 20px"
+                className="text-grey-500 font-medium text-[var(--text-p1)]"
+                spec="Nunito Sans Medium | Text size: 16px | Line height: 24px"
                 code="text-p1"
               />
               <TypekitRow
@@ -79,9 +79,9 @@ export function TypekitSection() {
               />
               <TypekitRow
                 label="UI/Button"
-                className="text-h3 text-grey-500 font-bold"
-                spec="Nunito | Text size: 16px | Line height: 20px"
-                code="font-nunito font-bold"
+                className="font-nunito text-button text-grey-500"
+                spec="Nunito Medium | Text size: 16px | Line height: 20px"
+                code="font-nunito text-button"
               />
             </div>
           </div>
@@ -146,9 +146,9 @@ export function TypekitSection() {
               />
               <TypekitRow
                 label="UI/Button"
-                className="text-h3 text-grey-500 font-bold"
-                spec="Nunito | Text size: 16px | Line height: 20px"
-                code="font-nunito font-bold"
+                className="font-nunito text-button text-grey-500"
+                spec="Nunito Medium | Text size: 16px | Line height: 20px"
+                code="font-nunito text-button"
               />
             </div>
           </div>
