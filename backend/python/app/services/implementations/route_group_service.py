@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import Integer, and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
 from app.config import settings
@@ -156,12 +157,10 @@ class RouteGroupService:
 
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        thirty_days_ago = now - timedelta(days=30)
 
         status_expr = case(
             (RouteGroup.drive_date >= today_start, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
-            (RouteGroup.drive_date >= thirty_days_ago, RouteStatusEnum.COMPLETED.value),  # type: ignore[arg-type]
-            else_=RouteStatusEnum.ARCHIVED.value,
+            else_=RouteStatusEnum.COMPLETED.value,
         ).label("status")
 
         statement = select(  # type: ignore[call-overload]
@@ -248,6 +247,7 @@ class RouteGroupService:
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 
+        statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
         statement = statement.order_by(RouteGroup.drive_date)
 
         result = await session.execute(statement)
@@ -256,7 +256,6 @@ class RouteGroupService:
         items: list[RouteGroupRead] = []
         for row in rows:
             rg: RouteGroup = row.RouteGroup
-            await session.refresh(rg, ["routes"])
 
             routes: list[RouteReadSummary] = []
             if include_routes:
