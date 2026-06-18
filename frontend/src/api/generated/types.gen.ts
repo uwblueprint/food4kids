@@ -3430,6 +3430,130 @@ export type UpdateNoteResponses = {
 
 export type UpdateNoteResponse = UpdateNoteResponses[keyof UpdateNoteResponses];
 
+export type GetTotalDeliveriesBetweenData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Start
+     *
+     * Start datetime (assumed EST if no tz)
+     */
+    start: string;
+    /**
+     * End
+     *
+     * End datetime (assumed EST if no tz)
+     */
+    end: string;
+  };
+  url: '/reports/deliveries/count';
+};
+
+export type GetTotalDeliveriesBetweenErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetTotalDeliveriesBetweenError =
+  GetTotalDeliveriesBetweenErrors[keyof GetTotalDeliveriesBetweenErrors];
+
+export type GetTotalDeliveriesBetweenResponses = {
+  /**
+   * Response Get Total Deliveries Between
+   *
+   * Successful Response
+   */
+  200: {
+    [key: string]: number;
+  };
+};
+
+export type GetTotalDeliveriesBetweenResponse =
+  GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
+
+export type GetMonthlyRankingData = {
+  body?: never;
+  path: {
+    /**
+     * Year
+     */
+    year: number;
+    /**
+     * Month
+     */
+    month: number;
+  };
+  query?: never;
+  url: '/reports/monthly/{year}/{month}/ranking';
+};
+
+export type GetMonthlyRankingErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlyRankingError =
+  GetMonthlyRankingErrors[keyof GetMonthlyRankingErrors];
+
+export type GetMonthlyRankingResponses = {
+  /**
+   * Response Get Monthly Ranking
+   *
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type GetMonthlyRankingResponse =
+  GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
+
+export type GetMonthlyTotalsData = {
+  body?: never;
+  path: {
+    /**
+     * Year
+     */
+    year: number;
+    /**
+     * Month
+     */
+    month: number;
+  };
+  query?: never;
+  url: '/reports/monthly/{year}/{month}/totals';
+};
+
+export type GetMonthlyTotalsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlyTotalsError =
+  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
+
+export type GetMonthlyTotalsResponses = {
+  /**
+   * Response Get Monthly Totals
+   *
+   * Successful Response
+   */
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type GetMonthlyTotalsResponse =
+  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
+
 export type GetRouteGroupsData = {
   body?: never;
   path?: never;
