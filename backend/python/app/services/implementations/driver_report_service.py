@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
@@ -77,11 +77,12 @@ class DriverReportService:
         start_dt and end_dt should be timezone-aware datetimes.
         """
         try:
-            # Normalise datetimes to naive UTC to match DB TIMESTAMP WITHOUT TIME ZONE
+            # Normalise datetimes to naive local (scheduler) time to match DB storage
+            # Convert incoming tz-aware datetimes to scheduler timezone then drop tzinfo
             if start_dt.tzinfo is not None:
-                start_dt = start_dt.astimezone(timezone.utc).replace(tzinfo=None)
+                start_dt = start_dt.astimezone(self.timezone).replace(tzinfo=None)
             if end_dt.tzinfo is not None:
-                end_dt = end_dt.astimezone(timezone.utc).replace(tzinfo=None)
+                end_dt = end_dt.astimezone(self.timezone).replace(tzinfo=None)
 
             # Join route_stop_snapshots -> route_stops -> routes -> route_groups
             from app.models.route import Route
@@ -109,15 +110,11 @@ class DriverReportService:
     async def get_total_deliveries_for_month(
         self, session: AsyncSession, year: int, month: int
     ) -> int:
-        # Build month boundaries in scheduler timezone, then convert to UTC
+        # Build month boundaries in scheduler timezone and pass them through
         start = datetime(year, month, 1, 0, 0, tzinfo=self.timezone)
         if month == 12:
             end = datetime(year + 1, 1, 1, 0, 0, tzinfo=self.timezone)
         else:
             end = datetime(year, month + 1, 1, 0, 0, tzinfo=self.timezone)
 
-        # Convert boundaries to UTC for DB comparisons
-        start_utc = start.astimezone(timezone.utc)
-        end_utc = end.astimezone(timezone.utc)
-
-        return await self.get_total_deliveries_between(session, start_utc, end_utc)
+        return await self.get_total_deliveries_between(session, start, end)

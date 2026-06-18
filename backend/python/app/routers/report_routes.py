@@ -37,11 +37,9 @@ async def get_total_deliveries_between(
         start_est = _ensure_est(start)
         end_est = _ensure_est(end)
 
-        # Convert to UTC for DB comparisons inside service (it expects tz-aware UTC)
-        start_utc = start_est.astimezone(ZoneInfo("UTC"))
-        end_utc = end_est.astimezone(ZoneInfo("UTC"))
-
-        total = await service.get_total_deliveries_between(session, start_utc, end_utc)
+        # Pass scheduler-timezone-aware datetimes to the service. The service
+        # will normalize them to naive scheduler-local datetimes to match DB.
+        total = await service.get_total_deliveries_between(session, start_est, end_est)
         return {"total_deliveries": total}
     except Exception as e:
         logger.exception(f"Failed to get deliveries between: {e}")
