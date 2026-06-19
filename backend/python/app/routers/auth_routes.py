@@ -6,13 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import get_current_database_user_id, get_current_user_email
+from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import (
     get_auth_service,
+    get_password_reset_token_service
 )
 from app.models import get_session
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
 from app.services.implementations.auth_service import AuthService
+from app.services.implementations.password_reset_token_service import PasswordResetTokenService
 from app.utilities.cookies import get_cookie_options
 
 # Initialize logger
@@ -138,12 +140,12 @@ async def logout(
         ) from e
 
 
-@router.post("/resetPassword/{email}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
 async def reset_password(
     email: EmailStr,
     _session: AsyncSession = Depends(get_session),
-    current_user_email: str = Depends(get_current_user_email),
     auth_service: AuthService = Depends(get_auth_service),
+    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service)
 ) -> None:
     """
     Triggers password reset for user with specified email (reset link will be emailed)
