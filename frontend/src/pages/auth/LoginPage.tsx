@@ -140,7 +140,7 @@ export const LoginPage = () => {
 
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
-                  <label className="flex cursor-pointer items-center gap-2 text-p1 font-medium select-none">
+                  <label className="flex cursor-pointer items-center gap-2 text-m-p2 tablet:font-medium select-none">
                     <input
                       type="checkbox"
                       checked={rememberMe}
@@ -151,7 +151,7 @@ export const LoginPage = () => {
                   </label>
                   <a
                     href="/forgot-password"
-                    className="text-p1 font-medium text-blue-300 hover:underline"
+                    className="text-m-p2 tablet:font-medium text-blue-300 hover:underline"
                     onClick={(e) => {
                       e.preventDefault();
                       // TODO: Implement forgot password action
@@ -175,7 +175,7 @@ export const LoginPage = () => {
             </form>
 
             {/* Footer */}
-            <p className="mt-6 mb-8 desktop:mt-5 text-center text-p1">
+            <p className="mt-6 mb-8 desktop:mt-5 text-center text-m-p2 tablet:font-medium">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
