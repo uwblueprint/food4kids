@@ -34,7 +34,7 @@ export const LoginPage = () => {
   return (
     <div className="relative flex h-screen w-full flex-row overflow-auto desktop:overflow-hidden">
       {/* Left Column: Form Section */}
-      <div className="tablet:flex w-full desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8cqw]">
+      <div className="tablet:flex w-full desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw]">
         <div className="flex px-5 pt-16 tablet:pt-0 tablet:px-0 w-full tablet:max-w-126 desktop:max-w-100 flex-col gap-8">
           {/* Logo and Heading */}
           <div className="flex-col">
@@ -73,7 +73,7 @@ export const LoginPage = () => {
             <form onSubmit={handleLogin} className="flex flex-col gap-6">
               {/* Email Field */}
               <Field>
-                <FieldLabel htmlFor="email" className="text-h3">
+                <FieldLabel htmlFor="email">
                   Email
                 </FieldLabel>
                 <Input
@@ -100,7 +100,7 @@ export const LoginPage = () => {
               <div className="flex flex-col gap-4">
                 {/* Password Field */}
                 <Field>
-                  <FieldLabel htmlFor="password" className="text-h3">
+                  <FieldLabel htmlFor="password">
                     Password
                   </FieldLabel>
                   <div className="relative w-full">
