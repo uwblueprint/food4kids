@@ -32,10 +32,10 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="relative flex h-screen w-full flex-row overflow-auto lg:overflow-hidden">
+    <div className="relative flex h-screen w-full flex-row overflow-auto desktop:overflow-hidden">
       {/* Left Column: Form Section */}
-      <div className="md:flex w-full lg:w-1/2 md:items-center md:justify-center lg:justify-start lg:pl-[8cqw]">
-        <div className="flex px-5 pt-16 md:pt-0 md:px-0 w-full md:max-w-126 lg:max-w-100 flex-col gap-8">
+      <div className="tablet:flex w-full desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8cqw]">
+        <div className="flex px-5 pt-16 tablet:pt-0 tablet:px-0 w-full tablet:max-w-126 desktop:max-w-100 flex-col gap-8">
           {/* Logo and Heading */}
           <div className="flex-col">
             <div className="self-start">
@@ -43,17 +43,17 @@ export const LoginPage = () => {
               <img
                 src={logoImg}
                 alt="Food4Kids Waterloo Region Logo"
-                className="hidden lg:block h-26 w-auto object-contain"
+                className="hidden desktop:block h-26 w-auto object-contain"
               />
               {/* Mobile Logo */}
               <img
                 src={logoImgMobile}
                 alt="Food4Kids Waterloo Region Logo"
-                className="lg:hidden h-7 w-auto absolute top-5 left-5"
+                className="desktop:hidden h-7 w-auto absolute top-5 left-5"
               />
             </div>
             {/* Mobile Login Illustration */}
-            <div className="flex flex-row lg:hidden justify-center items-center mb-6">
+            <div className="flex flex-row desktop:hidden justify-center items-center mb-6">
               <img
                 src={loginPageIllustrationMobile}
                 alt="Food4Kids Waterloo Region Illustration"
@@ -175,7 +175,7 @@ export const LoginPage = () => {
             </form>
 
             {/* Desktop Footer */}
-            <p className="hidden lg:block mt-5 text-center text-p1">
+            <p className="hidden desktop:block mt-5 text-center text-p1">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
@@ -189,7 +189,7 @@ export const LoginPage = () => {
               </a>
             </p>
             {/* Mobile Footer */}
-            <p className="lg:hidden mt-6 mb-8 text-center text-p1">
+            <p className="desktop:hidden mt-6 mb-8 text-center text-p1">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
@@ -207,7 +207,7 @@ export const LoginPage = () => {
       </div>
 
       {/* Right Column: Illustration Section */}
-      <div className="hidden lg:block h-full w-1/2 overflow-hidden">
+      <div className="hidden desktop:block h-full w-1/2 overflow-hidden">
         <img
           src={loginPageIllustration}
           alt="Food4Kids Illustration"
