@@ -174,22 +174,8 @@ export const LoginPage = () => {
               </Button>
             </form>
 
-            {/* Desktop Footer */}
-            <p className="hidden desktop:block mt-5 text-center text-p1">
-              Don't have an account?{' '}
-              <a
-                href="/get-login-link"
-                className="text-blue-300 hover:underline"
-                onClick={(e) => {
-                  e.preventDefault();
-                  // TODO: Implement get login link action
-                }}
-              >
-                Get your login link
-              </a>
-            </p>
-            {/* Mobile Footer */}
-            <p className="desktop:hidden mt-6 mb-8 text-center text-p1">
+            {/* Footer */}
+            <p className="mt-6 mb-8 desktop:mt-5 text-center text-p1">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
