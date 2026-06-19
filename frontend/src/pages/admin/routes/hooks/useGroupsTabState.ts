@@ -1,6 +1,12 @@
 import { useState } from 'react';
 
-import type { RouteGroupRow } from '@/api/route-groups';
+import type {
+  DeliveryTypeEnum,
+  DriveDaysOfWeekEnum,
+  DriverAssignmentStatusEnum,
+  RouteGroupRead,
+  RouteStatusEnum,
+} from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
@@ -27,7 +33,7 @@ const copyFilters = (f: GroupsFilterState): GroupsFilterState => ({
 });
 
 export interface GroupsTabState {
-  rows: RouteGroupRow[];
+  rows: RouteGroupRead[];
   isLoading: boolean;
   search: UseSearchReturn;
   filterOpen: boolean;
@@ -52,23 +58,25 @@ export function useGroupsTabState(): GroupsTabState {
     (s) => s.size > 0
   );
 
+  // Filter chips carry exactly the enum values (see the typed constant arrays
+  // in RouteGroupsTab), so casting the string Sets to the enum arrays the API
+  // expects is safe. Search is local-only UI — the endpoint has no search param.
   const { data: rows = [], isLoading } = useRouteGroups({
-    search: search.value || undefined,
-    weekdays:
+    weekday:
       appliedFilters.weekdays.size > 0
-        ? [...appliedFilters.weekdays]
+        ? ([...appliedFilters.weekdays] as DriveDaysOfWeekEnum[])
         : undefined,
-    deliveryTypes:
+    delivery_type:
       appliedFilters.deliveryTypes.size > 0
-        ? [...appliedFilters.deliveryTypes]
+        ? ([...appliedFilters.deliveryTypes] as DeliveryTypeEnum[])
         : undefined,
-    routeStatuses:
+    route_status:
       appliedFilters.routeStatuses.size > 0
-        ? [...appliedFilters.routeStatuses]
+        ? ([...appliedFilters.routeStatuses] as RouteStatusEnum[])
         : undefined,
-    driverStatuses:
+    driver_assignment_status:
       appliedFilters.driverStatuses.size > 0
-        ? [...appliedFilters.driverStatuses]
+        ? ([...appliedFilters.driverStatuses] as DriverAssignmentStatusEnum[])
         : undefined,
   });
 
