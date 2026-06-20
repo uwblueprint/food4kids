@@ -1,10 +1,9 @@
 import logging
 from datetime import datetime
-from typing import List
 from zoneinfo import ZoneInfo
-from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -47,7 +46,7 @@ async def get_total_deliveries_between(
     end: datetime = Query(..., description="End datetime (assumed EST if no tz)"),
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
- ) -> DeliveriesCountResponse:
+) -> DeliveriesCountResponse:
     """Return total deliveries (route stop snapshots) between start and end.
     Query params are treated as EST if no timezone is provided.
     """
@@ -66,13 +65,13 @@ async def get_total_deliveries_between(
         ) from e
 
 
-@router.get("/monthly/{year}/{month}/ranking", response_model=List[DriverRankingItem])
+@router.get("/monthly/{year}/{month}/ranking", response_model=list[DriverRankingItem])
 async def get_monthly_ranking(
     year: int,
     month: int,
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
- ) -> List[DriverRankingItem]:
+) -> list[DriverRankingItem]:
     """Return monthly ranking list of drivers by km (descending)."""
     try:
         if month < 1 or month > 12:
@@ -80,7 +79,7 @@ async def get_monthly_ranking(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
             )
         rankings = await service.get_monthly_km_ranking(session, year, month)
-        items: List[DriverRankingItem] = [DriverRankingItem(**r) for r in rankings]
+        items: list[DriverRankingItem] = [DriverRankingItem(**r) for r in rankings]
         return items
     except HTTPException:
         raise
@@ -97,7 +96,7 @@ async def get_monthly_totals(
     month: int,
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
- ) -> MonthlyTotalsResponse:
+) -> MonthlyTotalsResponse:
     """Return total distance driven and total deliveries for the month."""
     try:
         if month < 1 or month > 12:
