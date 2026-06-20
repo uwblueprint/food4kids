@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import {
   Button,
@@ -30,32 +30,31 @@ interface AnnouncementFormModalProps {
   isSubmitting?: boolean;
 }
 
-export function AnnouncementFormModal({
-  open,
-  onOpenChange,
+interface AnnouncementFormProps {
+  mode: 'create' | 'edit';
+  role: 'admin' | 'driver';
+  announcement?: Announcement;
+  onSubmit: AnnouncementFormModalProps['onSubmit'];
+  onOpenChange: (open: boolean) => void;
+  isSubmitting: boolean;
+}
+
+function AnnouncementForm({
   mode,
   role,
   announcement,
   onSubmit,
-  isSubmitting = false,
-}: AnnouncementFormModalProps) {
-  const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
+  onOpenChange,
+  isSubmitting,
+}: AnnouncementFormProps) {
+  const [subject, setSubject] = useState(() =>
+    mode === 'edit' && announcement ? announcement.subject : ''
+  );
+  const [message, setMessage] = useState(() =>
+    mode === 'edit' && announcement ? announcement.message : ''
+  );
   const [sendEmailToAll, setSendEmailToAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    if (mode === 'edit' && announcement) {
-      setSubject(announcement.subject);
-      setMessage(announcement.message);
-    } else {
-      setSubject('');
-      setMessage('');
-    }
-    setSendEmailToAll(false);
-    setError(null);
-  }, [open, mode, announcement]);
 
   const trimmedSubject = subject.trim();
   const trimmedMessage = message.trim();
@@ -82,77 +81,107 @@ export function AnnouncementFormModal({
   };
 
   return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <ModalHeader>
+        <ModalTitle>Announcements</ModalTitle>
+      </ModalHeader>
+
+      <Field>
+        <FieldLabel htmlFor="announcement-subject" required>
+          Subject
+        </FieldLabel>
+        <Input
+          id="announcement-subject"
+          placeholder="Enter text here"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          maxCharacters={SUBJECT_MAX}
+          characterCount={subject.length}
+        />
+      </Field>
+
+      <Field>
+        <FieldLabel htmlFor="announcement-message" required>
+          Note
+        </FieldLabel>
+        <Textarea
+          id="announcement-message"
+          placeholder="Enter text here"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          maxCharacters={MESSAGE_MAX}
+          characterCount={message.length}
+        />
+      </Field>
+
+      {mode === 'create' && role === 'admin' && (
+        <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
+          <input
+            type="checkbox"
+            className="border-grey-300 text-blue-300 size-4 rounded"
+            checked={sendEmailToAll}
+            onChange={(event) => setSendEmailToAll(event.target.checked)}
+          />
+          Send email to all
+        </label>
+      )}
+
+      {error && (
+        <p className="text-p2 text-red" role="alert">
+          {error}
+        </p>
+      )}
+
+      <ModalFooter>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => onOpenChange(false)}
+          disabled={isSubmitting}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting || !canSubmit}>
+          {isSubmitting ? 'Saving…' : mode === 'create' ? 'Post' : 'Save'}
+        </Button>
+      </ModalFooter>
+    </form>
+  );
+}
+
+function formKey(
+  mode: 'create' | 'edit',
+  announcement?: Announcement
+): string {
+  if (mode === 'edit' && announcement) {
+    return `edit-${announcement.announcement_id}`;
+  }
+  return 'create';
+}
+
+export function AnnouncementFormModal({
+  open,
+  onOpenChange,
+  mode,
+  role,
+  announcement,
+  onSubmit,
+  isSubmitting = false,
+}: AnnouncementFormModalProps) {
+  return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent className="max-w-[560px]">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <ModalHeader>
-            <ModalTitle>Announcements</ModalTitle>
-          </ModalHeader>
-
-          <Field>
-            <FieldLabel htmlFor="announcement-subject" required>
-              Subject
-            </FieldLabel>
-            <Input
-              id="announcement-subject"
-              placeholder="Enter text here"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              maxCharacters={SUBJECT_MAX}
-              characterCount={subject.length}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel htmlFor="announcement-message" required>
-              Note
-            </FieldLabel>
-            <Textarea
-              id="announcement-message"
-              placeholder="Enter text here"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              maxCharacters={MESSAGE_MAX}
-              characterCount={message.length}
-            />
-          </Field>
-
-          {mode === 'create' && role === 'admin' && (
-            <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                className="border-grey-300 text-blue-300 size-4 rounded"
-                checked={sendEmailToAll}
-                onChange={(event) => setSendEmailToAll(event.target.checked)}
-              />
-              Send email to all
-            </label>
-          )}
-
-          {error && (
-            <p className="text-p2 text-red" role="alert">
-              {error}
-            </p>
-          )}
-
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting || !canSubmit}>
-              {isSubmitting
-                ? 'Saving…'
-                : mode === 'create'
-                  ? 'Post'
-                  : 'Save'}
-            </Button>
-          </ModalFooter>
-        </form>
+        {open ? (
+          <AnnouncementForm
+            key={formKey(mode, announcement)}
+            mode={mode}
+            role={role}
+            announcement={announcement}
+            onSubmit={onSubmit}
+            onOpenChange={onOpenChange}
+            isSubmitting={isSubmitting}
+          />
+        ) : null}
       </ModalContent>
     </Modal>
   );
