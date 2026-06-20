@@ -2139,6 +2139,32 @@ class TestAnnouncementRoutes:
         response = await authed_async_client.delete(f"/announcements/{fake_id}")
         assert response.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_send_announcement_email(
+        self,
+        authed_async_client: AsyncClient,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """POST /announcements/{id}/email notifies active drivers."""
+        mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email"
+        )
+        assert response.status_code == 200
+        assert response.json() == {"sent": 1, "failed": 0}
+        assert test_driver.user_id is not None
+
 
 class TestJobRoutes:
     """Test suite for job API routes."""
