@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
+from .enum import DeliveryTypeEnum, RouteStatusEnum
 
 if TYPE_CHECKING:
     from .route import Route
@@ -51,6 +52,15 @@ class RouteGroupCreate(RouteGroupBase):
     pass
 
 
+class RouteReadSummary(SQLModel):
+    """Lightweight route info returned inside a route group response"""
+
+    route_id: UUID
+    name: str
+    notes: str = ""
+    length: float = 0
+
+
 class RouteGroupRead(RouteGroupBase):
     """Read response model"""
 
@@ -58,6 +68,12 @@ class RouteGroupRead(RouteGroupBase):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     num_routes: int
+    num_locations: int = 0
+    num_boxes: int = 0
+    num_drivers_assigned: int = 0
+    delivery_type: DeliveryTypeEnum | None = None
+    status: RouteStatusEnum
+    routes: list[RouteReadSummary] = []
 
 
 class RouteGroupUpdate(SQLModel):

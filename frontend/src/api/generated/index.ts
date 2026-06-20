@@ -359,6 +359,7 @@ export type {
   RouteGroupUpdate,
   RoutePatchRequest,
   RouteRead,
+  RouteReadSummary,
   RouteStatusEnum,
   RouteWithDateRead,
   StaleEntry,

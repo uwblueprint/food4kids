@@ -1,47 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 
-import axiosClient from '@/lib/axiosClient';
+import { getRouteGroupsOptions } from './generated/@tanstack/react-query.gen';
+import type { GetRouteGroupsData } from './generated/types.gen';
 
-// WIP shell: this hook is still hand-written, and RouteGroupRow is the shape
-// the Groups tab wants — not a generated API type, since the backend doesn't
-// return these aggregates yet (F4KRP-196). When it does, swap RouteGroupRow
-// for the generated type here and convert useRouteGroups to the generated
-// client; consumers importing RouteGroupRow from this module stay unchanged.
-export type RouteStatus = 'Upcoming' | 'Completed' | 'Archived';
-
-export interface RouteGroupRow {
-  id: string;
-  name: string;
-  date: string;
-  delivery_type: string;
-  num_routes: number;
-  num_locations: number;
-  num_boxes: number;
-  num_drivers_assigned: number;
-  status: RouteStatus;
-}
-
-export interface RouteGroupsParams {
-  search?: string;
-  weekdays?: string[];
-  deliveryTypes?: string[];
-  routeStatuses?: string[];
-  driverStatuses?: string[];
-}
-
-async function fetchRouteGroups(
-  params: RouteGroupsParams
-): Promise<RouteGroupRow[]> {
-  const response = await axiosClient.get<RouteGroupRow[]>('/route-groups', {
-    params,
-  });
-  return response.data;
-}
-
-export function useRouteGroups(params: RouteGroupsParams) {
+/**
+ * Fetch the (filtered) list of route groups for the admin routes "Groups" tab.
+ *
+ * The aggregate fields the tab renders (num_locations, num_boxes,
+ * num_drivers_assigned, delivery_type, status) are computed server-side and
+ * returned on RouteGroupRead (F4KRP-196). Consumers should import that
+ * generated type rather than a hand-written row shape.
+ *
+ * GET /route-groups has no full-text search param yet, so the tab's search box
+ * is local-only UI for now — only the filter chips hit the server.
+ */
+export function useRouteGroups(query: GetRouteGroupsData['query']) {
   return useQuery({
-    queryKey: ['route-groups', params],
-    queryFn: () => fetchRouteGroups(params),
+    ...getRouteGroupsOptions({ query }),
     placeholderData: [],
   });
 }

@@ -2558,6 +2558,16 @@
             ],
             "title": "Created At"
           },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2574,6 +2584,21 @@
             "title": "Notes",
             "type": "string"
           },
+          "num_boxes": {
+            "default": 0,
+            "title": "Num Boxes",
+            "type": "integer"
+          },
+          "num_drivers_assigned": {
+            "default": 0,
+            "title": "Num Drivers Assigned",
+            "type": "integer"
+          },
+          "num_locations": {
+            "default": 0,
+            "title": "Num Locations",
+            "type": "integer"
+          },
           "num_routes": {
             "title": "Num Routes",
             "type": "integer"
@@ -2582,6 +2607,17 @@
             "format": "uuid",
             "title": "Route Group Id",
             "type": "string"
+          },
+          "routes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RouteReadSummary"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RouteStatusEnum"
           },
           "updated_at": {
             "anyOf": [
@@ -2600,7 +2636,8 @@
           "name",
           "drive_date",
           "route_group_id",
-          "num_routes"
+          "num_routes",
+          "status"
         ],
         "title": "RouteGroupRead",
         "type": "object"
@@ -2830,6 +2867,36 @@
         "title": "RouteRead",
         "type": "object"
       },
+      "RouteReadSummary": {
+        "description": "Lightweight route info returned inside a route group response",
+        "properties": {
+          "length": {
+            "default": 0,
+            "title": "Length",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route_id",
+          "name"
+        ],
+        "title": "RouteReadSummary",
+        "type": "object"
+      },
       "RouteStatusEnum": {
         "enum": [
           "Upcoming",
@@ -2842,6 +2909,10 @@
       "RouteWithDateRead": {
         "description": "Read response model for routes with drive date information.\n\ndrive_date is sourced from RouteGroup.drive_date via the route_group\nrelationship.",
         "properties": {
+          "box_total": {
+            "title": "Box Total",
+            "type": "integer"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2859,6 +2930,10 @@
             "title": "Notes",
             "type": "string"
           },
+          "num_stops": {
+            "title": "Num Stops",
+            "type": "integer"
+          },
           "route_id": {
             "format": "uuid",
             "title": "Route Id",
@@ -2870,7 +2945,9 @@
           "name",
           "notes",
           "length",
-          "drive_date"
+          "drive_date",
+          "num_stops",
+          "box_total"
         ],
         "title": "RouteWithDateRead",
         "type": "object"
@@ -5950,8 +6027,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/RouteGroupRead"
                   },
                   "title": "Response Get Route Groups",
                   "type": "array"
