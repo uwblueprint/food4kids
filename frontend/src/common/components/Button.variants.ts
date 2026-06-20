@@ -13,7 +13,8 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-blue-300 text-grey-100 hover:bg-blue-400',
+        primary:
+          'bg-blue-300 text-grey-100 border border-blue-400 hover:bg-blue-400',
         secondary:
           'bg-grey-200 text-grey-500 border border-grey-300 hover:bg-grey-300',
         tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
