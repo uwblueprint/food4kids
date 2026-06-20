@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import { getAccessToken } from './authSession';
+import { ensureAuthSession, getAccessToken, invalidateAuthSession } from './authSession';
 
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
@@ -19,7 +19,31 @@ axiosClient.interceptors.request.use((config) => {
 
 axiosClient.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error)
+  async (error) => {
+    const originalRequest = error.config as
+      | (typeof error.config & { _authRetry?: boolean })
+      | undefined;
+
+    const status = error.response?.status;
+    const shouldRetryAuth =
+      import.meta.env.DEV &&
+      originalRequest &&
+      !originalRequest._authRetry &&
+      (status === 401 || status === 403);
+
+    if (shouldRetryAuth) {
+      originalRequest._authRetry = true;
+      invalidateAuthSession();
+      const loggedIn = await ensureAuthSession();
+      const token = getAccessToken();
+      if (loggedIn && token) {
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return axiosClient(originalRequest);
+      }
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 export default axiosClient;

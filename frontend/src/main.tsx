@@ -9,12 +9,10 @@ import App from './App.tsx';
 import { ensureAuthSession } from './lib/authSession.ts';
 import queryClient from './lib/queryClient.ts';
 
-const root = document.getElementById('root')!;
-
 async function bootstrap() {
   await ensureAuthSession();
 
-  createRoot(root).render(
+  createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <App />
