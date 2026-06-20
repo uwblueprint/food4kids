@@ -415,6 +415,19 @@
         "title": "ChangedFieldStr",
         "type": "object"
       },
+      "DeliveriesCountResponse": {
+        "properties": {
+          "total_deliveries": {
+            "title": "Total Deliveries",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_deliveries"
+        ],
+        "title": "DeliveriesCountResponse",
+        "type": "object"
+      },
       "DeliveryTypeEnum": {
         "description": "Kind of recipient at a Location — set per location, enforced uniform\nwithin a RouteGroup at generation time.",
         "enum": [
@@ -542,6 +555,29 @@
           "km"
         ],
         "title": "DriverHistoryUpdate",
+        "type": "object"
+      },
+      "DriverRankingItem": {
+        "properties": {
+          "driver_id": {
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "driver_name": {
+            "title": "Driver Name",
+            "type": "string"
+          },
+          "km": {
+            "title": "Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "driver_id",
+          "driver_name",
+          "km"
+        ],
+        "title": "DriverRankingItem",
         "type": "object"
       },
       "DriverRead": {
@@ -1967,6 +2003,34 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "MonthlyTotalsResponse": {
+        "properties": {
+          "month": {
+            "title": "Month",
+            "type": "integer"
+          },
+          "total_deliveries": {
+            "title": "Total Deliveries",
+            "type": "integer"
+          },
+          "total_km": {
+            "title": "Total Km",
+            "type": "number"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "month",
+          "total_km",
+          "total_deliveries"
+        ],
+        "title": "MonthlyTotalsResponse",
         "type": "object"
       },
       "NetNewEntry": {
@@ -5488,11 +5552,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
-                  "title": "Response Get Total Deliveries Between",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DeliveriesCountResponse"
                 }
               }
             },
@@ -5550,8 +5610,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/DriverRankingItem"
                   },
                   "title": "Response Get Monthly Ranking",
                   "type": "array"
@@ -5611,9 +5670,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Monthly Totals",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MonthlyTotalsResponse"
                 }
               }
             },

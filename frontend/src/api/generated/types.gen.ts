@@ -246,6 +246,16 @@ export type ChangedFieldStr = {
 };
 
 /**
+ * DeliveriesCountResponse
+ */
+export type DeliveriesCountResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+};
+
+/**
  * DeliveryTypeEnum
  *
  * Kind of recipient at a Location — set per location, enforced uniform
@@ -336,6 +346,24 @@ export type DriverHistorySummary = {
  * Update request model, all fields are required for now since we are only updating km
  */
 export type DriverHistoryUpdate = {
+  /**
+   * Km
+   */
+  km: number;
+};
+
+/**
+ * DriverRankingItem
+ */
+export type DriverRankingItem = {
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Driver Name
+   */
+  driver_name: string;
   /**
    * Km
    */
@@ -1119,6 +1147,28 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+};
+
+/**
+ * MonthlyTotalsResponse
+ */
+export type MonthlyTotalsResponse = {
+  /**
+   * Month
+   */
+  month: number;
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
+  /**
+   * Year
+   */
+  year: number;
 };
 
 /**
@@ -3462,13 +3512,9 @@ export type GetTotalDeliveriesBetweenError =
 
 export type GetTotalDeliveriesBetweenResponses = {
   /**
-   * Response Get Total Deliveries Between
-   *
    * Successful Response
    */
-  200: {
-    [key: string]: number;
-  };
+  200: DeliveriesCountResponse;
 };
 
 export type GetTotalDeliveriesBetweenResponse =
@@ -3506,9 +3552,7 @@ export type GetMonthlyRankingResponses = {
    *
    * Successful Response
    */
-  200: Array<{
-    [key: string]: unknown;
-  }>;
+  200: Array<DriverRankingItem>;
 };
 
 export type GetMonthlyRankingResponse =
@@ -3542,13 +3586,9 @@ export type GetMonthlyTotalsError =
 
 export type GetMonthlyTotalsResponses = {
   /**
-   * Response Get Monthly Totals
-   *
    * Successful Response
    */
-  200: {
-    [key: string]: unknown;
-  };
+  200: MonthlyTotalsResponse;
 };
 
 export type GetMonthlyTotalsResponse =
