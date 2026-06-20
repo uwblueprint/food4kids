@@ -4,8 +4,7 @@ import { cn } from '@/lib/utils';
 
 import { FieldDescription } from './Field';
 
-export interface TextareaProps
-  extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   description?: string;
   error?: string;
   characterCount?: number;

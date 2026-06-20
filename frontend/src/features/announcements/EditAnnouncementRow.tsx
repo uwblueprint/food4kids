@@ -49,7 +49,9 @@ export function EditAnnouncementRow({
           >
             {authorDisplayName(announcement, currentUserId)}
           </span>
-          <span className={cn(pendingDelete ? deletedTextClass : 'text-grey-400')}>
+          <span
+            className={cn(pendingDelete ? deletedTextClass : 'text-grey-400')}
+          >
             {' '}
             • {announcementDateLine(announcement)}
           </span>

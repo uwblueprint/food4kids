@@ -20,12 +20,16 @@ interface AnnouncementConfirmModalProps {
 
 const COPY: Record<
   ConfirmModalVariant,
-  { title: string; description: string; confirm: string; confirmVariant: 'primary' | 'destructive' }
+  {
+    title: string;
+    description: string;
+    confirm: string;
+    confirmVariant: 'primary' | 'destructive';
+  }
 > = {
   delete: {
     title: 'Delete announcement?',
-    description:
-      'Once you delete an announcement, it cannot be recovered.',
+    description: 'Once you delete an announcement, it cannot be recovered.',
     confirm: 'Delete',
     confirmVariant: 'destructive',
   },
@@ -70,7 +74,9 @@ export function AnnouncementConfirmModal({
           </Button>
           <Button
             type="button"
-            variant={copy.confirmVariant === 'destructive' ? 'destructive' : 'primary'}
+            variant={
+              copy.confirmVariant === 'destructive' ? 'destructive' : 'primary'
+            }
             onClick={onConfirm}
             disabled={isLoading}
           >

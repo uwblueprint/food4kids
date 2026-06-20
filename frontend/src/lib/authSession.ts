@@ -73,8 +73,7 @@ export function getAuthSession(): AuthSession | null {
 }
 
 async function login(email: string, password: string): Promise<boolean> {
-  const apiBase =
-    import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
   const response = await fetch(`${apiBase}/auth/login`, {
     method: 'POST',
@@ -101,8 +100,7 @@ export async function ensureAuthSession(): Promise<boolean> {
 
   const sessionMatchesDevAccount =
     session?.email.toLowerCase() === email.toLowerCase();
-  const tokenStillValid =
-    accessToken !== null && isTokenUsable(accessToken);
+  const tokenStillValid = accessToken !== null && isTokenUsable(accessToken);
 
   if (tokenStillValid && sessionMatchesDevAccount) {
     return true;

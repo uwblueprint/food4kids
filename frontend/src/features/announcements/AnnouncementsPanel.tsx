@@ -69,11 +69,13 @@ export function AnnouncementsPanel({
       />
       <aside
         className={cn(
-          'bg-grey-150 fixed top-0 right-0 z-50 flex h-dvh flex-col shadow-harsh',
+          'bg-grey-150 shadow-harsh fixed top-0 right-0 z-50 flex h-dvh flex-col',
           'w-full max-w-[var(--announcements-panel-width)] rounded-l-2xl'
         )}
         style={
-          { '--announcements-panel-width': `${PANEL_WIDTH}px` } as React.CSSProperties
+          {
+            '--announcements-panel-width': `${PANEL_WIDTH}px`,
+          } as React.CSSProperties
         }
         role="dialog"
         aria-modal="true"

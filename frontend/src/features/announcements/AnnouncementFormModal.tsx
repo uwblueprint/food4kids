@@ -118,7 +118,7 @@ function AnnouncementForm({
         <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
           <input
             type="checkbox"
-            className="border-grey-300 text-blue-300 size-4 rounded"
+            className="border-grey-300 size-4 rounded text-blue-300"
             checked={sendEmailToAll}
             onChange={(event) => setSendEmailToAll(event.target.checked)}
           />
@@ -149,10 +149,7 @@ function AnnouncementForm({
   );
 }
 
-function formKey(
-  mode: 'create' | 'edit',
-  announcement?: Announcement
-): string {
+function formKey(mode: 'create' | 'edit', announcement?: Announcement): string {
   if (mode === 'edit' && announcement) {
     return `edit-${announcement.announcement_id}`;
   }
