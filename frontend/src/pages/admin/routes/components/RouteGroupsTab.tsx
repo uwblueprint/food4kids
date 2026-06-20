@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom';
 
-import type { RouteGroupRow } from '@/api/route-groups';
+import type {
+  DeliveryTypeEnum,
+  DriveDaysOfWeekEnum,
+  DriverAssignmentStatusEnum,
+  RouteGroupRead,
+  RouteStatusEnum,
+} from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
@@ -21,14 +27,17 @@ import {
 import type { GroupsTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const DELIVERY_TYPES = ['School', 'Family'];
-const ROUTE_STATUSES = ['Upcoming', 'Completed', 'Archived'];
-const DRIVER_STATUSES = ['Assigned', 'Unassigned'];
+const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DELIVERY_TYPES: DeliveryTypeEnum[] = ['School', 'Family'];
+const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed', 'Archived'];
+const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = [
+  'Assigned',
+  'Unassigned',
+];
 
-const COLUMNS: Column<RouteGroupRow>[] = [
+const COLUMNS: Column<RouteGroupRead>[] = [
   { key: 'name', header: 'Name', render: (row) => row.name },
-  { key: 'date', header: 'Date', render: (row) => row.date },
+  { key: 'drive_date', header: 'Date', render: (row) => row.drive_date },
   {
     key: 'delivery_type',
     header: 'Delivery Type',
@@ -89,7 +98,7 @@ export function RouteGroupsTab({
       <DataTable
         columns={COLUMNS}
         rows={rows}
-        getRowKey={(r) => r.id}
+        getRowKey={(r) => r.route_group_id}
         emptyState={
           <EmptyState
             title="No routes yet"
