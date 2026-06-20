@@ -10,6 +10,7 @@ from . import (
     location_group_routes,
     location_routes,
     note_chain_routes,
+    report_routes,
     route_group_routes,
     route_routes,
     system_settings_routes,
@@ -32,3 +33,4 @@ def init_app(app: FastAPI) -> None:
     app.include_router(job_routes.router)
     app.include_router(system_settings_routes.router)
     app.include_router(upload_routes.router)
+    app.include_router(report_routes.router)

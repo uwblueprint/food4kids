@@ -246,6 +246,16 @@ export type ChangedFieldStr = {
 };
 
 /**
+ * DeliveriesCountResponse
+ */
+export type DeliveriesCountResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+};
+
+/**
  * DeliveryTypeEnum
  *
  * Kind of recipient at a Location — set per location, enforced uniform
@@ -336,6 +346,24 @@ export type DriverHistorySummary = {
  * Update request model, all fields are required for now since we are only updating km
  */
 export type DriverHistoryUpdate = {
+  /**
+   * Km
+   */
+  km: number;
+};
+
+/**
+ * DriverRankingItem
+ */
+export type DriverRankingItem = {
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Driver Name
+   */
+  driver_name: string;
   /**
    * Km
    */
@@ -1119,6 +1147,28 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+};
+
+/**
+ * MonthlyTotalsResponse
+ */
+export type MonthlyTotalsResponse = {
+  /**
+   * Month
+   */
+  month: number;
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
+  /**
+   * Year
+   */
+  year: number;
 };
 
 /**
@@ -3479,6 +3529,120 @@ export type UpdateNoteResponses = {
 };
 
 export type UpdateNoteResponse = UpdateNoteResponses[keyof UpdateNoteResponses];
+
+export type GetTotalDeliveriesBetweenData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Start
+     *
+     * Start datetime (assumed EST if no tz)
+     */
+    start: string;
+    /**
+     * End
+     *
+     * End datetime (assumed EST if no tz)
+     */
+    end: string;
+  };
+  url: '/reports/deliveries/count';
+};
+
+export type GetTotalDeliveriesBetweenErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetTotalDeliveriesBetweenError =
+  GetTotalDeliveriesBetweenErrors[keyof GetTotalDeliveriesBetweenErrors];
+
+export type GetTotalDeliveriesBetweenResponses = {
+  /**
+   * Successful Response
+   */
+  200: DeliveriesCountResponse;
+};
+
+export type GetTotalDeliveriesBetweenResponse =
+  GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
+
+export type GetMonthlyRankingData = {
+  body?: never;
+  path: {
+    /**
+     * Year
+     */
+    year: number;
+    /**
+     * Month
+     */
+    month: number;
+  };
+  query?: never;
+  url: '/reports/monthly/{year}/{month}/ranking';
+};
+
+export type GetMonthlyRankingErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlyRankingError =
+  GetMonthlyRankingErrors[keyof GetMonthlyRankingErrors];
+
+export type GetMonthlyRankingResponses = {
+  /**
+   * Response Get Monthly Ranking
+   *
+   * Successful Response
+   */
+  200: Array<DriverRankingItem>;
+};
+
+export type GetMonthlyRankingResponse =
+  GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
+
+export type GetMonthlyTotalsData = {
+  body?: never;
+  path: {
+    /**
+     * Year
+     */
+    year: number;
+    /**
+     * Month
+     */
+    month: number;
+  };
+  query?: never;
+  url: '/reports/monthly/{year}/{month}/totals';
+};
+
+export type GetMonthlyTotalsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlyTotalsError =
+  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
+
+export type GetMonthlyTotalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: MonthlyTotalsResponse;
+};
+
+export type GetMonthlyTotalsResponse =
+  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
 
 export type GetRouteGroupsData = {
   body?: never;

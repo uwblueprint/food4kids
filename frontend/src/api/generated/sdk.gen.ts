@@ -104,6 +104,12 @@ import type {
   GetLocationsData,
   GetLocationsErrors,
   GetLocationsResponses,
+  GetMonthlyRankingData,
+  GetMonthlyRankingErrors,
+  GetMonthlyRankingResponses,
+  GetMonthlyTotalsData,
+  GetMonthlyTotalsErrors,
+  GetMonthlyTotalsResponses,
   GetNoteChainData,
   GetNoteChainErrors,
   GetNoteChainResponses,
@@ -124,6 +130,9 @@ import type {
   GetSuggestedDriverResponses,
   GetSystemSettingsData,
   GetSystemSettingsResponses,
+  GetTotalDeliveriesBetweenData,
+  GetTotalDeliveriesBetweenErrors,
+  GetTotalDeliveriesBetweenResponses,
   IngestLocationsData,
   IngestLocationsErrors,
   IngestLocationsResponses,
@@ -1102,6 +1111,64 @@ export const updateNote = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Total Deliveries Between
+ *
+ * Return total deliveries (route stop snapshots) between start and end.
+ * Query params are treated as EST if no timezone is provided.
+ */
+export const getTotalDeliveriesBetween = <ThrowOnError extends boolean = false>(
+  options: Options<GetTotalDeliveriesBetweenData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetTotalDeliveriesBetweenResponses,
+    GetTotalDeliveriesBetweenErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/reports/deliveries/count',
+    ...options,
+  });
+
+/**
+ * Get Monthly Ranking
+ *
+ * Return monthly ranking list of drivers by km (descending).
+ */
+export const getMonthlyRanking = <ThrowOnError extends boolean = false>(
+  options: Options<GetMonthlyRankingData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetMonthlyRankingResponses,
+    GetMonthlyRankingErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/reports/monthly/{year}/{month}/ranking',
+    ...options,
+  });
+
+/**
+ * Get Monthly Totals
+ *
+ * Return total distance driven and total deliveries for the month.
+ */
+export const getMonthlyTotals = <ThrowOnError extends boolean = false>(
+  options: Options<GetMonthlyTotalsData, ThrowOnError>
+) =>
+  (options.client ?? client).get<
+    GetMonthlyTotalsResponses,
+    GetMonthlyTotalsErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/reports/monthly/{year}/{month}/totals',
+    ...options,
   });
 
 /**
