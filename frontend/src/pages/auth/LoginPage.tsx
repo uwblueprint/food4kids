@@ -1,7 +1,9 @@
-import { AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { useLogin } from '@/api';
+import AlertTriangleIcon from '@/assets/icons/alert-triangle.svg?react';
+import EyeIcon from '@/assets/icons/eye.svg?react';
+import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
 import loginPageIllustration from '@/assets/illustrations/login-page-illustration.png';
 import loginPageIllustrationMobile from '@/assets/illustrations/login-page-illustration-mobile.png';
 import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
@@ -90,7 +92,7 @@ export const LoginPage = () => {
                 />
                 {loginError && (
                   <div className="text-red text-p2 flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                     <span>Incorrect email or password</span>
                   </div>
                 )}
@@ -120,21 +122,21 @@ export const LoginPage = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="text-p1 absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer"
+                      className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
                       aria-label={
                         showPassword ? 'Hide password' : 'Show password'
                       }
                     >
                       {showPassword ? (
-                        <EyeOff className="h-6 w-6" />
+                        <EyeOffIcon className="h-6 w-6" />
                       ) : (
-                        <Eye className="h-6 w-6" />
+                        <EyeIcon className="h-6 w-6" />
                       )}
                     </button>
                   </div>
                   {loginError && (
                     <div className="text-red text-p2 flex items-center gap-1.5">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                       <span>Incorrect email or password</span>
                     </div>
                   )}
