@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
+from app.models.location_group import LocationGroup
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
@@ -1720,11 +1721,6 @@ class TestRouteGroupRoutes:
         Confirms the routes relationship loads without an async lazy-load 500
         and the routes payload is correctly populated.
         """
-        from datetime import datetime
-
-        from app.models.route import Route
-        from app.models.route_group import RouteGroup
-
         rg = RouteGroup(name="RG", drive_date=datetime(2026, 6, 1))
         test_session.add(rg)
         await test_session.commit()
@@ -1743,6 +1739,162 @@ class TestRouteGroupRoutes:
         )
         assert group["num_routes"] == 1
         assert [r["route_id"] for r in group["routes"]] == [str(route.route_id)]
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_aggregate_defaults(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A route group with no memberships returns zeroed aggregates and expected status."""
+        rg = RouteGroup(name="Empty Group", drive_date=datetime(2020, 1, 1))
+        test_session.add(rg)
+        await test_session.commit()
+        await test_session.refresh(rg)
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["num_locations"] == 0
+        assert group["num_boxes"] == 0
+        assert group["num_drivers_assigned"] == 0
+        assert group["delivery_type"] is None
+        assert group["status"] == "Completed"
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_delivery_type_school_year(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A route group with school-linked stops returns delivery_type='School Year'."""
+        loc_group = LocationGroup(name="Schools", color="#000000", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Central Elementary",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
+            contact_name="Jane",
+            address="123 Main St",
+            phone_primary="555-1234",
+            num_children=10,
+        )
+        test_session.add(location)
+
+        rg = RouteGroup(name="School Group", drive_date=datetime(2020, 3, 1))
+        test_session.add(rg)
+        await test_session.flush()
+
+        route = Route(name="R1", length=5.0, route_group_id=rg.route_group_id)
+        test_session.add(route)
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id, location_id=location.location_id, stop_number=1
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["delivery_type"] == "School"
+        assert group["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_num_boxes_arithmetic(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """num_boxes = sum(ceil(num_children / 2)) per location.
+        3 children -> ceil(1.5) = 2, 5 children -> ceil(2.5) = 3, total = 5."""
+        loc_group = LocationGroup(name="Boxes Test", color="#111111", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        loc_a = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location A",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            contact_name="A",
+            address="1 St",
+            phone_primary="555-0001",
+            num_children=3,
+        )
+        loc_b = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location B",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            contact_name="B",
+            address="2 St",
+            phone_primary="555-0002",
+            num_children=5,
+        )
+        test_session.add_all([loc_a, loc_b])
+
+        rg = RouteGroup(name="Boxes Group", drive_date=datetime(2020, 4, 1))
+        test_session.add(rg)
+        await test_session.flush()
+
+        route = Route(name="R1", length=10.0, route_group_id=rg.route_group_id)
+        test_session.add(route)
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id, location_id=loc_a.location_id, stop_number=1
+            )
+        )
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id, location_id=loc_b.location_id, stop_number=2
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        # ceil(3/2) + ceil(5/2) = 2 + 3 = 5
+        assert group["num_boxes"] == 5
+        assert group["num_locations"] == 2
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_status_today_is_upcoming(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A route group whose drive_date is today reports status 'Upcoming'.
+
+        drive_date is stored date-only (midnight) and is computed here in the
+        scheduler timezone to match the service's clock.
+        """
+        from zoneinfo import ZoneInfo
+
+        from app.config import settings
+
+        tz = ZoneInfo(settings.scheduler_timezone)
+        today = datetime.now(tz).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+        )
+
+        rg = RouteGroup(name="Today Group", drive_date=today)
+        test_session.add(rg)
+        await test_session.flush()
+
+        route = Route(name="Today R1", length=5.0, route_group_id=rg.route_group_id)
+        test_session.add(route)
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["status"] == "Upcoming"
 
 
 class TestNoteChainRoutes:

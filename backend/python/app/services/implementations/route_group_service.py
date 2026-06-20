@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, exists, func, or_
+from sqlalchemy import Integer, and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
@@ -18,7 +18,13 @@ from app.models.enum import (
 )
 from app.models.location import Location
 from app.models.route import Route
-from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
+from app.models.route_group import (
+    RouteGroup,
+    RouteGroupCreate,
+    RouteGroupRead,
+    RouteGroupUpdate,
+    RouteReadSummary,
+)
 from app.models.route_stop import RouteStop
 
 
@@ -74,16 +80,97 @@ class RouteGroupService:
         delivery_type: list[DeliveryTypeEnum] | None = None,
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
-    ) -> list[RouteGroup]:
-        """Get route groups with optional filtering.
+        include_routes: bool = False,
+    ) -> list[RouteGroupRead]:
+        """Get route groups with optional date filtering and aggregate stats."""
 
-        `delivery_type` filters on the per-Location delivery_type of a group's
-        stops; `driver_assignment_status` filters on whether a group's routes
-        have a driver_id set.
-        """
-        # Eager-load routes in the same query (one round-trip) rather than a
-        # per-group refresh below.
-        statement = select(RouteGroup).options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
+        group_location_ids: Any = (
+            select(distinct(RouteStop.location_id))  # type: ignore[arg-type]
+            .select_from(Route)
+            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+        )
+
+        num_locations_subq = (
+            select(func.count(distinct(RouteStop.location_id)))  # type: ignore[arg-type]
+            .select_from(Route)
+            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_locations")
+        )
+
+        num_boxes_subq = (
+            select(
+                func.coalesce(
+                    func.cast(
+                        func.sum(
+                            func.ceil(func.coalesce(Location.num_children, 0) / 2.0)
+                        ),
+                        Integer,
+                    ),
+                    0,
+                )
+            )
+            .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_boxes")
+        )
+
+        num_drivers_subq = (
+            select(func.count(distinct(Route.driver_id)))  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .where(col(Route.driver_id).isnot(None))
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_drivers_assigned")
+        )
+
+        has_school_subq = (
+            select(1)
+            .select_from(Route)
+            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+            .where(
+                Route.route_group_id == RouteGroup.route_group_id,
+                Location.delivery_type == DeliveryTypeEnum.SCHOOL.value,
+            )
+            .correlate(RouteGroup)
+        )
+
+        has_locations_subq = (
+            select(1)
+            .select_from(Route)
+            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+        )
+
+        delivery_type_expr = case(
+            (has_school_subq.exists(), DeliveryTypeEnum.SCHOOL.value),
+            (has_locations_subq.exists(), DeliveryTypeEnum.FAMILY.value),
+            else_=None,
+        ).label("delivery_type")
+
+        now = datetime.now(self.timezone).replace(tzinfo=None)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        status_expr = case(
+            (RouteGroup.drive_date >= today_start, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
+            else_=RouteStatusEnum.COMPLETED.value,
+        ).label("status")
+
+        statement = select(  # type: ignore[call-overload]
+            RouteGroup,
+            num_locations_subq,
+            num_boxes_subq,
+            num_drivers_subq,
+            delivery_type_expr,
+            status_expr,
+        )
 
         if start_date:
             statement = statement.where(RouteGroup.drive_date >= start_date)
@@ -121,16 +208,13 @@ class RouteGroupService:
                 statement = statement.where(or_(*delivery_conditions))
 
         if route_status:
-            # Get the current date and time in the local timezone
             now = datetime.now(self.timezone).replace(tzinfo=None)
-            # Get start of current day (midnight) to properly determine which routes are upcoming
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            # Calculate the cutoff date for archiving (exactly 30 days ago from right now)
             thirty_days_ago = now - timedelta(days=30)
 
             status_conditions: list[Any] = []
             if RouteStatusEnum.UPCOMING in route_status:
-                status_conditions.append(RouteGroup.drive_date > today_start)
+                status_conditions.append(RouteGroup.drive_date >= today_start)
 
             if RouteStatusEnum.COMPLETED in route_status:
                 status_conditions.append(
@@ -163,12 +247,47 @@ class RouteGroupService:
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 
-        statement = statement.order_by(RouteGroup.drive_date)  # type: ignore[arg-type]
+        statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
+        statement = statement.order_by(RouteGroup.drive_date)
 
         result = await session.execute(statement)
-        # routes are eager-loaded via selectinload on the statement, so they're
-        # safe to access (num_routes, route_group_routes.py) without lazy loads.
-        return list(result.scalars().all())
+        rows = result.all()
+
+        items: list[RouteGroupRead] = []
+        for row in rows:
+            rg: RouteGroup = row.RouteGroup
+
+            routes: list[RouteReadSummary] = []
+            if include_routes:
+                for route in rg.routes:
+                    routes.append(
+                        RouteReadSummary(
+                            route_id=route.route_id,
+                            name=route.name,
+                            notes=route.notes,
+                            length=route.length,
+                        )
+                    )
+
+            items.append(
+                RouteGroupRead(
+                    route_group_id=rg.route_group_id,
+                    name=rg.name,
+                    notes=rg.notes,
+                    drive_date=rg.drive_date,
+                    created_at=rg.created_at,
+                    updated_at=rg.updated_at,
+                    num_routes=rg.num_routes,
+                    num_locations=row.num_locations,
+                    num_boxes=row.num_boxes,
+                    num_drivers_assigned=row.num_drivers_assigned,
+                    delivery_type=row.delivery_type,
+                    status=row.status,
+                    routes=routes,
+                )
+            )
+
+        return items
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID

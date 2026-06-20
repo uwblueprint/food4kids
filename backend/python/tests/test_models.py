@@ -470,6 +470,7 @@ class TestCoreModels:
             notes="Test notes",
             drive_date=datetime(2024, 1, 15, 8, 0),
             num_routes=3,
+            status="Completed",
         )
         assert route_group_read.route_group_id is not None
 
