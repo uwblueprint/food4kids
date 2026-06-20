@@ -62,6 +62,7 @@ import {
   refresh,
   resetPassword,
   reviewLocations,
+  sendAnnouncementEmail,
   test,
   testEventEmail,
   updateAnnouncement,
@@ -219,6 +220,9 @@ import type {
   ReviewLocationsData,
   ReviewLocationsError,
   ReviewLocationsResponse,
+  SendAnnouncementEmailData,
+  SendAnnouncementEmailError,
+  SendAnnouncementEmailResponse,
   TestData,
   TestEventEmailData,
   TestEventEmailError,
@@ -455,6 +459,35 @@ export const updateAnnouncementMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await updateAnnouncement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Send Announcement Email
+ *
+ * Send announcement notification emails to all active drivers (admin only).
+ */
+export const sendAnnouncementEmailMutation = (
+  options?: Partial<Options<SendAnnouncementEmailData>>
+): UseMutationOptions<
+  SendAnnouncementEmailResponse,
+  AxiosError<SendAnnouncementEmailError>,
+  Options<SendAnnouncementEmailData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    SendAnnouncementEmailResponse,
+    AxiosError<SendAnnouncementEmailError>,
+    Options<SendAnnouncementEmailData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await sendAnnouncementEmail({
         ...options,
         ...fnOptions,
         throwOnError: true,
