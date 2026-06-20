@@ -4,6 +4,7 @@ import {
   useAnnouncements,
   useCreateAnnouncement,
   useDeleteAnnouncement,
+  useSendAnnouncementEmail,
   useUpdateAnnouncement,
 } from '@/api/announcements';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
@@ -44,6 +45,7 @@ export function AnnouncementsBoard() {
   const createMutation = useCreateAnnouncement();
   const updateMutation = useUpdateAnnouncement();
   const deleteMutation = useDeleteAnnouncement();
+  const sendEmailMutation = useSendAnnouncementEmail();
 
   const hasPendingDeletes = pendingDeleteIds.size > 0;
 
@@ -118,14 +120,23 @@ export function AnnouncementsBoard() {
     message: string;
     sendEmailToAll: boolean;
   }) => {
-    void values.sendEmailToAll;
-
     if (formMode === 'create') {
-      await createMutation.mutateAsync({
+      const created = await createMutation.mutateAsync({
         subject: values.subject,
         message: values.message,
         attachments: [],
       });
+
+      if (values.sendEmailToAll && role === 'admin') {
+        const result = await sendEmailMutation.mutateAsync(
+          created.announcement_id
+        );
+        if (result.failed > 0) {
+          throw new Error(
+            `Announcement posted, but ${result.failed} email(s) failed to send.`
+          );
+        }
+      }
     } else if (editingAnnouncement) {
       await updateMutation.mutateAsync({
         announcementId: editingAnnouncement.announcement_id,
@@ -144,7 +155,8 @@ export function AnnouncementsBoard() {
   const isSubmitting =
     createMutation.isPending ||
     updateMutation.isPending ||
-    deleteMutation.isPending;
+    deleteMutation.isPending ||
+    sendEmailMutation.isPending;
 
   return (
     <>

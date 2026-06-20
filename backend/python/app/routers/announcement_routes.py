@@ -3,11 +3,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.dependencies.auth import (
     require_announcement_owner_or_admin,
     require_driver_or_admin,
 )
-from app.dependencies.services import get_announcement_service
+from app.dependencies.services import (
+    get_announcement_service,
+    get_email_dispatcher_depends,
+)
 from app.models import get_session
 from app.models.announcement import (
     AnnouncementCreate,
@@ -15,6 +19,7 @@ from app.models.announcement import (
     AnnouncementUpdate,
 )
 from app.services.implementations.announcement_service import AnnouncementService
+from app.services.implementations.email_dispatcher import EmailDispatcher
 
 router = APIRouter(prefix="/announcements", tags=["announcements"])
 
@@ -122,3 +127,31 @@ async def delete_announcement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Announcement with id {announcement_id} not found",
         )
+
+
+@router.post("/{announcement_id}/email")
+async def send_announcement_email(
+    announcement_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    announcement_service: AnnouncementService = Depends(get_announcement_service),
+    dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends),
+    _auth: bool = Depends(require_admin),
+) -> dict[str, int]:
+    """Send announcement notification emails to all active drivers (admin only)."""
+    try:
+        return await announcement_service.send_announcement_emails_to_drivers(
+            session,
+            announcement_id,
+            dispatcher,
+            settings.frontend_base_url,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(error),
+        ) from error

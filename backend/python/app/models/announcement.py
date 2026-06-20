@@ -52,7 +52,7 @@ class AnnouncementRead(AnnouncementBase):
 
     @classmethod
     def from_announcement(cls, announcement: Announcement) -> "AnnouncementRead":
-        author_name = announcement.user.name if announcement.user else "Unknown"
+        author_name = announcement.user.full_name if announcement.user else "Unknown"
         author_role = announcement.user.role if announcement.user else "driver"
         return cls(
             announcement_id=announcement.announcement_id,

@@ -40,6 +40,15 @@ async function deleteAnnouncement(announcementId: string): Promise<void> {
   await axiosClient.delete(`/announcements/${announcementId}`);
 }
 
+async function sendAnnouncementEmail(
+  announcementId: string
+): Promise<{ sent: number; failed: number }> {
+  const response = await axiosClient.post<{ sent: number; failed: number }>(
+    `/announcements/${announcementId}/email`
+  );
+  return response.data;
+}
+
 export function useAnnouncements() {
   return useQuery({
     queryKey: ANNOUNCEMENTS_KEY,
@@ -82,5 +91,11 @@ export function useDeleteAnnouncement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ANNOUNCEMENTS_KEY });
     },
+  });
+}
+
+export function useSendAnnouncementEmail() {
+  return useMutation({
+    mutationFn: sendAnnouncementEmail,
   });
 }
