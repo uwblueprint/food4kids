@@ -1,16 +1,24 @@
 import { useState } from 'react';
 
-import type { RouteGroupRow } from '@/api/route-groups';
+import type {
+  DeliveryTypeEnum,
+  DriveDaysOfWeekEnum,
+  DriverAssignmentStatusEnum,
+  RouteGroupRead,
+  RouteStatusEnum,
+} from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
 
 export interface GroupsFilterState {
-  weekdays: Set<string>;
-  deliveryTypes: Set<string>;
-  routeStatuses: Set<string>;
-  driverStatuses: Set<string>;
+  weekdays: Set<DriveDaysOfWeekEnum>;
+  deliveryTypes: Set<DeliveryTypeEnum>;
+  routeStatuses: Set<RouteStatusEnum>;
+  driverStatuses: Set<DriverAssignmentStatusEnum>;
 }
+
+type SetElement<S> = S extends Set<infer V> ? V : never;
 
 const emptyFilters = (): GroupsFilterState => ({
   weekdays: new Set(),
@@ -27,7 +35,7 @@ const copyFilters = (f: GroupsFilterState): GroupsFilterState => ({
 });
 
 export interface GroupsTabState {
-  rows: RouteGroupRow[];
+  rows: RouteGroupRead[];
   isLoading: boolean;
   search: UseSearchReturn;
   filterOpen: boolean;
@@ -36,7 +44,10 @@ export interface GroupsTabState {
   draftFilters: GroupsFilterState;
   hasActiveFilters: boolean;
   openFilters: () => void;
-  toggleDraft: (key: keyof GroupsFilterState, value: string) => void;
+  toggleDraft: <K extends keyof GroupsFilterState>(
+    key: K,
+    value: SetElement<GroupsFilterState[K]>
+  ) => void;
   handleApply: () => void;
 }
 
@@ -52,21 +63,22 @@ export function useGroupsTabState(): GroupsTabState {
     (s) => s.size > 0
   );
 
+  // Search is local-only UI — the endpoint has no search param yet, so only the
+  // filter chips hit the server.
   const { data: rows = [], isLoading } = useRouteGroups({
-    search: search.value || undefined,
-    weekdays:
+    weekday:
       appliedFilters.weekdays.size > 0
         ? [...appliedFilters.weekdays]
         : undefined,
-    deliveryTypes:
+    delivery_type:
       appliedFilters.deliveryTypes.size > 0
         ? [...appliedFilters.deliveryTypes]
         : undefined,
-    routeStatuses:
+    route_status:
       appliedFilters.routeStatuses.size > 0
         ? [...appliedFilters.routeStatuses]
         : undefined,
-    driverStatuses:
+    driver_assignment_status:
       appliedFilters.driverStatuses.size > 0
         ? [...appliedFilters.driverStatuses]
         : undefined,
@@ -77,7 +89,10 @@ export function useGroupsTabState(): GroupsTabState {
     setFilterOpen(true);
   };
 
-  const toggleDraft = (key: keyof GroupsFilterState, value: string) => {
+  const toggleDraft = <K extends keyof GroupsFilterState>(
+    key: K,
+    value: SetElement<GroupsFilterState[K]>
+  ) => {
     setDraftFilters((prev) => {
       const next = new Set(prev[key]);
       if (next.has(value)) next.delete(value);
