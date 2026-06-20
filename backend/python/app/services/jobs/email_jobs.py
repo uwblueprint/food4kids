@@ -21,7 +21,6 @@ from app.dependencies.services import get_email_dispatcher, get_logger
 from app.models.driver import Driver
 from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.services.implementations.email_service import EmailService
 
@@ -149,11 +148,13 @@ async def send_route_reminders() -> None:
         raise error
 
 
-async def process_daily_reminder_emails() -> None:
-    """Sends out daily reminder emails for the configured reminder window.
+async def process_daily_reminder_emails(reminder_days: list[int]) -> None:
+    """Send reminder emails for routes whose drive date falls on ``reminder_days``.
 
     Emails each driver assigned (via Route.driver_id) to a route whose
-    RouteGroup.drive_date falls on one of the configured lead days.
+    RouteGroup.drive_date is one of the given lead days ahead of today. The
+    scheduler registers one instance of this job per distinct reminder time (see
+    ``refresh_daily_reminder_email_schedule``), passing the lead days for that time.
     """
 
     from app.models import (
@@ -162,19 +163,16 @@ async def process_daily_reminder_emails() -> None:
 
     logger = get_logger()
 
+    if not reminder_days:
+        logger.info("No reminder lead days configured, skipping emails")
+        return
+
     if async_session_maker_instance is None:
         logger.error("Database session maker not initialized")
         return
 
     try:
         async with async_session_maker_instance() as session:
-            settings_result = await session.execute(select(SystemSettings).limit(1))
-            system_settings = settings_result.scalars().first()
-            reminder_days = (
-                system_settings.email_reminder_days_before
-                if system_settings and system_settings.email_reminder_days_before
-                else [1]
-            )
             target_dates = {date.today() + timedelta(days=day) for day in reminder_days}
             start_of_day = datetime.combine(min(target_dates), datetime.min.time())
             end_of_day = datetime.combine(max(target_dates), datetime.max.time())

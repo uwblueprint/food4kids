@@ -898,6 +898,27 @@
         "title": "DriverUpdate",
         "type": "object"
       },
+      "EmailReminder": {
+        "description": "A single reminder email configuration.\n\nEach reminder fires ``days_before`` days ahead of a route's drive date, at its\nown ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a\nsame-day reminder at 11 AM.",
+        "properties": {
+          "days_before": {
+            "minimum": 0,
+            "title": "Days Before",
+            "type": "integer"
+          },
+          "time": {
+            "format": "time",
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days_before",
+          "time"
+        ],
+        "title": "EmailReminder",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3146,18 +3167,12 @@
             "title": "Dropoff Minutes",
             "type": "integer"
           },
-          "email_reminder_days_before": {
+          "email_reminders": {
             "items": {
-              "type": "integer"
+              "$ref": "#/components/schemas/EmailReminder"
             },
-            "title": "Email Reminder Days Before",
+            "title": "Email Reminders",
             "type": "array"
-          },
-          "email_reminder_time": {
-            "default": "09:00:00",
-            "format": "time",
-            "title": "Email Reminder Time",
-            "type": "string"
           },
           "f4k_wr_address": {
             "anyOf": [
@@ -3371,11 +3386,11 @@
             ],
             "title": "Dropoff Minutes"
           },
-          "email_reminder_days_before": {
+          "email_reminders": {
             "anyOf": [
               {
                 "items": {
-                  "type": "integer"
+                  "$ref": "#/components/schemas/EmailReminder"
                 },
                 "type": "array"
               },
@@ -3383,19 +3398,7 @@
                 "type": "null"
               }
             ],
-            "title": "Email Reminder Days Before"
-          },
-          "email_reminder_time": {
-            "anyOf": [
-              {
-                "format": "time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email Reminder Time"
+            "title": "Email Reminders"
           },
           "f4k_wr_address": {
             "anyOf": [

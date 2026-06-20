@@ -75,26 +75,18 @@ def upgrade() -> None:
     op.add_column(
         "system_settings",
         sa.Column(
-            "email_reminder_days_before",
+            "email_reminders",
             sa.JSON(),
             nullable=False,
-            server_default=sa.text("'[1]'::json"),
-        ),
-    )
-    op.add_column(
-        "system_settings",
-        sa.Column(
-            "email_reminder_time",
-            sa.Time(),
-            nullable=False,
-            server_default=sa.text("'09:00:00'::time"),
+            server_default=sa.text(
+                """'[{"days_before": 1, "time": "09:00:00"}]'::json"""
+            ),
         ),
     )
 
 
 def downgrade() -> None:
-    op.drop_column("system_settings", "email_reminder_time")
-    op.drop_column("system_settings", "email_reminder_days_before")
+    op.drop_column("system_settings", "email_reminders")
     op.drop_column("system_settings", "f4k_wr_address")
     op.drop_column("system_settings", "f4k_wr_website")
     op.drop_column("system_settings", "f4k_wr_email")

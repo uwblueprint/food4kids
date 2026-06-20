@@ -183,6 +183,7 @@ export type {
   DriverRegisterResponse,
   DriverRegisterResponseWritable,
   DriverUpdate,
+  EmailReminder,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
   ExportAllDriversHistoryErrors,

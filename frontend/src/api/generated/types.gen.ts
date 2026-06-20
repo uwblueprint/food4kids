@@ -533,6 +533,26 @@ export type DriverUpdate = {
 };
 
 /**
+ * EmailReminder
+ *
+ * A single reminder email configuration.
+ *
+ * Each reminder fires ``days_before`` days ahead of a route's drive date, at its
+ * own ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a
+ * same-day reminder at 11 AM.
+ */
+export type EmailReminder = {
+  /**
+   * Days Before
+   */
+  days_before: number;
+  /**
+   * Time
+   */
+  time: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -1826,13 +1846,9 @@ export type SystemSettingsRead = {
    */
   dropoff_minutes?: number;
   /**
-   * Email Reminder Days Before
+   * Email Reminders
    */
-  email_reminder_days_before?: Array<number>;
-  /**
-   * Email Reminder Time
-   */
-  email_reminder_time?: string;
+  email_reminders?: Array<EmailReminder>;
   /**
    * F4K Wr Address
    */
@@ -1912,13 +1928,9 @@ export type SystemSettingsUpdate = {
    */
   dropoff_minutes?: number | null;
   /**
-   * Email Reminder Days Before
+   * Email Reminders
    */
-  email_reminder_days_before?: Array<number> | null;
-  /**
-   * Email Reminder Time
-   */
-  email_reminder_time?: string | null;
+  email_reminders?: Array<EmailReminder> | null;
   /**
    * F4K Wr Address
    */

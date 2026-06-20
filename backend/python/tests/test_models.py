@@ -56,7 +56,7 @@ from app.models.route_group import (
     RouteGroupRead,
 )
 from app.models.route_stop import RouteStop
-from app.models.system_settings import SystemSettings
+from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User, UserFinalize
 
 init_app()
@@ -859,8 +859,9 @@ class TestModelValidation:
         assert system_settings.boxes_per_car == 10
         assert system_settings.dropoff_minutes == 3
         assert system_settings.children_per_box == 2
-        assert system_settings.email_reminder_days_before == [1]
-        assert system_settings.email_reminder_time == time(9, 0)
+        assert system_settings.email_reminders == [
+            EmailReminder(days_before=1, time=time(9, 0))
+        ]
 
         # Test Job without route_group_id
         job = Job(

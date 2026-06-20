@@ -1,13 +1,53 @@
 import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
 from sqlalchemy import JSON
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import Column, Field, SQLModel
 
 from app.utilities.utils import validate_phone
 
 from .base import BaseModel
+
+
+class EmailReminder(SQLModel):
+    """A single reminder email configuration.
+
+    Each reminder fires ``days_before`` days ahead of a route's drive date, at its
+    own ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a
+    same-day reminder at 11 AM.
+    """
+
+    days_before: int = Field(ge=0)
+    time: datetime.time
+
+
+class EmailReminderListType(TypeDecorator[list[EmailReminder]]):
+    """Persist ``list[EmailReminder]`` in a JSON column.
+
+    The stdlib JSON serializer can't encode ``datetime.time``, so each reminder is
+    round-tripped through pydantic's JSON-mode dump (``time`` -> ``"HH:MM:SS"``)
+    when binding and re-validated when loading.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: list[EmailReminder] | None, _dialect: Any
+    ) -> list[dict[str, Any]] | None:
+        if value is None:
+            return None
+        return [EmailReminder.model_validate(r).model_dump(mode="json") for r in value]
+
+    def process_result_value(
+        self, value: Any, _dialect: Any
+    ) -> list[EmailReminder] | None:
+        if value is None:
+            return None
+        return [EmailReminder.model_validate(r) for r in value]
 
 
 class SystemSettingsBase(SQLModel):
@@ -31,11 +71,11 @@ class SystemSettingsBase(SQLModel):
     f4k_wr_email: EmailStr | None = Field(default=None)
     f4k_wr_website: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
-    email_reminder_days_before: list[int] = Field(
-        default_factory=lambda: [1], sa_column=Column(JSON, nullable=False)
-    )
-    email_reminder_time: datetime.time = Field(
-        default=datetime.time(9, 0, 0), nullable=False
+    email_reminders: list[EmailReminder] = Field(
+        default_factory=lambda: [
+            EmailReminder(days_before=1, time=datetime.time(9, 0, 0))
+        ],
+        sa_column=Column(EmailReminderListType, nullable=False),
     )
 
     @field_validator("contact_phone")
@@ -86,8 +126,7 @@ class SystemSettingsUpdate(SQLModel):
     f4k_wr_email: EmailStr | None = Field(default=None)
     f4k_wr_website: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
-    email_reminder_days_before: list[int] | None = Field(default=None)
-    email_reminder_time: datetime.time | None = Field(default=None)
+    email_reminders: list[EmailReminder] | None = Field(default=None)
 
     @field_validator("contact_phone")
     @classmethod

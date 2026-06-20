@@ -7,7 +7,7 @@ import csv
 import os
 import random
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import cast
 from zoneinfo import ZoneInfo
 
@@ -38,7 +38,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
-from app.models.system_settings import SystemSettings
+from app.models.system_settings import EmailReminder, SystemSettings
 
 # Import all models to register them with SQLModel
 from app.models.user import User
@@ -995,8 +995,10 @@ def main() -> None:
                 f4k_wr_email="hello@food4kidswr.ca",
                 f4k_wr_website="https://food4kidswr.ca",
                 f4k_wr_address=WAREHOUSE_ADDRESS,
-                email_reminder_days_before=[1],
-                email_reminder_time=datetime.strptime("09:00:00", "%H:%M:%S").time(),
+                email_reminders=[
+                    EmailReminder(days_before=1, time=time(9, 0, 0)),
+                    EmailReminder(days_before=0, time=time(11, 0, 0)),
+                ],
             )
             set_timestamps(system_settings)
             session.add(system_settings)

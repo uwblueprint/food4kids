@@ -2296,16 +2296,20 @@ class TestSystemSettingsRoutes:
             json={
                 "boxes_per_car": 12,
                 "contact_phone": "+12125551234",
-                "email_reminder_days_before": [1, 3],
-                "email_reminder_time": "09:00:00",
+                "email_reminders": [
+                    {"days_before": 1, "time": "09:00:00"},
+                    {"days_before": 0, "time": "11:00:00"},
+                ],
             },
         )
         assert response.status_code == 200
         body = response.json()
         assert body["boxes_per_car"] == 12
         assert body["contact_phone"] == "+12125551234"
-        assert body["email_reminder_days_before"] == [1, 3]
-        assert body["email_reminder_time"].startswith("09:00")
+        assert body["email_reminders"] == [
+            {"days_before": 1, "time": "09:00:00"},
+            {"days_before": 0, "time": "11:00:00"},
+        ]
 
 
 class _FakeUploadResult:
