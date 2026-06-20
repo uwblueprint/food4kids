@@ -533,6 +533,26 @@ export type DriverUpdate = {
 };
 
 /**
+ * EmailReminder
+ *
+ * A single reminder email configuration.
+ *
+ * Each reminder fires ``days_before`` days ahead of a route's drive date, at its
+ * own ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a
+ * same-day reminder at 11 AM.
+ */
+export type EmailReminder = {
+  /**
+   * Days Before
+   */
+  days_before: number;
+  /**
+   * Time
+   */
+  time: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -1802,9 +1822,53 @@ export type SuggestedDriverResponse = {
  */
 export type SystemSettingsRead = {
   /**
+   * Boxes Per Car
+   */
+  boxes_per_car?: number;
+  /**
+   * Children Per Box
+   */
+  children_per_box?: number;
+  /**
+   * Contact Name
+   */
+  contact_name?: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone?: string | null;
+  /**
    * Default Cap
    */
   default_cap?: number | null;
+  /**
+   * Dropoff Minutes
+   */
+  dropoff_minutes?: number;
+  /**
+   * Email Reminders
+   */
+  email_reminders?: Array<EmailReminder>;
+  /**
+   * F4K Wr Address
+   */
+  f4k_wr_address?: string | null;
+  /**
+   * F4K Wr Email
+   */
+  f4k_wr_email?: string | null;
+  /**
+   * F4K Wr Facebook
+   */
+  f4k_wr_facebook?: string | null;
+  /**
+   * F4K Wr Instagram
+   */
+  f4k_wr_instagram?: string | null;
+  /**
+   * F4K Wr Website
+   */
+  f4k_wr_website?: string | null;
   /**
    * Import Column Map
    */
@@ -1819,6 +1883,84 @@ export type SystemSettingsRead = {
    * System Settings Id
    */
   system_settings_id: string;
+  /**
+   * Warehouse Latitude
+   */
+  warehouse_latitude?: number | null;
+  /**
+   * Warehouse Location
+   */
+  warehouse_location?: string | null;
+  /**
+   * Warehouse Longitude
+   */
+  warehouse_longitude?: number | null;
+};
+
+/**
+ * SystemSettingsUpdate
+ *
+ * Update request model - all optional
+ */
+export type SystemSettingsUpdate = {
+  /**
+   * Boxes Per Car
+   */
+  boxes_per_car?: number | null;
+  /**
+   * Children Per Box
+   */
+  children_per_box?: number | null;
+  /**
+   * Contact Name
+   */
+  contact_name?: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone?: string | null;
+  /**
+   * Default Cap
+   */
+  default_cap?: number | null;
+  /**
+   * Dropoff Minutes
+   */
+  dropoff_minutes?: number | null;
+  /**
+   * Email Reminders
+   */
+  email_reminders?: Array<EmailReminder> | null;
+  /**
+   * F4K Wr Address
+   */
+  f4k_wr_address?: string | null;
+  /**
+   * F4K Wr Email
+   */
+  f4k_wr_email?: string | null;
+  /**
+   * F4K Wr Facebook
+   */
+  f4k_wr_facebook?: string | null;
+  /**
+   * F4K Wr Instagram
+   */
+  f4k_wr_instagram?: string | null;
+  /**
+   * F4K Wr Website
+   */
+  f4k_wr_website?: string | null;
+  /**
+   * Import Column Map
+   */
+  import_column_map?: {
+    [key: string]: string;
+  } | null;
+  /**
+   * Route Start Time
+   */
+  route_start_time?: string | null;
   /**
    * Warehouse Latitude
    */
@@ -4054,6 +4196,33 @@ export type GetSystemSettingsResponses = {
 
 export type GetSystemSettingsResponse =
   GetSystemSettingsResponses[keyof GetSystemSettingsResponses];
+
+export type PatchSystemSettingsData = {
+  body: SystemSettingsUpdate;
+  path?: never;
+  query?: never;
+  url: '/system-settings/';
+};
+
+export type PatchSystemSettingsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PatchSystemSettingsError =
+  PatchSystemSettingsErrors[keyof PatchSystemSettingsErrors];
+
+export type PatchSystemSettingsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SystemSettingsRead;
+};
+
+export type PatchSystemSettingsResponse =
+  PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
 
 export type UploadImageData = {
   body: BodyUploadImage;

@@ -2288,6 +2288,29 @@ class TestSystemSettingsRoutes:
         response = await async_client.get("/system-settings/")
         assert response.status_code == 200
 
+    @pytest.mark.asyncio
+    async def test_patch_system_settings(self, async_client: AsyncClient) -> None:
+        """PATCH /system-settings creates or updates the singleton row."""
+        response = await async_client.patch(
+            "/system-settings/",
+            json={
+                "boxes_per_car": 12,
+                "contact_phone": "+12125551234",
+                "email_reminders": [
+                    {"days_before": 1, "time": "09:00:00"},
+                    {"days_before": 0, "time": "11:00:00"},
+                ],
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["boxes_per_car"] == 12
+        assert body["contact_phone"] == "+12125551234"
+        assert body["email_reminders"] == [
+            {"days_before": 1, "time": "09:00:00"},
+            {"days_before": 0, "time": "11:00:00"},
+        ]
+
 
 class _FakeUploadResult:
     def __init__(self, url: str, filename: str) -> None:

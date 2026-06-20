@@ -145,6 +145,9 @@ import type {
   LogoutData,
   LogoutErrors,
   LogoutResponses,
+  PatchSystemSettingsData,
+  PatchSystemSettingsErrors,
+  PatchSystemSettingsResponses,
   RefreshData,
   RefreshResponses,
   ResetPasswordData,
@@ -1439,6 +1442,29 @@ export const getSystemSettings = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/system-settings/',
     ...options,
+  });
+
+/**
+ * Patch System Settings
+ *
+ * Patch the singleton system settings row.
+ */
+export const patchSystemSettings = <ThrowOnError extends boolean = false>(
+  options: Options<PatchSystemSettingsData, ThrowOnError>
+) =>
+  (options.client ?? client).patch<
+    PatchSystemSettingsResponses,
+    PatchSystemSettingsErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/system-settings/',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
