@@ -71,7 +71,9 @@ class RouteService:
                 col(RouteStop.route_id).label("route_id"),
                 func.count(col(RouteStop.route_stop_id)).label("num_stops"),
                 func.coalesce(
-                    func.sum(func.coalesce(RouteStopSnapshot.num_boxes, live_box_count)),
+                    func.sum(
+                        func.coalesce(RouteStopSnapshot.num_boxes, live_box_count)
+                    ),
                     0,
                 ).label("box_total"),
             )
