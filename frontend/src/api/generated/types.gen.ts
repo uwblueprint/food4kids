@@ -1666,6 +1666,10 @@ export type RouteStatusEnum = 'Upcoming' | 'Completed' | 'Archived';
  */
 export type RouteWithDateRead = {
   /**
+   * Box Total
+   */
+  box_total: number;
+  /**
    * Drive Date
    */
   drive_date: string;
@@ -1681,6 +1685,10 @@ export type RouteWithDateRead = {
    * Notes
    */
   notes: string;
+  /**
+   * Num Stops
+   */
+  num_stops: number;
   /**
    * Route Id
    */
