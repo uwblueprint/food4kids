@@ -32,6 +32,7 @@ def _compute_status(rg: RouteGroup) -> RouteStatusEnum:
         return RouteStatusEnum.UPCOMING
     return RouteStatusEnum.COMPLETED
 
+
 router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
 
