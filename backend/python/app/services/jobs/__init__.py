@@ -41,7 +41,7 @@ DAILY_REMINDER_JOB_ID = "daily_reminder_emails"
 def _schedule_daily_reminder_emails(
     scheduler_service: DailyReminderScheduler, reminder_time: time
 ) -> None:
-    from .email_reminder_jobs import process_daily_reminder_emails
+    from .email_jobs import process_daily_reminder_emails
 
     scheduler_service.remove_job(DAILY_REMINDER_JOB_ID)
     scheduler_service.add_cron_job(

@@ -11,10 +11,7 @@ from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.system_settings import SystemSettings
 from app.models.user import User
-from app.services.jobs import (
-    email_reminder_jobs,
-    refresh_daily_reminder_email_schedule,
-)
+from app.services.jobs import email_jobs, refresh_daily_reminder_email_schedule
 
 
 class _FakeEmailService:
@@ -37,7 +34,7 @@ async def test_process_daily_reminder_emails_uses_configured_lead_days(
         test_db_engine, class_=AsyncSession, expire_on_commit=False
     )
     monkeypatch.setattr("app.models.async_session_maker_instance", maker)
-    monkeypatch.setattr(email_reminder_jobs, "EmailService", _FakeEmailService)
+    monkeypatch.setattr(email_jobs, "EmailService", _FakeEmailService)
     _FakeEmailService.sent.clear()
 
     async with maker() as session:
@@ -79,12 +76,18 @@ async def test_process_daily_reminder_emails_uses_configured_lead_days(
             )
             await session.commit()
 
-    await email_reminder_jobs.process_daily_reminder_emails()
+    await email_jobs.process_daily_reminder_emails()
 
     assert len(_FakeEmailService.sent) == 2
     assert {item["to"] for item in _FakeEmailService.sent} == {"driver@test.dev"}
     assert all(
         item["subject"] == "Upcoming Route Reminder" for item in _FakeEmailService.sent
+    )
+    assert all(
+        "Date_To_Replace" not in item["body"]
+        and "Time_To_Replace" not in item["body"]
+        and "Route_Duration_To_Replace" not in item["body"]
+        for item in _FakeEmailService.sent
     )
 
 
