@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime
-from typing import Any
+from typing import List
 from zoneinfo import ZoneInfo
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,23 @@ service = DriverReportService(logger)
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
+class DeliveriesCountResponse(BaseModel):
+    total_deliveries: int
+
+
+class DriverRankingItem(BaseModel):
+    driver_id: str
+    driver_name: str
+    km: float
+
+
+class MonthlyTotalsResponse(BaseModel):
+    year: int
+    month: int
+    total_km: float
+    total_deliveries: int
+
+
 def _ensure_est(dt: datetime) -> datetime:
     tz = ZoneInfo(settings.scheduler_timezone)
     if dt.tzinfo is None:
@@ -23,13 +41,13 @@ def _ensure_est(dt: datetime) -> datetime:
     return dt.astimezone(tz)
 
 
-@router.get("/deliveries/count")
+@router.get("/deliveries/count", response_model=DeliveriesCountResponse)
 async def get_total_deliveries_between(
     start: datetime = Query(..., description="Start datetime (assumed EST if no tz)"),
     end: datetime = Query(..., description="End datetime (assumed EST if no tz)"),
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
-) -> dict[str, int]:
+ ) -> DeliveriesCountResponse:
     """Return total deliveries (route stop snapshots) between start and end.
     Query params are treated as EST if no timezone is provided.
     """
@@ -40,7 +58,7 @@ async def get_total_deliveries_between(
         # Pass scheduler-timezone-aware datetimes to the service. The service
         # will normalize them to naive scheduler-local datetimes to match DB.
         total = await service.get_total_deliveries_between(session, start_est, end_est)
-        return {"total_deliveries": total}
+        return DeliveriesCountResponse(total_deliveries=total)
     except Exception as e:
         logger.exception(f"Failed to get deliveries between: {e}")
         raise HTTPException(
@@ -48,13 +66,13 @@ async def get_total_deliveries_between(
         ) from e
 
 
-@router.get("/monthly/{year}/{month}/ranking")
+@router.get("/monthly/{year}/{month}/ranking", response_model=List[DriverRankingItem])
 async def get_monthly_ranking(
     year: int,
     month: int,
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
-) -> list[dict[str, Any]]:
+ ) -> List[DriverRankingItem]:
     """Return monthly ranking list of drivers by km (descending)."""
     try:
         if month < 1 or month > 12:
@@ -62,7 +80,8 @@ async def get_monthly_ranking(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
             )
         rankings = await service.get_monthly_km_ranking(session, year, month)
-        return rankings
+        items: List[DriverRankingItem] = [DriverRankingItem(**r) for r in rankings]
+        return items
     except HTTPException:
         raise
     except Exception as e:
@@ -72,13 +91,13 @@ async def get_monthly_ranking(
         ) from e
 
 
-@router.get("/monthly/{year}/{month}/totals")
+@router.get("/monthly/{year}/{month}/totals", response_model=MonthlyTotalsResponse)
 async def get_monthly_totals(
     year: int,
     month: int,
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
-) -> dict[str, Any]:
+ ) -> MonthlyTotalsResponse:
     """Return total distance driven and total deliveries for the month."""
     try:
         if month < 1 or month > 12:
@@ -89,12 +108,12 @@ async def get_monthly_totals(
         total_deliveries = await service.get_total_deliveries_for_month(
             session, year, month
         )
-        return {
-            "year": year,
-            "month": month,
-            "total_km": total_km,
-            "total_deliveries": total_deliveries,
-        }
+        return MonthlyTotalsResponse(
+            year=year,
+            month=month,
+            total_km=total_km,
+            total_deliveries=total_deliveries,
+        )
     except HTTPException:
         raise
     except Exception as e:

@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
@@ -25,9 +24,9 @@ class DriverReportService:
     ) -> list[dict]:
         """Return per-driver km for given year/month ordered desc by km."""
         try:
-            # Build explicit ON clauses but cast their type for mypy
-            on_driver = cast("Any", Driver.driver_id == DriverHistory.driver_id)
-            on_user = cast("Any", User.user_id == Driver.user_id)
+            # Build explicit ON clauses using `col()` so types info is preserved
+            on_driver = col(Driver.driver_id) == col(DriverHistory.driver_id)
+            on_user = col(User.user_id) == col(Driver.user_id)
 
             statement = (
                 select(DriverHistory, Driver, User)
