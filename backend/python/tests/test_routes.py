@@ -9,7 +9,7 @@ Tests cover:
 - Error handling (404s, validation errors)
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -1051,7 +1051,8 @@ class TestRouteRoutes:
             contact_name="Route Stop A",
             address="1 Route St",
             phone_primary="5550000001",
-            num_boxes=3,
+            num_children=6,
+            num_boxes=99,
             delivery_type=DeliveryTypeEnum.FAMILY,
         )
         loc_b = Location(
@@ -1094,6 +1095,98 @@ class TestRouteRoutes:
         )
         assert route["num_stops"] == 2
         assert route["box_total"] == 8
+
+    @pytest.mark.asyncio
+    async def test_get_routes_uses_snapshotted_box_totals_for_frozen_routes(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /routes uses frozen stop snapshots for completed routes."""
+        from app.models.location import Location
+        from app.models.route import Route
+        from app.models.route_group import RouteGroup
+        from app.models.route_snapshot import RouteSnapshot
+        from app.models.route_stop import RouteStop
+        from app.models.route_stop_snapshot import RouteStopSnapshot
+
+        past_group = RouteGroup(
+            name="Past Route Group",
+            notes="",
+            drive_date=datetime.combine(
+                date.today() - timedelta(days=7), datetime.min.time()
+            ),
+        )
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Frozen Stop",
+            contact_name="Frozen Stop",
+            address="1 Frozen St",
+            phone_primary="5550000009",
+            num_children=6,
+            num_boxes=99,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        test_session.add_all([past_group, loc])
+        await test_session.commit()
+        await test_session.refresh(past_group)
+        await test_session.refresh(loc)
+
+        route = Route(
+            name="Frozen Route",
+            length=4.0,
+            route_group_id=past_group.route_group_id,
+        )
+        test_session.add(route)
+        await test_session.commit()
+        await test_session.refresh(route)
+
+        stop = RouteStop(
+            route_id=route.route_id,
+            location_id=loc.location_id,
+            stop_number=1,
+        )
+        test_session.add(stop)
+        await test_session.commit()
+        await test_session.refresh(stop)
+
+        test_session.add(
+            RouteSnapshot(
+                route_id=route.route_id,
+                start_address="Warehouse",
+                start_latitude=0.0,
+                start_longitude=0.0,
+            )
+        )
+        test_session.add(
+            RouteStopSnapshot(
+                route_stop_id=stop.route_stop_id,
+                address=loc.address,
+                contact_name=loc.contact_name,
+                phone_number=loc.phone_primary,
+                num_boxes=4,
+                notes=loc.notes,
+                latitude=loc.latitude or 0.0,
+                longitude=loc.longitude or 0.0,
+            )
+        )
+        await test_session.commit()
+
+        # Mutate the live location after the route is frozen; the list should
+        # still read the snapshotted count.
+        loc.num_children = 1
+        loc.num_boxes = 1
+        await test_session.commit()
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        data = response.json()
+        route_item = next(
+            item for item in data["items"] if item["route_id"] == str(route.route_id)
+        )
+        assert route_item["num_stops"] == 1
+        assert route_item["box_total"] == 4
 
     @pytest.mark.asyncio
     async def test_get_route_by_id(

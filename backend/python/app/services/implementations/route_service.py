@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import Integer, case, cast, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -18,6 +18,7 @@ from app.models.route import (
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
+from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
@@ -57,13 +58,31 @@ class RouteService:
         to routes assigned to that specific driver (powers the driver homepage
         feed). The date range filters on the route's RouteGroup.drive_date.
         """
+        live_box_count = case(
+            (
+                col(Location.num_children).isnot(None),
+                cast(func.ceil(col(Location.num_children) / 2.0), Integer),
+            ),
+            else_=col(Location.num_boxes),
+        )
+
         route_totals = (
             select(
                 col(RouteStop.route_id).label("route_id"),
                 func.count(col(RouteStop.route_stop_id)).label("num_stops"),
-                func.coalesce(func.sum(col(Location.num_boxes)), 0).label("box_total"),
+                func.coalesce(
+                    func.sum(func.coalesce(RouteStopSnapshot.num_boxes, live_box_count)),
+                    0,
+                ).label("box_total"),
             )
-            .join(Location, col(Location.location_id) == col(RouteStop.location_id))
+            .select_from(RouteStop)
+            .outerjoin(
+                RouteStopSnapshot,
+                RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id,  # type: ignore[arg-type]
+            )
+            .outerjoin(
+                Location, col(Location.location_id) == col(RouteStop.location_id)
+            )
             .group_by(col(RouteStop.route_id))
             .subquery()
         )
