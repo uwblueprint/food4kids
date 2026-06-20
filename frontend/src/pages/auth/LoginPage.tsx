@@ -199,7 +199,7 @@ export const LoginPage = () => {
         <img
           src={loginPageIllustration}
           alt="Food4Kids Illustration"
-          className="h-full w-full object-cover object-left-top"
+          className="h-full w-full object-cover"
         />
       </div>
     </div>
