@@ -1475,6 +1475,7 @@ export type RouteGroupRead = {
    * Created At
    */
   created_at?: string | null;
+  delivery_type?: DeliveryTypeEnum | null;
   /**
    * Drive Date
    */
@@ -1488,6 +1489,18 @@ export type RouteGroupRead = {
    */
   notes?: string;
   /**
+   * Num Boxes
+   */
+  num_boxes?: number;
+  /**
+   * Num Drivers Assigned
+   */
+  num_drivers_assigned?: number;
+  /**
+   * Num Locations
+   */
+  num_locations?: number;
+  /**
    * Num Routes
    */
   num_routes: number;
@@ -1495,6 +1508,11 @@ export type RouteGroupRead = {
    * Route Group Id
    */
   route_group_id: string;
+  /**
+   * Routes
+   */
+  routes?: Array<RouteReadSummary>;
+  status: RouteStatusEnum;
   /**
    * Updated At
    */
@@ -1607,6 +1625,30 @@ export type RouteRead = {
    * Start Time
    */
   start_time?: string | null;
+};
+
+/**
+ * RouteReadSummary
+ *
+ * Lightweight route info returned inside a route group response
+ */
+export type RouteReadSummary = {
+  /**
+   * Length
+   */
+  length?: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Notes
+   */
+  notes?: string;
+  /**
+   * Route Id
+   */
+  route_id: string;
 };
 
 /**
@@ -3496,9 +3538,7 @@ export type GetRouteGroupsResponses = {
    *
    * Successful Response
    */
-  200: Array<{
-    [key: string]: unknown;
-  }>;
+  200: Array<RouteGroupRead>;
 };
 
 export type GetRouteGroupsResponse =

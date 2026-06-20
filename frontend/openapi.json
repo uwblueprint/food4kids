@@ -2558,6 +2558,16 @@
             ],
             "title": "Created At"
           },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2574,6 +2584,21 @@
             "title": "Notes",
             "type": "string"
           },
+          "num_boxes": {
+            "default": 0,
+            "title": "Num Boxes",
+            "type": "integer"
+          },
+          "num_drivers_assigned": {
+            "default": 0,
+            "title": "Num Drivers Assigned",
+            "type": "integer"
+          },
+          "num_locations": {
+            "default": 0,
+            "title": "Num Locations",
+            "type": "integer"
+          },
           "num_routes": {
             "title": "Num Routes",
             "type": "integer"
@@ -2582,6 +2607,17 @@
             "format": "uuid",
             "title": "Route Group Id",
             "type": "string"
+          },
+          "routes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RouteReadSummary"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RouteStatusEnum"
           },
           "updated_at": {
             "anyOf": [
@@ -2600,7 +2636,8 @@
           "name",
           "drive_date",
           "route_group_id",
-          "num_routes"
+          "num_routes",
+          "status"
         ],
         "title": "RouteGroupRead",
         "type": "object"
@@ -2828,6 +2865,36 @@
           "route_id"
         ],
         "title": "RouteRead",
+        "type": "object"
+      },
+      "RouteReadSummary": {
+        "description": "Lightweight route info returned inside a route group response",
+        "properties": {
+          "length": {
+            "default": 0,
+            "title": "Length",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "route_id": {
+            "format": "uuid",
+            "title": "Route Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route_id",
+          "name"
+        ],
+        "title": "RouteReadSummary",
         "type": "object"
       },
       "RouteStatusEnum": {
@@ -5599,8 +5666,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/RouteGroupRead"
                   },
                   "title": "Response Get Route Groups",
                   "type": "array"
