@@ -1,9 +1,11 @@
 from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.dependencies.auth import require_admin
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
@@ -13,8 +15,22 @@ from app.models.enum import (
     DriverAssignmentStatusEnum,
     RouteStatusEnum,
 )
-from app.models.route_group import RouteGroupCreate, RouteGroupRead, RouteGroupUpdate
+from app.models.route_group import (
+    RouteGroup,
+    RouteGroupCreate,
+    RouteGroupRead,
+    RouteGroupUpdate,
+)
 from app.services.implementations.route_group_service import RouteGroupService
+
+
+def _compute_status(rg: RouteGroup) -> RouteStatusEnum:
+    tz = ZoneInfo(settings.scheduler_timezone)
+    now = datetime.now(tz).replace(tzinfo=None)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if rg.drive_date >= today_start:
+        return RouteStatusEnum.UPCOMING
+    return RouteStatusEnum.COMPLETED
 
 router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
@@ -79,7 +95,16 @@ async def create_route_group(
         created_route_group = await route_group_service.create_route_group(
             session, route_group
         )
-        return RouteGroupRead.model_validate(created_route_group, from_attributes=True)
+        return RouteGroupRead(
+            route_group_id=created_route_group.route_group_id,
+            name=created_route_group.name,
+            notes=created_route_group.notes,
+            drive_date=created_route_group.drive_date,
+            created_at=created_route_group.created_at,
+            updated_at=created_route_group.updated_at,
+            num_routes=created_route_group.num_routes,
+            status=_compute_status(created_route_group),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -106,7 +131,16 @@ async def update_route_group(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"RouteGroup with id {route_group_id} not found",
             )
-        return RouteGroupRead.model_validate(updated_route_group, from_attributes=True)
+        return RouteGroupRead(
+            route_group_id=updated_route_group.route_group_id,
+            name=updated_route_group.name,
+            notes=updated_route_group.notes,
+            drive_date=updated_route_group.drive_date,
+            created_at=updated_route_group.created_at,
+            updated_at=updated_route_group.updated_at,
+            num_routes=updated_route_group.num_routes,
+            status=_compute_status(updated_route_group),
+        )
     except HTTPException:
         raise
     except Exception as e:

@@ -1633,7 +1633,7 @@ class TestRouteGroupRoutes:
             delivery_type=DeliveryTypeEnum.SCHOOL,
             contact_name="Jane",
             address="123 Main St",
-            phone_number="555-1234",
+            phone_primary="555-1234",
             num_children=10,
         )
         test_session.add(location)
@@ -1677,7 +1677,7 @@ class TestRouteGroupRoutes:
             delivery_type=DeliveryTypeEnum.FAMILY,
             contact_name="A",
             address="1 St",
-            phone_number="555-0001",
+            phone_primary="555-0001",
             num_children=3,
         )
         loc_b = Location(
@@ -1686,7 +1686,7 @@ class TestRouteGroupRoutes:
             delivery_type=DeliveryTypeEnum.FAMILY,
             contact_name="B",
             address="2 St",
-            phone_number="555-0002",
+            phone_primary="555-0002",
             num_children=5,
         )
         test_session.add_all([loc_a, loc_b])
