@@ -37,8 +37,7 @@ class UserService:
     async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
         """Get user by email using Firebase"""
         try:
-            firebase_user: UserRecord = firebase_admin.auth.get_user_by_email(email)
-            statement = select(User).where(User.auth_id == firebase_user.uid)
+            statement = select(User).where(User.email == email)
             result = await session.execute(statement)
             user = result.scalars().first()
 
