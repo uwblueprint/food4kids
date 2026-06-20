@@ -44,6 +44,8 @@ import {
   getLocationGroup,
   getLocationGroups,
   getLocations,
+  getMonthlyRanking,
+  getMonthlyTotals,
   getNoteChain,
   getNotes,
   getRoute,
@@ -51,11 +53,13 @@ import {
   getRoutes,
   getSuggestedDriver,
   getSystemSettings,
+  getTotalDeliveriesBetween,
   ingestLocations,
   initializeDriver,
   login,
   logout,
   type Options,
+  patchSystemSettings,
   refresh,
   resetPassword,
   reviewLocations,
@@ -167,6 +171,12 @@ import type {
   GetLocationsData,
   GetLocationsError,
   GetLocationsResponse,
+  GetMonthlyRankingData,
+  GetMonthlyRankingError,
+  GetMonthlyRankingResponse,
+  GetMonthlyTotalsData,
+  GetMonthlyTotalsError,
+  GetMonthlyTotalsResponse,
   GetNoteChainData,
   GetNoteChainError,
   GetNoteChainResponse,
@@ -187,6 +197,9 @@ import type {
   GetSuggestedDriverResponse,
   GetSystemSettingsData,
   GetSystemSettingsResponse,
+  GetTotalDeliveriesBetweenData,
+  GetTotalDeliveriesBetweenError,
+  GetTotalDeliveriesBetweenResponse,
   IngestLocationsData,
   IngestLocationsError,
   IngestLocationsResponse,
@@ -199,6 +212,9 @@ import type {
   LogoutData,
   LogoutError,
   LogoutResponse,
+  PatchSystemSettingsData,
+  PatchSystemSettingsError,
+  PatchSystemSettingsResponse,
   RefreshData,
   RefreshResponse2,
   ResetPasswordData,
@@ -1725,6 +1741,150 @@ export const updateNoteMutation = (
   return mutationOptions;
 };
 
+export const getTotalDeliveriesBetweenQueryKey = (
+  options: Options<GetTotalDeliveriesBetweenData>
+) => createQueryKey('getTotalDeliveriesBetween', options);
+
+/**
+ * Get Total Deliveries Between
+ *
+ * Return total deliveries (route stop snapshots) between start and end.
+ * Query params are treated as EST if no timezone is provided.
+ */
+export const getTotalDeliveriesBetweenOptions = (
+  options: Options<GetTotalDeliveriesBetweenData>
+) =>
+  queryOptions<
+    GetTotalDeliveriesBetweenResponse,
+    AxiosError<GetTotalDeliveriesBetweenError>,
+    GetTotalDeliveriesBetweenResponse,
+    ReturnType<typeof getTotalDeliveriesBetweenQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getTotalDeliveriesBetween({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getTotalDeliveriesBetweenQueryKey(options),
+  });
+
+export const getTotalDeliveriesBetweenInfiniteQueryKey = (
+  options: Options<GetTotalDeliveriesBetweenData>
+): QueryKey<Options<GetTotalDeliveriesBetweenData>> =>
+  createQueryKey('getTotalDeliveriesBetween', options, true);
+
+/**
+ * Get Total Deliveries Between
+ *
+ * Return total deliveries (route stop snapshots) between start and end.
+ * Query params are treated as EST if no timezone is provided.
+ */
+export const getTotalDeliveriesBetweenInfiniteOptions = (
+  options: Options<GetTotalDeliveriesBetweenData>
+) =>
+  infiniteQueryOptions<
+    GetTotalDeliveriesBetweenResponse,
+    AxiosError<GetTotalDeliveriesBetweenError>,
+    InfiniteData<GetTotalDeliveriesBetweenResponse>,
+    QueryKey<Options<GetTotalDeliveriesBetweenData>>,
+    | string
+    | Pick<
+        QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  start: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getTotalDeliveriesBetween({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getTotalDeliveriesBetweenInfiniteQueryKey(options),
+    }
+  );
+
+export const getMonthlyRankingQueryKey = (
+  options: Options<GetMonthlyRankingData>
+) => createQueryKey('getMonthlyRanking', options);
+
+/**
+ * Get Monthly Ranking
+ *
+ * Return monthly ranking list of drivers by km (descending).
+ */
+export const getMonthlyRankingOptions = (
+  options: Options<GetMonthlyRankingData>
+) =>
+  queryOptions<
+    GetMonthlyRankingResponse,
+    AxiosError<GetMonthlyRankingError>,
+    GetMonthlyRankingResponse,
+    ReturnType<typeof getMonthlyRankingQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getMonthlyRanking({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getMonthlyRankingQueryKey(options),
+  });
+
+export const getMonthlyTotalsQueryKey = (
+  options: Options<GetMonthlyTotalsData>
+) => createQueryKey('getMonthlyTotals', options);
+
+/**
+ * Get Monthly Totals
+ *
+ * Return total distance driven and total deliveries for the month.
+ */
+export const getMonthlyTotalsOptions = (
+  options: Options<GetMonthlyTotalsData>
+) =>
+  queryOptions<
+    GetMonthlyTotalsResponse,
+    AxiosError<GetMonthlyTotalsError>,
+    GetMonthlyTotalsResponse,
+    ReturnType<typeof getMonthlyTotalsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getMonthlyTotals({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getMonthlyTotalsQueryKey(options),
+  });
+
 export const getRouteGroupsQueryKey = (options?: Options<GetRouteGroupsData>) =>
   createQueryKey('getRouteGroups', options);
 
@@ -2149,6 +2309,35 @@ export const getSystemSettingsOptions = (
     },
     queryKey: getSystemSettingsQueryKey(options),
   });
+
+/**
+ * Patch System Settings
+ *
+ * Patch the singleton system settings row.
+ */
+export const patchSystemSettingsMutation = (
+  options?: Partial<Options<PatchSystemSettingsData>>
+): UseMutationOptions<
+  PatchSystemSettingsResponse,
+  AxiosError<PatchSystemSettingsError>,
+  Options<PatchSystemSettingsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    PatchSystemSettingsResponse,
+    AxiosError<PatchSystemSettingsError>,
+    Options<PatchSystemSettingsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await patchSystemSettings({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 /**
  * Upload Image

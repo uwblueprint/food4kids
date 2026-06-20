@@ -27,8 +27,9 @@ class DriverHistoryCSVGenerator:
     ) -> tuple[list[dict[str, Any]], str]:
         """Generate CSV data for all drivers for a given year.
 
-        Drivers with history in the current year appear first, sorted alphabetically.
-        Drivers with only previous year history appear after, also sorted alphabetically.
+        Drivers with history in the current year appear first, sorted by last name
+        then first name. Drivers with only previous year history appear after,
+        also sorted by last name then first name.
         """
 
         current_year_lookup = {
@@ -65,7 +66,7 @@ class DriverHistoryCSVGenerator:
                 detail=f"No valid driver data found for years {year} and {year - 1}",
             )
 
-        # Sort: current year drivers first (descending), then by last name, then first name
+        # Sort: current year drivers first, then last name, then first name.
         csv_data.sort(
             key=lambda x: (
                 not x[

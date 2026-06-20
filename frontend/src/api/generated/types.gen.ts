@@ -246,6 +246,16 @@ export type ChangedFieldStr = {
 };
 
 /**
+ * DeliveriesCountResponse
+ */
+export type DeliveriesCountResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+};
+
+/**
  * DeliveryTypeEnum
  *
  * Kind of recipient at a Location — set per location, enforced uniform
@@ -336,6 +346,24 @@ export type DriverHistorySummary = {
  * Update request model, all fields are required for now since we are only updating km
  */
 export type DriverHistoryUpdate = {
+  /**
+   * Km
+   */
+  km: number;
+};
+
+/**
+ * DriverRankingItem
+ */
+export type DriverRankingItem = {
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Driver Name
+   */
+  driver_name: string;
   /**
    * Km
    */
@@ -502,6 +530,26 @@ export type DriverUpdate = {
    * Phone
    */
   phone?: string | null;
+};
+
+/**
+ * EmailReminder
+ *
+ * A single reminder email configuration.
+ *
+ * Each reminder fires ``days_before`` days ahead of a route's drive date, at its
+ * own ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a
+ * same-day reminder at 11 AM.
+ */
+export type EmailReminder = {
+  /**
+   * Days Before
+   */
+  days_before: number;
+  /**
+   * Time
+   */
+  time: string;
 };
 
 /**
@@ -1122,6 +1170,28 @@ export type LoginRequest = {
 };
 
 /**
+ * MonthlyTotalsResponse
+ */
+export type MonthlyTotalsResponse = {
+  /**
+   * Month
+   */
+  month: number;
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
+  /**
+   * Year
+   */
+  year: number;
+};
+
+/**
  * NetNewEntry
  *
  * A row in the import that has no matching existing location.
@@ -1666,6 +1736,10 @@ export type RouteStatusEnum = 'Upcoming' | 'Completed' | 'Archived';
  */
 export type RouteWithDateRead = {
   /**
+   * Box Total
+   */
+  box_total: number;
+  /**
    * Drive Date
    */
   drive_date: string;
@@ -1681,6 +1755,10 @@ export type RouteWithDateRead = {
    * Notes
    */
   notes: string;
+  /**
+   * Num Stops
+   */
+  num_stops: number;
   /**
    * Route Id
    */
@@ -1744,9 +1822,53 @@ export type SuggestedDriverResponse = {
  */
 export type SystemSettingsRead = {
   /**
+   * Boxes Per Car
+   */
+  boxes_per_car?: number;
+  /**
+   * Children Per Box
+   */
+  children_per_box?: number;
+  /**
+   * Contact Name
+   */
+  contact_name?: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone?: string | null;
+  /**
    * Default Cap
    */
   default_cap?: number | null;
+  /**
+   * Dropoff Minutes
+   */
+  dropoff_minutes?: number;
+  /**
+   * Email Reminders
+   */
+  email_reminders?: Array<EmailReminder>;
+  /**
+   * F4K Wr Address
+   */
+  f4k_wr_address?: string | null;
+  /**
+   * F4K Wr Email
+   */
+  f4k_wr_email?: string | null;
+  /**
+   * F4K Wr Facebook
+   */
+  f4k_wr_facebook?: string | null;
+  /**
+   * F4K Wr Instagram
+   */
+  f4k_wr_instagram?: string | null;
+  /**
+   * F4K Wr Website
+   */
+  f4k_wr_website?: string | null;
   /**
    * Import Column Map
    */
@@ -1761,6 +1883,84 @@ export type SystemSettingsRead = {
    * System Settings Id
    */
   system_settings_id: string;
+  /**
+   * Warehouse Latitude
+   */
+  warehouse_latitude?: number | null;
+  /**
+   * Warehouse Location
+   */
+  warehouse_location?: string | null;
+  /**
+   * Warehouse Longitude
+   */
+  warehouse_longitude?: number | null;
+};
+
+/**
+ * SystemSettingsUpdate
+ *
+ * Update request model - all optional
+ */
+export type SystemSettingsUpdate = {
+  /**
+   * Boxes Per Car
+   */
+  boxes_per_car?: number | null;
+  /**
+   * Children Per Box
+   */
+  children_per_box?: number | null;
+  /**
+   * Contact Name
+   */
+  contact_name?: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone?: string | null;
+  /**
+   * Default Cap
+   */
+  default_cap?: number | null;
+  /**
+   * Dropoff Minutes
+   */
+  dropoff_minutes?: number | null;
+  /**
+   * Email Reminders
+   */
+  email_reminders?: Array<EmailReminder> | null;
+  /**
+   * F4K Wr Address
+   */
+  f4k_wr_address?: string | null;
+  /**
+   * F4K Wr Email
+   */
+  f4k_wr_email?: string | null;
+  /**
+   * F4K Wr Facebook
+   */
+  f4k_wr_facebook?: string | null;
+  /**
+   * F4K Wr Instagram
+   */
+  f4k_wr_instagram?: string | null;
+  /**
+   * F4K Wr Website
+   */
+  f4k_wr_website?: string | null;
+  /**
+   * Import Column Map
+   */
+  import_column_map?: {
+    [key: string]: string;
+  } | null;
+  /**
+   * Route Start Time
+   */
+  route_start_time?: string | null;
   /**
    * Warehouse Latitude
    */
@@ -3472,6 +3672,120 @@ export type UpdateNoteResponses = {
 
 export type UpdateNoteResponse = UpdateNoteResponses[keyof UpdateNoteResponses];
 
+export type GetTotalDeliveriesBetweenData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Start
+     *
+     * Start datetime (assumed EST if no tz)
+     */
+    start: string;
+    /**
+     * End
+     *
+     * End datetime (assumed EST if no tz)
+     */
+    end: string;
+  };
+  url: '/reports/deliveries/count';
+};
+
+export type GetTotalDeliveriesBetweenErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetTotalDeliveriesBetweenError =
+  GetTotalDeliveriesBetweenErrors[keyof GetTotalDeliveriesBetweenErrors];
+
+export type GetTotalDeliveriesBetweenResponses = {
+  /**
+   * Successful Response
+   */
+  200: DeliveriesCountResponse;
+};
+
+export type GetTotalDeliveriesBetweenResponse =
+  GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
+
+export type GetMonthlyRankingData = {
+  body?: never;
+  path: {
+    /**
+     * Year
+     */
+    year: number;
+    /**
+     * Month
+     */
+    month: number;
+  };
+  query?: never;
+  url: '/reports/monthly/{year}/{month}/ranking';
+};
+
+export type GetMonthlyRankingErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlyRankingError =
+  GetMonthlyRankingErrors[keyof GetMonthlyRankingErrors];
+
+export type GetMonthlyRankingResponses = {
+  /**
+   * Response Get Monthly Ranking
+   *
+   * Successful Response
+   */
+  200: Array<DriverRankingItem>;
+};
+
+export type GetMonthlyRankingResponse =
+  GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
+
+export type GetMonthlyTotalsData = {
+  body?: never;
+  path: {
+    /**
+     * Year
+     */
+    year: number;
+    /**
+     * Month
+     */
+    month: number;
+  };
+  query?: never;
+  url: '/reports/monthly/{year}/{month}/totals';
+};
+
+export type GetMonthlyTotalsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlyTotalsError =
+  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
+
+export type GetMonthlyTotalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: MonthlyTotalsResponse;
+};
+
+export type GetMonthlyTotalsResponse =
+  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
+
 export type GetRouteGroupsData = {
   body?: never;
   path?: never;
@@ -3882,6 +4196,33 @@ export type GetSystemSettingsResponses = {
 
 export type GetSystemSettingsResponse =
   GetSystemSettingsResponses[keyof GetSystemSettingsResponses];
+
+export type PatchSystemSettingsData = {
+  body: SystemSettingsUpdate;
+  path?: never;
+  query?: never;
+  url: '/system-settings/';
+};
+
+export type PatchSystemSettingsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PatchSystemSettingsError =
+  PatchSystemSettingsErrors[keyof PatchSystemSettingsErrors];
+
+export type PatchSystemSettingsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SystemSettingsRead;
+};
+
+export type PatchSystemSettingsResponse =
+  PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
 
 export type UploadImageData = {
   body: BodyUploadImage;
