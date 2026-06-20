@@ -1,7 +1,9 @@
 interface LoginResponse {
   access_token: string;
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
   email: string;
 }
 
@@ -38,13 +40,27 @@ function isTokenExpired(token: string): boolean {
   return exp * 1000 <= Date.now() + 60_000;
 }
 
+function tokenHasValidRole(token: string): boolean {
+  const role = decodeJwtPayload(token)?.role;
+  return role === 'admin' || role === 'driver';
+}
+
+function clearSession(): void {
+  accessToken = null;
+  session = null;
+}
+
+function isTokenUsable(token: string): boolean {
+  return !isTokenExpired(token) && tokenHasValidRole(token);
+}
+
 function setSessionFromLogin(response: LoginResponse): void {
   accessToken = response.access_token;
   session = {
     userId: response.id,
     role: roleFromToken(response.access_token),
     email: response.email,
-    name: response.name,
+    name: response.full_name,
   };
 }
 
@@ -72,9 +88,13 @@ async function login(email: string, password: string): Promise<boolean> {
   return true;
 }
 
+export function invalidateAuthSession(): void {
+  clearSession();
+}
+
 /** Dev bootstrap: POST /auth/login with seeded credentials before API calls. */
-export async function ensureAuthSession(): Promise<void> {
-  if (!import.meta.env.DEV) return;
+export async function ensureAuthSession(): Promise<boolean> {
+  if (!import.meta.env.DEV) return false;
 
   const email = import.meta.env.VITE_DEV_AUTH_EMAIL ?? 'admin1@f4k.dev';
   const password = import.meta.env.VITE_DEV_AUTH_PASSWORD ?? 'test123';
@@ -82,10 +102,13 @@ export async function ensureAuthSession(): Promise<void> {
   const sessionMatchesDevAccount =
     session?.email.toLowerCase() === email.toLowerCase();
   const tokenStillValid =
-    accessToken !== null && !isTokenExpired(accessToken);
+    accessToken !== null && isTokenUsable(accessToken);
 
-  // Re-login when the dev account changes or the cached token is stale.
-  if (tokenStillValid && sessionMatchesDevAccount) return;
+  if (tokenStillValid && sessionMatchesDevAccount) {
+    return true;
+  }
+
+  clearSession();
 
   const ok = await login(email, password);
   if (!ok) {
@@ -93,4 +116,5 @@ export async function ensureAuthSession(): Promise<void> {
       '[auth] POST /auth/login failed — run seed_database and check credentials.'
     );
   }
+  return ok;
 }
