@@ -177,7 +177,7 @@ export const LoginPage = () => {
             </form>
 
             {/* Footer */}
-            <p className="desktop:mt-5 text-m-p2 tablet:font-medium mt-6 mb-8 text-center">
+            <p className="desktop:mt-5 text-m-p2 tablet:font-medium tablet:mb-0 mt-6 mb-8 text-center">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
