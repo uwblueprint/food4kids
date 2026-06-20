@@ -67,7 +67,9 @@ export function AnnouncementCard({
               </span>
             )}
             {isEdited && (
-              <span className="text-p3 text-grey-400 font-semibold">Edited</span>
+              <span className="text-p3 text-grey-400 font-semibold">
+                Edited
+              </span>
             )}
           </div>
           <p className="text-p2">
@@ -95,7 +97,7 @@ export function AnnouncementCard({
                 className="size-9 shrink-0"
                 aria-label="Announcement actions"
               >
-                <MoreVerticalIcon className="size-5 text-grey-400" />
+                <MoreVerticalIcon className="text-grey-400 size-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-40 p-1">
@@ -127,7 +129,7 @@ export function AnnouncementCard({
       </div>
       <button
         type="button"
-        className="text-p2 text-grey-500 line-clamp-4 w-full whitespace-pre-wrap text-left"
+        className="text-p2 text-grey-500 line-clamp-4 w-full text-left whitespace-pre-wrap"
         onClick={() => onOpen(announcement)}
       >
         {announcement.message}

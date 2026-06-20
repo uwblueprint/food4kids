@@ -23,7 +23,9 @@ function persistReadIds(userId: string, ids: Set<string>): void {
 
 /** Tracks which announcements the current user has opened (for the New badge). */
 export function useAnnouncementReads(userId: string) {
-  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds(userId));
+  const [readIds, setReadIds] = useState<Set<string>>(() =>
+    loadReadIds(userId)
+  );
 
   const markAsRead = useCallback(
     (announcementId: string) => {
