@@ -66,7 +66,7 @@ async def _seed_today(maker: async_sessionmaker[AsyncSession]) -> dict[str, Any]
             phone_primary="+12125550001",
             latitude=43.1,
             longitude=-80.1,
-            num_boxes=3,
+            num_children=6,
             delivery_type=DeliveryTypeEnum.FAMILY,
         )
         # drive_date is today so the job (date.today()) picks it up.

@@ -37,7 +37,7 @@ const SYSTEM_FIELDS: SystemField[] = [
   { key: 'delivery_group', label: 'Delivery Group', required: true },
   { key: 'phone_primary', label: 'Primary Phone', required: true },
   { key: 'phone_secondary', label: 'Secondary Phone' },
-  { key: 'num_boxes', label: 'Number of Children', required: true },
+  { key: 'num_children', label: 'Number of Children', required: true },
   { key: 'dietary_restrictions', label: 'Food Restrictions' },
 ];
 

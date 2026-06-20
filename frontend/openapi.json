@@ -1055,21 +1055,11 @@
             "title": "Notes",
             "type": "string"
           },
-          "num_boxes": {
-            "default": 0,
-            "title": "Num Boxes",
-            "type": "integer"
-          },
           "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
+            "default": 0,
+            "minimum": 0,
+            "title": "Num Children",
+            "type": "integer"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -1336,7 +1326,7 @@
             ],
             "title": "Halal"
           },
-          "num_boxes": {
+          "num_children": {
             "anyOf": [
               {
                 "type": "integer"
@@ -1345,7 +1335,7 @@
                 "type": "null"
               }
             ],
-            "title": "Num Boxes"
+            "title": "Num Children"
           },
           "phone_primary": {
             "anyOf": [
@@ -1593,21 +1583,11 @@
             "title": "Notes",
             "type": "string"
           },
-          "num_boxes": {
-            "default": 0,
-            "title": "Num Boxes",
-            "type": "integer"
-          },
           "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
+            "default": 0,
+            "minimum": 0,
+            "title": "Num Children",
+            "type": "integer"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -1740,21 +1720,11 @@
             "title": "Notes",
             "type": "string"
           },
-          "num_boxes": {
-            "default": 0,
-            "title": "Num Boxes",
-            "type": "integer"
-          },
           "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
+            "default": 0,
+            "minimum": 0,
+            "title": "Num Children",
+            "type": "integer"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -1947,17 +1917,6 @@
             ],
             "title": "Notes"
           },
-          "num_boxes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Boxes"
-          },
           "num_children": {
             "anyOf": [
               {
@@ -2076,7 +2035,7 @@
             ],
             "title": "Delivery Group"
           },
-          "num_boxes": {
+          "num_children": {
             "anyOf": [
               {
                 "type": "integer"
@@ -2085,7 +2044,7 @@
                 "type": "null"
               }
             ],
-            "title": "Num Boxes"
+            "title": "Num Children"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -2543,6 +2502,12 @@
       "RouteGenerationSettings": {
         "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.",
         "properties": {
+          "children_per_box": {
+            "default": 2,
+            "minimum": 1,
+            "title": "Children Per Box",
+            "type": "integer"
+          },
           "max_half_boxes_per_driver": {
             "default": 28,
             "exclusiveMinimum": 0,
@@ -3120,7 +3085,7 @@
           },
           "children_per_box": {
             "default": 2,
-            "minimum": 0,
+            "minimum": 1,
             "title": "Children Per Box",
             "type": "integer"
           },
@@ -3328,7 +3293,7 @@
           "children_per_box": {
             "anyOf": [
               {
-                "minimum": 0,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -3586,7 +3551,7 @@
             ],
             "title": "Halal"
           },
-          "num_boxes": {
+          "num_children": {
             "anyOf": [
               {
                 "type": "integer"
@@ -3595,7 +3560,7 @@
                 "type": "null"
               }
             ],
-            "title": "Num Boxes"
+            "title": "Num Children"
           },
           "phone_primary": {
             "title": "Phone Primary",

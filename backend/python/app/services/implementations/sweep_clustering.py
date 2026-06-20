@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProtocol
+from app.utilities.boxes import compute_boxes
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -55,11 +56,13 @@ class TimeoutError(Exception):
     pass
 
 
-def effective_boxes(location: Location) -> int:
-    """Box count = ceil(children / 2); fall back to stored num_boxes."""
-    if location.num_children is not None and location.num_children > 0:
-        return math.ceil(location.num_children / 2)
-    return max(location.num_boxes, 0)
+def effective_boxes(location: Location, children_per_box: int) -> int:
+    """Boxes a location needs: ceil(num_children / children_per_box).
+
+    ``children_per_box`` comes from system settings; the divisor is no longer
+    hardcoded. See app.utilities.boxes.compute_boxes.
+    """
+    return compute_boxes(location.num_children, children_per_box)
 
 
 @dataclass
@@ -89,9 +92,12 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     driver rules (stops, boxes, and far-route caps).
     """
 
-    def __init__(self, warehouse_lat: float, warehouse_lon: float) -> None:
+    def __init__(
+        self, warehouse_lat: float, warehouse_lon: float, children_per_box: int
+    ) -> None:
         self._warehouse_lat = warehouse_lat
         self._warehouse_lon = warehouse_lon
+        self._children_per_box = children_per_box
 
     async def cluster_locations(
         self,
@@ -139,9 +145,10 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         for location in locations:
             check_timeout()
-            if effective_boxes(location) > max_boxes:
+            if effective_boxes(location, self._children_per_box) > max_boxes:
                 raise ValueError(
-                    f"Location '{location.name}' requires {effective_boxes(location)} boxes, "
+                    f"Location '{location.name}' requires "
+                    f"{effective_boxes(location, self._children_per_box)} boxes, "
                     f"which exceeds the per-driver maximum of {max_boxes}."
                 )
 
@@ -169,7 +176,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             ]
 
             if not feasible_indices:
-                boxes = effective_boxes(location)
+                boxes = effective_boxes(location, self._children_per_box)
                 raise ValueError(
                     f"Cannot assign '{location.name}' ({boxes} boxes) across {num_clusters} "
                     f"drivers without violating max {max_boxes} boxes per driver, "
@@ -194,7 +201,9 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     f"Cluster {index + 1} would have {len(cluster)} locations, "
                     f"exceeding max_locations_per_cluster={max_locations_per_cluster}."
                 )
-            cluster_boxes = sum(effective_boxes(loc) for loc in cluster)
+            cluster_boxes = sum(
+                effective_boxes(loc, self._children_per_box) for loc in cluster
+            )
             if cluster_boxes > max_boxes:
                 raise ValueError(
                     f"Cluster {index + 1} would have {cluster_boxes} boxes, "
@@ -268,8 +277,9 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 )
 
             if not can_add:
+                boxes = effective_boxes(location, self._children_per_box)
                 raise ValueError(
-                    f"Cannot pack location '{location.name}' ({effective_boxes(location)} boxes) "
+                    f"Cannot pack location '{location.name}' ({boxes} boxes) "
                     f"within max {max_boxes} boxes per route."
                 )
 
@@ -313,7 +323,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         max_stops: int | None,
         metrics: _LocationMetrics,
     ) -> bool:
-        boxes = effective_boxes(location)
+        boxes = effective_boxes(location, self._children_per_box)
         if cluster.box_count + boxes > max_boxes:
             return False
 
@@ -335,7 +345,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     ) -> None:
         cluster.locations.append(location)
         cluster.stop_count += 1
-        cluster.box_count += effective_boxes(location)
+        cluster.box_count += effective_boxes(location, self._children_per_box)
         if metrics.is_far:
             cluster.has_far_stop = True
         cluster.estimated_minutes += metrics.stop_minutes

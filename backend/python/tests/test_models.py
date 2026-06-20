@@ -260,7 +260,7 @@ class TestCoreBusinessValidation:
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
                 contact_name="Jane Smith",
-                # Missing: address, phone_primary, longitude, latitude, halal, num_boxes
+                # Missing: address, phone_primary, longitude, latitude, halal
             )
         error_str = str(exc_info.value)
         assert any(
@@ -272,7 +272,6 @@ class TestCoreBusinessValidation:
                 "longitude",
                 "latitude",
                 "halal",
-                "num_boxes",
             ]
         )
 
@@ -304,7 +303,6 @@ class TestCoreBusinessValidation:
                 longitude=-122.4194,
                 latitude=37.7749,
                 halal=False,
-                num_boxes=25,
                 invalid_field="This should cause an error",  # Extra field
             )
         assert "invalid_field" in str(exc_info.value)
@@ -372,7 +370,6 @@ class TestCoreModels:
             halal=False,
             dietary_restrictions="No nuts",
             num_children=150,
-            num_boxes=25,
             notes="Main entrance on Main St",
         )
         assert location.name == "Central Elementary"
@@ -390,7 +387,7 @@ class TestCoreModels:
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
-            num_boxes=10,
+            num_children=10,
         )
         assert location_minimal.name == "John Doe"
         assert location_minimal.delivery_type == DeliveryTypeEnum.FAMILY
@@ -409,7 +406,7 @@ class TestCoreModels:
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
-            num_boxes=25,
+            num_children=25,
         )
         assert location_read.location_id is not None
 
@@ -751,12 +748,11 @@ class TestEnumsAndSerialization:
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
-            num_boxes=10,
         )
         assert location.notes == ""  # Default value
         assert location.delivery_type == DeliveryTypeEnum.FAMILY
         assert location.dietary_restrictions == ""  # Default value
-        assert location.num_children is None  # Default value
+        assert location.num_children == 0  # Default value
 
 
 class TestModelValidation:

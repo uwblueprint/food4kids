@@ -29,8 +29,10 @@ class LocationBase(SQLModel):
     halal: bool = Field(default=False)
     dietary_restrictions: str = Field(default="")
     place_id: str | None = None
-    num_children: int | None = None
-    num_boxes: int = Field(default=0)
+    # Number of children served at this location. Required: the box count is
+    # derived from this (ceil(num_children / children_per_box)); there is no
+    # stored num_boxes. See app.utilities.boxes.compute_boxes.
+    num_children: int = Field(default=0, ge=0)
     # Kind of recipient (School/Family). Required — no default — per main's
     # rename/persist migration; enforced uniform within a RouteGroup at
     # generation time.
@@ -89,7 +91,7 @@ class LocationImportEntry(SQLModel):
     delivery_group: str | None = None
     phone_primary: str | None = None
     phone_secondary: str | None = None
-    num_boxes: int | None = None
+    num_children: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
 
@@ -104,7 +106,7 @@ class ValidatedLocationImportEntry(LocationImportEntry):
     # Required: every location must belong to a delivery group (the import
     # flags MISSING_DELIVERY_GROUP, and location_group_id is non-nullable).
     delivery_group: str
-    num_boxes: int | None = None
+    num_children: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
 
@@ -124,7 +126,7 @@ class NetNewEntry(SQLModel):
     delivery_group: str | None = None
     phone_primary: str
     phone_secondary: str | None = None
-    num_boxes: int | None = None
+    num_children: int | None = None
 
 
 class StaleEntry(SQLModel):
@@ -230,7 +232,6 @@ class LocationUpdate(SQLModel):
     dietary_restrictions: str | None = None
     place_id: str | None = None
     num_children: int | None = None
-    num_boxes: int | None = None
     delivery_type: DeliveryTypeEnum | None = None
     in_roster: bool | None = None
     notes: str | None = None
