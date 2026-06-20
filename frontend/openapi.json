@@ -4083,6 +4083,59 @@
         ]
       }
     },
+    "/announcements/{announcement_id}/email": {
+      "post": {
+        "description": "Send announcement notification emails to all active drivers (admin only).",
+        "operationId": "send_announcement_email",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Send Announcement Email",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Announcement Email",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
     "/auth/login": {
       "post": {
         "description": "Returns access token in response body and sets refreshToken as an httpOnly cookie",

@@ -162,6 +162,9 @@ import type {
   ReviewLocationsData,
   ReviewLocationsErrors,
   ReviewLocationsResponses,
+  SendAnnouncementEmailData,
+  SendAnnouncementEmailErrors,
+  SendAnnouncementEmailResponses,
   TestData,
   TestEventEmailData,
   TestEventEmailErrors,
@@ -329,6 +332,25 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Send Announcement Email
+ *
+ * Send announcement notification emails to all active drivers (admin only).
+ */
+export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
+  options: Options<SendAnnouncementEmailData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    SendAnnouncementEmailResponses,
+    SendAnnouncementEmailErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/announcements/{announcement_id}/email',
+    ...options,
   });
 
 /**
