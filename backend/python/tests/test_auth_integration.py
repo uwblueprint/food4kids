@@ -254,8 +254,12 @@ class Seed(SimpleNamespace):
 async def seed(test_session: AsyncSession) -> Seed:
     """Create the minimal records the auth dependencies look up by auth_id."""
     from app.models.driver import Driver
+    from app.models.enum import DeliveryTypeEnum
+    from app.models.location import Location
+    from app.models.location_group import LocationGroup
     from app.models.route import Route
     from app.models.route_group import RouteGroup
+    from app.models.route_stop import RouteStop
     from app.models.user import User
 
     def _driver(auth_id: str, email: str) -> Driver:
@@ -279,6 +283,11 @@ async def seed(test_session: AsyncSession) -> Seed:
 
     self_driver = _driver("self-uid", "self@test.dev")
     other_driver = _driver("other-uid", "other@test.dev")
+    location_group = LocationGroup(
+        name="Seed Location Group",
+        color="#FF5733",
+        notes="",
+    )
 
     admin_user = User(
         first_name="Admin",
@@ -288,6 +297,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         role="admin",
     )
     test_session.add(admin_user)
+    test_session.add(location_group)
 
     route_group = RouteGroup(name="Test Group", drive_date=datetime(2025, 3, 1, 8, 0))
     test_session.add(route_group)
@@ -305,9 +315,27 @@ async def seed(test_session: AsyncSession) -> Seed:
         route_group_id=route_group.route_group_id,
         driver_id=self_driver.driver_id,
     )
-    test_session.add(route)
+    location = Location(
+        location_group_id=location_group.location_group_id,
+        name="Seed Location",
+        contact_name="Seed Location",
+        address="123 Seed St",
+        phone_primary="5550000001",
+        num_boxes=4,
+        delivery_type=DeliveryTypeEnum.FAMILY,
+    )
+    test_session.add_all([route, location])
     await test_session.commit()
     await test_session.refresh(route)
+    await test_session.refresh(location)
+    test_session.add(
+        RouteStop(
+            route_id=route.route_id,
+            location_id=location.location_id,
+            stop_number=1,
+        )
+    )
+    await test_session.commit()
 
     return Seed(
         self_driver_id=self_driver.driver_id,
@@ -501,6 +529,10 @@ def _route_ids(resp: Any) -> set[str]:
     return {item["route_id"] for item in resp.json()["items"]}
 
 
+def _route_by_id(resp: Any, route_id: str) -> dict[str, Any]:
+    return next(item for item in resp.json()["items"] if item["route_id"] == route_id)
+
+
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("firebase_auth_mock")
 class TestGetRoutesDriverScoping:
@@ -515,6 +547,9 @@ class TestGetRoutesDriverScoping:
         assert resp.status_code == 200
         ids = _route_ids(resp)
         assert ids == {scoping_routes["self_route_id"]}
+        route = _route_by_id(resp, scoping_routes["self_route_id"])
+        assert route["num_stops"] == 1
+        assert route["box_total"] == 4
 
     async def test_driver_scoped_to_self_is_allowed(
         self, auth_client: AsyncClient, seed: Seed, scoping_routes: dict[str, Any]
@@ -527,6 +562,9 @@ class TestGetRoutesDriverScoping:
         )
         assert resp.status_code == 200
         assert _route_ids(resp) == {scoping_routes["self_route_id"]}
+        route = _route_by_id(resp, scoping_routes["self_route_id"])
+        assert route["num_stops"] == 1
+        assert route["box_total"] == 4
 
     async def test_driver_cannot_request_another_drivers_routes(
         self,
@@ -569,6 +607,9 @@ class TestGetRoutesDriverScoping:
             scoping_routes["other_route_id"],
             scoping_routes["unassigned_route_id"],
         }
+        route = _route_by_id(resp, scoping_routes["self_route_id"])
+        assert route["num_stops"] == 1
+        assert route["box_total"] == 4
 
     async def test_driver_unassigned_only_is_rejected(
         self,
