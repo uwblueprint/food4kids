@@ -62,7 +62,9 @@ export const LoginPage = () => {
             </div>
             {/* Heading */}
             <h1>Hi there!</h1>
-            <p className="text-p1">Continue to access the app</p>
+            <p className="text-m-p2 tablet:font-medium">
+              Continue to access the app
+            </p>
           </div>
           <div>
             {/* Form */}
