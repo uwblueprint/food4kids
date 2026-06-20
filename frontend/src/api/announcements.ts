@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { getAccessToken } from '@/lib/authSession';
 import axiosClient from '@/lib/axiosClient';
 import type {
   Announcement,
@@ -43,6 +44,7 @@ export function useAnnouncements() {
   return useQuery({
     queryKey: ANNOUNCEMENTS_KEY,
     queryFn: fetchAnnouncements,
+    enabled: getAccessToken() !== null,
     placeholderData: [],
   });
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 
 import RightPanelCloseIcon from '@/assets/icons/right-panel-close.svg?react';
 import { Button, Spinner } from '@/common/components';
@@ -14,9 +14,7 @@ import {
   PANEL_PADDING_TOP,
   PANEL_PADDING_X,
   PANEL_SECTION_GAP,
-  PANEL_WIDTH_DEFAULT,
-  PANEL_WIDTH_MAX,
-  PANEL_WIDTH_MIN,
+  PANEL_WIDTH,
 } from './utils';
 
 interface AnnouncementsPanelProps {
@@ -27,8 +25,6 @@ interface AnnouncementsPanelProps {
   currentUserId: string;
   readIds: Set<string>;
   role: 'admin' | 'driver';
-  panelWidth: number;
-  onPanelWidthChange: (width: number) => void;
   onCreateClick: () => void;
   onEditBoardClick: () => void;
   onAnnouncementOpen: (announcement: Announcement) => void;
@@ -44,17 +40,12 @@ export function AnnouncementsPanel({
   currentUserId,
   readIds,
   role,
-  panelWidth,
-  onPanelWidthChange,
   onCreateClick,
   onEditBoardClick,
   onAnnouncementOpen,
   onEdit,
   onDelete,
 }: AnnouncementsPanelProps) {
-  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const [isResizing, setIsResizing] = useState(false);
-
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -63,45 +54,6 @@ export function AnnouncementsPanel({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, onClose]);
-
-  const handleResizeMove = useCallback(
-    (event: MouseEvent) => {
-      if (!resizeRef.current) return;
-      const delta = resizeRef.current.startX - event.clientX;
-      const next = Math.min(
-        PANEL_WIDTH_MAX,
-        Math.max(PANEL_WIDTH_MIN, resizeRef.current.startWidth + delta)
-      );
-      onPanelWidthChange(next);
-    },
-    [onPanelWidthChange]
-  );
-
-  const handleResizeEnd = useCallback(() => {
-    resizeRef.current = null;
-    setIsResizing(false);
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    window.removeEventListener('mousemove', handleResizeMove);
-    window.removeEventListener('mouseup', handleResizeEnd);
-  }, [handleResizeMove]);
-
-  const handleResizeStart = (event: React.MouseEvent) => {
-    event.preventDefault();
-    resizeRef.current = { startX: event.clientX, startWidth: panelWidth };
-    setIsResizing(true);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', handleResizeMove);
-    window.addEventListener('mouseup', handleResizeEnd);
-  };
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('mousemove', handleResizeMove);
-      window.removeEventListener('mouseup', handleResizeEnd);
-    };
-  }, [handleResizeMove, handleResizeEnd]);
 
   if (!open) return null;
 
@@ -112,32 +64,24 @@ export function AnnouncementsPanel({
       <button
         type="button"
         aria-label="Close announcements"
-        className="fixed inset-0 z-40 bg-black/40 md:bg-black/30"
+        className="fixed inset-0 z-40 bg-black/40"
         onClick={onClose}
       />
       <aside
-        style={{ '--panel-w': `${panelWidth}px` } as React.CSSProperties}
         className={cn(
-          'bg-grey-100 fixed z-50 flex h-full flex-col shadow-harsh',
-          'inset-0 w-full md:inset-y-0 md:right-0 md:left-auto md:w-[var(--panel-w)]',
-          'md:rounded-l-2xl',
-          isResizing && 'select-none'
+          'bg-grey-150 fixed top-0 right-0 z-50 flex h-dvh flex-col shadow-harsh',
+          'w-full max-w-[var(--announcements-panel-width)] rounded-l-2xl'
         )}
+        style={
+          { '--announcements-panel-width': `${PANEL_WIDTH}px` } as React.CSSProperties
+        }
         role="dialog"
         aria-modal="true"
         aria-labelledby="announcements-panel-title"
       >
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize announcements panel"
-          className="absolute top-0 left-0 hidden h-full w-2 cursor-col-resize md:block"
-          onMouseDown={handleResizeStart}
-        />
-
         <header
           className={cn(
-            'border-grey-300 flex shrink-0 items-center justify-between border-b',
+            'border-grey-300 bg-grey-150 flex shrink-0 items-center justify-between border-b',
             PANEL_PADDING_X,
             PANEL_PADDING_TOP,
             'pb-4'
@@ -190,7 +134,8 @@ export function AnnouncementsPanel({
                       readIds={readIds}
                       canManage={canManageAnnouncement(
                         announcement,
-                        currentUserId
+                        currentUserId,
+                        role
                       )}
                       onOpen={onAnnouncementOpen}
                       onEdit={onEdit}
@@ -206,7 +151,7 @@ export function AnnouncementsPanel({
         {hasAnnouncements && (
           <footer
             className={cn(
-              'border-grey-300 shadow-card shrink-0 border-t',
+              'border-grey-300 bg-grey-150 shrink-0 border-t',
               PANEL_PADDING_X,
               'pt-4',
               PANEL_PADDING_BOTTOM
@@ -241,5 +186,3 @@ export function AnnouncementsPanel({
     </>
   );
 }
-
-export { PANEL_WIDTH_DEFAULT };

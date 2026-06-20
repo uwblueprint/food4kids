@@ -4,9 +4,8 @@ const SUBJECT_MAX = 100;
 const MESSAGE_MAX = 1500;
 const NEW_BADGE_DAYS = 7;
 
-export const PANEL_WIDTH_DEFAULT = 544;
-export const PANEL_WIDTH_MIN = 480;
-export const PANEL_WIDTH_MAX = 608;
+/** Figma: fixed 544px side panel width. */
+export const PANEL_WIDTH = 544;
 
 /** Figma: 32px outer padding on the announcements side panel. */
 export const PANEL_PADDING_X = 'px-8';
@@ -46,8 +45,10 @@ export function isAnnouncementNew(
 
 export function canManageAnnouncement(
   announcement: Announcement,
-  currentUserId: string
+  currentUserId: string,
+  role: 'admin' | 'driver'
 ): boolean {
+  if (role === 'admin') return true;
   return announcement.user_id === currentUserId;
 }
 
