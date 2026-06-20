@@ -75,10 +75,17 @@ async function login(email: string, password: string): Promise<boolean> {
 /** Dev bootstrap: POST /auth/login with seeded credentials before API calls. */
 export async function ensureAuthSession(): Promise<void> {
   if (!import.meta.env.DEV) return;
-  if (accessToken && session && !isTokenExpired(accessToken)) return;
 
   const email = import.meta.env.VITE_DEV_AUTH_EMAIL ?? 'admin1@f4k.dev';
   const password = import.meta.env.VITE_DEV_AUTH_PASSWORD ?? 'test123';
+
+  const sessionMatchesDevAccount =
+    session?.email.toLowerCase() === email.toLowerCase();
+  const tokenStillValid =
+    accessToken !== null && !isTokenExpired(accessToken);
+
+  // Re-login when the dev account changes or the cached token is stale.
+  if (tokenStillValid && sessionMatchesDevAccount) return;
 
   const ok = await login(email, password);
   if (!ok) {
