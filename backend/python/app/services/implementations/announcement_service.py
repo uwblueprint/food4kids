@@ -1,5 +1,7 @@
 import logging
+from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,6 +20,10 @@ class AnnouncementService:
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+
+    @staticmethod
+    def _est_now_naive() -> datetime:
+        return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
     async def _get_user_role(self, session: AsyncSession, user_id: UUID) -> str | None:
         statement = select(User.role).where(User.user_id == user_id)
@@ -76,7 +82,10 @@ class AnnouncementService:
             session.add(announcement)
             await session.commit()
             loaded = await self.get_announcement(session, announcement.announcement_id)
-            assert loaded is not None
+            if loaded is None:
+                raise RuntimeError(
+                    "Announcement was created but could not be loaded from the database"
+                )
             return loaded
 
         except Exception as error:
@@ -106,6 +115,9 @@ class AnnouncementService:
             update_data = announcement_data.model_dump(exclude_unset=True)
             for field, value in update_data.items():
                 setattr(announcement, field, value)
+
+            if update_data:
+                announcement.updated_at = self._est_now_naive()
 
             await session.commit()
             return await self.get_announcement(session, announcement_id)
