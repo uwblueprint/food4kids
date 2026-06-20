@@ -9,12 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import (
     get_auth_service,
-    get_password_reset_token_service
+    get_password_reset_token_service,
+    get_user_service,
+    get_email_dispatcher,
 )
 from app.models import get_session
-from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
+from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse, ForgotPasswordRequest
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.password_reset_token_service import PasswordResetTokenService
+from app.services.implementations.user_service import UserService
+from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.utilities.cookies import get_cookie_options
 
 # Initialize logger
@@ -141,24 +145,31 @@ async def logout(
 
 
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
-async def reset_password(
-    email: EmailStr,
-    _session: AsyncSession = Depends(get_session),
+async def forgot_password(
+    forgot_password_request: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
-    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service)
+    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service),
+    user_service: UserService = Depends(get_user_service),
+    email_service: EmailDispatcher = Depends(get_email_dispatcher)
 ) -> None:
     """
     Triggers password reset for user with specified email (reset link will be emailed)
+    Returns 204 regardless to avoid enumeration attacks
     """
-    # Check if the user is authorized to reset this email's password
-    if email != current_user_email:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="You are not authorized to reset this email's password",
-        )
+    email = forgot_password_request.email
 
     try:
-        auth_service.reset_password(email)
+        user = await user_service.get_by_email(session, email)
+
+        if not user:
+            # Masking attack: Log it internally, but return a success status to the client
+            logger.info(f"Password reset attempted for non-existent email: {email}")
+            return
+        
+        raw_token = await token_service.create(session, user.user_id)
+        
+        
     except Exception as e:
         error_message = getattr(e, "message", None)
         raise HTTPException(
