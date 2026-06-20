@@ -32,10 +32,10 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="relative flex h-screen w-full flex-row overflow-auto desktop:overflow-hidden">
+    <div className="desktop:overflow-hidden relative flex h-screen w-full flex-row overflow-auto">
       {/* Left Column: Form Section */}
-      <div className="tablet:flex w-full desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw]">
-        <div className="flex px-5 pt-16 tablet:pt-0 tablet:px-0 w-full tablet:max-w-126 desktop:max-w-100 flex-col gap-8">
+      <div className="tablet:flex desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full">
+        <div className="tablet:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16">
           {/* Logo and Heading */}
           <div className="flex-col">
             <div className="self-start">
@@ -43,42 +43,39 @@ export const LoginPage = () => {
               <img
                 src={logoImg}
                 alt="Food4Kids Waterloo Region Logo"
-                className="hidden desktop:block h-26 w-auto object-contain"
+                className="desktop:block hidden h-26 w-auto object-contain"
               />
               {/* Mobile Logo */}
               <img
                 src={logoImgMobile}
                 alt="Food4Kids Waterloo Region Logo"
-                className="desktop:hidden h-7 w-auto absolute top-5 left-5"
+                className="desktop:hidden absolute top-5 left-5 h-7 w-auto"
               />
             </div>
             {/* Mobile Login Illustration */}
-            <div className="flex flex-row desktop:hidden justify-center items-center mb-6">
+            <div className="desktop:hidden mb-6 flex flex-row items-center justify-center">
               <img
                 src={loginPageIllustrationMobile}
                 alt="Food4Kids Waterloo Region Illustration"
-                className="w-[307px] h-[212px] object-contain"
+                className="h-[212px] w-[307px] object-contain"
               />
             </div>
             {/* Heading */}
-            <h1>
-              Hi there!
-            </h1>
-            <p className="text-p1">
-              Continue to access the app
-            </p>
+            <h1>Hi there!</h1>
+            <p className="text-p1">Continue to access the app</p>
           </div>
           <div>
             {/* Form */}
             <form onSubmit={handleLogin} className="flex flex-col gap-6">
               {/* Email Field */}
               <Field>
-                <FieldLabel htmlFor="email">
-                  Email
-                </FieldLabel>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
-                  className={cn('px-6', loginError && 'outline-red focus:outline-red')}
+                  className={cn(
+                    'px-6',
+                    loginError && 'outline-red focus:outline-red'
+                  )}
                   type="email"
                   autoComplete="email"
                   placeholder="Enter your email"
@@ -90,7 +87,7 @@ export const LoginPage = () => {
                   required
                 />
                 {loginError && (
-                  <div className="flex items-center gap-1.5 text-red text-p2">
+                  <div className="text-red text-p2 flex items-center gap-1.5">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
                     <span>Incorrect email or password</span>
                   </div>
@@ -100,16 +97,17 @@ export const LoginPage = () => {
               <div className="flex flex-col gap-4">
                 {/* Password Field */}
                 <Field>
-                  <FieldLabel htmlFor="password">
-                    Password
-                  </FieldLabel>
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
                   <div className="relative w-full">
                     <Input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       placeholder="Enter your password"
-                      className={cn('px-6', loginError && 'outline-red focus:outline-red')}
+                      className={cn(
+                        'px-6',
+                        loginError && 'outline-red focus:outline-red'
+                      )}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
@@ -120,8 +118,10 @@ export const LoginPage = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-p1"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="text-p1 absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer"
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
                     >
                       {showPassword ? (
                         <EyeOff className="h-6 w-6" />
@@ -131,7 +131,7 @@ export const LoginPage = () => {
                     </button>
                   </div>
                   {loginError && (
-                    <div className="flex items-center gap-1.5 text-red text-p2">
+                    <div className="text-red text-p2 flex items-center gap-1.5">
                       <AlertTriangle className="h-4 w-4 shrink-0" />
                       <span>Incorrect email or password</span>
                     </div>
@@ -140,12 +140,12 @@ export const LoginPage = () => {
 
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
-                  <label className="flex cursor-pointer items-center gap-2 text-m-p2 tablet:font-medium select-none">
+                  <label className="text-m-p2 tablet:font-medium flex cursor-pointer items-center gap-2 select-none">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-6 w-6 cursor-pointer rounded border-grey-300 text-blue-300 focus:ring-blue-300 accent-blue-300"
+                      className="border-grey-300 h-6 w-6 cursor-pointer rounded text-blue-300 accent-blue-300 focus:ring-blue-300"
                     />
                     Remember me
                   </label>
@@ -161,7 +161,7 @@ export const LoginPage = () => {
                   </a>
                 </div>
               </div>
-              
+
               {/* Log In Button */}
               <Button
                 type="submit"
@@ -175,7 +175,7 @@ export const LoginPage = () => {
             </form>
 
             {/* Footer */}
-            <p className="mt-6 mb-8 desktop:mt-5 text-center text-m-p2 tablet:font-medium">
+            <p className="desktop:mt-5 text-m-p2 tablet:font-medium mt-6 mb-8 text-center">
               Don't have an account?{' '}
               <a
                 href="/get-login-link"
@@ -193,7 +193,7 @@ export const LoginPage = () => {
       </div>
 
       {/* Right Column: Illustration Section */}
-      <div className="hidden desktop:block h-full w-1/2 overflow-hidden">
+      <div className="desktop:block hidden h-full w-1/2 overflow-hidden">
         <img
           src={loginPageIllustration}
           alt="Food4Kids Illustration"
