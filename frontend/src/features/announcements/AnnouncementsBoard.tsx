@@ -1,24 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
-import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import {
   useAnnouncements,
   useCreateAnnouncement,
   useDeleteAnnouncement,
   useUpdateAnnouncement,
 } from '@/api/announcements';
-import { useCurrentUser } from '@/api/currentUser';
+import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import { Button } from '@/common/components';
+import { getAuthSession } from '@/lib/authSession';
 import type { Announcement } from '@/types/announcement';
 
 import { AnnouncementConfirmModal } from './AnnouncementConfirmModal';
 import { AnnouncementFormModal } from './AnnouncementFormModal';
-import {
-  AnnouncementsPanel,
-  PANEL_WIDTH_DEFAULT,
-} from './AnnouncementsPanel';
+import { AnnouncementsPanel } from './AnnouncementsPanel';
 import { EditAnnouncementsModal } from './EditAnnouncementsModal';
-import { PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from './utils';
 import { useAnnouncementReads } from './useAnnouncementReads';
 
 type ConfirmState =
@@ -27,12 +23,11 @@ type ConfirmState =
   | { type: 'unsaved-edit-board' };
 
 export function AnnouncementsBoard() {
-  const { data: currentUser } = useCurrentUser();
-  const currentUserId = currentUser?.user_id ?? '';
-  const role = currentUser?.role === 'admin' ? 'admin' : 'driver';
+  const auth = getAuthSession();
+  const currentUserId = auth?.userId ?? '';
+  const role = auth?.role ?? 'driver';
 
   const [panelOpen, setPanelOpen] = useState(false);
-  const [panelWidth, setPanelWidth] = useState(PANEL_WIDTH_DEFAULT);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [editingAnnouncement, setEditingAnnouncement] = useState<
@@ -51,10 +46,6 @@ export function AnnouncementsBoard() {
   const deleteMutation = useDeleteAnnouncement();
 
   const hasPendingDeletes = pendingDeleteIds.size > 0;
-
-  const clampPanelWidth = useCallback((width: number) => {
-    return Math.min(PANEL_WIDTH_MAX, Math.max(PANEL_WIDTH_MIN, width));
-  }, []);
 
   const resetEditBoardState = () => {
     setEditBoardOpen(false);
@@ -175,8 +166,6 @@ export function AnnouncementsBoard() {
         currentUserId={currentUserId}
         readIds={readIds}
         role={role}
-        panelWidth={panelWidth}
-        onPanelWidthChange={(width) => setPanelWidth(clampPanelWidth(width))}
         onCreateClick={openCreateForm}
         onEditBoardClick={() => setEditBoardOpen(true)}
         onAnnouncementOpen={handleAnnouncementOpen}
