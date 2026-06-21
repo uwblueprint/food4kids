@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import (
     get_auth_service,
@@ -14,6 +15,7 @@ from app.dependencies.services import (
     get_email_dispatcher,
 )
 from app.models import get_session
+from app.models.password_reset_token import PASSWORD_RESET_TOKEN_EXPIRY_DAYS
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse, ForgotPasswordRequest
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.password_reset_token_service import PasswordResetTokenService
@@ -168,11 +170,19 @@ async def forgot_password(
             return
         
         raw_token = await token_service.create(session, user.user_id)
-        
+
+        reset_link = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/forgot-password/{raw_token}"
+
+        await email_service.dispatch(
+            email_type="reset-password",
+            to=email,
+            context={
+                "Driver_Name_To_Replace": user.first_name,
+                "Reset_Password_URL": reset_link,
+                "Days_Till_Expiry": str(PASSWORD_RESET_TOKEN_EXPIRY_DAYS)
+            }
+        )
         
     except Exception as e:
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+        logger.exception(f"Internal error processing forgot-password for {email}: {e}")
+        return
