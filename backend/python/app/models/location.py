@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -206,6 +207,9 @@ class LocationRead(LocationBase):
     # Populated by the service; defaulted to False so single-row construction
     # without a service round-trip still works (will report UNSCHEDULED/INACTIVE).
     has_future_route: bool = False
+    assigned_route: str | None = None
+    last_delivery_date: datetime | None = None
+    total_deliveries: int = 0
 
     @computed_field  # type: ignore[prop-decorator]
     @property
