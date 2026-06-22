@@ -902,6 +902,10 @@ export type LocationReadInput = {
    */
   address: string;
   /**
+   * Assigned Route
+   */
+  assigned_route?: string | null;
+  /**
    * Contact Name
    */
   contact_name: string;
@@ -922,6 +926,10 @@ export type LocationReadInput = {
    * In Roster
    */
   in_roster?: boolean;
+  /**
+   * Last Delivery Date
+   */
+  last_delivery_date?: string | null;
   /**
    * Latitude
    */
@@ -970,6 +978,10 @@ export type LocationReadInput = {
    * Place Id
    */
   place_id?: string | null;
+  /**
+   * Total Deliveries
+   */
+  total_deliveries?: number;
 };
 
 /**
@@ -986,6 +998,10 @@ export type LocationReadOutput = {
    * Address
    */
   address: string;
+  /**
+   * Assigned Route
+   */
+  assigned_route?: string | null;
   /**
    * Contact Name
    */
@@ -1007,6 +1023,10 @@ export type LocationReadOutput = {
    * In Roster
    */
   in_roster?: boolean;
+  /**
+   * Last Delivery Date
+   */
+  last_delivery_date?: string | null;
   /**
    * Latitude
    */
@@ -1056,6 +1076,10 @@ export type LocationReadOutput = {
    */
   place_id?: string | null;
   readonly status: LocationStatusEnum;
+  /**
+   * Total Deliveries
+   */
+  total_deliveries?: number;
 };
 
 /**
@@ -2178,6 +2202,10 @@ export type LocationReadOutputWritable = {
    */
   address: string;
   /**
+   * Assigned Route
+   */
+  assigned_route?: string | null;
+  /**
    * Contact Name
    */
   contact_name: string;
@@ -2198,6 +2226,10 @@ export type LocationReadOutputWritable = {
    * In Roster
    */
   in_roster?: boolean;
+  /**
+   * Last Delivery Date
+   */
+  last_delivery_date?: string | null;
   /**
    * Latitude
    */
@@ -2246,6 +2278,10 @@ export type LocationReadOutputWritable = {
    * Place Id
    */
   place_id?: string | null;
+  /**
+   * Total Deliveries
+   */
+  total_deliveries?: number;
 };
 
 /**
