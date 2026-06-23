@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from app.services.protocols.clustering_algorithm import (
     ClusteringAlgorithmProtocol,
 )
+from app.utilities.boxes import compute_boxes
 
 if TYPE_CHECKING:
     from app.models.location import Location
@@ -17,6 +18,9 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
     locations across clusters while respecting max_locations_per_cluster and
     max_boxes_per_cluster constraints.
     """
+
+    def __init__(self, children_per_box: int) -> None:
+        self._children_per_box = children_per_box
 
     async def cluster_locations(
         self,
@@ -78,12 +82,15 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
         cluster_idx = 0
 
         for location in locations:
+            location_boxes = compute_boxes(
+                location.num_children, self._children_per_box
+            )
             # Find next cluster that can accommodate this location
             attempts = 0
             while attempts < num_clusters:
                 boxes_ok = (
                     max_boxes_per_cluster is None
-                    or cluster_boxes[cluster_idx] + location.num_boxes
+                    or cluster_boxes[cluster_idx] + location_boxes
                     <= max_boxes_per_cluster
                 )
                 locations_ok = (
@@ -99,7 +106,7 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     "Cannot assign location: no cluster can accommodate it with the given constraints."
                 )
             clusters[cluster_idx].append(location)
-            cluster_boxes[cluster_idx] += location.num_boxes
+            cluster_boxes[cluster_idx] += location_boxes
             cluster_idx = (cluster_idx + 1) % num_clusters
 
         return clusters

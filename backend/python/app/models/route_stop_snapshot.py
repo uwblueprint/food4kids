@@ -21,7 +21,7 @@ class RouteStopSnapshotBase(SQLModel):
     address: str = Field(min_length=1)
     contact_name: str = Field(min_length=1)
     phone_number: str = Field(min_length=1)
-    num_boxes: int = Field(ge=0)
+    num_children: int = Field(ge=0)
     notes: str = Field(default="")
     latitude: float
     longitude: float

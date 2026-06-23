@@ -3,6 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
+from datetime import time
 from uuid import uuid4
 
 import pytest
@@ -55,7 +56,7 @@ from app.models.route_group import (
     RouteGroupRead,
 )
 from app.models.route_stop import RouteStop
-from app.models.system_settings import SystemSettings
+from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User, UserFinalize
 
 init_app()
@@ -259,7 +260,7 @@ class TestCoreBusinessValidation:
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
                 contact_name="Jane Smith",
-                # Missing: address, phone_primary, longitude, latitude, halal, num_boxes
+                # Missing: address, phone_primary, longitude, latitude, halal
             )
         error_str = str(exc_info.value)
         assert any(
@@ -271,7 +272,6 @@ class TestCoreBusinessValidation:
                 "longitude",
                 "latitude",
                 "halal",
-                "num_boxes",
             ]
         )
 
@@ -303,7 +303,6 @@ class TestCoreBusinessValidation:
                 longitude=-122.4194,
                 latitude=37.7749,
                 halal=False,
-                num_boxes=25,
                 invalid_field="This should cause an error",  # Extra field
             )
         assert "invalid_field" in str(exc_info.value)
@@ -371,7 +370,6 @@ class TestCoreModels:
             halal=False,
             dietary_restrictions="No nuts",
             num_children=150,
-            num_boxes=25,
             notes="Main entrance on Main St",
         )
         assert location.name == "Central Elementary"
@@ -389,7 +387,7 @@ class TestCoreModels:
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
-            num_boxes=10,
+            num_children=10,
         )
         assert location_minimal.name == "John Doe"
         assert location_minimal.delivery_type == DeliveryTypeEnum.FAMILY
@@ -408,7 +406,7 @@ class TestCoreModels:
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
-            num_boxes=25,
+            num_children=25,
         )
         assert location_read.location_id is not None
 
@@ -735,7 +733,8 @@ class TestEnumsAndSerialization:
         assert "last_name" in user_dict
         assert "full_name" in user_dict
         assert "created_at" in driver_dict
-        # updated_at should be None and might be excluded
+        # updated_at is stamped on insert (equal to created_at within microseconds)
+        assert driver_dict["updated_at"] is not None
         assert driver_dict["active"] is True  # Default value
         assert user_dict["role"] == "driver"
 
@@ -750,12 +749,11 @@ class TestEnumsAndSerialization:
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
-            num_boxes=10,
         )
         assert location.notes == ""  # Default value
         assert location.delivery_type == DeliveryTypeEnum.FAMILY
         assert location.dietary_restrictions == ""  # Default value
-        assert location.num_children is None  # Default value
+        assert location.num_children == 0  # Default value
 
 
 class TestModelValidation:
@@ -855,6 +853,12 @@ class TestModelValidation:
         assert system_settings.default_cap is None
         assert system_settings.route_start_time is None
         assert system_settings.warehouse_location is None
+        assert system_settings.boxes_per_car == 10
+        assert system_settings.dropoff_minutes == 3
+        assert system_settings.children_per_box == 2
+        assert system_settings.email_reminders == [
+            EmailReminder(days_before=1, time=time(9, 0))
+        ]
 
         # Test Job without route_group_id
         job = Job(

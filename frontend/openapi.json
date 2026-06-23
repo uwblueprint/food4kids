@@ -902,6 +902,27 @@
         "title": "DriverUpdate",
         "type": "object"
       },
+      "EmailReminder": {
+        "description": "A single reminder email configuration.\n\nEach reminder fires ``days_before`` days ahead of a route's drive date, at its\nown ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a\nsame-day reminder at 11 AM.",
+        "properties": {
+          "days_before": {
+            "minimum": 0,
+            "title": "Days Before",
+            "type": "integer"
+          },
+          "time": {
+            "format": "time",
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days_before",
+          "time"
+        ],
+        "title": "EmailReminder",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1038,21 +1059,11 @@
             "title": "Notes",
             "type": "string"
           },
-          "num_boxes": {
-            "default": 0,
-            "title": "Num Boxes",
-            "type": "integer"
-          },
           "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
+            "default": 0,
+            "minimum": 0,
+            "title": "Num Children",
+            "type": "integer"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -1319,7 +1330,7 @@
             ],
             "title": "Halal"
           },
-          "num_boxes": {
+          "num_children": {
             "anyOf": [
               {
                 "type": "integer"
@@ -1328,7 +1339,7 @@
                 "type": "null"
               }
             ],
-            "title": "Num Boxes"
+            "title": "Num Children"
           },
           "phone_primary": {
             "anyOf": [
@@ -1576,21 +1587,11 @@
             "title": "Notes",
             "type": "string"
           },
-          "num_boxes": {
-            "default": 0,
-            "title": "Num Boxes",
-            "type": "integer"
-          },
           "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
+            "default": 0,
+            "minimum": 0,
+            "title": "Num Children",
+            "type": "integer"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -1723,21 +1724,11 @@
             "title": "Notes",
             "type": "string"
           },
-          "num_boxes": {
-            "default": 0,
-            "title": "Num Boxes",
-            "type": "integer"
-          },
           "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
+            "default": 0,
+            "minimum": 0,
+            "title": "Num Children",
+            "type": "integer"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -1930,17 +1921,6 @@
             ],
             "title": "Notes"
           },
-          "num_boxes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Boxes"
-          },
           "num_children": {
             "anyOf": [
               {
@@ -2059,7 +2039,7 @@
             ],
             "title": "Delivery Group"
           },
-          "num_boxes": {
+          "num_children": {
             "anyOf": [
               {
                 "type": "integer"
@@ -2068,7 +2048,7 @@
                 "type": "null"
               }
             ],
-            "title": "Num Boxes"
+            "title": "Num Children"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -2526,6 +2506,12 @@
       "RouteGenerationSettings": {
         "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.",
         "properties": {
+          "children_per_box": {
+            "default": 2,
+            "minimum": 1,
+            "title": "Children Per Box",
+            "type": "integer"
+          },
           "max_half_boxes_per_driver": {
             "default": 28,
             "exclusiveMinimum": 0,
@@ -3095,6 +3081,44 @@
       "SystemSettingsRead": {
         "description": "Read response model",
         "properties": {
+          "boxes_per_car": {
+            "default": 10,
+            "minimum": 0,
+            "title": "Boxes Per Car",
+            "type": "integer"
+          },
+          "children_per_box": {
+            "default": 2,
+            "minimum": 1,
+            "title": "Children Per Box",
+            "type": "integer"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
           "default_cap": {
             "anyOf": [
               {
@@ -3105,6 +3129,83 @@
               }
             ],
             "title": "Default Cap"
+          },
+          "dropoff_minutes": {
+            "default": 3,
+            "minimum": 0,
+            "title": "Dropoff Minutes",
+            "type": "integer"
+          },
+          "email_reminders": {
+            "items": {
+              "$ref": "#/components/schemas/EmailReminder"
+            },
+            "title": "Email Reminders",
+            "type": "array"
+          },
+          "f4k_wr_address": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Address"
+          },
+          "f4k_wr_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Email"
+          },
+          "f4k_wr_facebook": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Facebook"
+          },
+          "f4k_wr_instagram": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Instagram"
+          },
+          "f4k_wr_website": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Website"
           },
           "import_column_map": {
             "anyOf": [
@@ -3178,6 +3279,224 @@
         "title": "SystemSettingsRead",
         "type": "object"
       },
+      "SystemSettingsUpdate": {
+        "description": "Update request model - all optional",
+        "properties": {
+          "boxes_per_car": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boxes Per Car"
+          },
+          "children_per_box": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Children Per Box"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "default_cap": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Cap"
+          },
+          "dropoff_minutes": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dropoff Minutes"
+          },
+          "email_reminders": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EmailReminder"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Reminders"
+          },
+          "f4k_wr_address": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Address"
+          },
+          "f4k_wr_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Email"
+          },
+          "f4k_wr_facebook": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Facebook"
+          },
+          "f4k_wr_instagram": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Instagram"
+          },
+          "f4k_wr_website": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Website"
+          },
+          "import_column_map": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Column Map"
+          },
+          "route_start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Start Time"
+          },
+          "warehouse_latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Latitude"
+          },
+          "warehouse_location": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Location"
+          },
+          "warehouse_longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warehouse Longitude"
+          }
+        },
+        "title": "SystemSettingsUpdate",
+        "type": "object"
+      },
       "UserFinalize": {
         "properties": {
           "password": {
@@ -3236,7 +3555,7 @@
             ],
             "title": "Halal"
           },
-          "num_boxes": {
+          "num_children": {
             "anyOf": [
               {
                 "type": "integer"
@@ -3245,7 +3564,7 @@
                 "type": "null"
               }
             ],
-            "title": "Num Boxes"
+            "title": "Num Children"
           },
           "phone_primary": {
             "title": "Phone Primary",
@@ -6567,6 +6886,51 @@
           }
         ],
         "summary": "Get System Settings",
+        "tags": [
+          "system-settings"
+        ]
+      },
+      "patch": {
+        "description": "Patch the singleton system settings row.",
+        "operationId": "patch_system_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch System Settings",
         "tags": [
           "system-settings"
         ]

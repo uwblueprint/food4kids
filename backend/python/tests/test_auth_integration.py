@@ -172,6 +172,8 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/announcements/{announcement_id}/email"): Policy.ADMIN_ONLY,
     # --- upload (any driver/admin; feeds note + announcement attachments) ---
     ("POST", "/upload/"): Policy.DRIVER_OR_ADMIN,
+    # --- system settings ---
+    ("PATCH", "/system-settings/"): Policy.ADMIN_ONLY,
     # The route declares a :path converter (/upload/{filename:path}); the
     # OpenAPI schema (our completeness source) renders it without the converter.
     ("DELETE", "/upload/{filename}"): Policy.DRIVER_OR_ADMIN,
@@ -322,7 +324,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         contact_name="Seed Location",
         address="123 Seed St",
         phone_primary="5550000001",
-        num_boxes=4,
+        num_children=8,
         delivery_type=DeliveryTypeEnum.FAMILY,
     )
     test_session.add_all([route, location])

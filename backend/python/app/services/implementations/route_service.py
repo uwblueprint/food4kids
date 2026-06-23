@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import Integer, case, cast, func
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -22,6 +22,7 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.utilities.boxes import box_count_expr, resolve_children_per_box
 from app.utilities.google_maps_link import build_google_maps_directions_url
 from app.utilities.pagination import paginate_query
 from app.utilities.routes_utils import fetch_route_polyline
@@ -58,12 +59,13 @@ class RouteService:
         to routes assigned to that specific driver (powers the driver homepage
         feed). The date range filters on the route's RouteGroup.drive_date.
         """
-        live_box_count = case(
-            (
-                col(Location.num_children).isnot(None),
-                cast(func.ceil(col(Location.num_children) / 2.0), Integer),
-            ),
-            else_=col(Location.num_boxes),
+        children_per_box = await resolve_children_per_box(session)
+
+        # Box count is derived from num_children; a frozen stop snapshot (if
+        # present) carries the children count delivered at the time, so prefer it.
+        live_box_count = box_count_expr(col(Location.num_children), children_per_box)
+        snapshot_box_count = box_count_expr(
+            col(RouteStopSnapshot.num_children), children_per_box
         )
 
         route_totals = (
@@ -71,9 +73,7 @@ class RouteService:
                 col(RouteStop.route_id).label("route_id"),
                 func.count(col(RouteStop.route_stop_id)).label("num_stops"),
                 func.coalesce(
-                    func.sum(
-                        func.coalesce(RouteStopSnapshot.num_boxes, live_box_count)
-                    ),
+                    func.sum(func.coalesce(snapshot_box_count, live_box_count)),
                     0,
                 ).label("box_total"),
             )

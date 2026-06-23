@@ -1053,7 +1053,6 @@ class TestRouteRoutes:
             address="1 Route St",
             phone_primary="5550000001",
             num_children=6,
-            num_boxes=99,
             delivery_type=DeliveryTypeEnum.FAMILY,
         )
         loc_b = Location(
@@ -1062,7 +1061,7 @@ class TestRouteRoutes:
             contact_name="Route Stop B",
             address="2 Route St",
             phone_primary="5550000002",
-            num_boxes=5,
+            num_children=10,
             delivery_type=DeliveryTypeEnum.FAMILY,
         )
         test_session.add_all([loc_a, loc_b])
@@ -1126,7 +1125,6 @@ class TestRouteRoutes:
             address="1 Frozen St",
             phone_primary="5550000009",
             num_children=6,
-            num_boxes=99,
             delivery_type=DeliveryTypeEnum.FAMILY,
         )
         test_session.add_all([past_group, loc])
@@ -1166,7 +1164,7 @@ class TestRouteRoutes:
                 address=loc.address,
                 contact_name=loc.contact_name,
                 phone_number=loc.phone_primary,
-                num_boxes=4,
+                num_children=8,
                 notes=loc.notes,
                 latitude=loc.latitude or 0.0,
                 longitude=loc.longitude or 0.0,
@@ -1177,7 +1175,6 @@ class TestRouteRoutes:
         # Mutate the live location after the route is frozen; the list should
         # still read the snapshotted count.
         loc.num_children = 1
-        loc.num_boxes = 1
         await test_session.commit()
 
         response = await async_client.get("/routes")
@@ -2015,7 +2012,7 @@ class TestValidationErrors:
         """Test POST /locations with missing required fields returns validation error."""
         invalid_data = {
             "contact_name": "Jane Smith",
-            # Missing: address, phone_primary, longitude, latitude, halal, num_boxes
+            # Missing: address, phone_primary, longitude, latitude, halal
         }
         response = await async_client.post("/locations/", json=invalid_data)
         assert response.status_code == 422
@@ -2255,6 +2252,29 @@ class TestSystemSettingsRoutes:
         """GET /system-settings returns 200 (null-safe when unset)."""
         response = await async_client.get("/system-settings/")
         assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_patch_system_settings(self, async_client: AsyncClient) -> None:
+        """PATCH /system-settings creates or updates the singleton row."""
+        response = await async_client.patch(
+            "/system-settings/",
+            json={
+                "boxes_per_car": 12,
+                "contact_phone": "+12125551234",
+                "email_reminders": [
+                    {"days_before": 1, "time": "09:00:00"},
+                    {"days_before": 0, "time": "11:00:00"},
+                ],
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["boxes_per_car"] == 12
+        assert body["contact_phone"] == "+12125551234"
+        assert body["email_reminders"] == [
+            {"days_before": 1, "time": "09:00:00"},
+            {"days_before": 0, "time": "11:00:00"},
+        ]
 
 
 class _FakeUploadResult:

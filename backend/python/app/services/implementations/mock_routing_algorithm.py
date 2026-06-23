@@ -20,9 +20,6 @@ class MockRoutingAlgorithm(RoutingAlgorithmProtocol):
 
     clustering_algorithm: ClusteringAlgorithmProtocol
 
-    def __init__(self) -> None:
-        self.clustering_algorithm = MockClusteringAlgorithm()
-
     async def generate_routes(
         self,
         locations: list[Location],
@@ -37,7 +34,9 @@ class MockRoutingAlgorithm(RoutingAlgorithmProtocol):
         Note: timeout_seconds is not enforced in this mock implementation.
         """
 
-        clustering_algorithm = MockClusteringAlgorithm()
+        clustering_algorithm = MockClusteringAlgorithm(
+            children_per_box=settings.children_per_box
+        )
         return await clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
