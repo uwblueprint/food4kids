@@ -733,7 +733,8 @@ class TestEnumsAndSerialization:
         assert "last_name" in user_dict
         assert "full_name" in user_dict
         assert "created_at" in driver_dict
-        # updated_at should be None and might be excluded
+        # updated_at is stamped on insert (equal to created_at within microseconds)
+        assert driver_dict["updated_at"] is not None
         assert driver_dict["active"] is True  # Default value
         assert user_dict["role"] == "driver"
 
