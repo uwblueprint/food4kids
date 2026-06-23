@@ -23,7 +23,7 @@ class PasswordResetTokenService:
             delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id)
         )
 
-        new_token = PasswordResetTokenCreate(user_id=user_id, token_hash=token_hash)
+        new_token = PasswordResetToken(user_id=user_id, token_hash=token_hash)
         session.add(new_token)
         await session.commit()
 
