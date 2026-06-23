@@ -71,6 +71,7 @@ import type {
   GetAnnouncementErrors,
   GetAnnouncementResponses,
   GetAnnouncementsData,
+  GetAnnouncementsErrors,
   GetAnnouncementsResponses,
   GetDriverData,
   GetDriverErrors,
@@ -145,6 +146,9 @@ import type {
   LogoutData,
   LogoutErrors,
   LogoutResponses,
+  MarkAnnouncementsAsReadData,
+  MarkAnnouncementsAsReadErrors,
+  MarkAnnouncementsAsReadResponses,
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
@@ -226,14 +230,14 @@ export const test = <ThrowOnError extends boolean = false>(
 /**
  * Get Announcements
  *
- * Retrieve all announcements
+ * Retrieve all announcements. If user_id is provided, includes is_read status.
  */
 export const getAnnouncements = <ThrowOnError extends boolean = false>(
   options?: Options<GetAnnouncementsData, ThrowOnError>
 ) =>
   (options?.client ?? client).get<
     GetAnnouncementsResponses,
-    unknown,
+    GetAnnouncementsErrors,
     ThrowOnError
   >({
     responseType: 'json',
@@ -258,6 +262,28 @@ export const createAnnouncement = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Mark Announcements As Read
+ *
+ * Mark all announcements as read for the given user
+ */
+export const markAnnouncementsAsRead = <ThrowOnError extends boolean = false>(
+  options: Options<MarkAnnouncementsAsReadData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    MarkAnnouncementsAsReadResponses,
+    MarkAnnouncementsAsReadErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/announcements/mark-read',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1036,7 +1062,7 @@ export const getNoteChain = <ThrowOnError extends boolean = false>(
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotes = <ThrowOnError extends boolean = false>(
   options: Options<GetNotesData, ThrowOnError>

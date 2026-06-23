@@ -47,6 +47,33 @@
         "title": "AnnouncementCreate",
         "type": "object"
       },
+      "AnnouncementLastReadResponse": {
+        "description": "Response model for announcement last read",
+        "properties": {
+          "announcement_last_read_id": {
+            "format": "uuid",
+            "title": "Announcement Last Read Id",
+            "type": "string"
+          },
+          "last_read_at": {
+            "format": "date-time",
+            "title": "Last Read At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_last_read_id",
+          "user_id",
+          "last_read_at"
+        ],
+        "title": "AnnouncementLastReadResponse",
+        "type": "object"
+      },
       "AnnouncementRead": {
         "description": "Announcement response model",
         "properties": {
@@ -73,6 +100,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "is_read": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Read"
           },
           "message": {
             "title": "Message",
@@ -1985,6 +2023,21 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "MarkReadRequest": {
+        "description": "Request body for marking announcements as read",
+        "properties": {
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "MarkReadRequest",
+        "type": "object"
+      },
       "MonthlyTotalsResponse": {
         "properties": {
           "month": {
@@ -2120,28 +2173,6 @@
           "message"
         ],
         "title": "NoteCreate",
-        "type": "object"
-      },
-      "NoteListResponse": {
-        "description": "Response for GET notes - includes unread count",
-        "properties": {
-          "notes": {
-            "items": {
-              "$ref": "#/components/schemas/NoteRead"
-            },
-            "title": "Notes",
-            "type": "array"
-          },
-          "unread_count": {
-            "title": "Unread Count",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "notes",
-          "unread_count"
-        ],
-        "title": "NoteListResponse",
         "type": "object"
       },
       "NotePermission": {
@@ -3672,8 +3703,27 @@
     },
     "/announcements/": {
       "get": {
-        "description": "Retrieve all announcements",
+        "description": "Retrieve all announcements. If user_id is provided, includes is_read status.",
         "operationId": "get_announcements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -3688,6 +3738,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -3741,6 +3801,48 @@
           }
         ],
         "summary": "Create Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/announcements/mark-read": {
+      "post": {
+        "description": "Mark all announcements as read for the given user",
+        "operationId": "mark_announcements_as_read",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementLastReadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Announcements As Read",
         "tags": [
           "announcements"
         ]
@@ -5667,7 +5769,7 @@
     },
     "/note-chains/{note_chain_id}/notes": {
       "get": {
-        "description": "Get notes for a chain with pagination. Returns unread count and auto-marks as read.",
+        "description": "Get notes for a chain with pagination.",
         "operationId": "get_notes",
         "parameters": [
           {
@@ -5709,7 +5811,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NoteListResponse"
+                  "items": {
+                    "$ref": "#/components/schemas/NoteRead"
+                  },
+                  "title": "Response Get Notes",
+                  "type": "array"
                 }
               }
             },
