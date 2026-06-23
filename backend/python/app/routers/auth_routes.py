@@ -162,7 +162,7 @@ async def forgot_password(
     email = forgot_password_request.email
 
     try:
-        user = await user_service.get_by_email(session, email)
+        user = await user_service.get_user_by_email(session, email)
 
         if not user:
             # Masking attack: Log it internally, but return a success status to the client
