@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from './authStore';
-import { login, type LoginRequest, refresh } from './generated';
+import { login, forgotPassword, type LoginRequest, refresh, type ForgotPasswordRequest } from './generated';
 
 export function useLogin() {
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -46,5 +46,17 @@ export function useRefresh() {
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: async (payload: ForgotPasswordRequest) => {
+      const { data } = await forgotPassword({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    }
   });
 }
