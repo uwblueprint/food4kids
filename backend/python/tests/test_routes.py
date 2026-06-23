@@ -23,7 +23,9 @@ from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route
 from app.models.route_group import RouteGroup
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
+from app.models.route_stop_snapshot import RouteStopSnapshot
 
 
 class TestDriverRoutes:
@@ -763,6 +765,231 @@ class TestLocationRoutes:
         listing = await async_client.get("/locations/")
         assert listing.json()["items"] == []
         assert listing.json()["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_get_locations_returns_aggregate_fields(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations includes assigned_route, last_delivery_date, total_deliveries."""
+        create_resp = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        assert create_resp.status_code == 201
+
+        response = await async_client.get("/locations/")
+        assert response.status_code == 200
+        loc = response.json()["items"][0]
+        assert loc["assigned_route"] is None
+        assert loc["last_delivery_date"] is None
+        assert loc["total_deliveries"] == 0
+
+    @pytest.mark.asyncio
+    async def test_get_location_by_id_returns_aggregate_fields(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations/{id} includes assigned_route, last_delivery_date, total_deliveries."""
+        create_resp = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        assert create_resp.status_code == 201
+        loc_id = create_resp.json()["location_id"]
+
+        response = await async_client.get(f"/locations/{loc_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["assigned_route"] is None
+        assert data["last_delivery_date"] is None
+        assert data["total_deliveries"] == 0
+
+    @pytest.mark.asyncio
+    async def test_location_aggregates_with_completed_delivery(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """Completed delivery (RouteStopSnapshot exists) populates total_deliveries and last_delivery_date."""
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Delivered Family",
+            contact_name="Delivered Family",
+            address="10 Delivered St",
+            phone_primary="5559999999",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        past_group = RouteGroup(
+            name="Past Route Group", drive_date=datetime(2024, 6, 1)
+        )
+        test_session.add_all([loc, past_group])
+        await test_session.commit()
+        await test_session.refresh(loc)
+        await test_session.refresh(past_group)
+
+        route = Route(
+            name="Past Route", length=1.0, route_group_id=past_group.route_group_id
+        )
+        test_session.add(route)
+        await test_session.commit()
+        await test_session.refresh(route)
+
+        stop = RouteStop(
+            route_id=route.route_id,
+            location_id=loc.location_id,
+            stop_number=1,
+        )
+        test_session.add(stop)
+        await test_session.commit()
+        await test_session.refresh(stop)
+
+        snapshot = RouteStopSnapshot(
+            route_stop_id=stop.route_stop_id,
+            address="10 Delivered St",
+            contact_name="Delivered Family",
+            phone_number="5559999999",
+            num_children=2,
+            latitude=0.0,
+            longitude=0.0,
+        )
+        test_session.add(snapshot)
+        await test_session.commit()
+
+        response = await async_client.get(f"/locations/{loc.location_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_deliveries"] == 1
+        assert data["last_delivery_date"] is not None
+        assert data["last_delivery_date"].startswith("2024-06-01")
+        assert data["assigned_route"] is None
+
+    @pytest.mark.asyncio
+    async def test_location_aggregates_with_assigned_route(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """Upcoming route (no snapshot) populates assigned_route but not delivery aggregates."""
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Upcoming Family",
+            contact_name="Upcoming Family",
+            address="20 Upcoming St",
+            phone_primary="5558888888",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        future_group = RouteGroup(
+            name="Future Route Group", drive_date=datetime(2099, 7, 1)
+        )
+        test_session.add_all([loc, future_group])
+        await test_session.commit()
+        await test_session.refresh(loc)
+        await test_session.refresh(future_group)
+
+        route = Route(
+            name="Future Route Alpha",
+            length=1.0,
+            route_group_id=future_group.route_group_id,
+        )
+        test_session.add(route)
+        await test_session.commit()
+        await test_session.refresh(route)
+
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id,
+                location_id=loc.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get(f"/locations/{loc.location_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["assigned_route"] == "Future Route Alpha"
+        assert data["total_deliveries"] == 0
+        assert data["last_delivery_date"] is None
+
+    @pytest.mark.asyncio
+    async def test_location_assigned_route_picks_soonest(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """When a location is on multiple upcoming routes, assigned_route is the soonest."""
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Multi Route Family",
+            contact_name="Multi Route Family",
+            address="30 Multi St",
+            phone_primary="5557777777",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        sooner_group = RouteGroup(
+            name="Sooner Group", drive_date=datetime(2098, 1, 1)
+        )
+        later_group = RouteGroup(
+            name="Later Group", drive_date=datetime(2099, 1, 1)
+        )
+        test_session.add_all([loc, sooner_group, later_group])
+        await test_session.commit()
+        await test_session.refresh(loc)
+        await test_session.refresh(sooner_group)
+        await test_session.refresh(later_group)
+
+        sooner_route = Route(
+            name="Sooner Route",
+            length=1.0,
+            route_group_id=sooner_group.route_group_id,
+        )
+        later_route = Route(
+            name="Later Route",
+            length=1.0,
+            route_group_id=later_group.route_group_id,
+        )
+        test_session.add_all([sooner_route, later_route])
+        await test_session.commit()
+        await test_session.refresh(sooner_route)
+        await test_session.refresh(later_route)
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=sooner_route.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=later_route.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(f"/locations/{loc.location_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["assigned_route"] == "Sooner Route"
 
 
 class TestLocationGroupRoutes:
