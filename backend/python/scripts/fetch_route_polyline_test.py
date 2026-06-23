@@ -36,7 +36,7 @@ async def test_fetch_route_polyline_with_return() -> None:
         latitude=43.45,
         halal=True,
         dietary_restrictions="",
-        num_boxes=5,
+        num_children=10,
         notes="",
     )
 
@@ -51,7 +51,7 @@ async def test_fetch_route_polyline_with_return() -> None:
         latitude=43.46,
         halal=True,
         dietary_restrictions="",
-        num_boxes=5,
+        num_children=10,
         notes="",
     )
 

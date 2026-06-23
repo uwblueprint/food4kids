@@ -10,7 +10,9 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import and_
-from sqlmodel import select
+from sqlmodel import col, select
+
+from app.config import settings
 
 if TYPE_CHECKING:
     from sqlalchemy.sql.schema import Table
@@ -20,6 +22,7 @@ from app.models.driver import Driver
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.user import User
+from app.services.implementations.email_service import EmailService
 
 
 async def send_route_reminders() -> None:
@@ -94,7 +97,7 @@ async def send_route_reminders() -> None:
             # Send reminder email to each driver
             for route, user, route_group in upcoming_routes:
                 recipient_email = user.email
-                driver_name = user.name
+                driver_name = user.full_name
                 # Combine drive_date (date) with route start_time (time) if present
                 if route.start_time:
                     route_date = datetime.combine(
@@ -141,5 +144,109 @@ async def send_route_reminders() -> None:
         logger.error(
             f"Failed to process route reminder emails: {error!s}",
             exc_info=True,
+        )
+        raise error
+
+
+async def process_daily_reminder_emails(reminder_days: list[int]) -> None:
+    """Send reminder emails for routes whose drive date falls on ``reminder_days``.
+
+    Emails each driver assigned (via Route.driver_id) to a route whose
+    RouteGroup.drive_date is one of the given lead days ahead of today. The
+    scheduler registers one instance of this job per distinct reminder time (see
+    ``refresh_daily_reminder_email_schedule``), passing the lead days for that time.
+    """
+
+    from app.models import (
+        async_session_maker_instance,  # Placed here to ensure testing file functions as normal
+    )
+
+    logger = get_logger()
+
+    if not reminder_days:
+        logger.info("No reminder lead days configured, skipping emails")
+        return
+
+    if async_session_maker_instance is None:
+        logger.error("Database session maker not initialized")
+        return
+
+    try:
+        async with async_session_maker_instance() as session:
+            target_dates = {date.today() + timedelta(days=day) for day in reminder_days}
+            start_of_day = datetime.combine(min(target_dates), datetime.min.time())
+            end_of_day = datetime.combine(max(target_dates), datetime.max.time())
+            statement = (
+                select(
+                    User.email,
+                    RouteGroup.drive_date,
+                    col(Route.start_time),
+                    Route.length,
+                )
+                .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+                .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
+                .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
+                .where(
+                    and_(
+                        RouteGroup.drive_date >= start_of_day,  # type: ignore[arg-type]
+                        RouteGroup.drive_date <= end_of_day,  # type: ignore[arg-type]
+                        col(Route.driver_id).isnot(None),
+                    )
+                )
+                .order_by(User.email)
+            )
+
+            result = await session.execute(statement)
+            upcoming_routes = result.all()
+
+            if not upcoming_routes:
+                logger.info(
+                    "No Upcoming Routes found for configured reminder days, skipping emails"
+                )
+                return
+
+            email_service = EmailService(
+                logger,
+                {
+                    "refresh_token": settings.mailer_refresh_token,
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "client_id": settings.mailer_client_id,
+                    "client_secret": settings.mailer_client_secret,
+                },
+                settings.mailer_user,
+                "Food4Kids",
+            )
+
+            with open("./app/templates/view-upcoming-route.html") as file:
+                template_html = file.read()
+
+            for row in upcoming_routes:
+                recipient_email = row.email
+                drive_date: datetime = row.drive_date
+                route_distance = row.length
+
+                date_only = drive_date.date().strftime("%A, %B %d, %Y")
+                # Per-route start time if set, else fall back to a sensible default.
+                start_time = row.start_time
+                time_only = start_time.strftime("%I:%M %p") if start_time else "TBD"
+                rounded_distance = str(round(route_distance))
+
+                formatted_email = template_html.replace("Date_To_Replace", date_only)
+                formatted_email = formatted_email.replace("Time_To_Replace", time_only)
+                formatted_email = formatted_email.replace(
+                    "Route_Duration_To_Replace", rounded_distance
+                )
+                logger.info(f"Sending Email to {recipient_email}")
+                email_service.send_email(
+                    to=recipient_email,
+                    subject="Upcoming Route Reminder",
+                    body=formatted_email,
+                )
+
+            logger.info("Successfully sent reminder emails")
+
+    except Exception as error:
+        logger.error(
+            f"Failed to process daily reminder emails: {error!s}", exc_info=True
         )
         raise error

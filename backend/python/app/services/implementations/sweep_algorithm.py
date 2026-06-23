@@ -41,10 +41,13 @@ class SweepAlgorithm(RoutingAlgorithmProtocol):
 
     clustering_algorithm: ClusteringAlgorithmProtocol
 
-    def __init__(self, warehouse_lat: float, warehouse_lon: float) -> None:
+    def __init__(
+        self, warehouse_lat: float, warehouse_lon: float, children_per_box: int
+    ) -> None:
         self.clustering_algorithm = SweepClusteringAlgorithm(
             warehouse_lat=warehouse_lat,
             warehouse_lon=warehouse_lon,
+            children_per_box=children_per_box,
         )
 
     async def generate_routes(

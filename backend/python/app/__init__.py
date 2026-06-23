@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
+import app.models as models
 from app.dependencies.services import get_scheduler_service
 from app.services.jobs import init_jobs
 
@@ -126,7 +127,10 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize scheduler
     scheduler_service = get_scheduler_service()
     scheduler_service.start()
-    init_jobs(scheduler_service)
+    if models.async_session_maker_instance is None:
+        raise RuntimeError("Database not initialized. Call init_app() first.")
+    async with models.async_session_maker_instance() as session:
+        await init_jobs(scheduler_service, session)
 
     yield
 
