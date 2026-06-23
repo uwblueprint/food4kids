@@ -23,7 +23,6 @@ from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 
