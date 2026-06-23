@@ -30,6 +30,7 @@ import {
   deleteRoute,
   deleteRouteGroup,
   exportAllDriversHistory,
+  forgotPassword,
   generateJob,
   getAnnouncement,
   getAnnouncements,
@@ -61,7 +62,6 @@ import {
   type Options,
   patchSystemSettings,
   refresh,
-  resetPassword,
   reviewLocations,
   test,
   testEventEmail,
@@ -131,6 +131,9 @@ import type {
   DeleteRouteResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
+  ForgotPasswordData,
+  ForgotPasswordError,
+  ForgotPasswordResponse,
   GenerateJobData,
   GenerateJobError,
   GenerateJobResponse,
@@ -217,9 +220,6 @@ import type {
   PatchSystemSettingsResponse,
   RefreshData,
   RefreshResponse2,
-  ResetPasswordData,
-  ResetPasswordError,
-  ResetPasswordResponse,
   ReviewLocationsData,
   ReviewLocationsError,
   ReviewLocationsResponse,
@@ -470,6 +470,36 @@ export const updateAnnouncementMutation = (
 };
 
 /**
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPasswordMutation = (
+  options?: Partial<Options<ForgotPasswordData>>
+): UseMutationOptions<
+  ForgotPasswordResponse,
+  AxiosError<ForgotPasswordError>,
+  Options<ForgotPasswordData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ForgotPasswordResponse,
+    AxiosError<ForgotPasswordError>,
+    Options<ForgotPasswordData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await forgotPassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Login
  *
  * Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -546,35 +576,6 @@ export const refreshMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await refresh({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Reset Password
- *
- * Triggers password reset for user with specified email (reset link will be emailed)
- */
-export const resetPasswordMutation = (
-  options?: Partial<Options<ResetPasswordData>>
-): UseMutationOptions<
-  ResetPasswordResponse,
-  AxiosError<ResetPasswordError>,
-  Options<ResetPasswordData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    ResetPasswordResponse,
-    AxiosError<ResetPasswordError>,
-    Options<ResetPasswordData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await resetPassword({
         ...options,
         ...fnOptions,
         throwOnError: true,

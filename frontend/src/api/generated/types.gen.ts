@@ -553,6 +553,16 @@ export type EmailReminder = {
 };
 
 /**
+ * ForgotPasswordRequest
+ */
+export type ForgotPasswordRequest = {
+  /**
+   * Email
+   */
+  email: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -2470,6 +2480,33 @@ export type UpdateAnnouncementResponses = {
 export type UpdateAnnouncementResponse =
   UpdateAnnouncementResponses[keyof UpdateAnnouncementResponses];
 
+export type ForgotPasswordData = {
+  body: ForgotPasswordRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/forgot-password';
+};
+
+export type ForgotPasswordErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ForgotPasswordError =
+  ForgotPasswordErrors[keyof ForgotPasswordErrors];
+
+export type ForgotPasswordResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ForgotPasswordResponse =
+  ForgotPasswordResponses[keyof ForgotPasswordResponses];
+
 export type LoginData = {
   body: LoginRequest;
   path?: never;
@@ -2540,37 +2577,6 @@ export type RefreshResponses = {
 };
 
 export type RefreshResponse2 = RefreshResponses[keyof RefreshResponses];
-
-export type ResetPasswordData = {
-  body?: never;
-  path: {
-    /**
-     * Email
-     */
-    email: string;
-  };
-  query?: never;
-  url: '/auth/resetPassword/{email}';
-};
-
-export type ResetPasswordErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type ResetPasswordError = ResetPasswordErrors[keyof ResetPasswordErrors];
-
-export type ResetPasswordResponses = {
-  /**
-   * Successful Response
-   */
-  204: void;
-};
-
-export type ResetPasswordResponse =
-  ResetPasswordResponses[keyof ResetPasswordResponses];
 
 export type GetDriversData = {
   body?: never;
