@@ -6,6 +6,7 @@ import {
   NotFoundPage,
   ServiceUnavailablePage,
 } from './common/components';
+import { DesignOverlay } from './dev/DesignOverlay';
 import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
@@ -32,66 +33,70 @@ import { TestImageUpload } from './pages/TestImageUpload';
 
 function App() {
   return (
-    <Routes>
-      {/* Redirect root to admin home */}
-      <Route path="/" element={<Navigate to="/admin/home" replace />} />
+    <>
+      {/* Dev-only design-overlay comparison tool. Tree-shaken out of prod builds. */}
+      {import.meta.env.DEV && <DesignOverlay />}
+      <Routes>
+        {/* Redirect root to admin home */}
+        <Route path="/" element={<Navigate to="/admin/home" replace />} />
 
-      {/* Admin Routes */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Navigate to="/admin/home" replace />} />
-        <Route path="home" element={<AdminHomePage />} />
-        <Route path="drivers" element={<AdminDriversPage />} />
-        <Route path="routes" element={<AdminRoutesPage />} />
-        {/* Route Generation */}
-        <Route
-          path="routes/generation"
-          element={<AdminRoutesGenerationLayout />}
-        >
-          <Route index element={<Navigate to="import" replace />} />
-          <Route path="import" element={<ImportStep />} />
-          <Route path="validate" element={<ValidateStep />} />
-          <Route path="review" element={<ReviewStep />} />
-          <Route path="configure" element={<ConfigureStep />} />
-          <Route path="generate" element={<GenerateStep />} />
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/home" replace />} />
+          <Route path="home" element={<AdminHomePage />} />
+          <Route path="drivers" element={<AdminDriversPage />} />
+          <Route path="routes" element={<AdminRoutesPage />} />
+          {/* Route Generation */}
+          <Route
+            path="routes/generation"
+            element={<AdminRoutesGenerationLayout />}
+          >
+            <Route index element={<Navigate to="import" replace />} />
+            <Route path="import" element={<ImportStep />} />
+            <Route path="validate" element={<ValidateStep />} />
+            <Route path="review" element={<ReviewStep />} />
+            <Route path="configure" element={<ConfigureStep />} />
+            <Route path="generate" element={<GenerateStep />} />
+          </Route>
+          <Route path="settings" element={<AdminSettingsPage />} />
+          <Route path="test-image-upload" element={<TestImageUpload />} />
         </Route>
-        <Route path="settings" element={<AdminSettingsPage />} />
-        <Route path="test-image-upload" element={<TestImageUpload />} />
-      </Route>
 
-      {/* Driver Routes */}
-      <Route path="/driver" element={<DriverLayout />}>
-        <Route index element={<Navigate to="/driver/home" replace />} />
-        <Route path="home" element={<DriverHomePage />} />
-        <Route path="route" element={<IndividualRoutePage />} />
-        <Route path="route/:routeId" element={<IndividualRoutePage />} />
-      </Route>
+        {/* Driver Routes */}
+        <Route path="/driver" element={<DriverLayout />}>
+          <Route index element={<Navigate to="/driver/home" replace />} />
+          <Route path="home" element={<DriverHomePage />} />
+          <Route path="route" element={<IndividualRoutePage />} />
+          <Route path="route/:routeId" element={<IndividualRoutePage />} />
+        </Route>
 
-      {/* Dev-only: test image upload route */}
-      <Route path="/test-image-upload" element={<TestImageUpload />} />
+        {/* Dev-only: test image upload route */}
+        <Route path="/test-image-upload" element={<TestImageUpload />} />
 
-      {/* Auth Routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/create-password/:token" element={<CreatePassword />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/forgot-password/:token" element={<ResetPassword />} />
-      <Route path="/get-login-link" element={<GetLoginLink />} />
+        {/* Auth Routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/create-password/:token" element={<CreatePassword />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/forgot-password/:token" element={<ResetPassword />} />
+        <Route path="/get-login-link" element={<GetLoginLink />} />
 
-      {/* Dev-only: style guide is not accessible in production */}
-      {import.meta.env.DEV && (
-        <Route path="/style-guide" element={<StyleGuidePage />} />
-      )}
+        {/* Dev-only: style guide is not accessible in production */}
+        {import.meta.env.DEV && (
+          <Route path="/style-guide" element={<StyleGuidePage />} />
+        )}
 
-      {/* Error pages (dev preview) */}
-      {import.meta.env.DEV && (
-        <>
-          <Route path="/403" element={<ForbiddenPage />} />
-          <Route path="/404" element={<NotFoundPage />} />
-          <Route path="/503" element={<ServiceUnavailablePage />} />
-          <Route path="/error" element={<CatchAllErrorPage />} />
-        </>
-      )}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        {/* Error pages (dev preview) */}
+        {import.meta.env.DEV && (
+          <>
+            <Route path="/403" element={<ForbiddenPage />} />
+            <Route path="/404" element={<NotFoundPage />} />
+            <Route path="/503" element={<ServiceUnavailablePage />} />
+            <Route path="/error" element={<CatchAllErrorPage />} />
+          </>
+        )}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </>
   );
 }
 
