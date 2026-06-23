@@ -1049,6 +1049,20 @@
         "title": "EmailReminder",
         "type": "object"
       },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4140,6 +4154,7 @@
         ]
       }
     },
+<<<<<<< HEAD
     "/announcements/{announcement_id}/email": {
       "post": {
         "description": "Send announcement notification emails to all active drivers (admin only).",
@@ -4169,6 +4184,24 @@
                 }
               }
             },
+=======
+    "/auth/forgot-password": {
+      "post": {
+        "description": "Triggers password reset for user with specified email (reset link will be emailed)\nReturns 204 regardless to avoid enumeration attacks",
+        "operationId": "forgot_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+>>>>>>> 6d8f2e1d (regen openapi spec)
             "description": "Successful Response"
           },
           "422": {
@@ -4182,6 +4215,7 @@
             "description": "Validation Error"
           }
         },
+<<<<<<< HEAD
         "security": [
           {
             "HTTPBearer": []
@@ -4190,6 +4224,11 @@
         "summary": "Send Announcement Email",
         "tags": [
           "announcements"
+=======
+        "summary": "Forgot Password",
+        "tags": [
+          "authentication"
+>>>>>>> 6d8f2e1d (regen openapi spec)
         ]
       }
     },
@@ -4294,48 +4333,6 @@
           }
         },
         "summary": "Refresh",
-        "tags": [
-          "authentication"
-        ]
-      }
-    },
-    "/auth/resetPassword/{email}": {
-      "post": {
-        "description": "Triggers password reset for user with specified email (reset link will be emailed)",
-        "operationId": "reset_password",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "email",
-            "required": true,
-            "schema": {
-              "format": "email",
-              "title": "Email",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Reset Password",
         "tags": [
           "authentication"
         ]

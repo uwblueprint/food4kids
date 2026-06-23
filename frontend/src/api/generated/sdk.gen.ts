@@ -70,6 +70,9 @@ import type {
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryErrors,
   ExportAllDriversHistoryResponses,
+  ForgotPasswordData,
+  ForgotPasswordErrors,
+  ForgotPasswordResponses,
   GenerateJobData,
   GenerateJobErrors,
   GenerateJobResponses,
@@ -161,12 +164,15 @@ import type {
   PatchSystemSettingsResponses,
   RefreshData,
   RefreshResponses,
+<<<<<<< HEAD
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
   ResetPasswordData,
   ResetPasswordErrors,
   ResetPasswordResponses,
+=======
+>>>>>>> 6d484a1 (regen openapi spec)
   ReviewLocationsData,
   ReviewLocationsErrors,
   ReviewLocationsResponses,
@@ -362,6 +368,7 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
   });
 
 /**
+<<<<<<< HEAD
  * Send Announcement Email
  *
  * Send announcement notification emails to all active drivers (admin only).
@@ -378,6 +385,27 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/{announcement_id}/email',
     ...options,
+=======
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPassword = <ThrowOnError extends boolean = false>(
+  options: Options<ForgotPasswordData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ForgotPasswordResponses,
+    ForgotPasswordErrors,
+    ThrowOnError
+  >({
+    url: '/auth/forgot-password',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+>>>>>>> 6d8f2e1d (regen openapi spec)
   });
 
 /**
@@ -423,24 +451,6 @@ export const refresh = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).post<RefreshResponses, unknown, ThrowOnError>({
     responseType: 'json',
     url: '/auth/refresh',
-    ...options,
-  });
-
-/**
- * Reset Password
- *
- * Triggers password reset for user with specified email (reset link will be emailed)
- */
-export const resetPassword = <ThrowOnError extends boolean = false>(
-  options: Options<ResetPasswordData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    ResetPasswordResponses,
-    ResetPasswordErrors,
-    ThrowOnError
-  >({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/auth/resetPassword/{email}',
     ...options,
   });
 

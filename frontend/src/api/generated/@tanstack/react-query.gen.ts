@@ -32,6 +32,7 @@ import {
   deleteRouteGroup,
   duplicateRouteGroup,
   exportAllDriversHistory,
+  forgotPassword,
   generateJob,
   getAnnouncement,
   getAnnouncements,
@@ -65,8 +66,11 @@ import {
   type Options,
   patchSystemSettings,
   refresh,
+<<<<<<< HEAD
   renameDeliveryType,
   resetPassword,
+=======
+>>>>>>> 6d484a1 (regen openapi spec)
   reviewLocations,
   sendAnnouncementEmail,
   test,
@@ -143,6 +147,9 @@ import type {
   DuplicateRouteGroupResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
+  ForgotPasswordData,
+  ForgotPasswordError,
+  ForgotPasswordResponse,
   GenerateJobData,
   GenerateJobError,
   GenerateJobResponse,
@@ -233,6 +240,7 @@ import type {
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
   RefreshData,
+<<<<<<< HEAD
   RefreshResponse,
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
@@ -240,6 +248,9 @@ import type {
   ResetPasswordData,
   ResetPasswordError,
   ResetPasswordResponse,
+=======
+  RefreshResponse2,
+>>>>>>> 6d484a1 (regen openapi spec)
   ReviewLocationsData,
   ReviewLocationsError,
   ReviewLocationsResponse,
@@ -522,6 +533,7 @@ export const updateAnnouncementMutation = (
 };
 
 /**
+<<<<<<< HEAD
  * Send Announcement Email
  *
  * Send announcement notification emails to all active drivers (admin only).
@@ -540,6 +552,27 @@ export const sendAnnouncementEmailMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await sendAnnouncementEmail({
+=======
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPasswordMutation = (
+  options?: Partial<Options<ForgotPasswordData>>
+): UseMutationOptions<
+  ForgotPasswordResponse,
+  AxiosError<ForgotPasswordError>,
+  Options<ForgotPasswordData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ForgotPasswordResponse,
+    AxiosError<ForgotPasswordError>,
+    Options<ForgotPasswordData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await forgotPassword({
+>>>>>>> 6d8f2e1d (regen openapi spec)
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -627,35 +660,6 @@ export const refreshMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await refresh({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Reset Password
- *
- * Triggers password reset for user with specified email (reset link will be emailed)
- */
-export const resetPasswordMutation = (
-  options?: Partial<Options<ResetPasswordData>>
-): UseMutationOptions<
-  ResetPasswordResponse,
-  AxiosError<ResetPasswordError>,
-  Options<ResetPasswordData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    ResetPasswordResponse,
-    AxiosError<ResetPasswordError>,
-    Options<ResetPasswordData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await resetPassword({
         ...options,
         ...fnOptions,
         throwOnError: true,

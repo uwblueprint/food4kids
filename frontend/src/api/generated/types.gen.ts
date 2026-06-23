@@ -637,6 +637,16 @@ export type EmailReminder = {
 };
 
 /**
+ * ForgotPasswordRequest
+ */
+export type ForgotPasswordRequest = {
+  /**
+   * Email
+   */
+  email: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -2606,6 +2616,7 @@ export type UpdateAnnouncementResponses = {
 export type UpdateAnnouncementResponse =
   UpdateAnnouncementResponses[keyof UpdateAnnouncementResponses];
 
+<<<<<<< HEAD
 export type SendAnnouncementEmailData = {
   body?: never;
   path: {
@@ -2619,12 +2630,23 @@ export type SendAnnouncementEmailData = {
 };
 
 export type SendAnnouncementEmailErrors = {
+=======
+export type ForgotPasswordData = {
+  body: ForgotPasswordRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/forgot-password';
+};
+
+export type ForgotPasswordErrors = {
+>>>>>>> 6d8f2e1d (regen openapi spec)
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
+<<<<<<< HEAD
 export type SendAnnouncementEmailError =
   SendAnnouncementEmailErrors[keyof SendAnnouncementEmailErrors];
 
@@ -2641,6 +2663,20 @@ export type SendAnnouncementEmailResponses = {
 
 export type SendAnnouncementEmailResponse =
   SendAnnouncementEmailResponses[keyof SendAnnouncementEmailResponses];
+=======
+export type ForgotPasswordError =
+  ForgotPasswordErrors[keyof ForgotPasswordErrors];
+
+export type ForgotPasswordResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ForgotPasswordResponse =
+  ForgotPasswordResponses[keyof ForgotPasswordResponses];
+>>>>>>> 6d8f2e1d (regen openapi spec)
 
 export type LoginData = {
   body: LoginRequest;
@@ -2712,37 +2748,6 @@ export type RefreshResponses = {
 };
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
-
-export type ResetPasswordData = {
-  body?: never;
-  path: {
-    /**
-     * Email
-     */
-    email: string;
-  };
-  query?: never;
-  url: '/auth/resetPassword/{email}';
-};
-
-export type ResetPasswordErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type ResetPasswordError = ResetPasswordErrors[keyof ResetPasswordErrors];
-
-export type ResetPasswordResponses = {
-  /**
-   * Successful Response
-   */
-  204: void;
-};
-
-export type ResetPasswordResponse =
-  ResetPasswordResponses[keyof ResetPasswordResponses];
 
 export type GetDriversData = {
   body?: never;
