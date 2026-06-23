@@ -11,12 +11,59 @@ import logoImgMobile from '@/assets/logos/logo_mobile_one_line.svg';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
 
+interface WrapperProps {
+  children: React.ReactNode;
+  headerTitle: string;
+  subheaderTitle: string;
+  className?: string;
+}
+
+const WrapperWithLogo = ({children, headerTitle, subheaderTitle, className}: WrapperProps) => {
+  return (
+    <div className={cn("tablet:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16", className)}>
+      {/* Logo and Heading */}
+      <div className="flex-col">
+        <div className="self-start">
+          {/* Desktop Logo */}
+          <img
+            src={logoImg}
+            alt="Food4Kids Waterloo Region Logo"
+            className="desktop:block hidden h-26 w-auto object-contain"
+          />
+          {/* Mobile Logo */}
+          <img
+            src={logoImgMobile}
+            alt="Food4Kids Waterloo Region Logo"
+            className="desktop:hidden absolute top-5 left-5 h-7 w-auto"
+          />
+        </div>
+        {/* Mobile Login Illustration */}
+        <div className="desktop:hidden mb-6 flex flex-row items-center justify-center">
+          <img
+            src={loginPageIllustrationMobile}
+            alt="Food4Kids Waterloo Region Illustration"
+            className="h-[212px] w-[307px] object-contain"
+          />
+        </div>
+        {/* Heading */}
+        <h1>{headerTitle}</h1>
+        <p className="text-m-p2 tablet:font-medium">
+          {subheaderTitle}
+        </p>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 export const LoginPage = () => {
   return (
     <div className="desktop:overflow-hidden relative flex h-screen w-full flex-row overflow-auto">
       {/* Left Column: Form Section */}
       <div className="tablet:flex desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full">
-        <LoginForm></LoginForm>
+        <WrapperWithLogo headerTitle="Hi there!" subheaderTitle="Continue to access the app">
+          <LoginForm/>
+        </WrapperWithLogo>
       </div>
 
       {/* Right Column: Illustration Section */}
@@ -54,37 +101,7 @@ const LoginForm = () => {
   };
 
   return (
-    <div className="tablet:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16">
-      {/* Logo and Heading */}
-      <div className="flex-col">
-        <div className="self-start">
-          {/* Desktop Logo */}
-          <img
-            src={logoImg}
-            alt="Food4Kids Waterloo Region Logo"
-            className="desktop:block hidden h-26 w-auto object-contain"
-          />
-          {/* Mobile Logo */}
-          <img
-            src={logoImgMobile}
-            alt="Food4Kids Waterloo Region Logo"
-            className="desktop:hidden absolute top-5 left-5 h-7 w-auto"
-          />
-        </div>
-        {/* Mobile Login Illustration */}
-        <div className="desktop:hidden mb-6 flex flex-row items-center justify-center">
-          <img
-            src={loginPageIllustrationMobile}
-            alt="Food4Kids Waterloo Region Illustration"
-            className="h-[212px] w-[307px] object-contain"
-          />
-        </div>
-        {/* Heading */}
-        <h1>Hi there!</h1>
-        <p className="text-m-p2 tablet:font-medium">
-          Continue to access the app
-        </p>
-      </div>
+    <>
       <div>
         {/* Form */}
         <form onSubmit={handleLogin} className="flex flex-col gap-6">
@@ -210,6 +227,6 @@ const LoginForm = () => {
           </a>
         </p>
       </div>
-    </div>
+    </>
   )
 }
