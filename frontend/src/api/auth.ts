@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 
-import { login, type LoginRequest } from './generated';
+import { login, forgotPassword, type LoginRequest, type ForgotPasswordRequest } from './generated';
 
 export function useLogin() {
   return useMutation({
@@ -17,5 +17,17 @@ export function useLogin() {
     onError: (error) => {
       console.error('Login error:', error);
     },
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: async (payload: ForgotPasswordRequest) => {
+      const { data } = await forgotPassword({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    }
   });
 }

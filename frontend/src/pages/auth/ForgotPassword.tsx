@@ -1,18 +1,16 @@
 import { type FormEvent, useState } from 'react';
 
-import { useLogin } from '@/api';
-import AlertTriangleIcon from '@/assets/icons/alert-triangle.svg?react';
-import EyeIcon from '@/assets/icons/eye.svg?react';
-import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
+import { useForgotPassword } from '@/api';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
-import { cn } from '@/lib/utils';
 import { WrapperWithLogo } from './Wrapper';
+import { Link } from 'react-router-dom';
 
 export const ForgotPassword = () => {
   return (
     <WrapperWithLogo 
       headerTitle="Forgot password?" 
-      subheaderTitle="Enter the email address your admin used to invite you. We'll send a link to reset your password."
+      subheaderTitle="What email did your admin use to sign you up?"
+      className="desktop:max-w-[362px]"
     >
       <ForgotPasswordForm/>
     </WrapperWithLogo>
@@ -21,21 +19,17 @@ export const ForgotPassword = () => {
 
 const ForgotPasswordForm = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [loginError, setLoginError] = useState(false);
 
-  const loginMutation = useLogin();
+  const forgotPasswordMutation = useForgotPassword();
 
-  const handleLogin = (e: FormEvent<HTMLFormElement>) => {
+  const handleForgotPassword = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoginError(false);
-    loginMutation.mutate(
-      { email, password },
+    
+    forgotPasswordMutation.mutate(
+      { email },
       {
-        onError: () => {
-          setLoginError(true);
+        onSuccess: () => {
+          alert('Check your inbox for a reset link!'); 
         },
       }
     );
@@ -45,123 +39,44 @@ const ForgotPasswordForm = () => {
     <>
       <div>
         {/* Form */}
-        <form onSubmit={handleLogin} className="flex flex-col gap-6">
+        <form onSubmit={handleForgotPassword} className="flex flex-col gap-6">
           {/* Email Field */}
           <Field>
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <Input
               id="email"
-              className={cn(
-                'px-6',
-                loginError && 'outline-red focus:outline-red'
-              )}
+              className='px-6'
               type="email"
               autoComplete="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                setLoginError(false);
               }}
               required
             />
-            {loginError && (
-              <div className="text-red text-p2 flex items-center gap-1.5">
-                <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                <span>Incorrect email or password</span>
-              </div>
-            )}
           </Field>
 
-          <div className="flex flex-col gap-4">
-            {/* Password Field */}
-            <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <div className="relative w-full">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  className={cn(
-                    'px-6',
-                    loginError && 'outline-red focus:outline-red'
-                  )}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setLoginError(false);
-                  }}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
-                  aria-label={
-                    showPassword ? 'Hide password' : 'Show password'
-                  }
-                >
-                  {showPassword ? (
-                    <EyeOffIcon className="h-6 w-6" />
-                  ) : (
-                    <EyeIcon className="h-6 w-6" />
-                  )}
-                </button>
-              </div>
-              {loginError && (
-                <div className="text-red text-p2 flex items-center gap-1.5">
-                  <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                  <span>Incorrect email or password</span>
-                </div>
-              )}
-            </Field>
-
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <label className="text-m-p2 tablet:font-medium flex cursor-pointer items-center gap-2 select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="border-grey-300 h-6 w-6 cursor-pointer rounded text-blue-300 accent-blue-300 focus:ring-blue-300"
-                />
-                Remember me
-              </label>
-              <button
-                type="button"
-                className="text-m-p2 tablet:font-medium text-blue-300 hover:underline cursor-pointer bg-transparent border-none p-0 appearance-none"
-              >
-                Forgot your password?
-              </button>
-            </div>
-          </div>
-
-          {/* Log In Button */}
+          {/* Send Link Button */}
           <Button
             type="submit"
             variant="primary"
             shape="default"
             className="mt-6 w-full py-3"
-            disabled={loginMutation.isPending}
+            disabled={forgotPasswordMutation.isPending}
           >
-            Log in
+            Send link
           </Button>
         </form>
 
         {/* Footer */}
         <p className="desktop:mt-5 text-m-p2 tablet:font-medium tablet:mb-0 mt-6 mb-8 text-center">
-          Don't have an account?{' '}
-          <a
-            href="/get-login-link"
+          <Link
+            to="/login"
             className="text-blue-300 hover:underline"
-            onClick={(e) => {
-              e.preventDefault();
-              // TODO: Implement get login link action
-            }}
           >
-            Get your login link
-          </a>
+            Return to login
+          </Link>
         </p>
       </div>
     </>
