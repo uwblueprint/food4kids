@@ -942,12 +942,8 @@ class TestLocationRoutes:
             delivery_type=DeliveryTypeEnum.FAMILY,
             in_roster=True,
         )
-        sooner_group = RouteGroup(
-            name="Sooner Group", drive_date=datetime(2098, 1, 1)
-        )
-        later_group = RouteGroup(
-            name="Later Group", drive_date=datetime(2099, 1, 1)
-        )
+        sooner_group = RouteGroup(name="Sooner Group", drive_date=datetime(2098, 1, 1))
+        later_group = RouteGroup(name="Later Group", drive_date=datetime(2099, 1, 1))
         test_session.add_all([loc, sooner_group, later_group])
         await test_session.commit()
         await test_session.refresh(loc)
