@@ -1,26 +1,25 @@
 import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { useLogin } from '@/api';
 import AlertTriangleIcon from '@/assets/icons/alert-triangle.svg?react';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
-
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
 import { WrapperWithLogo } from './Wrapper';
 
-
-export const LoginPage = () => {
+export const ForgotPassword = () => {
   return (
-    <WrapperWithLogo headerTitle="Hi there!" subheaderTitle="Continue to access the app">
-      <LoginForm/>
+    <WrapperWithLogo 
+      headerTitle="Forgot password?" 
+      subheaderTitle="Enter the email address your admin used to invite you. We'll send a link to reset your password."
+    >
+      <ForgotPasswordForm/>
     </WrapperWithLogo>
   );
-};
+}
 
-const LoginForm = () => {
+const ForgotPasswordForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +27,6 @@ const LoginForm = () => {
   const [loginError, setLoginError] = useState(false);
 
   const loginMutation = useLogin();
-  const navigate = useNavigate();
 
   const handleLogin = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,9 +34,6 @@ const LoginForm = () => {
     loginMutation.mutate(
       { email, password },
       {
-        onSuccess: () => {
-          navigate('/'); // 3. Navigate to base route on success
-        },
         onError: () => {
           setLoginError(true);
         },
@@ -133,12 +128,12 @@ const LoginForm = () => {
                 />
                 Remember me
               </label>
-              <Link
-                to="/forgot-password"
-                className="text-m-p2 tablet:font-medium text-blue-300 hover:underline"
+              <button
+                type="button"
+                className="text-m-p2 tablet:font-medium text-blue-300 hover:underline cursor-pointer bg-transparent border-none p-0 appearance-none"
               >
                 Forgot your password?
-              </Link>
+              </button>
             </div>
           </div>
 
