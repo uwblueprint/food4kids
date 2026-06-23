@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 from fastapi import UploadFile
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
@@ -40,6 +40,7 @@ from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
+from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
@@ -122,13 +123,23 @@ class LocationService:
     ) -> LocationRead:
         """Get a LocationRead with derived status populated.
 
-        Wraps get_location_by_id with a single-row has_future_route lookup so
-        the response includes the three-state status that the list endpoint
-        already does. Use this from routers that respond with LocationRead.
+        Wraps get_location_by_id with single-row batched lookups so the
+        response includes status, assigned route, and delivery aggregates.
+        Use this from routers that respond with LocationRead.
         """
         location = await self.get_location_by_id(session, location_id)
-        future_set = await self.load_has_future_route_set(session, [location_id])
-        return self._to_read(location, has_future_route=location_id in future_set)
+        ids = [location_id]
+        future_set = await self.load_has_future_route_set(session, ids)
+        assigned = await self.load_assigned_routes(session, ids)
+        aggregates = await self.load_delivery_aggregates(session, ids)
+        total, last_date = aggregates.get(location_id, (0, None))
+        return self._to_read(
+            location,
+            has_future_route=location_id in future_set,
+            assigned_route=assigned.get(location_id),
+            last_delivery_date=last_date,
+            total_deliveries=total,
+        )
 
     async def get_locations(
         self,
@@ -195,11 +206,18 @@ class LocationService:
 
             result, total = await paginate_query(session, statement, pagination)
             items = list(result.scalars().all())
-            future_set = await self.load_has_future_route_set(
-                session, [loc.location_id for loc in items]
-            )
+            loc_ids = [loc.location_id for loc in items]
+            future_set = await self.load_has_future_route_set(session, loc_ids)
+            assigned = await self.load_assigned_routes(session, loc_ids)
+            aggregates = await self.load_delivery_aggregates(session, loc_ids)
             reads = [
-                self._to_read(loc, has_future_route=loc.location_id in future_set)
+                self._to_read(
+                    loc,
+                    has_future_route=loc.location_id in future_set,
+                    assigned_route=assigned.get(loc.location_id),
+                    last_delivery_date=aggregates.get(loc.location_id, (0, None))[1],
+                    total_deliveries=aggregates.get(loc.location_id, (0, None))[0],
+                )
                 for loc in items
             ]
             return PaginatedResponse.create(
@@ -241,7 +259,75 @@ class LocationService:
         result = await session.execute(statement)
         return {row[0] for row in result.all()}
 
-    def _to_read(self, loc: Location, has_future_route: bool) -> LocationRead:
+    async def load_assigned_routes(
+        self, session: AsyncSession, location_ids: Iterable[UUID]
+    ) -> dict[UUID, str]:
+        """Return a mapping of location_id → route name for the soonest
+        upcoming unfrozen route group each location appears in.
+
+        One query rather than per-location N+1.
+        """
+        ids = list(location_ids)
+        if not ids:
+            return {}
+        today_start = self._today_start()
+        statement = (
+            select(RouteStop.location_id, Route.name, RouteGroup.drive_date)
+            .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+            .outerjoin(
+                RouteSnapshot,
+                RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
+            )
+            .where(col(RouteStop.location_id).in_(ids))
+            .where(RouteGroup.drive_date >= today_start)
+            .where(col(RouteSnapshot.route_id).is_(None))
+            .order_by(col(RouteGroup.drive_date).asc())
+        )
+        result = await session.execute(statement)
+        assigned: dict[UUID, str] = {}
+        for loc_id, route_name, _ in result.all():
+            if loc_id not in assigned:
+                assigned[loc_id] = route_name
+        return assigned
+
+    async def load_delivery_aggregates(
+        self, session: AsyncSession, location_ids: Iterable[UUID]
+    ) -> dict[UUID, tuple[int, datetime | None]]:
+        """Return a mapping of location_id → (total_deliveries, last_delivery_date)
+        for completed deliveries (RouteStopSnapshot exists).
+
+        One query rather than per-location N+1.
+        """
+        ids = list(location_ids)
+        if not ids:
+            return {}
+        statement = (
+            select(
+                RouteStop.location_id,
+                func.count().label("total"),
+                func.max(RouteGroup.drive_date).label("last_date"),
+            )
+            .join(
+                RouteStopSnapshot,
+                RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id,  # type: ignore[arg-type]
+            )
+            .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+            .where(col(RouteStop.location_id).in_(ids))
+            .group_by(col(RouteStop.location_id))
+        )
+        result = await session.execute(statement)
+        return {row[0]: (row[1], row[2]) for row in result.all()}
+
+    def _to_read(
+        self,
+        loc: Location,
+        has_future_route: bool,
+        assigned_route: str | None = None,
+        last_delivery_date: datetime | None = None,
+        total_deliveries: int = 0,
+    ) -> LocationRead:
         """Build a LocationRead with the derived has_future_route populated.
 
         Status is then a @computed_field on LocationRead; no separate work
@@ -249,6 +335,9 @@ class LocationService:
         """
         read = LocationRead.model_validate(loc, from_attributes=True)
         read.has_future_route = has_future_route
+        read.assigned_route = assigned_route
+        read.last_delivery_date = last_delivery_date
+        read.total_deliveries = total_deliveries
         return read
 
     async def create_location(
