@@ -9,7 +9,7 @@ import {
 } from '@/api/announcements';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import { Button } from '@/common/components';
-import { getAuthSession } from '@/lib/authSession';
+import { roleFromStoredToken } from './utils';
 import type { Announcement } from '@/types/announcement';
 
 import { AnnouncementConfirmModal } from './AnnouncementConfirmModal';
@@ -24,9 +24,8 @@ type ConfirmState =
   | { type: 'unsaved-edit-board' };
 
 export function AnnouncementsBoard() {
-  const auth = getAuthSession();
-  const currentUserId = auth?.userId ?? '';
-  const role = auth?.role ?? 'driver';
+  const role = roleFromStoredToken();
+  const currentUserId = '';
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);

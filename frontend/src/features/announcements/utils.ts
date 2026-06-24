@@ -32,6 +32,21 @@ export const SHEET_MODAL_LAYOUT =
 export const DESKTOP_MODAL_LAYOUT =
   'desktop:top-1/2 desktop:right-auto desktop:bottom-auto desktop:left-1/2 desktop:h-auto desktop:max-h-none desktop:-translate-x-1/2 desktop:-translate-y-1/2 desktop:rounded-2xl';
 
+export function roleFromStoredToken(): 'admin' | 'driver' {
+  const token = localStorage.getItem('token');
+  if (!token) return 'driver';
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return 'driver';
+    const claims = JSON.parse(
+      atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    ) as { role?: string };
+    return claims.role === 'admin' ? 'admin' : 'driver';
+  } catch {
+    return 'driver';
+  }
+}
+
 /** Figma: 32px outer padding on the announcements side panel. */
 export const PANEL_PADDING_X = 'px-8';
 export const PANEL_PADDING_TOP = 'pt-8';
