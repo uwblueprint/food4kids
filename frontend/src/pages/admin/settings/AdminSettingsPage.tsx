@@ -1,6 +1,6 @@
-import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
 import { Account, Button } from '@/common/components';
+import { AnnouncementsBoard } from '@/features/announcements';
 
 export const AdminSettingsPage = () => {
   return (
@@ -9,9 +9,7 @@ export const AdminSettingsPage = () => {
         <h1>Settings</h1>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
-            <Button variant="tertiary" shape="circular">
-              <MegaphoneIcon className="size-5 text-blue-300" />
-            </Button>
+            <AnnouncementsBoard />
             <Button variant="tertiary" shape="circular">
               <SearchIcon className="size-5 text-blue-300" />
             </Button>

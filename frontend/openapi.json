@@ -32,17 +32,11 @@
             "minLength": 1,
             "title": "Subject",
             "type": "string"
-          },
-          "user_id": {
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
           }
         },
         "required": [
           "subject",
-          "message",
-          "user_id"
+          "message"
         ],
         "title": "AnnouncementCreate",
         "type": "object"
@@ -61,6 +55,14 @@
             },
             "title": "Attachments",
             "type": "array"
+          },
+          "author_name": {
+            "title": "Author Name",
+            "type": "string"
+          },
+          "author_role": {
+            "title": "Author Role",
+            "type": "string"
           },
           "created_at": {
             "anyOf": [
@@ -107,6 +109,8 @@
           "message",
           "announcement_id",
           "user_id",
+          "author_name",
+          "author_role",
           "attachments",
           "created_at",
           "updated_at"
@@ -3943,6 +3947,59 @@
           }
         ],
         "summary": "Update Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/announcements/{announcement_id}/email": {
+      "post": {
+        "description": "Send announcement notification emails to all active drivers (admin only).",
+        "operationId": "send_announcement_email",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Send Announcement Email",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Announcement Email",
         "tags": [
           "announcements"
         ]
