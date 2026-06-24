@@ -107,10 +107,10 @@ export function AnnouncementsPanel({
             shape="circular"
             onClick={onClose}
             aria-label="Close announcements panel"
-            className="shadow-light desktop:shadow-none size-11 bg-white desktop:size-auto desktop:bg-transparent"
+            className="shadow-light desktop:shadow-none desktop:size-auto desktop:bg-transparent size-11 bg-white"
           >
             <XIcon className="text-grey-400 desktop:hidden size-5" />
-            <RightPanelCloseIcon className="text-blue-300 desktop:block hidden size-5" />
+            <RightPanelCloseIcon className="desktop:block hidden size-5 text-blue-300" />
           </Button>
         </header>
 

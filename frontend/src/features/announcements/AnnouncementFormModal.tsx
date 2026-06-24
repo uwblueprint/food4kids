@@ -12,15 +12,15 @@ import {
   ModalTitle,
   Textarea,
 } from '@/common/components';
-import type { Announcement } from '@/types/announcement';
 import { cn } from '@/lib/utils';
+import type { Announcement } from '@/types/announcement';
 
 import {
   DESKTOP_MODAL_LAYOUT,
   MESSAGE_MAX,
   SHEET_MODAL_LAYOUT,
-  SUBJECT_MAX,
   sheetHeightStyle,
+  SUBJECT_MAX,
 } from './utils';
 
 interface AnnouncementFormModalProps {

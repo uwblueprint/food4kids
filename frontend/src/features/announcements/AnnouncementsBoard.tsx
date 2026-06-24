@@ -9,7 +9,6 @@ import {
 } from '@/api/announcements';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import { Button } from '@/common/components';
-import { roleFromStoredToken } from './utils';
 import type { Announcement } from '@/types/announcement';
 
 import { AnnouncementConfirmModal } from './AnnouncementConfirmModal';
@@ -17,6 +16,7 @@ import { AnnouncementFormModal } from './AnnouncementFormModal';
 import { AnnouncementsPanel } from './AnnouncementsPanel';
 import { EditAnnouncementsModal } from './EditAnnouncementsModal';
 import { useAnnouncementReads } from './useAnnouncementReads';
+import { roleFromStoredToken } from './utils';
 
 type ConfirmState =
   | { type: 'delete'; announcement: Announcement }
