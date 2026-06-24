@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import RightPanelCloseIcon from '@/assets/icons/right-panel-close.svg?react';
+import XIcon from '@/assets/icons/x.svg?react';
 import { Button, Spinner } from '@/common/components';
 import { cn } from '@/lib/utils';
 import type { Announcement } from '@/types/announcement';
@@ -9,12 +10,15 @@ import { AnnouncementCard } from './AnnouncementCard';
 import { AnnouncementsEmptyState } from './AnnouncementsEmptyState';
 import {
   canManageAnnouncement,
+  DESKTOP_PANEL_LAYOUT,
   PANEL_CARD_GAP,
   PANEL_PADDING_BOTTOM,
   PANEL_PADDING_TOP,
   PANEL_PADDING_X,
   PANEL_SECTION_GAP,
   PANEL_WIDTH,
+  SHEET_PANEL_LAYOUT,
+  sheetHeightStyle,
 } from './utils';
 
 interface AnnouncementsPanelProps {
@@ -69,12 +73,14 @@ export function AnnouncementsPanel({
       />
       <aside
         className={cn(
-          'bg-grey-150 shadow-harsh fixed top-0 right-0 z-50 flex h-dvh flex-col',
-          'w-full max-w-[var(--announcements-panel-width)] rounded-l-2xl'
+          'shadow-harsh fixed z-50 flex flex-col',
+          SHEET_PANEL_LAYOUT,
+          DESKTOP_PANEL_LAYOUT
         )}
         style={
           {
             '--announcements-panel-width': `${PANEL_WIDTH}px`,
+            ...sheetHeightStyle(),
           } as React.CSSProperties
         }
         role="dialog"
@@ -83,7 +89,7 @@ export function AnnouncementsPanel({
       >
         <header
           className={cn(
-            'border-grey-300 bg-grey-150 flex shrink-0 items-center justify-between border-b',
+            'border-grey-300 bg-grey-100 desktop:bg-grey-150 flex shrink-0 items-center justify-between border-b',
             PANEL_PADDING_X,
             PANEL_PADDING_TOP,
             'pb-4'
@@ -101,8 +107,10 @@ export function AnnouncementsPanel({
             shape="circular"
             onClick={onClose}
             aria-label="Close announcements panel"
+            className="shadow-light desktop:shadow-none size-11 bg-white desktop:size-auto desktop:bg-transparent"
           >
-            <RightPanelCloseIcon className="size-5 text-blue-300" />
+            <XIcon className="text-grey-400 desktop:hidden size-5" />
+            <RightPanelCloseIcon className="text-blue-300 desktop:block hidden size-5" />
           </Button>
         </header>
 
@@ -153,7 +161,7 @@ export function AnnouncementsPanel({
         {hasAnnouncements && (
           <footer
             className={cn(
-              'border-grey-300 bg-grey-150 shrink-0 border-t',
+              'border-grey-300 bg-grey-100 desktop:bg-grey-150 shrink-0 border-t',
               PANEL_PADDING_X,
               'pt-4',
               PANEL_PADDING_BOTTOM

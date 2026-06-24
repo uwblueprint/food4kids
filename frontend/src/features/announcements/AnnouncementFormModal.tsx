@@ -13,8 +13,15 @@ import {
   Textarea,
 } from '@/common/components';
 import type { Announcement } from '@/types/announcement';
+import { cn } from '@/lib/utils';
 
-import { MESSAGE_MAX, SUBJECT_MAX } from './utils';
+import {
+  DESKTOP_MODAL_LAYOUT,
+  MESSAGE_MAX,
+  SHEET_MODAL_LAYOUT,
+  SUBJECT_MAX,
+  sheetHeightStyle,
+} from './utils';
 
 interface AnnouncementFormModalProps {
   open: boolean;
@@ -81,12 +88,15 @@ function AnnouncementForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <ModalHeader>
+    <form
+      onSubmit={handleSubmit}
+      className="flex min-h-0 flex-1 flex-col gap-6"
+    >
+      <ModalHeader className="shrink-0">
         <ModalTitle>Announcements</ModalTitle>
       </ModalHeader>
 
-      <Field>
+      <Field className="shrink-0">
         <FieldLabel htmlFor="announcement-subject" required>
           Subject
         </FieldLabel>
@@ -100,7 +110,7 @@ function AnnouncementForm({
         />
       </Field>
 
-      <Field>
+      <Field className="flex min-h-0 flex-1 flex-col">
         <FieldLabel htmlFor="announcement-message" required>
           Note
         </FieldLabel>
@@ -111,6 +121,8 @@ function AnnouncementForm({
           onChange={(e) => setMessage(e.target.value)}
           maxCharacters={MESSAGE_MAX}
           characterCount={message.length}
+          className="min-h-0 flex-1 resize-none"
+          wrapperClassName="flex min-h-0 flex-1 flex-col"
         />
       </Field>
 
@@ -132,7 +144,7 @@ function AnnouncementForm({
         </p>
       )}
 
-      <ModalFooter>
+      <ModalFooter className="mt-auto shrink-0 [&_button]:flex-1">
         <Button
           type="button"
           variant="secondary"
@@ -167,7 +179,14 @@ export function AnnouncementFormModal({
 }: AnnouncementFormModalProps) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="max-w-[560px]">
+      <ModalContent
+        className={cn(
+          SHEET_MODAL_LAYOUT,
+          DESKTOP_MODAL_LAYOUT,
+          'desktop:max-w-[560px]'
+        )}
+        style={sheetHeightStyle() as React.CSSProperties}
+      >
         {open ? (
           <AnnouncementForm
             key={formKey(mode, announcement)}

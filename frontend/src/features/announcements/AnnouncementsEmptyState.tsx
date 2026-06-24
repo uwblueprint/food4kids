@@ -26,12 +26,23 @@ export function AnnouncementsEmptyState({
     >
       <img
         src={announcementsEmptyState}
-        alt="No Announcements. The people wanna know what you have to say!"
+        alt=""
+        aria-hidden
         className="h-auto w-full max-w-[295px]"
         width={295}
         height={288}
       />
-      <Button type="button" onClick={onCreateClick} className="w-full">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-h2 text-grey-500 font-bold">No Announcements</h3>
+        <p className="text-p2 text-grey-400">
+          The people wanna know what you have to say!
+        </p>
+      </div>
+      <Button
+        type="button"
+        onClick={onCreateClick}
+        className="max-w-xs w-full"
+      >
         Create Announcement
       </Button>
     </div>
