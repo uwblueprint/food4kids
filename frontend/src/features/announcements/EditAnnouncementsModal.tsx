@@ -6,9 +6,15 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/common/components';
+import { cn } from '@/lib/utils';
 import type { Announcement } from '@/types/announcement';
 
 import { EditAnnouncementRow } from './EditAnnouncementRow';
+import {
+  DESKTOP_MODAL_LAYOUT,
+  SHEET_MODAL_LAYOUT,
+  sheetHeightStyle,
+} from './utils';
 
 interface EditAnnouncementsModalProps {
   open: boolean;
@@ -39,7 +45,15 @@ export function EditAnnouncementsModal({
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="flex max-h-[min(720px,90vh)] max-w-[600px] flex-col gap-4 p-6">
+      <ModalContent
+        className={cn(
+          'flex flex-col gap-4 p-6',
+          SHEET_MODAL_LAYOUT,
+          DESKTOP_MODAL_LAYOUT,
+          'desktop:max-h-[min(720px,90vh)]'
+        )}
+        style={sheetHeightStyle() as React.CSSProperties}
+      >
         <ModalHeader className="shrink-0 gap-0">
           <ModalTitle>Edit Announcements</ModalTitle>
         </ModalHeader>
