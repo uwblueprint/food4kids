@@ -826,9 +826,9 @@ class TestLocationRoutes:
         assert data["page"] == 1
         assert data["page_size"] == 2
         assert data["total_pages"] == 2
-        assert {
-            item["location_group_id"] for item in data["items"]
-        } == {str(test_location_group.location_group_id)}
+        assert {item["location_group_id"] for item in data["items"]} == {
+            str(test_location_group.location_group_id)
+        }
 
     @pytest.mark.asyncio
     async def test_get_location_by_id(
