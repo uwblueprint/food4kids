@@ -378,6 +378,107 @@ class TestLocationRoutes:
         assert school_id not in family_ids
 
     @pytest.mark.asyncio
+    async def test_get_locations_filters_by_location_group(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations filters locations by a single location_group_id."""
+        other_group = LocationGroup(name="Other Delivery Group", color="#3357FF")
+        target_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Target Family",
+            contact_name="Target Family",
+            address="1 Target St",
+            phone_primary="5551111111",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        other_location = Location(
+            location_group_id=other_group.location_group_id,
+            name="Other Family",
+            contact_name="Other Family",
+            address="1 Other St",
+            phone_primary="5552222222",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        test_session.add(other_group)
+        test_session.add_all([target_location, other_location])
+        await test_session.commit()
+        await test_session.refresh(target_location)
+        await test_session.refresh(other_location)
+
+        response = await async_client.get(
+            "/locations/",
+            params={"location_group_id": str(test_location_group.location_group_id)},
+        )
+
+        assert response.status_code == 200
+        location_ids = {loc["location_id"] for loc in response.json()["items"]}
+        assert str(target_location.location_id) in location_ids
+        assert str(other_location.location_id) not in location_ids
+
+    @pytest.mark.asyncio
+    async def test_get_locations_filters_by_multiple_location_groups(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations accepts repeated location_group_id query params."""
+        second_group = LocationGroup(name="Second Delivery Group", color="#33FF57")
+        third_group = LocationGroup(name="Third Delivery Group", color="#5733FF")
+        first_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="First Group Family",
+            contact_name="First Group Family",
+            address="1 First St",
+            phone_primary="5551111111",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        second_location = Location(
+            location_group_id=second_group.location_group_id,
+            name="Second Group Family",
+            contact_name="Second Group Family",
+            address="1 Second St",
+            phone_primary="5552222222",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        third_location = Location(
+            location_group_id=third_group.location_group_id,
+            name="Third Group Family",
+            contact_name="Third Group Family",
+            address="1 Third St",
+            phone_primary="5553333333",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        test_session.add_all([second_group, third_group])
+        test_session.add_all([first_location, second_location, third_location])
+        await test_session.commit()
+        await test_session.refresh(first_location)
+        await test_session.refresh(second_location)
+        await test_session.refresh(third_location)
+
+        response = await async_client.get(
+            "/locations/",
+            params=[
+                ("location_group_id", str(test_location_group.location_group_id)),
+                ("location_group_id", str(second_group.location_group_id)),
+            ],
+        )
+
+        assert response.status_code == 200
+        location_ids = {loc["location_id"] for loc in response.json()["items"]}
+        assert str(first_location.location_id) in location_ids
+        assert str(second_location.location_id) in location_ids
+        assert str(third_location.location_id) not in location_ids
+
+    @pytest.mark.asyncio
     async def test_get_locations_filters_by_status(
         self,
         async_client: AsyncClient,
@@ -598,6 +699,136 @@ class TestLocationRoutes:
         assert str(active_school_location.location_id) in location_ids
         assert str(active_family_location.location_id) not in location_ids
         assert str(unscheduled_school_location.location_id) not in location_ids
+
+    @pytest.mark.asyncio
+    async def test_get_locations_filters_by_location_group_delivery_type_and_status(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations composes location_group_id with existing filters."""
+        other_group = LocationGroup(name="Composed Other Group", color="#00AAFF")
+        matching_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Matching School",
+            contact_name="Matching School",
+            address="1 Matching St",
+            phone_primary="5551111111",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
+            in_roster=True,
+        )
+        wrong_type_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Wrong Type Family",
+            contact_name="Wrong Type Family",
+            address="1 Wrong Type St",
+            phone_primary="5552222222",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        wrong_group_location = Location(
+            location_group_id=other_group.location_group_id,
+            name="Wrong Group School",
+            contact_name="Wrong Group School",
+            address="1 Wrong Group St",
+            phone_primary="5553333333",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
+            in_roster=True,
+        )
+        inactive_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Inactive School",
+            contact_name="Inactive School",
+            address="1 Inactive St",
+            phone_primary="5554444444",
+            delivery_type=DeliveryTypeEnum.SCHOOL,
+            in_roster=False,
+        )
+        test_session.add(other_group)
+        test_session.add_all(
+            [
+                matching_location,
+                wrong_type_location,
+                wrong_group_location,
+                inactive_location,
+            ]
+        )
+        await test_session.commit()
+        await test_session.refresh(matching_location)
+        await test_session.refresh(wrong_type_location)
+        await test_session.refresh(wrong_group_location)
+        await test_session.refresh(inactive_location)
+
+        response = await async_client.get(
+            "/locations/",
+            params={
+                "location_group_id": str(test_location_group.location_group_id),
+                "delivery_type": "School",
+                "status": "Unscheduled",
+            },
+        )
+
+        assert response.status_code == 200
+        location_ids = {loc["location_id"] for loc in response.json()["items"]}
+        assert str(matching_location.location_id) in location_ids
+        assert str(wrong_type_location.location_id) not in location_ids
+        assert str(wrong_group_location.location_id) not in location_ids
+        assert str(inactive_location.location_id) not in location_ids
+
+    @pytest.mark.asyncio
+    async def test_get_locations_location_group_filter_preserves_pagination(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations paginates after filtering by location_group_id."""
+        other_group = LocationGroup(name="Pagination Other Group", color="#AA00FF")
+        target_locations = [
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name=f"Paged Family {index}",
+                contact_name=f"Paged Family {index}",
+                address=f"{index} Paged St",
+                phone_primary=f"555111111{index}",
+                delivery_type=DeliveryTypeEnum.FAMILY,
+                in_roster=True,
+            )
+            for index in range(3)
+        ]
+        other_location = Location(
+            location_group_id=other_group.location_group_id,
+            name="Excluded Paged Family",
+            contact_name="Excluded Paged Family",
+            address="1 Excluded Paged St",
+            phone_primary="5552222222",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            in_roster=True,
+        )
+        test_session.add(other_group)
+        test_session.add_all([*target_locations, other_location])
+        await test_session.commit()
+
+        response = await async_client.get(
+            "/locations/",
+            params={
+                "location_group_id": str(test_location_group.location_group_id),
+                "page": 1,
+                "page_size": 2,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 2
+        assert data["total"] == 3
+        assert data["page"] == 1
+        assert data["page_size"] == 2
+        assert data["total_pages"] == 2
+        assert {
+            item["location_group_id"] for item in data["items"]
+        } == {str(test_location_group.location_group_id)}
 
     @pytest.mark.asyncio
     async def test_get_location_by_id(
