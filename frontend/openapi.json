@@ -207,6 +207,10 @@
           "last_name": {
             "title": "Last Name",
             "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
           }
         },
         "required": [
@@ -215,6 +219,7 @@
           "first_name",
           "last_name",
           "email",
+          "role",
           "full_name"
         ],
         "title": "AuthResponse",

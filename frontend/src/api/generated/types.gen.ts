@@ -142,6 +142,10 @@ export type AuthResponse = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Role
+   */
+  role: string;
 };
 
 /**
@@ -2095,6 +2099,10 @@ export type AuthResponseWritable = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Role
+   */
+  role: string;
 };
 
 /**
