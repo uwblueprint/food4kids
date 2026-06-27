@@ -56,6 +56,7 @@ class Policy(str, Enum):
     DRIVER_OR_ADMIN = "driver_or_admin"
     SELF_DRIVER_OR_ADMIN = "self_driver_or_admin"
     ROUTE_ASSIGNED_OR_ADMIN = "route_assigned_or_admin"
+    ANNOUNCEMENT_OWNER_OR_ADMIN = "announcement_owner_or_admin"
     AUTHENTICATED = "authenticated"  # any signed-in user, no role/ownership check
 
     # Not behaviourally tested — classified only, for the completeness guard.
@@ -77,6 +78,7 @@ ALLOWED_ACTORS: dict[Policy, set[Actor]] = {
     Policy.DRIVER_OR_ADMIN: {Actor.ADMIN, Actor.SELF, Actor.OTHER},
     Policy.SELF_DRIVER_OR_ADMIN: {Actor.ADMIN, Actor.SELF},
     Policy.ROUTE_ASSIGNED_OR_ADMIN: {Actor.ADMIN, Actor.SELF},
+    Policy.ANNOUNCEMENT_OWNER_OR_ADMIN: {Actor.ADMIN, Actor.SELF},
     Policy.AUTHENTICATED: {Actor.ADMIN, Actor.SELF, Actor.OTHER},
 }
 
@@ -163,12 +165,12 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/routes/{route_id}"): Policy.ADMIN_ONLY,
     ("GET", "/routes/{route_id}/google-maps-link"): Policy.ROUTE_ASSIGNED_OR_ADMIN,
     ("GET", "/routes/{route_id}/suggested-driver"): Policy.ADMIN_ONLY,
-    # --- announcements (any authenticated driver/admin) ---
+    # --- announcements ---
     ("GET", "/announcements/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/announcements/"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
-    ("PUT", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
-    ("DELETE", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
+    ("PUT", "/announcements/{announcement_id}"): Policy.ANNOUNCEMENT_OWNER_OR_ADMIN,
+    ("DELETE", "/announcements/{announcement_id}"): Policy.ANNOUNCEMENT_OWNER_OR_ADMIN,
     # --- upload (any driver/admin; feeds note + announcement attachments) ---
     ("POST", "/upload/"): Policy.DRIVER_OR_ADMIN,
     # --- system settings ---
@@ -250,11 +252,13 @@ class Seed(SimpleNamespace):
     other_driver_id: Any
     route_group_id: Any
     route_id: Any
+    announcement_id: Any
 
 
 @pytest_asyncio.fixture
 async def seed(test_session: AsyncSession) -> Seed:
     """Create the minimal records the auth dependencies look up by auth_id."""
+    from app.models.announcement import Announcement
     from app.models.driver import Driver
     from app.models.enum import DeliveryTypeEnum
     from app.models.location import Location
@@ -330,6 +334,14 @@ async def seed(test_session: AsyncSession) -> Seed:
     await test_session.commit()
     await test_session.refresh(route)
     await test_session.refresh(location)
+    announcement = Announcement(
+        subject="Seed Announcement",
+        message="Seed announcement body",
+        user_id=self_driver.user_id,
+    )
+    test_session.add(announcement)
+    await test_session.commit()
+    await test_session.refresh(announcement)
     test_session.add(
         RouteStop(
             route_id=route.route_id,
@@ -344,6 +356,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         other_driver_id=other_driver.driver_id,
         route_group_id=route_group.route_group_id,
         route_id=route.route_id,
+        announcement_id=announcement.announcement_id,
     )
 
 
@@ -382,6 +395,7 @@ def _fill_path(path: str, seed: Seed) -> str:
     values = {
         "driver_id": str(seed.self_driver_id),
         "route_id": str(seed.route_id),
+        "announcement_id": str(seed.announcement_id),
         "year": "2025",
     }
     unrelated = str(uuid4())  # for params that ownership doesn't hinge on
