@@ -176,7 +176,7 @@ class AuthService:
     ) -> bool:
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True
+                access_token, check_revoked=True, clock_skew_seconds=5
             )
             user_role = decoded_id_token.get("role")
             if not user_role:
