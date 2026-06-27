@@ -1410,19 +1410,18 @@ export type RefreshResponse = {
 };
 
 /**
- * Route
+ * RouteDetailRead
  *
- * Database table model for Routes
+ * GET /routes/{route_id} response: the bare route plus its ordered stops.
+ *
+ * Stops are assembled with snapshot-over-live precedence. See
+ * RouteStopDetailRead.
  */
-export type Route = {
+export type RouteDetailRead = {
   /**
    * Cloned From Route Id
    */
   cloned_from_route_id?: string | null;
-  /**
-   * Created At
-   */
-  created_at?: string | null;
   /**
    * Driver Id
    */
@@ -1462,15 +1461,15 @@ export type Route = {
   /**
    * Route Id
    */
-  route_id?: string;
+  route_id: string;
   /**
    * Start Time
    */
   start_time?: string | null;
   /**
-   * Updated At
+   * Stops
    */
-  updated_at?: string | null;
+  stops?: Array<RouteStopDetailRead>;
 };
 
 /**
@@ -1737,6 +1736,47 @@ export type RouteReadSummary = {
  * RouteStatusEnum
  */
 export type RouteStatusEnum = 'Upcoming' | 'Completed' | 'Archived';
+
+/**
+ * RouteStopDetailRead
+ *
+ * A single ordered stop on a route, assembled with snapshot-over-live
+ * field precedence: for a frozen (past) route the route_stop_snapshot wins,
+ * otherwise the live Location is read. Embedded in RouteDetailRead.
+ *
+ * Notes are intentionally NOT embedded: note_chain_id points at the stop's
+ * note chain, fetched separately via GET /note-chains/{id}/notes.
+ */
+export type RouteStopDetailRead = {
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Boxes
+   */
+  boxes: number;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Phone Primary
+   */
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
+  /**
+   * Stop Number
+   */
+  stop_number: number;
+};
 
 /**
  * RouteWithDateRead
@@ -4087,7 +4127,7 @@ export type GetRouteResponses = {
   /**
    * Successful Response
    */
-  200: Route;
+  200: RouteDetailRead;
 };
 
 export type GetRouteResponse = GetRouteResponses[keyof GetRouteResponses];
