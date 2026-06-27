@@ -5,19 +5,33 @@ import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { WrapperWithLogo } from './Wrapper';
 import { Link } from 'react-router-dom';
 
+type Step = 'FORM' | 'CONFIRMATION';
+
 export const ForgotPassword = () => {
+  const [step, setStep] = useState<Step>('FORM');
+  const headerTitle = step === 'FORM' ? "Forgot password?" : "Reset link sent"
+  const subheaderTitle = step === 'FORM' ? 'What email did your admin use to sign you up?' : 'If an account exists for that email, we’ve sent a link to reset your password. It may take a few minutes to arrive.';
+
   return (
     <WrapperWithLogo 
-      headerTitle="Forgot password?" 
-      subheaderTitle="What email did your admin use to sign you up?"
+      headerTitle={headerTitle}
+      subheaderTitle={subheaderTitle}
       className="desktop:max-w-[362px]"
     >
-      <ForgotPasswordForm/>
+      {step === 'FORM' ? (
+        <ForgotPasswordForm onSuccess={() => setStep('CONFIRMATION')} />
+      ) : (
+        <ResetLinkConfirmation />
+      )}
     </WrapperWithLogo>
   );
 }
 
-const ForgotPasswordForm = () => {
+interface ForgotPasswordFormProps {
+  onSuccess: () => void;
+}
+
+const ForgotPasswordForm = ({ onSuccess }: ForgotPasswordFormProps) => {
   const [email, setEmail] = useState('');
 
   const forgotPasswordMutation = useForgotPassword();
@@ -29,7 +43,7 @@ const ForgotPasswordForm = () => {
       { email },
       {
         onSuccess: () => {
-          alert('Check your inbox for a reset link!'); 
+          onSuccess();
         },
       }
     );
@@ -81,4 +95,8 @@ const ForgotPasswordForm = () => {
       </div>
     </>
   )
+}
+
+const ResetLinkConfirmation = () => {
+  return <></>
 }
