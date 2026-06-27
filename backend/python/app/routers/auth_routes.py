@@ -1,6 +1,7 @@
 import logging
 from typing import Literal, cast
 from uuid import UUID
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import EmailStr
@@ -16,7 +17,7 @@ from app.dependencies.services import (
 )
 from app.models import get_session
 from app.models.password_reset_token import PASSWORD_RESET_TOKEN_EXPIRY_DAYS
-from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse, ForgotPasswordRequest
+from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse, ForgotPasswordRequest, UpdatePasswordRequest
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.password_reset_token_service import PasswordResetTokenService
 from app.services.implementations.user_service import UserService
@@ -186,3 +187,35 @@ async def forgot_password(
     except Exception as e:
         logger.exception(f"Internal error processing forgot-password for {email}: {e}")
         return
+
+@router.post("/update-password", status_code=status.HTTP_204_NO_CONTENT)
+async def update_password(
+    update_password_request: UpdatePasswordRequest,
+    session: AsyncSession = Depends(get_session),
+    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service),
+    user_service: UserService = Depends(get_user_service),
+) -> None:
+    """
+    Update an existing user's password if provided a valid password reset token
+    """
+    token_obj = await token_service.read(session, update_password_request.password_reset_token)
+    current_time = datetime.now(timezone.utc)
+
+    if not token_obj or token_obj.is_used or current_time > token_obj.expires_at.replace(tzinfo=timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token."
+        )
+    
+    await token_service.mark_used(session, token_obj)
+    
+    try:
+        user = token_obj.user
+        await user_service.update_password(user.auth_id, update_password_request.new_password)
+        
+    except Exception as e:
+        logger.exception(f"Internal error updating password for token {update_password_request.password_reset_token}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update password. Please request a new reset link."
+        )

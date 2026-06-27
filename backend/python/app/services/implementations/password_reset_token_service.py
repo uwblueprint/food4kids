@@ -34,10 +34,17 @@ class PasswordResetTokenService:
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         result = await session.execute(
             select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
+            .with_for_update() # Locks row to prevent replay attacks
         )
         return result.scalar_one_or_none()
 
     async def delete(self, session: AsyncSession, token_obj: PasswordResetToken) -> None:
         """Delete a specific token object"""
         session.delete(token_obj)
+        await session.commit()
+
+    async def mark_as_used(self, session: AsyncSession, token_obj: PasswordResetToken) -> None:
+        """Mark a password reset token as consumed"""
+        token_obj.is_used = True
+        session.add(token_obj)
         await session.commit()
