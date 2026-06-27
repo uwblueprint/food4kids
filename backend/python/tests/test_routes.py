@@ -12,7 +12,7 @@ Tests cover:
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -1430,48 +1430,50 @@ class TestRouteRoutes:
     ) -> None:
         """GET /routes/{id} embeds stops in sequence order with per-stop detail,
         read live from Location for an upcoming route."""
-        # Created via the API so each location gets an auto-created note chain.
-        loc_a = (
-            await async_client.post(
-                "/locations/",
-                json={
-                    "name": "Stop A",
-                    "contact_name": "Alice",
-                    "delivery_type": "Family",
-                    "address": "1 A St",
-                    "phone_primary": "5550000001",
-                    "phone_secondary": "5559999991",
-                    "num_children": 6,
-                    "location_group_id": str(test_location_group.location_group_id),
-                },
-            )
-        ).json()
-        loc_b = (
-            await async_client.post(
-                "/locations/",
-                json={
-                    "name": "Stop B",
-                    "contact_name": "Bob",
-                    "delivery_type": "Family",
-                    "address": "2 B St",
-                    "phone_primary": "5550000002",
-                    "num_children": 10,
-                    "location_group_id": str(test_location_group.location_group_id),
-                },
-            )
-        ).json()
+        # Build locations directly (not via POST /locations, which geocodes the
+        # address); attach a note chain to each so note_chain_id is populated.
+        chain_a = NoteChain()
+        chain_b = NoteChain()
+        loc_a = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Stop A",
+            contact_name="Alice",
+            address="1 A St",
+            phone_primary="5550000001",
+            phone_secondary="5559999991",
+            num_children=6,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        loc_b = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Stop B",
+            contact_name="Bob",
+            address="2 B St",
+            phone_primary="5550000002",
+            num_children=10,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        test_session.add_all([chain_a, chain_b, loc_a, loc_b])
+        await test_session.commit()
+        await test_session.refresh(chain_a)
+        await test_session.refresh(chain_b)
+        await test_session.refresh(loc_a)
+        await test_session.refresh(loc_b)
+
+        loc_a.note_chain_id = chain_a.note_chain_id
+        loc_b.note_chain_id = chain_b.note_chain_id
 
         # Insert out of order to prove the response is sorted by stop_number.
         test_session.add_all(
             [
                 RouteStop(
                     route_id=test_route.route_id,
-                    location_id=UUID(loc_a["location_id"]),
+                    location_id=loc_a.location_id,
                     stop_number=2,
                 ),
                 RouteStop(
                     route_id=test_route.route_id,
-                    location_id=UUID(loc_b["location_id"]),
+                    location_id=loc_b.location_id,
                     stop_number=1,
                 ),
             ]
@@ -1490,12 +1492,12 @@ class TestRouteRoutes:
         assert first["phone_primary"] == "5550000002"
         assert first["phone_secondary"] is None
         assert first["boxes"] == 5  # ceil(10 / 2)
-        assert first["note_chain_id"] == loc_b["note_chain_id"]
+        assert first["note_chain_id"] == str(chain_b.note_chain_id)
         # Stop 2 -> loc_a
         assert second["address"] == "1 A St"
         assert second["phone_secondary"] == "5559999991"
         assert second["boxes"] == 3  # ceil(6 / 2)
-        assert second["note_chain_id"] == loc_a["note_chain_id"]
+        assert second["note_chain_id"] == str(chain_a.note_chain_id)
 
     @pytest.mark.asyncio
     async def test_get_route_by_id_uses_snapshot_for_frozen_stops(

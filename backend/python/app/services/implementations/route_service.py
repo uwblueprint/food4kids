@@ -173,13 +173,10 @@ class RouteService:
         )
         result = await session.execute(statement)
         return [
-            (row.RouteStop, row.Location, row.RouteStopSnapshot)
-            for row in result.all()
+            (row.RouteStop, row.Location, row.RouteStopSnapshot) for row in result.all()
         ]
 
-    async def get_route(
-        self, session: AsyncSession, route_id: UUID
-    ) -> RouteDetailRead:
+    async def get_route(self, session: AsyncSession, route_id: UUID) -> RouteDetailRead:
         """Get a route by ID with its ordered stops embedded.
 
         Each stop carries sequence #, address, contact, phone (+ secondary),
