@@ -1,8 +1,9 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useRefresh } from '@/api/auth';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isPending } = useRefresh();
+  const { isPending, isError } = useRefresh();
 
   if (isPending) {
     return (
@@ -14,6 +15,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  if (isError) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
