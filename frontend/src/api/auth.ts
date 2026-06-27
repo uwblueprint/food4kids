@@ -1,6 +1,6 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { login, type LoginRequest } from './generated';
+import { login, refresh, type LoginRequest } from './generated';
 import { useAuthStore } from './authStore';
 
 export function useLogin() {
@@ -20,5 +20,33 @@ export function useLogin() {
     onError: (error) => {
       console.error('Login error:', error);
     },
+  });
+}
+
+export function useRefresh() {
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  return useQuery({
+    queryKey: ['session-refresh'],
+    queryFn: async () => {
+      try {
+        const { data } = await refresh({
+          throwOnError: true,
+        });
+        
+        if (data) {
+          setAuth(data);
+        }
+        return data;
+      } catch (error) {
+        console.error('Session auto-refresh failed:', error);
+        clearAuth();
+        throw error;
+      }
+    },
+    retry: false,            
+    refetchOnWindowFocus: false, 
+    staleTime: Infinity,     
   });
 }
