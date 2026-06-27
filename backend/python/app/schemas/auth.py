@@ -20,6 +20,7 @@ class AuthResponse(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
+    role: str
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -68,6 +68,7 @@ class AuthService:
                 first_name=user.first_name,
                 last_name=user.last_name,
                 email=user.email,
+                role=user.role
             )
             return auth_response, token.refresh_token
         except Exception as e:
