@@ -11,6 +11,7 @@ from sqlmodel import select
 
 from app.config import settings
 from app.models import get_session
+from app.models.announcement import Announcement
 from app.models.route import Route
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
@@ -202,6 +203,44 @@ async def require_route_assigned_or_admin(
         )
     )
     if not is_assigned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this resource.",
+        )
+    return True
+
+
+async def require_announcement_owner_or_admin(
+    request: Request,
+    access_token: str = Depends(get_access_token),
+    session: AsyncSession = Depends(get_session),
+) -> bool:
+    """Allow access if the caller is an admin or the announcement author."""
+    announcement_id = _path_uuid(request, "announcement_id")
+    decoded_token = _verified_token(access_token)
+
+    if decoded_token.get("role") == "admin":
+        return True
+
+    current_user_id = await user_service.get_user_id_by_auth_id(
+        session, decoded_token["uid"]
+    )
+    if current_user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this resource.",
+        )
+
+    announcement = await session.scalar(
+        select(Announcement).where(Announcement.announcement_id == announcement_id)
+    )
+    if announcement is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Announcement with id {announcement_id} not found",
+        )
+
+    if announcement.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this resource.",

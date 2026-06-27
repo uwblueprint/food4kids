@@ -3322,6 +3322,12 @@ export type GetLocationsData = {
      */
     status?: Array<LocationStatusEnum> | null;
     /**
+     * Location Group Id
+     *
+     * Filter by one or more location groups
+     */
+    location_group_id?: Array<string> | null;
+    /**
      * Page
      *
      * Page number (1-indexed)

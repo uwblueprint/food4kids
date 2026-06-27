@@ -147,6 +147,7 @@ class LocationService:
         pagination: PaginationParams,
         delivery_type: list[DeliveryTypeEnum] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
+        location_group_id: list[UUID] | None = None,
     ) -> PaginatedResponse[LocationRead]:
         """Get paginated locations.
 
@@ -155,7 +156,7 @@ class LocationService:
         three-state status (Active / Unscheduled / Inactive) is computed
         from in_roster + whether the location appears in a present/future
         route. Callers can narrow via the optional ``status_filter`` and
-        ``delivery_type`` query params.
+        ``delivery_type`` and ``location_group_id`` query params.
         """
         try:
             statement = (
@@ -167,6 +168,11 @@ class LocationService:
             if delivery_type:
                 statement = statement.where(
                     Location.delivery_type.in_(delivery_type)  # type: ignore[attr-defined]
+                )
+
+            if location_group_id:
+                statement = statement.where(
+                    col(Location.location_group_id).in_(location_group_id)
                 )
 
             if status_filter:

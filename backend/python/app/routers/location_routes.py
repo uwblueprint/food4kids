@@ -39,6 +39,9 @@ async def get_locations(
     status_filter: list[LocationStatusEnum] | None = Query(
         None, alias="status", description="Filter by one or more location statuses"
     ),
+    location_group_id: list[UUID] | None = Query(
+        None, description="Filter by one or more location groups"
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
@@ -52,7 +55,7 @@ async def get_locations(
         # items with has_future_route populated (so the computed `status` is
         # correct). Re-validating each item here would reset has_future_route.
         return await location_service.get_locations(
-            session, pagination, delivery_type, status_filter
+            session, pagination, delivery_type, status_filter, location_group_id
         )
     except Exception as e:
         raise HTTPException(
