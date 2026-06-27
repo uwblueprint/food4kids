@@ -1499,6 +1499,17 @@
             "title": "Address",
             "type": "string"
           },
+          "assigned_route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Route"
+          },
           "contact_name": {
             "title": "Contact Name",
             "type": "string"
@@ -1525,6 +1536,18 @@
             "default": true,
             "title": "In Roster",
             "type": "boolean"
+          },
+          "last_delivery_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Delivery Date"
           },
           "latitude": {
             "anyOf": [
@@ -1614,6 +1637,11 @@
               }
             ],
             "title": "Place Id"
+          },
+          "total_deliveries": {
+            "default": 0,
+            "title": "Total Deliveries",
+            "type": "integer"
           }
         },
         "required": [
@@ -1635,6 +1663,17 @@
           "address": {
             "title": "Address",
             "type": "string"
+          },
+          "assigned_route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Route"
           },
           "contact_name": {
             "title": "Contact Name",
@@ -1662,6 +1701,18 @@
             "default": true,
             "title": "In Roster",
             "type": "boolean"
+          },
+          "last_delivery_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Delivery Date"
           },
           "latitude": {
             "anyOf": [
@@ -1755,6 +1806,11 @@
           "status": {
             "$ref": "#/components/schemas/LocationStatusEnum",
             "readOnly": true
+          },
+          "total_deliveries": {
+            "default": 0,
+            "title": "Total Deliveries",
+            "type": "integer"
           }
         },
         "required": [
