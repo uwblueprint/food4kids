@@ -262,3 +262,13 @@ class UserService:
         except Exception as e:
             self.logger.error(f"Failed to get user_id by auth_id: {e!s}")
             raise e
+
+    async def update_password(self, auth_id: str, new_password: str) -> None:
+        try:
+            firebase_admin.auth.update_user(auth_id, password=new_password)
+        except firebase_admin.auth.UserNotFoundError as e:
+            self.logger.error(f"Firebase user {auth_id} not found: {e!s}")
+            raise e
+        except firebase_admin.exceptions.FirebaseError as e:
+            self.logger.error(f"Firebase failed to update password for {auth_id}: {e!s}")
+            raise e
