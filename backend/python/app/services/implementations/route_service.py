@@ -410,7 +410,15 @@ class RouteService:
 
         if not rows:
             # Verify the route exists (raises 404 if not found)
-            await self.get_route(session, route_id)
+            route = (
+                (await session.execute(select(Route).where(Route.route_id == route_id)))
+                .scalars()
+                .first()
+            )
+            if not route:
+                raise HTTPException(
+                    status_code=404, detail=f"Route with id {route_id} not found"
+                )
             # Route exists but has no stops
             raise HTTPException(
                 status_code=422,
