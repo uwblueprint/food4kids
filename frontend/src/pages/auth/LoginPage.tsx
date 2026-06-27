@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useLogin } from '@/api';
 import AlertTriangleIcon from '@/assets/icons/alert-triangle.svg?react';
@@ -19,6 +20,7 @@ export const LoginPage = () => {
   const [loginError, setLoginError] = useState(false);
 
   const loginMutation = useLogin();
+  const navigate = useNavigate();
 
   const handleLogin = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,6 +28,9 @@ export const LoginPage = () => {
     loginMutation.mutate(
       { email, password },
       {
+        onSuccess: () => {
+          navigate('/'); // 3. Navigate to base route on success
+        },
         onError: () => {
           setLoginError(true);
         },
