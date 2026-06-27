@@ -1,6 +1,7 @@
 from logging import Logger
 from typing import TYPE_CHECKING
 from uuid import UUID
+import jwt
 
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,10 +92,27 @@ class AuthService:
             self.logger.error(" ".join(error_message))
             raise e
 
-    def renew_token(self, refresh_token: str) -> TokenResponse:
+    def renew_token(self, refresh_token: str) -> tuple[AuthResponse, str]:
         try:
             token_response = self.firebase_rest_client.refresh_token(refresh_token)
-            return token_response
+            new_access_token = token_response.access_token
+            payload = jwt.decode(
+                new_access_token,
+                options={"verify_signature": False},
+                algorithms=["RS256"],
+            )
+            auth_id = payload.get("sub")
+            user = self.user_service.get_user_by_auth_id(auth_id)
+
+            auth_response = AuthResponse(
+                access_token=new_access_token,
+                id=user.user_id,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                email=user.email,
+                role=user.role,
+            )
+            return auth_response, token_response.refresh_token
         except Exception as e:
             self.logger.error("Failed to refresh token")
             raise e
