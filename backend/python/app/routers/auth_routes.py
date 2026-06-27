@@ -74,7 +74,7 @@ async def login(
 async def refresh(
     request: Request,
     response: Response,
-    _session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> AuthResponse:
     """
@@ -88,7 +88,7 @@ async def refresh(
                 detail="Refresh token not found",
             )
 
-        auth_data, new_refresh_token = auth_service.renew_token(refresh_token)
+        auth_data, new_refresh_token = await auth_service.renew_token(session, refresh_token)
 
         # Set new refresh token as httpOnly cookie
         cookie_options = get_cookie_options()
@@ -102,8 +102,9 @@ async def refresh(
             secure=bool(cookie_options["secure"]),
         )
 
-        return AuthResponse
+        return auth_data
     except Exception as e:
+        logger.error(f"Failed to refresh: {e}")
         error_message = getattr(e, "message", None)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

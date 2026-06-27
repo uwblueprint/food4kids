@@ -92,7 +92,7 @@ class AuthService:
             self.logger.error(" ".join(error_message))
             raise e
 
-    def renew_token(self, refresh_token: str) -> tuple[AuthResponse, str]:
+    async def renew_token(self, session: AsyncSession, refresh_token: str) -> tuple[AuthResponse, str]:
         try:
             token_response = self.firebase_rest_client.refresh_token(refresh_token)
             new_access_token = token_response.access_token
@@ -102,7 +102,7 @@ class AuthService:
                 algorithms=["RS256"],
             )
             auth_id = payload.get("sub")
-            user = self.user_service.get_user_by_auth_id(auth_id)
+            user = await self.user_service.get_user_by_auth_id(session, auth_id)
 
             auth_response = AuthResponse(
                 access_token=new_access_token,
@@ -114,7 +114,7 @@ class AuthService:
             )
             return auth_response, token_response.refresh_token
         except Exception as e:
-            self.logger.error("Failed to refresh token")
+            self.logger.error(f"Failed to refresh token: {e}")
             raise e
 
     def reset_password(self, email: str) -> None:
