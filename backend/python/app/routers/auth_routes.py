@@ -70,7 +70,7 @@ async def login(
         ) from e
 
 
-@router.post("/refresh", response_model=RefreshResponse)
+@router.post("/refresh", response_model=AuthResponse)
 async def refresh(
     request: Request,
     response: Response,
@@ -88,13 +88,13 @@ async def refresh(
                 detail="Refresh token not found",
             )
 
-        token = auth_service.renew_token(refresh_token)
+        auth_data, new_refresh_token = auth_service.renew_token(refresh_token)
 
         # Set new refresh token as httpOnly cookie
         cookie_options = get_cookie_options()
         response.set_cookie(
             "refreshToken",
-            value=token.refresh_token,
+            value=new_refresh_token,
             httponly=bool(cookie_options["httponly"]),
             samesite=cast(
                 "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
@@ -102,7 +102,7 @@ async def refresh(
             secure=bool(cookie_options["secure"]),
         )
 
-        return RefreshResponse(access_token=token.access_token)
+        return AuthResponse
     except Exception as e:
         error_message = getattr(e, "message", None)
         raise HTTPException(
