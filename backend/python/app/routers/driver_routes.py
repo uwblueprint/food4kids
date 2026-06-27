@@ -3,6 +3,7 @@ import traceback
 from datetime import datetime, timezone
 from typing import Literal, cast
 from uuid import UUID
+from app.config import settings
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,7 +114,7 @@ async def get_driver(
 async def initialize_driver(
     register_request: DriverRegister,
     session: AsyncSession = Depends(get_session),
-    auth_service: AuthService = Depends(get_auth_service),
+    email_dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends),
     user_service: UserService = Depends(get_user_service),
     user_invite_service: UserInviteService = Depends(get_user_invite_service),
     _: bool = Depends(require_admin),
@@ -152,8 +153,17 @@ async def initialize_driver(
         await session.refresh(created_driver)
 
         # Send invitation email
-        auth_service.send_create_password_email(
-            register_request.email, user_invite.user_invite_id
+        driver_signup_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite.user_invite_id}"
+        driver_name = f"{register_request.first_name} {register_request.last_name}".strip()
+
+        await email_dispatcher.dispatch(
+            email_type="account-creation",
+            to=register_request.email,
+            context={
+                "Driver_Name_To_Replace": driver_name if driver_name else "Driver",
+                "Sign_Up_URL": driver_signup_url,
+                "Hours_Till_Expiry": 48,
+            }
         )
 
         return DriverRead.model_validate(created_driver)
