@@ -5287,6 +5287,28 @@
             }
           },
           {
+            "description": "Filter by one or more location groups",
+            "in": "query",
+            "name": "location_group_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more location groups",
+              "title": "Location Group Id"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
