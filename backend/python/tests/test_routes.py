@@ -12,7 +12,7 @@ Tests cover:
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
+from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
@@ -1412,10 +1413,169 @@ class TestRouteRoutes:
     async def test_get_route_by_id(
         self, async_client: AsyncClient, test_route: Any
     ) -> None:
-        """GET /routes/{id} returns the route."""
+        """GET /routes/{id} returns the route with an (empty) stops list."""
         response = await async_client.get(f"/routes/{test_route.route_id}")
         assert response.status_code == 200
-        assert response.json()["route_id"] == str(test_route.route_id)
+        body = response.json()
+        assert body["route_id"] == str(test_route.route_id)
+        assert body["stops"] == []
+
+    @pytest.mark.asyncio
+    async def test_get_route_by_id_embeds_ordered_stops(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """GET /routes/{id} embeds stops in sequence order with per-stop detail,
+        read live from Location for an upcoming route."""
+        # Created via the API so each location gets an auto-created note chain.
+        loc_a = (
+            await async_client.post(
+                "/locations/",
+                json={
+                    "name": "Stop A",
+                    "contact_name": "Alice",
+                    "delivery_type": "Family",
+                    "address": "1 A St",
+                    "phone_primary": "5550000001",
+                    "phone_secondary": "5559999991",
+                    "num_children": 6,
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+        ).json()
+        loc_b = (
+            await async_client.post(
+                "/locations/",
+                json={
+                    "name": "Stop B",
+                    "contact_name": "Bob",
+                    "delivery_type": "Family",
+                    "address": "2 B St",
+                    "phone_primary": "5550000002",
+                    "num_children": 10,
+                    "location_group_id": str(test_location_group.location_group_id),
+                },
+            )
+        ).json()
+
+        # Insert out of order to prove the response is sorted by stop_number.
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=UUID(loc_a["location_id"]),
+                    stop_number=2,
+                ),
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=UUID(loc_b["location_id"]),
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(f"/routes/{test_route.route_id}")
+        assert response.status_code == 200
+        stops = response.json()["stops"]
+        assert [s["stop_number"] for s in stops] == [1, 2]
+
+        first, second = stops
+        # Stop 1 -> loc_b
+        assert first["address"] == "2 B St"
+        assert first["contact_name"] == "Bob"
+        assert first["phone_primary"] == "5550000002"
+        assert first["phone_secondary"] is None
+        assert first["boxes"] == 5  # ceil(10 / 2)
+        assert first["note_chain_id"] == loc_b["note_chain_id"]
+        # Stop 2 -> loc_a
+        assert second["address"] == "1 A St"
+        assert second["phone_secondary"] == "5559999991"
+        assert second["boxes"] == 3  # ceil(6 / 2)
+        assert second["note_chain_id"] == loc_a["note_chain_id"]
+
+    @pytest.mark.asyncio
+    async def test_get_route_by_id_uses_snapshot_for_frozen_stops(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """For a frozen (past) route, snapshotted stop fields win over the
+        mutated live Location; phone_secondary and note_chain_id are live-only."""
+        note_chain = NoteChain()
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Frozen Fam",
+            contact_name="Live Name",
+            address="Live Addr",
+            phone_primary="5550000000",
+            phone_secondary="5551112222",
+            num_children=2,
+            delivery_type=DeliveryTypeEnum.FAMILY,
+        )
+        past_group = RouteGroup(name="Past Group", drive_date=datetime(2024, 1, 1))
+        test_session.add_all([note_chain, loc, past_group])
+        await test_session.commit()
+        await test_session.refresh(note_chain)
+        await test_session.refresh(loc)
+        await test_session.refresh(past_group)
+
+        loc.note_chain_id = note_chain.note_chain_id
+        await test_session.commit()
+
+        route = Route(
+            name="Frozen Route",
+            length=2.0,
+            route_group_id=past_group.route_group_id,
+        )
+        test_session.add(route)
+        await test_session.commit()
+        await test_session.refresh(route)
+
+        stop = RouteStop(
+            route_id=route.route_id,
+            location_id=loc.location_id,
+            stop_number=1,
+        )
+        test_session.add(stop)
+        await test_session.commit()
+        await test_session.refresh(stop)
+
+        test_session.add(
+            RouteStopSnapshot(
+                route_stop_id=stop.route_stop_id,
+                address="Frozen Addr",
+                contact_name="Frozen Name",
+                phone_number="5557778888",
+                num_children=8,
+                latitude=0.0,
+                longitude=0.0,
+            )
+        )
+        await test_session.commit()
+
+        # Mutate the live location after the freeze; the response must ignore it
+        # for snapshotted fields.
+        loc.address = "Changed Addr"
+        loc.num_children = 1
+        await test_session.commit()
+
+        response = await async_client.get(f"/routes/{route.route_id}")
+        assert response.status_code == 200
+        stops = response.json()["stops"]
+        assert len(stops) == 1
+        stop_body = stops[0]
+        assert stop_body["address"] == "Frozen Addr"
+        assert stop_body["contact_name"] == "Frozen Name"
+        assert stop_body["phone_primary"] == "5557778888"
+        assert stop_body["boxes"] == 4  # ceil(8 / 2) from snapshot, not live 1
+        # Secondary phone + note chain have no snapshot column -> read live.
+        assert stop_body["phone_secondary"] == "5551112222"
+        assert stop_body["note_chain_id"] == str(note_chain.note_chain_id)
 
     @pytest.mark.asyncio
     async def test_get_route_not_found(self, async_client: AsyncClient) -> None:
