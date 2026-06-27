@@ -76,7 +76,7 @@ async def refresh(
     response: Response,
     _session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
-) -> RefreshResponse:
+) -> AuthResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
     """
