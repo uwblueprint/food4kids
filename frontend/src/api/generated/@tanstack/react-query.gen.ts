@@ -2136,14 +2136,19 @@ export const getRouteQueryKey = (options: Options<GetRouteData>) =>
 /**
  * Get Route
  *
- * Get a route by its unique identifier.
+ * Get a route by its unique identifier, with its ordered stops embedded.
+ *
+ * Each stop carries its sequence #, address, contact name, phone (+ secondary),
+ * box count, and a note_chain_id reference. Stops are sourced live from
+ * Location for upcoming routes and from frozen route_stop_snapshots for past
+ * routes. Notes are not embedded: fetch them via GET /note-chains/{id}/notes.
  *
  * Parameters:
  * route_id (UUID): The unique identifier of the route to GET.
  * session (AsyncSession): The database session dependency.
  *
  * Returns:
- * None. Responds with HTTP 200 OK on successful get.
+ * The route with its ordered stops. Responds with HTTP 200 OK on success.
  */
 export const getRouteOptions = (options: Options<GetRouteData>) =>
   queryOptions<
