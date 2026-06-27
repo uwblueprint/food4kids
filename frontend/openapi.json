@@ -2389,20 +2389,6 @@
         "title": "ProgressEnum",
         "type": "string"
       },
-      "RefreshResponse": {
-        "description": "Refresh token response - only access token, refresh token is set as httpOnly cookie",
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "access_token"
-        ],
-        "title": "RefreshResponse",
-        "type": "object"
-      },
       "Route": {
         "additionalProperties": false,
         "description": "Database table model for Routes",
@@ -4046,7 +4032,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RefreshResponse"
+                  "$ref": "#/components/schemas/AuthResponse"
                 }
               }
             },

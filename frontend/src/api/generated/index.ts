@@ -361,7 +361,6 @@ export type {
   ProgressEnum,
   RefreshData,
   RefreshResponse,
-  RefreshResponse2,
   RefreshResponses,
   ResetPasswordData,
   ResetPasswordError,
