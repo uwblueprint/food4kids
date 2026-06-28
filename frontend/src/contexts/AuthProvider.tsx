@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+
 import { useRefresh } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 
@@ -12,7 +13,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
 
   const location = useLocation();
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => location.pathname.startsWith(route));
+  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+    location.pathname.startsWith(route)
+  );
 
   if (isPublicRoute) {
     return <>{children}</>;

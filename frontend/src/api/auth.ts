@@ -1,11 +1,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { login, refresh, type LoginRequest } from './generated';
 import { useAuthStore } from './authStore';
+import { login, type LoginRequest, refresh } from './generated';
 
 export function useLogin() {
   const setAuth = useAuthStore((state) => state.setAuth);
-  
+
   return useMutation({
     mutationFn: async (credentials: LoginRequest) => {
       const { data } = await login({
@@ -34,7 +34,7 @@ export function useRefresh() {
         const { data } = await refresh({
           throwOnError: true,
         });
-        
+
         setAuth(data);
         return data;
       } catch (error) {
@@ -43,8 +43,8 @@ export function useRefresh() {
         throw error;
       }
     },
-    retry: false,            
-    refetchOnWindowFocus: false, 
-    staleTime: Infinity,     
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
   });
 }

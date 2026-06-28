@@ -1,9 +1,10 @@
-import { useAuthStore } from "@/api/authStore";
+import { useAuthStore } from '@/api/authStore';
 
 export const Account = () => {
   // TODO: fetch account from global context? (name, role, avatar, or initials as profile)
   const user = useAuthStore((state) => state.user);
-  const initials = `${user?.firstName?.charAt(0) || ''}${user?.lastName?.charAt(0) || ''}`.toUpperCase();
+  const initials =
+    `${user?.firstName?.charAt(0) || ''}${user?.lastName?.charAt(0) || ''}`.toUpperCase();
 
   return (
     <div className="flex items-center gap-4">
@@ -16,4 +17,4 @@ export const Account = () => {
       </div>
     </div>
   );
-}
+};
