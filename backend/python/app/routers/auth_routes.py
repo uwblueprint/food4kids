@@ -13,7 +13,7 @@ from app.dependencies.services import (
 from app.models import get_session
 from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
 from app.services.implementations.auth_service import AuthService
-from app.utilities.cookies import get_cookie_options
+from app.utilities.cookies import set_refresh_token_cookie
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -42,17 +42,7 @@ async def login(
             session, login_request.email, login_request.password
         )
 
-        # Set refresh token as httpOnly cookie
-        cookie_options = get_cookie_options()
-        response.set_cookie(
-            "refreshToken",
-            value=refresh_token,
-            httponly=bool(cookie_options["httponly"]),
-            samesite=cast(
-                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
-            ),
-            secure=bool(cookie_options["secure"]),
-        )
+        set_refresh_token_cookie(response, refresh_token)
 
         return auth_dto
     except ValueError as e:
@@ -90,17 +80,7 @@ async def refresh(
 
         auth_data, new_refresh_token = await auth_service.renew_token(session, refresh_token)
 
-        # Set new refresh token as httpOnly cookie
-        cookie_options = get_cookie_options()
-        response.set_cookie(
-            "refreshToken",
-            value=new_refresh_token,
-            httponly=bool(cookie_options["httponly"]),
-            samesite=cast(
-                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
-            ),
-            secure=bool(cookie_options["secure"]),
-        )
+        set_refresh_token_cookie(response, new_refresh_token)
 
         return auth_data
     except Exception as e:
