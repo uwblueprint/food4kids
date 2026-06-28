@@ -103,8 +103,11 @@ class AuthService:
                 options={"verify_signature": False},
                 algorithms=["RS256"],
             )
-            auth_id = payload.get("sub")
+            auth_id = payload.get("sub", "")
             user = await self.user_service.get_user_by_auth_id(session, auth_id)
+
+            if user is None:
+                raise ValueError("User associated with this token does not exist.")
 
             auth_response = AuthResponse(
                 access_token=new_access_token,
