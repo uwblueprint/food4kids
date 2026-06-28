@@ -7,6 +7,7 @@ import {
   ServiceUnavailablePage,
 } from './common/components';
 import { DesignOverlay } from './dev/DesignOverlay';
+import { DesignOverlayHarness } from './dev/DesignOverlayHarness';
 import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
@@ -72,6 +73,11 @@ function App() {
         {/* Dev-only: style guide is not accessible in production */}
         {import.meta.env.DEV && (
           <Route path="/style-guide" element={<StyleGuidePage />} />
+        )}
+
+        {/* Dev-only: pixel-perfect design-overlay harness (iframe, no resize) */}
+        {import.meta.env.DEV && (
+          <Route path="/dev/overlay" element={<DesignOverlayHarness />} />
         )}
 
         {/* Error pages (dev preview) */}
