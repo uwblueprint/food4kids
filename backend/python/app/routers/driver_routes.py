@@ -1,7 +1,6 @@
 import logging
 import traceback
 from datetime import datetime, timezone
-from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status

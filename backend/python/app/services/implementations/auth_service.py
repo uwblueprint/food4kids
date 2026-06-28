@@ -1,13 +1,13 @@
 from logging import Logger
 from typing import TYPE_CHECKING
 from uuid import UUID
-import jwt
 
 import firebase_admin.auth
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.schemas.auth import AuthResponse, TokenResponse
+from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
 if TYPE_CHECKING:
@@ -69,7 +69,7 @@ class AuthService:
                 first_name=user.first_name,
                 last_name=user.last_name,
                 email=user.email,
-                role=user.role
+                role=user.role,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -92,7 +92,9 @@ class AuthService:
             self.logger.error(" ".join(error_message))
             raise e
 
-    async def renew_token(self, session: AsyncSession, refresh_token: str) -> tuple[AuthResponse, str]:
+    async def renew_token(
+        self, session: AsyncSession, refresh_token: str
+    ) -> tuple[AuthResponse, str]:
         try:
             token_response = self.firebase_rest_client.refresh_token(refresh_token)
             new_access_token = token_response.access_token
