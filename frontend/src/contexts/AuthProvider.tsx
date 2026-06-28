@@ -1,11 +1,24 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useRefresh } from '@/api/auth';
+import { useAuthStore } from '@/api/authStore';
+
+const PUBLIC_ROUTES = ['/login', '/create-password'];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isPending, isError } = useRefresh();
+  useRefresh();
 
-  if (isPending) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
+
+  const location = useLocation();
+  const isPublicRoute = PUBLIC_ROUTES.some((route) => location.pathname.startsWith(route));
+
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
+  if (isRestoringSession) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-2">
@@ -17,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isError) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

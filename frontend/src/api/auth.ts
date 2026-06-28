@@ -35,9 +35,7 @@ export function useRefresh() {
           throwOnError: true,
         });
         
-        if (data) {
-          setAuth(data);
-        }
+        setAuth(data);
         return data;
       } catch (error) {
         console.error('Session auto-refresh failed:', error);
