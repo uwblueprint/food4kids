@@ -1,5 +1,4 @@
 import logging
-from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -11,7 +10,7 @@ from app.dependencies.services import (
     get_auth_service,
 )
 from app.models import get_session
-from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
+from app.schemas.auth import AuthResponse, LoginRequest
 from app.services.implementations.auth_service import AuthService
 from app.utilities.cookies import set_refresh_token_cookie
 
@@ -78,7 +77,9 @@ async def refresh(
                 detail="Refresh token not found",
             )
 
-        auth_data, new_refresh_token = await auth_service.renew_token(session, refresh_token)
+        auth_data, new_refresh_token = await auth_service.renew_token(
+            session, refresh_token
+        )
 
         set_refresh_token_cookie(response, new_refresh_token)
 
