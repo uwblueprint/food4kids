@@ -23,6 +23,7 @@ interface OverlayState {
   scale: number; // 1 = natural size
   collapsed: boolean;
   src: string | null; // data URL of the design image
+  designWidth: number; // CSS width of the source Figma frame (e.g. 1440)
 }
 
 const DEFAULT_STATE: OverlayState = {
@@ -33,6 +34,7 @@ const DEFAULT_STATE: OverlayState = {
   scale: 1,
   collapsed: false,
   src: null,
+  designWidth: 1440,
 };
 
 function loadState(): OverlayState {
@@ -88,9 +90,23 @@ export function DesignOverlay() {
     async (file: File | undefined | null) => {
       if (!file || !file.type.startsWith('image/')) return;
       const src = await readFileAsDataUrl(file);
-      update({ src, visible: true });
+      // Auto-match: scale the export down so it renders at the design's CSS
+      // width (1 design px = 1 CSS px). Handles 2x/3x exports without manual
+      // scale-fiddling — see matchDesign() for the math.
+      const img = new Image();
+      img.onload = () => {
+        setState((prev) => {
+          const next: OverlayState = { ...prev, src, visible: true, x: 0, y: 0 };
+          if (prev.designWidth > 0 && img.naturalWidth > 0) {
+            next.scale = prev.designWidth / img.naturalWidth;
+          }
+          persistState(next);
+          return next;
+        });
+      };
+      img.src = src;
     },
-    [update]
+    []
   );
 
   // Toggle hotkey (Cmd/Ctrl+Shift+O) + arrow-key nudge while panel is focused.
@@ -152,6 +168,22 @@ export function DesignOverlay() {
     };
     img.src = state.src;
   }, [state.src, update]);
+
+  // Render the export at its true design size: scale so the image's CSS width
+  // equals the Figma frame width (designWidth). At a viewport of that width this
+  // is a pixel-perfect 1:1 overlay regardless of the export's pixel density.
+  const matchDesign = useCallback(() => {
+    if (!state.src || state.designWidth <= 0) return;
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth > 0) {
+        update({ scale: state.designWidth / img.naturalWidth, x: 0, y: 0 });
+      }
+    };
+    img.src = state.src;
+  }, [state.src, state.designWidth, update]);
+
+  const viewportMatchesDesign = state.designWidth === window.innerWidth;
 
   return (
     <>
@@ -293,6 +325,32 @@ export function DesignOverlay() {
                   />
                   <span style={val}>{state.scale.toFixed(2)}×</span>
                 </label>
+
+                <div style={row}>
+                  <span style={lbl}>Design W</span>
+                  <input
+                    type="number"
+                    value={state.designWidth}
+                    onChange={(e) =>
+                      update({ designWidth: Number(e.target.value) })
+                    }
+                    style={numInput}
+                    title="Figma frame width in px (e.g. 1440)"
+                  />
+                  <button type="button" onClick={matchDesign} style={smallBtn}>
+                    Match
+                  </button>
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: viewportMatchesDesign ? '#86efac' : '#fbbf24',
+                  }}
+                >
+                  {viewportMatchesDesign
+                    ? `Viewport ${window.innerWidth}px = design ✓ 1:1`
+                    : `Viewport ${window.innerWidth}px ≠ design ${state.designWidth}px — resize for 1:1`}
+                </div>
 
                 <div style={row}>
                   <span style={lbl}>Offset</span>
