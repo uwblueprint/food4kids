@@ -185,6 +185,13 @@ export function DesignOverlay() {
 
   const viewportMatchesDesign = state.designWidth === window.innerWidth;
 
+  // Don't render inside an iframe (e.g. the /dev/overlay harness embeds the app)
+  // or on the harness route itself — the harness owns the overlay there.
+  if (typeof window !== 'undefined') {
+    if (window.self !== window.top) return null;
+    if (window.location.pathname.startsWith('/dev/overlay')) return null;
+  }
+
   return (
     <>
       {/* The design image layer — never intercepts pointer events. */}
