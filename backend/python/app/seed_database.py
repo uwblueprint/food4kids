@@ -101,6 +101,69 @@ MIN_DRIVERS = 5
 NUM_SEED_ADMINS = 2
 # Shared password for all seeded Firebase accounts
 SEED_PASSWORD = "test123"
+
+# A richer announcement feed, posted by different admins and drivers over the
+# past few weeks so the list looks like a real, lived-in noticeboard. Each
+# entry is (subject, message, days_ago, author_role) where author_role is one
+# of the values in ANNOUNCEMENT_AUTHOR_ROLES. Drivers can post announcements
+# too (the create endpoint allows driver-or-admin), so the feed mixes both.
+ANNOUNCEMENT_AUTHOR_ROLES = ("admin", "driver")
+SAMPLE_ANNOUNCEMENTS: list[tuple[str, str, int, str]] = [
+    (
+        "Welcome to Food4Kids",
+        "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
+        30,
+        "admin",
+    ),
+    (
+        "Schedule Update for March",
+        "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
+        24,
+        "admin",
+    ),
+    (
+        "New Cold-Storage Procedure",
+        "Starting this week, all perishable items must be kept in the insulated bags until drop-off. Please grab a bag from the warehouse before heading out on your route.",
+        19,
+        "admin",
+    ),
+    (
+        "Gate Code Change on the East Route",
+        "Heads up to anyone covering the east route — the gate code at the Maple Street apartments changed to 4821. The old one stopped working for me on Tuesday.",
+        16,
+        "driver",
+    ),
+    (
+        "Holiday Notice - Good Friday",
+        "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
+        12,
+        "admin",
+    ),
+    (
+        "Spare Cooler Bags Available",
+        "I ended up with a couple of extra insulated bags after my route this week. If anyone is running short, find me at the warehouse Thursday morning and I'll pass them along.",
+        9,
+        "driver",
+    ),
+    (
+        "Spring Food Drive Kickoff",
+        "Our spring food drive starts Monday! We are especially short on shelf-stable proteins and low-sugar snacks. Spread the word with your local networks.",
+        5,
+        "admin",
+    ),
+    (
+        "Thanks for Covering My Friday Stops",
+        "Just wanted to say thank you to whoever picked up my Friday route last week while I was out sick. This crew is the best — really appreciate it.",
+        4,
+        "driver",
+    ),
+    (
+        "Weather Advisory - Drive Safe",
+        "Heavy rain is expected across most routes tomorrow. Take your time, and if conditions feel unsafe, contact your coordinator before continuing. Families can wait — your safety comes first.",
+        2,
+        "admin",
+    ),
+]
 # Number of days considered as "next week" for assignment strategy
 NEXT_WEEK_DAYS = 7
 # Number of years back to generate driver history for
@@ -1091,70 +1154,10 @@ def main() -> None:
             ]
             admin_user_ids: list[uuid.UUID] = [user.user_id for user in admin_users]
 
-            # A richer announcement feed, posted by different admins and drivers
-            # over the past few weeks so the list looks like a real, lived-in
-            # noticeboard. Each entry is (subject, message, days_ago, author_role)
-            # where author_role is "admin" or "driver".
-            sample_announcements: list[tuple[str, str, int, str]] = [
-                (
-                    "Welcome to Food4Kids",
-                    "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
-                    30,
-                    "admin",
-                ),
-                (
-                    "Schedule Update for March",
-                    "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
-                    24,
-                    "admin",
-                ),
-                (
-                    "New Cold-Storage Procedure",
-                    "Starting this week, all perishable items must be kept in the insulated bags until drop-off. Please grab a bag from the warehouse before heading out on your route.",
-                    19,
-                    "admin",
-                ),
-                (
-                    "Gate Code Change on the East Route",
-                    "Heads up to anyone covering the east route — the gate code at the Maple Street apartments changed to 4821. The old one stopped working for me on Tuesday.",
-                    16,
-                    "driver",
-                ),
-                (
-                    "Holiday Notice - Good Friday",
-                    "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
-                    12,
-                    "admin",
-                ),
-                (
-                    "Spare Cooler Bags Available",
-                    "I ended up with a couple of extra insulated bags after my route this week. If anyone is running short, find me at the warehouse Thursday morning and I'll pass them along.",
-                    9,
-                    "driver",
-                ),
-                (
-                    "Spring Food Drive Kickoff",
-                    "Our spring food drive starts Monday! We are especially short on shelf-stable proteins and low-sugar snacks. Spread the word with your local networks.",
-                    5,
-                    "admin",
-                ),
-                (
-                    "Thanks for Covering My Friday Stops",
-                    "Just wanted to say thank you to whoever picked up my Friday route last week while I was out sick. This crew is the best — really appreciate it.",
-                    4,
-                    "driver",
-                ),
-                (
-                    "Weather Advisory - Drive Safe",
-                    "Heavy rain is expected across most routes tomorrow. Take your time, and if conditions feel unsafe, contact your coordinator before continuing. Families can wait — your safety comes first.",
-                    2,
-                    "admin",
-                ),
-            ]
             # Rotate authorship within each role so the feed shows messages from
             # more than one person rather than a single author.
-            role_counts = {"admin": 0, "driver": 0}
-            for subject, message, days_ago, author_role in sample_announcements:
+            role_counts = dict.fromkeys(ANNOUNCEMENT_AUTHOR_ROLES, 0)
+            for subject, message, days_ago, author_role in SAMPLE_ANNOUNCEMENTS:
                 if author_role == "admin":
                     pool = admin_user_ids
                 elif author_role == "driver":
@@ -1179,7 +1182,7 @@ def main() -> None:
                 announcement.updated_at = posted_at
                 session.add(announcement)
             session.commit()
-            print(f"Created {len(sample_announcements)} sample announcements")
+            print(f"Created {len(SAMPLE_ANNOUNCEMENTS)} sample announcements")
 
             print("Comprehensive database seeding completed successfully!")
 

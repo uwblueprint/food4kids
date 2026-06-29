@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 import app.seed_database as seed_module
 from app.models.admin import Admin
+from app.models.announcement import Announcement
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
 from app.models.job import Job
@@ -141,6 +142,7 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
         ],
     ),
     (Admin, ["user_id", "admin_phone"]),
+    (Announcement, ["subject", "message", "user_id"]),
 ]
 
 
@@ -303,3 +305,91 @@ class TestRouteStopSequence:
                 f"Route {route.route_id} stops should be 1..{len(stops)}, "
                 f"got {stop_numbers}"
             )
+
+
+@pytest.mark.slow
+class TestAnnouncements:
+    """The seeded announcement feed is rich and authored by several people —
+    a mix of admins and drivers, matching each entry's declared author role."""
+
+    @pytest.mark.asyncio
+    async def test_count_matches_constant(self, test_session: AsyncSession) -> None:
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        assert len(announcements) == len(seed_module.SAMPLE_ANNOUNCEMENTS), (
+            "Seeded announcement count should match SAMPLE_ANNOUNCEMENTS"
+        )
+
+    @pytest.mark.asyncio
+    async def test_authored_by_multiple_people(
+        self, test_session: AsyncSession
+    ) -> None:
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        author_ids = {a.user_id for a in announcements}
+        assert len(author_ids) >= 2, (
+            "Announcements should be authored by more than one person, "
+            f"got {len(author_ids)} distinct author(s)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_feed_includes_admin_and_driver_authors(
+        self, test_session: AsyncSession
+    ) -> None:
+        role_by_user_id = await self._role_by_user_id(test_session)
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        author_roles = {role_by_user_id[a.user_id] for a in announcements}
+        assert "admin" in author_roles, (
+            "Expected at least one admin-authored announcement"
+        )
+        assert "driver" in author_roles, (
+            "Expected at least one driver-authored announcement"
+        )
+
+    @pytest.mark.asyncio
+    async def test_author_role_matches_declared_role(
+        self, test_session: AsyncSession
+    ) -> None:
+        # Each seeded announcement should actually be authored by a user whose
+        # role matches the role declared for it in SAMPLE_ANNOUNCEMENTS — this
+        # exercises the per-role authorship routing in the seed script.
+        role_by_user_id = await self._role_by_user_id(test_session)
+        expected_role_by_subject = {
+            subject: author_role
+            for subject, _message, _days_ago, author_role in (
+                seed_module.SAMPLE_ANNOUNCEMENTS
+            )
+        }
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        for ann in announcements:
+            expected_role = expected_role_by_subject[ann.subject]
+            actual_role = role_by_user_id[ann.user_id]
+            assert actual_role == expected_role, (
+                f"Announcement '{ann.subject}' should be authored by a "
+                f"{expected_role}, but author has role {actual_role}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_announcements_are_back_dated(
+        self, test_session: AsyncSession
+    ) -> None:
+        # The feed is spread across multiple days rather than all stamped at the
+        # same instant, so it reads like a real noticeboard.
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        created_dates = {a.created_at for a in announcements}
+        assert len(created_dates) > 1, (
+            "Announcements should be spread across multiple timestamps"
+        )
+
+    @staticmethod
+    async def _role_by_user_id(session: AsyncSession) -> dict[Any, str]:
+        users = (await session.execute(select(User))).scalars().all()
+        return {user.user_id: user.role for user in users}
