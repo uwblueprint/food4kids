@@ -126,7 +126,7 @@ class RouteService:
             if order == "desc"
             else col(RouteGroup.drive_date).asc()
         )
-        statement = statement.order_by(drive_date_order, Route.name)  # type: ignore[arg-type]
+        statement = statement.order_by(drive_date_order, col(Route.name))
 
         if pagination is None:
             pagination = PaginationParams()
