@@ -1537,6 +1537,20 @@ class TestRouteRoutes:
         )
         await test_session.commit()
 
+        # A second route in a later-dated group, to exercise drive_date ordering.
+        later_group = RouteGroup(name="Later Group", drive_date=datetime(2024, 6, 1))
+        test_session.add(later_group)
+        await test_session.commit()
+        await test_session.refresh(later_group)
+        later_route = Route(
+            name="Later Route",
+            length=1.0,
+            route_group_id=later_group.route_group_id,
+        )
+        test_session.add(later_route)
+        await test_session.commit()
+        await test_session.refresh(later_route)
+
         response = await async_client.get("/routes")
         assert response.status_code == 200
         data = response.json()
@@ -1548,6 +1562,23 @@ class TestRouteRoutes:
         )
         assert route["num_stops"] == 2
         assert route["box_total"] == 8
+        # List rows carry start_time (None until the route is scheduled).
+        assert route["start_time"] is None
+
+        # Default order is ascending by drive_date (oldest-first); the
+        # earlier-dated test_route precedes the later one.
+        asc_ids = [item["route_id"] for item in data["items"]]
+        assert asc_ids.index(str(test_route.route_id)) < asc_ids.index(
+            str(later_route.route_id)
+        )
+
+        # order=desc reverses it (most-recent-first), powering the past feed.
+        desc = await async_client.get("/routes?order=desc")
+        assert desc.status_code == 200
+        desc_ids = [item["route_id"] for item in desc.json()["items"]]
+        assert desc_ids.index(str(later_route.route_id)) < desc_ids.index(
+            str(test_route.route_id)
+        )
 
     @pytest.mark.asyncio
     async def test_get_routes_uses_snapshotted_box_totals_for_frozen_routes(
@@ -1717,6 +1748,13 @@ class TestRouteRoutes:
         # No longer unassigned.
         unassigned_after = await async_client.get("/routes?unassigned_only=true")
         assert route_id not in {r["route_id"] for r in unassigned_after.json()["items"]}
+
+        # The assigned start_time is surfaced on the list rows (driver homepage).
+        listed = await async_client.get("/routes")
+        listed_row = next(
+            r for r in listed.json()["items"] if r["route_id"] == route_id
+        )
+        assert listed_row["start_time"] == "08:30:00"
 
         # Reassign to a second driver.
         other_user = User(
