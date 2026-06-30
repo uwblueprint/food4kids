@@ -169,7 +169,6 @@ export type {
   DeleteRouteResponse,
   DeleteRouteResponses,
   DeliveriesCountResponse,
-  DeliveryTypeEnum,
   DriveDaysOfWeekEnum,
   DriverAssignmentStatusEnum,
   DriverHistoryCreate,

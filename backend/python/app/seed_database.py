@@ -26,7 +26,7 @@ from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
-from app.models.enum import DeliveryTypeEnum, NotePermission, ProgressEnum
+from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -38,7 +38,11 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
-from app.models.system_settings import EmailReminder, SystemSettings
+from app.models.system_settings import (
+    DEFAULT_DELIVERY_TYPES,
+    EmailReminder,
+    SystemSettings,
+)
 
 # Import all models to register them with SQLModel
 from app.models.user import User
@@ -608,11 +612,7 @@ def main() -> None:
                             schools_group_id is not None
                             and group_id == schools_group_id
                         )
-                        delivery_type = (
-                            DeliveryTypeEnum.SCHOOL
-                            if is_school
-                            else DeliveryTypeEnum.FAMILY
-                        )
+                        delivery_type = "School" if is_school else "Family"
 
                         contact_name = fake.name()
                         location = Location(
@@ -985,6 +985,7 @@ def main() -> None:
                 boxes_per_car=10,
                 dropoff_minutes=3,
                 children_per_box=2,
+                delivery_types=DEFAULT_DELIVERY_TYPES.copy(),
                 contact_name="Emily Loro",
                 contact_phone=generate_valid_phone(),
                 f4k_wr_instagram="https://instagram.com/food4kidswr",

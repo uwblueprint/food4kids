@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
-from .enum import DeliveryTypeEnum, RouteStatusEnum
+from .enum import RouteStatusEnum
 
 if TYPE_CHECKING:
     from .route import Route
@@ -71,7 +71,7 @@ class RouteGroupRead(RouteGroupBase):
     num_locations: int = 0
     num_boxes: int = 0
     num_drivers_assigned: int = 0
-    delivery_type: DeliveryTypeEnum | None = None
+    delivery_type: str | None = None
     status: RouteStatusEnum
     routes: list[RouteReadSummary] = []
 

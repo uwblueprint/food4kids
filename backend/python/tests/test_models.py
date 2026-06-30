@@ -28,7 +28,6 @@ from app.models.driver_history import (
     DriverHistoryUpdate,
 )
 from app.models.enum import (
-    DeliveryTypeEnum,
     NotePermission,
     ProgressEnum,
     RoleEnum,
@@ -297,7 +296,7 @@ class TestCoreBusinessValidation:
                 location_group_id=uuid4(),
                 name="Jane Smith",
                 contact_name="Jane Smith",
-                delivery_type=DeliveryTypeEnum.FAMILY,
+                delivery_type="Family",
                 address="123 Main St",
                 phone_primary="(555) 123-4567",
                 longitude=-122.4194,
@@ -362,7 +361,7 @@ class TestCoreModels:
             location_group_id=uuid4(),
             name="Central Elementary",
             contact_name="Jane Smith",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             address="123 Main St, City, State 12345",
             phone_primary="(555) 123-4567",
             longitude=-122.4194,
@@ -373,7 +372,7 @@ class TestCoreModels:
             notes="Main entrance on Main St",
         )
         assert location.name == "Central Elementary"
-        assert location.delivery_type == DeliveryTypeEnum.SCHOOL
+        assert location.delivery_type == "School"
         assert location.created_at is not None
 
         # Create with minimal fields
@@ -381,7 +380,7 @@ class TestCoreModels:
             location_group_id=uuid4(),
             name="John Doe",
             contact_name="John Doe",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             address="456 Oak Ave, City, State 12345",
             phone_primary="(555) 987-6543",
             longitude=-122.5000,
@@ -390,7 +389,7 @@ class TestCoreModels:
             num_children=10,
         )
         assert location_minimal.name == "John Doe"
-        assert location_minimal.delivery_type == DeliveryTypeEnum.FAMILY
+        assert location_minimal.delivery_type == "Family"
         assert location_minimal.notes == ""  # Default value
 
         # Read model
@@ -400,7 +399,7 @@ class TestCoreModels:
             location_group_name="Central Elementary",
             name="Central Elementary",
             contact_name="Jane Smith",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             address="123 Main St, City, State 12345",
             phone_primary="(555) 123-4567",
             longitude=-122.4194,
@@ -743,7 +742,7 @@ class TestEnumsAndSerialization:
             location_group_id=uuid4(),
             name="John Doe",
             contact_name="John Doe",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             address="456 Oak Ave",
             phone_primary="(555) 987-6543",
             longitude=-122.5000,
@@ -751,7 +750,7 @@ class TestEnumsAndSerialization:
             halal=True,
         )
         assert location.notes == ""  # Default value
-        assert location.delivery_type == DeliveryTypeEnum.FAMILY
+        assert location.delivery_type == "Family"
         assert location.dietary_restrictions == ""  # Default value
         assert location.num_children == 0  # Default value
 
@@ -856,6 +855,7 @@ class TestModelValidation:
         assert system_settings.boxes_per_car == 10
         assert system_settings.dropoff_minutes == 3
         assert system_settings.children_per_box == 2
+        assert system_settings.delivery_types == ["School", "Family"]
         assert system_settings.email_reminders == [
             EmailReminder(days_before=1, time=time(9, 0))
         ]

@@ -20,7 +20,6 @@ import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const ROUTE_STATUSES = ['Active', 'Unscheduled', 'Inactive'];
-const DELIVERY_TYPES = ['School', 'Family'];
 
 const COLUMNS: Column<LocationReadOutput>[] = [
   {
@@ -42,6 +41,7 @@ type RouteAddressesTabProps = AddressesTabState;
 
 export function RouteAddressesTab({
   rows,
+  deliveryTypes,
   search,
   filterOpen,
   setFilterOpen,
@@ -107,7 +107,7 @@ export function RouteAddressesTab({
             </FilterChipGroup>
 
             <FilterChipGroup label="Delivery Type" showDelimiter>
-              {DELIVERY_TYPES.map((type) => (
+              {deliveryTypes.map((type) => (
                 <FilterChip
                   key={type}
                   selected={draftFilters.deliveryTypes.has(type)}

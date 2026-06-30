@@ -17,7 +17,6 @@ from sqlmodel import col, select
 
 from app.config import settings
 from app.models.enum import (
-    DeliveryTypeEnum,
     LocationStatusEnum,
     NotePermission,
 )
@@ -41,6 +40,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.models.system_settings import DEFAULT_DELIVERY_TYPES
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
@@ -67,6 +67,10 @@ DEFAULT_COLUMN_MAP = {
     "halal": "Halal?",
     "dietary_restrictions": "Specific Food Restrictions",
 }
+
+
+class InvalidDeliveryTypeError(ValueError):
+    """Raised when a delivery type is not configured in system settings."""
 
 
 class LocationService:
@@ -145,7 +149,7 @@ class LocationService:
         self,
         session: AsyncSession,
         pagination: PaginationParams,
-        delivery_type: list[DeliveryTypeEnum] | None = None,
+        delivery_type: list[str] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
         location_group_id: list[UUID] | None = None,
     ) -> PaginatedResponse[LocationRead]:
@@ -235,6 +239,39 @@ class LocationService:
         except Exception as e:
             self.logger.error(f"Failed to get locations: {e!s}")
             raise e
+
+    async def get_delivery_types(self, session: AsyncSession) -> list[str]:
+        """Return configured delivery types, falling back to current defaults."""
+        settings = await self.system_settings_service.get_settings(session)
+        if settings is None:
+            return DEFAULT_DELIVERY_TYPES.copy()
+        return settings.delivery_types
+
+    async def validate_delivery_type(
+        self, session: AsyncSession, delivery_type: str
+    ) -> None:
+        delivery_types = await self.get_delivery_types(session)
+        if delivery_type not in delivery_types:
+            allowed = ", ".join(delivery_types)
+            raise InvalidDeliveryTypeError(
+                f"Unknown delivery_type '{delivery_type}'. Allowed values: {allowed}"
+            )
+
+    async def validate_delivery_types(
+        self, session: AsyncSession, delivery_types: Iterable[str]
+    ) -> None:
+        configured_delivery_types = await self.get_delivery_types(session)
+        invalid_delivery_types = [
+            delivery_type
+            for delivery_type in delivery_types
+            if delivery_type not in configured_delivery_types
+        ]
+        if invalid_delivery_types:
+            allowed = ", ".join(configured_delivery_types)
+            invalid = ", ".join(invalid_delivery_types)
+            raise InvalidDeliveryTypeError(
+                f"Unknown delivery_type '{invalid}'. Allowed values: {allowed}"
+            )
 
     async def load_has_future_route_set(
         self, session: AsyncSession, location_ids: Iterable[UUID]
@@ -351,6 +388,7 @@ class LocationService:
     ) -> Location:
         """Create a new location using a LocationCreate object - returns SQLModel instance"""
         try:
+            await self.validate_delivery_type(session, location_data.delivery_type)
             # Auto-create a note chain for the location
             note_chain = NoteChain(
                 read_permission=NotePermission.ALL,
@@ -383,6 +421,10 @@ class LocationService:
 
             # Update existing location with new data
             updated_data = updated_location_data.model_dump(exclude_unset=True)
+            if "delivery_type" in updated_data:
+                await self.validate_delivery_type(
+                    session, updated_data["delivery_type"]
+                )
             for field, value in updated_data.items():
                 setattr(location, field, value)
 
@@ -645,6 +687,7 @@ class LocationService:
         reappearance can revive them.
         """
         try:
+            await self.validate_delivery_type(session, request.delivery_type)
             # Fetch and mark stale locations out-of-roster in one SELECT IN
             stale_ids = [loc.location_id for loc in request.stale]
             stale_db_rows: list[Location] = []
