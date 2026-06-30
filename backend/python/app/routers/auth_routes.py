@@ -59,7 +59,14 @@ async def login(
         ) from e
 
 
-_FIREBASE_401_CODES = {"TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN", "INVALID_GRANT", "USER_DISABLED", "USER_NOT_FOUND"}
+_FIREBASE_401_CODES = {
+    "TOKEN_EXPIRED",
+    "INVALID_REFRESH_TOKEN",
+    "INVALID_GRANT",
+    "USER_DISABLED",
+    "USER_NOT_FOUND",
+}
+
 
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(
@@ -77,7 +84,7 @@ async def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token not found",
         )
-    
+
     try:
         auth_data, new_refresh_token = await auth_service.renew_token(
             session, refresh_token
@@ -88,8 +95,8 @@ async def refresh(
         return auth_data
     except Exception as e:
         if str(e) in _FIREBASE_401_CODES:
-            raise HTTPException(status_code=401, detail="Session expired")
-        
+            raise HTTPException(status_code=401, detail="Session expired") from e
+
         logger.error(f"Failed to refresh: {e}")
         error_message = getattr(e, "message", None)
         raise HTTPException(
