@@ -11,18 +11,23 @@ from app.models.driver import Driver
 from app.models.location import Location
 from app.models.route import (
     Route,
+    RouteDetailRead,
     RoutePatchRequest,
     RouteWithDateRead,
     SuggestedDriverResponse,
 )
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
-from app.models.route_stop import RouteStop
+from app.models.route_stop import RouteStop, RouteStopDetailRead
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.utilities.boxes import box_count_expr, resolve_children_per_box
+from app.utilities.boxes import (
+    box_count_expr,
+    compute_boxes,
+    resolve_children_per_box,
+)
 from app.utilities.google_maps_link import build_google_maps_directions_url
 from app.utilities.pagination import paginate_query
 from app.utilities.routes_utils import fetch_route_polyline
@@ -143,13 +148,56 @@ class RouteService:
             page_size=pagination.page_size,
         )
 
-    async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
-        """Get route by ID"""
+    async def _fetch_ordered_stops(
+        self, session: AsyncSession, route_id: UUID
+    ) -> list[tuple[RouteStop, Location, RouteStopSnapshot | None]]:
+        """Fetch a route's stops in sequence order, each joined to its live
+        Location and its frozen RouteStopSnapshot (if any).
+
+        Live FK to Location feeds upcoming routes; once a route is completed,
+        a per-stop snapshot is frozen and callers should COALESCE the snapshot
+        over the live location. The snapshot is an outer join, so unfrozen
+        (upcoming) stops simply have it as None.
+
+        Shared by get_route (detail view) and get_google_maps_link.
+        """
+        statement = (
+            select(RouteStop, Location, RouteStopSnapshot)
+            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+            .outerjoin(
+                RouteStopSnapshot,
+                RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id,  # type: ignore[arg-type]
+            )
+            .where(RouteStop.route_id == route_id)
+            .order_by(RouteStop.stop_number)  # type: ignore[arg-type]
+        )
+        result = await session.execute(statement)
+        return [
+            (row.RouteStop, row.Location, row.RouteStopSnapshot) for row in result.all()
+        ]
+
+    async def get_route(self, session: AsyncSession, route_id: UUID) -> RouteDetailRead:
+        """Get a route by ID with its ordered stops embedded.
+
+        Each stop carries sequence #, address, contact, phone (+ secondary),
+        box count, and a note_chain_id reference (notes themselves stay a
+        separate chain). Stop fields COALESCE the frozen snapshot over the live
+        location, so past routes read what was actually delivered.
+        """
         try:
             statement = select(Route).where(Route.route_id == route_id)
             result = await session.execute(statement)
             route = result.scalars().first()
 
+            if not route:
+                raise HTTPException(
+                    status_code=404, detail=f"Route with id {route_id} not found"
+                )
+
+            children_per_box = await resolve_children_per_box(session)
+            rows = await self._fetch_ordered_stops(session, route_id)
+        except HTTPException:
+            raise
         except Exception as error:
             self.logger.exception("Failed to get route " + str(route_id))
             await session.rollback()
@@ -157,12 +205,30 @@ class RouteService:
                 status_code=500, detail="Failed to retrieve route."
             ) from error
 
-        if not route:
-            raise HTTPException(
-                status_code=404, detail=f"Route with id {route_id} not found"
+        stops = [
+            RouteStopDetailRead(
+                stop_number=stop.stop_number,
+                # Snapshot wins for frozen (past) stops; live Location otherwise.
+                address=snapshot.address if snapshot else location.address,
+                contact_name=(
+                    snapshot.contact_name if snapshot else location.contact_name
+                ),
+                phone_primary=(
+                    snapshot.phone_number if snapshot else location.phone_primary
+                ),
+                phone_secondary=location.phone_secondary,
+                boxes=compute_boxes(
+                    snapshot.num_children if snapshot else location.num_children,
+                    children_per_box,
+                ),
+                note_chain_id=location.note_chain_id,
             )
+            for stop, location, snapshot in rows
+        ]
 
-        return route
+        detail = RouteDetailRead.model_validate(route, from_attributes=True)
+        detail.stops = stops
+        return detail
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""
@@ -340,18 +406,19 @@ class RouteService:
             HTTPException 422: If a stop is missing both address and coordinates.
         """
         # 1. Fetch route stops with their locations, ordered by stop_number
-        statement = (
-            select(RouteStop, Location)
-            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
-            .where(RouteStop.route_id == route_id)
-            .order_by(RouteStop.stop_number)  # type: ignore[arg-type]
-        )
-        result = await session.execute(statement)
-        rows = result.all()
+        rows = await self._fetch_ordered_stops(session, route_id)
 
         if not rows:
             # Verify the route exists (raises 404 if not found)
-            await self.get_route(session, route_id)
+            route = (
+                (await session.execute(select(Route).where(Route.route_id == route_id)))
+                .scalars()
+                .first()
+            )
+            if not route:
+                raise HTTPException(
+                    status_code=404, detail=f"Route with id {route_id} not found"
+                )
             # Route exists but has no stops
             raise HTTPException(
                 status_code=422,
@@ -377,7 +444,7 @@ class RouteService:
             )
 
         # 3. Extract the ordered list of Location objects
-        locations: list[Location] = [location for _, location in rows]
+        locations: list[Location] = [location for _, location, _ in rows]
 
         # 4. Generate the URL
         try:

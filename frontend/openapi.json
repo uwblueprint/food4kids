@@ -2398,9 +2398,8 @@
         "title": "RefreshResponse",
         "type": "object"
       },
-      "Route": {
-        "additionalProperties": false,
-        "description": "Database table model for Routes",
+      "RouteDetailRead": {
+        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.",
         "properties": {
           "cloned_from_route_id": {
             "anyOf": [
@@ -2413,18 +2412,6 @@
               }
             ],
             "title": "Cloned From Route Id"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
           },
           "driver_id": {
             "anyOf": [
@@ -2518,24 +2505,20 @@
             ],
             "title": "Start Time"
           },
-          "updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStopDetailRead"
+            },
+            "title": "Stops",
+            "type": "array"
           }
         },
         "required": [
           "length",
-          "route_group_id"
+          "route_group_id",
+          "route_id"
         ],
-        "title": "Route",
+        "title": "RouteDetailRead",
         "type": "object"
       },
       "RouteGenerationGroupInput": {
@@ -3011,6 +2994,63 @@
         ],
         "title": "RouteStatusEnum",
         "type": "string"
+      },
+      "RouteStopDetailRead": {
+        "description": "A single ordered stop on a route, assembled with snapshot-over-live\nfield precedence: for a frozen (past) route the route_stop_snapshot wins,\notherwise the live Location is read. Embedded in RouteDetailRead.\n\nNotes are intentionally NOT embedded: note_chain_id points at the stop's\nnote chain, fetched separately via GET /note-chains/{id}/notes.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "boxes": {
+            "title": "Boxes",
+            "type": "integer"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "phone_primary": {
+            "title": "Phone Primary",
+            "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
+          },
+          "stop_number": {
+            "title": "Stop Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stop_number",
+          "address",
+          "contact_name",
+          "phone_primary",
+          "boxes"
+        ],
+        "title": "RouteStopDetailRead",
+        "type": "object"
       },
       "RouteWithDateRead": {
         "description": "Read response model for routes with drive date information.\n\ndrive_date is sourced from RouteGroup.drive_date via the route_group\nrelationship.",
@@ -6654,7 +6694,7 @@
         ]
       },
       "get": {
-        "description": "Get a route by its unique identifier.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to GET.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    None. Responds with HTTP 200 OK on successful get.",
+        "description": "Get a route by its unique identifier, with its ordered stops embedded.\n\nEach stop carries its sequence #, address, contact name, phone (+ secondary),\nbox count, and a note_chain_id reference. Stops are sourced live from\nLocation for upcoming routes and from frozen route_stop_snapshots for past\nroutes. Notes are not embedded: fetch them via GET /note-chains/{id}/notes.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to GET.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    The route with its ordered stops. Responds with HTTP 200 OK on success.",
         "operationId": "get_route",
         "parameters": [
           {
@@ -6673,7 +6713,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Route"
+                  "$ref": "#/components/schemas/RouteDetailRead"
                 }
               }
             },

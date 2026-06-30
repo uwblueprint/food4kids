@@ -11,7 +11,7 @@ from app.dependencies.auth import (
 )
 from app.models import get_session
 from app.models.route import (
-    Route,
+    RouteDetailRead,
     RoutePatchRequest,
     RouteRead,
     RouteWithDateRead,
@@ -65,21 +65,28 @@ async def get_routes(
     )
 
 
-@router.get("/{route_id}", response_model=Route, status_code=status.HTTP_200_OK)
+@router.get(
+    "/{route_id}", response_model=RouteDetailRead, status_code=status.HTTP_200_OK
+)
 async def get_route(
     route_id: UUID,
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_route_assigned_or_admin),
-) -> Route:
+) -> RouteDetailRead:
     """
-    Get a route by its unique identifier.
+    Get a route by its unique identifier, with its ordered stops embedded.
+
+    Each stop carries its sequence #, address, contact name, phone (+ secondary),
+    box count, and a note_chain_id reference. Stops are sourced live from
+    Location for upcoming routes and from frozen route_stop_snapshots for past
+    routes. Notes are not embedded: fetch them via GET /note-chains/{id}/notes.
 
     Parameters:
         route_id (UUID): The unique identifier of the route to GET.
         session (AsyncSession): The database session dependency.
 
     Returns:
-        None. Responds with HTTP 200 OK on successful get.
+        The route with its ordered stops. Responds with HTTP 200 OK on success.
     """
 
     route = await route_service.get_route(session, route_id)
