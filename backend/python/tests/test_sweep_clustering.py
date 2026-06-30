@@ -6,7 +6,6 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 from app.services.implementations.sweep_clustering import (
     DEFAULT_MAX_BOXES_PER_CLUSTER,
@@ -30,7 +29,7 @@ def _location(
         location_group_id=uuid4(),
         name=name,
         contact_name=name,
-        delivery_type=DeliveryTypeEnum.SCHOOL,
+        delivery_type="School",
         address=address,
         phone_primary="5195550100",
         latitude=lat,

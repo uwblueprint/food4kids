@@ -11,7 +11,6 @@ from sqlmodel import col, select
 
 from app.config import settings
 from app.models.enum import (
-    DeliveryTypeEnum,
     DriveDaysOfWeekEnum,
     DriverAssignmentStatusEnum,
     RouteStatusEnum,
@@ -78,7 +77,7 @@ class RouteGroupService:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         weekday: list[DriveDaysOfWeekEnum] | None = None,
-        delivery_type: list[DeliveryTypeEnum] | None = None,
+        delivery_type: list[str] | None = None,
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
@@ -127,31 +126,13 @@ class RouteGroupService:
             .label("num_drivers_assigned")
         )
 
-        has_school_subq = (
-            select(1)
-            .select_from(Route)
-            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
-            .where(
-                Route.route_group_id == RouteGroup.route_group_id,
-                Location.delivery_type == DeliveryTypeEnum.SCHOOL.value,
-            )
+        delivery_type_expr = (
+            select(func.min(Location.delivery_type))
+            .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
             .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("delivery_type")
         )
-
-        has_locations_subq = (
-            select(1)
-            .select_from(Route)
-            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-            .where(Route.route_group_id == RouteGroup.route_group_id)
-            .correlate(RouteGroup)
-        )
-
-        delivery_type_expr = case(
-            (has_school_subq.exists(), DeliveryTypeEnum.SCHOOL.value),
-            (has_locations_subq.exists(), DeliveryTypeEnum.FAMILY.value),
-            else_=None,
-        ).label("delivery_type")
 
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

@@ -1,19 +1,21 @@
 import { useState } from 'react';
 
 import type {
-  DeliveryTypeEnum,
   DriveDaysOfWeekEnum,
   DriverAssignmentStatusEnum,
   RouteGroupRead,
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
+import { useSystemSettings } from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
 
+const DEFAULT_DELIVERY_TYPES = ['School', 'Family'];
+
 export interface GroupsFilterState {
   weekdays: Set<DriveDaysOfWeekEnum>;
-  deliveryTypes: Set<DeliveryTypeEnum>;
+  deliveryTypes: Set<string>;
   routeStatuses: Set<RouteStatusEnum>;
   driverStatuses: Set<DriverAssignmentStatusEnum>;
 }
@@ -37,6 +39,7 @@ const copyFilters = (f: GroupsFilterState): GroupsFilterState => ({
 export interface GroupsTabState {
   rows: RouteGroupRead[];
   isLoading: boolean;
+  deliveryTypes: string[];
   search: UseSearchReturn;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
@@ -58,6 +61,11 @@ export function useGroupsTabState(): GroupsTabState {
     useState<GroupsFilterState>(emptyFilters());
   const [draftFilters, setDraftFilters] =
     useState<GroupsFilterState>(emptyFilters());
+  const { data: systemSettings } = useSystemSettings();
+  const deliveryTypes =
+    systemSettings?.delivery_types && systemSettings.delivery_types.length > 0
+      ? systemSettings.delivery_types
+      : DEFAULT_DELIVERY_TYPES;
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0
@@ -109,6 +117,7 @@ export function useGroupsTabState(): GroupsTabState {
   return {
     rows,
     isLoading,
+    deliveryTypes,
     search,
     filterOpen,
     setFilterOpen,

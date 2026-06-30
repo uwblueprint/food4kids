@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.auth import require_admin
 from app.dependencies.services import get_location_service
 from app.models import get_session
-from app.models.enum import DeliveryTypeEnum, LocationStatusEnum
+from app.models.enum import LocationStatusEnum
 from app.models.location import (
     LocationCreate,
     LocationImportResponse,
@@ -26,14 +26,17 @@ from app.models.location import (
     LocationUpdate,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
-from app.services.implementations.location_service import LocationService
+from app.services.implementations.location_service import (
+    InvalidDeliveryTypeError,
+    LocationService,
+)
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
 @router.get("/", response_model=PaginatedResponse[LocationRead])
 async def get_locations(
-    delivery_type: list[DeliveryTypeEnum] | None = Query(
+    delivery_type: list[str] | None = Query(
         None, description="Filter by one or more delivery types"
     ),
     status_filter: list[LocationStatusEnum] | None = Query(
@@ -101,6 +104,11 @@ async def create_location(
     try:
         created_location = await location_service.create_location(session, location)
         return LocationRead.model_validate(created_location)
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -127,6 +135,11 @@ async def update_location(
         )
         return LocationRead.model_validate(updated_location)
 
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        ) from ve
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -236,6 +249,11 @@ async def ingest_locations(
     """
     try:
         return await location_service.ingest_locations(session, request)
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        ) from ve
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

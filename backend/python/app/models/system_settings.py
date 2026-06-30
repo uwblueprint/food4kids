@@ -11,6 +11,8 @@ from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
+DEFAULT_DELIVERY_TYPES = ["School", "Family"]
+
 
 class EmailReminder(SQLModel):
     """A single reminder email configuration.
@@ -79,6 +81,10 @@ class SystemSettingsBase(SQLModel):
         ],
         sa_column=Column(EmailReminderListType, nullable=False),
     )
+    delivery_types: list[str] = Field(
+        default_factory=lambda: DEFAULT_DELIVERY_TYPES.copy(),
+        sa_column=Column(JSON, nullable=False),
+    )
 
     @field_validator("contact_phone")
     @classmethod
@@ -87,6 +93,17 @@ class SystemSettingsBase(SQLModel):
         if v is None:
             return None
         return validate_phone(v)
+
+    @field_validator("delivery_types")
+    @classmethod
+    def validate_delivery_types(cls, v: list[str]) -> list[str]:
+        """Delivery types must be non-empty, unique, and not blank."""
+        normalized = [item.strip() for item in v]
+        if not normalized or any(not item for item in normalized):
+            raise ValueError("delivery_types must include at least one non-empty value")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("delivery_types cannot contain duplicates")
+        return normalized
 
 
 class SystemSettings(SystemSettingsBase, BaseModel, table=True):
@@ -129,6 +146,7 @@ class SystemSettingsUpdate(SQLModel):
     f4k_wr_website: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
     email_reminders: list[EmailReminder] | None = Field(default=None)
+    delivery_types: list[str] | None = Field(default=None)
 
     @field_validator("contact_phone")
     @classmethod
@@ -137,3 +155,11 @@ class SystemSettingsUpdate(SQLModel):
         if v is None:
             return None
         return validate_phone(v)
+
+    @field_validator("delivery_types")
+    @classmethod
+    def validate_delivery_types(cls, v: list[str] | None) -> list[str] | None:
+        """Delivery types must be non-empty, unique, and not blank when updated."""
+        if v is None:
+            return None
+        return SystemSettingsBase.validate_delivery_types(v)

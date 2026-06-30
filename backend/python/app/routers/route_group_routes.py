@@ -10,7 +10,6 @@ from app.dependencies.auth import require_admin
 from app.dependencies.services import get_route_group_service
 from app.models import get_session
 from app.models.enum import (
-    DeliveryTypeEnum,
     DriveDaysOfWeekEnum,
     DriverAssignmentStatusEnum,
     RouteStatusEnum,
@@ -47,7 +46,7 @@ async def get_route_groups(
     weekday: list[DriveDaysOfWeekEnum] | None = Query(
         None, description="Filter by one or more weekdays"
     ),
-    delivery_type: list[DeliveryTypeEnum] | None = Query(
+    delivery_type: list[str] | None = Query(
         None, description="Filter by one or more delivery types"
     ),
     route_status: list[RouteStatusEnum] | None = Query(

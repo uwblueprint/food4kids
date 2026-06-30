@@ -256,14 +256,6 @@ export type DeliveriesCountResponse = {
 };
 
 /**
- * DeliveryTypeEnum
- *
- * Kind of recipient at a Location — set per location, enforced uniform
- * within a RouteGroup at generation time.
- */
-export type DeliveryTypeEnum = 'School' | 'Family';
-
-/**
  * DriveDaysOfWeekEnum
  */
 export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
@@ -605,7 +597,10 @@ export type LocationCreate = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -862,7 +857,10 @@ export type LocationImportRow = {
  * import (one Apricot sheet = one delivery type).
  */
 export type LocationIngestRequest = {
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Net New
    */
@@ -909,7 +907,10 @@ export type LocationReadInput = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -1006,7 +1007,10 @@ export type LocationReadOutput = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -1106,7 +1110,10 @@ export type LocationUpdate = {
    * Contact Name
    */
   contact_name?: string | null;
-  delivery_type?: DeliveryTypeEnum | null;
+  /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
   /**
    * Dietary Restrictions
    */
@@ -1557,7 +1564,10 @@ export type RouteGroupRead = {
    * Created At
    */
   created_at?: string | null;
-  delivery_type?: DeliveryTypeEnum | null;
+  /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
   /**
    * Drive Date
    */
@@ -1854,6 +1864,10 @@ export type SystemSettingsRead = {
    */
   default_cap?: number | null;
   /**
+   * Delivery Types
+   */
+  delivery_types?: Array<string>;
+  /**
    * Dropoff Minutes
    */
   dropoff_minutes?: number;
@@ -1935,6 +1949,10 @@ export type SystemSettingsUpdate = {
    * Default Cap
    */
   default_cap?: number | null;
+  /**
+   * Delivery Types
+   */
+  delivery_types?: Array<string> | null;
   /**
    * Dropoff Minutes
    */
@@ -2209,7 +2227,10 @@ export type LocationReadOutputWritable = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -3274,7 +3295,7 @@ export type GetLocationsData = {
      *
      * Filter by one or more delivery types
      */
-    delivery_type?: Array<DeliveryTypeEnum> | null;
+    delivery_type?: Array<string> | null;
     /**
      * Status
      *
@@ -3839,7 +3860,7 @@ export type GetRouteGroupsData = {
      *
      * Filter by one or more delivery types
      */
-    delivery_type?: Array<DeliveryTypeEnum> | null;
+    delivery_type?: Array<string> | null;
     /**
      * Route Status
      *

@@ -2,8 +2,11 @@ import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
 import type { LocationReadOutput } from '@/api/generated/types.gen';
+import { useSystemSettings } from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
+
+const DEFAULT_DELIVERY_TYPES = ['School', 'Family'];
 
 export interface AddressesFilterState {
   routeStatuses: Set<string>;
@@ -23,6 +26,7 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
 export interface AddressesTabState {
   rows: LocationReadOutput[];
   isLoading: boolean;
+  deliveryTypes: string[];
   search: UseSearchReturn;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
@@ -41,6 +45,11 @@ export function useAddressesTabState(): AddressesTabState {
     useState<AddressesFilterState>(emptyFilters());
   const [draftFilters, setDraftFilters] =
     useState<AddressesFilterState>(emptyFilters());
+  const { data: systemSettings } = useSystemSettings();
+  const deliveryTypes =
+    systemSettings?.delivery_types && systemSettings.delivery_types.length > 0
+      ? systemSettings.delivery_types
+      : DEFAULT_DELIVERY_TYPES;
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0
@@ -77,6 +86,7 @@ export function useAddressesTabState(): AddressesTabState {
   return {
     rows,
     isLoading,
+    deliveryTypes,
     search,
     filterOpen,
     setFilterOpen,
