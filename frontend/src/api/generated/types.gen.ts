@@ -1775,6 +1775,10 @@ export type RouteWithDateRead = {
    * Route Id
    */
   route_id: string;
+  /**
+   * Start Time
+   */
+  start_time: string | null;
 };
 
 /**
@@ -3997,6 +4001,12 @@ export type GetRoutesData = {
      * Filter route groups until this date
      */
     end_date?: string;
+    /**
+     * Order
+     *
+     * Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
+     */
+    order?: 'asc' | 'desc';
     /**
      * Page
      *

@@ -137,6 +137,7 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
+    start_time: time | None
     num_stops: int
     box_total: int
 
