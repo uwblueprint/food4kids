@@ -423,6 +423,18 @@ class TestLocationRoutes:
         assert school_id not in family_ids
 
     @pytest.mark.asyncio
+    async def test_get_locations_rejects_unknown_delivery_type_filter(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /locations validates delivery_type filters against settings."""
+        response = await async_client.get(
+            "/locations/", params={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 422
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_get_locations_filters_by_location_group(
         self,
         async_client: AsyncClient,
@@ -2336,6 +2348,78 @@ class TestRouteGroupRoutes:
         )
         assert group["delivery_type"] == "School"
         assert group["num_locations"] == 1
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_prefers_school_for_mixed_delivery_types(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Mixed default delivery types keep the old School-first behavior."""
+        loc_group = LocationGroup(name="Mixed Group", color="#000000", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        school_location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Central Elementary",
+            delivery_type="School",
+            contact_name="School Contact",
+            address="123 Main St",
+            phone_primary="555-1234",
+            num_children=10,
+        )
+        family_location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Family Contact",
+            delivery_type="Family",
+            contact_name="Family Contact",
+            address="456 Main St",
+            phone_primary="555-5678",
+            num_children=4,
+        )
+        test_session.add_all([school_location, family_location])
+
+        rg = RouteGroup(name="Mixed Route Group", drive_date=datetime(2020, 3, 1))
+        test_session.add(rg)
+        await test_session.flush()
+
+        route = Route(name="R1", length=5.0, route_group_id=rg.route_group_id)
+        test_session.add(route)
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=route.route_id,
+                    location_id=family_location.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=route.route_id,
+                    location_id=school_location.location_id,
+                    stop_number=2,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["delivery_type"] == "School"
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_rejects_unknown_delivery_type_filter(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /route-groups validates delivery_type filters against settings."""
+        response = await async_client.get(
+            "/route-groups", params={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 422
+        assert "Unknown delivery_type" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_get_route_groups_num_boxes_arithmetic(

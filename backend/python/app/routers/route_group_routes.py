@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies.auth import require_admin
-from app.dependencies.services import get_route_group_service
+from app.dependencies.services import get_location_service, get_route_group_service
 from app.models import get_session
 from app.models.enum import (
     DriveDaysOfWeekEnum,
@@ -19,6 +19,10 @@ from app.models.route_group import (
     RouteGroupCreate,
     RouteGroupRead,
     RouteGroupUpdate,
+)
+from app.services.implementations.location_service import (
+    InvalidDeliveryTypeError,
+    LocationService,
 )
 from app.services.implementations.route_group_service import RouteGroupService
 
@@ -58,6 +62,7 @@ async def get_route_groups(
     include_routes: bool = Query(False, description="Include routes in the response"),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
+    location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
 ) -> list[RouteGroupRead]:
     """
@@ -65,6 +70,8 @@ async def get_route_groups(
     Can include associated routes in the response.
     """
     try:
+        if delivery_type:
+            await location_service.validate_delivery_types(session, delivery_type)
         return await route_group_service.get_route_groups(
             session,
             start_date,
@@ -75,6 +82,10 @@ async def get_route_groups(
             driver_assignment_status,
             include_routes,
         )
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(ve)
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

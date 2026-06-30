@@ -257,6 +257,22 @@ class LocationService:
                 f"Unknown delivery_type '{delivery_type}'. Allowed values: {allowed}"
             )
 
+    async def validate_delivery_types(
+        self, session: AsyncSession, delivery_types: Iterable[str]
+    ) -> None:
+        configured_delivery_types = await self.get_delivery_types(session)
+        invalid_delivery_types = [
+            delivery_type
+            for delivery_type in delivery_types
+            if delivery_type not in configured_delivery_types
+        ]
+        if invalid_delivery_types:
+            allowed = ", ".join(configured_delivery_types)
+            invalid = ", ".join(invalid_delivery_types)
+            raise InvalidDeliveryTypeError(
+                f"Unknown delivery_type '{invalid}'. Allowed values: {allowed}"
+            )
+
     async def load_has_future_route_set(
         self, session: AsyncSession, location_ids: Iterable[UUID]
     ) -> set[UUID]:

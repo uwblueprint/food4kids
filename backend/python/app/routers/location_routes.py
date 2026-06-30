@@ -54,12 +54,19 @@ async def get_locations(
     Get all locations with pagination
     """
     try:
+        if delivery_type:
+            await location_service.validate_delivery_types(session, delivery_type)
         # Return the service result as-is: it already builds LocationRead
         # items with has_future_route populated (so the computed `status` is
         # correct). Re-validating each item here would reset has_future_route.
         return await location_service.get_locations(
             session, pagination, delivery_type, status_filter, location_group_id
         )
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(ve),
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

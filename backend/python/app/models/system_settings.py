@@ -14,6 +14,16 @@ from .base import BaseModel
 DEFAULT_DELIVERY_TYPES = ["School", "Family"]
 
 
+def _validate_delivery_types(v: list[str]) -> list[str]:
+    """Delivery types must be non-empty, unique, and not blank."""
+    normalized = [item.strip() for item in v]
+    if not normalized or any(not item for item in normalized):
+        raise ValueError("delivery_types must include at least one non-empty value")
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("delivery_types cannot contain duplicates")
+    return normalized
+
+
 class EmailReminder(SQLModel):
     """A single reminder email configuration.
 
@@ -98,12 +108,7 @@ class SystemSettingsBase(SQLModel):
     @classmethod
     def validate_delivery_types(cls, v: list[str]) -> list[str]:
         """Delivery types must be non-empty, unique, and not blank."""
-        normalized = [item.strip() for item in v]
-        if not normalized or any(not item for item in normalized):
-            raise ValueError("delivery_types must include at least one non-empty value")
-        if len(set(normalized)) != len(normalized):
-            raise ValueError("delivery_types cannot contain duplicates")
-        return normalized
+        return _validate_delivery_types(v)
 
 
 class SystemSettings(SystemSettingsBase, BaseModel, table=True):
@@ -162,4 +167,4 @@ class SystemSettingsUpdate(SQLModel):
         """Delivery types must be non-empty, unique, and not blank when updated."""
         if v is None:
             return None
-        return SystemSettingsBase.validate_delivery_types(v)
+        return _validate_delivery_types(v)

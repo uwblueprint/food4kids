@@ -7,11 +7,12 @@ import type {
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
-import { useSystemSettings } from '@/api/system-settings';
+import {
+  getConfiguredDeliveryTypes,
+  useSystemSettings,
+} from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
-
-const DEFAULT_DELIVERY_TYPES = ['School', 'Family'];
 
 export interface GroupsFilterState {
   weekdays: Set<DriveDaysOfWeekEnum>;
@@ -62,10 +63,7 @@ export function useGroupsTabState(): GroupsTabState {
   const [draftFilters, setDraftFilters] =
     useState<GroupsFilterState>(emptyFilters());
   const { data: systemSettings } = useSystemSettings();
-  const deliveryTypes =
-    systemSettings?.delivery_types && systemSettings.delivery_types.length > 0
-      ? systemSettings.delivery_types
-      : DEFAULT_DELIVERY_TYPES;
+  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0

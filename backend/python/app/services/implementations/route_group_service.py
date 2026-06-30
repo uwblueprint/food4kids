@@ -126,13 +126,28 @@ class RouteGroupService:
             .label("num_drivers_assigned")
         )
 
-        delivery_type_expr = (
+        school_delivery_exists = (
+            select(1)
+            .select_from(Route)
+            .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(Location, Location.location_id == RouteStop.location_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .where(Location.delivery_type == "School")
+            .correlate(RouteGroup)
+            .exists()
+        )
+
+        delivery_type_fallback = (
             select(func.min(Location.delivery_type))
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
             .correlate(RouteGroup)
             .scalar_subquery()
-            .label("delivery_type")
         )
+
+        delivery_type_expr = case(
+            (school_delivery_exists, "School"),
+            else_=delivery_type_fallback,
+        ).label("delivery_type")
 
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

@@ -2,11 +2,12 @@ import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
 import type { LocationReadOutput } from '@/api/generated/types.gen';
-import { useSystemSettings } from '@/api/system-settings';
+import {
+  getConfiguredDeliveryTypes,
+  useSystemSettings,
+} from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
-
-const DEFAULT_DELIVERY_TYPES = ['School', 'Family'];
 
 export interface AddressesFilterState {
   routeStatuses: Set<string>;
@@ -46,10 +47,7 @@ export function useAddressesTabState(): AddressesTabState {
   const [draftFilters, setDraftFilters] =
     useState<AddressesFilterState>(emptyFilters());
   const { data: systemSettings } = useSystemSettings();
-  const deliveryTypes =
-    systemSettings?.delivery_types && systemSettings.delivery_types.length > 0
-      ? systemSettings.delivery_types
-      : DEFAULT_DELIVERY_TYPES;
+  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0
