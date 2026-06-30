@@ -40,9 +40,3 @@ class TokenResponse(BaseModel):
 
     access_token: str
     refresh_token: str
-
-
-class RefreshResponse(BaseModel):
-    """Refresh token response - only access token, refresh token is set as httpOnly cookie"""
-
-    access_token: str
