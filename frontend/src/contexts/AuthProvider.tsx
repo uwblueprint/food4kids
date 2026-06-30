@@ -4,7 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useRefresh } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 
-const PUBLIC_ROUTES = ['/login', '/create-password'];
+const PUBLIC_ROUTES = ['/login', '/create-password', '/404', '/403', '/503', '/error', '/style-guide', '/test-image-upload'];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   useRefresh();
