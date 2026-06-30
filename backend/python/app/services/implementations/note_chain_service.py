@@ -1,16 +1,13 @@
 import logging
-from datetime import datetime
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import col, func, select, update
+from sqlmodel import col, select, update
 
 from app.models.enum import NotePermission
 from app.models.location import Location
 from app.models.note import Note, NoteCreate, NoteUpdate
 from app.models.note_chain import NoteChain, NoteChainCreate
-from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.user import User
 
@@ -114,14 +111,6 @@ class NoteChainService:
                 .where(col(Route.note_chain_id) == note_chain_id)
                 .values(note_chain_id=None)
             )
-
-            # Delete associated read tracking entries
-            read_statement = select(NoteChainReadModel).where(
-                NoteChainReadModel.note_chain_id == note_chain_id
-            )
-            read_result = await session.execute(read_statement)
-            for read_entry in read_result.scalars().all():
-                await session.delete(read_entry)
 
             await session.delete(note_chain)
             await session.commit()
@@ -272,74 +261,4 @@ class NoteChainService:
         except Exception as e:
             self.logger.error(f"Failed to delete note: {e!s}")
             await session.rollback()
-            raise e
-
-    # --- Read Tracking ---
-
-    async def mark_chain_as_read(
-        self, session: AsyncSession, note_chain_id: UUID, user_id: UUID
-    ) -> NoteChainReadModel:
-        """Mark a note chain as read by upserting last_read_at to now"""
-        try:
-            # Verify chain exists
-            await self.get_note_chain_by_id(session, note_chain_id)
-
-            # Check if a read entry already exists
-            statement = select(NoteChainReadModel).where(
-                NoteChainReadModel.note_chain_id == note_chain_id,
-                NoteChainReadModel.user_id == user_id,
-            )
-            result = await session.execute(statement)
-            read_entry = result.scalars().first()
-
-            now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
-
-            if read_entry:
-                read_entry.last_read_at = now
-                read_entry.updated_at = now
-            else:
-                read_entry = NoteChainReadModel(
-                    note_chain_id=note_chain_id,
-                    user_id=user_id,
-                    last_read_at=now,
-                )
-                session.add(read_entry)
-
-            await session.commit()
-            await session.refresh(read_entry)
-            return read_entry
-        except Exception as e:
-            self.logger.error(f"Failed to mark chain as read: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def get_unread_count(
-        self, session: AsyncSession, note_chain_id: UUID, user_id: UUID
-    ) -> int:
-        """Get the count of unread notes in a chain for a user"""
-        try:
-            # Verify chain exists
-            await self.get_note_chain_by_id(session, note_chain_id)
-
-            # Get last read time
-            read_statement = select(NoteChainReadModel.last_read_at).where(
-                NoteChainReadModel.note_chain_id == note_chain_id,
-                NoteChainReadModel.user_id == user_id,
-            )
-            read_result = await session.execute(read_statement)
-            last_read_at = read_result.scalar_one_or_none()
-
-            # Count notes after last_read_at (or all notes if never read)
-            count_statement = select(func.count(col(Note.note_id))).where(
-                Note.note_chain_id == note_chain_id
-            )
-            if last_read_at is not None:
-                count_statement = count_statement.where(
-                    col(Note.created_at) > last_read_at
-                )
-
-            count_result = await session.execute(count_statement)
-            return count_result.scalar_one()
-        except Exception as e:
-            self.logger.error(f"Failed to get unread count: {e!s}")
             raise e

@@ -61,10 +61,3 @@ class NoteUpdate(SQLModel):
     """Update request model - only message can be edited"""
 
     message: str = Field(min_length=1, max_length=2000)
-
-
-class NoteListResponse(SQLModel):
-    """Response for GET notes - includes unread count"""
-
-    notes: list[NoteRead]
-    unread_count: int
