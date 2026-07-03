@@ -227,9 +227,11 @@ WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 def get_database_url() -> str:
     """Build the database URL from the environment, like migrations/env.py.
 
-    Indexes os.environ directly so a missing variable fails loudly instead
-    of silently seeding the wrong database.
+    In production, reads DATABASE_URL directly (supports Neon/Supabase/etc.
+    with SSL params). In development, builds from individual POSTGRES_* vars.
     """
+    if os.environ.get("APP_ENV") == "production":
+        return os.environ["DATABASE_URL"]
     return "postgresql://{username}:{password}@{host}:5432/{db}".format(
         username=os.environ["POSTGRES_USER"],
         password=os.environ["POSTGRES_PASSWORD"],
