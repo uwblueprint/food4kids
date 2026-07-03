@@ -78,16 +78,21 @@ class Location(LocationBase, BaseModel, table=True):
 
 
 class AlertCode(str, Enum):
-    """Machine-readable blocking error code for an import row."""
+    """Machine-readable reason code for an import alert."""
 
     MISSING_ADDRESS = "MISSING_ADDRESS"
     INVALID_ADDRESS = "INVALID_ADDRESS"
     MISSING_PHONE_NUMBER = "MISSING_PHONE_NUMBER"
     INVALID_PHONE_NUMBER = "INVALID_PHONE_NUMBER"
-    MISSING_SCHOOL_OR_LAST_NAME = "MISSING_SCHOOL_OR_LAST_NAME"
-    INVALID_SCHOOL_OR_LAST_NAME = "INVALID_SCHOOL_OR_LAST_NAME"
+    MISSING_NAME = "MISSING_NAME"
+    INVALID_NAME = "INVALID_NAME"
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
-    DUPLICATE_ENTRY = "DUPLICATE_ENTRY"
+    LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
+    # Deprecated import alert codes kept for old clients that may still decode
+    # historical responses; new validation emits the specific codes above.
+    MISSING_FIELDS = "MISSING_FIELDS"
+    INVALID_FORMAT = "INVALID_FORMAT"
+    PARTIAL_DUPLICATE = "PARTIAL_DUPLICATE"
 
 
 class LocationImportEntry(SQLModel):
@@ -122,6 +127,12 @@ class LocationImportRow(SQLModel):
     row: int
     location: LocationImportEntry
     alerts: list[AlertCode]
+
+
+class DuplicateGroup(SQLModel):
+    """Rows that refer to the same imported location under the 2-of-3 rule."""
+
+    rows: list[int]
 
 
 class NetNewEntry(SQLModel):
@@ -170,6 +181,8 @@ class ChangedEntry(SQLModel):
     carrying both new and old values.
     """
 
+    row: int
+    location_id: UUID
     contact_name: str
     address: str | ChangedFieldStr
     delivery_group: str | None | ChangedFieldOptStr = None
@@ -191,7 +204,7 @@ class LocationImportResponse(SQLModel):
     success: bool
     total_rows: int
     rows: list[LocationImportRow]
-    duplicate_groups: list[list[int]] = []
+    duplicate_groups: list[DuplicateGroup] = []
     net_new: list[NetNewEntry] = []
     stale: list[StaleEntry] = []
     changed: list[ChangedEntry] = []
@@ -256,7 +269,8 @@ class LocationIngestRequest(SQLModel):
 
     delivery_type: str = Field(min_length=1, max_length=100)
     net_new: list[ValidatedLocationImportEntry]
-    stale: list[LocationRead]
+    stale: list[StaleEntry]
+    changed: list[ChangedEntry] = []
 
 
 class LocationIngestResponse(SQLModel):

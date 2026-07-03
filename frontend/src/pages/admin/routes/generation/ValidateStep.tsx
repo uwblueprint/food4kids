@@ -29,10 +29,10 @@ function getAlertDisplay(code: AlertCode): {
   label: string;
 } {
   switch (code) {
-    case 'MISSING_SCHOOL_OR_LAST_NAME':
-      return { type: 'error', label: 'Missing School / Last Name' };
-    case 'INVALID_SCHOOL_OR_LAST_NAME':
-      return { type: 'error', label: 'Invalid School / Last Name' };
+    case 'MISSING_NAME':
+      return { type: 'error', label: 'Missing Name' };
+    case 'INVALID_NAME':
+      return { type: 'error', label: 'Invalid Name' };
     case 'MISSING_ADDRESS':
       return { type: 'error', label: 'Missing Address' };
     case 'INVALID_ADDRESS':
@@ -43,8 +43,14 @@ function getAlertDisplay(code: AlertCode): {
       return { type: 'error', label: 'Invalid Phone Number' };
     case 'MISSING_DELIVERY_GROUP':
       return { type: 'error', label: 'Missing Delivery Group' };
-    case 'DUPLICATE_ENTRY':
+    case 'LOCAL_DUPLICATE':
       return { type: 'error', label: 'Duplicate Entry' };
+    case 'MISSING_FIELDS':
+      return { type: 'error', label: 'Missing Fields' };
+    case 'INVALID_FORMAT':
+      return { type: 'error', label: 'Invalid Format' };
+    case 'PARTIAL_DUPLICATE':
+      return { type: 'error', label: 'Partial Duplicate Entry' };
     default: {
       const _exhaustive: never = code;
       return { type: 'error', label: _exhaustive };
@@ -53,11 +59,10 @@ function getAlertDisplay(code: AlertCode): {
 }
 
 const isDuplicateRow = (row: LocationImportRow) =>
-  row.alerts.includes('DUPLICATE_ENTRY');
+  row.alerts.includes('LOCAL_DUPLICATE');
 
 const hasContactNameAlert = (alerts: AlertCode[]) =>
-  alerts.includes('MISSING_SCHOOL_OR_LAST_NAME') ||
-  alerts.includes('INVALID_SCHOOL_OR_LAST_NAME');
+  alerts.includes('MISSING_NAME') || alerts.includes('INVALID_NAME');
 
 const hasAddressAlert = (alerts: AlertCode[]) =>
   alerts.includes('MISSING_ADDRESS') || alerts.includes('INVALID_ADDRESS');

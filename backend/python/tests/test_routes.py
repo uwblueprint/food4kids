@@ -9,6 +9,7 @@ Tests cover:
 - Error handling (404s, validation errors)
 """
 
+import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -18,6 +19,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.services import get_google_maps_client
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -25,6 +27,53 @@ from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.utilities.google_maps_client import GeocodeResult
+
+IMPORT_COLUMN_MAP = {
+    "contact_name": "Name",
+    "address": "Address",
+    "delivery_group": "Delivery Group",
+    "phone_primary": "Phone",
+    "phone_secondary": "Secondary Phone",
+    "num_children": "Children",
+}
+
+
+class FakeGoogleMapsClient:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def geocode_address(self, address: str) -> GeocodeResult | None:
+        self.calls.append(address)
+        if "Invalid" in address:
+            return None
+        formatted_address = (
+            address if address.startswith("Formatted ") else f"Formatted {address}"
+        )
+        return GeocodeResult(
+            formatted_address=formatted_address,
+            place_id=f"place-{address}",
+            latitude=43.0,
+            longitude=-80.0,
+        )
+
+
+def import_review_request(rows: list[dict[str, str]]) -> dict[str, Any]:
+    headers = [
+        "Name",
+        "Address",
+        "Delivery Group",
+        "Phone",
+        "Secondary Phone",
+        "Children",
+    ]
+    lines = [",".join(headers)]
+    for row in rows:
+        lines.append(",".join(row.get(header, "") for header in headers))
+    return {
+        "data": {"column_map": json.dumps(IMPORT_COLUMN_MAP)},
+        "files": {"file": ("locations.csv", "\n".join(lines).encode(), "text/csv")},
+    }
 
 
 class TestDriverRoutes:
@@ -1313,6 +1362,391 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["assigned_route"] == "Sooner Route"
+
+
+class TestLocationImportRoutes:
+    """Test suite for location import validation, review, and ingest."""
+
+    @pytest.mark.asyncio
+    async def test_review_locations_emits_specific_blocking_alerts(
+        self, client_with_overrides: Any
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {"Name": "", "Address": "", "Delivery Group": "", "Phone": ""},
+                {
+                    "Name": "12345",
+                    "Address": "1 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164168",
+                },
+                {
+                    "Name": "Invalid Address Family",
+                    "Address": "Invalid Address",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+                {
+                    "Name": "Invalid Phone Family",
+                    "Address": "2 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "not-a-phone",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is False
+        assert set(body["rows"][0]["alerts"]) == {
+            "MISSING_NAME",
+            "MISSING_ADDRESS",
+            "MISSING_DELIVERY_GROUP",
+            "MISSING_PHONE_NUMBER",
+        }
+        assert body["rows"][1]["alerts"] == ["INVALID_NAME"]
+        assert body["rows"][2]["alerts"] == ["INVALID_ADDRESS"]
+        assert body["rows"][3]["alerts"] == ["INVALID_PHONE_NUMBER"]
+        assert fake_maps.calls == ["1 Valid St", "Invalid Address", "2 Valid St"]
+
+    @pytest.mark.asyncio
+    async def test_review_locations_detects_duplicate_groups_by_two_of_three(
+        self, client_with_overrides: Any
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Same Name Address",
+                    "Address": "10 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164168",
+                },
+                {
+                    "Name": "Same Name Address",
+                    "Address": "10 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+                {
+                    "Name": "Same Name Phone",
+                    "Address": "11 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164170",
+                },
+                {
+                    "Name": "Same Name Phone",
+                    "Address": "12 Changed St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164170",
+                },
+                {
+                    "Name": "Same Address Phone A",
+                    "Address": "13 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14165550100",
+                },
+                {
+                    "Name": "Same Address Phone B",
+                    "Address": "13 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14165550100",
+                },
+                {
+                    "Name": "Exact Duplicate",
+                    "Address": "14 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+15195550123",
+                },
+                {
+                    "Name": "Exact Duplicate",
+                    "Address": "14 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+15195550123",
+                },
+                {
+                    "Name": "Apartment A",
+                    "Address": "15 Shared Building",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164171",
+                },
+                {
+                    "Name": "Apartment B",
+                    "Address": "15 Shared Building",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164172",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is False
+        assert [group["rows"] for group in body["duplicate_groups"]] == [
+            [1, 2],
+            [3, 4],
+            [5, 6],
+            [7, 8],
+        ]
+        duplicate_rows = {
+            row["row"] for row in body["rows"] if "LOCAL_DUPLICATE" in row["alerts"]
+        }
+        assert duplicate_rows == {1, 2, 3, 4, 5, 6, 7, 8}
+        assert body["rows"][8]["alerts"] == []
+        assert body["rows"][9]["alerts"] == []
+
+    @pytest.mark.asyncio
+    async def test_review_locations_classifies_import_rows_with_two_of_three_matching(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        stale_group = LocationGroup(name="Stale Group", color="#222222", notes="")
+        test_session.add(stale_group)
+        test_session.add_all(
+            [
+                Location(
+                    location_group_id=test_location_group.location_group_id,
+                    name="Exact Family",
+                    contact_name="Exact Family",
+                    address="Formatted 1 Main St",
+                    phone_primary="+14164164168",
+                    num_children=1,
+                    delivery_type="Family",
+                ),
+                Location(
+                    location_group_id=test_location_group.location_group_id,
+                    name="Address Change Family",
+                    contact_name="Address Change Family",
+                    address="Formatted Old Address",
+                    phone_primary="+14164164169",
+                    num_children=2,
+                    delivery_type="Family",
+                ),
+                Location(
+                    location_group_id=test_location_group.location_group_id,
+                    name="Phone Change Family",
+                    contact_name="Phone Change Family",
+                    address="Formatted 3 Main St",
+                    phone_primary="+14164164170",
+                    num_children=3,
+                    delivery_type="Family",
+                ),
+                Location(
+                    location_group_id=stale_group.location_group_id,
+                    name="Stale Family",
+                    contact_name="Stale Family",
+                    address="Formatted 9 Main St",
+                    phone_primary="+14165550100",
+                    num_children=4,
+                    delivery_type="Family",
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Exact Family",
+                    "Address": "1 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "1",
+                },
+                {
+                    "Name": "Address Change Family",
+                    "Address": "New Address",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164169",
+                    "Children": "2",
+                },
+                {
+                    "Name": "Phone Change Family",
+                    "Address": "3 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+15195550123",
+                    "Children": "3",
+                },
+                {
+                    "Name": "Net New Family",
+                    "Address": "4 Main St",
+                    "Delivery Group": "New Group",
+                    "Phone": "+14164164171",
+                    "Children": "5",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert [entry["contact_name"] for entry in body["net_new"]] == [
+            "Net New Family"
+        ]
+        assert [entry["contact_name"] for entry in body["stale"]] == ["Stale Family"]
+        changed_by_name = {entry["contact_name"]: entry for entry in body["changed"]}
+        assert set(changed_by_name) == {
+            "Address Change Family",
+            "Phone Change Family",
+        }
+        assert changed_by_name["Address Change Family"]["address"] == {
+            "new_value": "Formatted New Address",
+            "old_value": "Formatted Old Address",
+        }
+        assert changed_by_name["Phone Change Family"]["phone_primary"] == {
+            "new_value": "+15195550123",
+            "old_value": "+14164164170",
+        }
+
+    @pytest.mark.asyncio
+    async def test_ingest_locations_applies_stale_and_changed_rows(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        from sqlmodel import select
+
+        from app.models.note_chain import NoteChain
+
+        review_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: review_maps}
+        )
+        note_chain = NoteChain()
+        test_session.add(note_chain)
+        address_change = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Address Change Family",
+            contact_name="Address Change Family",
+            address="Formatted Old Address",
+            phone_primary="+14164164169",
+            num_children=2,
+            delivery_type="Family",
+            notes="keep these notes",
+            note_chain_id=note_chain.note_chain_id,
+        )
+        phone_change = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Phone Change Family",
+            contact_name="Phone Change Family",
+            address="Formatted 3 Main St",
+            phone_primary="+14164164170",
+            num_children=3,
+            delivery_type="Family",
+        )
+        stale = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Stale Family",
+            contact_name="Stale Family",
+            address="Formatted 9 Main St",
+            phone_primary="+14165550100",
+            num_children=4,
+            delivery_type="Family",
+        )
+        test_session.add_all([address_change, phone_change, stale])
+        await test_session.commit()
+
+        review_request = import_review_request(
+            [
+                {
+                    "Name": "Address Change Family",
+                    "Address": "New Address",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164169",
+                    "Children": "2",
+                },
+                {
+                    "Name": "Phone Change Family",
+                    "Address": "3 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+15195550123",
+                    "Children": "3",
+                },
+                {
+                    "Name": "Net New Family",
+                    "Address": "4 Main St",
+                    "Delivery Group": "New Group",
+                    "Phone": "+14164164171",
+                    "Children": "5",
+                },
+            ]
+        )
+        review_response = await async_client.post("/locations/review", **review_request)
+        assert review_response.status_code == 200
+        review_body = review_response.json()
+
+        ingest_maps = FakeGoogleMapsClient()
+        ingest_client = await client_with_overrides(
+            {get_google_maps_client: lambda: ingest_maps}
+        )
+        ingest_payload = {
+            "delivery_type": "Family",
+            "net_new": [
+                {
+                    "contact_name": entry["contact_name"],
+                    "address": entry["address"],
+                    "delivery_group": entry["delivery_group"],
+                    "phone_primary": entry["phone_primary"],
+                    "phone_secondary": entry["phone_secondary"],
+                    "num_children": entry["num_children"],
+                }
+                for entry in review_body["net_new"]
+            ],
+            "stale": review_body["stale"],
+            "changed": review_body["changed"],
+        }
+
+        ingest_response = await ingest_client.post(
+            "/locations/ingest", json=ingest_payload
+        )
+
+        assert ingest_response.status_code == 200
+        assert ingest_maps.calls == ["Formatted 4 Main St", "Formatted New Address"]
+        body = ingest_response.json()
+        assert len(body["created"]) == 2
+        assert len(body["archived"]) == 2
+
+        await test_session.refresh(address_change)
+        await test_session.refresh(phone_change)
+        await test_session.refresh(stale)
+        assert address_change.in_roster is False
+        assert stale.in_roster is False
+        assert phone_change.in_roster is True
+        assert phone_change.phone_primary == "+15195550123"
+
+        result = await test_session.execute(
+            select(Location).where(Location.contact_name == "Address Change Family")
+        )
+        address_change_locations = list(result.scalars().all())
+        replacement = next(
+            loc
+            for loc in address_change_locations
+            if loc.location_id != address_change.location_id
+        )
+        assert replacement.in_roster is True
+        assert replacement.note_chain_id == note_chain.note_chain_id
+        assert replacement.notes == "keep these notes"
+        assert replacement.address == "Formatted New Address"
 
 
 class TestLocationGroupRoutes:

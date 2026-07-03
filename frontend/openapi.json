@@ -2,16 +2,19 @@
   "components": {
     "schemas": {
       "AlertCode": {
-        "description": "Machine-readable blocking error code for an import row.",
+        "description": "Machine-readable reason code for an import alert.",
         "enum": [
           "MISSING_ADDRESS",
           "INVALID_ADDRESS",
           "MISSING_PHONE_NUMBER",
           "INVALID_PHONE_NUMBER",
-          "MISSING_SCHOOL_OR_LAST_NAME",
-          "INVALID_SCHOOL_OR_LAST_NAME",
+          "MISSING_NAME",
+          "INVALID_NAME",
           "MISSING_DELIVERY_GROUP",
-          "DUPLICATE_ENTRY"
+          "LOCAL_DUPLICATE",
+          "MISSING_FIELDS",
+          "INVALID_FORMAT",
+          "PARTIAL_DUPLICATE"
         ],
         "title": "AlertCode",
         "type": "string"
@@ -293,6 +296,11 @@
             ],
             "title": "Delivery Group"
           },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
           "num_children": {
             "anyOf": [
               {
@@ -331,9 +339,15 @@
               }
             ],
             "title": "Phone Secondary"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
           }
         },
         "required": [
+          "row",
+          "location_id",
           "contact_name",
           "address",
           "phone_primary"
@@ -914,6 +928,23 @@
         "title": "DriverUpdate",
         "type": "object"
       },
+      "DuplicateGroup": {
+        "description": "Rows that refer to the same imported location under the 2-of-3 rule.",
+        "properties": {
+          "rows": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "DuplicateGroup",
+        "type": "object"
+      },
       "EmailReminder": {
         "description": "A single reminder email configuration.\n\nEach reminder fires ``days_before`` days ahead of a route's drive date, at its\nown ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a\nsame-day reminder at 11 AM.",
         "properties": {
@@ -1391,10 +1422,7 @@
           "duplicate_groups": {
             "default": [],
             "items": {
-              "items": {
-                "type": "integer"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/DuplicateGroup"
             },
             "title": "Duplicate Groups",
             "type": "array"
@@ -1467,6 +1495,14 @@
       "LocationIngestRequest": {
         "description": "Ingest request — `delivery_type` applies to every net-new row in this\nimport (one Apricot sheet = one delivery type).",
         "properties": {
+          "changed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChangedEntry"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
           "delivery_type": {
             "maxLength": 100,
             "minLength": 1,
@@ -1482,7 +1518,7 @@
           },
           "stale": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Input"
+              "$ref": "#/components/schemas/StaleEntry"
             },
             "title": "Stale",
             "type": "array"
@@ -1500,14 +1536,14 @@
         "properties": {
           "archived": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Archived",
             "type": "array"
           },
           "created": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Created",
             "type": "array"
@@ -1520,170 +1556,7 @@
         "title": "LocationIngestResponse",
         "type": "object"
       },
-      "LocationRead-Input": {
-        "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "assigned_route": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assigned Route"
-          },
-          "contact_name": {
-            "title": "Contact Name",
-            "type": "string"
-          },
-          "delivery_type": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Delivery Type",
-            "type": "string"
-          },
-          "dietary_restrictions": {
-            "default": "",
-            "title": "Dietary Restrictions",
-            "type": "string"
-          },
-          "halal": {
-            "default": false,
-            "title": "Halal",
-            "type": "boolean"
-          },
-          "has_future_route": {
-            "default": false,
-            "title": "Has Future Route",
-            "type": "boolean"
-          },
-          "in_roster": {
-            "default": true,
-            "title": "In Roster",
-            "type": "boolean"
-          },
-          "last_delivery_date": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Delivery Date"
-          },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
-          "location_group_id": {
-            "format": "uuid",
-            "title": "Location Group Id",
-            "type": "string"
-          },
-          "location_group_name": {
-            "title": "Location Group Name",
-            "type": "string"
-          },
-          "location_id": {
-            "format": "uuid",
-            "title": "Location Id",
-            "type": "string"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "note_chain_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Chain Id"
-          },
-          "num_children": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Num Children",
-            "type": "integer"
-          },
-          "phone_primary": {
-            "title": "Phone Primary",
-            "type": "string"
-          },
-          "phone_secondary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Secondary"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
-          },
-          "total_deliveries": {
-            "default": 0,
-            "title": "Total Deliveries",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "location_group_id",
-          "name",
-          "contact_name",
-          "address",
-          "phone_primary",
-          "delivery_type",
-          "location_id",
-          "location_group_name"
-        ],
-        "title": "LocationRead",
-        "type": "object"
-      },
-      "LocationRead-Output": {
+      "LocationRead": {
         "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
         "properties": {
           "address": {
@@ -2452,7 +2325,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Items",
             "type": "array"
@@ -5629,7 +5502,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -5812,7 +5685,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -5869,7 +5742,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },

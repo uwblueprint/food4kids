@@ -47,11 +47,11 @@ def collect_field_alerts(
     alerts: list[AlertCode] = []
 
     if is_blank(entry.contact_name):
-        alerts.append(AlertCode.MISSING_SCHOOL_OR_LAST_NAME)
+        alerts.append(AlertCode.MISSING_NAME)
     elif entry.contact_name is not None and is_invalid_school_or_last_name(
         entry.contact_name
     ):
-        alerts.append(AlertCode.INVALID_SCHOOL_OR_LAST_NAME)
+        alerts.append(AlertCode.INVALID_NAME)
 
     if is_blank(entry.address):
         alerts.append(AlertCode.MISSING_ADDRESS)

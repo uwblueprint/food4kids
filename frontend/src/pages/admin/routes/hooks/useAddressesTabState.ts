@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
-import type { LocationReadOutput } from '@/api/generated/types.gen';
+import type { LocationRead } from '@/api/generated/types.gen';
 import {
   getConfiguredDeliveryTypes,
   useSystemSettings,
@@ -25,7 +25,7 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
 });
 
 export interface AddressesTabState {
-  rows: LocationReadOutput[];
+  rows: LocationRead[];
   isLoading: boolean;
   deliveryTypes: string[];
   search: UseSearchReturn;
