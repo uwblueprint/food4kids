@@ -1618,6 +1618,148 @@ class TestLocationImportRoutes:
         }
 
     @pytest.mark.asyncio
+    async def test_review_locations_blank_children_does_not_mark_changed(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Blank Children Family",
+                contact_name="Blank Children Family",
+                address="Formatted 22 Main St",
+                phone_primary="+14164164168",
+                num_children=7,
+                delivery_type="Family",
+            )
+        )
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Blank Children Family",
+                    "Address": "22 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "",
+                }
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["changed"] == []
+        assert body["net_new"] == []
+        assert body["stale"] == []
+
+    @pytest.mark.asyncio
+    async def test_review_locations_claims_existing_matches_once(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Shared Match",
+                contact_name="Shared Match",
+                address="Formatted 44 Main St",
+                phone_primary="+14164164168",
+                num_children=2,
+                delivery_type="Family",
+            )
+        )
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Shared Match",
+                    "Address": "44 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164169",
+                    "Children": "2",
+                },
+                {
+                    "Name": "Different Name",
+                    "Address": "44 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "2",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert len(body["changed"]) == 1
+        assert len(body["net_new"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_review_locations_revives_previously_stale_location(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        stale_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Returning Family",
+            contact_name="Returning Family",
+            address="Formatted 55 Main St",
+            phone_primary="+14164164168",
+            num_children=3,
+            delivery_type="Family",
+            in_roster=False,
+        )
+        test_session.add(stale_location)
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Returning Family",
+                    "Address": "55 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "3",
+                }
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["net_new"] == []
+        assert body["stale"] == []
+        assert len(body["changed"]) == 1
+        assert body["changed"][0]["location_id"] == str(stale_location.location_id)
+
+    @pytest.mark.asyncio
     async def test_ingest_locations_applies_stale_and_changed_rows(
         self,
         client_with_overrides: Any,
@@ -1747,6 +1889,37 @@ class TestLocationImportRoutes:
         assert replacement.note_chain_id == note_chain.note_chain_id
         assert replacement.notes == "keep these notes"
         assert replacement.address == "Formatted New Address"
+
+    @pytest.mark.asyncio
+    async def test_ingest_locations_rejects_duplicate_changed_location_ids(
+        self,
+        async_client: AsyncClient,
+        test_location_group: Any,
+    ) -> None:
+        location_id = uuid4()
+        changed_entry = {
+            "row": 1,
+            "location_id": str(location_id),
+            "contact_name": "Duplicate Change",
+            "address": "Formatted 1 Main St",
+            "delivery_group": test_location_group.name,
+            "phone_primary": "+14164164168",
+            "phone_secondary": None,
+            "num_children": 1,
+        }
+
+        response = await async_client.post(
+            "/locations/ingest",
+            json={
+                "delivery_type": "Family",
+                "net_new": [],
+                "stale": [],
+                "changed": [changed_entry, changed_entry],
+            },
+        )
+
+        assert response.status_code == 400
+        assert "only be included once" in response.json()["detail"]
 
 
 class TestLocationGroupRoutes:

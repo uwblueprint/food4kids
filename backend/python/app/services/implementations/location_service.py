@@ -707,9 +707,7 @@ class LocationService:
         valid_rows: list[tuple[int, ValidatedLocationImportEntry]],
     ) -> tuple[list[NetNewEntry], list[StaleEntry], list[ChangedEntry]]:
         result = await session.execute(
-            select(Location)
-            .where(col(Location.in_roster).is_(True))
-            .options(selectinload(Location.location_group))  # type: ignore[arg-type]
+            select(Location).options(selectinload(Location.location_group))  # type: ignore[arg-type]
         )
         existing_locations = list(result.scalars().all())
         matched_existing_ids: set[UUID] = set()
@@ -717,7 +715,14 @@ class LocationService:
         changed: list[ChangedEntry] = []
 
         for row_num, entry in valid_rows:
-            match = self._find_existing_import_match(entry, existing_locations)
+            match = self._find_existing_import_match(
+                entry,
+                [
+                    location
+                    for location in existing_locations
+                    if location.location_id not in matched_existing_ids
+                ],
+            )
             if match is None:
                 net_new.append(self._to_net_new_entry(row_num, entry))
                 continue
@@ -730,7 +735,7 @@ class LocationService:
         stale = [
             self._to_stale_entry(location)
             for location in existing_locations
-            if location.location_id not in matched_existing_ids
+            if location.in_roster and location.location_id not in matched_existing_ids
         ]
         return net_new, stale, changed
 
@@ -794,7 +799,11 @@ class LocationService:
         phone_secondary_changed = (entry.phone_secondary or None) != (
             location.phone_secondary or None
         )
-        num_children_changed = (entry.num_children or 0) != location.num_children
+        num_children_changed = (
+            entry.num_children is not None
+            and entry.num_children != location.num_children
+        )
+        roster_changed = not location.in_roster
 
         if not any(
             [
@@ -804,6 +813,7 @@ class LocationService:
                 phone_primary_changed,
                 phone_secondary_changed,
                 num_children_changed,
+                roster_changed,
             ]
         ):
             return None
@@ -834,7 +844,7 @@ class LocationService:
                 new_value=entry.num_children, old_value=location.num_children
             )
             if num_children_changed
-            else entry.num_children,
+            else location.num_children,
         )
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
@@ -959,10 +969,15 @@ class LocationService:
         """
         try:
             await self.validate_delivery_type(session, request.delivery_type)
-            await self._ensure_location_groups_for_ingest(session, request)
+            changed_ids = [entry.location_id for entry in request.changed]
+            if len(set(changed_ids)) != len(changed_ids):
+                raise ValueError("Each changed location can only be included once")
+
+            group_by_name = await self._ensure_location_groups_for_ingest(
+                session, request
+            )
 
             stale_ids = [loc.location_id for loc in request.stale]
-            changed_ids = [entry.location_id for entry in request.changed]
             existing_ids = list(set(stale_ids + changed_ids))
             existing_by_id: dict[UUID, Location] = {}
             if existing_ids:
@@ -989,12 +1004,6 @@ class LocationService:
                     for entry in request.net_new
                 ]
             )
-
-            # Fetch all existing LocationGroups in one query
-            groups_result = await session.execute(select(LocationGroup))
-            group_by_name: dict[str, LocationGroup] = {
-                g.name: g for g in groups_result.scalars().all()
-            }
 
             new_note_chains: list[NoteChain] = []
             new_locations: list[Location] = []
@@ -1154,13 +1163,15 @@ class LocationService:
 
     async def _ensure_location_groups_for_ingest(
         self, session: AsyncSession, request: LocationIngestRequest
-    ) -> None:
+    ) -> dict[str, LocationGroup]:
         groups_result = await session.execute(select(LocationGroup))
-        existing_names = {group.name for group in groups_result.scalars().all()}
+        group_by_name: dict[str, LocationGroup] = {
+            group.name: group for group in groups_result.scalars().all()
+        }
         needed_names = {
             entry.delivery_group
             for entry in request.net_new
-            if entry.delivery_group not in existing_names
+            if entry.delivery_group not in group_by_name
         }
         needed_names.update(
             delivery_group
@@ -1168,12 +1179,15 @@ class LocationService:
                 self._changed_optional_str_value(entry.delivery_group)
                 for entry in request.changed
             )
-            if delivery_group and delivery_group not in existing_names
+            if delivery_group and delivery_group not in group_by_name
         )
         for name in sorted(needed_names):
-            session.add(LocationGroup(name=name))  # type: ignore[call-arg]
+            group = LocationGroup(name=name)  # type: ignore[call-arg]
+            session.add(group)
+            group_by_name[name] = group
         if needed_names:
             await session.flush()
+        return group_by_name
 
     @staticmethod
     def _changed_str_value(value: str | ChangedFieldStr) -> str:
