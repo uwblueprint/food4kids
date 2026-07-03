@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 export interface Column<T> {
   key: string;
-  header: string;
+  header: ReactNode;
   /** Custom cell renderer. Falls back to `row[key]` as a string. */
   render?: (row: T) => ReactNode;
   /** Per-cell className based on row data — use for error/warning cell states. */

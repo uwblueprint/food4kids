@@ -62,4 +62,5 @@ export type { Character, StatisticsCardColor } from './StatisticsCard';
 export { StatisticsCard } from './StatisticsCard';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
+export { Tooltip, TooltipContent, TooltipTrigger } from './Tooltip';
 export { TimePicker } from './TimePicker';
