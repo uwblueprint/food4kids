@@ -1158,7 +1158,7 @@ def main() -> None:
                 if num_chains_to_read > 0:
                     chains_to_read = random.sample(all_chain_ids, num_chains_to_read)
                     for chain_row in chains_to_read:
-                        read_entry = NoteChainReadModel(
+                        read_entry = AnnouncementLastRead(
                             note_chain_id=chain_row[0],
                             user_id=driver_user_row[0],
                             last_read_at=datetime.now(
