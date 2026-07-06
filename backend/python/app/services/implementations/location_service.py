@@ -4,7 +4,7 @@ import os
 from collections.abc import Iterable
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -31,7 +31,6 @@ from app.models.location import (
     LocationIngestResponse,
     LocationRead,
     LocationUpdate,
-    ValidatedLocationImportEntry,
 )
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -500,23 +499,38 @@ class LocationService:
                 row_num = int(index) + 1  # type: ignore[call-overload]
                 parsed_rows.append((row_num, self._parse_row(row, column_map)))
 
-            geocode_results = await asyncio.gather(
-                *(
-                    self._geocode_import_address(entry.address)
-                    for _, entry in parsed_rows
+            geocode_cache: dict[str, GeocodeResult | None] = {}
+            unique_addresses = {
+                entry.address.strip()
+                for _, entry in parsed_rows
+                if present_str(entry.address)
+            }
+            if unique_addresses:
+                geocoded = await asyncio.gather(
+                    *(
+                        self._geocode_import_address(address)
+                        for address in unique_addresses
+                    )
                 )
-            )
+                geocode_cache = dict(zip(unique_addresses, geocoded, strict=True))
 
             normalized_phones: list[str | None] = []
             phone_invalid_flags: list[bool] = []
+            phone_secondary_invalid_flags: list[bool] = []
             for _, entry in parsed_rows:
                 normalized_phone, phone_invalid = try_normalize_phone(
                     entry.phone_primary
                 )
                 if normalized_phone:
                     entry.phone_primary = normalized_phone
+                normalized_secondary, secondary_invalid = try_normalize_phone(
+                    entry.phone_secondary
+                )
+                if normalized_secondary:
+                    entry.phone_secondary = normalized_secondary
                 normalized_phones.append(normalized_phone)
                 phone_invalid_flags.append(phone_invalid)
+                phone_secondary_invalid_flags.append(secondary_invalid)
 
             entries = [entry for _, entry in parsed_rows]
             duplicate_index_groups = find_duplicate_index_groups(
@@ -531,13 +545,17 @@ class LocationService:
                 geocode_ok: bool | None
                 if is_blank(entry.address):
                     geocode_ok = None
+                elif entry.address is not None:
+                    geocode_result = geocode_cache.get(entry.address.strip())
+                    geocode_ok = geocode_result is not None
                 else:
-                    geocode_ok = geocode_results[index] is not None
+                    geocode_ok = None
 
                 alerts = collect_field_alerts(
                     entry,
                     geocode_ok=geocode_ok,
                     phone_invalid=phone_invalid_flags[index],
+                    phone_secondary_invalid=phone_secondary_invalid_flags[index],
                 )
                 if index in duplicate_indices:
                     alerts.append(AlertCode.DUPLICATE_ENTRY)
@@ -634,18 +652,6 @@ class LocationService:
             num_children=parse_int("num_children"),
             halal=parse_bool("halal"),
             dietary_restrictions=get_value("dietary_restrictions"),
-        )
-
-    @staticmethod
-    def _has_required_fields(
-        entry: LocationImportEntry,
-    ) -> TypeGuard[ValidatedLocationImportEntry]:
-        """Returns True (and narrows to ValidatedLocationImportEntry) when all required
-        fields are present; False when any are missing."""
-        return (
-            entry.contact_name is not None
-            and entry.address is not None
-            and entry.phone_primary is not None
         )
 
     async def _build_location(self, location_data: LocationCreate) -> Location:

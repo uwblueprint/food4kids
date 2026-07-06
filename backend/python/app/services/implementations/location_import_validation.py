@@ -44,13 +44,14 @@ def collect_field_alerts(
     *,
     geocode_ok: bool | None,
     phone_invalid: bool,
+    phone_secondary_invalid: bool = False,
 ) -> list[AlertCode]:
     """Collect per-field blocking alerts for one parsed import row."""
     alerts: list[AlertCode] = []
 
     if is_blank(entry.contact_name):
         alerts.append(AlertCode.MISSING_SCHOOL_OR_LAST_NAME)
-    elif present_str(entry.contact_name) and is_invalid_school_or_last_name(
+    elif entry.contact_name is not None and is_invalid_school_or_last_name(
         entry.contact_name
     ):
         alerts.append(AlertCode.INVALID_SCHOOL_OR_LAST_NAME)
@@ -63,6 +64,9 @@ def collect_field_alerts(
     if is_blank(entry.phone_primary):
         alerts.append(AlertCode.MISSING_PHONE_NUMBER)
     elif phone_invalid:
+        alerts.append(AlertCode.INVALID_PHONE_NUMBER)
+
+    if phone_secondary_invalid:
         alerts.append(AlertCode.INVALID_PHONE_NUMBER)
 
     if is_blank(entry.delivery_group):
@@ -80,7 +84,7 @@ def _name_match_key(name: str | None) -> str | None:
 def _address_match_key(address: str | None) -> str | None:
     if not present_str(address):
         return None
-    return address.strip()
+    return address.strip().casefold()
 
 
 def _phone_match_key(phone: str | None, normalized_phone: str | None) -> str | None:

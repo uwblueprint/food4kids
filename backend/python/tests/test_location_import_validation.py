@@ -81,6 +81,21 @@ class TestFieldValidation:
         )
         assert AlertCode.INVALID_PHONE_NUMBER in alerts
 
+    def test_invalid_phone_secondary(self) -> None:
+        alerts = collect_field_alerts(
+            LocationImportEntry(
+                contact_name="Smith",
+                address="123 Main St",
+                delivery_group="Tuesday A",
+                phone_primary="+15195551234",
+                phone_secondary="not-a-phone",
+            ),
+            geocode_ok=True,
+            phone_invalid=False,
+            phone_secondary_invalid=True,
+        )
+        assert AlertCode.INVALID_PHONE_NUMBER in alerts
+
     def test_multiple_errors_on_one_row(self) -> None:
         alerts = collect_field_alerts(
             _entry(contact_name="33333333", delivery_group=None),
@@ -213,6 +228,13 @@ class TestDuplicateDetection:
     def test_name_match_is_case_insensitive(self) -> None:
         left = _entry(contact_name="Smith")
         right = _entry(contact_name="smith")
+        assert rows_are_duplicates(
+            left, right, left_phone="+15195551234", right_phone="+15195551234"
+        )
+
+    def test_address_match_is_case_insensitive(self) -> None:
+        left = _entry(address="123 Main St")
+        right = _entry(address="123 main st")
         assert rows_are_duplicates(
             left, right, left_phone="+15195551234", right_phone="+15195551234"
         )
