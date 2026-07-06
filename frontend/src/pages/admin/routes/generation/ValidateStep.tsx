@@ -25,9 +25,10 @@ const WARNING_CELL_CLASS = 'border-b-2 border-dark-yellow bg-light-yellow';
 // Alert display helpers
 // ---------------------------------------------------------------------------
 
-function getAlertDisplay(
-  code: AlertCode
-): { type: 'error' | 'warning'; label: string } {
+function getAlertDisplay(code: AlertCode): {
+  type: 'error' | 'warning';
+  label: string;
+} {
   switch (code) {
     case 'MISSING_SCHOOL_OR_LAST_NAME':
       return { type: 'error', label: 'Missing School / Last Name' };
