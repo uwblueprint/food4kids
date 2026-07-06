@@ -292,6 +292,7 @@ export const markAnnouncementsAsRead = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/mark-read',
     ...options,
     headers: {

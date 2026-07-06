@@ -4082,6 +4082,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Mark Announcements As Read",
         "tags": [
           "announcements"
