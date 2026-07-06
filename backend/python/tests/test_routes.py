@@ -4517,7 +4517,8 @@ class TestDriverHistoryRoutes:
         from app.models.user import User
 
         user = User(
-            name="Read Test User",
+            first_name="Read",
+            last_name="Test User",
             email="readtest@test.com",
             auth_id="test-read-user-123",
             role="admin",
