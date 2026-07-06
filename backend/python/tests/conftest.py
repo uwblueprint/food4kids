@@ -70,6 +70,7 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         # Import in dependency order to avoid relationship resolution issues
         from app.models.admin import Admin  # noqa: F401
         from app.models.announcement import Announcement  # noqa: F401
+        from app.models.announcement_last_read import AnnouncementLastRead  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
         from app.models.driver_history import DriverHistory  # noqa: F401
         from app.models.job import Job  # noqa: F401
