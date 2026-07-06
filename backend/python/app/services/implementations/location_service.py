@@ -41,9 +41,15 @@ from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.utilities.google_maps_client import GoogleMapsClient
+from app.services.implementations.location_import_validation import (
+    collect_field_alerts,
+    find_duplicate_index_groups,
+    is_blank,
+    present_str,
+    try_normalize_phone,
+)
+from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
 from app.utilities.pagination import paginate_query
-from app.utilities.utils import validate_phone
 
 if TYPE_CHECKING:
     from app.services.implementations.system_settings_service import (
@@ -488,78 +494,79 @@ class LocationService:
             )
             await session.commit()
             df = await self._read_upload_file(file)
-            rows: list[LocationImportRow] = []
-
-            # track local duplicates
-            full_dup_keys: dict[tuple[str, str, str], int] = {}
-            address_keys: dict[str, int] = {}
-            phone_keys: dict[str, int] = {}
+            parsed_rows: list[tuple[int, LocationImportEntry]] = []
 
             for index, row in df.iterrows():
                 row_num = int(index) + 1  # type: ignore[call-overload]
-                location = self._parse_row(row, column_map)
-                alerts: list[AlertCode] = []
+                parsed_rows.append((row_num, self._parse_row(row, column_map)))
 
-                # missing required fields
-                if not self._has_required_fields(location):
-                    alerts.append(AlertCode.MISSING_FIELDS)
-                    rows.append(
-                        LocationImportRow(row=row_num, location=location, alerts=alerts)
-                    )
-                    continue
-
-                # invalid phone number format
-                try:
-                    location.phone_primary = validate_phone(location.phone_primary)
-                    if location.phone_secondary:
-                        location.phone_secondary = validate_phone(
-                            location.phone_secondary
-                        )
-                except ValueError:
-                    alerts.append(AlertCode.INVALID_FORMAT)
-                    rows.append(
-                        LocationImportRow(row=row_num, location=location, alerts=alerts)
-                    )
-                    continue
-
-                # missing delivery group
-                if not location.delivery_group:
-                    alerts.append(AlertCode.MISSING_DELIVERY_GROUP)
-
-                # full duplicate (same contact name, address, and phone)
-                full_key = (
-                    location.contact_name,
-                    location.address,
-                    location.phone_primary,
+            geocode_results = await asyncio.gather(
+                *(
+                    self._geocode_import_address(entry.address)
+                    for _, entry in parsed_rows
                 )
-                if full_key in full_dup_keys:
-                    alerts.append(AlertCode.LOCAL_DUPLICATE)
-                else:
-                    full_dup_keys[full_key] = row_num
+            )
 
-                    # partial duplicate — same address or same phone
-                    if (
-                        location.address in address_keys
-                        or location.phone_primary in phone_keys
-                    ):
-                        alerts.append(AlertCode.PARTIAL_DUPLICATE)
-                    if location.address not in address_keys:
-                        address_keys[location.address] = row_num
-                    if location.phone_primary not in phone_keys:
-                        phone_keys[location.phone_primary] = row_num
+            normalized_phones: list[str | None] = []
+            phone_invalid_flags: list[bool] = []
+            for _, entry in parsed_rows:
+                normalized_phone, phone_invalid = try_normalize_phone(
+                    entry.phone_primary
+                )
+                if normalized_phone:
+                    entry.phone_primary = normalized_phone
+                normalized_phones.append(normalized_phone)
+                phone_invalid_flags.append(phone_invalid)
+
+            entries = [entry for _, entry in parsed_rows]
+            duplicate_index_groups = find_duplicate_index_groups(
+                entries, normalized_phones
+            )
+            duplicate_indices = {
+                index for group in duplicate_index_groups for index in group
+            }
+
+            rows: list[LocationImportRow] = []
+            for index, (row_num, entry) in enumerate(parsed_rows):
+                geocode_ok: bool | None
+                if is_blank(entry.address):
+                    geocode_ok = None
+                else:
+                    geocode_ok = geocode_results[index] is not None
+
+                alerts = collect_field_alerts(
+                    entry,
+                    geocode_ok=geocode_ok,
+                    phone_invalid=phone_invalid_flags[index],
+                )
+                if index in duplicate_indices:
+                    alerts.append(AlertCode.DUPLICATE_ENTRY)
 
                 rows.append(
-                    LocationImportRow(row=row_num, location=location, alerts=alerts)
+                    LocationImportRow(row=row_num, location=entry, alerts=alerts)
                 )
+
+            duplicate_groups = [
+                [parsed_rows[i][0] for i in group] for group in duplicate_index_groups
+            ]
 
             return LocationImportResponse(
                 success=not any(r.alerts for r in rows),
                 total_rows=len(rows),
                 rows=rows,
+                duplicate_groups=duplicate_groups,
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
+
+    async def _geocode_import_address(
+        self, address: str | None
+    ) -> GeocodeResult | None:
+        """Geocode a non-blank import address; skip geocoding when address is missing."""
+        if not present_str(address):
+            return None
+        return await self.google_maps_service.geocode_address(address)
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
