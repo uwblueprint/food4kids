@@ -598,8 +598,6 @@ def main() -> None:
             tables_to_clear = [
                 "announcement_last_reads",
                 "notes",
-                "note_chain_reads",
-                "driver_assignments",
                 "driver_history",
                 "jobs",
                 "route_stop_snapshots",
@@ -1139,39 +1137,6 @@ def main() -> None:
 
             session.commit()
             print("Created system settings info")
-
-            # Create read tracking entries for some drivers
-            print("Creating note chain read tracking entries...")
-            read_entries_created = 0
-            all_driver_users = session.execute(
-                text(
-                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
-                )
-            ).fetchall()
-
-            all_chain_ids = session.execute(
-                text("SELECT note_chain_id FROM note_chains")
-            ).fetchall()
-
-            for driver_user_row in all_driver_users:
-                num_chains_to_read = random.randint(0, min(5, len(all_chain_ids)))
-                if num_chains_to_read > 0:
-                    chains_to_read = random.sample(all_chain_ids, num_chains_to_read)
-                    for chain_row in chains_to_read:
-                        read_entry = AnnouncementLastRead(
-                            note_chain_id=chain_row[0],
-                            user_id=driver_user_row[0],
-                            last_read_at=datetime.now(
-                                ZoneInfo("America/New_York")
-                            ).replace(tzinfo=None)
-                            - timedelta(hours=random.randint(0, 72)),
-                        )
-                        set_timestamps(read_entry)
-                        session.add(read_entry)
-                        read_entries_created += 1
-
-            session.commit()
-            print(f"Created {read_entries_created} note chain read tracking entries")
 
             # Create sample announcements
             print("Creating sample announcements...")
