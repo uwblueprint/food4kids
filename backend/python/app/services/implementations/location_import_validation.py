@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import TypeGuard
+from typing import TYPE_CHECKING, TypeGuard
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 from app.models.location import AlertCode, LocationImportEntry
 from app.utilities.utils import validate_phone
