@@ -59,6 +59,7 @@ import {
   initializeDriver,
   login,
   logout,
+  markAnnouncementsAsRead,
   type Options,
   patchSystemSettings,
   refresh,
@@ -141,6 +142,7 @@ import type {
   GetAnnouncementError,
   GetAnnouncementResponse,
   GetAnnouncementsData,
+  GetAnnouncementsError,
   GetAnnouncementsResponse,
   GetDriverData,
   GetDriverError,
@@ -218,6 +220,9 @@ import type {
   LogoutData,
   LogoutError,
   LogoutResponse,
+  MarkAnnouncementsAsReadData,
+  MarkAnnouncementsAsReadError,
+  MarkAnnouncementsAsReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
@@ -343,14 +348,14 @@ export const getAnnouncementsQueryKey = (
 /**
  * Get Announcements
  *
- * Retrieve all announcements
+ * Retrieve all announcements. If user_id is provided, includes is_read status.
  */
 export const getAnnouncementsOptions = (
   options?: Options<GetAnnouncementsData>
 ) =>
   queryOptions<
     GetAnnouncementsResponse,
-    AxiosError<DefaultError>,
+    AxiosError<GetAnnouncementsError>,
     GetAnnouncementsResponse,
     ReturnType<typeof getAnnouncementsQueryKey>
   >({
@@ -385,6 +390,35 @@ export const createAnnouncementMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await createAnnouncement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Mark Announcements As Read
+ *
+ * Mark all announcements as read for the given user
+ */
+export const markAnnouncementsAsReadMutation = (
+  options?: Partial<Options<MarkAnnouncementsAsReadData>>
+): UseMutationOptions<
+  MarkAnnouncementsAsReadResponse,
+  AxiosError<MarkAnnouncementsAsReadError>,
+  Options<MarkAnnouncementsAsReadData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarkAnnouncementsAsReadResponse,
+    AxiosError<MarkAnnouncementsAsReadError>,
+    Options<MarkAnnouncementsAsReadData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await markAnnouncementsAsRead({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1625,7 +1659,7 @@ export const getNotesQueryKey = (options: Options<GetNotesData>) =>
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotesOptions = (options: Options<GetNotesData>) =>
   queryOptions<
@@ -1653,7 +1687,7 @@ export const getNotesInfiniteQueryKey = (
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotesInfiniteOptions = (options: Options<GetNotesData>) =>
   infiniteQueryOptions<

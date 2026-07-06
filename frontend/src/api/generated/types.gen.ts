@@ -40,6 +40,26 @@ export type AnnouncementCreate = {
 };
 
 /**
+ * AnnouncementLastReadResponse
+ *
+ * Response model for announcement last read
+ */
+export type AnnouncementLastReadResponse = {
+  /**
+   * Announcement Last Read Id
+   */
+  announcement_last_read_id: string;
+  /**
+   * Last Read At
+   */
+  last_read_at: string;
+  /**
+   * User Id
+   */
+  user_id: string;
+};
+
+/**
  * AnnouncementRead
  *
  * Announcement response model
@@ -65,6 +85,10 @@ export type AnnouncementRead = {
    * Created At
    */
   created_at: string | null;
+  /**
+   * Is Read
+   */
+  is_read?: boolean | null;
   /**
    * Message
    */
@@ -1138,6 +1162,18 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+};
+
+/**
+ * MarkReadRequest
+ *
+ * Request body for marking announcements as read
+ */
+export type MarkReadRequest = {
+  /**
+   * User Id
+   */
+  user_id: string;
 };
 
 /**
@@ -2435,9 +2471,24 @@ export type TestResponse = TestResponses[keyof TestResponses];
 export type GetAnnouncementsData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    /**
+     * User Id
+     */
+    user_id?: string | null;
+  };
   url: '/announcements/';
 };
+
+export type GetAnnouncementsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetAnnouncementsError =
+  GetAnnouncementsErrors[keyof GetAnnouncementsErrors];
 
 export type GetAnnouncementsResponses = {
   /**
@@ -2477,6 +2528,33 @@ export type CreateAnnouncementResponses = {
 
 export type CreateAnnouncementResponse =
   CreateAnnouncementResponses[keyof CreateAnnouncementResponses];
+
+export type MarkAnnouncementsAsReadData = {
+  body: MarkReadRequest;
+  path?: never;
+  query?: never;
+  url: '/announcements/mark-read';
+};
+
+export type MarkAnnouncementsAsReadErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type MarkAnnouncementsAsReadError =
+  MarkAnnouncementsAsReadErrors[keyof MarkAnnouncementsAsReadErrors];
+
+export type MarkAnnouncementsAsReadResponses = {
+  /**
+   * Successful Response
+   */
+  200: AnnouncementLastReadResponse;
+};
+
+export type MarkAnnouncementsAsReadResponse =
+  MarkAnnouncementsAsReadResponses[keyof MarkAnnouncementsAsReadResponses];
 
 export type DeleteAnnouncementData = {
   body?: never;
@@ -3733,9 +3811,11 @@ export type GetNotesError = GetNotesErrors[keyof GetNotesErrors];
 
 export type GetNotesResponses = {
   /**
+   * Response Get Notes
+   *
    * Successful Response
    */
-  200: NoteListResponse;
+  200: Array<NoteRead>;
 };
 
 export type GetNotesResponse = GetNotesResponses[keyof GetNotesResponses];
