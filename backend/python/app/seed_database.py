@@ -101,6 +101,69 @@ MIN_DRIVERS = 5
 NUM_SEED_ADMINS = 2
 # Shared password for all seeded Firebase accounts
 SEED_PASSWORD = "test123"
+
+# A richer announcement feed, posted by different admins and drivers over the
+# past few weeks so the list looks like a real, lived-in noticeboard. Each
+# entry is (subject, message, days_ago, author_role) where author_role is one
+# of the values in ANNOUNCEMENT_AUTHOR_ROLES. Drivers can post announcements
+# too (the create endpoint allows driver-or-admin), so the feed mixes both.
+ANNOUNCEMENT_AUTHOR_ROLES = ("admin", "driver")
+SAMPLE_ANNOUNCEMENTS: list[tuple[str, str, int, str]] = [
+    (
+        "Welcome to Food4Kids",
+        "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
+        30,
+        "admin",
+    ),
+    (
+        "Schedule Update for March",
+        "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
+        24,
+        "admin",
+    ),
+    (
+        "New Cold-Storage Procedure",
+        "Starting this week, all perishable items must be kept in the insulated bags until drop-off. Please grab a bag from the warehouse before heading out on your route.",
+        19,
+        "admin",
+    ),
+    (
+        "Gate Code Change on the East Route",
+        "Heads up to anyone covering the east route — the gate code at the Maple Street apartments changed to 4821. The old one stopped working for me on Tuesday.",
+        16,
+        "driver",
+    ),
+    (
+        "Holiday Notice - Good Friday",
+        "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
+        12,
+        "admin",
+    ),
+    (
+        "Spare Cooler Bags Available",
+        "I ended up with a couple of extra insulated bags after my route this week. If anyone is running short, find me at the warehouse Thursday morning and I'll pass them along.",
+        9,
+        "driver",
+    ),
+    (
+        "Spring Food Drive Kickoff",
+        "Our spring food drive starts Monday! We are especially short on shelf-stable proteins and low-sugar snacks. Spread the word with your local networks.",
+        5,
+        "admin",
+    ),
+    (
+        "Thanks for Covering My Friday Stops",
+        "Just wanted to say thank you to whoever picked up my Friday route last week while I was out sick. This crew is the best — really appreciate it.",
+        4,
+        "driver",
+    ),
+    (
+        "Weather Advisory - Drive Safe",
+        "Heavy rain is expected across most routes tomorrow. Take your time, and if conditions feel unsafe, contact your coordinator before continuing. Families can wait — your safety comes first.",
+        2,
+        "admin",
+    ),
+]
 # Number of days considered as "next week" for assignment strategy
 NEXT_WEEK_DAYS = 7
 # Number of years back to generate driver history for
@@ -164,9 +227,11 @@ WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 def get_database_url() -> str:
     """Build the database URL from the environment, like migrations/env.py.
 
-    Indexes os.environ directly so a missing variable fails loudly instead
-    of silently seeding the wrong database.
+    In production, reads DATABASE_URL directly (supports Neon/Supabase/etc.
+    with SSL params). In development, builds from individual POSTGRES_* vars.
     """
+    if os.environ.get("APP_ENV") == "production":
+        return os.environ["DATABASE_URL"]
     return "postgresql://{username}:{password}@{host}:5432/{db}".format(
         username=os.environ["POSTGRES_USER"],
         password=os.environ["POSTGRES_PASSWORD"],
@@ -1005,7 +1070,7 @@ def main() -> None:
 
             # Create admin accounts
             print("Creating admin accounts...")
-            admin_user = None
+            admin_users: list[User] = []
 
             for i in range(NUM_SEED_ADMINS):
                 admin_num = i + 1
@@ -1040,8 +1105,7 @@ def main() -> None:
                 set_timestamps(admin)
                 session.add(admin)
 
-                if admin_user is None:
-                    admin_user = user
+                admin_users.append(user)
 
             session.commit()
             print(f"Created {NUM_SEED_ADMINS} admin accounts")
@@ -1081,34 +1145,46 @@ def main() -> None:
 
             # Create sample announcements
             print("Creating sample announcements...")
-            sample_announcements = [
-                {
-                    "subject": "Welcome to Food4Kids",
-                    "message": "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
-                    "attachments": [],
-                },
-                {
-                    "subject": "Schedule Update for March",
-                    "message": "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
-                    "attachments": [],
-                },
-                {
-                    "subject": "Holiday Notice - Good Friday",
-                    "message": "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
-                    "attachments": [],
-                },
+            # Drivers can post announcements too (the create endpoint allows
+            # driver-or-admin), so pull a pool of driver users to author some of
+            # the feed alongside the admins.
+            driver_user_ids: list[uuid.UUID] = [
+                row[0]
+                for row in session.execute(
+                    text("SELECT user_id FROM users WHERE role = 'driver'")
+                ).fetchall()
             ]
-            for ann_data in sample_announcements:
+            admin_user_ids: list[uuid.UUID] = [user.user_id for user in admin_users]
+
+            # Rotate authorship within each role so the feed shows messages from
+            # more than one person rather than a single author.
+            role_counts = dict.fromkeys(ANNOUNCEMENT_AUTHOR_ROLES, 0)
+            for subject, message, days_ago, author_role in SAMPLE_ANNOUNCEMENTS:
+                if author_role == "admin":
+                    pool = admin_user_ids
+                elif author_role == "driver":
+                    pool = driver_user_ids
+                else:
+                    raise ValueError(f"Unknown announcement author role: {author_role}")
+
+                author_user_id = pool[role_counts[author_role] % len(pool)]
+                role_counts[author_role] += 1
+
                 announcement = Announcement(
-                    subject=ann_data["subject"],
-                    message=ann_data["message"],
-                    user_id=admin_user.user_id,  # type: ignore[union-attr]
-                    attachments=ann_data["attachments"],
+                    subject=subject,
+                    message=message,
+                    user_id=author_user_id,
+                    attachments=[],
                 )
                 set_timestamps(announcement)
+                posted_at = datetime.now(ZoneInfo("America/New_York")).replace(
+                    tzinfo=None
+                ) - timedelta(days=days_ago)
+                announcement.created_at = posted_at
+                announcement.updated_at = posted_at
                 session.add(announcement)
             session.commit()
-            print("Created sample announcements")
+            print(f"Created {len(SAMPLE_ANNOUNCEMENTS)} sample announcements")
 
             print("Comprehensive database seeding completed successfully!")
 

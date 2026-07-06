@@ -13,6 +13,8 @@
 !.vscode/extensions.json
 **/*.cache
 **/*.egg-info
+**/.coverage
+**/htmlcov/
 switch_github.sh
 CLAUDE.md
 .claude/

@@ -4,14 +4,14 @@ A delivery management platform for Food4Kids, supporting admin and driver workfl
 
 ## Tech Stack
 
-| Layer          | Technology                                      |
-| -------------- | ----------------------------------------------- |
-| Frontend       | React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7 |
-| Backend        | Python, FastAPI, SQLModel                       |
-| Database       | PostgreSQL + Alembic migrations                 |
-| Auth           | Firebase Auth                                   |
-| Infrastructure | Docker & Docker Compose                         |
-| Package manager | pnpm                                           |
+| Layer           | Technology                                                   |
+| --------------- | ------------------------------------------------------------ |
+| Frontend        | React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7 |
+| Backend         | Python, FastAPI, SQLModel                                    |
+| Database        | PostgreSQL + Alembic migrations                              |
+| Auth            | Firebase Auth                                                |
+| Infrastructure  | Docker & Docker Compose                                      |
+| Package manager | pnpm                                                         |
 
 ## Repo Structure
 
@@ -70,17 +70,20 @@ gcloud auth activate-service-account --key-file=food4kids-env-service-account.js
 **3. Run the pull script**
 
 Mac/Linux:
+
 ```bash
 chmod +x pull-env.sh   # only needed once
 ./pull-env.sh
 ```
 
 Windows (Git Bash or WSL):
+
 ```bash
 bash pull-env.sh
 ```
 
 Windows (PowerShell, if you don't have Git Bash/WSL):
+
 ```powershell
 $env:GOOGLE_APPLICATION_CREDENTIALS = "food4kids-env-service-account.json"
 gcloud secrets versions access latest --secret="f4k-backend-env" --project="food4kids-473501" | Out-File -Encoding utf8 .env
@@ -108,11 +111,11 @@ See [frontend/README.md](frontend/README.md#api-client-generated-from-openapi) f
 docker-compose up --build
 ```
 
-| Service  | URL                                          |
-| -------- | -------------------------------------------- |
-| Frontend | http://localhost:3000                        |
-| Backend  | http://localhost:8080                        |
-| API docs | http://localhost:8080/docs (dev only)        |
+| Service  | URL                                   |
+| -------- | ------------------------------------- |
+| Frontend | http://localhost:3000                 |
+| Backend  | http://localhost:8080                 |
+| API docs | http://localhost:8080/docs (dev only) |
 
 ## Database
 
@@ -147,6 +150,7 @@ docker-compose up -d --build    # Start in background
 docker-compose down             # Stop
 docker-compose down --volumes   # Stop and remove volumes
 docker system prune -a --volumes  # Clean up unused resources
+docker compose down && docker volume rm food4kids_frontend_node_modules; docker compose build --no-cache frontend && docker compose up -d #regenerate pnpm
 ```
 
 ## Further Reading
