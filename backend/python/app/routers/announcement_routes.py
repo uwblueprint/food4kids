@@ -68,6 +68,7 @@ async def mark_announcements_as_read(
     body: MarkReadRequest,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> AnnouncementLastReadResponse:
     """Mark all announcements as read for the given user"""
     try:
