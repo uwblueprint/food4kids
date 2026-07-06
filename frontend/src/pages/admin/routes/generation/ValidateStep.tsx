@@ -26,32 +26,45 @@ const WARNING_CELL_CLASS = 'border-b-2 border-dark-yellow bg-light-yellow';
 // ---------------------------------------------------------------------------
 
 function getAlertDisplay(
-  code: AlertCode,
-  location: LocationImportRow['location']
+  code: AlertCode
 ): { type: 'error' | 'warning'; label: string } {
   switch (code) {
-    case 'MISSING_FIELDS': {
-      const missing: string[] = [];
-      if (!location.contact_name) missing.push('Name');
-      if (!location.address) missing.push('Address');
-      if (!location.phone_primary) missing.push('Phone');
-      const label =
-        missing.length === 1 ? `Missing ${missing[0]}` : 'Missing Fields';
-      return { type: 'error', label };
-    }
-    case 'INVALID_FORMAT':
-      return { type: 'error', label: 'Invalid Format' };
-    case 'LOCAL_DUPLICATE':
-      return { type: 'warning', label: 'Duplicate Entry' };
-    case 'PARTIAL_DUPLICATE':
-      return { type: 'warning', label: 'Partial Duplicate Entry' };
+    case 'MISSING_SCHOOL_OR_LAST_NAME':
+      return { type: 'error', label: 'Missing School / Last Name' };
+    case 'INVALID_SCHOOL_OR_LAST_NAME':
+      return { type: 'error', label: 'Invalid School / Last Name' };
+    case 'MISSING_ADDRESS':
+      return { type: 'error', label: 'Missing Address' };
+    case 'INVALID_ADDRESS':
+      return { type: 'error', label: 'Invalid Address' };
+    case 'MISSING_PHONE_NUMBER':
+      return { type: 'error', label: 'Missing Phone Number' };
+    case 'INVALID_PHONE_NUMBER':
+      return { type: 'error', label: 'Invalid Phone Number' };
     case 'MISSING_DELIVERY_GROUP':
       return { type: 'error', label: 'Missing Delivery Group' };
+    case 'DUPLICATE_ENTRY':
+      return { type: 'warning', label: 'Duplicate Entry' };
+    default: {
+      const _exhaustive: never = code;
+      return { type: 'error', label: _exhaustive };
+    }
   }
 }
 
 const isDuplicateRow = (row: LocationImportRow) =>
-  row.alerts.some((a) => a === 'LOCAL_DUPLICATE' || a === 'PARTIAL_DUPLICATE');
+  row.alerts.includes('DUPLICATE_ENTRY');
+
+const hasContactNameAlert = (alerts: AlertCode[]) =>
+  alerts.includes('MISSING_SCHOOL_OR_LAST_NAME') ||
+  alerts.includes('INVALID_SCHOOL_OR_LAST_NAME');
+
+const hasAddressAlert = (alerts: AlertCode[]) =>
+  alerts.includes('MISSING_ADDRESS') || alerts.includes('INVALID_ADDRESS');
+
+const hasPhoneAlert = (alerts: AlertCode[]) =>
+  alerts.includes('MISSING_PHONE_NUMBER') ||
+  alerts.includes('INVALID_PHONE_NUMBER');
 
 // Returns the cell highlight class for non-alert data columns
 function getCellClass(
@@ -95,7 +108,7 @@ export function ValidateStep() {
       render: (row) => {
         const first = row.alerts[0];
         if (!first) return null;
-        const { type, label } = getAlertDisplay(first, row.location);
+        const { type, label } = getAlertDisplay(first);
         return <AlertCell type={type} label={label} />;
       },
     },
@@ -110,20 +123,13 @@ export function ValidateStep() {
       header: 'School / Last Name',
       render: (row) => row.location.contact_name ?? '',
       getCellClassName: (row) =>
-        getCellClass(
-          row,
-          row.alerts.includes('MISSING_FIELDS') && !row.location.contact_name
-        ),
+        getCellClass(row, hasContactNameAlert(row.alerts)),
     },
     {
       key: 'address',
       header: 'Address',
       render: (row) => row.location.address ?? '',
-      getCellClassName: (row) =>
-        getCellClass(
-          row,
-          row.alerts.includes('MISSING_FIELDS') && !row.location.address
-        ),
+      getCellClassName: (row) => getCellClass(row, hasAddressAlert(row.alerts)),
     },
     {
       key: 'delivery_group',
@@ -140,13 +146,7 @@ export function ValidateStep() {
       key: 'phone_primary',
       header: 'Primary Phone',
       render: (row) => row.location.phone_primary ?? '',
-      getCellClassName: (row) =>
-        getCellClass(
-          row,
-          row.alerts.some((a: AlertCode) =>
-            ['MISSING_FIELDS', 'INVALID_FORMAT'].includes(a)
-          )
-        ),
+      getCellClassName: (row) => getCellClass(row, hasPhoneAlert(row.alerts)),
     },
   ];
 
