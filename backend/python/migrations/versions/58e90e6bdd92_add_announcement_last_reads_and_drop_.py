@@ -1,7 +1,7 @@
 """add announcement_last_reads and drop note_chain_reads
 
 Revision ID: 58e90e6bdd92
-Revises: 595032f5ede7
+Revises: b7c1d2e3f4a5
 Create Date: 2026-04-05 10:04:11.974467
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '58e90e6bdd92'
-down_revision = '595032f5ede7'
+down_revision = 'b7c1d2e3f4a5'
 branch_labels = None
 depends_on = None
 
