@@ -2504,6 +2504,14 @@ class TestNoteFeedRoutes:
         assert body["items"][0]["author_name"] == "Admin User"
 
     @pytest.mark.asyncio
+    async def test_get_notes_feed_rejects_invalid_sort(
+        self, async_client: AsyncClient
+    ) -> None:
+        response = await async_client.get("/notes?sort=not-a-sort")
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_get_notes_feed_supports_sorting_and_pagination(
         self,
         async_client: AsyncClient,

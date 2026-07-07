@@ -1,3 +1,4 @@
+import logging
 from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +10,8 @@ from app.models import get_session
 from app.models.note import NoteFeedItem
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.note_chain_service import NoteChainService
+
+logger = logging.getLogger(__name__)
 
 
 class NoteFeedSort(str, Enum):
@@ -46,7 +49,8 @@ async def get_notes_feed(
             session, pagination, sort.value
         )
     except Exception as e:
+        logger.exception("Failed to get notes feed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail="Failed to get notes feed",
         ) from e

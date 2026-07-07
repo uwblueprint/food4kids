@@ -213,14 +213,7 @@ class NoteChainService:
             result, total = await paginate_query(session, statement, pagination)
             items = [
                 NoteFeedItem(
-                    note_id=note.note_id,
-                    note_chain_id=note.note_chain_id,
-                    user_id=note.user_id,
-                    message=note.message,
-                    is_system=note.is_system,
-                    attachments=note.attachments,
-                    created_at=note.created_at,
-                    updated_at=note.updated_at,
+                    **note.model_dump(),
                     location_id=location_id,
                     location_name=location_name,
                     location_address=location_address,
