@@ -2431,6 +2431,156 @@ class TestNoteChainRoutes:
         assert get_response.status_code == 404
 
 
+class TestNoteFeedRoutes:
+    """Test suite for cross-location note feed routes."""
+
+    @staticmethod
+    async def _seed_location_note(
+        session: AsyncSession,
+        *,
+        location_name: str,
+        message: str,
+        user: Any,
+        created_at: datetime,
+    ) -> None:
+        from app.models.note import Note
+        from app.models.note_chain import NoteChain
+
+        group = LocationGroup(name=f"{location_name} Group", color="#000000", notes="")
+        chain = NoteChain(read_permission="All", write_permission="All")
+        session.add_all([group, chain])
+        await session.flush()
+
+        location = Location(
+            location_group_id=group.location_group_id,
+            name=location_name,
+            contact_name=location_name,
+            address=f"{location_name} Address",
+            phone_primary="555-1234",
+            delivery_type=DeliveryTypeEnum.FAMILY,
+            note_chain_id=chain.note_chain_id,
+        )
+        note = Note(
+            note_chain_id=chain.note_chain_id,
+            user_id=user.user_id,
+            message=message,
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        session.add_all([location, note])
+        await session.commit()
+
+    @pytest.mark.asyncio
+    async def test_get_notes_feed_recent_limit(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        await self._seed_location_note(
+            test_session,
+            location_name="Beta Family",
+            message="Older note",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, 9, 0),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Alpha Family",
+            message="Newer note",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, 9, 0),
+        )
+
+        response = await async_client.get("/notes?limit=1&sort=recent")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 2
+        assert body["page"] == 1
+        assert body["page_size"] == 1
+        assert [item["message"] for item in body["items"]] == ["Newer note"]
+        assert body["items"][0]["location_name"] == "Alpha Family"
+        assert body["items"][0]["author_name"] == "Admin User"
+
+    @pytest.mark.asyncio
+    async def test_get_notes_feed_supports_sorting_and_pagination(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        from app.models.user import User
+
+        driver_user = User(
+            first_name="Zara",
+            last_name="Driver",
+            email="zara.driver@example.com",
+            auth_id=None,
+            role="driver",
+        )
+        test_session.add(driver_user)
+        await test_session.commit()
+        await test_session.refresh(driver_user)
+
+        await self._seed_location_note(
+            test_session,
+            location_name="Charlie Location",
+            message="Admin middle",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, 9, 0),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Alpha Location",
+            message="Driver newest",
+            user=driver_user,
+            created_at=datetime(2026, 1, 3, 9, 0),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Bravo Location",
+            message="Admin oldest",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, 9, 0),
+        )
+
+        oldest_response = await async_client.get("/notes?sort=oldest")
+        location_response = await async_client.get("/notes?sort=location")
+        driver_response = await async_client.get("/notes?sort=driver")
+        page_response = await async_client.get("/notes?page=2&page_size=1&sort=recent")
+
+        assert oldest_response.status_code == 200
+        assert [item["message"] for item in oldest_response.json()["items"]] == [
+            "Admin oldest",
+            "Admin middle",
+            "Driver newest",
+        ]
+
+        assert location_response.status_code == 200
+        assert [
+            item["location_name"] for item in location_response.json()["items"]
+        ] == [
+            "Alpha Location",
+            "Bravo Location",
+            "Charlie Location",
+        ]
+
+        assert driver_response.status_code == 200
+        assert [item["author_name"] for item in driver_response.json()["items"]] == [
+            "Zara Driver",
+            "Admin User",
+            "Admin User",
+        ]
+
+        assert page_response.status_code == 200
+        page_body = page_response.json()
+        assert page_body["total"] == 3
+        assert page_body["page"] == 2
+        assert page_body["page_size"] == 1
+        assert page_body["items"][0]["message"] == "Admin middle"
+
+
 class TestValidationErrors:
     """Test suite for validation error handling across routes."""
 

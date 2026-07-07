@@ -1266,6 +1266,75 @@ export type NoteCreate = {
 };
 
 /**
+ * NoteFeedItem
+ *
+ * A location note with enough context for cross-location feeds.
+ */
+export type NoteFeedItem = {
+  /**
+   * Attachments
+   */
+  attachments?: Array<Attachment>;
+  /**
+   * Author Name
+   */
+  author_name?: string | null;
+  /**
+   * Author Role
+   */
+  author_role?: string | null;
+  /**
+   * Created At
+   */
+  created_at?: string | null;
+  /**
+   * Is System
+   */
+  is_system?: boolean;
+  /**
+   * Location Address
+   */
+  location_address: string;
+  /**
+   * Location Group Name
+   */
+  location_group_name: string;
+  /**
+   * Location Id
+   */
+  location_id: string;
+  /**
+   * Location Name
+   */
+  location_name: string;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id: string;
+  /**
+   * Note Id
+   */
+  note_id: string;
+  /**
+   * Updated At
+   */
+  updated_at?: string | null;
+  /**
+   * User Id
+   */
+  user_id?: string | null;
+};
+
+/**
+ * NoteFeedSort
+ */
+export type NoteFeedSort = 'recent' | 'oldest' | 'driver' | 'location';
+
+/**
  * NoteListResponse
  *
  * Response for GET notes - includes unread count
@@ -1348,6 +1417,32 @@ export type PaginatedResponseLocationRead = {
    * Items
    */
   items: Array<LocationReadOutput>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
+};
+
+/**
+ * PaginatedResponse[NoteFeedItem]
+ */
+export type PaginatedResponseNoteFeedItem = {
+  /**
+   * Items
+   */
+  items: Array<NoteFeedItem>;
   /**
    * Page
    */
@@ -3697,6 +3792,51 @@ export type UpdateNoteResponses = {
 };
 
 export type UpdateNoteResponse = UpdateNoteResponses[keyof UpdateNoteResponses];
+
+export type GetNotesFeedData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Sort by recent, oldest, driver, or location
+     */
+    sort?: NoteFeedSort;
+    /**
+     * Page
+     */
+    page?: number;
+    /**
+     * Page Size
+     */
+    page_size?: number;
+    /**
+     * Limit
+     *
+     * Optional alias for page_size; useful for recent widget requests
+     */
+    limit?: number | null;
+  };
+  url: '/notes';
+};
+
+export type GetNotesFeedErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetNotesFeedError = GetNotesFeedErrors[keyof GetNotesFeedErrors];
+
+export type GetNotesFeedResponses = {
+  /**
+   * Successful Response
+   */
+  200: PaginatedResponseNoteFeedItem;
+};
+
+export type GetNotesFeedResponse =
+  GetNotesFeedResponses[keyof GetNotesFeedResponses];
 
 export type GetTotalDeliveriesBetweenData = {
   body?: never;
