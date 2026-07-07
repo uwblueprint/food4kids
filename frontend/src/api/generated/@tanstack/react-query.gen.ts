@@ -81,6 +81,7 @@ import {
   updateLocation,
   updateLocationGroup,
   updateNote,
+  updatePassword,
   updateRoute,
   updateRouteGroup,
   uploadImage,
@@ -241,6 +242,7 @@ import type {
   PatchSystemSettingsResponse,
   RefreshData,
 <<<<<<< HEAD
+<<<<<<< HEAD
   RefreshResponse,
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
@@ -251,6 +253,9 @@ import type {
 =======
   RefreshResponse2,
 >>>>>>> 6d484a1 (regen openapi spec)
+=======
+  RefreshResponse,
+>>>>>>> 1ec7807 (fix post rebase errors)
   ReviewLocationsData,
   ReviewLocationsError,
   ReviewLocationsResponse,
@@ -280,6 +285,9 @@ import type {
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
+  UpdatePasswordData,
+  UpdatePasswordError,
+  UpdatePasswordResponse,
   UpdateRouteData,
   UpdateRouteError,
   UpdateRouteGroupData,
@@ -660,6 +668,35 @@ export const refreshMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await refresh({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update Password
+ *
+ * Update an existing user's password if provided a valid password reset token
+ */
+export const updatePasswordMutation = (
+  options?: Partial<Options<UpdatePasswordData>>
+): UseMutationOptions<
+  UpdatePasswordResponse,
+  AxiosError<UpdatePasswordError>,
+  Options<UpdatePasswordData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    UpdatePasswordResponse,
+    AxiosError<UpdatePasswordError>,
+    Options<UpdatePasswordData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updatePassword({
         ...options,
         ...fnOptions,
         throwOnError: true,

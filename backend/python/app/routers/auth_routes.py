@@ -16,8 +16,10 @@ from app.dependencies.services import (
 )
 from app.models import get_session
 from app.models.password_reset_token import PASSWORD_RESET_TOKEN_EXPIRY_DAYS
-from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse, ForgotPasswordRequest, UpdatePasswordRequest
+from app.schemas.auth import AuthResponse, LoginRequest, ForgotPasswordRequest, UpdatePasswordRequest
 from app.services.implementations.auth_service import AuthService
+from app.services.implementations.user_service import UserService
+from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.password_reset_token_service import PasswordResetTokenService
 from app.utilities.cookies import set_refresh_token_cookie
 

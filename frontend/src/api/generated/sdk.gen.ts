@@ -202,6 +202,9 @@ import type {
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
+  UpdatePasswordData,
+  UpdatePasswordErrors,
+  UpdatePasswordResponses,
   UpdateRouteData,
   UpdateRouteErrors,
   UpdateRouteGroupData,
@@ -452,6 +455,27 @@ export const refresh = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     url: '/auth/refresh',
     ...options,
+  });
+
+/**
+ * Update Password
+ *
+ * Update an existing user's password if provided a valid password reset token
+ */
+export const updatePassword = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePasswordData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    UpdatePasswordResponses,
+    UpdatePasswordErrors,
+    ThrowOnError
+  >({
+    url: '/auth/update-password',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

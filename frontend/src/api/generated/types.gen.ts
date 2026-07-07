@@ -2114,6 +2114,20 @@ export type SystemSettingsUpdate = {
 };
 
 /**
+ * UpdatePasswordRequest
+ */
+export type UpdatePasswordRequest = {
+  /**
+   * New Password
+   */
+  new_password: string;
+  /**
+   * Password Reset Token
+   */
+  password_reset_token: string;
+};
+
+/**
  * UserFinalize
  */
 export type UserFinalize = {
@@ -2748,6 +2762,33 @@ export type RefreshResponses = {
 };
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
+
+export type UpdatePasswordData = {
+  body: UpdatePasswordRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/update-password';
+};
+
+export type UpdatePasswordErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdatePasswordError =
+  UpdatePasswordErrors[keyof UpdatePasswordErrors];
+
+export type UpdatePasswordResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type UpdatePasswordResponse =
+  UpdatePasswordResponses[keyof UpdatePasswordResponses];
 
 export type GetDriversData = {
   body?: never;
