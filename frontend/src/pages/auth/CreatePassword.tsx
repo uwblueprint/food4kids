@@ -1,11 +1,30 @@
 import axios from 'axios';
 import { type FormEvent, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { WrapperWithLogo } from './Wrapper';
+import { Button, Field, FieldLabel, Input } from '@/common/components';
+import { AlertTriangleIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import EyeIcon from '@/assets/icons/eye.svg?react';
+import { EyeOffIcon } from 'lucide-react';
 
 export const CreatePassword = () => {
+  return (
+    <WrapperWithLogo headerTitle="Create a password" subheaderTitle="Create an account to access the app">
+      <CreatePasswordForm/>
+    </WrapperWithLogo>
+  );
+}
+
+const CreatePasswordForm = () => {
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { token } = useParams();
+  const [createPasswordError, setCreatePasswordError] = useState(false);
+
 
   const submitPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,38 +54,108 @@ export const CreatePassword = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-8 text-center shadow-sm">
-        <h1 className="mb-6 text-2xl font-bold text-gray-800">
-          Create Password
-        </h1>
+    <>
+      <div>
+        {/* Form */}
+        <form className="flex flex-col gap-6">
+          {/* Password Field */}
+          <Field>
+            <FieldLabel htmlFor="email">Enter new password</FieldLabel>
+            <Input
+              id="email"
+              className={cn(
+                'px-6',
+                createPasswordError && 'outline-red focus:outline-red'
+              )}
+              type="email"
+              autoComplete="email"
+              placeholder="Enter your email"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setCreatePasswordError(false);
+              }}
+              required
+            />
+            {createPasswordError && (
+              <div className="text-red text-p2 flex items-center gap-1.5">
+                <AlertTriangleIcon className="h-4 w-4 shrink-0" />
+                <span>Incorrect email or password</span>
+              </div>
+            )}
+          </Field>
 
-        <form onSubmit={submitPassword} className="flex flex-col gap-4">
-          <input
-            type="password"
-            placeholder="Enter test password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-lg border border-gray-200 p-3 transition-all outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
+          <div className="flex flex-col gap-4">
+            {/* Confirm Password Field */}
+            <Field>
+              <FieldLabel htmlFor="password">Confirm password</FieldLabel>
+              <div className="relative w-full">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  className={cn(
+                    'px-6',
+                    createPasswordError && 'outline-red focus:outline-red'
+                  )}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setCreatePasswordError(false);
+                  }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
+                  aria-label={
+                    showPassword ? 'Hide password' : 'Show password'
+                  }
+                >
+                  {showPassword ? (
+                    <EyeOffIcon className="h-6 w-6" />
+                  ) : (
+                    <EyeIcon className="h-6 w-6" />
+                  )}
+                </button>
+              </div>
+              {createPasswordError && (
+                <div className="text-red text-p2 flex items-center gap-1.5">
+                  <AlertTriangleIcon className="h-4 w-4 shrink-0" />
+                  <span>Incorrect email or password</span>
+                </div>
+              )}
+            </Field>
+          </div>
 
-          <button
+          {/* Log In Button */}
+          <Button
             type="submit"
-            className="rounded-lg bg-blue-600 py-3 font-bold text-white transition-colors hover:bg-blue-700"
+            variant="primary"
+            shape="default"
+            className="mt-6 w-full py-3"
           >
-            Test Backend
-          </button>
+            Log in
+          </Button>
         </form>
 
-        {feedback && (
-          <p
-            className={`mt-4 text-sm font-medium ${feedback.includes('Error') ? 'text-red-500' : 'text-green-600'}`}
+        {/* Footer */}
+        <p className="desktop:mt-5 text-m-p2 tablet:font-medium tablet:mb-0 mt-6 mb-8 text-center">
+          Don't have an account?{' '}
+          <a
+            href="/get-login-link"
+            className="text-blue-300 hover:underline"
+            onClick={(e) => {
+              e.preventDefault();
+              // TODO: Implement get login link action
+            }}
           >
-            {feedback}
-          </p>
-        )}
+            Get your login link
+          </a>
+        </p>
       </div>
-    </div>
-  );
+    </>
+  )
 };

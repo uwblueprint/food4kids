@@ -7,6 +7,7 @@ import { useAuthStore } from '@/api/authStore';
 const PUBLIC_ROUTES = [
   '/login',
   '/create-password',
+  '/forgot-password',
   '/404',
   '/403',
   '/503',
