@@ -65,6 +65,7 @@ _FIREBASE_401_CODES = {
     "INVALID_GRANT",
     "USER_DISABLED",
     "USER_NOT_FOUND",
+    "DB_USER_MISSING", # Not a Firebase code
 }
 
 
