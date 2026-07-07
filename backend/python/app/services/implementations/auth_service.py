@@ -107,7 +107,9 @@ class AuthService:
             user = await self.user_service.get_user_by_auth_id(session, auth_id)
 
             if user is None:
-                raise ValueError("DB_USER_MISSINGG: User associated with this token does not exist.")
+                raise ValueError(
+                    "DB_USER_MISSINGG: User associated with this token does not exist."
+                )
 
             auth_response = AuthResponse(
                 access_token=new_access_token,
