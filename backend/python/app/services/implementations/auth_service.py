@@ -97,7 +97,29 @@ class AuthService:
     ) -> tuple[AuthResponse, str]:
         try:
             token_response = self.firebase_rest_client.refresh_token(refresh_token)
-            return token_response
+            new_access_token = token_response.access_token
+            payload = jwt.decode(
+                new_access_token,
+                options={"verify_signature": False},
+                algorithms=["RS256"],
+            )
+            auth_id = payload.get("sub", "")
+            user = await self.user_service.get_user_by_auth_id(session, auth_id)
+
+            if user is None:
+                raise ValueError(
+                    "DB_USER_MISSINGG: User associated with this token does not exist."
+                )
+
+            auth_response = AuthResponse(
+                access_token=new_access_token,
+                id=user.user_id,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                email=user.email,
+                role=user.role,
+            )
+            return auth_response, token_response.refresh_token
         except Exception as e:
             self.logger.error(f"Failed to refresh token: {e}")
             raise e
