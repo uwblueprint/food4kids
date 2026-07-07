@@ -216,7 +216,7 @@ import type {
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
   RefreshData,
-  RefreshResponse2,
+  RefreshResponse,
   ResetPasswordData,
   ResetPasswordError,
   ResetPasswordResponse,
@@ -535,12 +535,12 @@ export const logoutMutation = (
 export const refreshMutation = (
   options?: Partial<Options<RefreshData>>
 ): UseMutationOptions<
-  RefreshResponse2,
+  RefreshResponse,
   AxiosError<DefaultError>,
   Options<RefreshData>
 > => {
   const mutationOptions: UseMutationOptions<
-    RefreshResponse2,
+    RefreshResponse,
     AxiosError<DefaultError>,
     Options<RefreshData>
   > = {

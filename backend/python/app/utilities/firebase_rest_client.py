@@ -91,15 +91,16 @@ class FirebaseRestClient:
         response_json = response.json()
 
         if response.status_code != 200:
+            firebase_code = response_json["error"]["message"]
             error_message = [
                 "Failed to refresh token via Firebase REST API, status code =",
                 str(response.status_code),
                 "error message =",
-                response_json["error"]["message"],
+                firebase_code,
             ]
             self.logger.error(" ".join(error_message))
 
-            raise Exception("Failed to refresh token via Firebase REST API")
+            raise Exception(firebase_code)
 
         return TokenResponse(
             access_token=response_json["id_token"],
