@@ -1,7 +1,6 @@
 import logging
 import traceback
 from datetime import datetime, timezone
-from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -33,7 +32,7 @@ from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
-from app.utilities.cookies import get_cookie_options
+from app.utilities.cookies import set_refresh_token_cookie
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -222,16 +221,7 @@ async def complete_driver_registration(
         )
 
         # Set refresh token as httpOnly cookie
-        cookie_options = get_cookie_options()
-        response.set_cookie(
-            "refreshToken",
-            value=refresh_token,
-            httponly=bool(cookie_options["httponly"]),
-            samesite=cast(
-                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
-            ),
-            secure=bool(cookie_options["secure"]),
-        )
+        set_refresh_token_cookie(response, refresh_token)
 
         return DriverRegisterResponse(
             driver=DriverRead.model_validate(user.driver), auth=auth_dto

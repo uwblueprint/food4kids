@@ -3,10 +3,11 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import firebase_admin.auth
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.schemas.auth import AuthResponse, TokenResponse
+from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
 if TYPE_CHECKING:
@@ -68,6 +69,7 @@ class AuthService:
                 first_name=user.first_name,
                 last_name=user.last_name,
                 email=user.email,
+                role=user.role,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -90,12 +92,36 @@ class AuthService:
             self.logger.error(" ".join(error_message))
             raise e
 
-    def renew_token(self, refresh_token: str) -> TokenResponse:
+    async def renew_token(
+        self, session: AsyncSession, refresh_token: str
+    ) -> tuple[AuthResponse, str]:
         try:
             token_response = self.firebase_rest_client.refresh_token(refresh_token)
-            return token_response
+            new_access_token = token_response.access_token
+            payload = jwt.decode(
+                new_access_token,
+                options={"verify_signature": False},
+                algorithms=["RS256"],
+            )
+            auth_id = payload.get("sub", "")
+            user = await self.user_service.get_user_by_auth_id(session, auth_id)
+
+            if user is None:
+                raise ValueError(
+                    "DB_USER_MISSINGG: User associated with this token does not exist."
+                )
+
+            auth_response = AuthResponse(
+                access_token=new_access_token,
+                id=user.user_id,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                email=user.email,
+                role=user.role,
+            )
+            return auth_response, token_response.refresh_token
         except Exception as e:
-            self.logger.error("Failed to refresh token")
+            self.logger.error(f"Failed to refresh token: {e}")
             raise e
 
     def reset_password(self, email: str) -> None:
@@ -157,7 +183,7 @@ class AuthService:
     ) -> bool:
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True
+                access_token, check_revoked=True, clock_skew_seconds=5
             )
             user_role = decoded_id_token.get("role")
             if not user_role:
