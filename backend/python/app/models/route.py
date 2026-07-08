@@ -58,11 +58,15 @@ class RouteBase(SQLModel):
         ondelete="SET NULL",
         index=True,
     )
+    # One-to-one: a note chain belongs to at most one route, enforced by a
+    # DB-level unique constraint (NULLs are distinct in Postgres, so routes
+    # without a chain are unconstrained).
     note_chain_id: UUID | None = Field(
         default=None,
         foreign_key="note_chains.note_chain_id",
         nullable=True,
         ondelete="SET NULL",
+        unique=True,
     )
 
 
