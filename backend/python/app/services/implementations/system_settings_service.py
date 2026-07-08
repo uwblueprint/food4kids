@@ -17,6 +17,28 @@ class SystemSettingsService:
         result = await session.execute(select(SystemSettings))
         return result.scalars().first()
 
+    async def ensure_settings(self, session: AsyncSession) -> SystemSettings:
+        """Guarantee the singleton settings row exists, creating it with model
+        defaults if absent, and return it.
+
+        Called once at startup so the rest of the app can treat "the settings
+        row exists" as an invariant: config that lives on the row (e.g.
+        ``delivery_types``) has a single source of truth and readers don't need
+        a None-fallback. Idempotent — an existing row is left untouched.
+
+        The server runs as a single process (see ``server.py``) with migrations
+        applied before boot, so there's no insert race to guard against. Does
+        not commit — the caller owns the surrounding transaction.
+        """
+        settings = await self.get_settings(session)
+        if settings is not None:
+            return settings
+
+        settings = SystemSettings()
+        session.add(settings)
+        await session.flush()
+        return settings
+
     async def update_settings(
         self, session: AsyncSession, settings_data: SystemSettingsUpdate
     ) -> SystemSettings:
