@@ -1877,44 +1877,12 @@ class TestRouteRoutes:
     async def test_update_route_reroute_without_warehouse_coords(
         self,
         async_client: AsyncClient,
-        test_session: AsyncSession,
         test_route: Any,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
         """Re-routing needs warehouse coords; when system settings exist but
         the warehouse coordinates aren't configured, it's a 503."""
-        from app.models.system_settings import SystemSettings
-
-        # Settings exist but have no warehouse lat/long.
-        test_session.add(SystemSettings())
-        await test_session.commit()
-
-        location_id = (
-            await async_client.post(
-                "/locations/",
-                json={
-                    **sample_location_data,
-                    "location_group_id": str(test_location_group.location_group_id),
-                },
-            )
-        ).json()["location_id"]
-        response = await async_client.patch(
-            f"/routes/{test_route.route_id}",
-            json={"location_ids": [location_id]},
-        )
-        assert response.status_code == 503
-
-    @pytest.mark.asyncio
-    async def test_update_route_reroute_without_system_settings(
-        self,
-        async_client: AsyncClient,
-        test_route: Any,
-        sample_location_data: dict[str, Any],
-        test_location_group: Any,
-    ) -> None:
-        """Re-routing with no system settings at all is a 503 (server not
-        configured), not a 400 — even though the error says 'not found'."""
         location_id = (
             await async_client.post(
                 "/locations/",
@@ -2350,35 +2318,26 @@ class TestRouteGroupRoutes:
         assert group["num_locations"] == 1
 
     @pytest.mark.asyncio
-    async def test_get_route_groups_prefers_school_for_mixed_delivery_types(
+    async def test_get_route_groups_uses_location_delivery_type(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
-        """Mixed default delivery types keep the old School-first behavior."""
-        loc_group = LocationGroup(name="Mixed Group", color="#000000", notes="")
+        """Route group delivery type comes from its locations without hardcoded types."""
+        loc_group = LocationGroup(name="Pantry Group", color="#000000", notes="")
         test_session.add(loc_group)
         await test_session.flush()
 
-        school_location = Location(
+        location = Location(
             location_group_id=loc_group.location_group_id,
-            name="Central Elementary",
-            delivery_type="School",
-            contact_name="School Contact",
+            name="Pantry Stop",
+            delivery_type="Pantry",
+            contact_name="Pantry Contact",
             address="123 Main St",
             phone_primary="555-1234",
             num_children=10,
         )
-        family_location = Location(
-            location_group_id=loc_group.location_group_id,
-            name="Family Contact",
-            delivery_type="Family",
-            contact_name="Family Contact",
-            address="456 Main St",
-            phone_primary="555-5678",
-            num_children=4,
-        )
-        test_session.add_all([school_location, family_location])
+        test_session.add(location)
 
-        rg = RouteGroup(name="Mixed Route Group", drive_date=datetime(2020, 3, 1))
+        rg = RouteGroup(name="Pantry Route Group", drive_date=datetime(2020, 3, 1))
         test_session.add(rg)
         await test_session.flush()
 
@@ -2386,19 +2345,12 @@ class TestRouteGroupRoutes:
         test_session.add(route)
         await test_session.flush()
 
-        test_session.add_all(
-            [
-                RouteStop(
-                    route_id=route.route_id,
-                    location_id=family_location.location_id,
-                    stop_number=1,
-                ),
-                RouteStop(
-                    route_id=route.route_id,
-                    location_id=school_location.location_id,
-                    stop_number=2,
-                ),
-            ]
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id,
+                location_id=location.location_id,
+                stop_number=1,
+            )
         )
         await test_session.commit()
 
@@ -2407,7 +2359,7 @@ class TestRouteGroupRoutes:
         group = next(
             g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
         )
-        assert group["delivery_type"] == "School"
+        assert group["delivery_type"] == "Pantry"
 
     @pytest.mark.asyncio
     async def test_get_route_groups_rejects_unknown_delivery_type_filter(

@@ -40,7 +40,6 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
-from app.models.system_settings import DEFAULT_DELIVERY_TYPES
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.google_maps_client import GoogleMapsClient
 from app.utilities.pagination import paginate_query
@@ -241,10 +240,9 @@ class LocationService:
             raise e
 
     async def get_delivery_types(self, session: AsyncSession) -> list[str]:
-        """Return configured delivery types, falling back to current defaults."""
+        """Return configured delivery types."""
         settings = await self.system_settings_service.get_settings(session)
-        if settings is None:
-            return DEFAULT_DELIVERY_TYPES.copy()
+        assert settings is not None, "System settings row is required"
         return settings.delivery_types
 
     async def validate_delivery_type(
