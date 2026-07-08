@@ -2440,7 +2440,7 @@ class TestNoteFeedRoutes:
         *,
         location_name: str,
         message: str,
-        user: Any,
+        user: Any = None,
         created_at: datetime,
     ) -> None:
         from app.models.note import Note
@@ -2462,8 +2462,9 @@ class TestNoteFeedRoutes:
         )
         note = Note(
             note_chain_id=chain.note_chain_id,
-            user_id=user.user_id,
+            user_id=user.user_id if user is not None else None,
             message=message,
+            is_system=user is None,
             created_at=created_at,
             updated_at=created_at,
         )
@@ -2510,6 +2511,33 @@ class TestNoteFeedRoutes:
         response = await async_client.get("/notes?sort=not-a-sort")
 
         assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_notes_feed_authorless_note_has_null_author_name(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        # System notes have no author (user_id is None). The feed's outer join
+        # to User must surface author_name as null, not " " (Postgres concat
+        # coerces NULL args to empty strings, so it must be guarded explicitly).
+        await self._seed_location_note(
+            test_session,
+            location_name="System Family",
+            message="Automated note",
+            user=None,
+            created_at=datetime(2026, 1, 1, 9, 0),
+        )
+
+        response = await async_client.get("/notes?sort=recent")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        item = body["items"][0]
+        assert item["message"] == "Automated note"
+        assert item["author_name"] is None
+        assert item["author_role"] is None
 
     @pytest.mark.asyncio
     async def test_get_notes_feed_supports_sorting_and_pagination(

@@ -4,7 +4,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import col, func, select, update
+from sqlmodel import case, col, func, select, update
 
 from app.models.enum import NotePermission
 from app.models.location import Location
@@ -175,7 +175,13 @@ class NoteChainService:
     ) -> PaginatedResponse[NoteFeedItem]:
         """Get location notes across all location note chains."""
         try:
-            author_name_expr = func.concat(User.first_name, " ", User.last_name)
+            # Postgres concat() treats NULL args as empty strings, so an
+            # authorless (system) note would yield " " rather than NULL. Guard
+            # with a CASE so author_name is None when there is no author.
+            author_name_expr = case(
+                (col(User.user_id).is_(None), None),
+                else_=func.concat(User.first_name, " ", User.last_name),
+            )
             statement = (
                 select(  # type: ignore[call-overload]
                     Note,
