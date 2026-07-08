@@ -6195,26 +6195,6 @@
               "title": "Page Size",
               "type": "integer"
             }
-          },
-          {
-            "description": "Optional alias for page_size; useful for recent widget requests",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 200,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Optional alias for page_size; useful for recent widget requests",
-              "title": "Limit"
-            }
           }
         ],
         "responses": {

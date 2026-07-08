@@ -3809,12 +3809,6 @@ export type GetNotesFeedData = {
      * Page Size
      */
     page_size?: number;
-    /**
-     * Limit
-     *
-     * Optional alias for page_size; useful for recent widget requests
-     */
-    limit?: number | null;
   };
   url: '/notes';
 };

@@ -32,19 +32,13 @@ async def get_notes_feed(
     ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    limit: int | None = Query(
-        default=None,
-        ge=1,
-        le=200,
-        description="Optional alias for page_size; useful for recent widget requests",
-    ),
     session: AsyncSession = Depends(get_session),
     note_chain_service: NoteChainService = Depends(get_note_chain_service),
     _auth: bool = Depends(require_admin),
 ) -> PaginatedResponse[NoteFeedItem]:
     """Get location notes across all location note chains."""
     try:
-        pagination = PaginationParams(page=page, page_size=limit or page_size)
+        pagination = PaginationParams(page=page, page_size=page_size)
         return await note_chain_service.get_location_notes_feed(
             session, pagination, sort.value
         )

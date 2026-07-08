@@ -2472,7 +2472,7 @@ class TestNoteFeedRoutes:
         await session.commit()
 
     @pytest.mark.asyncio
-    async def test_get_notes_feed_recent_limit(
+    async def test_get_notes_feed_recent_page_size(
         self,
         async_client: AsyncClient,
         test_session: AsyncSession,
@@ -2493,7 +2493,7 @@ class TestNoteFeedRoutes:
             created_at=datetime(2026, 1, 2, 9, 0),
         )
 
-        response = await async_client.get("/notes?limit=1&sort=recent")
+        response = await async_client.get("/notes?page_size=1&sort=recent")
 
         assert response.status_code == 200
         body = response.json()
