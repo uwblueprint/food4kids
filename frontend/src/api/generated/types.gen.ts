@@ -142,6 +142,10 @@ export type AuthResponse = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Role
+   */
+  role: string;
 };
 
 /**
@@ -1398,18 +1402,6 @@ export type PaginatedResponseRouteWithDateRead = {
 export type ProgressEnum = 'Pending' | 'Running' | 'Completed' | 'Failed';
 
 /**
- * RefreshResponse
- *
- * Refresh token response - only access token, refresh token is set as httpOnly cookie
- */
-export type RefreshResponse = {
-  /**
-   * Access Token
-   */
-  access_token: string;
-};
-
-/**
  * Route
  *
  * Database table model for Routes
@@ -2095,6 +2087,10 @@ export type AuthResponseWritable = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Role
+   */
+  role: string;
 };
 
 /**
@@ -2536,10 +2532,10 @@ export type RefreshResponses = {
   /**
    * Successful Response
    */
-  200: RefreshResponse;
+  200: AuthResponse;
 };
 
-export type RefreshResponse2 = RefreshResponses[keyof RefreshResponses];
+export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
 
 export type ResetPasswordData = {
   body?: never;
