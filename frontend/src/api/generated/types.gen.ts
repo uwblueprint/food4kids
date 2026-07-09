@@ -423,6 +423,10 @@ export type DriverRead = {
    */
   license_plate: string;
   /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
    * Notes
    */
   notes?: string;
@@ -2232,6 +2236,10 @@ export type DriverReadWritable = {
    * License Plate
    */
   license_plate: string;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
   /**
    * Notes
    */

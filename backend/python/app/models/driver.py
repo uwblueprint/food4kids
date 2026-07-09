@@ -1,4 +1,4 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, computed_field, field_validator, model_validator
@@ -9,6 +9,9 @@ from app.models.user import User
 from app.utilities.utils import validate_phone
 
 from .base import BaseModel
+
+if TYPE_CHECKING:
+    from .note_chain import NoteChain
 
 
 class DriverBase(SQLModel):
@@ -24,6 +27,17 @@ class DriverBase(SQLModel):
     active: bool = Field(default=True)
     notes: str = Field(default="", max_length=1024)
     address: str = Field(min_length=1, max_length=255)
+    # One-to-one link to a threaded note chain, enforced unique at the DB level.
+    # Created admin-only (read AND write) so drivers can't see or edit notes
+    # written about them — see DriverService.create_driver. Set by the service,
+    # not the client. (Distinct from the flat `notes` string above.)
+    note_chain_id: UUID | None = Field(
+        default=None,
+        foreign_key="note_chains.note_chain_id",
+        nullable=True,
+        ondelete="SET NULL",
+        unique=True,
+    )
 
     @field_validator("phone")
     @classmethod
@@ -47,6 +61,7 @@ class Driver(DriverBase, BaseModel, table=True):
         foreign_key="users.user_id", unique=True, nullable=False, ondelete="CASCADE"
     )
     user: User = Relationship()
+    note_chain: "NoteChain" = Relationship()
 
 
 class DriverCreate(DriverBase):
@@ -91,6 +106,7 @@ class DriverRead(DriverBase):
                 "active": data.active,
                 "notes": data.notes,
                 "address": data.address,
+                "note_chain_id": data.note_chain_id,
                 "auth_id": user.auth_id,
                 "first_name": user.first_name,
                 "last_name": user.last_name,

@@ -651,6 +651,18 @@
             "title": "License Plate",
             "type": "string"
           },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
           "notes": {
             "default": "",
             "maxLength": 1024,

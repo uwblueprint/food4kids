@@ -7,6 +7,8 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.driver import Driver, DriverCreate, DriverUpdate
+from app.models.enum import NotePermission
+from app.models.note_chain import NoteChain
 from app.models.user import User
 
 
@@ -101,6 +103,15 @@ class DriverService:
         driver_data: DriverCreate,
     ) -> Driver:
         """Create new driver with Firebase integration"""
+        # Auto-create an admin-only note chain so admins can leave notes about
+        # the driver that the driver themselves cannot read or write.
+        note_chain = NoteChain(
+            read_permission=NotePermission.ADMIN,
+            write_permission=NotePermission.ADMIN,
+        )
+        session.add(note_chain)
+        await session.flush()
+
         driver = Driver(
             user_id=driver_data.user_id,
             address=driver_data.address,
@@ -111,6 +122,7 @@ class DriverService:
             car_make_model=driver_data.car_make_model,
             active=driver_data.active,
             notes=driver_data.notes,
+            note_chain_id=note_chain.note_chain_id,
         )
 
         session.add(driver)

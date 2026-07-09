@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import case, col, func, select, update
 
+from app.models.driver import Driver
 from app.models.enum import NotePermission
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -106,7 +107,7 @@ class NoteChainService:
 
             note_chain = await self.get_note_chain_by_id(session, note_chain_id)
 
-            # Null out FK references on locations and routes
+            # Null out FK references on locations, routes, and drivers
             await session.execute(
                 update(Location)
                 .where(col(Location.note_chain_id) == note_chain_id)
@@ -115,6 +116,11 @@ class NoteChainService:
             await session.execute(
                 update(Route)
                 .where(col(Route.note_chain_id) == note_chain_id)
+                .values(note_chain_id=None)
+            )
+            await session.execute(
+                update(Driver)
+                .where(col(Driver.note_chain_id) == note_chain_id)
                 .values(note_chain_id=None)
             )
 
