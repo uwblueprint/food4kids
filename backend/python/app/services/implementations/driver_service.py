@@ -121,7 +121,6 @@ class DriverService:
             license_plate=driver_data.license_plate,
             car_make_model=driver_data.car_make_model,
             active=driver_data.active,
-            notes=driver_data.notes,
             note_chain_id=note_chain.note_chain_id,
         )
 

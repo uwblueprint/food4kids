@@ -9,7 +9,8 @@ A note chain belongs to at most one owner (one-to-one). The owning tables are
 
  - Add a `note_chain_id` FK to `drivers` (like locations/routes), and backfill
    an admin-only note chain for every existing driver so admins can leave notes
-   about a driver that the driver themselves cannot read or write.
+   about a driver that the driver themselves cannot read or write. The old flat
+   `drivers.notes` string is dropped — the note chain replaces it.
  - Enforce the one-to-one invariant with a unique constraint on the
    `note_chain_id` column of all three tables.
 
@@ -74,8 +75,21 @@ def upgrade() -> None:
     )
     op.create_unique_constraint("uq_routes_note_chain_id", "routes", ["note_chain_id"])
 
+    # Drivers no longer carry a flat notes string; the admin-only note chain
+    # replaces it.
+    op.drop_column("drivers", "notes")
+
 
 def downgrade() -> None:
+    # Re-add the flat notes column. A temporary server_default satisfies NOT
+    # NULL for existing rows; drop it afterward to match the original schema
+    # (which had no default). The old contents are not recoverable.
+    op.add_column(
+        "drivers",
+        sa.Column("notes", sa.String(length=1024), nullable=False, server_default=""),
+    )
+    op.alter_column("drivers", "notes", server_default=None)
+
     op.drop_constraint("uq_routes_note_chain_id", "routes", type_="unique")
     op.drop_constraint("uq_locations_note_chain_id", "locations", type_="unique")
     op.drop_constraint("uq_drivers_note_chain_id", "drivers", type_="unique")

@@ -66,8 +66,6 @@ PROBABILITY_DIETARY_RESTRICTIONS = 0.3
 PROBABILITY_NUM_CHILDREN = 0.8
 # Probability that a location will have notes
 PROBABILITY_LOCATION_NOTES = 0.4
-# Probability that a driver will have notes
-PROBABILITY_DRIVER_NOTES = 0.3
 # Probability to skip creating driver history for the current year
 PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 # Probability that a location note chain will have notes
@@ -776,6 +774,17 @@ def main() -> None:
                     True if i < num_drivers // 2 else random.choice([True, False])
                 )
 
+                # Every driver owns an admin-only note chain (read AND write =
+                # Admin) so admins can leave notes the driver can't see — mirrors
+                # DriverService.create_driver.
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ADMIN,
+                    write_permission=NotePermission.ADMIN,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
                 driver = Driver(
                     user_id=user.user_id,
                     phone=generate_valid_phone(),
@@ -787,9 +796,7 @@ def main() -> None:
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),
                     active=is_active,
-                    notes=fake.sentence()
-                    if random.random() < PROBABILITY_DRIVER_NOTES
-                    else "",
+                    note_chain_id=note_chain.note_chain_id,
                 )
                 set_timestamps(driver)
                 session.add(driver)

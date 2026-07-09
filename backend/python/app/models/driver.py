@@ -25,12 +25,11 @@ class DriverBase(SQLModel):
     license_plate: str = Field(min_length=1, max_length=20)
     car_make_model: str = Field(min_length=1, max_length=255)
     active: bool = Field(default=True)
-    notes: str = Field(default="", max_length=1024)
     address: str = Field(min_length=1, max_length=255)
     # One-to-one link to a threaded note chain, enforced unique at the DB level.
     # Created admin-only (read AND write) so drivers can't see or edit notes
     # written about them — see DriverService.create_driver. Set by the service,
-    # not the client. (Distinct from the flat `notes` string above.)
+    # not the client. This replaced the old flat `notes` string.
     note_chain_id: UUID | None = Field(
         default=None,
         foreign_key="note_chains.note_chain_id",
@@ -104,7 +103,6 @@ class DriverRead(DriverBase):
                 "license_plate": data.license_plate,
                 "car_make_model": data.car_make_model,
                 "active": data.active,
-                "notes": data.notes,
                 "address": data.address,
                 "note_chain_id": data.note_chain_id,
                 "auth_id": user.auth_id,
@@ -124,7 +122,6 @@ class DriverUpdate(SQLModel):
     license_plate: str | None = Field(default=None, min_length=1, max_length=20)
     car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
     active: bool | None = Field(default=None)
-    notes: str | None = Field(default=None, max_length=1024)
 
     @field_validator("availability")
     @classmethod
@@ -145,7 +142,6 @@ class DriverUpdatePayload(SQLModel):
     license_plate: str | None = Field(default=None, min_length=1, max_length=20)
     car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
     active: bool | None = Field(default=None)
-    notes: str | None = Field(default=None, max_length=1024)
 
     @field_validator("availability")
     @classmethod

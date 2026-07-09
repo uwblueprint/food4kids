@@ -663,12 +663,6 @@
             ],
             "title": "Note Chain Id"
           },
-          "notes": {
-            "default": "",
-            "maxLength": 1024,
-            "title": "Notes",
-            "type": "string"
-          },
           "partner_driver_name": {
             "anyOf": [
               {
@@ -873,18 +867,6 @@
               }
             ],
             "title": "License Plate"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "maxLength": 1024,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
           },
           "partner_driver_name": {
             "anyOf": [
