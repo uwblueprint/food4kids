@@ -32,7 +32,7 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   {
     key: 'delivery_type',
     header: 'Delivery Type',
-    render: () => '—',
+    render: (row) => row.delivery_type ?? '—',
   },
   { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
   { key: 'box_total', header: 'Boxes', render: (row) => row.box_total },
@@ -41,7 +41,7 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
     header: 'Distance (km)',
     render: (row) => row.length,
   },
-  { key: 'driver', header: 'Driver', render: () => '—' },
+  { key: 'driver_name', header: 'Driver', render: (row) => row.driver_name ?? '—' },
   {
     key: 'status',
     header: (
@@ -64,7 +64,7 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
         </Tooltip>
       </span>
     ),
-    render: () => '—',
+    render: (row) => row.status,
   },
 ];
 

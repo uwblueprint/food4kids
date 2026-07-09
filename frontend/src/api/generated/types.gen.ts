@@ -1744,9 +1744,17 @@ export type RouteWithDateRead = {
    */
   box_total: number;
   /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
+  /**
    * Drive Date
    */
   drive_date: string;
+  /**
+   * Driver Name
+   */
+  driver_name?: string | null;
   /**
    * Length
    */
@@ -1767,6 +1775,10 @@ export type RouteWithDateRead = {
    * Route Id
    */
   route_id: string;
+  /**
+   * Status
+   */
+  status: string;
 };
 
 /**

@@ -139,6 +139,9 @@ class RouteWithDateRead(SQLModel):
     drive_date: datetime
     num_stops: int
     box_total: int
+    delivery_type: str | None = None
+    driver_name: str | None = None
+    status: str
 
 
 class SuggestedDriverResponse(SQLModel):

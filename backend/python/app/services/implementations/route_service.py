@@ -3,11 +3,12 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from app.models.driver import Driver
+from app.models.enum import DeliveryTypeEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.route import (
     Route,
@@ -89,17 +90,62 @@ class RouteService:
             .subquery()
         )
 
+        # delivery_type: check if any stop on this route has a School location
+        has_school_subq = (
+            select(1)
+            .select_from(RouteStop)
+            .join(Location, col(Location.location_id) == col(RouteStop.location_id))
+            .where(
+                col(RouteStop.route_id) == col(Route.route_id),
+                Location.delivery_type == DeliveryTypeEnum.SCHOOL.value,
+            )
+            .correlate(Route)
+        )
+        has_stops_subq = (
+            select(1)
+            .select_from(RouteStop)
+            .where(col(RouteStop.route_id) == col(Route.route_id))
+            .correlate(Route)
+        )
+        delivery_type_expr = case(
+            (has_school_subq.exists(), DeliveryTypeEnum.SCHOOL.value),
+            (has_stops_subq.exists(), DeliveryTypeEnum.FAMILY.value),
+            else_=None,
+        ).label("delivery_type")
+
+        # status: upcoming if drive_date is today or future, else completed
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        status_expr = case(
+            (RouteGroup.drive_date >= today_start, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
+            else_=RouteStatusEnum.COMPLETED.value,
+        ).label("status")
+
+        # driver name (NULL when route is unassigned)
+        driver_name_expr = case(
+            (col(Route.driver_id).is_not(None), func.concat(User.first_name, " ", User.last_name)),
+            else_=None,
+        ).label("driver_name")
+
         statement = select(
             Route,
             RouteGroup.drive_date,
             func.coalesce(route_totals.c.num_stops, 0).label("num_stops"),
             func.coalesce(route_totals.c.box_total, 0).label("box_total"),
+            delivery_type_expr,
+            status_expr,
+            driver_name_expr,
         ).join(
             RouteGroup,
             RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
         )
         statement = statement.outerjoin(
             route_totals, route_totals.c.route_id == Route.route_id
+        )
+        statement = statement.outerjoin(
+            Driver, col(Driver.driver_id) == col(Route.driver_id)
+        ).outerjoin(
+            User, col(User.user_id) == col(Driver.user_id)
         )
 
         if start_date:
@@ -132,6 +178,9 @@ class RouteService:
                 drive_date=row.drive_date,
                 num_stops=row.num_stops,
                 box_total=row.box_total,
+                delivery_type=row.delivery_type,
+                driver_name=row.driver_name,
+                status=row.status,
             )
             for row in rows
         ]

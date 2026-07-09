@@ -3010,10 +3010,32 @@
             "title": "Box Total",
             "type": "integer"
           },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
             "type": "string"
+          },
+          "driver_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Name"
           },
           "length": {
             "title": "Length",
@@ -3035,6 +3057,10 @@
             "format": "uuid",
             "title": "Route Id",
             "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
@@ -3044,7 +3070,8 @@
           "length",
           "drive_date",
           "num_stops",
-          "box_total"
+          "box_total",
+          "status"
         ],
         "title": "RouteWithDateRead",
         "type": "object"

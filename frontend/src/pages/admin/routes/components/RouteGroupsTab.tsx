@@ -8,6 +8,7 @@ import type {
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
+import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
@@ -22,6 +23,9 @@ import {
   ModalHeader,
   ModalTitle,
   SearchBar,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from '@/common/components';
 
 import type { GroupsTabState } from '../hooks';
@@ -43,7 +47,7 @@ const COLUMNS: Column<RouteGroupRead>[] = [
     header: 'Delivery Type',
     render: (row) => row.delivery_type,
   },
-  { key: 'num_routes', header: '# of Routes', render: (row) => row.num_routes },
+  { key: 'num_routes', header: 'Routes', render: (row) => row.num_routes },
   {
     key: 'num_locations',
     header: 'Locations',
@@ -52,10 +56,33 @@ const COLUMNS: Column<RouteGroupRead>[] = [
   { key: 'num_boxes', header: 'Boxes', render: (row) => row.num_boxes },
   {
     key: 'num_drivers_assigned',
-    header: 'Drivers Assigned',
+    header: 'Drivers',
     render: (row) => row.num_drivers_assigned,
   },
-  { key: 'status', header: 'Status', render: (row) => row.status },
+  {
+    key: 'status',
+    header: (
+      <span className="flex items-center gap-1.5">
+        Status
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <InfoCircleIcon className="size-4 cursor-pointer" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>
+              <span className="font-semibold">Upcoming:</span> Route is
+              scheduled for the future
+            </p>
+            <p>
+              <span className="font-semibold">Completed:</span> Route has been
+              delivered
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </span>
+    ),
+    render: (row) => row.status,
+  },
 ];
 
 type RouteGroupsTabProps = GroupsTabState;
