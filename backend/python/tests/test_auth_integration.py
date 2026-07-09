@@ -153,6 +153,8 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/note-chains/{note_chain_id}/notes"): Policy.AUTHENTICATED,
     ("PATCH", "/note-chains/{note_chain_id}/notes/{note_id}"): Policy.AUTHENTICATED,
     ("DELETE", "/note-chains/{note_chain_id}/notes/{note_id}"): Policy.AUTHENTICATED,
+    # --- notes feed ---
+    ("GET", "/notes"): Policy.ADMIN_ONLY,
     # --- route groups ---
     ("GET", "/route-groups"): Policy.ADMIN_ONLY,
     ("POST", "/route-groups"): Policy.ADMIN_ONLY,
