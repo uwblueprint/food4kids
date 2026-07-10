@@ -11,6 +11,7 @@ from google.oauth2 import service_account
 
 from app.config import settings as app_settings
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
+from app.utilities.boxes import compute_boxes
 
 if TYPE_CHECKING:
     from app.models.location import Location
@@ -78,7 +79,10 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         warehouse = {"latitude": warehouse_lat, "longitude": warehouse_lon}
 
-        max_load = settings.max_half_boxes_per_driver
+        # Load unit is boxes: each delivery demands its derived box count
+        # (ceil(num_children / children_per_box)) and vehicles are capped at
+        # max_boxes_per_driver.
+        max_load = settings.max_boxes_per_driver
 
         # endLocation controls whether drivers return to the warehouse.
         # During school term drivers return; during summer they end at their
@@ -97,7 +101,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         # Force every vehicle to be used by giving each a mandatory pickup.
         # Without this some drivers may be left idle.
         # loadDemands is explicitly 0 so it doesn't consume capacity meant
-        # for actual deliveries (each delivery adds its num_children to the load).
+        # for actual deliveries (each delivery adds its box count to the load).
         forced_pickups = [
             {
                 "displayName": f"initial_load_driver_{i}",
@@ -116,7 +120,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         deliveries = []
         for i, loc in enumerate(locations):
-            demand = loc.num_children or 0
+            demand = compute_boxes(loc.num_children or 0, settings.children_per_box)
             if demand > max_load:
                 # A location bigger than one vehicle would make the model
                 # infeasible (shipments are atomic — the API can't split them).
@@ -124,7 +128,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 # vehicle, so the location gets a dedicated route and the
                 # coordinator sends a larger vehicle (the van).
                 logger.warning(
-                    "Location %s demand %d exceeds vehicle capacity %d; "
+                    "Location %s needs %d boxes, over the %d-box vehicle capacity; "
                     "rounding down to max capacity — it will get a dedicated route",
                     loc.address,
                     demand,

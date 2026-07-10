@@ -1608,9 +1608,9 @@ export type RouteGenerationSettings = {
    */
   children_per_box?: number;
   /**
-   * Max Half Boxes Per Driver
+   * Max Boxes Per Driver
    */
-  max_half_boxes_per_driver?: number;
+  max_boxes_per_driver?: number;
   /**
    * Max Stops Per Route
    */
