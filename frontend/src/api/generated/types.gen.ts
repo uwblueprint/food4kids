@@ -423,9 +423,9 @@ export type DriverRead = {
    */
   license_plate: string;
   /**
-   * Notes
+   * Note Chain Id
    */
-  notes?: string;
+  note_chain_id?: string | null;
   /**
    * Partner Driver Name
    */
@@ -522,10 +522,6 @@ export type DriverUpdate = {
    * License Plate
    */
   license_plate?: string | null;
-  /**
-   * Notes
-   */
-  notes?: string | null;
   /**
    * Partner Driver Name
    */
@@ -2233,9 +2229,9 @@ export type DriverReadWritable = {
    */
   license_plate: string;
   /**
-   * Notes
+   * Note Chain Id
    */
-  notes?: string;
+  note_chain_id?: string | null;
   /**
    * Partner Driver Name
    */
