@@ -1,9 +1,24 @@
 import logging
 
+from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
-from app.models.system_settings import SystemSettings, SystemSettingsUpdate
+from app.models.location import Location
+from app.models.system_settings import (
+    DEFAULT_DELIVERY_TYPES,
+    SystemSettings,
+    SystemSettingsUpdate,
+    _validate_delivery_types,
+)
+
+
+class DeliveryTypeInUseError(ValueError):
+    """Raised when removing a delivery type that active locations still use."""
+
+
+class DeliveryTypeRenameError(ValueError):
+    """Raised when a delivery type rename is invalid (unknown, blank, or clash)."""
 
 
 class SystemSettingsService:
@@ -17,12 +32,73 @@ class SystemSettingsService:
         result = await session.execute(select(SystemSettings))
         return result.scalars().first()
 
+    async def _configured_delivery_types(self, session: AsyncSession) -> list[str]:
+        """Currently configured delivery types, or the defaults if unset."""
+        settings = await self.get_settings(session)
+        if settings is None:
+            return DEFAULT_DELIVERY_TYPES.copy()
+        return settings.delivery_types
+
+    async def _count_active_locations_with_type(
+        self, session: AsyncSession, delivery_type: str
+    ) -> int:
+        """Count locations still on the roster (Active or Unscheduled) that use
+        ``delivery_type``.
+
+        ``in_roster`` is the stored bit behind the derived status: in_roster
+        locations are the ones that would break if their type vanished (they go
+        filter-invisible and can no longer round-trip through edit/import).
+        Inactive locations (in_roster=False) keep their historical string
+        untouched, so they don't block removal.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(Location)
+            .where(col(Location.delivery_type) == delivery_type)
+            .where(col(Location.in_roster).is_(True))
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one()
+
+    async def _guard_delivery_type_removal(
+        self, session: AsyncSession, old: list[str], new: list[str]
+    ) -> None:
+        """Block a settings update that drops a delivery type still in active use."""
+        new_set = set(new)
+        removed = [dtype for dtype in old if dtype not in new_set]
+        in_use: dict[str, int] = {}
+        for dtype in removed:
+            count = await self._count_active_locations_with_type(session, dtype)
+            if count:
+                in_use[dtype] = count
+        if in_use:
+            detail = ", ".join(
+                f"'{dtype}' ({count} active location{'s' if count != 1 else ''})"
+                for dtype, count in in_use.items()
+            )
+            raise DeliveryTypeInUseError(
+                f"Cannot remove delivery type(s) still in active use: {detail}. "
+                "Reassign or deactivate those locations first, or rename the type."
+            )
+
     async def update_settings(
         self, session: AsyncSession, settings_data: SystemSettingsUpdate
     ) -> SystemSettings:
         """Patch the singleton settings row, creating it if needed."""
         settings = await self.get_settings(session)
         updates = settings_data.model_dump(exclude_unset=True)
+
+        if "delivery_types" in updates:
+            # Guard against the effective current list — the defaults when no
+            # row exists yet, since locations can already reference those.
+            current = (
+                settings.delivery_types
+                if settings is not None
+                else DEFAULT_DELIVERY_TYPES.copy()
+            )
+            await self._guard_delivery_type_removal(
+                session, old=current, new=updates["delivery_types"]
+            )
 
         if settings is None:
             settings = SystemSettings(**updates)
@@ -31,6 +107,48 @@ class SystemSettingsService:
 
         for field_name, value in updates.items():
             setattr(settings, field_name, value)
+        return settings
+
+    async def rename_delivery_type(
+        self, session: AsyncSession, old_name: str, new_name: str
+    ) -> SystemSettings:
+        """Rename a configured delivery type in place.
+
+        Cascades onto every location referencing ``old_name`` — active *and*
+        inactive, since a rename preserves the type's identity — then swaps the
+        name in the settings list (order preserved). Creates the settings row if
+        it doesn't exist yet so a rename off the defaults still persists.
+        """
+        new_name = new_name.strip()
+        if not new_name:
+            raise DeliveryTypeRenameError("New delivery type name must not be blank")
+
+        current = await self._configured_delivery_types(session)
+        if old_name not in current:
+            raise DeliveryTypeRenameError(f"Unknown delivery type '{old_name}'")
+        if new_name == old_name:
+            raise DeliveryTypeRenameError(
+                "New delivery type name must differ from the current name"
+            )
+        if new_name in current:
+            raise DeliveryTypeRenameError(f"Delivery type '{new_name}' already exists")
+
+        renamed = _validate_delivery_types(
+            [new_name if dtype == old_name else dtype for dtype in current]
+        )
+
+        await session.execute(
+            update(Location)
+            .where(col(Location.delivery_type) == old_name)
+            .values(delivery_type=new_name)
+        )
+
+        settings = await self.get_settings(session)
+        if settings is None:
+            settings = SystemSettings(delivery_types=renamed)
+            session.add(settings)
+        else:
+            settings.delivery_types = renamed
         return settings
 
     async def set_import_column_map(

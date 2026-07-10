@@ -150,6 +150,9 @@ import type {
   PatchSystemSettingsResponses,
   RefreshData,
   RefreshResponses,
+  RenameDeliveryTypeData,
+  RenameDeliveryTypeErrors,
+  RenameDeliveryTypeResponses,
   ResetPasswordData,
   ResetPasswordErrors,
   ResetPasswordResponses,
@@ -1460,6 +1463,29 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/system-settings/',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Rename Delivery Type
+ *
+ * Rename a configured delivery type, cascading onto every location using it.
+ */
+export const renameDeliveryType = <ThrowOnError extends boolean = false>(
+  options: Options<RenameDeliveryTypeData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    RenameDeliveryTypeResponses,
+    RenameDeliveryTypeErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/system-settings/delivery-types/rename',
     ...options,
     headers: {
       'Content-Type': 'application/json',

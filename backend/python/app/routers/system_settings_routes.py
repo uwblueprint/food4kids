@@ -4,9 +4,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.auth import require_admin
 from app.dependencies.services import get_scheduler_service, get_system_settings_service
 from app.models import get_session
-from app.models.system_settings import SystemSettingsRead, SystemSettingsUpdate
+from app.models.system_settings import (
+    DeliveryTypeRename,
+    SystemSettingsRead,
+    SystemSettingsUpdate,
+)
 from app.services.implementations.scheduler_service import SchedulerService
-from app.services.implementations.system_settings_service import SystemSettingsService
+from app.services.implementations.system_settings_service import (
+    DeliveryTypeInUseError,
+    DeliveryTypeRenameError,
+    SystemSettingsService,
+)
 from app.services.jobs import refresh_daily_reminder_email_schedule
 
 router = APIRouter(prefix="/system-settings", tags=["system-settings"])
@@ -50,6 +58,40 @@ async def patch_system_settings(
         await session.refresh(settings)
         await refresh_daily_reminder_email_schedule(scheduler_service, session)
         return SystemSettingsRead.model_validate(settings)
+    except DeliveryTypeInUseError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        ) from e
+
+
+@router.post("/delivery-types/rename", response_model=SystemSettingsRead)
+async def rename_delivery_type(
+    body: DeliveryTypeRename,
+    session: AsyncSession = Depends(get_session),
+    system_settings_service: SystemSettingsService = Depends(
+        get_system_settings_service
+    ),
+    _auth: bool = Depends(require_admin),
+) -> SystemSettingsRead:
+    """Rename a configured delivery type, cascading onto every location using it."""
+    try:
+        settings = await system_settings_service.rename_delivery_type(
+            session, body.old_name, body.new_name
+        )
+        await session.commit()
+        await session.refresh(settings)
+        return SystemSettingsRead.model_validate(settings)
+    except DeliveryTypeRenameError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -131,6 +131,20 @@ class SystemSettingsRead(SystemSettingsBase):
     system_settings_id: UUID
 
 
+class DeliveryTypeRename(SQLModel):
+    """Request body for renaming a configured delivery type.
+
+    Rename is a distinct operation from the list-replacing PATCH: it preserves
+    the type's identity, cascading the new name onto every location (active or
+    not) that references the old one. A plain PATCH that swaps a name looks like
+    a remove + add and is blocked by the in-use guard, so renames must come
+    through here.
+    """
+
+    old_name: str = Field(min_length=1, max_length=100)
+    new_name: str = Field(min_length=1, max_length=100)
+
+
 class SystemSettingsUpdate(SQLModel):
     """Update request model - all optional"""
 

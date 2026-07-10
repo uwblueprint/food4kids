@@ -2940,6 +2940,205 @@ class TestSystemSettingsRoutes:
         )
         assert response.status_code == 422
 
+    async def _create_location(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        location_group_id: str,
+        *,
+        delivery_type: str,
+        name: str,
+        phone_primary: str,
+    ) -> str:
+        """Create a location and return its id (helper for guard/rename tests)."""
+        response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": location_group_id,
+                "name": name,
+                "contact_name": name,
+                "phone_primary": phone_primary,
+                "delivery_type": delivery_type,
+            },
+        )
+        assert response.status_code == 201, response.text
+        return str(response.json()["location_id"])
+
+    @pytest.mark.asyncio
+    async def test_patch_blocks_removing_delivery_type_in_active_use(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Removing a delivery type an on-roster location uses is blocked (409)."""
+        await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="School",
+            name="Central Elementary",
+            phone_primary="(555) 111-1111",
+        )
+
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["Family"]}
+        )
+
+        assert response.status_code == 409
+        assert "School" in response.json()["detail"]
+
+        # The removal must not have persisted: either no row was written (defaults
+        # still apply) or the stored list still carries the type.
+        settings = await async_client.get("/system-settings/")
+        body = settings.json()
+        assert body is None or "School" in body["delivery_types"]
+
+    @pytest.mark.asyncio
+    async def test_patch_allows_removing_unused_delivery_type(
+        self, async_client: AsyncClient
+    ) -> None:
+        """A delivery type no location uses can be removed freely."""
+        await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["School", "Family"]}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["delivery_types"] == ["School", "Family"]
+
+    @pytest.mark.asyncio
+    async def test_patch_allows_removing_type_used_only_by_inactive_location(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Off-roster (Inactive) locations don't block removing their type."""
+        await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+        location_id = await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="Pantry",
+            name="Old Pantry",
+            phone_primary="(555) 333-3333",
+        )
+        # Take it off the roster -> Inactive.
+        deactivate = await async_client.patch(
+            f"/locations/{location_id}", json={"in_roster": False}
+        )
+        assert deactivate.status_code == 200
+
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["School", "Family"]}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["delivery_types"] == ["School", "Family"]
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_cascades_to_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Renaming a type updates the settings list and every location using it."""
+        location_id = await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="School",
+            name="Central Elementary",
+            phone_primary="(555) 111-1111",
+        )
+
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "School", "new_name": "Elementary"},
+        )
+
+        assert response.status_code == 200, response.text
+        delivery_types = response.json()["delivery_types"]
+        assert "Elementary" in delivery_types
+        assert "School" not in delivery_types
+
+        # The location now carries the new name and filters under it.
+        location = await async_client.get(f"/locations/{location_id}")
+        assert location.json()["delivery_type"] == "Elementary"
+        filtered = await async_client.get(
+            "/locations/", params={"delivery_type": "Elementary"}
+        )
+        ids = {loc["location_id"] for loc in filtered.json()["items"]}
+        assert location_id in ids
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_cascades_to_inactive_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Rename preserves identity, so it follows Inactive locations too."""
+        await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+        location_id = await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="Pantry",
+            name="Old Pantry",
+            phone_primary="(555) 333-3333",
+        )
+        deactivate = await async_client.patch(
+            f"/locations/{location_id}", json={"in_roster": False}
+        )
+        assert deactivate.status_code == 200
+
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "Pantry", "new_name": "Food Bank"},
+        )
+
+        assert response.status_code == 200, response.text
+        location = await async_client.get(f"/locations/{location_id}")
+        assert location.json()["delivery_type"] == "Food Bank"
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_rejects_unknown_source(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Renaming a type that isn't configured fails fast (422)."""
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "Nonexistent", "new_name": "Whatever"},
+        )
+        assert response.status_code == 422
+        assert "Nonexistent" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_rejects_existing_target(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Renaming onto an existing type would merge two types, so it's blocked."""
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "School", "new_name": "Family"},
+        )
+        assert response.status_code == 422
+        assert "already exists" in response.json()["detail"]
+
 
 class _FakeUploadResult:
     def __init__(self, url: str, filename: str) -> None:
