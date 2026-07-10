@@ -433,6 +433,29 @@
         "title": "DeliveriesCountResponse",
         "type": "object"
       },
+      "DeliveryTypeRename": {
+        "description": "Request body for renaming a configured delivery type.\n\nRename is a distinct operation from the list-replacing PATCH: it preserves\nthe type's identity, cascading the new name onto every location (active or\nnot) that references the old one. A plain PATCH that swaps a name looks like\na remove + add and is blocked by the in-use guard, so renames must come\nthrough here.",
+        "properties": {
+          "new_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "New Name",
+            "type": "string"
+          },
+          "old_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Old Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "old_name",
+          "new_name"
+        ],
+        "title": "DeliveryTypeRename",
+        "type": "object"
+      },
       "DriveDaysOfWeekEnum": {
         "enum": [
           "Mon",
@@ -7204,6 +7227,53 @@
           }
         ],
         "summary": "Patch System Settings",
+        "tags": [
+          "system-settings"
+        ]
+      }
+    },
+    "/system-settings/delivery-types/rename": {
+      "post": {
+        "description": "Rename a configured delivery type, cascading onto every location using it.",
+        "operationId": "rename_delivery_type",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryTypeRename"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rename Delivery Type",
         "tags": [
           "system-settings"
         ]
