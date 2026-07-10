@@ -2577,7 +2577,7 @@ class TestNoteFeedRoutes:
             contact_name=location_name,
             address=f"{location_name} Address",
             phone_primary="555-1234",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             note_chain_id=chain.note_chain_id,
         )
         note = Note(
