@@ -50,6 +50,11 @@ async def patch_system_settings(
         await session.refresh(settings)
         await refresh_daily_reminder_email_schedule(scheduler_service, session)
         return SystemSettingsRead.model_validate(settings)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
