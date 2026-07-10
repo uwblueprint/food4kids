@@ -1624,12 +1624,6 @@ export type RouteGenerationSettings = {
    */
   return_to_warehouse?: boolean;
   /**
-   * Route Duration Limit Minutes
-   *
-   * Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.
-   */
-  route_duration_limit_minutes?: number | null;
-  /**
    * Route Start Time
    */
   route_start_time: string;

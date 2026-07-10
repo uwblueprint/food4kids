@@ -22,13 +22,6 @@ class RouteGenerationSettings(SQLModel):
     # ceil(num_children / children_per_box). See app.utilities.boxes.
     children_per_box: int = Field(default=2, ge=1)
     service_time_minutes: int = Field(default=15, gt=0)
-    route_duration_limit_minutes: int | None = Field(
-        default=None,
-        gt=0,
-        description="Soft cap on total route duration (minutes). "
-        "Routes exceeding this incur an optimization penalty to spread "
-        "deliveries more evenly.",
-    )
 
 
 class RouteGenerationGroupInput(SQLModel):

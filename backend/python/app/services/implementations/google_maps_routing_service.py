@@ -25,9 +25,17 @@ API_TIMEOUT_SECONDS = 60
 # Penalty cost high enough that the optimizer will never skip a delivery.
 MANDATORY_DELIVERY_PENALTY = 1_000_000
 
-# Cost per hour the optimizer charges when a route exceeds its soft duration
-# limit. Higher values spread deliveries more aggressively across drivers.
-DURATION_OVERRUN_COST_PER_HOUR = 100
+# Two-term objective:
+#   1. globalDurationCostPerHour (dominant) — all drivers leave the warehouse
+#      together, so the plan's "global duration" is when the LAST driver
+#      finishes. Charging it heavily makes the optimizer minimize the longest
+#      route, so no volunteer gets stuck with a brutal day.
+#   2. costPerHour on every vehicle (modest) — charges each route's total time
+#      (driving + drop-offs), keeping non-bottleneck routes efficient.
+# Only the ratio matters: at 6:1 the optimizer will spend up to 6 extra total
+# driver-hours to get the last driver home one hour sooner.
+GLOBAL_DURATION_COST_PER_HOUR = 6
+VEHICLE_COST_PER_HOUR = 1
 
 
 class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
@@ -70,23 +78,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         warehouse = {"latitude": warehouse_lat, "longitude": warehouse_lon}
 
-        load_limit = {
-            "loadLimits": {"load": {"maxLoad": str(settings.max_half_boxes_per_driver)}}
-        }
-
-        # routeDurationLimit: soft cap on total route time. The optimizer
-        # penalises routes that exceed this, spreading deliveries more evenly
-        # across drivers without hard-blocking longer routes.
-        duration_limit = (
-            {
-                "routeDurationLimit": {
-                    "softMaxDuration": f"{settings.route_duration_limit_minutes * 60}s",
-                    "costPerHourAfterSoftMax": DURATION_OVERRUN_COST_PER_HOUR,
-                }
-            }
-            if settings.route_duration_limit_minutes is not None
-            else {}
-        )
+        max_load = settings.max_half_boxes_per_driver
 
         # endLocation controls whether drivers return to the warehouse.
         # During school term drivers return; during summer they end at their
@@ -96,8 +88,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 "displayName": f"driver_{i}",
                 "startLocation": warehouse,
                 **({"endLocation": warehouse} if settings.return_to_warehouse else {}),
-                **load_limit,
-                **duration_limit,
+                "loadLimits": {"load": {"maxLoad": str(max_load)}},
+                "costPerHour": VEHICLE_COST_PER_HOUR,
             }
             for i in range(settings.num_routes)
         ]
@@ -105,7 +97,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         # Force every vehicle to be used by giving each a mandatory pickup.
         # Without this some drivers may be left idle.
         # loadDemands is explicitly 0 so it doesn't consume capacity meant
-        # for actual deliveries (each delivery adds 1 to the load).
+        # for actual deliveries (each delivery adds its num_children to the load).
         forced_pickups = [
             {
                 "displayName": f"initial_load_driver_{i}",
@@ -122,31 +114,51 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         service_duration = f"{settings.service_time_minutes * 60}s"
 
-        deliveries = [
-            {
-                "displayName": f"ship_{i}",
-                # High penalty ensures the API never skips a delivery —
-                # every location must be served.
-                "penaltyCost": MANDATORY_DELIVERY_PENALTY,
-                "deliveries": [
-                    {
-                        "arrivalLocation": {
-                            "latitude": loc.latitude,
-                            "longitude": loc.longitude,
-                        },
-                        "duration": service_duration,
-                        "loadDemands": {"load": {"amount": str(loc.num_children or 0)}},
-                    }
-                ],
-            }
-            for i, loc in enumerate(locations)
-        ]
+        deliveries = []
+        for i, loc in enumerate(locations):
+            demand = loc.num_children or 0
+            if demand > max_load:
+                # A location bigger than one vehicle would make the model
+                # infeasible (shipments are atomic — the API can't split them).
+                # Clamping to exactly the vehicle capacity saturates one
+                # vehicle, so the location gets a dedicated route and the
+                # coordinator sends a larger vehicle (the van).
+                logger.warning(
+                    "Location %s demand %d exceeds vehicle capacity %d; "
+                    "clamping — it will get a dedicated route (send the van)",
+                    loc.address,
+                    demand,
+                    max_load,
+                )
+                demand = max_load
+            deliveries.append(
+                {
+                    "displayName": f"ship_{i}",
+                    # High penalty ensures the API never skips a delivery —
+                    # every location must be served.
+                    "penaltyCost": MANDATORY_DELIVERY_PENALTY,
+                    "deliveries": [
+                        {
+                            "arrivalLocation": {
+                                "latitude": loc.latitude,
+                                "longitude": loc.longitude,
+                            },
+                            "duration": service_duration,
+                            "loadDemands": {"load": {"amount": str(demand)}},
+                        }
+                    ],
+                }
+            )
 
         # TODO: use settings.route_start_time to set
         # globalStartTime / globalEndTime or per-shipment timeWindows
 
         return {
-            "model": {"vehicles": vehicles, "shipments": forced_pickups + deliveries}
+            "model": {
+                "globalDurationCostPerHour": GLOBAL_DURATION_COST_PER_HOUR,
+                "vehicles": vehicles,
+                "shipments": forced_pickups + deliveries,
+            }
         }
 
     def _ensure_credentials(self) -> service_account.Credentials:

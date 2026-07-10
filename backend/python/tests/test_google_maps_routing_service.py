@@ -11,7 +11,9 @@ import pytest
 
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
+    GLOBAL_DURATION_COST_PER_HOUR,
     MANDATORY_DELIVERY_PENALTY,
+    VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
 )
 
@@ -93,6 +95,10 @@ class TestBuildPayload:
             assert v["loadLimits"] == {
                 "load": {"maxLoad": str(sample_settings.max_half_boxes_per_driver)}
             }
+            assert v["costPerHour"] == VEHICLE_COST_PER_HOUR
+
+        # --- objective: makespan pressure on the whole plan ---
+        assert model["globalDurationCostPerHour"] == GLOBAL_DURATION_COST_PER_HOUR
 
         # --- shipments = forced_pickups + deliveries ---
         shipments = model["shipments"]
@@ -171,38 +177,55 @@ class TestBuildPayload:
         vehicle = payload["model"]["vehicles"][0]
         assert "endLocation" not in vehicle
 
-    def test_route_duration_limit(
-        self,
-        algorithm: GoogleMapsFleetRoutingAlgorithm,
-        make_location: Any,
-    ) -> None:
-        """When route_duration_limit_minutes is set, vehicles get routeDurationLimit."""
-        settings = RouteGenerationSettings(
-            num_routes=1,
-            route_start_time=datetime(2025, 1, 1, 9, 0),
-            route_duration_limit_minutes=120,
-        )
-        locs = [make_location()]
+    def test_makespan_dominates_per_vehicle_cost(self) -> None:
+        """The global-duration term must outweigh the per-vehicle time cost,
+        or the optimizer would never trade total time for a shorter max route."""
+        assert GLOBAL_DURATION_COST_PER_HOUR > VEHICLE_COST_PER_HOUR
 
-        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
-
-        vehicle = payload["model"]["vehicles"][0]
-        assert vehicle["routeDurationLimit"]["softMaxDuration"] == "7200s"
-        assert vehicle["routeDurationLimit"]["costPerHourAfterSoftMax"] > 0
-
-    def test_no_route_duration_limit_omits_field(
+    def test_oversized_location_demand_clamped_to_capacity(
         self,
         algorithm: GoogleMapsFleetRoutingAlgorithm,
         make_location: Any,
         sample_settings: RouteGenerationSettings,
     ) -> None:
-        """When route_duration_limit_minutes is None, no routeDurationLimit."""
-        locs = [make_location()]
+        """A location over vehicle capacity is clamped to exactly the capacity,
+        saturating one vehicle so it gets a dedicated route (the van case)."""
+        cap = sample_settings.max_half_boxes_per_driver
+        locs = [make_location(num_children=cap + 8)]
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
-        vehicle = payload["model"]["vehicles"][0]
-        assert "routeDurationLimit" not in vehicle
+        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        assert delivery["loadDemands"] == {"load": {"amount": str(cap)}}
+
+    def test_demand_at_capacity_not_clamped(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """A location exactly at vehicle capacity passes through unchanged."""
+        cap = sample_settings.max_half_boxes_per_driver
+        locs = [make_location(num_children=cap)]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
+
+        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        assert delivery["loadDemands"] == {"load": {"amount": str(cap)}}
+
+    def test_demand_below_capacity_not_clamped(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """A normal location's demand is sent to the API as-is."""
+        locs = [make_location(num_children=5)]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
+
+        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        assert delivery["loadDemands"] == {"load": {"amount": "5"}}
 
 
 # ---------------------------------------------------------------------------

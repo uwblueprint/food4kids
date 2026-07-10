@@ -2770,19 +2770,6 @@
             "title": "Return To Warehouse",
             "type": "boolean"
           },
-          "route_duration_limit_minutes": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.",
-            "title": "Route Duration Limit Minutes"
-          },
           "route_start_time": {
             "format": "date-time",
             "title": "Route Start Time",
