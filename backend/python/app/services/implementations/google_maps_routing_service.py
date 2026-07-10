@@ -125,7 +125,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 # coordinator sends a larger vehicle (the van).
                 logger.warning(
                     "Location %s demand %d exceeds vehicle capacity %d; "
-                    "clamping — it will get a dedicated route (send the van)",
+                    "rounding down to max capacity — it will get a dedicated route",
                     loc.address,
                     demand,
                     max_load,
