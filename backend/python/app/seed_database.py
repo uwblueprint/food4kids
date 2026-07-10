@@ -207,15 +207,19 @@ DEFAULT_CAP_MAX = 20
 # Default route start time (HH:MM:SS format)
 ROUTE_START_TIME = "08:00:00"
 
-# Location group schedule (weekday mapping)
+# Location group schedule: group name -> (weekday, alternating slot).
+# weekday is Monday=0 .. Sunday=6. Groups sharing a weekday are suffixed
+# "A"/"B" and deliver on *alternating* weeks, so any given date materializes
+# routes for at most one of them (slot None means "every occurrence of that
+# weekday", used for groups with no A/B partner).
 LOCATION_GROUP_SCHEDULE = {
-    "Schools": 4,
-    "Tuesday A": 1,
-    "Tuesday B": 1,
-    "Wednesday A": 2,
-    "Wednesday B": 2,
-    "Thursday A": 3,
-    "Thursday B": 3,
+    "Schools": (4, None),
+    "Tuesday A": (1, "A"),
+    "Tuesday B": (1, "B"),
+    "Wednesday A": (2, "A"),
+    "Wednesday B": (2, "B"),
+    "Thursday A": (3, "A"),
+    "Thursday B": (3, "B"),
 }
 
 # Cities that need specific group assignments (will be randomly assigned)
@@ -883,10 +887,14 @@ def main() -> None:
             current_date = start_date
             while current_date <= end_date:
                 weekday = current_date.weekday()
+                # Continuous week index (never resets across years), so
+                # consecutive occurrences of the same weekday always flip the
+                # slot -> A and B groups alternate week to week.
+                week_slot = "A" if (current_date.toordinal() // 7) % 2 == 0 else "B"
                 matching_groups = [
                     name
-                    for name, target_weekday in LOCATION_GROUP_SCHEDULE.items()
-                    if target_weekday == weekday
+                    for name, (target_weekday, slot) in LOCATION_GROUP_SCHEDULE.items()
+                    if target_weekday == weekday and (slot is None or slot == week_slot)
                 ]
 
                 for group_name in matching_groups:
