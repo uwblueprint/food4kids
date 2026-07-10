@@ -72,10 +72,14 @@ PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 PROBABILITY_LOCATION_CHAIN_NOTES = 0.6
 # Probability that a route note chain will have notes
 PROBABILITY_ROUTE_CHAIN_NOTES = 0.4
+# Probability that a driver note chain will have notes
+PROBABILITY_DRIVER_CHAIN_NOTES = 0.5
 # Max notes per location chain
 MAX_LOCATION_CHAIN_NOTES = 3
 # Max notes per route chain
 MAX_ROUTE_CHAIN_NOTES = 2
+# Max notes per driver chain
+MAX_DRIVER_CHAIN_NOTES = 3
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -1116,6 +1120,32 @@ def main() -> None:
 
             session.commit()
             print(f"Created {NUM_SEED_ADMINS} admin accounts")
+
+            # Seed notes into the drivers' admin-only note chains. Done here,
+            # after admins exist, so each note has a real admin author (drivers
+            # can't write these) rather than being an authorless system note.
+            print("Creating notes for driver note chains...")
+            admin_user_ids_for_notes = [user.user_id for user in admin_users]
+            driver_notes_created = 0
+            driver_chain_rows = session.execute(
+                text(
+                    "SELECT note_chain_id FROM drivers WHERE note_chain_id IS NOT NULL"
+                )
+            ).fetchall()
+            for (driver_chain_id,) in driver_chain_rows:
+                if random.random() < PROBABILITY_DRIVER_CHAIN_NOTES:
+                    for _ in range(random.randint(1, MAX_DRIVER_CHAIN_NOTES)):
+                        note = Note(
+                            note_chain_id=driver_chain_id,
+                            user_id=random.choice(admin_user_ids_for_notes),
+                            message=fake.sentence(),
+                            is_system=False,
+                        )
+                        set_timestamps(note)
+                        session.add(note)
+                        driver_notes_created += 1
+            session.commit()
+            print(f"Created {driver_notes_created} driver chain notes")
 
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")
