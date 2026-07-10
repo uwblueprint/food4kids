@@ -153,6 +153,8 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/note-chains/{note_chain_id}/notes"): Policy.AUTHENTICATED,
     ("PATCH", "/note-chains/{note_chain_id}/notes/{note_id}"): Policy.AUTHENTICATED,
     ("DELETE", "/note-chains/{note_chain_id}/notes/{note_id}"): Policy.AUTHENTICATED,
+    # --- notes feed ---
+    ("GET", "/notes"): Policy.ADMIN_ONLY,
     # --- route groups ---
     ("GET", "/route-groups"): Policy.ADMIN_ONLY,
     ("POST", "/route-groups"): Policy.ADMIN_ONLY,
@@ -175,6 +177,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/upload/"): Policy.DRIVER_OR_ADMIN,
     # --- system settings ---
     ("PATCH", "/system-settings/"): Policy.ADMIN_ONLY,
+    ("POST", "/system-settings/delivery-types/rename"): Policy.ADMIN_ONLY,
     # The route declares a :path converter (/upload/{filename:path}); the
     # OpenAPI schema (our completeness source) renders it without the converter.
     ("DELETE", "/upload/{filename}"): Policy.DRIVER_OR_ADMIN,
@@ -260,7 +263,6 @@ async def seed(test_session: AsyncSession) -> Seed:
     """Create the minimal records the auth dependencies look up by auth_id."""
     from app.models.announcement import Announcement
     from app.models.driver import Driver
-    from app.models.enum import DeliveryTypeEnum
     from app.models.location import Location
     from app.models.location_group import LocationGroup
     from app.models.route import Route
@@ -328,7 +330,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         address="123 Seed St",
         phone_primary="5550000001",
         num_children=8,
-        delivery_type=DeliveryTypeEnum.FAMILY,
+        delivery_type="Family",
     )
     test_session.add_all([route, location])
     await test_session.commit()

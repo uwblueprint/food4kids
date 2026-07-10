@@ -115,6 +115,9 @@ import type {
   GetNoteChainResponses,
   GetNotesData,
   GetNotesErrors,
+  GetNotesFeedData,
+  GetNotesFeedErrors,
+  GetNotesFeedResponses,
   GetNotesResponses,
   GetRouteData,
   GetRouteErrors,
@@ -150,6 +153,9 @@ import type {
   PatchSystemSettingsResponses,
   RefreshData,
   RefreshResponses,
+  RenameDeliveryTypeData,
+  RenameDeliveryTypeErrors,
+  RenameDeliveryTypeResponses,
   ResetPasswordData,
   ResetPasswordErrors,
   ResetPasswordResponses,
@@ -1117,6 +1123,25 @@ export const updateNote = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get Notes Feed
+ *
+ * Get location notes across all location note chains.
+ */
+export const getNotesFeed = <ThrowOnError extends boolean = false>(
+  options?: Options<GetNotesFeedData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetNotesFeedResponses,
+    GetNotesFeedErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/notes',
+    ...options,
+  });
+
+/**
  * Get Total Deliveries Between
  *
  * Return total deliveries (route stop snapshots) between start and end.
@@ -1465,6 +1490,29 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/system-settings/',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Rename Delivery Type
+ *
+ * Rename a configured delivery type, cascading onto every location using it.
+ */
+export const renameDeliveryType = <ThrowOnError extends boolean = false>(
+  options: Options<RenameDeliveryTypeData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    RenameDeliveryTypeResponses,
+    RenameDeliveryTypeErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/system-settings/delivery-types/rename',
     ...options,
     headers: {
       'Content-Type': 'application/json',

@@ -31,14 +31,6 @@ class DriveDaysOfWeekEnum(str, Enum):
     FRI = "Fri"
 
 
-class DeliveryTypeEnum(str, Enum):
-    """Kind of recipient at a Location — set per location, enforced uniform
-    within a RouteGroup at generation time."""
-
-    SCHOOL = "School"
-    FAMILY = "Family"
-
-
 class LocationStatusEnum(str, Enum):
     """Derived status surfaced on LocationRead. Not stored — computed from
     Location.in_roster + whether the location appears in a present/future

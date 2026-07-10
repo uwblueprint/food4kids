@@ -48,6 +48,7 @@ import {
   getMonthlyTotals,
   getNoteChain,
   getNotes,
+  getNotesFeed,
   getRoute,
   getRouteGroups,
   getRoutes,
@@ -61,6 +62,7 @@ import {
   type Options,
   patchSystemSettings,
   refresh,
+  renameDeliveryType,
   resetPassword,
   reviewLocations,
   test,
@@ -182,6 +184,9 @@ import type {
   GetNoteChainResponse,
   GetNotesData,
   GetNotesError,
+  GetNotesFeedData,
+  GetNotesFeedError,
+  GetNotesFeedResponse,
   GetNotesResponse,
   GetRouteData,
   GetRouteError,
@@ -216,7 +221,10 @@ import type {
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
   RefreshData,
-  RefreshResponse2,
+  RefreshResponse,
+  RenameDeliveryTypeData,
+  RenameDeliveryTypeError,
+  RenameDeliveryTypeResponse,
   ResetPasswordData,
   ResetPasswordError,
   ResetPasswordResponse,
@@ -535,12 +543,12 @@ export const logoutMutation = (
 export const refreshMutation = (
   options?: Partial<Options<RefreshData>>
 ): UseMutationOptions<
-  RefreshResponse2,
+  RefreshResponse,
   AxiosError<DefaultError>,
   Options<RefreshData>
 > => {
   const mutationOptions: UseMutationOptions<
-    RefreshResponse2,
+    RefreshResponse,
     AxiosError<DefaultError>,
     Options<RefreshData>
   > = {
@@ -1741,6 +1749,85 @@ export const updateNoteMutation = (
   return mutationOptions;
 };
 
+export const getNotesFeedQueryKey = (options?: Options<GetNotesFeedData>) =>
+  createQueryKey('getNotesFeed', options);
+
+/**
+ * Get Notes Feed
+ *
+ * Get location notes across all location note chains.
+ */
+export const getNotesFeedOptions = (options?: Options<GetNotesFeedData>) =>
+  queryOptions<
+    GetNotesFeedResponse,
+    AxiosError<GetNotesFeedError>,
+    GetNotesFeedResponse,
+    ReturnType<typeof getNotesFeedQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getNotesFeed({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getNotesFeedQueryKey(options),
+  });
+
+export const getNotesFeedInfiniteQueryKey = (
+  options?: Options<GetNotesFeedData>
+): QueryKey<Options<GetNotesFeedData>> =>
+  createQueryKey('getNotesFeed', options, true);
+
+/**
+ * Get Notes Feed
+ *
+ * Get location notes across all location note chains.
+ */
+export const getNotesFeedInfiniteOptions = (
+  options?: Options<GetNotesFeedData>
+) =>
+  infiniteQueryOptions<
+    GetNotesFeedResponse,
+    AxiosError<GetNotesFeedError>,
+    InfiniteData<GetNotesFeedResponse>,
+    QueryKey<Options<GetNotesFeedData>>,
+    | number
+    | Pick<
+        QueryKey<Options<GetNotesFeedData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetNotesFeedData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getNotesFeed({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getNotesFeedInfiniteQueryKey(options),
+    }
+  );
+
 export const getTotalDeliveriesBetweenQueryKey = (
   options: Options<GetTotalDeliveriesBetweenData>
 ) => createQueryKey('getTotalDeliveriesBetween', options);
@@ -2334,6 +2421,35 @@ export const patchSystemSettingsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await patchSystemSettings({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Rename Delivery Type
+ *
+ * Rename a configured delivery type, cascading onto every location using it.
+ */
+export const renameDeliveryTypeMutation = (
+  options?: Partial<Options<RenameDeliveryTypeData>>
+): UseMutationOptions<
+  RenameDeliveryTypeResponse,
+  AxiosError<RenameDeliveryTypeError>,
+  Options<RenameDeliveryTypeData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RenameDeliveryTypeResponse,
+    AxiosError<RenameDeliveryTypeError>,
+    Options<RenameDeliveryTypeData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await renameDeliveryType({
         ...options,
         ...fnOptions,
         throwOnError: true,

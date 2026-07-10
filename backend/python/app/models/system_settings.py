@@ -12,6 +12,16 @@ from app.utilities.utils import validate_phone
 from .base import BaseModel
 
 
+def _validate_delivery_types(v: list[str]) -> list[str]:
+    """Delivery types must be non-empty, unique, and not blank."""
+    normalized = [item.strip() for item in v]
+    if not normalized or any(not item for item in normalized):
+        raise ValueError("delivery_types must include at least one non-empty value")
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("delivery_types cannot contain duplicates")
+    return normalized
+
+
 class EmailReminder(SQLModel):
     """A single reminder email configuration.
 
@@ -79,6 +89,13 @@ class SystemSettingsBase(SQLModel):
         ],
         sa_column=Column(EmailReminderListType, nullable=False),
     )
+    # The default lives here and nowhere else: it applies only when a settings
+    # row is created. Every other code path must read the configured list off
+    # the (always-present) row rather than reaching for a fallback constant.
+    delivery_types: list[str] = Field(
+        default_factory=lambda: ["School", "Family"],
+        sa_column=Column(JSON, nullable=False),
+    )
 
     @field_validator("contact_phone")
     @classmethod
@@ -87,6 +104,12 @@ class SystemSettingsBase(SQLModel):
         if v is None:
             return None
         return validate_phone(v)
+
+    @field_validator("delivery_types")
+    @classmethod
+    def validate_delivery_types(cls, v: list[str]) -> list[str]:
+        """Delivery types must be non-empty, unique, and not blank."""
+        return _validate_delivery_types(v)
 
 
 class SystemSettings(SystemSettingsBase, BaseModel, table=True):
@@ -109,6 +132,20 @@ class SystemSettingsRead(SystemSettingsBase):
     system_settings_id: UUID
 
 
+class DeliveryTypeRename(SQLModel):
+    """Request body for renaming a configured delivery type.
+
+    Rename is a distinct operation from the list-replacing PATCH: it preserves
+    the type's identity, cascading the new name onto every location (active or
+    not) that references the old one. A plain PATCH that swaps a name looks like
+    a remove + add and is blocked by the in-use guard, so renames must come
+    through here.
+    """
+
+    old_name: str = Field(min_length=1, max_length=100)
+    new_name: str = Field(min_length=1, max_length=100)
+
+
 class SystemSettingsUpdate(SQLModel):
     """Update request model - all optional"""
 
@@ -129,6 +166,7 @@ class SystemSettingsUpdate(SQLModel):
     f4k_wr_website: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
     email_reminders: list[EmailReminder] | None = Field(default=None)
+    delivery_types: list[str] | None = Field(default=None)
 
     @field_validator("contact_phone")
     @classmethod
@@ -137,3 +175,11 @@ class SystemSettingsUpdate(SQLModel):
         if v is None:
             return None
         return validate_phone(v)
+
+    @field_validator("delivery_types")
+    @classmethod
+    def validate_delivery_types(cls, v: list[str] | None) -> list[str] | None:
+        """Delivery types must be non-empty, unique, and not blank when updated."""
+        if v is None:
+            return None
+        return _validate_delivery_types(v)

@@ -28,7 +28,10 @@ from app.utilities.boxes import (
     compute_boxes,
     resolve_children_per_box,
 )
-from app.utilities.google_maps_link import build_google_maps_directions_url
+from app.utilities.google_maps_link import (
+    MapWaypoint,
+    build_google_maps_directions_url,
+)
 from app.utilities.pagination import paginate_query
 from app.utilities.routes_utils import fetch_route_polyline
 
@@ -405,7 +408,8 @@ class RouteService:
             HTTPException 404: If the route or system settings are not found.
             HTTPException 422: If a stop is missing both address and coordinates.
         """
-        # 1. Fetch route stops with their locations, ordered by stop_number
+        # 1. Fetch route stops with their live location and (if frozen) snapshot,
+        #    ordered by stop_number.
         rows = await self._fetch_ordered_stops(session, route_id)
 
         if not rows:
@@ -425,33 +429,56 @@ class RouteService:
                 detail=f"Route {route_id} has no stops.",
             )
 
-        # 2. Fetch warehouse coordinates from SystemSettings
-        settings_result = await session.execute(select(SystemSettings).limit(1))
-        system_settings = settings_result.scalars().first()
-
-        if not system_settings:
-            raise HTTPException(
-                status_code=404,
-                detail="System settings not found.",
+        # 2. Resolve the origin. A frozen route carries its own start
+        #    coordinates; an unfrozen one uses the live warehouse.
+        route_snapshot = (
+            await session.execute(
+                select(RouteSnapshot).where(RouteSnapshot.route_id == route_id)
             )
-        if (
-            system_settings.warehouse_latitude is None
-            or system_settings.warehouse_longitude is None
-        ):
-            raise HTTPException(
-                status_code=422,
-                detail="Warehouse coordinates are not configured in system settings.",
-            )
+        ).scalar_one_or_none()
 
-        # 3. Extract the ordered list of Location objects
-        locations: list[Location] = [location for _, location, _ in rows]
+        if route_snapshot is not None:
+            origin_lat = route_snapshot.start_latitude
+            origin_lon = route_snapshot.start_longitude
+        else:
+            settings_result = await session.execute(select(SystemSettings).limit(1))
+            system_settings = settings_result.scalars().first()
+
+            if not system_settings:
+                raise HTTPException(
+                    status_code=404,
+                    detail="System settings not found.",
+                )
+            if (
+                system_settings.warehouse_latitude is None
+                or system_settings.warehouse_longitude is None
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "Warehouse coordinates are not configured in system settings."
+                    ),
+                )
+            origin_lat = system_settings.warehouse_latitude
+            origin_lon = system_settings.warehouse_longitude
+
+        # 3. Resolve each stop, preferring the frozen snapshot over the live
+        #    location (present = use snapshot).
+        waypoints = [
+            MapWaypoint(
+                address=snapshot.address if snapshot else location.address,
+                latitude=snapshot.latitude if snapshot else location.latitude,
+                longitude=snapshot.longitude if snapshot else location.longitude,
+            )
+            for _, location, snapshot in rows
+        ]
 
         # 4. Generate the URL
         try:
             url = build_google_maps_directions_url(
-                locations=locations,
-                warehouse_lat=system_settings.warehouse_latitude,
-                warehouse_lon=system_settings.warehouse_longitude,
+                stops=waypoints,
+                warehouse_lat=origin_lat,
+                warehouse_lon=origin_lon,
             )
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e

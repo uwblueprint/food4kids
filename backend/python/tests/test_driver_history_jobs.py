@@ -14,7 +14,6 @@ from sqlmodel import select
 
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
-from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route
@@ -67,7 +66,7 @@ async def _seed_today(maker: async_sessionmaker[AsyncSession]) -> dict[str, Any]
             latitude=43.1,
             longitude=-80.1,
             num_children=6,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         # drive_date is today so the job (date.today()) picks it up.
         rg = RouteGroup(

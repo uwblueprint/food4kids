@@ -86,7 +86,7 @@ Windows (PowerShell, if you don't have Git Bash/WSL):
 
 ```powershell
 $env:GOOGLE_APPLICATION_CREDENTIALS = "food4kids-env-service-account.json"
-gcloud secrets versions access latest --secret="f4k-backend-env" --project="food4kids-473501" | Out-File -Encoding utf8 .env
+gcloud secrets versions access latest --secret="f4k-development-backend-env" --project="food4kids-473501" | Out-File -Encoding utf8 .env
 ```
 
 This writes `.env` to the repo root. You still need `frontend/.env` from the PL.

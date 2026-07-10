@@ -7,7 +7,7 @@ from pydantic import computed_field
 from sqlmodel import Field, Relationship, SQLModel, String
 
 from .base import BaseModel
-from .enum import DeliveryTypeEnum, LocationStatusEnum
+from .enum import LocationStatusEnum
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
@@ -37,18 +37,22 @@ class LocationBase(SQLModel):
     # Kind of recipient (School/Family). Required — no default — per main's
     # rename/persist migration; enforced uniform within a RouteGroup at
     # generation time.
-    delivery_type: DeliveryTypeEnum = Field(sa_type=String)
+    delivery_type: str = Field(min_length=1, max_length=100, sa_type=String)
     # Stored bit: was this location in the most recent relevant spreadsheet
     # upload? The user-facing three-state status (Active/Unscheduled/Inactive)
     # is derived from this plus whether the location appears in a present/
     # future route — see LocationRead.status.
     in_roster: bool = Field(default=True)
     notes: str = Field(default="")
+    # One-to-one: a note chain belongs to at most one location, enforced by a
+    # DB-level unique constraint (NULLs are distinct in Postgres, so locations
+    # without a chain are unconstrained).
     note_chain_id: UUID | None = Field(
         default=None,
         foreign_key="note_chains.note_chain_id",
         nullable=True,
         ondelete="SET NULL",
+        unique=True,
     )
 
 
@@ -236,7 +240,7 @@ class LocationUpdate(SQLModel):
     dietary_restrictions: str | None = None
     place_id: str | None = None
     num_children: int | None = None
-    delivery_type: DeliveryTypeEnum | None = None
+    delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
     in_roster: bool | None = None
     notes: str | None = None
     note_chain_id: UUID | None = None
@@ -246,7 +250,7 @@ class LocationIngestRequest(SQLModel):
     """Ingest request — `delivery_type` applies to every net-new row in this
     import (one Apricot sheet = one delivery type)."""
 
-    delivery_type: DeliveryTypeEnum
+    delivery_type: str = Field(min_length=1, max_length=100)
     net_new: list[ValidatedLocationImportEntry]
     stale: list[LocationRead]
 
