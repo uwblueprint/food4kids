@@ -433,15 +433,6 @@
         "title": "DeliveriesCountResponse",
         "type": "object"
       },
-      "DeliveryTypeEnum": {
-        "description": "Kind of recipient at a Location — set per location, enforced uniform\nwithin a RouteGroup at generation time.",
-        "enum": [
-          "School",
-          "Family"
-        ],
-        "title": "DeliveryTypeEnum",
-        "type": "string"
-      },
       "DriveDaysOfWeekEnum": {
         "enum": [
           "Mon",
@@ -989,7 +980,10 @@
             "type": "string"
           },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Delivery Type",
+            "type": "string"
           },
           "dietary_restrictions": {
             "default": "",
@@ -1442,7 +1436,10 @@
         "description": "Ingest request — `delivery_type` applies to every net-new row in this\nimport (one Apricot sheet = one delivery type).",
         "properties": {
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Delivery Type",
+            "type": "string"
           },
           "net_new": {
             "items": {
@@ -1514,7 +1511,10 @@
             "type": "string"
           },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Delivery Type",
+            "type": "string"
           },
           "dietary_restrictions": {
             "default": "",
@@ -1679,7 +1679,10 @@
             "type": "string"
           },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Delivery Type",
+            "type": "string"
           },
           "dietary_restrictions": {
             "default": "",
@@ -1864,12 +1867,15 @@
           "delivery_type": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DeliveryTypeEnum"
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Delivery Type"
           },
           "dietary_restrictions": {
             "anyOf": [
@@ -2818,12 +2824,13 @@
           "delivery_type": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DeliveryTypeEnum"
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Delivery Type"
           },
           "drive_date": {
             "format": "date-time",
@@ -3333,6 +3340,13 @@
             ],
             "title": "Default Cap"
           },
+          "delivery_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Delivery Types",
+            "type": "array"
+          },
           "dropoff_minutes": {
             "default": 3,
             "minimum": 0,
@@ -3545,6 +3559,20 @@
               }
             ],
             "title": "Default Cap"
+          },
+          "delivery_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Types"
           },
           "dropoff_minutes": {
             "anyOf": [
@@ -5404,7 +5432,7 @@
               "anyOf": [
                 {
                   "items": {
-                    "$ref": "#/components/schemas/DeliveryTypeEnum"
+                    "type": "string"
                   },
                   "type": "array"
                 },
@@ -6469,7 +6497,7 @@
               "anyOf": [
                 {
                   "items": {
-                    "$ref": "#/components/schemas/DeliveryTypeEnum"
+                    "type": "string"
                   },
                   "type": "array"
                 },

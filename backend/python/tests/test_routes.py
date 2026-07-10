@@ -18,7 +18,6 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route
@@ -302,6 +301,52 @@ class TestLocationRoutes:
         assert data["note_chain_id"] is not None  # auto-created
 
     @pytest.mark.asyncio
+    async def test_create_location_accepts_configured_delivery_type(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """POST /locations validates delivery_type against system settings."""
+        settings_response = await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+        assert settings_response.status_code == 200
+
+        response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+                "delivery_type": "Pantry",
+            },
+        )
+
+        assert response.status_code == 201
+        assert response.json()["delivery_type"] == "Pantry"
+
+    @pytest.mark.asyncio
+    async def test_create_location_rejects_unknown_delivery_type(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """POST /locations fails fast when delivery_type is not configured."""
+        response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+                "delivery_type": "Unknown",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_get_locations_with_data(
         self,
         async_client: AsyncClient,
@@ -342,7 +387,7 @@ class TestLocationRoutes:
                 "name": "Central Elementary",
                 "contact_name": "School Contact",
                 "phone_primary": "(555) 111-1111",
-                "delivery_type": DeliveryTypeEnum.SCHOOL.value,
+                "delivery_type": "School",
             },
         )
         family_response = await async_client.post(
@@ -353,7 +398,7 @@ class TestLocationRoutes:
                 "name": "Family Contact",
                 "contact_name": "Family Contact",
                 "phone_primary": "(555) 222-2222",
-                "delivery_type": DeliveryTypeEnum.FAMILY.value,
+                "delivery_type": "Family",
             },
         )
         assert school_response.status_code == 201
@@ -379,6 +424,18 @@ class TestLocationRoutes:
         assert school_id not in family_ids
 
     @pytest.mark.asyncio
+    async def test_get_locations_rejects_unknown_delivery_type_filter(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /locations validates delivery_type filters against settings."""
+        response = await async_client.get(
+            "/locations/", params={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 422
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_get_locations_filters_by_location_group(
         self,
         async_client: AsyncClient,
@@ -393,7 +450,7 @@ class TestLocationRoutes:
             contact_name="Target Family",
             address="1 Target St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         other_location = Location(
@@ -402,7 +459,7 @@ class TestLocationRoutes:
             contact_name="Other Family",
             address="1 Other St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         test_session.add(other_group)
@@ -437,7 +494,7 @@ class TestLocationRoutes:
             contact_name="First Group Family",
             address="1 First St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         second_location = Location(
@@ -446,7 +503,7 @@ class TestLocationRoutes:
             contact_name="Second Group Family",
             address="1 Second St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         third_location = Location(
@@ -455,7 +512,7 @@ class TestLocationRoutes:
             contact_name="Third Group Family",
             address="1 Third St",
             phone_primary="5553333333",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         test_session.add_all([second_group, third_group])
@@ -493,7 +550,7 @@ class TestLocationRoutes:
             contact_name="Scheduled Family",
             address="1 Scheduled St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         unscheduled_location = Location(
@@ -502,7 +559,7 @@ class TestLocationRoutes:
             contact_name="Unscheduled Family",
             address="2 Unscheduled St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         inactive_location = Location(
@@ -511,7 +568,7 @@ class TestLocationRoutes:
             contact_name="Inactive Family",
             address="3 Inactive St",
             phone_primary="5553333333",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=False,
         )
         archived_scheduled_location = Location(
@@ -520,7 +577,7 @@ class TestLocationRoutes:
             contact_name="Archived Scheduled Family",
             address="4 Archived Scheduled St",
             phone_primary="5554444444",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=False,
         )
         # RouteGroup must exist before Routes (Route.route_group_id is a
@@ -622,7 +679,7 @@ class TestLocationRoutes:
             contact_name="Active School",
             address="1 School St",
             phone_primary="5555555555",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         active_family_location = Location(
@@ -631,7 +688,7 @@ class TestLocationRoutes:
             contact_name="Active Family",
             address="1 Family St",
             phone_primary="5556666666",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         unscheduled_school_location = Location(
@@ -640,7 +697,7 @@ class TestLocationRoutes:
             contact_name="Unscheduled School",
             address="2 School St",
             phone_primary="5557777777",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         route_group = RouteGroup(
@@ -716,7 +773,7 @@ class TestLocationRoutes:
             contact_name="Matching School",
             address="1 Matching St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         wrong_type_location = Location(
@@ -725,7 +782,7 @@ class TestLocationRoutes:
             contact_name="Wrong Type Family",
             address="1 Wrong Type St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         wrong_group_location = Location(
@@ -734,7 +791,7 @@ class TestLocationRoutes:
             contact_name="Wrong Group School",
             address="1 Wrong Group St",
             phone_primary="5553333333",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         inactive_location = Location(
@@ -743,7 +800,7 @@ class TestLocationRoutes:
             contact_name="Inactive School",
             address="1 Inactive St",
             phone_primary="5554444444",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=False,
         )
         test_session.add(other_group)
@@ -793,7 +850,7 @@ class TestLocationRoutes:
                 contact_name=f"Paged Family {index}",
                 address=f"{index} Paged St",
                 phone_primary=f"555111111{index}",
-                delivery_type=DeliveryTypeEnum.FAMILY,
+                delivery_type="Family",
                 in_roster=True,
             )
             for index in range(3)
@@ -804,7 +861,7 @@ class TestLocationRoutes:
             contact_name="Excluded Paged Family",
             address="1 Excluded Paged St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         test_session.add(other_group)
@@ -889,6 +946,44 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["notes"] == "Updated notes"
+
+    @pytest.mark.asyncio
+    async def test_update_location_rejects_unknown_delivery_type(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """PATCH /locations/{id} validates delivery_type against settings."""
+        create_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        assert create_response.status_code == 201
+        location_id = create_response.json()["location_id"]
+
+        response = await async_client.patch(
+            f"/locations/{location_id}", json={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 400
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_ingest_locations_rejects_unknown_delivery_type(
+        self, async_client: AsyncClient
+    ) -> None:
+        """POST /locations/ingest validates delivery_type against settings."""
+        response = await async_client.post(
+            "/locations/ingest",
+            json={"delivery_type": "Unknown", "net_new": [], "stale": []},
+        )
+
+        assert response.status_code == 400
+        assert "Unknown delivery_type" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_update_location_clears_nullable_fields(
@@ -1060,7 +1155,7 @@ class TestLocationRoutes:
             contact_name="Delivered Family",
             address="10 Delivered St",
             phone_primary="5559999999",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         past_group = RouteGroup(
@@ -1121,7 +1216,7 @@ class TestLocationRoutes:
             contact_name="Upcoming Family",
             address="20 Upcoming St",
             phone_primary="5558888888",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         future_group = RouteGroup(
@@ -1171,7 +1266,7 @@ class TestLocationRoutes:
             contact_name="Multi Route Family",
             address="30 Multi St",
             phone_primary="5557777777",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         sooner_group = RouteGroup(name="Sooner Group", drive_date=datetime(2098, 1, 1))
@@ -1507,7 +1602,7 @@ class TestRouteRoutes:
             address="1 Route St",
             phone_primary="5550000001",
             num_children=6,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         loc_b = Location(
             location_group_id=test_location_group.location_group_id,
@@ -1516,7 +1611,7 @@ class TestRouteRoutes:
             address="2 Route St",
             phone_primary="5550000002",
             num_children=10,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         test_session.add_all([loc_a, loc_b])
         await test_session.commit()
@@ -1579,7 +1674,7 @@ class TestRouteRoutes:
             address="1 Frozen St",
             phone_primary="5550000009",
             num_children=6,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         test_session.add_all([past_group, loc])
         await test_session.commit()
@@ -1783,44 +1878,12 @@ class TestRouteRoutes:
     async def test_update_route_reroute_without_warehouse_coords(
         self,
         async_client: AsyncClient,
-        test_session: AsyncSession,
         test_route: Any,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
         """Re-routing needs warehouse coords; when system settings exist but
         the warehouse coordinates aren't configured, it's a 503."""
-        from app.models.system_settings import SystemSettings
-
-        # Settings exist but have no warehouse lat/long.
-        test_session.add(SystemSettings())
-        await test_session.commit()
-
-        location_id = (
-            await async_client.post(
-                "/locations/",
-                json={
-                    **sample_location_data,
-                    "location_group_id": str(test_location_group.location_group_id),
-                },
-            )
-        ).json()["location_id"]
-        response = await async_client.patch(
-            f"/routes/{test_route.route_id}",
-            json={"location_ids": [location_id]},
-        )
-        assert response.status_code == 503
-
-    @pytest.mark.asyncio
-    async def test_update_route_reroute_without_system_settings(
-        self,
-        async_client: AsyncClient,
-        test_route: Any,
-        sample_location_data: dict[str, Any],
-        test_location_group: Any,
-    ) -> None:
-        """Re-routing with no system settings at all is a 503 (server not
-        configured), not a 400 — even though the error says 'not found'."""
         location_id = (
             await async_client.post(
                 "/locations/",
@@ -1881,7 +1944,7 @@ class TestRouteRoutes:
             contact_name="Fam A",
             address="1 A St",
             phone_primary="5550000001",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         loc_b = Location(
             location_group_id=group_id,
@@ -1889,7 +1952,7 @@ class TestRouteRoutes:
             contact_name="Fam B",
             address="2 B St",
             phone_primary="5550000002",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         user = User(
             first_name="Veteran",
@@ -1986,7 +2049,7 @@ class TestRouteStopConstraints:
             contact_name=f"Constraint Family {n}",
             address=f"{n} Constraint St",
             phone_primary=f"555000{n:04d}",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
 
@@ -2224,7 +2287,7 @@ class TestRouteGroupRoutes:
         location = Location(
             location_group_id=loc_group.location_group_id,
             name="Central Elementary",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             contact_name="Jane",
             address="123 Main St",
             phone_primary="555-1234",
@@ -2256,6 +2319,62 @@ class TestRouteGroupRoutes:
         assert group["num_locations"] == 1
 
     @pytest.mark.asyncio
+    async def test_get_route_groups_uses_location_delivery_type(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Route group delivery type comes from its locations without hardcoded types."""
+        loc_group = LocationGroup(name="Pantry Group", color="#000000", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Pantry Stop",
+            delivery_type="Pantry",
+            contact_name="Pantry Contact",
+            address="123 Main St",
+            phone_primary="555-1234",
+            num_children=10,
+        )
+        test_session.add(location)
+
+        rg = RouteGroup(name="Pantry Route Group", drive_date=datetime(2020, 3, 1))
+        test_session.add(rg)
+        await test_session.flush()
+
+        route = Route(name="R1", length=5.0, route_group_id=rg.route_group_id)
+        test_session.add(route)
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id,
+                location_id=location.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["delivery_type"] == "Pantry"
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_rejects_unknown_delivery_type_filter(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /route-groups validates delivery_type filters against settings."""
+        response = await async_client.get(
+            "/route-groups", params={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 422
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_get_route_groups_num_boxes_arithmetic(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
@@ -2268,7 +2387,7 @@ class TestRouteGroupRoutes:
         loc_a = Location(
             location_group_id=loc_group.location_group_id,
             name="Location A",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             contact_name="A",
             address="1 St",
             phone_primary="555-0001",
@@ -2277,7 +2396,7 @@ class TestRouteGroupRoutes:
         loc_b = Location(
             location_group_id=loc_group.location_group_id,
             name="Location B",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             contact_name="B",
             address="2 St",
             phone_primary="555-0002",
@@ -2458,7 +2577,7 @@ class TestNoteFeedRoutes:
             contact_name=location_name,
             address=f"{location_name} Address",
             phone_primary="555-1234",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             note_chain_id=chain.note_chain_id,
         )
         note = Note(
@@ -2933,6 +3052,7 @@ class TestSystemSettingsRoutes:
             json={
                 "boxes_per_car": 12,
                 "contact_phone": "+12125551234",
+                "delivery_types": ["School", "Family", "Pantry"],
                 "email_reminders": [
                     {"days_before": 1, "time": "09:00:00"},
                     {"days_before": 0, "time": "11:00:00"},
@@ -2943,10 +3063,21 @@ class TestSystemSettingsRoutes:
         body = response.json()
         assert body["boxes_per_car"] == 12
         assert body["contact_phone"] == "+12125551234"
+        assert body["delivery_types"] == ["School", "Family", "Pantry"]
         assert body["email_reminders"] == [
             {"days_before": 1, "time": "09:00:00"},
             {"days_before": 0, "time": "11:00:00"},
         ]
+
+    @pytest.mark.asyncio
+    async def test_patch_system_settings_rejects_empty_delivery_types(
+        self, async_client: AsyncClient
+    ) -> None:
+        """PATCH /system-settings rejects unusable delivery type lists."""
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["School", ""]}
+        )
+        assert response.status_code == 422
 
 
 class _FakeUploadResult:

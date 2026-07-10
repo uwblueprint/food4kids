@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 
 import type {
-  DeliveryTypeEnum,
   DriveDaysOfWeekEnum,
   DriverAssignmentStatusEnum,
   RouteGroupRead,
@@ -28,7 +27,6 @@ import type { GroupsTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const DELIVERY_TYPES: DeliveryTypeEnum[] = ['School', 'Family'];
 const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed', 'Archived'];
 const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = [
   'Assigned',
@@ -62,6 +60,7 @@ type RouteGroupsTabProps = GroupsTabState;
 
 export function RouteGroupsTab({
   rows,
+  deliveryTypes,
   search,
   filterOpen,
   setFilterOpen,
@@ -128,7 +127,7 @@ export function RouteGroupsTab({
             </FilterChipGroup>
 
             <FilterChipGroup label="Delivery Type" showDelimiter>
-              {DELIVERY_TYPES.map((type) => (
+              {deliveryTypes.map((type) => (
                 <FilterChip
                   key={type}
                   selected={draftFilters.deliveryTypes.has(type)}

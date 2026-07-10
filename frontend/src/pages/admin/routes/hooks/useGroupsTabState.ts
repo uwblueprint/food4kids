@@ -1,19 +1,22 @@
 import { useState } from 'react';
 
 import type {
-  DeliveryTypeEnum,
   DriveDaysOfWeekEnum,
   DriverAssignmentStatusEnum,
   RouteGroupRead,
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
+import {
+  getConfiguredDeliveryTypes,
+  useSystemSettings,
+} from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
 
 export interface GroupsFilterState {
   weekdays: Set<DriveDaysOfWeekEnum>;
-  deliveryTypes: Set<DeliveryTypeEnum>;
+  deliveryTypes: Set<string>;
   routeStatuses: Set<RouteStatusEnum>;
   driverStatuses: Set<DriverAssignmentStatusEnum>;
 }
@@ -37,6 +40,7 @@ const copyFilters = (f: GroupsFilterState): GroupsFilterState => ({
 export interface GroupsTabState {
   rows: RouteGroupRead[];
   isLoading: boolean;
+  deliveryTypes: string[];
   search: UseSearchReturn;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
@@ -58,6 +62,8 @@ export function useGroupsTabState(): GroupsTabState {
     useState<GroupsFilterState>(emptyFilters());
   const [draftFilters, setDraftFilters] =
     useState<GroupsFilterState>(emptyFilters());
+  const { data: systemSettings } = useSystemSettings();
+  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0
@@ -109,6 +115,7 @@ export function useGroupsTabState(): GroupsTabState {
   return {
     rows,
     isLoading,
+    deliveryTypes,
     search,
     filterOpen,
     setFilterOpen,

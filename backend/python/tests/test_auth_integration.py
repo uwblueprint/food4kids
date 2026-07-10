@@ -262,7 +262,6 @@ async def seed(test_session: AsyncSession) -> Seed:
     """Create the minimal records the auth dependencies look up by auth_id."""
     from app.models.announcement import Announcement
     from app.models.driver import Driver
-    from app.models.enum import DeliveryTypeEnum
     from app.models.location import Location
     from app.models.location_group import LocationGroup
     from app.models.route import Route
@@ -330,7 +329,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         address="123 Seed St",
         phone_primary="5550000001",
         num_children=8,
-        delivery_type=DeliveryTypeEnum.FAMILY,
+        delivery_type="Family",
     )
     test_session.add_all([route, location])
     await test_session.commit()
