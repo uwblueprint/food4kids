@@ -56,13 +56,6 @@ class SystemSettingsService:
         await session.flush()
         return settings
 
-    async def _configured_delivery_types(self, session: AsyncSession) -> list[str]:
-        """Currently configured delivery types, or the defaults if unset."""
-        settings = await self.get_settings(session)
-        if settings is None:
-            return DEFAULT_DELIVERY_TYPES.copy()
-        return settings.delivery_types
-
     async def _count_active_locations_with_type(
         self, session: AsyncSession, delivery_type: str
     ) -> int:
@@ -176,7 +169,12 @@ class SystemSettingsService:
         if not new_name:
             raise DeliveryTypeRenameError("New delivery type name must not be blank")
 
-        current = await self._configured_delivery_types(session)
+        settings = await self.get_settings(session)
+        current = (
+            settings.delivery_types
+            if settings is not None
+            else DEFAULT_DELIVERY_TYPES.copy()
+        )
         if old_name not in current:
             raise DeliveryTypeRenameError(f"Unknown delivery type '{old_name}'")
         if new_name == old_name:
@@ -196,7 +194,6 @@ class SystemSettingsService:
             .values(delivery_type=new_name)
         )
 
-        settings = await self.get_settings(session)
         if settings is None:
             settings = SystemSettings(delivery_types=renamed)
             session.add(settings)
