@@ -6,6 +6,7 @@ from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
+from .route_stop import RouteStopDetailRead
 
 if TYPE_CHECKING:
     from .driver import Driver
@@ -108,6 +109,16 @@ class RouteRead(RouteBase):
     """Read response model"""
 
     route_id: UUID
+
+
+class RouteDetailRead(RouteRead):
+    """GET /routes/{route_id} response: the bare route plus its ordered stops.
+
+    Stops are assembled with snapshot-over-live precedence. See
+    RouteStopDetailRead.
+    """
+
+    stops: list[RouteStopDetailRead] = Field(default_factory=list)
 
 
 class RouteUpdate(SQLModel):

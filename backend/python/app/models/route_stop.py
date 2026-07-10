@@ -74,3 +74,23 @@ class RouteStopUpdate(SQLModel):
     route_id: UUID | None = None
     location_id: UUID | None = None
     stop_number: int | None = None
+
+
+class RouteStopDetailRead(SQLModel):
+    """A single ordered stop on a route, assembled with snapshot-over-live
+    field precedence: for a frozen (past) route the route_stop_snapshot wins,
+    otherwise the live Location is read. Embedded in RouteDetailRead.
+
+    Notes are intentionally NOT embedded: note_chain_id points at the stop's
+    note chain, fetched separately via GET /note-chains/{id}/notes.
+    """
+
+    stop_number: int
+    address: str
+    contact_name: str
+    phone_primary: str
+    # Secondary phone lives only on the live Location (snapshots don't capture
+    # it), so it's read from there regardless of frozen state.
+    phone_secondary: str | None = None
+    boxes: int
+    note_chain_id: UUID | None = None
