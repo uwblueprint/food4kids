@@ -170,7 +170,7 @@ def get_google_maps_client() -> GoogleMapsClient:
 def get_system_settings_service() -> SystemSettingsService:
     """Get system settings service instance"""
     logger = get_logger()
-    return SystemSettingsService(logger)
+    return SystemSettingsService(logger, get_google_maps_client())
 
 
 def get_location_service(

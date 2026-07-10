@@ -4,13 +4,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.system_settings import SystemSettings, SystemSettingsUpdate
+from app.utilities.google_maps_client import GoogleMapsClient
 
 
 class SystemSettingsService:
     """Service for reading and writing the singleton SystemSettings row."""
 
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, google_maps_client: GoogleMapsClient):
         self.logger = logger
+        self.google_maps_client = google_maps_client
 
     async def get_settings(self, session: AsyncSession) -> SystemSettings | None:
         """Return the SystemSettings row, or None if none has been created yet."""
@@ -42,9 +44,38 @@ class SystemSettingsService:
     async def update_settings(
         self, session: AsyncSession, settings_data: SystemSettingsUpdate
     ) -> SystemSettings:
-        """Patch the singleton settings row, creating it if needed."""
-        settings = await self.get_settings(session)
+        """Patch the singleton settings row, creating it if needed.
+
+        The warehouse coordinates are derived, not trusted: whenever
+        ``warehouse_location`` is part of the patch, geocoding is the single
+        source of truth for ``warehouse_latitude`` / ``warehouse_longitude``.
+        A non-empty address is geocoded — normalizing the stored address to
+        Google's formatted form and overwriting the coordinates, or raising
+        ``ValueError`` if it can't be resolved — while clearing the address to
+        ``None`` clears both coordinates. Any coordinates sent in the same
+        patch are ignored.
+        """
         updates = settings_data.model_dump(exclude_unset=True)
+
+        if "warehouse_location" in updates:
+            # Coordinates are derived from the address, never client-supplied.
+            updates.pop("warehouse_latitude", None)
+            updates.pop("warehouse_longitude", None)
+            address = updates["warehouse_location"]
+            if address is None:
+                updates["warehouse_latitude"] = None
+                updates["warehouse_longitude"] = None
+            else:
+                geocode_result = await self.google_maps_client.geocode_address(address)
+                if geocode_result is None:
+                    raise ValueError(
+                        f"Geocoding failed for warehouse location: {address}"
+                    )
+                updates["warehouse_location"] = geocode_result.formatted_address
+                updates["warehouse_latitude"] = geocode_result.latitude
+                updates["warehouse_longitude"] = geocode_result.longitude
+
+        settings = await self.get_settings(session)
 
         if settings is None:
             settings = SystemSettings(**updates)
