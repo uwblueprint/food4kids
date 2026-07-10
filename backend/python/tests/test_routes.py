@@ -3128,11 +3128,9 @@ class TestSystemSettingsRoutes:
         assert response.status_code == 409
         assert "School" in response.json()["detail"]
 
-        # The removal must not have persisted: either no row was written (defaults
-        # still apply) or the stored list still carries the type.
+        # The removal must not have persisted: the stored list still carries it.
         settings = await async_client.get("/system-settings/")
-        body = settings.json()
-        assert body is None or "School" in body["delivery_types"]
+        assert "School" in settings.json()["delivery_types"]
 
     @pytest.mark.asyncio
     async def test_patch_allows_removing_unused_delivery_type(

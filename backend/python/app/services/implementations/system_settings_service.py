@@ -6,7 +6,6 @@ from sqlmodel import col, select
 
 from app.models.location import Location
 from app.models.system_settings import (
-    DEFAULT_DELIVERY_TYPES,
     SystemSettings,
     SystemSettingsUpdate,
     _validate_delivery_types,
@@ -56,6 +55,22 @@ class SystemSettingsService:
         await session.flush()
         return settings
 
+    async def require_settings(self, session: AsyncSession) -> SystemSettings:
+        """Return the singleton settings row, asserting the startup invariant.
+
+        ``ensure_settings`` creates the row at startup (see ``app.__init__``), so
+        every other code path can treat its existence as a given. A missing row
+        here is a broken invariant, not a state to paper over with defaults —
+        fail loudly rather than silently substituting fallback config.
+        """
+        settings = await self.get_settings(session)
+        if settings is None:
+            raise RuntimeError(
+                "SystemSettings row is missing; it must be created at startup "
+                "via ensure_settings()."
+            )
+        return settings
+
     async def _count_active_locations_with_type(
         self, session: AsyncSession, delivery_type: str
     ) -> int:
@@ -101,7 +116,7 @@ class SystemSettingsService:
     async def update_settings(
         self, session: AsyncSession, settings_data: SystemSettingsUpdate
     ) -> SystemSettings:
-        """Patch the singleton settings row, creating it if needed.
+        """Patch the singleton settings row (guaranteed to exist at startup).
 
         The warehouse coordinates are derived, not trusted: whenever
         ``warehouse_location`` is part of the patch, geocoding is the single
@@ -132,24 +147,12 @@ class SystemSettingsService:
                 updates["warehouse_latitude"] = geocode_result.latitude
                 updates["warehouse_longitude"] = geocode_result.longitude
 
-        settings = await self.get_settings(session)
+        settings = await self.require_settings(session)
 
         if "delivery_types" in updates:
-            # Guard against the effective current list — the defaults when no
-            # row exists yet, since locations can already reference those.
-            current = (
-                settings.delivery_types
-                if settings is not None
-                else DEFAULT_DELIVERY_TYPES.copy()
-            )
             await self._guard_delivery_type_removal(
-                session, old=current, new=updates["delivery_types"]
+                session, old=settings.delivery_types, new=updates["delivery_types"]
             )
-
-        if settings is None:
-            settings = SystemSettings(**updates)
-            session.add(settings)
-            return settings
 
         for field_name, value in updates.items():
             setattr(settings, field_name, value)
@@ -162,19 +165,14 @@ class SystemSettingsService:
 
         Cascades onto every location referencing ``old_name`` — active *and*
         inactive, since a rename preserves the type's identity — then swaps the
-        name in the settings list (order preserved). Creates the settings row if
-        it doesn't exist yet so a rename off the defaults still persists.
+        name in the settings list (order preserved).
         """
         new_name = new_name.strip()
         if not new_name:
             raise DeliveryTypeRenameError("New delivery type name must not be blank")
 
-        settings = await self.get_settings(session)
-        current = (
-            settings.delivery_types
-            if settings is not None
-            else DEFAULT_DELIVERY_TYPES.copy()
-        )
+        settings = await self.require_settings(session)
+        current = settings.delivery_types
         if old_name not in current:
             raise DeliveryTypeRenameError(f"Unknown delivery type '{old_name}'")
         if new_name == old_name:
@@ -194,17 +192,13 @@ class SystemSettingsService:
             .values(delivery_type=new_name)
         )
 
-        if settings is None:
-            settings = SystemSettings(delivery_types=renamed)
-            session.add(settings)
-        else:
-            settings.delivery_types = renamed
+        settings.delivery_types = renamed
         return settings
 
     async def set_import_column_map(
         self, session: AsyncSession, column_map: dict[str, str]
     ) -> None:
-        """Persist the import column map, creating the row if it doesn't exist yet.
+        """Persist the import column map onto the (always-present) settings row.
 
         Caller is responsible for committing the surrounding transaction.
         """

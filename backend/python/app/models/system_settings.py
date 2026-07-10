@@ -11,8 +11,6 @@ from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
-DEFAULT_DELIVERY_TYPES = ["School", "Family"]
-
 
 def _validate_delivery_types(v: list[str]) -> list[str]:
     """Delivery types must be non-empty, unique, and not blank."""
@@ -91,8 +89,11 @@ class SystemSettingsBase(SQLModel):
         ],
         sa_column=Column(EmailReminderListType, nullable=False),
     )
+    # The default lives here and nowhere else: it applies only when a settings
+    # row is created. Every other code path must read the configured list off
+    # the (always-present) row rather than reaching for a fallback constant.
     delivery_types: list[str] = Field(
-        default_factory=lambda: DEFAULT_DELIVERY_TYPES.copy(),
+        default_factory=lambda: ["School", "Family"],
         sa_column=Column(JSON, nullable=False),
     )
 
