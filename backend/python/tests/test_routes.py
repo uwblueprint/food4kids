@@ -1919,6 +1919,205 @@ class TestRouteRoutes:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
+    async def test_google_maps_link_unfrozen_uses_live_data(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """For an upcoming (unfrozen) route the link is built from the live
+        Location rows and the live warehouse in SystemSettings."""
+        from urllib.parse import quote
+
+        from sqlmodel import select
+
+        from app.models.system_settings import SystemSettings
+
+        # A settings row already exists (autouse fixture); configure its
+        # warehouse coordinates rather than inserting a second row.
+        settings = (
+            (await test_session.execute(select(SystemSettings).limit(1)))
+            .scalars()
+            .one()
+        )
+        settings.warehouse_location = "Depot"
+        settings.warehouse_latitude = 43.65
+        settings.warehouse_longitude = -79.38
+        test_session.add(settings)
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Live Fam",
+            contact_name="Live Fam",
+            address="10 Live Ave",
+            phone_primary="5550001111",
+            delivery_type="Family",
+            latitude=44.0,
+            longitude=-79.0,
+        )
+        test_session.add(loc)
+        await test_session.commit()
+        await test_session.refresh(loc)
+        test_session.add(
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=loc.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            f"/routes/{test_route.route_id}/google-maps-link"
+        )
+        assert response.status_code == 200
+        url = response.json()
+        # Origin is the live warehouse; stop is the live address.
+        assert "/dir/43.65,-79.38/" in url
+        assert quote("10 Live Ave", safe="") in url
+
+    @pytest.mark.asyncio
+    async def test_google_maps_link_frozen_uses_snapshot(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """For a frozen route (RouteSnapshot present) the link reflects the
+        snapshotted address/coords and the frozen warehouse origin — even after
+        the live Location and warehouse have since been mutated."""
+        from urllib.parse import quote
+
+        from sqlmodel import select
+
+        from app.models.route_snapshot import RouteSnapshot
+        from app.models.system_settings import SystemSettings
+
+        # Live warehouse and location as they are TODAY (post-delivery drift).
+        settings = (
+            (await test_session.execute(select(SystemSettings).limit(1)))
+            .scalars()
+            .one()
+        )
+        settings.warehouse_location = "New Depot"
+        settings.warehouse_latitude = 1.0
+        settings.warehouse_longitude = 1.0
+        test_session.add(settings)
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Moved Fam",
+            contact_name="Moved Fam",
+            address="999 New Address",
+            phone_primary="5550002222",
+            delivery_type="Family",
+            latitude=2.0,
+            longitude=2.0,
+        )
+        test_session.add(loc)
+        await test_session.commit()
+        await test_session.refresh(loc)
+
+        stop = RouteStop(
+            route_id=test_route.route_id,
+            location_id=loc.location_id,
+            stop_number=1,
+        )
+        test_session.add(stop)
+        await test_session.commit()
+        await test_session.refresh(stop)
+
+        # Freeze: warehouse origin and the delivered address/coords as they
+        # were at drive time.
+        test_session.add_all(
+            [
+                RouteSnapshot(
+                    route_id=test_route.route_id,
+                    start_address="Old Depot",
+                    start_latitude=43.65,
+                    start_longitude=-79.38,
+                ),
+                RouteStopSnapshot(
+                    route_stop_id=stop.route_stop_id,
+                    address="123 Old Address",
+                    contact_name="Old Fam",
+                    phone_number="5550002222",
+                    num_children=3,
+                    notes="",
+                    latitude=44.0,
+                    longitude=-79.0,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            f"/routes/{test_route.route_id}/google-maps-link"
+        )
+        assert response.status_code == 200
+        url = response.json()
+        # Origin is the frozen warehouse, not the live (1.0, 1.0).
+        assert "/dir/43.65,-79.38/" in url
+        assert "/dir/1.0,1.0/" not in url
+        # Stop reflects the snapshotted address, not the live one.
+        assert quote("123 Old Address", safe="") in url
+        assert quote("999 New Address", safe="") not in url
+
+    @pytest.mark.asyncio
+    async def test_google_maps_link_frozen_stop_without_snapshot_falls_back(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """A frozen route whose stop lacks a per-stop snapshot (e.g. the freeze
+        job skipped it for missing coords) falls back to the live Location for
+        that stop, while still using the RouteSnapshot origin."""
+        from urllib.parse import quote
+
+        from app.models.route_snapshot import RouteSnapshot
+
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Unsnapped Fam",
+            contact_name="Unsnapped Fam",
+            address="55 Fallback Rd",
+            phone_primary="5550003333",
+            delivery_type="Family",
+            latitude=45.0,
+            longitude=-80.0,
+        )
+        test_session.add(loc)
+        await test_session.commit()
+        await test_session.refresh(loc)
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+                RouteSnapshot(
+                    route_id=test_route.route_id,
+                    start_address="Depot",
+                    start_latitude=43.65,
+                    start_longitude=-79.38,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            f"/routes/{test_route.route_id}/google-maps-link"
+        )
+        assert response.status_code == 200
+        url = response.json()
+        assert "/dir/43.65,-79.38/" in url
+        assert quote("55 Fallback Rd", safe="") in url
+
+    @pytest.mark.asyncio
     async def test_suggested_driver_by_past_deliveries(
         self,
         async_client: AsyncClient,
