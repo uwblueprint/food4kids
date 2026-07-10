@@ -618,6 +618,51 @@ def main() -> None:
             session.commit()
             print("Database cleared successfully")
 
+            # Create admin accounts first so every note chain below can be
+            # authored by a real admin.
+            print("Creating admin accounts...")
+            admin_users: list[User] = []
+
+            for i in range(NUM_SEED_ADMINS):
+                admin_num = i + 1
+                uid = f"seed-admin-{admin_num}"
+                email = f"admin{admin_num}@f4k.dev"
+                first_name = fake.first_name()
+                last_name = fake.last_name()
+
+                ensure_firebase_user(
+                    uid=uid,
+                    email=email,
+                    password=SEED_PASSWORD,
+                    role="admin",
+                    first_name=first_name,
+                    last_name=last_name,
+                )
+
+                user = User(
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    auth_id=uid,
+                    role="admin",
+                )
+                set_timestamps(user)
+                session.add(user)
+
+                admin = Admin(
+                    admin_phone=generate_valid_phone(),
+                    user_id=user.user_id,
+                )
+                set_timestamps(admin)
+                session.add(admin)
+
+                admin_users.append(user)
+
+            session.commit()
+            print(f"Created {NUM_SEED_ADMINS} admin accounts")
+            # Author pool for the notes seeded into note chains below.
+            admin_author_ids = [user.user_id for user in admin_users]
+
             # Create location groups
             print("Creating location groups...")
             group_names = list(LOCATION_GROUP_SCHEDULE.keys())
@@ -804,6 +849,18 @@ def main() -> None:
                 )
                 set_timestamps(driver)
                 session.add(driver)
+
+                # Seed admin-authored notes into the driver's admin-only chain.
+                if random.random() < PROBABILITY_DRIVER_CHAIN_NOTES:
+                    for _ in range(random.randint(1, MAX_DRIVER_CHAIN_NOTES)):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=random.choice(admin_author_ids),
+                            message=fake.sentence(),
+                            is_system=False,
+                        )
+                        set_timestamps(note)
+                        session.add(note)
             session.commit()
             print(f"Created {num_drivers} drivers")
 
@@ -893,9 +950,9 @@ def main() -> None:
                     for _ in range(num_notes):
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
+                            user_id=random.choice(admin_author_ids),
                             message=fake.sentence(),
-                            is_system=random.choice([True, False]),
+                            is_system=False,
                         )
                         set_timestamps(note)
                         session.add(note)
@@ -936,9 +993,9 @@ def main() -> None:
                     for _ in range(num_notes):
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
+                            user_id=random.choice(admin_author_ids),
                             message=fake.sentence(),
-                            is_system=True,
+                            is_system=False,
                         )
                         set_timestamps(note)
                         session.add(note)
@@ -1078,74 +1135,6 @@ def main() -> None:
 
             session.commit()
             print("Created system settings info")
-
-            # Create admin accounts
-            print("Creating admin accounts...")
-            admin_users: list[User] = []
-
-            for i in range(NUM_SEED_ADMINS):
-                admin_num = i + 1
-                uid = f"seed-admin-{admin_num}"
-                email = f"admin{admin_num}@f4k.dev"
-                first_name = fake.first_name()
-                last_name = fake.last_name()
-
-                ensure_firebase_user(
-                    uid=uid,
-                    email=email,
-                    password=SEED_PASSWORD,
-                    role="admin",
-                    first_name=first_name,
-                    last_name=last_name,
-                )
-
-                user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    auth_id=uid,
-                    role="admin",
-                )
-                set_timestamps(user)
-                session.add(user)
-
-                admin = Admin(
-                    admin_phone=generate_valid_phone(),
-                    user_id=user.user_id,
-                )
-                set_timestamps(admin)
-                session.add(admin)
-
-                admin_users.append(user)
-
-            session.commit()
-            print(f"Created {NUM_SEED_ADMINS} admin accounts")
-
-            # Seed notes into the drivers' admin-only note chains. Done here,
-            # after admins exist, so each note has a real admin author (drivers
-            # can't write these) rather than being an authorless system note.
-            print("Creating notes for driver note chains...")
-            admin_user_ids_for_notes = [user.user_id for user in admin_users]
-            driver_notes_created = 0
-            driver_chain_rows = session.execute(
-                text(
-                    "SELECT note_chain_id FROM drivers WHERE note_chain_id IS NOT NULL"
-                )
-            ).fetchall()
-            for (driver_chain_id,) in driver_chain_rows:
-                if random.random() < PROBABILITY_DRIVER_CHAIN_NOTES:
-                    for _ in range(random.randint(1, MAX_DRIVER_CHAIN_NOTES)):
-                        note = Note(
-                            note_chain_id=driver_chain_id,
-                            user_id=random.choice(admin_user_ids_for_notes),
-                            message=fake.sentence(),
-                            is_system=False,
-                        )
-                        set_timestamps(note)
-                        session.add(note)
-                        driver_notes_created += 1
-            session.commit()
-            print(f"Created {driver_notes_created} driver chain notes")
 
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")
