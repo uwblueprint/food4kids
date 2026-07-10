@@ -131,6 +131,7 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
             "boxes_per_car",
             "dropoff_minutes",
             "children_per_box",
+            "delivery_types",
             "contact_name",
             "contact_phone",
             "f4k_wr_instagram",

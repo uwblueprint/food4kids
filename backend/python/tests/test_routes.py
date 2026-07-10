@@ -18,9 +18,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
+from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
@@ -125,6 +125,7 @@ class TestDriverRoutes:
             "last_name": sample_driver_data["last_name"],
             "id": str(uuid4()),
             "email": "newdriver@example.com",
+            "role": "driver",
         }
         # We don't want to actually call firebase so we mock the call
         with (
@@ -301,6 +302,52 @@ class TestLocationRoutes:
         assert data["note_chain_id"] is not None  # auto-created
 
     @pytest.mark.asyncio
+    async def test_create_location_accepts_configured_delivery_type(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """POST /locations validates delivery_type against system settings."""
+        settings_response = await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+        assert settings_response.status_code == 200
+
+        response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+                "delivery_type": "Pantry",
+            },
+        )
+
+        assert response.status_code == 201
+        assert response.json()["delivery_type"] == "Pantry"
+
+    @pytest.mark.asyncio
+    async def test_create_location_rejects_unknown_delivery_type(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """POST /locations fails fast when delivery_type is not configured."""
+        response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+                "delivery_type": "Unknown",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_get_locations_with_data(
         self,
         async_client: AsyncClient,
@@ -341,7 +388,7 @@ class TestLocationRoutes:
                 "name": "Central Elementary",
                 "contact_name": "School Contact",
                 "phone_primary": "(555) 111-1111",
-                "delivery_type": DeliveryTypeEnum.SCHOOL.value,
+                "delivery_type": "School",
             },
         )
         family_response = await async_client.post(
@@ -352,7 +399,7 @@ class TestLocationRoutes:
                 "name": "Family Contact",
                 "contact_name": "Family Contact",
                 "phone_primary": "(555) 222-2222",
-                "delivery_type": DeliveryTypeEnum.FAMILY.value,
+                "delivery_type": "Family",
             },
         )
         assert school_response.status_code == 201
@@ -378,6 +425,18 @@ class TestLocationRoutes:
         assert school_id not in family_ids
 
     @pytest.mark.asyncio
+    async def test_get_locations_rejects_unknown_delivery_type_filter(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /locations validates delivery_type filters against settings."""
+        response = await async_client.get(
+            "/locations/", params={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 422
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_get_locations_filters_by_location_group(
         self,
         async_client: AsyncClient,
@@ -392,7 +451,7 @@ class TestLocationRoutes:
             contact_name="Target Family",
             address="1 Target St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         other_location = Location(
@@ -401,7 +460,7 @@ class TestLocationRoutes:
             contact_name="Other Family",
             address="1 Other St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         test_session.add(other_group)
@@ -436,7 +495,7 @@ class TestLocationRoutes:
             contact_name="First Group Family",
             address="1 First St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         second_location = Location(
@@ -445,7 +504,7 @@ class TestLocationRoutes:
             contact_name="Second Group Family",
             address="1 Second St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         third_location = Location(
@@ -454,7 +513,7 @@ class TestLocationRoutes:
             contact_name="Third Group Family",
             address="1 Third St",
             phone_primary="5553333333",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         test_session.add_all([second_group, third_group])
@@ -492,7 +551,7 @@ class TestLocationRoutes:
             contact_name="Scheduled Family",
             address="1 Scheduled St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         unscheduled_location = Location(
@@ -501,7 +560,7 @@ class TestLocationRoutes:
             contact_name="Unscheduled Family",
             address="2 Unscheduled St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         inactive_location = Location(
@@ -510,7 +569,7 @@ class TestLocationRoutes:
             contact_name="Inactive Family",
             address="3 Inactive St",
             phone_primary="5553333333",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=False,
         )
         archived_scheduled_location = Location(
@@ -519,7 +578,7 @@ class TestLocationRoutes:
             contact_name="Archived Scheduled Family",
             address="4 Archived Scheduled St",
             phone_primary="5554444444",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=False,
         )
         # RouteGroup must exist before Routes (Route.route_group_id is a
@@ -621,7 +680,7 @@ class TestLocationRoutes:
             contact_name="Active School",
             address="1 School St",
             phone_primary="5555555555",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         active_family_location = Location(
@@ -630,7 +689,7 @@ class TestLocationRoutes:
             contact_name="Active Family",
             address="1 Family St",
             phone_primary="5556666666",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         unscheduled_school_location = Location(
@@ -639,7 +698,7 @@ class TestLocationRoutes:
             contact_name="Unscheduled School",
             address="2 School St",
             phone_primary="5557777777",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         route_group = RouteGroup(
@@ -715,7 +774,7 @@ class TestLocationRoutes:
             contact_name="Matching School",
             address="1 Matching St",
             phone_primary="5551111111",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         wrong_type_location = Location(
@@ -724,7 +783,7 @@ class TestLocationRoutes:
             contact_name="Wrong Type Family",
             address="1 Wrong Type St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         wrong_group_location = Location(
@@ -733,7 +792,7 @@ class TestLocationRoutes:
             contact_name="Wrong Group School",
             address="1 Wrong Group St",
             phone_primary="5553333333",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=True,
         )
         inactive_location = Location(
@@ -742,7 +801,7 @@ class TestLocationRoutes:
             contact_name="Inactive School",
             address="1 Inactive St",
             phone_primary="5554444444",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             in_roster=False,
         )
         test_session.add(other_group)
@@ -792,7 +851,7 @@ class TestLocationRoutes:
                 contact_name=f"Paged Family {index}",
                 address=f"{index} Paged St",
                 phone_primary=f"555111111{index}",
-                delivery_type=DeliveryTypeEnum.FAMILY,
+                delivery_type="Family",
                 in_roster=True,
             )
             for index in range(3)
@@ -803,7 +862,7 @@ class TestLocationRoutes:
             contact_name="Excluded Paged Family",
             address="1 Excluded Paged St",
             phone_primary="5552222222",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         test_session.add(other_group)
@@ -888,6 +947,44 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["notes"] == "Updated notes"
+
+    @pytest.mark.asyncio
+    async def test_update_location_rejects_unknown_delivery_type(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """PATCH /locations/{id} validates delivery_type against settings."""
+        create_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        assert create_response.status_code == 201
+        location_id = create_response.json()["location_id"]
+
+        response = await async_client.patch(
+            f"/locations/{location_id}", json={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 400
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_ingest_locations_rejects_unknown_delivery_type(
+        self, async_client: AsyncClient
+    ) -> None:
+        """POST /locations/ingest validates delivery_type against settings."""
+        response = await async_client.post(
+            "/locations/ingest",
+            json={"delivery_type": "Unknown", "net_new": [], "stale": []},
+        )
+
+        assert response.status_code == 400
+        assert "Unknown delivery_type" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_update_location_clears_nullable_fields(
@@ -1059,7 +1156,7 @@ class TestLocationRoutes:
             contact_name="Delivered Family",
             address="10 Delivered St",
             phone_primary="5559999999",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         past_group = RouteGroup(
@@ -1090,7 +1187,7 @@ class TestLocationRoutes:
             route_stop_id=stop.route_stop_id,
             address="10 Delivered St",
             contact_name="Delivered Family",
-            phone_number="5559999999",
+            phone_primary="5559999999",
             num_children=2,
             latitude=0.0,
             longitude=0.0,
@@ -1120,7 +1217,7 @@ class TestLocationRoutes:
             contact_name="Upcoming Family",
             address="20 Upcoming St",
             phone_primary="5558888888",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         future_group = RouteGroup(
@@ -1170,7 +1267,7 @@ class TestLocationRoutes:
             contact_name="Multi Route Family",
             address="30 Multi St",
             phone_primary="5557777777",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
         sooner_group = RouteGroup(name="Sooner Group", drive_date=datetime(2098, 1, 1))
@@ -1506,7 +1603,7 @@ class TestRouteRoutes:
             address="1 Route St",
             phone_primary="5550000001",
             num_children=6,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         loc_b = Location(
             location_group_id=test_location_group.location_group_id,
@@ -1515,7 +1612,7 @@ class TestRouteRoutes:
             address="2 Route St",
             phone_primary="5550000002",
             num_children=10,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         test_session.add_all([loc_a, loc_b])
         await test_session.commit()
@@ -1609,7 +1706,7 @@ class TestRouteRoutes:
             address="1 Frozen St",
             phone_primary="5550000009",
             num_children=6,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         test_session.add_all([past_group, loc])
         await test_session.commit()
@@ -1647,7 +1744,7 @@ class TestRouteRoutes:
                 route_stop_id=stop.route_stop_id,
                 address=loc.address,
                 contact_name=loc.contact_name,
-                phone_number=loc.phone_primary,
+                phone_primary=loc.phone_primary,
                 num_children=8,
                 notes=loc.notes,
                 latitude=loc.latitude or 0.0,
@@ -1674,10 +1771,175 @@ class TestRouteRoutes:
     async def test_get_route_by_id(
         self, async_client: AsyncClient, test_route: Any
     ) -> None:
-        """GET /routes/{id} returns the route."""
+        """GET /routes/{id} returns the route with an (empty) stops list."""
         response = await async_client.get(f"/routes/{test_route.route_id}")
         assert response.status_code == 200
-        assert response.json()["route_id"] == str(test_route.route_id)
+        body = response.json()
+        assert body["route_id"] == str(test_route.route_id)
+        assert body["stops"] == []
+
+    @pytest.mark.asyncio
+    async def test_get_route_by_id_embeds_ordered_stops(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """GET /routes/{id} embeds stops in sequence order with per-stop detail,
+        read live from Location for an upcoming route."""
+        # Build locations directly (not via POST /locations, which geocodes the
+        # address); attach a note chain to each so note_chain_id is populated.
+        chain_a = NoteChain()
+        chain_b = NoteChain()
+        loc_a = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Stop A",
+            contact_name="Alice",
+            address="1 A St",
+            phone_primary="5550000001",
+            phone_secondary="5559999991",
+            num_children=6,
+            delivery_type="Family",
+        )
+        loc_b = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Stop B",
+            contact_name="Bob",
+            address="2 B St",
+            phone_primary="5550000002",
+            num_children=10,
+            delivery_type="Family",
+        )
+        test_session.add_all([chain_a, chain_b, loc_a, loc_b])
+        await test_session.commit()
+        await test_session.refresh(chain_a)
+        await test_session.refresh(chain_b)
+        await test_session.refresh(loc_a)
+        await test_session.refresh(loc_b)
+
+        loc_a.note_chain_id = chain_a.note_chain_id
+        loc_b.note_chain_id = chain_b.note_chain_id
+
+        # Insert out of order to prove the response is sorted by stop_number.
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=loc_a.location_id,
+                    stop_number=2,
+                ),
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(f"/routes/{test_route.route_id}")
+        assert response.status_code == 200
+        stops = response.json()["stops"]
+        assert [s["stop_number"] for s in stops] == [1, 2]
+
+        first, second = stops
+        # Stop 1 -> loc_b
+        assert first["address"] == "2 B St"
+        assert first["contact_name"] == "Bob"
+        assert first["phone_primary"] == "5550000002"
+        assert first["phone_secondary"] is None
+        assert first["boxes"] == 5  # ceil(10 / 2)
+        assert first["note_chain_id"] == str(chain_b.note_chain_id)
+        # Stop 2 -> loc_a
+        assert second["address"] == "1 A St"
+        assert second["phone_secondary"] == "5559999991"
+        assert second["boxes"] == 3  # ceil(6 / 2)
+        assert second["note_chain_id"] == str(chain_a.note_chain_id)
+
+    @pytest.mark.asyncio
+    async def test_get_route_by_id_uses_snapshot_for_frozen_stops(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """For a frozen (past) route, snapshotted stop fields (including both
+        phone numbers) win over the mutated live Location; note_chain_id is
+        live-only (note chains aren't snapshotted)."""
+        note_chain = NoteChain()
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Frozen Fam",
+            contact_name="Live Name",
+            address="Live Addr",
+            phone_primary="5550000000",
+            phone_secondary="5551112222",
+            num_children=2,
+            delivery_type="Family",
+        )
+        past_group = RouteGroup(name="Past Group", drive_date=datetime(2024, 1, 1))
+        test_session.add_all([note_chain, loc, past_group])
+        await test_session.commit()
+        await test_session.refresh(note_chain)
+        await test_session.refresh(loc)
+        await test_session.refresh(past_group)
+
+        loc.note_chain_id = note_chain.note_chain_id
+        await test_session.commit()
+
+        route = Route(
+            name="Frozen Route",
+            length=2.0,
+            route_group_id=past_group.route_group_id,
+        )
+        test_session.add(route)
+        await test_session.commit()
+        await test_session.refresh(route)
+
+        stop = RouteStop(
+            route_id=route.route_id,
+            location_id=loc.location_id,
+            stop_number=1,
+        )
+        test_session.add(stop)
+        await test_session.commit()
+        await test_session.refresh(stop)
+
+        test_session.add(
+            RouteStopSnapshot(
+                route_stop_id=stop.route_stop_id,
+                address="Frozen Addr",
+                contact_name="Frozen Name",
+                phone_primary="5557778888",
+                phone_secondary="5557779999",
+                num_children=8,
+                latitude=0.0,
+                longitude=0.0,
+            )
+        )
+        await test_session.commit()
+
+        # Mutate the live location after the freeze; the response must ignore it
+        # for snapshotted fields (including phone_secondary).
+        loc.address = "Changed Addr"
+        loc.num_children = 1
+        loc.phone_secondary = "5550009999"
+        await test_session.commit()
+
+        response = await async_client.get(f"/routes/{route.route_id}")
+        assert response.status_code == 200
+        stops = response.json()["stops"]
+        assert len(stops) == 1
+        stop_body = stops[0]
+        assert stop_body["address"] == "Frozen Addr"
+        assert stop_body["contact_name"] == "Frozen Name"
+        assert stop_body["phone_primary"] == "5557778888"
+        # Secondary phone is snapshotted -> frozen value, not the mutated live one.
+        assert stop_body["phone_secondary"] == "5557779999"
+        assert stop_body["boxes"] == 4  # ceil(8 / 2) from snapshot, not live 1
+        # Note chains aren't snapshotted -> note_chain_id is read live.
+        assert stop_body["note_chain_id"] == str(note_chain.note_chain_id)
 
     @pytest.mark.asyncio
     async def test_get_route_not_found(self, async_client: AsyncClient) -> None:
@@ -1820,44 +2082,12 @@ class TestRouteRoutes:
     async def test_update_route_reroute_without_warehouse_coords(
         self,
         async_client: AsyncClient,
-        test_session: AsyncSession,
         test_route: Any,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
         """Re-routing needs warehouse coords; when system settings exist but
         the warehouse coordinates aren't configured, it's a 503."""
-        from app.models.system_settings import SystemSettings
-
-        # Settings exist but have no warehouse lat/long.
-        test_session.add(SystemSettings())
-        await test_session.commit()
-
-        location_id = (
-            await async_client.post(
-                "/locations/",
-                json={
-                    **sample_location_data,
-                    "location_group_id": str(test_location_group.location_group_id),
-                },
-            )
-        ).json()["location_id"]
-        response = await async_client.patch(
-            f"/routes/{test_route.route_id}",
-            json={"location_ids": [location_id]},
-        )
-        assert response.status_code == 503
-
-    @pytest.mark.asyncio
-    async def test_update_route_reroute_without_system_settings(
-        self,
-        async_client: AsyncClient,
-        test_route: Any,
-        sample_location_data: dict[str, Any],
-        test_location_group: Any,
-    ) -> None:
-        """Re-routing with no system settings at all is a 503 (server not
-        configured), not a 400 — even though the error says 'not found'."""
         location_id = (
             await async_client.post(
                 "/locations/",
@@ -1893,6 +2123,205 @@ class TestRouteRoutes:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
+    async def test_google_maps_link_unfrozen_uses_live_data(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """For an upcoming (unfrozen) route the link is built from the live
+        Location rows and the live warehouse in SystemSettings."""
+        from urllib.parse import quote
+
+        from sqlmodel import select
+
+        from app.models.system_settings import SystemSettings
+
+        # A settings row already exists (autouse fixture); configure its
+        # warehouse coordinates rather than inserting a second row.
+        settings = (
+            (await test_session.execute(select(SystemSettings).limit(1)))
+            .scalars()
+            .one()
+        )
+        settings.warehouse_location = "Depot"
+        settings.warehouse_latitude = 43.65
+        settings.warehouse_longitude = -79.38
+        test_session.add(settings)
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Live Fam",
+            contact_name="Live Fam",
+            address="10 Live Ave",
+            phone_primary="5550001111",
+            delivery_type="Family",
+            latitude=44.0,
+            longitude=-79.0,
+        )
+        test_session.add(loc)
+        await test_session.commit()
+        await test_session.refresh(loc)
+        test_session.add(
+            RouteStop(
+                route_id=test_route.route_id,
+                location_id=loc.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            f"/routes/{test_route.route_id}/google-maps-link"
+        )
+        assert response.status_code == 200
+        url = response.json()
+        # Origin is the live warehouse; stop is the live address.
+        assert "/dir/43.65,-79.38/" in url
+        assert quote("10 Live Ave", safe="") in url
+
+    @pytest.mark.asyncio
+    async def test_google_maps_link_frozen_uses_snapshot(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """For a frozen route (RouteSnapshot present) the link reflects the
+        snapshotted address/coords and the frozen warehouse origin — even after
+        the live Location and warehouse have since been mutated."""
+        from urllib.parse import quote
+
+        from sqlmodel import select
+
+        from app.models.route_snapshot import RouteSnapshot
+        from app.models.system_settings import SystemSettings
+
+        # Live warehouse and location as they are TODAY (post-delivery drift).
+        settings = (
+            (await test_session.execute(select(SystemSettings).limit(1)))
+            .scalars()
+            .one()
+        )
+        settings.warehouse_location = "New Depot"
+        settings.warehouse_latitude = 1.0
+        settings.warehouse_longitude = 1.0
+        test_session.add(settings)
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Moved Fam",
+            contact_name="Moved Fam",
+            address="999 New Address",
+            phone_primary="5550002222",
+            delivery_type="Family",
+            latitude=2.0,
+            longitude=2.0,
+        )
+        test_session.add(loc)
+        await test_session.commit()
+        await test_session.refresh(loc)
+
+        stop = RouteStop(
+            route_id=test_route.route_id,
+            location_id=loc.location_id,
+            stop_number=1,
+        )
+        test_session.add(stop)
+        await test_session.commit()
+        await test_session.refresh(stop)
+
+        # Freeze: warehouse origin and the delivered address/coords as they
+        # were at drive time.
+        test_session.add_all(
+            [
+                RouteSnapshot(
+                    route_id=test_route.route_id,
+                    start_address="Old Depot",
+                    start_latitude=43.65,
+                    start_longitude=-79.38,
+                ),
+                RouteStopSnapshot(
+                    route_stop_id=stop.route_stop_id,
+                    address="123 Old Address",
+                    contact_name="Old Fam",
+                    phone_primary="5550002222",
+                    num_children=3,
+                    notes="",
+                    latitude=44.0,
+                    longitude=-79.0,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            f"/routes/{test_route.route_id}/google-maps-link"
+        )
+        assert response.status_code == 200
+        url = response.json()
+        # Origin is the frozen warehouse, not the live (1.0, 1.0).
+        assert "/dir/43.65,-79.38/" in url
+        assert "/dir/1.0,1.0/" not in url
+        # Stop reflects the snapshotted address, not the live one.
+        assert quote("123 Old Address", safe="") in url
+        assert quote("999 New Address", safe="") not in url
+
+    @pytest.mark.asyncio
+    async def test_google_maps_link_frozen_stop_without_snapshot_falls_back(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_location_group: Any,
+    ) -> None:
+        """A frozen route whose stop lacks a per-stop snapshot (e.g. the freeze
+        job skipped it for missing coords) falls back to the live Location for
+        that stop, while still using the RouteSnapshot origin."""
+        from urllib.parse import quote
+
+        from app.models.route_snapshot import RouteSnapshot
+
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Unsnapped Fam",
+            contact_name="Unsnapped Fam",
+            address="55 Fallback Rd",
+            phone_primary="5550003333",
+            delivery_type="Family",
+            latitude=45.0,
+            longitude=-80.0,
+        )
+        test_session.add(loc)
+        await test_session.commit()
+        await test_session.refresh(loc)
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=test_route.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+                RouteSnapshot(
+                    route_id=test_route.route_id,
+                    start_address="Depot",
+                    start_latitude=43.65,
+                    start_longitude=-79.38,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(
+            f"/routes/{test_route.route_id}/google-maps-link"
+        )
+        assert response.status_code == 200
+        url = response.json()
+        assert "/dir/43.65,-79.38/" in url
+        assert quote("55 Fallback Rd", safe="") in url
+
+    @pytest.mark.asyncio
     async def test_suggested_driver_by_past_deliveries(
         self,
         async_client: AsyncClient,
@@ -1918,7 +2347,7 @@ class TestRouteRoutes:
             contact_name="Fam A",
             address="1 A St",
             phone_primary="5550000001",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         loc_b = Location(
             location_group_id=group_id,
@@ -1926,7 +2355,7 @@ class TestRouteRoutes:
             contact_name="Fam B",
             address="2 B St",
             phone_primary="5550000002",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         user = User(
             first_name="Veteran",
@@ -2023,7 +2452,7 @@ class TestRouteStopConstraints:
             contact_name=f"Constraint Family {n}",
             address=f"{n} Constraint St",
             phone_primary=f"555000{n:04d}",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             in_roster=True,
         )
 
@@ -2261,7 +2690,7 @@ class TestRouteGroupRoutes:
         location = Location(
             location_group_id=loc_group.location_group_id,
             name="Central Elementary",
-            delivery_type=DeliveryTypeEnum.SCHOOL,
+            delivery_type="School",
             contact_name="Jane",
             address="123 Main St",
             phone_primary="555-1234",
@@ -2293,6 +2722,62 @@ class TestRouteGroupRoutes:
         assert group["num_locations"] == 1
 
     @pytest.mark.asyncio
+    async def test_get_route_groups_uses_location_delivery_type(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Route group delivery type comes from its locations without hardcoded types."""
+        loc_group = LocationGroup(name="Pantry Group", color="#000000", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Pantry Stop",
+            delivery_type="Pantry",
+            contact_name="Pantry Contact",
+            address="123 Main St",
+            phone_primary="555-1234",
+            num_children=10,
+        )
+        test_session.add(location)
+
+        rg = RouteGroup(name="Pantry Route Group", drive_date=datetime(2020, 3, 1))
+        test_session.add(rg)
+        await test_session.flush()
+
+        route = Route(name="R1", length=5.0, route_group_id=rg.route_group_id)
+        test_session.add(route)
+        await test_session.flush()
+
+        test_session.add(
+            RouteStop(
+                route_id=route.route_id,
+                location_id=location.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        group = next(
+            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert group["delivery_type"] == "Pantry"
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_rejects_unknown_delivery_type_filter(
+        self, async_client: AsyncClient
+    ) -> None:
+        """GET /route-groups validates delivery_type filters against settings."""
+        response = await async_client.get(
+            "/route-groups", params={"delivery_type": "Unknown"}
+        )
+
+        assert response.status_code == 422
+        assert "Unknown delivery_type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_get_route_groups_num_boxes_arithmetic(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
@@ -2305,7 +2790,7 @@ class TestRouteGroupRoutes:
         loc_a = Location(
             location_group_id=loc_group.location_group_id,
             name="Location A",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             contact_name="A",
             address="1 St",
             phone_primary="555-0001",
@@ -2314,7 +2799,7 @@ class TestRouteGroupRoutes:
         loc_b = Location(
             location_group_id=loc_group.location_group_id,
             name="Location B",
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
             contact_name="B",
             address="2 St",
             phone_primary="555-0002",
@@ -2467,6 +2952,192 @@ class TestNoteChainRoutes:
 
         get_response = await authed_async_client.get(f"/note-chains/{chain_id}")
         assert get_response.status_code == 404
+
+
+class TestNoteFeedRoutes:
+    """Test suite for cross-location note feed routes."""
+
+    @staticmethod
+    async def _seed_location_note(
+        session: AsyncSession,
+        *,
+        location_name: str,
+        message: str,
+        user: Any = None,
+        created_at: datetime,
+    ) -> None:
+        from app.models.note import Note
+        from app.models.note_chain import NoteChain
+
+        group = LocationGroup(name=f"{location_name} Group", color="#000000", notes="")
+        chain = NoteChain(read_permission="All", write_permission="All")
+        session.add_all([group, chain])
+        await session.flush()
+
+        location = Location(
+            location_group_id=group.location_group_id,
+            name=location_name,
+            contact_name=location_name,
+            address=f"{location_name} Address",
+            phone_primary="555-1234",
+            delivery_type="Family",
+            note_chain_id=chain.note_chain_id,
+        )
+        note = Note(
+            note_chain_id=chain.note_chain_id,
+            user_id=user.user_id if user is not None else None,
+            message=message,
+            is_system=user is None,
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        session.add_all([location, note])
+        await session.commit()
+
+    @pytest.mark.asyncio
+    async def test_get_notes_feed_recent_page_size(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        await self._seed_location_note(
+            test_session,
+            location_name="Beta Family",
+            message="Older note",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, 9, 0),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Alpha Family",
+            message="Newer note",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, 9, 0),
+        )
+
+        response = await async_client.get("/notes?page_size=1&sort=recent")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 2
+        assert body["page"] == 1
+        assert body["page_size"] == 1
+        assert [item["message"] for item in body["items"]] == ["Newer note"]
+        assert body["items"][0]["location_name"] == "Alpha Family"
+        assert body["items"][0]["author_name"] == "Admin User"
+
+    @pytest.mark.asyncio
+    async def test_get_notes_feed_rejects_invalid_sort(
+        self, async_client: AsyncClient
+    ) -> None:
+        response = await async_client.get("/notes?sort=not-a-sort")
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_notes_feed_authorless_note_has_null_author_name(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        # System notes have no author (user_id is None). The feed's outer join
+        # to User must surface author_name as null, not " " (Postgres concat
+        # coerces NULL args to empty strings, so it must be guarded explicitly).
+        await self._seed_location_note(
+            test_session,
+            location_name="System Family",
+            message="Automated note",
+            user=None,
+            created_at=datetime(2026, 1, 1, 9, 0),
+        )
+
+        response = await async_client.get("/notes?sort=recent")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        item = body["items"][0]
+        assert item["message"] == "Automated note"
+        assert item["author_name"] is None
+        assert item["author_role"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_notes_feed_supports_sorting_and_pagination(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_admin_user: Any,
+    ) -> None:
+        from app.models.user import User
+
+        driver_user = User(
+            first_name="Zara",
+            last_name="Driver",
+            email="zara.driver@example.com",
+            auth_id=None,
+            role="driver",
+        )
+        test_session.add(driver_user)
+        await test_session.commit()
+        await test_session.refresh(driver_user)
+
+        await self._seed_location_note(
+            test_session,
+            location_name="Charlie Location",
+            message="Admin middle",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 2, 9, 0),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Alpha Location",
+            message="Driver newest",
+            user=driver_user,
+            created_at=datetime(2026, 1, 3, 9, 0),
+        )
+        await self._seed_location_note(
+            test_session,
+            location_name="Bravo Location",
+            message="Admin oldest",
+            user=test_admin_user,
+            created_at=datetime(2026, 1, 1, 9, 0),
+        )
+
+        oldest_response = await async_client.get("/notes?sort=oldest")
+        location_response = await async_client.get("/notes?sort=location")
+        driver_response = await async_client.get("/notes?sort=driver")
+        page_response = await async_client.get("/notes?page=2&page_size=1&sort=recent")
+
+        assert oldest_response.status_code == 200
+        assert [item["message"] for item in oldest_response.json()["items"]] == [
+            "Admin oldest",
+            "Admin middle",
+            "Driver newest",
+        ]
+
+        assert location_response.status_code == 200
+        assert [
+            item["location_name"] for item in location_response.json()["items"]
+        ] == [
+            "Alpha Location",
+            "Bravo Location",
+            "Charlie Location",
+        ]
+
+        assert driver_response.status_code == 200
+        assert [item["author_name"] for item in driver_response.json()["items"]] == [
+            "Zara Driver",
+            "Admin User",
+            "Admin User",
+        ]
+
+        assert page_response.status_code == 200
+        page_body = page_response.json()
+        assert page_body["total"] == 3
+        assert page_body["page"] == 2
+        assert page_body["page_size"] == 1
+        assert page_body["items"][0]["message"] == "Admin middle"
 
 
 class TestValidationErrors:
@@ -2784,6 +3455,7 @@ class TestSystemSettingsRoutes:
             json={
                 "boxes_per_car": 12,
                 "contact_phone": "+12125551234",
+                "delivery_types": ["School", "Family", "Pantry"],
                 "email_reminders": [
                     {"days_before": 1, "time": "09:00:00"},
                     {"days_before": 0, "time": "11:00:00"},
@@ -2794,10 +3466,218 @@ class TestSystemSettingsRoutes:
         body = response.json()
         assert body["boxes_per_car"] == 12
         assert body["contact_phone"] == "+12125551234"
+        assert body["delivery_types"] == ["School", "Family", "Pantry"]
         assert body["email_reminders"] == [
             {"days_before": 1, "time": "09:00:00"},
             {"days_before": 0, "time": "11:00:00"},
         ]
+
+    @pytest.mark.asyncio
+    async def test_patch_system_settings_rejects_empty_delivery_types(
+        self, async_client: AsyncClient
+    ) -> None:
+        """PATCH /system-settings rejects unusable delivery type lists."""
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["School", ""]}
+        )
+        assert response.status_code == 422
+
+    async def _create_location(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        location_group_id: str,
+        *,
+        delivery_type: str,
+        name: str,
+        phone_primary: str,
+    ) -> str:
+        """Create a location and return its id (helper for guard/rename tests)."""
+        response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": location_group_id,
+                "name": name,
+                "contact_name": name,
+                "phone_primary": phone_primary,
+                "delivery_type": delivery_type,
+            },
+        )
+        assert response.status_code == 201, response.text
+        return str(response.json()["location_id"])
+
+    @pytest.mark.asyncio
+    async def test_patch_blocks_removing_delivery_type_in_active_use(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Removing a delivery type an on-roster location uses is blocked (409)."""
+        await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="School",
+            name="Central Elementary",
+            phone_primary="(555) 111-1111",
+        )
+
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["Family"]}
+        )
+
+        assert response.status_code == 409
+        assert "School" in response.json()["detail"]
+
+        # The removal must not have persisted: the stored list still carries it.
+        settings = await async_client.get("/system-settings/")
+        assert "School" in settings.json()["delivery_types"]
+
+    @pytest.mark.asyncio
+    async def test_patch_allows_removing_unused_delivery_type(
+        self, async_client: AsyncClient
+    ) -> None:
+        """A delivery type no location uses can be removed freely."""
+        await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["School", "Family"]}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["delivery_types"] == ["School", "Family"]
+
+    @pytest.mark.asyncio
+    async def test_patch_allows_removing_type_used_only_by_inactive_location(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Off-roster (Inactive) locations don't block removing their type."""
+        await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+        location_id = await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="Pantry",
+            name="Old Pantry",
+            phone_primary="(555) 333-3333",
+        )
+        # Take it off the roster -> Inactive.
+        deactivate = await async_client.patch(
+            f"/locations/{location_id}", json={"in_roster": False}
+        )
+        assert deactivate.status_code == 200
+
+        response = await async_client.patch(
+            "/system-settings/", json={"delivery_types": ["School", "Family"]}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["delivery_types"] == ["School", "Family"]
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_cascades_to_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Renaming a type updates the settings list and every location using it."""
+        location_id = await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="School",
+            name="Central Elementary",
+            phone_primary="(555) 111-1111",
+        )
+
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "School", "new_name": "Elementary"},
+        )
+
+        assert response.status_code == 200, response.text
+        delivery_types = response.json()["delivery_types"]
+        assert "Elementary" in delivery_types
+        assert "School" not in delivery_types
+
+        # The location now carries the new name and filters under it.
+        location = await async_client.get(f"/locations/{location_id}")
+        assert location.json()["delivery_type"] == "Elementary"
+        filtered = await async_client.get(
+            "/locations/", params={"delivery_type": "Elementary"}
+        )
+        ids = {loc["location_id"] for loc in filtered.json()["items"]}
+        assert location_id in ids
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_cascades_to_inactive_locations(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """Rename preserves identity, so it follows Inactive locations too."""
+        await async_client.patch(
+            "/system-settings/",
+            json={"delivery_types": ["School", "Family", "Pantry"]},
+        )
+        location_id = await self._create_location(
+            async_client,
+            sample_location_data,
+            str(test_location_group.location_group_id),
+            delivery_type="Pantry",
+            name="Old Pantry",
+            phone_primary="(555) 333-3333",
+        )
+        deactivate = await async_client.patch(
+            f"/locations/{location_id}", json={"in_roster": False}
+        )
+        assert deactivate.status_code == 200
+
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "Pantry", "new_name": "Food Bank"},
+        )
+
+        assert response.status_code == 200, response.text
+        location = await async_client.get(f"/locations/{location_id}")
+        assert location.json()["delivery_type"] == "Food Bank"
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_rejects_unknown_source(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Renaming a type that isn't configured fails fast (422)."""
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "Nonexistent", "new_name": "Whatever"},
+        )
+        assert response.status_code == 422
+        assert "Nonexistent" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_rename_delivery_type_rejects_existing_target(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Renaming onto an existing type would merge two types, so it's blocked."""
+        response = await async_client.post(
+            "/system-settings/delivery-types/rename",
+            json={"old_name": "School", "new_name": "Family"},
+        )
+        assert response.status_code == 422
+        assert "already exists" in response.json()["detail"]
 
 
 class _FakeUploadResult:

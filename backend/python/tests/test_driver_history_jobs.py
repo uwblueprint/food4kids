@@ -14,7 +14,6 @@ from sqlmodel import select
 
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
-from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route
@@ -64,10 +63,11 @@ async def _seed_today(maker: async_sessionmaker[AsyncSession]) -> dict[str, Any]
             contact_name="Fam",
             address="1 A St",
             phone_primary="+12125550001",
+            phone_secondary="+12125550002",
             latitude=43.1,
             longitude=-80.1,
             num_children=6,
-            delivery_type=DeliveryTypeEnum.FAMILY,
+            delivery_type="Family",
         )
         # drive_date is today so the job (date.today()) picks it up.
         rg = RouteGroup(
@@ -133,6 +133,13 @@ async def test_freeze_and_aggregate_then_idempotent(
     assert after_first["stop_snapshots"] == 1
     assert after_first["history_rows"] == 1
     assert after_first["km"] == pytest.approx(ROUTE_KM)
+
+    # The stop snapshot froze BOTH phone numbers from the live location, not
+    # just the primary (secondary was previously dropped on freeze).
+    async with maker() as s:
+        stop_snap = (await s.execute(select(RouteStopSnapshot))).scalars().one()
+        assert stop_snap.phone_primary == "+12125550001"
+        assert stop_snap.phone_secondary == "+12125550002"
 
     # Second run: nothing newly frozen -> no new snapshots, km unchanged.
     await driver_history_jobs.process_daily_driver_history()

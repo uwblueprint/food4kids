@@ -115,6 +115,9 @@ import type {
   GetNoteChainResponses,
   GetNotesData,
   GetNotesErrors,
+  GetNotesFeedData,
+  GetNotesFeedErrors,
+  GetNotesFeedResponses,
   GetNotesResponses,
   GetRouteData,
   GetRouteErrors,
@@ -150,6 +153,9 @@ import type {
   PatchSystemSettingsResponses,
   RefreshData,
   RefreshResponses,
+  RenameDeliveryTypeData,
+  RenameDeliveryTypeErrors,
+  RenameDeliveryTypeResponses,
   ResetPasswordData,
   ResetPasswordErrors,
   ResetPasswordResponses,
@@ -1117,6 +1123,25 @@ export const updateNote = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get Notes Feed
+ *
+ * Get location notes across all location note chains.
+ */
+export const getNotesFeed = <ThrowOnError extends boolean = false>(
+  options?: Options<GetNotesFeedData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetNotesFeedResponses,
+    GetNotesFeedErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/notes',
+    ...options,
+  });
+
+/**
  * Get Total Deliveries Between
  *
  * Return total deliveries (route stop snapshots) between start and end.
@@ -1314,14 +1339,19 @@ export const deleteRoute = <ThrowOnError extends boolean = false>(
 /**
  * Get Route
  *
- * Get a route by its unique identifier.
+ * Get a route by its unique identifier, with its ordered stops embedded.
+ *
+ * Each stop carries its sequence #, address, contact name, phone (+ secondary),
+ * box count, and a note_chain_id reference. Stops are sourced live from
+ * Location for upcoming routes and from frozen route_stop_snapshots for past
+ * routes. Notes are not embedded: fetch them via GET /note-chains/{id}/notes.
  *
  * Parameters:
  * route_id (UUID): The unique identifier of the route to GET.
  * session (AsyncSession): The database session dependency.
  *
  * Returns:
- * None. Responds with HTTP 200 OK on successful get.
+ * The route with its ordered stops. Responds with HTTP 200 OK on success.
  */
 export const getRoute = <ThrowOnError extends boolean = false>(
   options: Options<GetRouteData, ThrowOnError>
@@ -1460,6 +1490,29 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/system-settings/',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Rename Delivery Type
+ *
+ * Rename a configured delivery type, cascading onto every location using it.
+ */
+export const renameDeliveryType = <ThrowOnError extends boolean = false>(
+  options: Options<RenameDeliveryTypeData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    RenameDeliveryTypeResponses,
+    RenameDeliveryTypeErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/system-settings/delivery-types/rename',
     ...options,
     headers: {
       'Content-Type': 'application/json',

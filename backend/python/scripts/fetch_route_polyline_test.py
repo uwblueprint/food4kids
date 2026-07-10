@@ -10,7 +10,6 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.enum import DeliveryTypeEnum
 from app.models.location import Location
 
 # Register the snapshot models so SQLAlchemy can resolve the RouteStop.snapshot
@@ -29,7 +28,7 @@ async def test_fetch_route_polyline_with_return() -> None:
         location_group_id=uuid4(),
         name="Test 1 Loc 1",
         contact_name="Test 1 Loc 1",
-        delivery_type=DeliveryTypeEnum.FAMILY,
+        delivery_type="Family",
         address="123 Test St",
         phone_primary="123-456-7890",
         longitude=-80.50,
@@ -44,7 +43,7 @@ async def test_fetch_route_polyline_with_return() -> None:
         location_group_id=uuid4(),
         name="Test 1 Loc 2",
         contact_name="Test 1 Loc 2",
-        delivery_type=DeliveryTypeEnum.FAMILY,
+        delivery_type="Family",
         address="124 Test St",
         phone_primary="124-456-7890",
         longitude=-80.51,

@@ -142,6 +142,10 @@ export type AuthResponse = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Role
+   */
+  role: string;
 };
 
 /**
@@ -256,12 +260,26 @@ export type DeliveriesCountResponse = {
 };
 
 /**
- * DeliveryTypeEnum
+ * DeliveryTypeRename
  *
- * Kind of recipient at a Location — set per location, enforced uniform
- * within a RouteGroup at generation time.
+ * Request body for renaming a configured delivery type.
+ *
+ * Rename is a distinct operation from the list-replacing PATCH: it preserves
+ * the type's identity, cascading the new name onto every location (active or
+ * not) that references the old one. A plain PATCH that swaps a name looks like
+ * a remove + add and is blocked by the in-use guard, so renames must come
+ * through here.
  */
-export type DeliveryTypeEnum = 'School' | 'Family';
+export type DeliveryTypeRename = {
+  /**
+   * New Name
+   */
+  new_name: string;
+  /**
+   * Old Name
+   */
+  old_name: string;
+};
 
 /**
  * DriveDaysOfWeekEnum
@@ -419,9 +437,9 @@ export type DriverRead = {
    */
   license_plate: string;
   /**
-   * Notes
+   * Note Chain Id
    */
-  notes?: string;
+  note_chain_id?: string | null;
   /**
    * Partner Driver Name
    */
@@ -519,10 +537,6 @@ export type DriverUpdate = {
    */
   license_plate?: string | null;
   /**
-   * Notes
-   */
-  notes?: string | null;
-  /**
    * Partner Driver Name
    */
   partner_driver_name?: string | null;
@@ -605,7 +619,10 @@ export type LocationCreate = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -862,7 +879,10 @@ export type LocationImportRow = {
  * import (one Apricot sheet = one delivery type).
  */
 export type LocationIngestRequest = {
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Net New
    */
@@ -909,7 +929,10 @@ export type LocationReadInput = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -1006,7 +1029,10 @@ export type LocationReadOutput = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -1106,7 +1132,10 @@ export type LocationUpdate = {
    * Contact Name
    */
   contact_name?: string | null;
-  delivery_type?: DeliveryTypeEnum | null;
+  /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
   /**
    * Dietary Restrictions
    */
@@ -1266,6 +1295,75 @@ export type NoteCreate = {
 };
 
 /**
+ * NoteFeedItem
+ *
+ * A location note with enough context for cross-location feeds.
+ */
+export type NoteFeedItem = {
+  /**
+   * Attachments
+   */
+  attachments?: Array<Attachment>;
+  /**
+   * Author Name
+   */
+  author_name?: string | null;
+  /**
+   * Author Role
+   */
+  author_role?: string | null;
+  /**
+   * Created At
+   */
+  created_at?: string | null;
+  /**
+   * Is System
+   */
+  is_system?: boolean;
+  /**
+   * Location Address
+   */
+  location_address: string;
+  /**
+   * Location Group Name
+   */
+  location_group_name: string;
+  /**
+   * Location Id
+   */
+  location_id: string;
+  /**
+   * Location Name
+   */
+  location_name: string;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id: string;
+  /**
+   * Note Id
+   */
+  note_id: string;
+  /**
+   * Updated At
+   */
+  updated_at?: string | null;
+  /**
+   * User Id
+   */
+  user_id?: string | null;
+};
+
+/**
+ * NoteFeedSort
+ */
+export type NoteFeedSort = 'recent' | 'oldest' | 'driver' | 'location';
+
+/**
  * NoteListResponse
  *
  * Response for GET notes - includes unread count
@@ -1367,6 +1465,32 @@ export type PaginatedResponseLocationRead = {
 };
 
 /**
+ * PaginatedResponse[NoteFeedItem]
+ */
+export type PaginatedResponseNoteFeedItem = {
+  /**
+   * Items
+   */
+  items: Array<NoteFeedItem>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
+};
+
+/**
  * PaginatedResponse[RouteWithDateRead]
  */
 export type PaginatedResponseRouteWithDateRead = {
@@ -1398,31 +1522,18 @@ export type PaginatedResponseRouteWithDateRead = {
 export type ProgressEnum = 'Pending' | 'Running' | 'Completed' | 'Failed';
 
 /**
- * RefreshResponse
+ * RouteDetailRead
  *
- * Refresh token response - only access token, refresh token is set as httpOnly cookie
- */
-export type RefreshResponse = {
-  /**
-   * Access Token
-   */
-  access_token: string;
-};
-
-/**
- * Route
+ * GET /routes/{route_id} response: the bare route plus its ordered stops.
  *
- * Database table model for Routes
+ * Stops are assembled with snapshot-over-live precedence. See
+ * RouteStopDetailRead.
  */
-export type Route = {
+export type RouteDetailRead = {
   /**
    * Cloned From Route Id
    */
   cloned_from_route_id?: string | null;
-  /**
-   * Created At
-   */
-  created_at?: string | null;
   /**
    * Driver Id
    */
@@ -1462,15 +1573,15 @@ export type Route = {
   /**
    * Route Id
    */
-  route_id?: string;
+  route_id: string;
   /**
    * Start Time
    */
   start_time?: string | null;
   /**
-   * Updated At
+   * Stops
    */
-  updated_at?: string | null;
+  stops?: Array<RouteStopDetailRead>;
 };
 
 /**
@@ -1557,7 +1668,10 @@ export type RouteGroupRead = {
    * Created At
    */
   created_at?: string | null;
-  delivery_type?: DeliveryTypeEnum | null;
+  /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
   /**
    * Drive Date
    */
@@ -1739,6 +1853,47 @@ export type RouteReadSummary = {
 export type RouteStatusEnum = 'Upcoming' | 'Completed' | 'Archived';
 
 /**
+ * RouteStopDetailRead
+ *
+ * A single ordered stop on a route, assembled with snapshot-over-live
+ * field precedence: for a frozen (past) route the route_stop_snapshot wins,
+ * otherwise the live Location is read. Embedded in RouteDetailRead.
+ *
+ * Notes are intentionally NOT embedded: note_chain_id points at the stop's
+ * note chain, fetched separately via GET /note-chains/{id}/notes.
+ */
+export type RouteStopDetailRead = {
+  /**
+   * Address
+   */
+  address: string;
+  /**
+   * Boxes
+   */
+  boxes: number;
+  /**
+   * Contact Name
+   */
+  contact_name: string;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Phone Primary
+   */
+  phone_primary: string;
+  /**
+   * Phone Secondary
+   */
+  phone_secondary?: string | null;
+  /**
+   * Stop Number
+   */
+  stop_number: number;
+};
+
+/**
  * RouteWithDateRead
  *
  * Read response model for routes with drive date information.
@@ -1858,6 +2013,10 @@ export type SystemSettingsRead = {
    */
   default_cap?: number | null;
   /**
+   * Delivery Types
+   */
+  delivery_types?: Array<string>;
+  /**
    * Dropoff Minutes
    */
   dropoff_minutes?: number;
@@ -1939,6 +2098,10 @@ export type SystemSettingsUpdate = {
    * Default Cap
    */
   default_cap?: number | null;
+  /**
+   * Delivery Types
+   */
+  delivery_types?: Array<string> | null;
   /**
    * Dropoff Minutes
    */
@@ -2099,6 +2262,10 @@ export type AuthResponseWritable = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Role
+   */
+  role: string;
 };
 
 /**
@@ -2146,9 +2313,9 @@ export type DriverReadWritable = {
    */
   license_plate: string;
   /**
-   * Notes
+   * Note Chain Id
    */
-  notes?: string;
+  note_chain_id?: string | null;
   /**
    * Partner Driver Name
    */
@@ -2213,7 +2380,10 @@ export type LocationReadOutputWritable = {
    * Contact Name
    */
   contact_name: string;
-  delivery_type: DeliveryTypeEnum;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
   /**
    * Dietary Restrictions
    */
@@ -2540,10 +2710,10 @@ export type RefreshResponses = {
   /**
    * Successful Response
    */
-  200: RefreshResponse;
+  200: AuthResponse;
 };
 
-export type RefreshResponse2 = RefreshResponses[keyof RefreshResponses];
+export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
 
 export type ResetPasswordData = {
   body?: never;
@@ -3278,7 +3448,7 @@ export type GetLocationsData = {
      *
      * Filter by one or more delivery types
      */
-    delivery_type?: Array<DeliveryTypeEnum> | null;
+    delivery_type?: Array<string> | null;
     /**
      * Status
      *
@@ -3702,6 +3872,45 @@ export type UpdateNoteResponses = {
 
 export type UpdateNoteResponse = UpdateNoteResponses[keyof UpdateNoteResponses];
 
+export type GetNotesFeedData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Sort by recent, oldest, driver, or location
+     */
+    sort?: NoteFeedSort;
+    /**
+     * Page
+     */
+    page?: number;
+    /**
+     * Page Size
+     */
+    page_size?: number;
+  };
+  url: '/notes';
+};
+
+export type GetNotesFeedErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetNotesFeedError = GetNotesFeedErrors[keyof GetNotesFeedErrors];
+
+export type GetNotesFeedResponses = {
+  /**
+   * Successful Response
+   */
+  200: PaginatedResponseNoteFeedItem;
+};
+
+export type GetNotesFeedResponse =
+  GetNotesFeedResponses[keyof GetNotesFeedResponses];
+
 export type GetTotalDeliveriesBetweenData = {
   body?: never;
   path?: never;
@@ -3843,7 +4052,7 @@ export type GetRouteGroupsData = {
      *
      * Filter by one or more delivery types
      */
-    delivery_type?: Array<DeliveryTypeEnum> | null;
+    delivery_type?: Array<string> | null;
     /**
      * Route Status
      *
@@ -4103,7 +4312,7 @@ export type GetRouteResponses = {
   /**
    * Successful Response
    */
-  200: Route;
+  200: RouteDetailRead;
 };
 
 export type GetRouteResponse = GetRouteResponses[keyof GetRouteResponses];
@@ -4259,6 +4468,33 @@ export type PatchSystemSettingsResponses = {
 
 export type PatchSystemSettingsResponse =
   PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
+
+export type RenameDeliveryTypeData = {
+  body: DeliveryTypeRename;
+  path?: never;
+  query?: never;
+  url: '/system-settings/delivery-types/rename';
+};
+
+export type RenameDeliveryTypeErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RenameDeliveryTypeError =
+  RenameDeliveryTypeErrors[keyof RenameDeliveryTypeErrors];
+
+export type RenameDeliveryTypeResponses = {
+  /**
+   * Successful Response
+   */
+  200: SystemSettingsRead;
+};
+
+export type RenameDeliveryTypeResponse =
+  RenameDeliveryTypeResponses[keyof RenameDeliveryTypeResponses];
 
 export type UploadImageData = {
   body: BodyUploadImage;

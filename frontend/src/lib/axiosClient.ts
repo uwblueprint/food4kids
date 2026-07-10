@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+import { useAuthStore } from '@/api/authStore';
+
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
   withCredentials: true,
@@ -10,7 +12,7 @@ const axiosClient = axios.create({
 
 // Attach auth token to every request if present
 axiosClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
