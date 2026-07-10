@@ -207,6 +207,10 @@
           "last_name": {
             "title": "Last Name",
             "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
           }
         },
         "required": [
@@ -215,6 +219,7 @@
           "first_name",
           "last_name",
           "email",
+          "role",
           "full_name"
         ],
         "title": "AuthResponse",
@@ -637,11 +642,17 @@
             "title": "License Plate",
             "type": "string"
           },
-          "notes": {
-            "default": "",
-            "maxLength": 1024,
-            "title": "Notes",
-            "type": "string"
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
           },
           "partner_driver_name": {
             "anyOf": [
@@ -847,18 +858,6 @@
               }
             ],
             "title": "License Plate"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "maxLength": 1024,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
           },
           "partner_driver_name": {
             "anyOf": [
@@ -2184,6 +2183,136 @@
         "title": "NoteCreate",
         "type": "object"
       },
+      "NoteFeedItem": {
+        "description": "A location note with enough context for cross-location feeds.",
+        "properties": {
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
+          },
+          "author_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Role"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "is_system": {
+            "default": false,
+            "title": "Is System",
+            "type": "boolean"
+          },
+          "location_address": {
+            "title": "Location Address",
+            "type": "string"
+          },
+          "location_group_name": {
+            "title": "Location Group Name",
+            "type": "string"
+          },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
+          "location_name": {
+            "title": "Location Name",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "format": "uuid",
+            "title": "Note Chain Id",
+            "type": "string"
+          },
+          "note_id": {
+            "format": "uuid",
+            "title": "Note Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "note_chain_id",
+          "message",
+          "note_id",
+          "location_id",
+          "location_name",
+          "location_address",
+          "location_group_name"
+        ],
+        "title": "NoteFeedItem",
+        "type": "object"
+      },
+      "NoteFeedSort": {
+        "enum": [
+          "recent",
+          "oldest",
+          "driver",
+          "location"
+        ],
+        "title": "NoteFeedSort",
+        "type": "string"
+      },
       "NoteListResponse": {
         "description": "Response for GET notes - includes unread count",
         "properties": {
@@ -2344,6 +2473,42 @@
         "title": "PaginatedResponse[LocationRead]",
         "type": "object"
       },
+      "PaginatedResponse_NoteFeedItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NoteFeedItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[NoteFeedItem]",
+        "type": "object"
+      },
       "PaginatedResponse_RouteWithDateRead_": {
         "properties": {
           "items": {
@@ -2389,20 +2554,6 @@
         ],
         "title": "ProgressEnum",
         "type": "string"
-      },
-      "RefreshResponse": {
-        "description": "Refresh token response - only access token, refresh token is set as httpOnly cookie",
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "access_token"
-        ],
-        "title": "RefreshResponse",
-        "type": "object"
       },
       "Route": {
         "additionalProperties": false,
@@ -4069,7 +4220,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RefreshResponse"
+                  "$ref": "#/components/schemas/AuthResponse"
                 }
               }
             },
@@ -6016,6 +6167,79 @@
         "summary": "Update Note",
         "tags": [
           "note-chains"
+        ]
+      }
+    },
+    "/notes": {
+      "get": {
+        "description": "Get location notes across all location note chains.",
+        "operationId": "get_notes_feed",
+        "parameters": [
+          {
+            "description": "Sort by recent, oldest, driver, or location",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/NoteFeedSort",
+              "default": "recent",
+              "description": "Sort by recent, oldest, driver, or location"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_NoteFeedItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Notes Feed",
+        "tags": [
+          "notes"
         ]
       }
     },

@@ -57,6 +57,17 @@ class NoteRead(NoteBase):
     updated_at: datetime | None = None
 
 
+class NoteFeedItem(NoteRead):
+    """A location note with enough context for cross-location feeds."""
+
+    location_id: UUID
+    location_name: str
+    location_address: str
+    location_group_name: str
+    author_name: str | None = None
+    author_role: str | None = None
+
+
 class NoteUpdate(SQLModel):
     """Update request model - only message can be edited"""
 

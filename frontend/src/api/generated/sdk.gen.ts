@@ -115,6 +115,9 @@ import type {
   GetNoteChainResponses,
   GetNotesData,
   GetNotesErrors,
+  GetNotesFeedData,
+  GetNotesFeedErrors,
+  GetNotesFeedResponses,
   GetNotesResponses,
   GetRouteData,
   GetRouteErrors,
@@ -1114,6 +1117,25 @@ export const updateNote = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Notes Feed
+ *
+ * Get location notes across all location note chains.
+ */
+export const getNotesFeed = <ThrowOnError extends boolean = false>(
+  options?: Options<GetNotesFeedData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetNotesFeedResponses,
+    GetNotesFeedErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/notes',
+    ...options,
   });
 
 /**

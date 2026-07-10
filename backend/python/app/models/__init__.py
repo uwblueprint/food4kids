@@ -2,7 +2,7 @@ import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -50,8 +50,21 @@ def init_database() -> None:
     # Synchronous engine for migrations
     engine = create_engine(sync_database_url, echo=echo_sql)
 
+    # asyncpg doesn't accept libpq-style query params (sslmode, channel_binding
+    # from Neon's connection string) as connect() kwargs - it wants `ssl=`
+    # instead - so strip them from the URL and pass SSL via connect_args.
+    async_url = make_url(database_url)
+    connect_args: dict[str, Any] = {}
+    if "sslmode" in async_url.query:
+        query = dict(async_url.query)
+        connect_args["ssl"] = query.pop("sslmode")
+        query.pop("channel_binding", None)
+        async_url = async_url.set(query=query)
+
     # Asynchronous engine for application
-    async_engine = create_async_engine(database_url, echo=echo_sql)
+    async_engine = create_async_engine(
+        async_url, echo=echo_sql, connect_args=connect_args
+    )
 
     # Async session maker
     async_session_maker_instance = async_sessionmaker(

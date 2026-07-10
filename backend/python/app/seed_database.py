@@ -70,18 +70,20 @@ PROBABILITY_DIETARY_RESTRICTIONS = 0.3
 PROBABILITY_NUM_CHILDREN = 0.8
 # Probability that a location will have notes
 PROBABILITY_LOCATION_NOTES = 0.4
-# Probability that a driver will have notes
-PROBABILITY_DRIVER_NOTES = 0.3
 # Probability to skip creating driver history for the current year
 PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 # Probability that a location note chain will have notes
 PROBABILITY_LOCATION_CHAIN_NOTES = 0.6
 # Probability that a route note chain will have notes
 PROBABILITY_ROUTE_CHAIN_NOTES = 0.4
+# Probability that a driver note chain will have notes
+PROBABILITY_DRIVER_CHAIN_NOTES = 0.5
 # Max notes per location chain
 MAX_LOCATION_CHAIN_NOTES = 3
 # Max notes per route chain
 MAX_ROUTE_CHAIN_NOTES = 2
+# Max notes per driver chain
+MAX_DRIVER_CHAIN_NOTES = 3
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -105,6 +107,69 @@ MIN_DRIVERS = 5
 NUM_SEED_ADMINS = 2
 # Shared password for all seeded Firebase accounts
 SEED_PASSWORD = "test123"
+
+# A richer announcement feed, posted by different admins and drivers over the
+# past few weeks so the list looks like a real, lived-in noticeboard. Each
+# entry is (subject, message, days_ago, author_role) where author_role is one
+# of the values in ANNOUNCEMENT_AUTHOR_ROLES. Drivers can post announcements
+# too (the create endpoint allows driver-or-admin), so the feed mixes both.
+ANNOUNCEMENT_AUTHOR_ROLES = ("admin", "driver")
+SAMPLE_ANNOUNCEMENTS: list[tuple[str, str, int, str]] = [
+    (
+        "Welcome to Food4Kids",
+        "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
+        30,
+        "admin",
+    ),
+    (
+        "Schedule Update for March",
+        "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
+        24,
+        "admin",
+    ),
+    (
+        "New Cold-Storage Procedure",
+        "Starting this week, all perishable items must be kept in the insulated bags until drop-off. Please grab a bag from the warehouse before heading out on your route.",
+        19,
+        "admin",
+    ),
+    (
+        "Gate Code Change on the East Route",
+        "Heads up to anyone covering the east route — the gate code at the Maple Street apartments changed to 4821. The old one stopped working for me on Tuesday.",
+        16,
+        "driver",
+    ),
+    (
+        "Holiday Notice - Good Friday",
+        "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
+        12,
+        "admin",
+    ),
+    (
+        "Spare Cooler Bags Available",
+        "I ended up with a couple of extra insulated bags after my route this week. If anyone is running short, find me at the warehouse Thursday morning and I'll pass them along.",
+        9,
+        "driver",
+    ),
+    (
+        "Spring Food Drive Kickoff",
+        "Our spring food drive starts Monday! We are especially short on shelf-stable proteins and low-sugar snacks. Spread the word with your local networks.",
+        5,
+        "admin",
+    ),
+    (
+        "Thanks for Covering My Friday Stops",
+        "Just wanted to say thank you to whoever picked up my Friday route last week while I was out sick. This crew is the best — really appreciate it.",
+        4,
+        "driver",
+    ),
+    (
+        "Weather Advisory - Drive Safe",
+        "Heavy rain is expected across most routes tomorrow. Take your time, and if conditions feel unsafe, contact your coordinator before continuing. Families can wait — your safety comes first.",
+        2,
+        "admin",
+    ),
+]
 # Number of days considered as "next week" for assignment strategy
 NEXT_WEEK_DAYS = 7
 # Number of years back to generate driver history for
@@ -146,15 +211,19 @@ DEFAULT_CAP_MAX = 20
 # Default route start time (HH:MM:SS format)
 ROUTE_START_TIME = "08:00:00"
 
-# Location group schedule (weekday mapping)
+# Location group schedule: group name -> (weekday, alternating slot).
+# weekday is Monday=0 .. Sunday=6. Groups sharing a weekday are suffixed
+# "A"/"B" and deliver on *alternating* weeks, so any given date materializes
+# routes for at most one of them (slot None means "every occurrence of that
+# weekday", used for groups with no A/B partner).
 LOCATION_GROUP_SCHEDULE = {
-    "Schools": 4,
-    "Tuesday A": 1,
-    "Tuesday B": 1,
-    "Wednesday A": 2,
-    "Wednesday B": 2,
-    "Thursday A": 3,
-    "Thursday B": 3,
+    "Schools": (4, None),
+    "Tuesday A": (1, "A"),
+    "Tuesday B": (1, "B"),
+    "Wednesday A": (2, "A"),
+    "Wednesday B": (2, "B"),
+    "Thursday A": (3, "A"),
+    "Thursday B": (3, "B"),
 }
 
 # Cities that need specific group assignments (will be randomly assigned)
@@ -168,9 +237,11 @@ WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 def get_database_url() -> str:
     """Build the database URL from the environment, like migrations/env.py.
 
-    Indexes os.environ directly so a missing variable fails loudly instead
-    of silently seeding the wrong database.
+    In production, reads DATABASE_URL directly (supports Neon/Supabase/etc.
+    with SSL params). In development, builds from individual POSTGRES_* vars.
     """
+    if os.environ.get("APP_ENV") == "production":
+        return os.environ["DATABASE_URL"]
     return "postgresql://{username}:{password}@{host}:5432/{db}".format(
         username=os.environ["POSTGRES_USER"],
         password=os.environ["POSTGRES_PASSWORD"],
@@ -555,6 +626,51 @@ def main() -> None:
             session.commit()
             print("Database cleared successfully")
 
+            # Create admin accounts first so every note chain below can be
+            # authored by a real admin.
+            print("Creating admin accounts...")
+            admin_users: list[User] = []
+
+            for i in range(NUM_SEED_ADMINS):
+                admin_num = i + 1
+                uid = f"seed-admin-{admin_num}"
+                email = f"admin{admin_num}@f4k.dev"
+                first_name = fake.first_name()
+                last_name = fake.last_name()
+
+                ensure_firebase_user(
+                    uid=uid,
+                    email=email,
+                    password=SEED_PASSWORD,
+                    role="admin",
+                    first_name=first_name,
+                    last_name=last_name,
+                )
+
+                user = User(
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    auth_id=uid,
+                    role="admin",
+                )
+                set_timestamps(user)
+                session.add(user)
+
+                admin = Admin(
+                    admin_phone=generate_valid_phone(),
+                    user_id=user.user_id,
+                )
+                set_timestamps(admin)
+                session.add(admin)
+
+                admin_users.append(user)
+
+            session.commit()
+            print(f"Created {NUM_SEED_ADMINS} admin accounts")
+            # Author pool for the notes seeded into note chains below.
+            admin_author_ids = [user.user_id for user in admin_users]
+
             # Create location groups
             print("Creating location groups...")
             group_names = list(LOCATION_GROUP_SCHEDULE.keys())
@@ -711,6 +827,17 @@ def main() -> None:
                     True if i < num_drivers // 2 else random.choice([True, False])
                 )
 
+                # Every driver owns an admin-only note chain (read AND write =
+                # Admin) so admins can leave notes the driver can't see — mirrors
+                # DriverService.create_driver.
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ADMIN,
+                    write_permission=NotePermission.ADMIN,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
                 driver = Driver(
                     user_id=user.user_id,
                     phone=generate_valid_phone(),
@@ -722,12 +849,22 @@ def main() -> None:
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),
                     active=is_active,
-                    notes=fake.sentence()
-                    if random.random() < PROBABILITY_DRIVER_NOTES
-                    else "",
+                    note_chain_id=note_chain.note_chain_id,
                 )
                 set_timestamps(driver)
                 session.add(driver)
+
+                # Seed admin-authored notes into the driver's admin-only chain.
+                if random.random() < PROBABILITY_DRIVER_CHAIN_NOTES:
+                    for _ in range(random.randint(1, MAX_DRIVER_CHAIN_NOTES)):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=random.choice(admin_author_ids),
+                            message=fake.sentence(),
+                            is_system=False,
+                        )
+                        set_timestamps(note)
+                        session.add(note)
             session.commit()
             print(f"Created {num_drivers} drivers")
 
@@ -750,10 +887,14 @@ def main() -> None:
             current_date = start_date
             while current_date <= end_date:
                 weekday = current_date.weekday()
+                # Continuous week index (never resets across years), so
+                # consecutive occurrences of the same weekday always flip the
+                # slot -> A and B groups alternate week to week.
+                week_slot = "A" if (current_date.toordinal() // 7) % 2 == 0 else "B"
                 matching_groups = [
                     name
-                    for name, target_weekday in LOCATION_GROUP_SCHEDULE.items()
-                    if target_weekday == weekday
+                    for name, (target_weekday, slot) in LOCATION_GROUP_SCHEDULE.items()
+                    if target_weekday == weekday and (slot is None or slot == week_slot)
                 ]
 
                 for group_name in matching_groups:
@@ -817,9 +958,9 @@ def main() -> None:
                     for _ in range(num_notes):
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
+                            user_id=random.choice(admin_author_ids),
                             message=fake.sentence(),
-                            is_system=random.choice([True, False]),
+                            is_system=False,
                         )
                         set_timestamps(note)
                         session.add(note)
@@ -860,9 +1001,9 @@ def main() -> None:
                     for _ in range(num_notes):
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
+                            user_id=random.choice(admin_author_ids),
                             message=fake.sentence(),
-                            is_system=True,
+                            is_system=False,
                         )
                         set_timestamps(note)
                         session.add(note)
@@ -1004,49 +1145,6 @@ def main() -> None:
             session.commit()
             print("Created system settings info")
 
-            # Create admin accounts
-            print("Creating admin accounts...")
-            admin_user = None
-
-            for i in range(NUM_SEED_ADMINS):
-                admin_num = i + 1
-                uid = f"seed-admin-{admin_num}"
-                email = f"admin{admin_num}@f4k.dev"
-                first_name = fake.first_name()
-                last_name = fake.last_name()
-
-                ensure_firebase_user(
-                    uid=uid,
-                    email=email,
-                    password=SEED_PASSWORD,
-                    role="admin",
-                    first_name=first_name,
-                    last_name=last_name,
-                )
-
-                user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    auth_id=uid,
-                    role="admin",
-                )
-                set_timestamps(user)
-                session.add(user)
-
-                admin = Admin(
-                    admin_phone=generate_valid_phone(),
-                    user_id=user.user_id,
-                )
-                set_timestamps(admin)
-                session.add(admin)
-
-                if admin_user is None:
-                    admin_user = user
-
-            session.commit()
-            print(f"Created {NUM_SEED_ADMINS} admin accounts")
-
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")
             read_entries_created = 0
@@ -1082,34 +1180,46 @@ def main() -> None:
 
             # Create sample announcements
             print("Creating sample announcements...")
-            sample_announcements = [
-                {
-                    "subject": "Welcome to Food4Kids",
-                    "message": "Welcome to the Food4Kids delivery platform! Please review your assigned routes and reach out if you have any questions.",
-                    "attachments": [],
-                },
-                {
-                    "subject": "Schedule Update for March",
-                    "message": "Please note that delivery schedules have been updated for March. Check your routes for the latest stop assignments.",
-                    "attachments": [],
-                },
-                {
-                    "subject": "Holiday Notice - Good Friday",
-                    "message": "There will be no deliveries on Good Friday. All routes scheduled for that day have been moved to the preceding Thursday.",
-                    "attachments": [],
-                },
+            # Drivers can post announcements too (the create endpoint allows
+            # driver-or-admin), so pull a pool of driver users to author some of
+            # the feed alongside the admins.
+            driver_user_ids: list[uuid.UUID] = [
+                row[0]
+                for row in session.execute(
+                    text("SELECT user_id FROM users WHERE role = 'driver'")
+                ).fetchall()
             ]
-            for ann_data in sample_announcements:
+            admin_user_ids: list[uuid.UUID] = [user.user_id for user in admin_users]
+
+            # Rotate authorship within each role so the feed shows messages from
+            # more than one person rather than a single author.
+            role_counts = dict.fromkeys(ANNOUNCEMENT_AUTHOR_ROLES, 0)
+            for subject, message, days_ago, author_role in SAMPLE_ANNOUNCEMENTS:
+                if author_role == "admin":
+                    pool = admin_user_ids
+                elif author_role == "driver":
+                    pool = driver_user_ids
+                else:
+                    raise ValueError(f"Unknown announcement author role: {author_role}")
+
+                author_user_id = pool[role_counts[author_role] % len(pool)]
+                role_counts[author_role] += 1
+
                 announcement = Announcement(
-                    subject=ann_data["subject"],
-                    message=ann_data["message"],
-                    user_id=admin_user.user_id,  # type: ignore[union-attr]
-                    attachments=ann_data["attachments"],
+                    subject=subject,
+                    message=message,
+                    user_id=author_user_id,
+                    attachments=[],
                 )
                 set_timestamps(announcement)
+                posted_at = datetime.now(ZoneInfo("America/New_York")).replace(
+                    tzinfo=None
+                ) - timedelta(days=days_ago)
+                announcement.created_at = posted_at
+                announcement.updated_at = posted_at
                 session.add(announcement)
             session.commit()
-            print("Created sample announcements")
+            print(f"Created {len(SAMPLE_ANNOUNCEMENTS)} sample announcements")
 
             print("Comprehensive database seeding completed successfully!")
 

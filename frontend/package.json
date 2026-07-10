@@ -52,7 +52,8 @@
     "react-syntax-highlighter": "^16.1.1",
     "tailwind-merge": "^3.6.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "xstate": "^5.31.1"
+    "xstate": "^5.31.1",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
