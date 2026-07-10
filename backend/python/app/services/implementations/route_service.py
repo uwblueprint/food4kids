@@ -217,9 +217,11 @@ class RouteService:
                     snapshot.contact_name if snapshot else location.contact_name
                 ),
                 phone_primary=(
-                    snapshot.phone_number if snapshot else location.phone_primary
+                    snapshot.phone_primary if snapshot else location.phone_primary
                 ),
-                phone_secondary=location.phone_secondary,
+                phone_secondary=(
+                    snapshot.phone_secondary if snapshot else location.phone_secondary
+                ),
                 boxes=compute_boxes(
                     snapshot.num_children if snapshot else location.num_children,
                     children_per_box,

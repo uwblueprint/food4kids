@@ -1187,7 +1187,7 @@ class TestLocationRoutes:
             route_stop_id=stop.route_stop_id,
             address="10 Delivered St",
             contact_name="Delivered Family",
-            phone_number="5559999999",
+            phone_primary="5559999999",
             num_children=2,
             latitude=0.0,
             longitude=0.0,
@@ -1713,7 +1713,7 @@ class TestRouteRoutes:
                 route_stop_id=stop.route_stop_id,
                 address=loc.address,
                 contact_name=loc.contact_name,
-                phone_number=loc.phone_primary,
+                phone_primary=loc.phone_primary,
                 num_children=8,
                 notes=loc.notes,
                 latitude=loc.latitude or 0.0,
@@ -1833,8 +1833,9 @@ class TestRouteRoutes:
         test_session: AsyncSession,
         test_location_group: Any,
     ) -> None:
-        """For a frozen (past) route, snapshotted stop fields win over the
-        mutated live Location; phone_secondary and note_chain_id are live-only."""
+        """For a frozen (past) route, snapshotted stop fields (including both
+        phone numbers) win over the mutated live Location; note_chain_id is
+        live-only (note chains aren't snapshotted)."""
         note_chain = NoteChain()
         loc = Location(
             location_group_id=test_location_group.location_group_id,
@@ -1879,7 +1880,8 @@ class TestRouteRoutes:
                 route_stop_id=stop.route_stop_id,
                 address="Frozen Addr",
                 contact_name="Frozen Name",
-                phone_number="5557778888",
+                phone_primary="5557778888",
+                phone_secondary="5557779999",
                 num_children=8,
                 latitude=0.0,
                 longitude=0.0,
@@ -1888,9 +1890,10 @@ class TestRouteRoutes:
         await test_session.commit()
 
         # Mutate the live location after the freeze; the response must ignore it
-        # for snapshotted fields.
+        # for snapshotted fields (including phone_secondary).
         loc.address = "Changed Addr"
         loc.num_children = 1
+        loc.phone_secondary = "5550009999"
         await test_session.commit()
 
         response = await async_client.get(f"/routes/{route.route_id}")
@@ -1901,9 +1904,10 @@ class TestRouteRoutes:
         assert stop_body["address"] == "Frozen Addr"
         assert stop_body["contact_name"] == "Frozen Name"
         assert stop_body["phone_primary"] == "5557778888"
+        # Secondary phone is snapshotted -> frozen value, not the mutated live one.
+        assert stop_body["phone_secondary"] == "5557779999"
         assert stop_body["boxes"] == 4  # ceil(8 / 2) from snapshot, not live 1
-        # Secondary phone + note chain have no snapshot column -> read live.
-        assert stop_body["phone_secondary"] == "5551112222"
+        # Note chains aren't snapshotted -> note_chain_id is read live.
         assert stop_body["note_chain_id"] == str(note_chain.note_chain_id)
 
     @pytest.mark.asyncio
@@ -2203,7 +2207,7 @@ class TestRouteRoutes:
                     route_stop_id=stop.route_stop_id,
                     address="123 Old Address",
                     contact_name="Old Fam",
-                    phone_number="5550002222",
+                    phone_primary="5550002222",
                     num_children=3,
                     notes="",
                     latitude=44.0,
