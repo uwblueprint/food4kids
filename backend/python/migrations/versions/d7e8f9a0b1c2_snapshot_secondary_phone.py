@@ -7,7 +7,7 @@ phone_primary and add a nullable phone_secondary so the snapshot mirrors
 Location field-for-field.
 
 Revision ID: d7e8f9a0b1c2
-Revises: b7c1d2e3f4a5
+Revises: f9a8b7c6d5e4
 Create Date: 2026-07-09 00:00:00.000000
 
 """
@@ -17,7 +17,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "d7e8f9a0b1c2"
-down_revision = "b7c1d2e3f4a5"
+down_revision = "f9a8b7c6d5e4"
 branch_labels = None
 depends_on = None
 

@@ -2207,7 +2207,7 @@ class TestRouteRoutes:
                     route_stop_id=stop.route_stop_id,
                     address="123 Old Address",
                     contact_name="Old Fam",
-                    phone_number="5550002222",
+                    phone_primary="5550002222",
                     num_children=3,
                     notes="",
                     latitude=44.0,
