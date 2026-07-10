@@ -11,8 +11,6 @@ from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
-DEFAULT_DELIVERY_TYPES = ["School", "Family"]
-
 
 def _validate_delivery_types(v: list[str]) -> list[str]:
     """Delivery types must be non-empty, unique, and not blank."""
@@ -91,8 +89,11 @@ class SystemSettingsBase(SQLModel):
         ],
         sa_column=Column(EmailReminderListType, nullable=False),
     )
+    # The default lives here and nowhere else: it applies only when a settings
+    # row is created. Every other code path must read the configured list off
+    # the (always-present) row rather than reaching for a fallback constant.
     delivery_types: list[str] = Field(
-        default_factory=lambda: DEFAULT_DELIVERY_TYPES.copy(),
+        default_factory=lambda: ["School", "Family"],
         sa_column=Column(JSON, nullable=False),
     )
 
@@ -129,6 +130,20 @@ class SystemSettingsRead(SystemSettingsBase):
     """Read response model"""
 
     system_settings_id: UUID
+
+
+class DeliveryTypeRename(SQLModel):
+    """Request body for renaming a configured delivery type.
+
+    Rename is a distinct operation from the list-replacing PATCH: it preserves
+    the type's identity, cascading the new name onto every location (active or
+    not) that references the old one. A plain PATCH that swaps a name looks like
+    a remove + add and is blocked by the in-use guard, so renames must come
+    through here.
+    """
+
+    old_name: str = Field(min_length=1, max_length=100)
+    new_name: str = Field(min_length=1, max_length=100)
 
 
 class SystemSettingsUpdate(SQLModel):

@@ -260,6 +260,28 @@ export type DeliveriesCountResponse = {
 };
 
 /**
+ * DeliveryTypeRename
+ *
+ * Request body for renaming a configured delivery type.
+ *
+ * Rename is a distinct operation from the list-replacing PATCH: it preserves
+ * the type's identity, cascading the new name onto every location (active or
+ * not) that references the old one. A plain PATCH that swaps a name looks like
+ * a remove + add and is blocked by the in-use guard, so renames must come
+ * through here.
+ */
+export type DeliveryTypeRename = {
+  /**
+   * New Name
+   */
+  new_name: string;
+  /**
+   * Old Name
+   */
+  old_name: string;
+};
+
+/**
  * DriveDaysOfWeekEnum
  */
 export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
@@ -4396,6 +4418,33 @@ export type PatchSystemSettingsResponses = {
 
 export type PatchSystemSettingsResponse =
   PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
+
+export type RenameDeliveryTypeData = {
+  body: DeliveryTypeRename;
+  path?: never;
+  query?: never;
+  url: '/system-settings/delivery-types/rename';
+};
+
+export type RenameDeliveryTypeErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RenameDeliveryTypeError =
+  RenameDeliveryTypeErrors[keyof RenameDeliveryTypeErrors];
+
+export type RenameDeliveryTypeResponses = {
+  /**
+   * Successful Response
+   */
+  200: SystemSettingsRead;
+};
+
+export type RenameDeliveryTypeResponse =
+  RenameDeliveryTypeResponses[keyof RenameDeliveryTypeResponses];
 
 export type UploadImageData = {
   body: BodyUploadImage;

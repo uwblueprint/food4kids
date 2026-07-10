@@ -240,9 +240,8 @@ class LocationService:
             raise e
 
     async def get_delivery_types(self, session: AsyncSession) -> list[str]:
-        """Return configured delivery types."""
-        settings = await self.system_settings_service.get_settings(session)
-        assert settings is not None, "System settings row is required"
+        """Return configured delivery types off the (always-present) settings row."""
+        settings = await self.system_settings_service.require_settings(session)
         return settings.delivery_types
 
     async def validate_delivery_type(

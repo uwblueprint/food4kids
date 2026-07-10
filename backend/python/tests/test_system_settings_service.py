@@ -91,6 +91,7 @@ async def test_update_settings_geocodes_warehouse_location(
     and deriving the coordinates."""
     maps = _FakeMapsClient(_GEOCODE_RESULT)
     service = _service(maps)
+    await service.ensure_settings(test_session)  # startup invariant
 
     settings = await service.update_settings(
         test_session, SystemSettingsUpdate(warehouse_location="123 main st waterloo")
@@ -110,6 +111,7 @@ async def test_update_settings_ignores_client_supplied_coords(
     address is ignored rather than trusted."""
     maps = _FakeMapsClient(_GEOCODE_RESULT)
     service = _service(maps)
+    await service.ensure_settings(test_session)  # startup invariant
 
     settings = await service.update_settings(
         test_session,
@@ -150,6 +152,7 @@ async def test_update_settings_clearing_location_clears_coords(
     calling the geocoder."""
     maps = _FakeMapsClient(_GEOCODE_RESULT)
     service = _service(maps)
+    await service.ensure_settings(test_session)  # startup invariant
 
     await service.update_settings(
         test_session, SystemSettingsUpdate(warehouse_location="123 main st waterloo")
@@ -175,6 +178,7 @@ async def test_update_settings_unrelated_patch_skips_geocoding(
     and never calls the geocoder."""
     maps = _FakeMapsClient(_GEOCODE_RESULT)
     service = _service(maps)
+    await service.ensure_settings(test_session)  # startup invariant
 
     settings = await service.update_settings(
         test_session, SystemSettingsUpdate(default_cap=5)

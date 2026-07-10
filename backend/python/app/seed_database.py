@@ -39,7 +39,6 @@ from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import (
-    DEFAULT_DELIVERY_TYPES,
     EmailReminder,
     SystemSettings,
 )
@@ -1126,7 +1125,6 @@ def main() -> None:
                 boxes_per_car=10,
                 dropoff_minutes=3,
                 children_per_box=2,
-                delivery_types=DEFAULT_DELIVERY_TYPES.copy(),
                 contact_name="Emily Loro",
                 contact_phone=generate_valid_phone(),
                 f4k_wr_instagram="https://instagram.com/food4kidswr",

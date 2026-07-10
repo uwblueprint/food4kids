@@ -62,6 +62,7 @@ import {
   type Options,
   patchSystemSettings,
   refresh,
+  renameDeliveryType,
   resetPassword,
   reviewLocations,
   test,
@@ -221,6 +222,9 @@ import type {
   PatchSystemSettingsResponse,
   RefreshData,
   RefreshResponse,
+  RenameDeliveryTypeData,
+  RenameDeliveryTypeError,
+  RenameDeliveryTypeResponse,
   ResetPasswordData,
   ResetPasswordError,
   ResetPasswordResponse,
@@ -2412,6 +2416,35 @@ export const patchSystemSettingsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await patchSystemSettings({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Rename Delivery Type
+ *
+ * Rename a configured delivery type, cascading onto every location using it.
+ */
+export const renameDeliveryTypeMutation = (
+  options?: Partial<Options<RenameDeliveryTypeData>>
+): UseMutationOptions<
+  RenameDeliveryTypeResponse,
+  AxiosError<RenameDeliveryTypeError>,
+  Options<RenameDeliveryTypeData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RenameDeliveryTypeResponse,
+    AxiosError<RenameDeliveryTypeError>,
+    Options<RenameDeliveryTypeData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await renameDeliveryType({
         ...options,
         ...fnOptions,
         throwOnError: true,
