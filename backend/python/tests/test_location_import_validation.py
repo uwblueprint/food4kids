@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.models.enum import DeliveryTypeEnum
 from app.models.location import AlertCode, Location, LocationImportEntry
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
@@ -275,7 +274,7 @@ class TestExistingGeocodedAddresses:
                 location_group_id=test_location_group.location_group_id,
                 name="Known",
                 contact_name="Known",
-                delivery_type=DeliveryTypeEnum.FAMILY,
+                delivery_type="Family",
                 address=known,
                 phone_primary="+15195551234",
                 longitude=-80.5,
@@ -287,7 +286,7 @@ class TestExistingGeocodedAddresses:
                 location_group_id=test_location_group.location_group_id,
                 name="Bare",
                 contact_name="Bare",
-                delivery_type=DeliveryTypeEnum.FAMILY,
+                delivery_type="Family",
                 address=ungeocoded,
                 phone_primary="+15195551235",
                 longitude=None,
