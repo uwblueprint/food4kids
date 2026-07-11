@@ -20,15 +20,16 @@ export const CreatePassword = () => {
 const CreatePasswordForm = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [feedback, setFeedback] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
   const [confirmPasswordError, setConfirmPasswordError] = useState(false);
 
   const { token } = useParams();
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isValidUuid = token && uuidRegex.test(token);
 
-  if (!token) {
+  if (!isValidUuid) {
     return <Navigate to="/404" replace />;
   }
 
@@ -78,7 +79,7 @@ const CreatePasswordForm = () => {
     <>
       <div>
         {/* Form */}
-        <form id="register-form" className="flex flex-col gap-6">
+        <form id="register-form" className="flex flex-col gap-6" onSubmit={submitPassword}>
           {/* Password Field */}
           <Field>
             <FieldLabel htmlFor="password">Enter new password</FieldLabel>
