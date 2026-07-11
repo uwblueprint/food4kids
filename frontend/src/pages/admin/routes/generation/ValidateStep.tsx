@@ -17,9 +17,8 @@ import { AlertCell, Banner, Button, DataTable } from '@/common/components';
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
-// Styling for error and warning cells
+// Styling for error cells — all alerts are blocking and use the same red error.
 const ERROR_CELL_CLASS = 'border-b-2 border-red bg-light-red';
-const WARNING_CELL_CLASS = 'border-b-2 border-dark-yellow bg-light-yellow';
 
 // ---------------------------------------------------------------------------
 // Alert display helpers
@@ -45,7 +44,7 @@ function getAlertDisplay(code: AlertCode): {
     case 'MISSING_DELIVERY_GROUP':
       return { type: 'error', label: 'Missing Delivery Group' };
     case 'DUPLICATE_ENTRY':
-      return { type: 'warning', label: 'Duplicate Entry' };
+      return { type: 'error', label: 'Duplicate Entry' };
     default: {
       const _exhaustive: never = code;
       return { type: 'error', label: _exhaustive };
@@ -72,8 +71,7 @@ function getCellClass(
   row: LocationImportRow,
   hasFieldError: boolean
 ): string | undefined {
-  if (hasFieldError) return ERROR_CELL_CLASS;
-  if (isDuplicateRow(row)) return WARNING_CELL_CLASS;
+  if (hasFieldError || isDuplicateRow(row)) return ERROR_CELL_CLASS;
   return undefined;
 }
 
@@ -107,10 +105,13 @@ export function ValidateStep() {
       key: 'alerts',
       header: 'Alert',
       render: (row) => {
-        const first = row.alerts[0];
-        if (!first) return null;
-        const { type, label } = getAlertDisplay(first);
-        return <AlertCell type={type} label={label} />;
+        if (row.alerts.length === 0) return null;
+        return (
+          <AlertCell
+            type="error"
+            label={row.alerts.map((code) => getAlertDisplay(code).label)}
+          />
+        );
       },
     },
     {
