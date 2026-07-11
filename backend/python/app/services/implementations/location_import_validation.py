@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeGuard
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
+from typing import TypeGuard
 
 from app.models.location import AlertCode, LocationImportEntry
 from app.utilities.utils import validate_phone
@@ -87,9 +84,12 @@ def _address_match_key(address: str | None) -> str | None:
     return address.strip().casefold()
 
 
-def _phone_match_key(phone: str | None, normalized_phone: str | None) -> str | None:
-    if normalized_phone:
-        return normalized_phone
+def _phone_match_key(phone: str | None) -> str | None:
+    """Match key for phone_primary.
+
+    Callers should normalize phones onto the entry before duplicate detection
+    (see review_locations) so valid numbers compare as E.164.
+    """
     if not present_str(phone):
         return None
     return phone.strip()
@@ -98,11 +98,8 @@ def _phone_match_key(phone: str | None, normalized_phone: str | None) -> str | N
 def count_duplicate_field_matches(
     left: LocationImportEntry,
     right: LocationImportEntry,
-    *,
-    left_phone: str | None,
-    right_phone: str | None,
 ) -> int:
-    """Count how many of {name, address, phone} match between two rows, which is the 2-of-3 rule"""
+    """Count how many of {name, address, phone} match between two rows (2-of-3 rule)."""
     matches = 0
 
     left_name = _name_match_key(left.contact_name)
@@ -115,8 +112,8 @@ def count_duplicate_field_matches(
     if left_address and right_address and left_address == right_address:
         matches += 1
 
-    left_phone_key = _phone_match_key(left.phone_primary, left_phone)
-    right_phone_key = _phone_match_key(right.phone_primary, right_phone)
+    left_phone_key = _phone_match_key(left.phone_primary)
+    right_phone_key = _phone_match_key(right.phone_primary)
     if left_phone_key and right_phone_key and left_phone_key == right_phone_key:
         matches += 1
 
@@ -126,20 +123,9 @@ def count_duplicate_field_matches(
 def rows_are_duplicates(
     left: LocationImportEntry,
     right: LocationImportEntry,
-    *,
-    left_phone: str | None,
-    right_phone: str | None,
 ) -> bool:
     """True when at least two of {name, address, phone} match (2-of-3 rule)."""
-    return (
-        count_duplicate_field_matches(
-            left,
-            right,
-            left_phone=left_phone,
-            right_phone=right_phone,
-        )
-        >= 2
-    )
+    return count_duplicate_field_matches(left, right) >= 2
 
 
 class _UnionFind:
@@ -162,11 +148,11 @@ class _UnionFind:
 
 def find_duplicate_index_groups(
     entries: list[LocationImportEntry],
-    normalized_phones: Sequence[str | None],
 ) -> list[list[int]]:
     """Return duplicate clusters as lists of 0-based indices (size >= 2).
 
     Transitive duplicates are merged via union-find (A~B and B~C => one group).
+    Expects phone_primary to already be normalized when possible.
     """
     size = len(entries)
     if size < 2:
@@ -176,12 +162,7 @@ def find_duplicate_index_groups(
     union_find = _UnionFind(size)
     for left in range(size):
         for right in range(left + 1, size):
-            if rows_are_duplicates(
-                entries[left],
-                entries[right],
-                left_phone=normalized_phones[left],
-                right_phone=normalized_phones[right],
-            ):
+            if rows_are_duplicates(entries[left], entries[right]):
                 union_find.union(left, right)
 
     clusters: dict[int, list[int]] = {}

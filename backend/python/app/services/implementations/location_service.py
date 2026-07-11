@@ -514,7 +514,6 @@ class LocationService:
                 )
                 geocode_cache = dict(zip(unique_addresses, geocoded, strict=True))
 
-            normalized_phones: list[str | None] = []
             phone_invalid_flags: list[bool] = []
             phone_secondary_invalid_flags: list[bool] = []
             for _, entry in parsed_rows:
@@ -528,14 +527,11 @@ class LocationService:
                 )
                 if normalized_secondary:
                     entry.phone_secondary = normalized_secondary
-                normalized_phones.append(normalized_phone)
                 phone_invalid_flags.append(phone_invalid)
                 phone_secondary_invalid_flags.append(secondary_invalid)
 
             entries = [entry for _, entry in parsed_rows]
-            duplicate_index_groups = find_duplicate_index_groups(
-                entries, normalized_phones
-            )
+            duplicate_index_groups = find_duplicate_index_groups(entries)
             duplicate_indices = {
                 index for group in duplicate_index_groups for index in group
             }

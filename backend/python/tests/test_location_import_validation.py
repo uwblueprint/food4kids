@@ -118,9 +118,7 @@ class TestDuplicateDetection:
             address="105 Albert St",
             phone_primary="+15192842498",
         )
-        assert rows_are_duplicates(
-            left, right, left_phone="+15192842498", right_phone="+15192842498"
-        )
+        assert rows_are_duplicates(left, right)
 
     def test_name_and_phone_two_of_three(self) -> None:
         left = _entry(
@@ -133,9 +131,7 @@ class TestDuplicateDetection:
             address="20 Second Ave",
             phone_primary="+14272842498",
         )
-        assert rows_are_duplicates(
-            left, right, left_phone="+14272842498", right_phone="+14272842498"
-        )
+        assert rows_are_duplicates(left, right)
 
     def test_address_and_phone_two_of_three(self) -> None:
         left = _entry(
@@ -148,9 +144,7 @@ class TestDuplicateDetection:
             address="80 Mooregate Cres",
             phone_primary="+15193034390",
         )
-        assert rows_are_duplicates(
-            left, right, left_phone="+15193034390", right_phone="+15193034390"
-        )
+        assert rows_are_duplicates(left, right)
 
     def test_name_and_address_two_of_three(self) -> None:
         left = _entry(
@@ -163,9 +157,7 @@ class TestDuplicateDetection:
             address="527 Parkside Dr",
             phone_primary="+15192222222",
         )
-        assert rows_are_duplicates(
-            left, right, left_phone="+15191111111", right_phone="+15192222222"
-        )
+        assert rows_are_duplicates(left, right)
 
     def test_one_of_three_address_only_not_duplicate(self) -> None:
         left = _entry(
@@ -178,15 +170,8 @@ class TestDuplicateDetection:
             address="100 Shared Building",
             phone_primary="+15192222222",
         )
-        assert (
-            count_duplicate_field_matches(
-                left, right, left_phone="+15191111111", right_phone="+15192222222"
-            )
-            == 1
-        )
-        assert not rows_are_duplicates(
-            left, right, left_phone="+15191111111", right_phone="+15192222222"
-        )
+        assert count_duplicate_field_matches(left, right) == 1
+        assert not rows_are_duplicates(left, right)
 
     def test_one_of_three_phone_only_not_duplicate(self) -> None:
         left = _entry(
@@ -199,9 +184,7 @@ class TestDuplicateDetection:
             address="2 B St",
             phone_primary="+15193034390",
         )
-        assert not rows_are_duplicates(
-            left, right, left_phone="+15193034390", right_phone="+15193034390"
-        )
+        assert not rows_are_duplicates(left, right)
 
     def test_one_of_three_name_only_not_duplicate(self) -> None:
         left = _entry(
@@ -214,30 +197,28 @@ class TestDuplicateDetection:
             address="2 B St",
             phone_primary="+15192222222",
         )
-        assert not rows_are_duplicates(
-            left, right, left_phone="+15191111111", right_phone="+15192222222"
-        )
+        assert not rows_are_duplicates(left, right)
 
     def test_different_address_formatting_not_duplicate(self) -> None:
-        left = _entry(address="123 Main St")
-        right = _entry(address="123 Main Street")
-        assert not rows_are_duplicates(
-            left, right, left_phone="+15195551274", right_phone="+15195551234"
+        left = _entry(
+            address="123 Main St",
+            phone_primary="+15195551274",
         )
+        right = _entry(
+            address="123 Main Street",
+            phone_primary="+15195551234",
+        )
+        assert not rows_are_duplicates(left, right)
 
     def test_name_match_is_case_insensitive(self) -> None:
         left = _entry(contact_name="Smith")
         right = _entry(contact_name="smith")
-        assert rows_are_duplicates(
-            left, right, left_phone="+15195551234", right_phone="+15195551234"
-        )
+        assert rows_are_duplicates(left, right)
 
     def test_address_match_is_case_insensitive(self) -> None:
         left = _entry(address="123 Main St")
         right = _entry(address="123 main st")
-        assert rows_are_duplicates(
-            left, right, left_phone="+15195551234", right_phone="+15195551234"
-        )
+        assert rows_are_duplicates(left, right)
 
     def test_transitive_duplicate_cluster(self) -> None:
         entries = [
@@ -257,8 +238,7 @@ class TestDuplicateDetection:
                 phone_primary="+15191111111",
             ),
         ]
-        phones = ["+15191111111", "+15191111111", "+15191111111"]
-        groups = find_duplicate_index_groups(entries, phones)
+        groups = find_duplicate_index_groups(entries)
         assert groups == [[0, 1, 2]]
 
     def test_all_members_in_duplicate_group(self) -> None:
@@ -266,5 +246,5 @@ class TestDuplicateDetection:
             _entry(contact_name="A", address="1 St", phone_primary="+15191111111"),
             _entry(contact_name="A", address="2 St", phone_primary="+15191111111"),
         ]
-        groups = find_duplicate_index_groups(entries, ["+15191111111", "+15191111111"])
+        groups = find_duplicate_index_groups(entries)
         assert groups == [[0, 1]]
