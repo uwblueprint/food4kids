@@ -7,14 +7,17 @@ export type ClientOptions = {
 /**
  * AlertCode
  *
- * Machine-readable reason code for an import alert.
+ * Machine-readable blocking error code for an import row.
  */
 export type AlertCode =
-  | 'MISSING_FIELDS'
-  | 'INVALID_FORMAT'
-  | 'LOCAL_DUPLICATE'
+  | 'MISSING_ADDRESS'
+  | 'INVALID_ADDRESS'
+  | 'MISSING_PHONE_NUMBER'
+  | 'INVALID_PHONE_NUMBER'
+  | 'MISSING_SCHOOL_OR_LAST_NAME'
+  | 'INVALID_SCHOOL_OR_LAST_NAME'
   | 'MISSING_DELIVERY_GROUP'
-  | 'PARTIAL_DUPLICATE';
+  | 'DUPLICATE_ENTRY';
 
 /**
  * AnnouncementCreate
@@ -826,15 +829,21 @@ export type LocationImportEntry = {
  *
  * Combined validate + review-changes payload.
  *
- * success=False when any row has alerts. net_new/stale/changed describe how the
- * import would affect the existing locations table; these are placeholders until
- * the matching logic is implemented.
+ * success=False when any row has alerts. duplicate_groups lists row numbers
+ * (1-based, matching LocationImportRow.row) for each within-file duplicate
+ * cluster. net_new/stale/changed describe how the import would affect the
+ * existing locations table; these are placeholders until the matching logic
+ * is implemented.
  */
 export type LocationImportResponse = {
   /**
    * Changed
    */
   changed?: Array<ChangedEntry>;
+  /**
+   * Duplicate Groups
+   */
+  duplicate_groups?: Array<Array<number>>;
   /**
    * Net New
    */
