@@ -146,7 +146,6 @@ async def logout(
 async def forgot_password(
     forgot_password_request: ForgotPasswordRequest,
     session: AsyncSession = Depends(get_session),
-    auth_service: AuthService = Depends(get_auth_service),
     token_service: PasswordResetTokenService = Depends(get_password_reset_token_service),
     user_service: UserService = Depends(get_user_service),
     email_service: EmailDispatcher = Depends(get_email_dispatcher)
@@ -160,7 +159,7 @@ async def forgot_password(
     try:
         user = await user_service.get_user_by_email(session, email)
 
-        if not user:
+        if not user or not getattr(user, "auth_id", None):
             # Masking attack: Log it internally, but return a success status to the client
             logger.info(f"Password reset attempted for non-existent email: {email}")
             return
