@@ -4,7 +4,7 @@ import os
 from collections.abc import Iterable
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -31,7 +31,6 @@ from app.models.location import (
     LocationIngestResponse,
     LocationRead,
     LocationUpdate,
-    ValidatedLocationImportEntry,
 )
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -41,9 +40,15 @@ from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.utilities.google_maps_client import GoogleMapsClient
+from app.services.implementations.location_import_validation import (
+    collect_field_alerts,
+    find_duplicate_index_groups,
+    is_blank,
+    present_str,
+    try_normalize_phone,
+)
+from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
 from app.utilities.pagination import paginate_query
-from app.utilities.utils import validate_phone
 
 if TYPE_CHECKING:
     from app.services.implementations.system_settings_service import (
@@ -488,78 +493,127 @@ class LocationService:
             )
             await session.commit()
             df = await self._read_upload_file(file)
-            rows: list[LocationImportRow] = []
-
-            # track local duplicates
-            full_dup_keys: dict[tuple[str, str, str], int] = {}
-            address_keys: dict[str, int] = {}
-            phone_keys: dict[str, int] = {}
+            parsed_rows: list[tuple[int, LocationImportEntry]] = []
 
             for index, row in df.iterrows():
                 row_num = int(index) + 1  # type: ignore[call-overload]
-                location = self._parse_row(row, column_map)
-                alerts: list[AlertCode] = []
+                parsed_rows.append((row_num, self._parse_row(row, column_map)))
 
-                # missing required fields
-                if not self._has_required_fields(location):
-                    alerts.append(AlertCode.MISSING_FIELDS)
-                    rows.append(
-                        LocationImportRow(row=row_num, location=location, alerts=alerts)
+            unique_addresses = {
+                entry.address.strip()
+                for _, entry in parsed_rows
+                if present_str(entry.address)
+            }
+            known_valid_addresses = await self._existing_geocoded_addresses(
+                session, unique_addresses
+            )
+            addresses_to_geocode = unique_addresses - known_valid_addresses
+            geocode_ok_by_address: dict[str, bool] = dict.fromkeys(
+                known_valid_addresses, True
+            )
+            if addresses_to_geocode:
+                geocoded = await asyncio.gather(
+                    *(
+                        self._geocode_import_address(address)
+                        for address in addresses_to_geocode
                     )
-                    continue
-
-                # invalid phone number format
-                try:
-                    location.phone_primary = validate_phone(location.phone_primary)
-                    if location.phone_secondary:
-                        location.phone_secondary = validate_phone(
-                            location.phone_secondary
-                        )
-                except ValueError:
-                    alerts.append(AlertCode.INVALID_FORMAT)
-                    rows.append(
-                        LocationImportRow(row=row_num, location=location, alerts=alerts)
-                    )
-                    continue
-
-                # missing delivery group
-                if not location.delivery_group:
-                    alerts.append(AlertCode.MISSING_DELIVERY_GROUP)
-
-                # full duplicate (same contact name, address, and phone)
-                full_key = (
-                    location.contact_name,
-                    location.address,
-                    location.phone_primary,
                 )
-                if full_key in full_dup_keys:
-                    alerts.append(AlertCode.LOCAL_DUPLICATE)
-                else:
-                    full_dup_keys[full_key] = row_num
+                geocode_ok_by_address.update(
+                    {
+                        address: result is not None
+                        for address, result in zip(
+                            addresses_to_geocode, geocoded, strict=True
+                        )
+                    }
+                )
 
-                    # partial duplicate — same address or same phone
-                    if (
-                        location.address in address_keys
-                        or location.phone_primary in phone_keys
-                    ):
-                        alerts.append(AlertCode.PARTIAL_DUPLICATE)
-                    if location.address not in address_keys:
-                        address_keys[location.address] = row_num
-                    if location.phone_primary not in phone_keys:
-                        phone_keys[location.phone_primary] = row_num
+            phone_invalid_flags: list[bool] = []
+            phone_secondary_invalid_flags: list[bool] = []
+            for _, entry in parsed_rows:
+                normalized_phone, phone_invalid = try_normalize_phone(
+                    entry.phone_primary
+                )
+                if normalized_phone:
+                    entry.phone_primary = normalized_phone
+                normalized_secondary, secondary_invalid = try_normalize_phone(
+                    entry.phone_secondary
+                )
+                if normalized_secondary:
+                    entry.phone_secondary = normalized_secondary
+                phone_invalid_flags.append(phone_invalid)
+                phone_secondary_invalid_flags.append(secondary_invalid)
+
+            entries = [entry for _, entry in parsed_rows]
+            duplicate_index_groups = find_duplicate_index_groups(entries)
+            duplicate_indices = {
+                index for group in duplicate_index_groups for index in group
+            }
+
+            rows: list[LocationImportRow] = []
+            for index, (row_num, entry) in enumerate(parsed_rows):
+                geocode_ok: bool | None
+                if is_blank(entry.address):
+                    geocode_ok = None
+                elif entry.address is not None:
+                    geocode_ok = geocode_ok_by_address.get(entry.address.strip())
+                else:
+                    geocode_ok = None
+
+                alerts = collect_field_alerts(
+                    entry,
+                    geocode_ok=geocode_ok,
+                    phone_invalid=phone_invalid_flags[index],
+                    phone_secondary_invalid=phone_secondary_invalid_flags[index],
+                )
+                if index in duplicate_indices:
+                    alerts.append(AlertCode.DUPLICATE_ENTRY)
 
                 rows.append(
-                    LocationImportRow(row=row_num, location=location, alerts=alerts)
+                    LocationImportRow(row=row_num, location=entry, alerts=alerts)
                 )
+
+            duplicate_groups = [
+                [parsed_rows[i][0] for i in group] for group in duplicate_index_groups
+            ]
 
             return LocationImportResponse(
                 success=not any(r.alerts for r in rows),
                 total_rows=len(rows),
                 rows=rows,
+                duplicate_groups=duplicate_groups,
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
+
+    async def _existing_geocoded_addresses(
+        self, session: AsyncSession, addresses: set[str]
+    ) -> set[str]:
+        """Return the subset of addresses that already exist on a geocoded Location.
+
+        Exact match on Location.address (import side is already stripped). Only
+        rows with latitude/longitude count as known-valid so we still geocode
+        addresses that were stored without coordinates.
+        """
+        if not addresses:
+            return set()
+
+        result = await session.execute(
+            select(Location.address).where(
+                col(Location.address).in_(addresses),
+                col(Location.latitude).is_not(None),
+                col(Location.longitude).is_not(None),
+            )
+        )
+        return {address for address in result.scalars().all() if address in addresses}
+
+    async def _geocode_import_address(
+        self, address: str | None
+    ) -> GeocodeResult | None:
+        """Geocode a non-blank import address; skip geocoding when address is missing."""
+        if not present_str(address):
+            return None
+        return await self.google_maps_service.geocode_address(address)
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
@@ -627,18 +681,6 @@ class LocationService:
             num_children=parse_int("num_children"),
             halal=parse_bool("halal"),
             dietary_restrictions=get_value("dietary_restrictions"),
-        )
-
-    @staticmethod
-    def _has_required_fields(
-        entry: LocationImportEntry,
-    ) -> TypeGuard[ValidatedLocationImportEntry]:
-        """Returns True (and narrows to ValidatedLocationImportEntry) when all required
-        fields are present; False when any are missing."""
-        return (
-            entry.contact_name is not None
-            and entry.address is not None
-            and entry.phone_primary is not None
         )
 
     async def _build_location(self, location_data: LocationCreate) -> Location:

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 from dataclasses import dataclass
@@ -25,6 +26,9 @@ class GoogleMapsClient:
 
     async def geocode_address(self, address: str) -> GeocodeResult | None:
         """Geocode a single address string using Google Maps Geocoding API"""
+        return await asyncio.to_thread(self._geocode_address_sync, address)
+
+    def _geocode_address_sync(self, address: str) -> GeocodeResult | None:
         cleaned_address = self._clean_address(address)
         geocode_result = self.client.geocode(cleaned_address, region=self.region_bias)
 

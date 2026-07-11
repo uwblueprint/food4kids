@@ -2,13 +2,16 @@
   "components": {
     "schemas": {
       "AlertCode": {
-        "description": "Machine-readable reason code for an import alert.",
+        "description": "Machine-readable blocking error code for an import row.",
         "enum": [
-          "MISSING_FIELDS",
-          "INVALID_FORMAT",
-          "LOCAL_DUPLICATE",
+          "MISSING_ADDRESS",
+          "INVALID_ADDRESS",
+          "MISSING_PHONE_NUMBER",
+          "INVALID_PHONE_NUMBER",
+          "MISSING_SCHOOL_OR_LAST_NAME",
+          "INVALID_SCHOOL_OR_LAST_NAME",
           "MISSING_DELIVERY_GROUP",
-          "PARTIAL_DUPLICATE"
+          "DUPLICATE_ENTRY"
         ],
         "title": "AlertCode",
         "type": "string"
@@ -1380,7 +1383,7 @@
         "type": "object"
       },
       "LocationImportResponse": {
-        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. net_new/stale/changed describe how the\nimport would affect the existing locations table; these are placeholders until\nthe matching logic is implemented.",
+        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers\n(1-based, matching LocationImportRow.row) for each within-file duplicate\ncluster. net_new/stale/changed describe how the import would affect the\nexisting locations table; these are placeholders until the matching logic\nis implemented.",
         "properties": {
           "changed": {
             "default": [],
@@ -1388,6 +1391,17 @@
               "$ref": "#/components/schemas/ChangedEntry"
             },
             "title": "Changed",
+            "type": "array"
+          },
+          "duplicate_groups": {
+            "default": [],
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "title": "Duplicate Groups",
             "type": "array"
           },
           "net_new": {
