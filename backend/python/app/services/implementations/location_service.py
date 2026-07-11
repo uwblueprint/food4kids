@@ -499,20 +499,33 @@ class LocationService:
                 row_num = int(index) + 1  # type: ignore[call-overload]
                 parsed_rows.append((row_num, self._parse_row(row, column_map)))
 
-            geocode_cache: dict[str, GeocodeResult | None] = {}
             unique_addresses = {
                 entry.address.strip()
                 for _, entry in parsed_rows
                 if present_str(entry.address)
             }
-            if unique_addresses:
+            known_valid_addresses = await self._existing_geocoded_addresses(
+                session, unique_addresses
+            )
+            addresses_to_geocode = unique_addresses - known_valid_addresses
+            geocode_ok_by_address: dict[str, bool] = dict.fromkeys(
+                known_valid_addresses, True
+            )
+            if addresses_to_geocode:
                 geocoded = await asyncio.gather(
                     *(
                         self._geocode_import_address(address)
-                        for address in unique_addresses
+                        for address in addresses_to_geocode
                     )
                 )
-                geocode_cache = dict(zip(unique_addresses, geocoded, strict=True))
+                geocode_ok_by_address.update(
+                    {
+                        address: result is not None
+                        for address, result in zip(
+                            addresses_to_geocode, geocoded, strict=True
+                        )
+                    }
+                )
 
             phone_invalid_flags: list[bool] = []
             phone_secondary_invalid_flags: list[bool] = []
@@ -542,8 +555,7 @@ class LocationService:
                 if is_blank(entry.address):
                     geocode_ok = None
                 elif entry.address is not None:
-                    geocode_result = geocode_cache.get(entry.address.strip())
-                    geocode_ok = geocode_result is not None
+                    geocode_ok = geocode_ok_by_address.get(entry.address.strip())
                 else:
                     geocode_ok = None
 
@@ -573,6 +585,27 @@ class LocationService:
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
             raise e
+
+    async def _existing_geocoded_addresses(
+        self, session: AsyncSession, addresses: set[str]
+    ) -> set[str]:
+        """Return the subset of addresses that already exist on a geocoded Location.
+
+        Exact match on Location.address (import side is already stripped). Only
+        rows with latitude/longitude count as known-valid so we still geocode
+        addresses that were stored without coordinates.
+        """
+        if not addresses:
+            return set()
+
+        result = await session.execute(
+            select(Location.address).where(
+                col(Location.address).in_(addresses),
+                col(Location.latitude).is_not(None),
+                col(Location.longitude).is_not(None),
+            )
+        )
+        return {address for address in result.scalars().all() if address in addresses}
 
     async def _geocode_import_address(
         self, address: str | None

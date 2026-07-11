@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from app.models.location import AlertCode, LocationImportEntry
+import logging
+from typing import TYPE_CHECKING, Any
+from unittest.mock import MagicMock
+
+import pytest
+
+from app.models.enum import DeliveryTypeEnum
+from app.models.location import AlertCode, Location, LocationImportEntry
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
     count_duplicate_field_matches,
@@ -10,6 +17,10 @@ from app.services.implementations.location_import_validation import (
     is_invalid_school_or_last_name,
     rows_are_duplicates,
 )
+from app.services.implementations.location_service import LocationService
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _entry(
@@ -248,3 +259,58 @@ class TestDuplicateDetection:
         ]
         groups = find_duplicate_index_groups(entries)
         assert groups == [[0, 1]]
+
+
+class TestExistingGeocodedAddresses:
+    @pytest.mark.asyncio
+    async def test_returns_exact_matches_with_coordinates(
+        self, test_session: AsyncSession, test_location_group: Any
+    ) -> None:
+        known = "123 Main St, City, State 12345"
+        unknown = "999 New Ave"
+        ungeocoded = "No Coords Rd"
+
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Known",
+                contact_name="Known",
+                delivery_type=DeliveryTypeEnum.FAMILY,
+                address=known,
+                phone_primary="+15195551234",
+                longitude=-80.5,
+                latitude=43.4,
+            )
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Bare",
+                contact_name="Bare",
+                delivery_type=DeliveryTypeEnum.FAMILY,
+                address=ungeocoded,
+                phone_primary="+15195551235",
+                longitude=None,
+                latitude=None,
+            )
+        )
+        await test_session.flush()
+
+        service = LocationService(
+            logging.getLogger("test"),
+            MagicMock(),
+            MagicMock(),
+        )
+        result = await service._existing_geocoded_addresses(
+            test_session, {known, unknown, ungeocoded}
+        )
+        assert result == {known}
+
+    @pytest.mark.asyncio
+    async def test_empty_input_returns_empty(self, test_session: AsyncSession) -> None:
+        service = LocationService(
+            logging.getLogger("test"),
+            MagicMock(),
+            MagicMock(),
+        )
+        assert await service._existing_geocoded_addresses(test_session, set()) == set()
