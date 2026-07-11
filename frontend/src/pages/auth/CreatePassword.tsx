@@ -7,17 +7,29 @@ import { AlertTriangleIcon, CheckIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import { EyeOffIcon } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+
+type Step = 'FORM' | 'CONFIRMATION';
 
 export const CreatePassword = () => {
+  const [step, setStep] = useState<Step>('FORM');
   return (
     <WrapperWithLogo headerTitle="Create a password" subheaderTitle="Create an account to access the app" className="desktop:max-w-[362px]">
-      <CreatePasswordForm/>
+      
+      {step === 'FORM' ? (
+        <CreatePasswordForm onSuccess={() => {setStep('CONFIRMATION')}}/>
+      ) : (
+        <AccountCreationConfirmation/>
+      )}
     </WrapperWithLogo>
   );
 }
 
-const CreatePasswordForm = () => {
+interface CreatePasswordFormProps {
+  onSuccess: () => void;
+}
+
+const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -69,10 +81,17 @@ const CreatePasswordForm = () => {
       return;
     }
 
-    mutate({
-      user_invite_id: token,
-      password: password,
-    });
+    mutate(
+      {
+        user_invite_id: token,
+        password: password,
+      },
+      {
+        onSuccess: () => {
+          onSuccess();
+        },
+      }
+    );
   };
 
   return (
@@ -226,3 +245,21 @@ const PasswordRequirement = ({ label, isSatisfied }: PasswordRequirementProps) =
     </li>
   );
 };
+
+const AccountCreationConfirmation = () => {
+  const navigate = useNavigate();
+
+  return <>
+    <div className="flex flex-col">
+      <Button
+        type="button"
+        variant="primary"
+        shape="default"
+        className="desktop:mt-2 w-full py-3"
+        onClick={() => navigate('/')}
+      >
+        Continue
+      </Button>
+    </div>
+  </>
+}
