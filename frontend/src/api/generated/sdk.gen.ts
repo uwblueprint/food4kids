@@ -164,15 +164,9 @@ import type {
   PatchSystemSettingsResponses,
   RefreshData,
   RefreshResponses,
-<<<<<<< HEAD
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
-  ResetPasswordData,
-  ResetPasswordErrors,
-  ResetPasswordResponses,
-=======
->>>>>>> 6d484a1 (regen openapi spec)
   ReviewLocationsData,
   ReviewLocationsErrors,
   ReviewLocationsResponses,
