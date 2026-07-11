@@ -3279,6 +3279,18 @@
             "format": "uuid",
             "title": "Route Id",
             "type": "string"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
           }
         },
         "required": [
@@ -3287,6 +3299,7 @@
           "notes",
           "length",
           "drive_date",
+          "start_time",
           "num_stops",
           "box_total"
         ],
@@ -6858,6 +6871,22 @@
             "schema": {
               "description": "Filter route groups until this date",
               "title": "End Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
               "type": "string"
             }
           },
