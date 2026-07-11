@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { useRegisterDriver } from '@/api/auth';
 import { type FormEvent, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { WrapperWithLogo } from './Wrapper';
@@ -7,10 +7,11 @@ import { AlertTriangleIcon, CheckIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import { EyeOffIcon } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 
 export const CreatePassword = () => {
   return (
-    <WrapperWithLogo headerTitle="Create a password" subheaderTitle="Create an account to access the app">
+    <WrapperWithLogo headerTitle="Create a password" subheaderTitle="Create an account to access the app" className="desktop:max-w-[362px]">
       <CreatePasswordForm/>
     </WrapperWithLogo>
   );
@@ -22,9 +23,16 @@ const CreatePasswordForm = () => {
   const [feedback, setFeedback] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { token } = useParams();
   const [passwordError, setPasswordError] = useState(false);
   const [confirmPasswordError, setConfirmPasswordError] = useState(false);
+
+  const { token } = useParams();
+
+  if (!token) {
+    return <Navigate to="/404" replace />;
+  }
+
+  const { mutate, isPending, error } = useRegisterDriver();
 
   const requirements = [
     {
@@ -41,43 +49,36 @@ const CreatePasswordForm = () => {
     },
     {
       label: 'One special character (e.g. ! @ # $ %)',
-      isSatisfied: /[^A-Za-z0-9]/.test(password), // checks for any non-alphanumeric char
+      isSatisfied: /[^A-Za-z0-9]/.test(password),
     },
   ];
 
+  const allRequirementsMet = requirements.every((req) => req.isSatisfied);
 
-  const submitPassword = async (e: FormEvent<HTMLFormElement>) => {
+  const submitPassword = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setFeedback('Connecting...');
 
-    try {
-      // Axios handles JSON stringification automatically
-      const response = await axios.post(
-        'http://localhost:8080/drivers/register',
-        {
-          user_invite_id: token,
-          password: password,
-        }
-      );
-
-      console.log('Backend response:', response.data);
-      setFeedback('Success: Password recorded.');
-      setPassword(''); // Clear input on success
-    } catch (err) {
-      // Axios catches 4xx/5xx errors automatically
-      let errorMessage = 'Server unreachable';
-      if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || errorMessage;
-      }
-      setFeedback(`Error: ${errorMessage}`);
+    if (!allRequirementsMet) {
+      setPasswordError(true);
+      return;
     }
+    
+    if (password !== confirmPassword) {
+      setConfirmPasswordError(true);
+      return;
+    }
+
+    mutate({
+      user_invite_id: token,
+      password: password,
+    });
   };
 
   return (
     <>
       <div>
         {/* Form */}
-        <form className="flex flex-col gap-6">
+        <form id="register-form" className="flex flex-col gap-6">
           {/* Password Field */}
           <Field>
             <FieldLabel htmlFor="password">Enter new password</FieldLabel>
@@ -116,7 +117,7 @@ const CreatePasswordForm = () => {
             {passwordError && (
               <div className="text-red text-p2 flex items-center gap-1.5">
                 <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                <span>Incorrect email or password</span>
+                <span>Please make sure all criteria is met</span>
               </div>
             )}
           </Field>
@@ -133,12 +134,12 @@ const CreatePasswordForm = () => {
                   placeholder="Enter your password"
                   className={cn(
                     'px-6',
-                    passwordError && 'outline-red focus:outline-red'
+                    confirmPasswordError && 'outline-red focus:outline-red'
                   )}
                   value={confirmPassword}
                   onChange={(e) => {
                     setConfirmPassword(e.target.value);
-                    setPasswordError(false);
+                    setConfirmPasswordError(false);
                   }}
                   required
                 />
@@ -147,7 +148,7 @@ const CreatePasswordForm = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
                   aria-label={
-                    showPassword ? 'Hide password' : 'Show password'
+                    showConfirmPassword ? 'Hide password' : 'Show password'
                   }
                 >
                   {showConfirmPassword ? (
@@ -157,10 +158,10 @@ const CreatePasswordForm = () => {
                   )}
                 </button>
               </div>
-              {passwordError && (
+              {confirmPasswordError && (
                 <div className="text-red text-p2 flex items-center gap-1.5">
                   <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                  <span>Incorrect email or password</span>
+                  <span>Please make sure both passwords match</span>
                 </div>
               )}
             </Field>
@@ -184,30 +185,16 @@ const CreatePasswordForm = () => {
         {/* Create Account Button */}
         <div className="flex flex-col">
           <Button
+            form="register-form"
             type="submit"
             variant="primary"
             shape="default"
             className="mt-12 w-full py-3"
+            disabled={isPending}
           >
             Create account
           </Button>
         </div>
-        
-        
-
-        {/* Footer */}
-        <p className="desktop:mt-5 text-m-p2 tablet:font-medium tablet:mb-0 mt-6 mb-8 text-center">
-          <a
-            href="/login"
-            className="text-blue-300 hover:underline"
-            onClick={(e) => {
-              e.preventDefault();
-              // TODO: Implement get login link action
-            }}
-          >
-            Return to login
-          </a>
-        </p>
       </div>
     </>
   )
@@ -222,7 +209,6 @@ const PasswordRequirement = ({ label, isSatisfied }: PasswordRequirementProps) =
   return (
     <li className="flex items-center gap-1 text-p2 font-semibold">
       {isSatisfied ? (
-        // Green checkmark when valid
         <CheckIcon className="h-4 w-4 shrink-0 text-green-500" strokeWidth={3} />
       ) : (
         // A little custom gray dot indicator when invalid
@@ -232,7 +218,7 @@ const PasswordRequirement = ({ label, isSatisfied }: PasswordRequirementProps) =
       )}
       <span className={cn(
         "transition-colors duration-200", 
-        isSatisfied ? "text-gray-500 line-through font-normal" : "text-current"
+        isSatisfied ? "text-success-stroke" : "text-current"
       )}>
         {label}
       </span>
