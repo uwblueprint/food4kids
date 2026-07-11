@@ -476,41 +476,96 @@
         "title": "DriverAssignmentStatusEnum",
         "type": "string"
       },
-      "DriverHistoryCreate": {
-        "description": "Create request model",
+      "DriverHistoryAdjustmentCreate": {
+        "description": "Create request for a manual mileage adjustment (admin-only).\n\nPosts a signed MANUAL_ADJUSTMENT ledger entry — corrections never\noverwrite; they append. km is the delta (e.g. -12.5 to remove\nover-credited distance), and a note explaining why is required.",
         "properties": {
+          "drive_date": {
+            "format": "date",
+            "title": "Drive Date",
+            "type": "string"
+          },
           "km": {
             "title": "Km",
             "type": "number"
           },
-          "month": {
-            "maximum": 12,
-            "minimum": 1,
-            "title": "Month",
-            "type": "integer"
-          },
-          "year": {
-            "maximum": 2100,
-            "minimum": 2025,
-            "title": "Year",
-            "type": "integer"
+          "note": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
           }
         },
         "required": [
-          "year",
-          "month",
-          "km"
+          "drive_date",
+          "km",
+          "note"
         ],
-        "title": "DriverHistoryCreate",
+        "title": "DriverHistoryAdjustmentCreate",
+        "type": "object"
+      },
+      "DriverHistoryEntryRead": {
+        "description": "Read response model for individual ledger entries (audit view)",
+        "properties": {
+          "drive_date": {
+            "format": "date",
+            "title": "Drive Date",
+            "type": "string"
+          },
+          "driver_history_id": {
+            "format": "uuid",
+            "title": "Driver History Id",
+            "type": "string"
+          },
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MileageEntryKindEnum"
+          },
+          "km": {
+            "title": "Km",
+            "type": "number"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "route_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Id"
+          }
+        },
+        "required": [
+          "drive_date",
+          "km",
+          "kind",
+          "driver_history_id"
+        ],
+        "title": "DriverHistoryEntryRead",
         "type": "object"
       },
       "DriverHistoryRead": {
-        "description": "Read response model",
+        "description": "Monthly aggregate read model: SUM(km) over the ledger, bucketed by\ndrive_date month. Same response shape as the old monthly-total rows.",
         "properties": {
-          "driver_history_id": {
-            "title": "Driver History Id",
-            "type": "integer"
-          },
           "driver_id": {
             "format": "uuid",
             "title": "Driver Id",
@@ -521,14 +576,10 @@
             "type": "number"
           },
           "month": {
-            "maximum": 12,
-            "minimum": 1,
             "title": "Month",
             "type": "integer"
           },
           "year": {
-            "maximum": 2100,
-            "minimum": 2025,
             "title": "Year",
             "type": "integer"
           }
@@ -537,8 +588,7 @@
           "driver_id",
           "year",
           "month",
-          "km",
-          "driver_history_id"
+          "km"
         ],
         "title": "DriverHistoryRead",
         "type": "object"
@@ -560,20 +610,6 @@
           "current_year_km"
         ],
         "title": "DriverHistorySummary",
-        "type": "object"
-      },
-      "DriverHistoryUpdate": {
-        "description": "Update request model, all fields are required for now since we are only updating km",
-        "properties": {
-          "km": {
-            "title": "Km",
-            "type": "number"
-          }
-        },
-        "required": [
-          "km"
-        ],
-        "title": "DriverHistoryUpdate",
         "type": "object"
       },
       "DriverRankingItem": {
@@ -2068,6 +2104,16 @@
         ],
         "title": "LoginRequest",
         "type": "object"
+      },
+      "MileageEntryKindEnum": {
+        "description": "Provenance of a driver mileage ledger entry (see DriverHistory).",
+        "enum": [
+          "auto",
+          "reassignment",
+          "manual_adjustment"
+        ],
+        "title": "MileageEntryKindEnum",
+        "type": "string"
       },
       "MonthlyTotalsResponse": {
         "properties": {
@@ -4556,7 +4602,7 @@
     },
     "/drivers/{driver_id}": {
       "delete": {
-        "description": "Delete a driver by ID",
+        "description": "Deactivate (soft-delete) a driver by ID.\n\nThe driver row is kept so historical mileage attribution stays\nresolvable; the driver is excluded from assignment suggestions.",
         "operationId": "delete_driver",
         "parameters": [
           {
@@ -4701,70 +4747,8 @@
       }
     },
     "/drivers/{driver_id}/history/": {
-      "delete": {
-        "description": "Delete a monthly driver history entry.",
-        "operationId": "delete_driver_history",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "year",
-            "required": true,
-            "schema": {
-              "maximum": 2100,
-              "minimum": 2025,
-              "title": "Year",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "month",
-            "required": true,
-            "schema": {
-              "maximum": 12,
-              "minimum": 1,
-              "title": "Month",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Delete Driver History",
-        "tags": [
-          "driver-history"
-        ]
-      },
       "get": {
-        "description": "Get driver history with optional year and month.\nRules:\n- No year, no month: return all histories\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
+        "description": "Get monthly km totals (SUM over the mileage ledger, bucketed by drive_date).\nRules:\n- No year, no month: return all months with activity\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
         "operationId": "get_driver_history",
         "parameters": [
           {
@@ -4849,10 +4833,71 @@
         "tags": [
           "driver-history"
         ]
-      },
-      "patch": {
-        "description": "Updates driver history\nRules:\n- Driver history must exist with (driver_id, year, month)",
-        "operationId": "update_driver_history",
+      }
+    },
+    "/drivers/{driver_id}/history/adjustments": {
+      "post": {
+        "description": "Post a signed manual mileage adjustment (admin-only).\n\nAppends a MANUAL_ADJUSTMENT entry to the ledger — km is a delta\n(negative to remove over-credited distance) and a note explaining the\ncorrection is required. Totals always reflect the sum of all entries,\nso adjustments compose with automatic credits instead of being\noverwritten by them.",
+        "operationId": "create_driver_history_adjustment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverHistoryAdjustmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverHistoryEntryRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Driver History Adjustment",
+        "tags": [
+          "driver-history"
+        ]
+      }
+    },
+    "/drivers/{driver_id}/history/entries": {
+      "get": {
+        "description": "Individual mileage ledger entries (audit view), newest first.\nShows exactly which deliveries, reassignments, and adjustments make up\nthe driver's totals.",
+        "operationId": "get_driver_history_entries",
         "parameters": [
           {
             "in": "path",
@@ -4867,42 +4912,50 @@
           {
             "in": "query",
             "name": "year",
-            "required": true,
+            "required": false,
             "schema": {
-              "maximum": 2100,
-              "minimum": 2025,
-              "title": "Year",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "maximum": 2100,
+                  "minimum": 2025,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
             }
           },
           {
             "in": "query",
             "name": "month",
-            "required": true,
+            "required": false,
             "schema": {
-              "maximum": 12,
-              "minimum": 1,
-              "title": "Month",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "maximum": 12,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DriverHistoryUpdate"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DriverHistoryRead"
+                  "items": {
+                    "$ref": "#/components/schemas/DriverHistoryEntryRead"
+                  },
+                  "title": "Response Get Driver History Entries",
+                  "type": "array"
                 }
               }
             },
@@ -4924,64 +4977,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Update Driver History",
-        "tags": [
-          "driver-history"
-        ]
-      },
-      "post": {
-        "description": "Creates new driver history\nRules:\n- Driver must exist with driver_id\n- Must be unique: (driver_id, year, month)",
-        "operationId": "create_driver_history",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DriverHistoryCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverHistoryRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Create Driver History",
+        "summary": "Get Driver History Entries",
         "tags": [
           "driver-history"
         ]

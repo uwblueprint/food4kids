@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func
+from sqlalchemy import extract, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -22,30 +22,37 @@ class DriverReportService:
     async def get_monthly_km_ranking(
         self, session: AsyncSession, year: int, month: int
     ) -> list[dict]:
-        """Return per-driver km for given year/month ordered desc by km."""
+        """Return per-driver km for given year/month ordered desc by km.
+
+        Sums the mileage ledger, bucketed by drive_date month."""
         try:
             # Build explicit ON clauses using `col()` so types info is preserved
             on_driver = col(Driver.driver_id) == col(DriverHistory.driver_id)
             on_user = col(User.user_id) == col(Driver.user_id)
 
+            km_sum = func.sum(DriverHistory.km).label("km")
             statement = (
-                select(DriverHistory, Driver, User)
+                select(col(Driver.driver_id), User.first_name, User.last_name, km_sum)
                 .select_from(DriverHistory)
                 .join(Driver, on_driver)
                 .join(User, on_user)
-                .where(DriverHistory.year == year, DriverHistory.month == month)
-                .order_by(col(DriverHistory.km).desc())
+                .where(
+                    extract("year", col(DriverHistory.drive_date)) == year,
+                    extract("month", col(DriverHistory.drive_date)) == month,
+                )
+                .group_by(col(Driver.driver_id), User.first_name, User.last_name)
+                .order_by(km_sum.desc())
             )
             result = await session.execute(statement)
             rows = result.all()
 
             rankings: list[dict] = []
-            for history, driver, user in rows:
+            for row in rows:
                 rankings.append(
                     {
-                        "driver_id": str(driver.driver_id),
-                        "driver_name": f"{user.first_name} {user.last_name}",
-                        "km": float(history.km),
+                        "driver_id": str(row.driver_id),
+                        "driver_name": f"{row.first_name} {row.last_name}",
+                        "km": float(row.km),
                     }
                 )
 
@@ -59,7 +66,8 @@ class DriverReportService:
     ) -> float:
         try:
             statement = select(func.coalesce(func.sum(DriverHistory.km), 0.0)).where(
-                DriverHistory.year == year, DriverHistory.month == month
+                extract("year", col(DriverHistory.drive_date)) == year,
+                extract("month", col(DriverHistory.drive_date)) == month,
             )
             result = await session.execute(statement)
             total = result.scalar_one()

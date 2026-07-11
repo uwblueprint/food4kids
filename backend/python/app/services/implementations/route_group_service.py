@@ -24,6 +24,7 @@ from app.models.route_group import (
     RouteGroupUpdate,
     RouteReadSummary,
 )
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
 
@@ -51,7 +52,13 @@ class RouteGroupService:
         route_group_id: UUID,
         route_group_data: RouteGroupUpdate,
     ) -> RouteGroup | None:
-        """Update existing route group"""
+        """Update existing route group.
+
+        Guard: drive_date cannot change once any route in the group is
+        frozen (has a RouteSnapshot) — the mileage ledger has already
+        credited entries under the current date, and moving it would
+        silently re-bucket history.
+        """
         statement = select(RouteGroup).where(
             RouteGroup.route_group_id == route_group_id
         )
@@ -63,6 +70,25 @@ class RouteGroupService:
             return None
 
         update_data = route_group_data.model_dump(exclude_unset=True)
+
+        if (
+            "drive_date" in update_data
+            and update_data["drive_date"] != route_group.drive_date
+        ):
+            frozen_exists = (
+                select(RouteSnapshot.route_id)
+                .join(Route, Route.route_id == RouteSnapshot.route_id)  # type: ignore[arg-type]
+                .where(Route.route_group_id == route_group_id)
+                .exists()
+            )
+            frozen_result = await session.execute(select(frozen_exists))
+            if frozen_result.scalar_one():
+                raise ValueError(
+                    "Cannot change drive_date: this route group has frozen "
+                    "(completed) routes whose mileage is already recorded "
+                    "under the current date."
+                )
+
         for field, value in update_data.items():
             setattr(route_group, field, value)
 

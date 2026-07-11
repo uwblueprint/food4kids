@@ -166,22 +166,30 @@ class DriverService:
             self.logger.error(f"Failed to update driver: {e!s}")
             raise e
 
-    async def delete_driver_by_id(self, session: AsyncSession, driver_id: UUID) -> None:
-        """Delete driver by ID"""
+    async def deactivate_driver_by_id(
+        self, session: AsyncSession, driver_id: UUID
+    ) -> None:
+        """Deactivate (soft-delete) a driver.
+
+        Drivers are never hard-deleted: their row (and User name) must
+        survive so historical mileage-ledger attribution stays resolvable.
+        Deactivated drivers are excluded from assignment suggestions (which
+        filter on Driver.active) but remain visible in history.
+        """
         try:
             statement = select(Driver).where(Driver.driver_id == driver_id)
             result = await session.execute(statement)
             driver = result.scalars().first()
 
             if not driver:
-                self.logger.error(f"Driver with id {driver_id} not found")
-                return
+                raise ValueError(f"Driver with id {driver_id} not found")
 
-            await session.delete(driver)
+            driver.active = False
             await session.commit()
 
         except Exception as e:
-            self.logger.error(f"Failed to delete driver: {e!s}")
+            self.logger.error(f"Failed to deactivate driver: {e!s}")
+            await session.rollback()
             raise e
 
     async def get_auth_id_by_driver_id(

@@ -12,15 +12,19 @@ if TYPE_CHECKING:
 class RouteSnapshotBase(SQLModel):
     """Frozen route-level data captured when a route is completed.
 
-    Right now this just holds the warehouse start coordinates, which can drift
-    (SystemSettings.warehouse_* are mutable). The presence of a RouteSnapshot
-    row is the canonical "this route is frozen" signal — there is no separate
-    flag column on Route.
+    Holds the warehouse start coordinates (which can drift —
+    SystemSettings.warehouse_* are mutable) and the credited route length.
+    The presence of a RouteSnapshot row is the canonical "this route is
+    frozen" signal — there is no separate flag column on Route.
     """
 
     start_address: str = Field(min_length=1)
     start_latitude: float
     start_longitude: float
+    # Route.length as credited at freeze time (and updated by frozen-route
+    # amendments). Reconciliation hooks diff against THIS, never the mutable
+    # live Route.length — the ledger must move exactly what was credited.
+    length_km: float = Field(ge=0.0)
 
 
 class RouteSnapshot(RouteSnapshotBase, BaseModel, table=True):

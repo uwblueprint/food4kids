@@ -26,7 +26,7 @@ from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
-from app.models.enum import NotePermission, ProgressEnum
+from app.models.enum import MileageEntryKindEnum, NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -555,9 +555,23 @@ def materialize_route_for_group(
             start_address=WAREHOUSE_ADDRESS,
             start_latitude=WAREHOUSE_LAT,
             start_longitude=WAREHOUSE_LON,
+            length_km=route.length,
         )
         set_timestamps(route_snap)
         session.add(route_snap)
+
+        # Mirror the cron's mileage credit: one AUTO ledger entry per frozen
+        # driven route.
+        if route.driver_id is not None:
+            mileage_entry = DriverHistory(
+                driver_id=route.driver_id,
+                route_id=route.route_id,
+                drive_date=drive_date.date(),
+                km=route.length,
+                kind=MileageEntryKindEnum.AUTO,
+            )
+            set_timestamps(mileage_entry)
+            session.add(mileage_entry)
 
         loc_by_id = {str(loc.location_id): loc for loc in plan.cluster_locations}
         for stop in created_stops:
@@ -1014,7 +1028,10 @@ def main() -> None:
                 f"with {route_notes_created} notes"
             )
 
-            # Create driver history
+            # Create pre-app-era driver history. Recent months are covered by
+            # the AUTO ledger entries posted alongside frozen routes above;
+            # this seeds older mileage as MANUAL_ADJUSTMENT entries — the same
+            # shape the production migration's reconciliation produces.
             print("Creating driver history...")
             history_entries = 0
             current_year = datetime.now().year
@@ -1045,8 +1062,7 @@ def main() -> None:
                     for month in months:
                         driver_history = DriverHistory(
                             driver_id=driver_row[0],
-                            year=year,
-                            month=month,
+                            drive_date=date(year, month, random.randint(1, 28)),
                             km=round(
                                 random.uniform(
                                     DRIVER_HISTORY_KM_MIN,
@@ -1054,6 +1070,8 @@ def main() -> None:
                                 ),
                                 2,
                             ),
+                            kind=MileageEntryKindEnum.MANUAL_ADJUSTMENT,
+                            note="Seeded historical mileage",
                         )
 
                         set_timestamps(driver_history)

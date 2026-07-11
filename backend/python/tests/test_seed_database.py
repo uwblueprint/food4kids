@@ -120,7 +120,7 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
         ],
     ),
     (RouteGroup, ["name", "drive_date"]),
-    (DriverHistory, ["driver_id", "year", "month", "km"]),
+    (DriverHistory, ["driver_id", "drive_date", "km", "kind"]),
     (Job, ["route_group_id", "progress", "started_at"]),
     (
         SystemSettings,
@@ -259,9 +259,9 @@ class TestDataValidation:
         history = (await test_session.execute(select(DriverHistory))).scalars().all()
         assert history, "No driver history seeded"
         for entry in history:
-            assert _MIN_HISTORY_YEAR <= entry.year <= _MAX_HISTORY_YEAR, (
-                f"DriverHistory year {entry.year} should be in "
-                f"[{_MIN_HISTORY_YEAR}, {_MAX_HISTORY_YEAR}]"
+            assert _MIN_HISTORY_YEAR <= entry.drive_date.year <= _MAX_HISTORY_YEAR, (
+                f"DriverHistory drive_date year {entry.drive_date.year} should "
+                f"be in [{_MIN_HISTORY_YEAR}, {_MAX_HISTORY_YEAR}]"
             )
 
     @pytest.mark.asyncio

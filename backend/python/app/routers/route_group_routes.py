@@ -154,6 +154,11 @@ async def update_route_group(
         )
     except HTTPException:
         raise
+    except ValueError as ve:
+        # e.g. drive_date change rejected because the group has frozen routes
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(ve)
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

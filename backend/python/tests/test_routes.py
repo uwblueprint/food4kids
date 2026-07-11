@@ -237,13 +237,16 @@ class TestDriverRoutes:
     async def test_delete_driver(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """Test DELETE /drivers/{driver_id} deletes a driver."""
+        """DELETE /drivers/{driver_id} soft-deletes: the driver is
+        deactivated but the row survives (historical mileage attribution
+        must stay resolvable)."""
         response = await async_client.delete(f"/drivers/{test_driver.driver_id}")
         assert response.status_code == 204
 
-        # Verify deletion
+        # The driver still exists — deactivated, not destroyed.
         get_response = await async_client.get(f"/drivers/{test_driver.driver_id}")
-        assert get_response.status_code == 404
+        assert get_response.status_code == 200
+        assert get_response.json()["active"] is False
 
     @pytest.mark.asyncio
     async def test_get_driver_by_email(
@@ -1706,6 +1709,7 @@ class TestRouteRoutes:
                 start_address="Warehouse",
                 start_latitude=0.0,
                 start_longitude=0.0,
+                length_km=10.0,
             )
         )
         test_session.add(
@@ -2198,6 +2202,7 @@ class TestRouteRoutes:
                     start_address="Old Depot",
                     start_latitude=43.65,
                     start_longitude=-79.38,
+                    length_km=10.0,
                 ),
                 RouteStopSnapshot(
                     route_stop_id=stop.route_stop_id,
@@ -2266,6 +2271,7 @@ class TestRouteRoutes:
                     start_address="Depot",
                     start_latitude=43.65,
                     start_longitude=-79.38,
+                    length_km=10.0,
                 ),
             ]
         )
@@ -2367,6 +2373,7 @@ class TestRouteRoutes:
                     start_address="Warehouse",
                     start_latitude=0.0,
                     start_longitude=0.0,
+                    length_km=10.0,
                 ),
             ]
         )
@@ -3786,47 +3793,58 @@ class TestDriverHistoryRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_create_driver_history(
+    async def test_create_adjustment(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """POST / creates a history entry."""
+        """POST /adjustments appends a signed ledger entry."""
         response = await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 1, "km": 12.5},
+            f"{self._base(test_driver)}/adjustments",
+            json={"drive_date": "2025-01-15", "km": 12.5, "note": "backfill"},
         )
         assert response.status_code == 201
-        assert response.json()["km"] == 12.5
+        body = response.json()
+        assert body["km"] == 12.5
+        assert body["kind"] == "manual_adjustment"
 
     @pytest.mark.asyncio
-    async def test_create_driver_history_driver_not_found(
+    async def test_create_adjustment_driver_not_found(
         self, async_client: AsyncClient
     ) -> None:
-        """POST / returns 404 when the driver doesn't exist."""
+        """POST /adjustments returns 404 when the driver doesn't exist."""
         response = await async_client.post(
-            f"/drivers/{uuid4()}/history/",
-            json={"year": 2025, "month": 1, "km": 5.0},
+            f"/drivers/{uuid4()}/history/adjustments",
+            json={"drive_date": "2025-01-15", "km": 5.0, "note": "backfill"},
         )
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_create_driver_history_conflict(
+    async def test_adjustments_compose(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """POST / twice for the same (driver, year, month) returns 409."""
-        body = {"year": 2025, "month": 2, "km": 3.0}
-        first = await async_client.post(f"{self._base(test_driver)}/", json=body)
-        assert first.status_code == 201
-        second = await async_client.post(f"{self._base(test_driver)}/", json=body)
-        assert second.status_code == 409
+        """Two adjustments in the same month SUM in the monthly view — the
+        ledger appends, it never overwrites."""
+        base = self._base(test_driver)
+        for km in (3.0, 4.0):
+            resp = await async_client.post(
+                f"{base}/adjustments",
+                json={"drive_date": "2025-02-10", "km": km, "note": "n"},
+            )
+            assert resp.status_code == 201
+
+        monthly = await async_client.get(f"{base}/?year=2025&month=2")
+        assert monthly.status_code == 200
+        rows = monthly.json()
+        assert len(rows) == 1
+        assert rows[0]["km"] == 7.0
 
     @pytest.mark.asyncio
     async def test_list_driver_history(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """GET / lists the driver's history entries."""
+        """GET / lists the driver's monthly totals."""
         await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 3, "km": 7.0},
+            f"{self._base(test_driver)}/adjustments",
+            json={"drive_date": "2025-03-05", "km": 7.0, "note": "n"},
         )
         response = await async_client.get(f"{self._base(test_driver)}/")
         assert response.status_code == 200
@@ -3841,34 +3859,20 @@ class TestDriverHistoryRoutes:
         assert response.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_update_driver_history(
+    async def test_list_entries(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """PATCH /?year=&month= updates the km for that entry."""
+        """GET /entries lists individual ledger entries (audit view)."""
         await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 4, "km": 1.0},
+            f"{self._base(test_driver)}/adjustments",
+            json={"drive_date": "2025-04-05", "km": -2.0, "note": "correction"},
         )
-        response = await async_client.patch(
-            f"{self._base(test_driver)}/?year=2025&month=4",
-            json={"km": 9.0},
-        )
+        response = await async_client.get(f"{self._base(test_driver)}/entries")
         assert response.status_code == 200
-        assert response.json()["km"] == 9.0
-
-    @pytest.mark.asyncio
-    async def test_delete_driver_history(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """DELETE /?year=&month= removes the entry."""
-        await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 5, "km": 2.0},
-        )
-        response = await async_client.delete(
-            f"{self._base(test_driver)}/?year=2025&month=5"
-        )
-        assert response.status_code == 204
+        entries = response.json()
+        assert len(entries) == 1
+        assert entries[0]["km"] == -2.0
+        assert entries[0]["note"] == "correction"
 
     @pytest.mark.asyncio
     async def test_export_driver_history(
@@ -3877,8 +3881,8 @@ class TestDriverHistoryRoutes:
         """GET /drivers/all/history/{year}/export streams a CSV of all drivers'
         history (driver_id must be the literal "all")."""
         await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 6, "km": 4.0},
+            f"{self._base(test_driver)}/adjustments",
+            json={"drive_date": "2025-06-20", "km": 4.0, "note": "n"},
         )
         response = await async_client.get("/drivers/all/history/2025/export")
         assert response.status_code == 200

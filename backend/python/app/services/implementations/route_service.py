@@ -5,9 +5,12 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
 from app.models.driver import Driver
+from app.models.driver_history import DriverHistory
+from app.models.enum import MileageEntryKindEnum
 from app.models.location import Location
 from app.models.route import (
     Route,
@@ -269,6 +272,15 @@ class RouteService:
         Metadata fields (name, notes, driver_id, start_time) are updated
         independently if provided.
 
+        FROZEN routes (those with a RouteSnapshot) may be edited too — it's a
+        "correct the record" operation, and the mileage ledger is reconciled
+        so drivers' credited km always track the frozen record:
+        - Changing driver_id posts compensating REASSIGNMENT entries that move
+          the credited length (snapshot.length_km) between drivers.
+        - Editing stops rebuilds the stop snapshots from the corrected stops,
+          updates snapshot.length_km, and posts the length delta against the
+          route's (post-patch) driver.
+
         Args:
             session: Database session
             route_id: ID of the route to update
@@ -279,15 +291,24 @@ class RouteService:
         """
 
         try:
-            # Fetch the route
+            # Fetch the route (+ snapshot to detect frozen, + group for the
+            # drive_date that ledger entries are bucketed under)
             result = await session.execute(
-                select(Route).where(Route.route_id == route_id)
+                select(Route)
+                .where(Route.route_id == route_id)
+                .options(
+                    selectinload(Route.snapshot),  # type: ignore[arg-type]
+                    selectinload(Route.route_group),  # type: ignore[arg-type]
+                )
             )
             route = result.scalars().first()
 
             if not route:
                 self.logger.error(f"Route with id {route_id} not found for update")
                 return None
+
+            frozen_snapshot = route.snapshot
+            old_driver_id = route.driver_id
 
             # Update metadata fields if provided
             if patch.name is not None:
@@ -302,6 +323,41 @@ class RouteService:
                 route.driver_id = patch.driver_id
             if "start_time" in patch.model_fields_set:
                 route.start_time = patch.start_time
+
+            # Reconcile mileage when a frozen route changes drivers: move the
+            # CREDITED length (snapshot.length_km — never the mutable live
+            # route.length) from the old driver to the new one. Runs before
+            # any stop-edit delta below, so a combined patch nets the new
+            # driver exactly the corrected length.
+            if (
+                frozen_snapshot is not None
+                and "driver_id" in patch.model_fields_set
+                and patch.driver_id != old_driver_id
+                and frozen_snapshot.length_km != 0
+            ):
+                entry_date = route.route_group.drive_date.date()
+                if old_driver_id is not None:
+                    session.add(
+                        DriverHistory(
+                            driver_id=old_driver_id,
+                            route_id=route.route_id,
+                            drive_date=entry_date,
+                            km=-frozen_snapshot.length_km,
+                            kind=MileageEntryKindEnum.REASSIGNMENT,
+                            note="Route reassigned away from this driver",
+                        )
+                    )
+                if patch.driver_id is not None:
+                    session.add(
+                        DriverHistory(
+                            driver_id=patch.driver_id,
+                            route_id=route.route_id,
+                            drive_date=entry_date,
+                            km=frozen_snapshot.length_km,
+                            kind=MileageEntryKindEnum.REASSIGNMENT,
+                            note="Route reassigned to this driver",
+                        )
+                    )
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:
@@ -370,6 +426,7 @@ class RouteService:
                 await session.flush()
 
                 # Create new route stops in the given order
+                new_stops: list[RouteStop] = []
                 for stop_number, location in enumerate(ordered_locations, start=1):
                     new_stop = RouteStop(
                         route_id=route_id,
@@ -377,11 +434,64 @@ class RouteService:
                         stop_number=stop_number,
                     )
                     session.add(new_stop)
+                    new_stops.append(new_stop)
 
                 # Update route polyline and mileage
                 route.encoded_polyline = encoded_polyline
                 route.polyline_updated_at = datetime.now(timezone.utc)
                 route.length = distance_km
+
+                # Amending a FROZEN route ("the route was actually done this
+                # way"): keep the frozen record and the ledger in sync with
+                # the correction instead of silently desyncing.
+                if frozen_snapshot is not None:
+                    # 1. Rebuild stop snapshots from the corrected stops (the
+                    #    old ones were cascade-deleted with the old stops).
+                    await session.flush()  # assign route_stop_ids
+                    for new_stop, location in zip(
+                        new_stops, ordered_locations, strict=True
+                    ):
+                        if location.latitude is None or location.longitude is None:
+                            self.logger.warning(
+                                f"Location {location.location_id} missing "
+                                f"coordinates; skipping frozen-stop snapshot "
+                                f"for route {route.route_id}."
+                            )
+                            continue
+                        session.add(
+                            RouteStopSnapshot(
+                                route_stop_id=new_stop.route_stop_id,
+                                address=location.address,
+                                contact_name=location.contact_name,
+                                phone_number=location.phone_primary,
+                                num_children=location.num_children,
+                                notes=location.notes,
+                                latitude=location.latitude,
+                                longitude=location.longitude,
+                            )
+                        )
+
+                    # 2. Post the credited-length delta against the route's
+                    #    (post-patch) driver, then move the frozen credited
+                    #    length to the corrected value.
+                    delta = distance_km - frozen_snapshot.length_km
+                    if abs(delta) > 1e-6 and route.driver_id is not None:
+                        session.add(
+                            DriverHistory(
+                                driver_id=route.driver_id,
+                                route_id=route.route_id,
+                                drive_date=route.route_group.drive_date.date(),
+                                km=delta,
+                                kind=MileageEntryKindEnum.MANUAL_ADJUSTMENT,
+                                note=(
+                                    f"Frozen route amended: length "
+                                    f"{frozen_snapshot.length_km:g} km → "
+                                    f"{distance_km:g} km"
+                                ),
+                            )
+                        )
+                    frozen_snapshot.length_km = distance_km
+                    session.add(frozen_snapshot)
 
             # Persist
             session.add(route)

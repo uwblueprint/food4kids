@@ -54,3 +54,16 @@ class DriverAssignmentStatusEnum(str, Enum):
 
     ASSIGNED = "Assigned"
     UNASSIGNED = "Unassigned"
+
+
+class MileageEntryKindEnum(str, Enum):
+    """Provenance of a driver mileage ledger entry (see DriverHistory)."""
+
+    # Posted by the nightly freeze job when a driven route is frozen.
+    AUTO = "auto"
+    # Compensating entry posted when a frozen route's driver is changed
+    # (signed: -km from the old driver, +km to the new one).
+    REASSIGNMENT = "reassignment"
+    # Admin correction (signed), or a frozen-route amendment's length delta.
+    # Requires a note.
+    MANUAL_ADJUSTMENT = "manual_adjustment"

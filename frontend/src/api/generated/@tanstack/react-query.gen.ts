@@ -13,7 +13,7 @@ import { client } from '../client.gen';
 import {
   completeDriverRegistration,
   createAnnouncement,
-  createDriverHistory,
+  createDriverHistoryAdjustment,
   createLocation,
   createLocationGroup,
   createNote,
@@ -21,7 +21,6 @@ import {
   deleteAllLocations,
   deleteAnnouncement,
   deleteDriver,
-  deleteDriverHistory,
   deleteImage,
   deleteLocation,
   deleteLocationGroup,
@@ -35,6 +34,7 @@ import {
   getAnnouncements,
   getDriver,
   getDriverHistory,
+  getDriverHistoryEntries,
   getDriverHistorySummary,
   getDrivers,
   getGoogleMapsLink,
@@ -69,7 +69,6 @@ import {
   testEventEmail,
   updateAnnouncement,
   updateDriver,
-  updateDriverHistory,
   updateLocation,
   updateLocationGroup,
   updateNote,
@@ -84,9 +83,9 @@ import type {
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
-  CreateDriverHistoryData,
-  CreateDriverHistoryError,
-  CreateDriverHistoryResponse,
+  CreateDriverHistoryAdjustmentData,
+  CreateDriverHistoryAdjustmentError,
+  CreateDriverHistoryAdjustmentResponse,
   CreateLocationData,
   CreateLocationError,
   CreateLocationGroupData,
@@ -106,9 +105,6 @@ import type {
   DeleteAnnouncementResponse,
   DeleteDriverData,
   DeleteDriverError,
-  DeleteDriverHistoryData,
-  DeleteDriverHistoryError,
-  DeleteDriverHistoryResponse,
   DeleteDriverResponse,
   DeleteImageData,
   DeleteImageError,
@@ -144,6 +140,9 @@ import type {
   GetDriverData,
   GetDriverError,
   GetDriverHistoryData,
+  GetDriverHistoryEntriesData,
+  GetDriverHistoryEntriesError,
+  GetDriverHistoryEntriesResponse,
   GetDriverHistoryError,
   GetDriverHistoryResponse,
   GetDriverHistorySummaryData,
@@ -241,9 +240,6 @@ import type {
   UpdateAnnouncementResponse,
   UpdateDriverData,
   UpdateDriverError,
-  UpdateDriverHistoryData,
-  UpdateDriverHistoryError,
-  UpdateDriverHistoryResponse,
   UpdateDriverResponse,
   UpdateLocationData,
   UpdateLocationError,
@@ -713,7 +709,10 @@ export const testEventEmailMutation = (
 /**
  * Delete Driver
  *
- * Delete a driver by ID
+ * Deactivate (soft-delete) a driver by ID.
+ *
+ * The driver row is kept so historical mileage attribution stays
+ * resolvable; the driver is excluded from assignment suggestions.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -795,35 +794,6 @@ export const updateDriverMutation = (
   return mutationOptions;
 };
 
-/**
- * Delete Driver History
- *
- * Delete a monthly driver history entry.
- */
-export const deleteDriverHistoryMutation = (
-  options?: Partial<Options<DeleteDriverHistoryData>>
-): UseMutationOptions<
-  DeleteDriverHistoryResponse,
-  AxiosError<DeleteDriverHistoryError>,
-  Options<DeleteDriverHistoryData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    DeleteDriverHistoryResponse,
-    AxiosError<DeleteDriverHistoryError>,
-    Options<DeleteDriverHistoryData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await deleteDriverHistory({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
 export const getDriverHistoryQueryKey = (
   options: Options<GetDriverHistoryData>
 ) => createQueryKey('getDriverHistory', options);
@@ -831,9 +801,9 @@ export const getDriverHistoryQueryKey = (
 /**
  * Get Driver History
  *
- * Get driver history with optional year and month.
+ * Get monthly km totals (SUM over the mileage ledger, bucketed by drive_date).
  * Rules:
- * - No year, no month: return all histories
+ * - No year, no month: return all months with activity
  * - Year only: return all months for that year
  * - Year + month: return specific month
  * - Month without year: 400 error
@@ -860,26 +830,30 @@ export const getDriverHistoryOptions = (
   });
 
 /**
- * Update Driver History
+ * Create Driver History Adjustment
  *
- * Updates driver history
- * Rules:
- * - Driver history must exist with (driver_id, year, month)
+ * Post a signed manual mileage adjustment (admin-only).
+ *
+ * Appends a MANUAL_ADJUSTMENT entry to the ledger — km is a delta
+ * (negative to remove over-credited distance) and a note explaining the
+ * correction is required. Totals always reflect the sum of all entries,
+ * so adjustments compose with automatic credits instead of being
+ * overwritten by them.
  */
-export const updateDriverHistoryMutation = (
-  options?: Partial<Options<UpdateDriverHistoryData>>
+export const createDriverHistoryAdjustmentMutation = (
+  options?: Partial<Options<CreateDriverHistoryAdjustmentData>>
 ): UseMutationOptions<
-  UpdateDriverHistoryResponse,
-  AxiosError<UpdateDriverHistoryError>,
-  Options<UpdateDriverHistoryData>
+  CreateDriverHistoryAdjustmentResponse,
+  AxiosError<CreateDriverHistoryAdjustmentError>,
+  Options<CreateDriverHistoryAdjustmentData>
 > => {
   const mutationOptions: UseMutationOptions<
-    UpdateDriverHistoryResponse,
-    AxiosError<UpdateDriverHistoryError>,
-    Options<UpdateDriverHistoryData>
+    CreateDriverHistoryAdjustmentResponse,
+    AxiosError<CreateDriverHistoryAdjustmentError>,
+    Options<CreateDriverHistoryAdjustmentData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await updateDriverHistory({
+      const { data } = await createDriverHistoryAdjustment({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -890,37 +864,37 @@ export const updateDriverHistoryMutation = (
   return mutationOptions;
 };
 
+export const getDriverHistoryEntriesQueryKey = (
+  options: Options<GetDriverHistoryEntriesData>
+) => createQueryKey('getDriverHistoryEntries', options);
+
 /**
- * Create Driver History
+ * Get Driver History Entries
  *
- * Creates new driver history
- * Rules:
- * - Driver must exist with driver_id
- * - Must be unique: (driver_id, year, month)
+ * Individual mileage ledger entries (audit view), newest first.
+ * Shows exactly which deliveries, reassignments, and adjustments make up
+ * the driver's totals.
  */
-export const createDriverHistoryMutation = (
-  options?: Partial<Options<CreateDriverHistoryData>>
-): UseMutationOptions<
-  CreateDriverHistoryResponse,
-  AxiosError<CreateDriverHistoryError>,
-  Options<CreateDriverHistoryData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CreateDriverHistoryResponse,
-    AxiosError<CreateDriverHistoryError>,
-    Options<CreateDriverHistoryData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await createDriverHistory({
+export const getDriverHistoryEntriesOptions = (
+  options: Options<GetDriverHistoryEntriesData>
+) =>
+  queryOptions<
+    GetDriverHistoryEntriesResponse,
+    AxiosError<GetDriverHistoryEntriesError>,
+    GetDriverHistoryEntriesResponse,
+    ReturnType<typeof getDriverHistoryEntriesQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getDriverHistoryEntries({
         ...options,
-        ...fnOptions,
+        ...queryKey[0],
+        signal,
         throwOnError: true,
       });
       return data;
     },
-  };
-  return mutationOptions;
-};
+    queryKey: getDriverHistoryEntriesQueryKey(options),
+  });
 
 export const getDriverHistorySummaryQueryKey = (
   options: Options<GetDriverHistorySummaryData>
