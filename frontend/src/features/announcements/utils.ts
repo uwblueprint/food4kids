@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/api/authStore';
 import type { Announcement } from '@/types/announcement';
 
 export const MESSAGE_MAX = 1500;
@@ -33,18 +34,8 @@ export const DESKTOP_MODAL_LAYOUT =
   'desktop:top-1/2 desktop:right-auto desktop:bottom-auto desktop:left-1/2 desktop:h-auto desktop:max-h-[min(640px,85vh)] desktop:w-full desktop:max-w-[560px] desktop:-translate-x-1/2 desktop:-translate-y-1/2 desktop:rounded-2xl';
 
 export function roleFromStoredToken(): 'admin' | 'driver' {
-  const token = localStorage.getItem('token');
-  if (!token) return 'driver';
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return 'driver';
-    const claims = JSON.parse(
-      atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-    ) as { role?: string };
-    return claims.role === 'admin' ? 'admin' : 'driver';
-  } catch {
-    return 'driver';
-  }
+  const role = useAuthStore.getState().user?.role;
+  return role === 'admin' ? 'admin' : 'driver';
 }
 
 /** Figma: 32px outer padding on the announcements side panel. */
