@@ -79,7 +79,9 @@ export function AnnouncementsBoard() {
 
   const handleConfirmDelete = async () => {
     if (!confirmState || confirmState.type !== 'delete') return;
-    await deleteMutation.mutateAsync(confirmState.announcement.announcement_id);
+    await deleteMutation.mutateAsync({
+      path: { announcement_id: confirmState.announcement.announcement_id },
+    });
     setConfirmState(null);
   };
 
@@ -103,7 +105,9 @@ export function AnnouncementsBoard() {
   const handleConfirmSaveEditBoard = async () => {
     const ids = [...pendingDeleteIds];
     for (const announcementId of ids) {
-      await deleteMutation.mutateAsync(announcementId);
+      await deleteMutation.mutateAsync({
+        path: { announcement_id: announcementId },
+      });
     }
     resetEditBoardState();
     setConfirmState(null);
@@ -121,15 +125,17 @@ export function AnnouncementsBoard() {
   }) => {
     if (formMode === 'create') {
       const created = await createMutation.mutateAsync({
-        subject: values.subject,
-        message: values.message,
-        attachments: [],
+        body: {
+          subject: values.subject,
+          message: values.message,
+          attachments: [],
+        },
       });
 
       if (values.sendEmailToAll && role === 'admin') {
-        const result = await sendEmailMutation.mutateAsync(
-          created.announcement_id
-        );
+        const result = await sendEmailMutation.mutateAsync({
+          path: { announcement_id: created.announcement_id },
+        });
         if (result.failed > 0) {
           throw new Error(
             `Announcement posted, but ${result.failed} email(s) failed to send.`
@@ -138,8 +144,8 @@ export function AnnouncementsBoard() {
       }
     } else if (editingAnnouncement) {
       await updateMutation.mutateAsync({
-        announcementId: editingAnnouncement.announcement_id,
-        payload: {
+        path: { announcement_id: editingAnnouncement.announcement_id },
+        body: {
           subject: values.subject,
           message: values.message,
         },
