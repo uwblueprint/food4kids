@@ -367,7 +367,6 @@ export type {
   NoteCreate,
   NoteFeedItem,
   NoteFeedSort,
-  NoteListResponse,
   NotePermission,
   NoteRead,
   NoteUpdate,

@@ -71,33 +71,6 @@
         "title": "AnnouncementLastReadResponse",
         "type": "object"
       },
-      "AnnouncementLastReadResponse": {
-        "description": "Response model for announcement last read",
-        "properties": {
-          "announcement_last_read_id": {
-            "format": "uuid",
-            "title": "Announcement Last Read Id",
-            "type": "string"
-          },
-          "last_read_at": {
-            "format": "date-time",
-            "title": "Last Read At",
-            "type": "string"
-          },
-          "user_id": {
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "announcement_last_read_id",
-          "user_id",
-          "last_read_at"
-        ],
-        "title": "AnnouncementLastReadResponse",
-        "type": "object"
-      },
       "AnnouncementRead": {
         "description": "Announcement response model",
         "properties": {
@@ -2295,28 +2268,6 @@
         ],
         "title": "NoteFeedSort",
         "type": "string"
-      },
-      "NoteListResponse": {
-        "description": "Response for GET notes - includes unread count",
-        "properties": {
-          "notes": {
-            "items": {
-              "$ref": "#/components/schemas/NoteRead"
-            },
-            "title": "Notes",
-            "type": "array"
-          },
-          "unread_count": {
-            "title": "Unread Count",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "notes",
-          "unread_count"
-        ],
-        "title": "NoteListResponse",
-        "type": "object"
       },
       "NotePermission": {
         "description": "Controls who can read/write on a note chain",
