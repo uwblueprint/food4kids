@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAuthStore } from './authStore';
 import {
   createAnnouncementMutation,
   deleteAnnouncementMutation,
@@ -10,9 +11,11 @@ import {
 } from './generated/@tanstack/react-query.gen';
 
 export function useAnnouncements() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   return useQuery({
     ...getAnnouncementsOptions(),
-    enabled: localStorage.getItem('token') !== null,
+    enabled: isAuthenticated,
     placeholderData: [],
   });
 }
