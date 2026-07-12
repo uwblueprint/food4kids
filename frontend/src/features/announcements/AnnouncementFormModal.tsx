@@ -184,7 +184,6 @@ export function AnnouncementFormModal({
           'flex min-h-0 flex-col',
           SHEET_MODAL_LAYOUT,
           DESKTOP_MODAL_LAYOUT,
-          // Fixed desktop height so the Note field can flex-grow (h-auto collapses it)
           'desktop:h-[min(560px,85vh)]'
         )}
         style={sheetHeightStyle() as React.CSSProperties}

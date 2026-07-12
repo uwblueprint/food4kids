@@ -38,8 +38,6 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         maxLength={maxCharacters}
         className={cn(
           'text-p2 text-grey-500 placeholder:text-p1 placeholder:text-grey-400',
-          // Default tall enough for multi-line notes. In constrained flex layouts,
-          // pass min-h-0 so the field shrinks instead of overflowing siblings.
           'box-border min-h-[120px] w-full flex-1 resize-y overflow-y-auto rounded-lg px-3 py-3',
           'transition-colors',
           'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
@@ -57,7 +55,6 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div
         className={cn(
-          // min-h-0: participate in flex layouts without painting over siblings
           'flex min-h-0 flex-col gap-2',
           wrapperClassName
         )}
