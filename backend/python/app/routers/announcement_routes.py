@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies.auth import (
+    get_current_database_user_id,
+    require_admin,
     require_announcement_owner_or_admin,
     require_driver_or_admin,
 )
@@ -84,6 +86,7 @@ async def update_announcement(
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
     _auth: bool = Depends(require_announcement_owner_or_admin),
+    current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> AnnouncementRead:
     """Update an existing announcement"""
     try:
@@ -110,6 +113,7 @@ async def delete_announcement(
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
     _auth: bool = Depends(require_announcement_owner_or_admin),
+    current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> None:
     """Delete an announcement"""
     try:
