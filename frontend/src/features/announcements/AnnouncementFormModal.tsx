@@ -110,7 +110,7 @@ function AnnouncementForm({
         />
       </Field>
 
-      <Field className="flex min-h-0 flex-1 flex-col">
+      <Field className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <FieldLabel htmlFor="announcement-message" required>
           Note
         </FieldLabel>
@@ -121,13 +121,13 @@ function AnnouncementForm({
           onChange={(e) => setMessage(e.target.value)}
           maxCharacters={MESSAGE_MAX}
           characterCount={message.length}
-          className="min-h-0 flex-1 resize-none"
-          wrapperClassName="flex min-h-0 flex-1 flex-col"
+          className="min-h-0 resize-none"
+          wrapperClassName="flex-1"
         />
       </Field>
 
       {mode === 'create' && role === 'admin' && (
-        <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
+        <label className="text-p2 text-grey-500 flex shrink-0 cursor-pointer items-center gap-3">
           <input
             type="checkbox"
             className="border-grey-300 size-4 rounded text-blue-300"
@@ -183,7 +183,9 @@ export function AnnouncementFormModal({
         className={cn(
           'flex min-h-0 flex-col',
           SHEET_MODAL_LAYOUT,
-          DESKTOP_MODAL_LAYOUT
+          DESKTOP_MODAL_LAYOUT,
+          // Fixed desktop height so the Note field can flex-grow (h-auto collapses it)
+          'desktop:h-[min(560px,85vh)]'
         )}
         style={sheetHeightStyle() as React.CSSProperties}
       >
