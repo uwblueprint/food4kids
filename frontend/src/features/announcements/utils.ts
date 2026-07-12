@@ -28,9 +28,9 @@ export const DESKTOP_PANEL_LAYOUT =
 export const SHEET_MODAL_LAYOUT =
   'top-auto right-0 bottom-0 left-0 h-[var(--announcements-sheet-height)] max-h-[var(--announcements-sheet-height)] w-full max-w-none translate-x-0 translate-y-0 rounded-none rounded-t-2xl flex flex-col';
 
-/** Desktop: centered dialog positioning. */
+/** Desktop: centered dialog (content height, capped so long lists don't fill the viewport). */
 export const DESKTOP_MODAL_LAYOUT =
-  'desktop:top-1/2 desktop:right-auto desktop:bottom-auto desktop:left-1/2 desktop:h-auto desktop:max-h-none desktop:-translate-x-1/2 desktop:-translate-y-1/2 desktop:rounded-2xl';
+  'desktop:top-1/2 desktop:right-auto desktop:bottom-auto desktop:left-1/2 desktop:h-auto desktop:max-h-[min(640px,85vh)] desktop:w-full desktop:max-w-[560px] desktop:-translate-x-1/2 desktop:-translate-y-1/2 desktop:rounded-2xl';
 
 export function roleFromStoredToken(): 'admin' | 'driver' {
   const token = localStorage.getItem('token');

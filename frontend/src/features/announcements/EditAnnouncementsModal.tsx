@@ -47,10 +47,9 @@ export function EditAnnouncementsModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
         className={cn(
-          'flex flex-col gap-4 p-6',
+          'flex min-h-0 flex-col gap-4 p-6',
           SHEET_MODAL_LAYOUT,
-          DESKTOP_MODAL_LAYOUT,
-          'desktop:max-h-[min(720px,90vh)]'
+          DESKTOP_MODAL_LAYOUT
         )}
         style={sheetHeightStyle() as React.CSSProperties}
       >

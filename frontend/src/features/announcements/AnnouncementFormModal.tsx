@@ -181,9 +181,9 @@ export function AnnouncementFormModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
         className={cn(
+          'flex min-h-0 flex-col',
           SHEET_MODAL_LAYOUT,
-          DESKTOP_MODAL_LAYOUT,
-          'desktop:max-w-[560px]'
+          DESKTOP_MODAL_LAYOUT
         )}
         style={sheetHeightStyle() as React.CSSProperties}
       >
