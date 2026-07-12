@@ -2,7 +2,7 @@ import logging
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import case, col, select, update
+from sqlmodel import case, col, func, select, update
 
 from app.models.driver import Driver
 from app.models.enum import NotePermission
@@ -115,14 +115,6 @@ class NoteChainService:
                 .where(col(Route.note_chain_id) == note_chain_id)
                 .values(note_chain_id=None)
             )
-
-            # Delete associated read tracking entries
-            read_statement = select(NoteChainReadModel).where(
-                NoteChainReadModel.note_chain_id == note_chain_id
-            )
-            read_result = await session.execute(read_statement)
-            for read_entry in read_result.scalars().all():
-                await session.delete(read_entry)
 
             await session.delete(note_chain)
             await session.commit()

@@ -4509,42 +4509,31 @@ class TestDriverHistoryRoutes:
     @pytest.mark.asyncio
     async def test_mark_read_and_is_read_status(
         self,
-        async_client: AsyncClient,
-        test_session: AsyncSession,
+        authed_async_client: AsyncClient,
+        test_admin_user: Any,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test POST /announcements/mark-read and is_read on GET /announcements/."""
-        from app.models.user import User
-
-        user = User(
-            first_name="Read",
-            last_name="Test User",
-            email="readtest@test.com",
-            auth_id="test-read-user-123",
-            role="admin",
-        )
-        test_session.add(user)
-        await test_session.commit()
-        await test_session.refresh(user)
-        user_id = str(user.user_id)
+        user_id = str(test_admin_user.user_id)
 
         # Create an announcement
-        create_data = {**sample_announcement_data, "user_id": user_id}
-        create_resp = await async_client.post("/announcements/", json=create_data)
+        create_resp = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
         assert create_resp.status_code == 201
 
         # GET without user_id — is_read should be null
-        resp = await async_client.get("/announcements/")
+        resp = await authed_async_client.get("/announcements/")
         assert resp.status_code == 200
         assert resp.json()[0]["is_read"] is None
 
         # GET with user_id — is_read should be False (never marked read)
-        resp = await async_client.get(f"/announcements/?user_id={user_id}")
+        resp = await authed_async_client.get(f"/announcements/?user_id={user_id}")
         assert resp.status_code == 200
         assert resp.json()[0]["is_read"] is False
 
         # Mark as read
-        mark_resp = await async_client.post(
+        mark_resp = await authed_async_client.post(
             "/announcements/mark-read", json={"user_id": user_id}
         )
         assert mark_resp.status_code == 200
@@ -4552,7 +4541,7 @@ class TestDriverHistoryRoutes:
         assert "last_read_at" in mark_resp.json()
 
         # GET with user_id — is_read should be True now
-        resp = await async_client.get(f"/announcements/?user_id={user_id}")
+        resp = await authed_async_client.get(f"/announcements/?user_id={user_id}")
         assert resp.status_code == 200
         assert resp.json()[0]["is_read"] is True
 

@@ -47,7 +47,7 @@ async def get_announcements(
 
         results = []
         for a in announcements:
-            item = AnnouncementRead.model_validate(a)
+            item = AnnouncementRead.from_announcement(a)
             if user_id is not None:
                 if last_read_at is None:
                     item.is_read = False
