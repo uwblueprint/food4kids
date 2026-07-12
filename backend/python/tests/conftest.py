@@ -324,7 +324,6 @@ def sample_location_data() -> dict[str, Any]:
         "halal": False,
         "dietary_restrictions": "No nuts",
         "num_children": 150,
-        "notes": "Main entrance on Main St",
     }
 
 

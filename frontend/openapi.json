@@ -1069,11 +1069,6 @@
             ],
             "title": "Note Chain Id"
           },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
-          },
           "num_children": {
             "default": 0,
             "minimum": 0,
@@ -1637,11 +1632,6 @@
             ],
             "title": "Note Chain Id"
           },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
-          },
           "num_children": {
             "default": 0,
             "minimum": 0,
@@ -1804,11 +1794,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
           },
           "num_children": {
             "default": 0,
@@ -2003,17 +1988,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
           },
           "num_children": {
             "anyOf": [

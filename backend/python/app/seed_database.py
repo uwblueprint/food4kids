@@ -67,8 +67,6 @@ PROBABILITY_ROUTE_NOTES = 0.1
 PROBABILITY_DIETARY_RESTRICTIONS = 0.3
 # Probability that a location will have a number of children specified
 PROBABILITY_NUM_CHILDREN = 0.8
-# Probability that a location will have notes
-PROBABILITY_LOCATION_NOTES = 0.4
 # Probability to skip creating driver history for the current year
 PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 # Probability that a location note chain will have notes
@@ -571,7 +569,6 @@ def materialize_route_for_group(
                 phone_primary=loc.phone_primary,
                 phone_secondary=loc.phone_secondary,
                 num_children=loc.num_children,
-                notes=loc.notes,
                 latitude=loc.latitude,
                 longitude=loc.longitude,
             )
@@ -757,9 +754,6 @@ def main() -> None:
                             else 0,
                             delivery_type=delivery_type,
                             in_roster=True,
-                            notes=fake.sentence()
-                            if random.random() < PROBABILITY_LOCATION_NOTES
-                            else "",
                         )
                         set_timestamps(location)
                         session.add(location)

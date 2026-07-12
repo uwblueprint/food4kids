@@ -659,10 +659,6 @@ export type LocationCreate = {
    */
   note_chain_id?: string | null;
   /**
-   * Notes
-   */
-  notes?: string;
-  /**
    * Num Children
    */
   num_children?: number;
@@ -991,10 +987,6 @@ export type LocationReadInput = {
    */
   note_chain_id?: string | null;
   /**
-   * Notes
-   */
-  notes?: string;
-  /**
    * Num Children
    */
   num_children?: number;
@@ -1091,10 +1083,6 @@ export type LocationReadOutput = {
    */
   note_chain_id?: string | null;
   /**
-   * Notes
-   */
-  notes?: string;
-  /**
    * Num Children
    */
   num_children?: number;
@@ -1177,10 +1165,6 @@ export type LocationUpdate = {
    * Note Chain Id
    */
   note_chain_id?: string | null;
-  /**
-   * Notes
-   */
-  notes?: string | null;
   /**
    * Num Children
    */
@@ -2441,10 +2425,6 @@ export type LocationReadOutputWritable = {
    * Note Chain Id
    */
   note_chain_id?: string | null;
-  /**
-   * Notes
-   */
-  notes?: string;
   /**
    * Num Children
    */

@@ -1746,7 +1746,6 @@ class TestRouteRoutes:
                 contact_name=loc.contact_name,
                 phone_primary=loc.phone_primary,
                 num_children=8,
-                notes=loc.notes,
                 latitude=loc.latitude or 0.0,
                 longitude=loc.longitude or 0.0,
             )

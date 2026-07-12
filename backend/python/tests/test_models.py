@@ -369,7 +369,6 @@ class TestCoreModels:
             halal=False,
             dietary_restrictions="No nuts",
             num_children=150,
-            notes="Main entrance on Main St",
         )
         assert location.name == "Central Elementary"
         assert location.delivery_type == "School"
@@ -390,7 +389,6 @@ class TestCoreModels:
         )
         assert location_minimal.name == "John Doe"
         assert location_minimal.delivery_type == "Family"
-        assert location_minimal.notes == ""  # Default value
 
         # Read model
         location_read = LocationRead(
@@ -749,7 +747,6 @@ class TestEnumsAndSerialization:
             latitude=37.8000,
             halal=True,
         )
-        assert location.notes == ""  # Default value
         assert location.delivery_type == "Family"
         assert location.dietary_restrictions == ""  # Default value
         assert location.num_children == 0  # Default value
