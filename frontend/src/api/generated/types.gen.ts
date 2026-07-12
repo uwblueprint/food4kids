@@ -37,10 +37,6 @@ export type AnnouncementCreate = {
    * Subject
    */
   subject: string;
-  /**
-   * User Id
-   */
-  user_id: string;
 };
 
 /**
@@ -57,6 +53,14 @@ export type AnnouncementRead = {
    * Attachments
    */
   attachments: Array<string>;
+  /**
+   * Author Name
+   */
+  author_name: string;
+  /**
+   * Author Role
+   */
+  author_role: string;
   /**
    * Created At
    */
@@ -2569,6 +2573,42 @@ export type UpdateAnnouncementResponses = {
 
 export type UpdateAnnouncementResponse =
   UpdateAnnouncementResponses[keyof UpdateAnnouncementResponses];
+
+export type SendAnnouncementEmailData = {
+  body?: never;
+  path: {
+    /**
+     * Announcement Id
+     */
+    announcement_id: string;
+  };
+  query?: never;
+  url: '/announcements/{announcement_id}/email';
+};
+
+export type SendAnnouncementEmailErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type SendAnnouncementEmailError =
+  SendAnnouncementEmailErrors[keyof SendAnnouncementEmailErrors];
+
+export type SendAnnouncementEmailResponses = {
+  /**
+   * Response Send Announcement Email
+   *
+   * Successful Response
+   */
+  200: {
+    [key: string]: number;
+  };
+};
+
+export type SendAnnouncementEmailResponse =
+  SendAnnouncementEmailResponses[keyof SendAnnouncementEmailResponses];
 
 export type LoginData = {
   body: LoginRequest;

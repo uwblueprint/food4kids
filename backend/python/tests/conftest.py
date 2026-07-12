@@ -425,6 +425,7 @@ async def authed_async_client(
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_database_user_id] = override_auth
+    _apply_auth_overrides(app)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
