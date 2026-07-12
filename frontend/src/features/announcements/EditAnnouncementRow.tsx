@@ -32,7 +32,7 @@ export function EditAnnouncementRow({
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3
           className={cn(
-            'text-p1 font-bold',
+            'text-h2 font-bold',
             pendingDelete ? deletedTextClass : 'text-grey-500'
           )}
         >
@@ -58,7 +58,7 @@ export function EditAnnouncementRow({
         </p>
         <p
           className={cn(
-            'text-p2 line-clamp-2 whitespace-pre-wrap',
+            'text-p1 line-clamp-2 whitespace-pre-wrap',
             pendingDelete ? deletedTextClass : 'text-grey-500'
           )}
         >

@@ -53,12 +53,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     if (!isExpanded) return textarea;
 
     return (
-      <div
-        className={cn(
-          'flex min-h-0 flex-col gap-2',
-          wrapperClassName
-        )}
-      >
+      <div className={cn('flex min-h-0 flex-col gap-2', wrapperClassName)}>
         {textarea}
         <div className="flex shrink-0 items-start justify-between gap-2">
           {(description || error) && (

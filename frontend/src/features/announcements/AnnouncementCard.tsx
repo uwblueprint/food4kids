@@ -58,7 +58,7 @@ export function AnnouncementCard({
           onClick={() => onOpen(announcement)}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-p1 text-grey-500 font-bold">
+            <h3 className="text-h2 text-grey-500 font-bold">
               {announcement.subject}
             </h3>
             {isNew && (
@@ -129,7 +129,7 @@ export function AnnouncementCard({
       </div>
       <button
         type="button"
-        className="text-p2 text-grey-500 line-clamp-4 w-full text-left whitespace-pre-wrap"
+        className="text-p1 text-grey-500 line-clamp-4 w-full text-left whitespace-pre-wrap"
         onClick={() => onOpen(announcement)}
       >
         {announcement.message}
