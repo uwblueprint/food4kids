@@ -4,7 +4,7 @@ import os
 from collections.abc import Iterable
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -22,6 +22,11 @@ from app.models.enum import (
 )
 from app.models.location import (
     AlertCode,
+    ChangedEntry,
+    ChangedFieldOptInt,
+    ChangedFieldOptStr,
+    ChangedFieldStr,
+    DuplicateGroup,
     Location,
     LocationCreate,
     LocationImportEntry,
@@ -31,6 +36,9 @@ from app.models.location import (
     LocationIngestResponse,
     LocationRead,
     LocationUpdate,
+    NetNewEntry,
+    StaleEntry,
+    ValidatedLocationImportEntry,
 )
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -42,6 +50,7 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
+    duplicate_matching_fields,
     find_duplicate_index_groups,
     is_blank,
     present_str,
@@ -482,7 +491,7 @@ class LocationService:
         file: UploadFile,
         column_map: dict[str, str],
     ) -> LocationImportResponse:
-        """Review a pending location import: validate rows + (eventually) compute diff against existing locations.
+        """Review a pending location import: validate rows and classify changes.
 
         Side effect: persists `column_map` to system_settings so it becomes the
         default mapping on the next import.
@@ -507,10 +516,20 @@ class LocationService:
             known_valid_addresses = await self._existing_geocoded_addresses(
                 session, unique_addresses
             )
-            addresses_to_geocode = unique_addresses - known_valid_addresses
+            seen_addresses: set[str] = set()
+            addresses_to_geocode: list[str] = []
+            for _, entry in parsed_rows:
+                if not present_str(entry.address):
+                    continue
+                address = entry.address.strip()
+                if address in known_valid_addresses or address in seen_addresses:
+                    continue
+                seen_addresses.add(address)
+                addresses_to_geocode.append(address)
             geocode_ok_by_address: dict[str, bool] = dict.fromkeys(
                 known_valid_addresses, True
             )
+            geocode_result_by_address: dict[str, GeocodeResult] = {}
             if addresses_to_geocode:
                 geocoded = await asyncio.gather(
                     *(
@@ -524,6 +543,15 @@ class LocationService:
                         for address, result in zip(
                             addresses_to_geocode, geocoded, strict=True
                         )
+                    }
+                )
+                geocode_result_by_address.update(
+                    {
+                        address: result
+                        for address, result in zip(
+                            addresses_to_geocode, geocoded, strict=True
+                        )
+                        if result is not None
                     }
                 )
 
@@ -555,7 +583,11 @@ class LocationService:
                 if is_blank(entry.address):
                     geocode_ok = None
                 elif entry.address is not None:
-                    geocode_ok = geocode_ok_by_address.get(entry.address.strip())
+                    address_key = entry.address.strip()
+                    geocode_result = geocode_result_by_address.get(address_key)
+                    if geocode_result is not None:
+                        entry.address = geocode_result.formatted_address
+                    geocode_ok = geocode_ok_by_address.get(address_key)
                 else:
                     geocode_ok = None
 
@@ -566,21 +598,52 @@ class LocationService:
                     phone_secondary_invalid=phone_secondary_invalid_flags[index],
                 )
                 if index in duplicate_indices:
-                    alerts.append(AlertCode.DUPLICATE_ENTRY)
+                    alerts.append(AlertCode.LOCAL_DUPLICATE)
 
                 rows.append(
                     LocationImportRow(row=row_num, location=entry, alerts=alerts)
                 )
 
-            duplicate_groups = [
-                [parsed_rows[i][0] for i in group] for group in duplicate_index_groups
+            duplicate_groups = []
+            for group in duplicate_index_groups:
+                matching_fields = {
+                    field
+                    for left_position, left_index in enumerate(group)
+                    for right_index in group[left_position + 1 :]
+                    for field in duplicate_matching_fields(
+                        entries[left_index], entries[right_index]
+                    )
+                }
+                duplicate_groups.append(
+                    DuplicateGroup(
+                        rows=[parsed_rows[i][0] for i in group],
+                        matching_fields=sorted(
+                            matching_fields, key=lambda field: field.value
+                        ),
+                    )
+                )
+            valid_rows = [
+                (row.row, ValidatedLocationImportEntry.model_validate(row.location))
+                for row in rows
+                if not row.alerts and self._has_required_fields(row.location)
             ]
+            net_new: list[NetNewEntry] = []
+            stale: list[StaleEntry] = []
+            changed: list[ChangedEntry] = []
+            success = not any(r.alerts for r in rows)
+            if success:
+                net_new, stale, changed = await self._classify_import_rows(
+                    session, valid_rows
+                )
 
             return LocationImportResponse(
-                success=not any(r.alerts for r in rows),
+                success=success,
                 total_rows=len(rows),
                 rows=rows,
                 duplicate_groups=duplicate_groups,
+                net_new=net_new,
+                stale=stale,
+                changed=changed,
             )
         except Exception as e:
             self.logger.error(f"Failed to validate locations: {e!s}")
@@ -614,6 +677,190 @@ class LocationService:
         if not present_str(address):
             return None
         return await self.google_maps_service.geocode_address(address)
+
+    @staticmethod
+    def _normalize_import_value(value: str | None) -> str:
+        return " ".join((value or "").strip().casefold().split())
+
+    @classmethod
+    def _match_key(cls, name: str, address: str, phone: str) -> tuple[str, str, str]:
+        return (
+            cls._normalize_import_value(name),
+            cls._normalize_import_value(address),
+            cls._normalize_import_value(phone),
+        )
+
+    @classmethod
+    def _import_entry_match_key(
+        cls, entry: ValidatedLocationImportEntry
+    ) -> tuple[str, str, str]:
+        return cls._match_key(entry.contact_name, entry.address, entry.phone_primary)
+
+    @classmethod
+    def _location_match_key(cls, location: Location) -> tuple[str, str, str]:
+        return cls._match_key(
+            location.contact_name, location.address, location.phone_primary
+        )
+
+    @staticmethod
+    def _match_score(left: tuple[str, str, str], right: tuple[str, str, str]) -> int:
+        return sum(
+            1
+            for left_value, right_value in zip(left, right, strict=True)
+            if left_value == right_value
+        )
+
+    @classmethod
+    def _is_same_import_location(
+        cls, left: tuple[str, str, str], right: tuple[str, str, str]
+    ) -> bool:
+        return cls._match_score(left, right) >= 2
+
+    async def _classify_import_rows(
+        self,
+        session: AsyncSession,
+        valid_rows: list[tuple[int, ValidatedLocationImportEntry]],
+    ) -> tuple[list[NetNewEntry], list[StaleEntry], list[ChangedEntry]]:
+        result = await session.execute(
+            select(Location).options(selectinload(Location.location_group))  # type: ignore[arg-type]
+        )
+        existing_locations = list(result.scalars().all())
+        matched_existing_ids: set[UUID] = set()
+        net_new: list[NetNewEntry] = []
+        changed: list[ChangedEntry] = []
+
+        for row_num, entry in valid_rows:
+            match = self._find_existing_import_match(
+                entry,
+                [
+                    location
+                    for location in existing_locations
+                    if location.location_id not in matched_existing_ids
+                ],
+            )
+            if match is None:
+                net_new.append(self._to_net_new_entry(row_num, entry))
+                continue
+
+            matched_existing_ids.add(match.location_id)
+            changed_entry = self._to_changed_entry(row_num, entry, match)
+            if changed_entry is not None:
+                changed.append(changed_entry)
+
+        stale = [
+            self._to_stale_entry(location)
+            for location in existing_locations
+            if location.in_roster and location.location_id not in matched_existing_ids
+        ]
+        return net_new, stale, changed
+
+    def _find_existing_import_match(
+        self,
+        entry: ValidatedLocationImportEntry,
+        existing_locations: list[Location],
+    ) -> Location | None:
+        entry_key = self._import_entry_match_key(entry)
+        matches = [
+            (self._match_score(entry_key, self._location_match_key(location)), location)
+            for location in existing_locations
+            if self._is_same_import_location(
+                entry_key, self._location_match_key(location)
+            )
+        ]
+        if not matches:
+            return None
+        matches.sort(key=lambda item: item[0], reverse=True)
+        return matches[0][1]
+
+    @staticmethod
+    def _to_net_new_entry(
+        row_num: int, entry: ValidatedLocationImportEntry
+    ) -> NetNewEntry:
+        return NetNewEntry(
+            row=row_num,
+            contact_name=entry.contact_name,
+            address=entry.address,
+            delivery_group=entry.delivery_group,
+            phone_primary=entry.phone_primary,
+            phone_secondary=entry.phone_secondary,
+            num_children=entry.num_children,
+        )
+
+    @staticmethod
+    def _to_stale_entry(location: Location) -> StaleEntry:
+        return StaleEntry(
+            location_id=location.location_id,
+            contact_name=location.contact_name,
+            address=location.address,
+            delivery_group=location.location_group.name,
+            phone_primary=location.phone_primary,
+            phone_secondary=location.phone_secondary,
+        )
+
+    def _to_changed_entry(
+        self, row_num: int, entry: ValidatedLocationImportEntry, location: Location
+    ) -> ChangedEntry | None:
+        old_delivery_group = location.location_group.name
+        contact_name_changed = self._normalize_import_value(
+            entry.contact_name
+        ) != self._normalize_import_value(location.contact_name)
+        address_changed = self._normalize_import_value(
+            entry.address
+        ) != self._normalize_import_value(location.address)
+        delivery_group_changed = entry.delivery_group != old_delivery_group
+        phone_primary_changed = self._normalize_import_value(
+            entry.phone_primary
+        ) != self._normalize_import_value(location.phone_primary)
+        phone_secondary_changed = (entry.phone_secondary or None) != (
+            location.phone_secondary or None
+        )
+        num_children_changed = (
+            entry.num_children is not None
+            and entry.num_children != location.num_children
+        )
+        roster_changed = not location.in_roster
+
+        if not any(
+            [
+                contact_name_changed,
+                address_changed,
+                delivery_group_changed,
+                phone_primary_changed,
+                phone_secondary_changed,
+                num_children_changed,
+                roster_changed,
+            ]
+        ):
+            return None
+
+        return ChangedEntry(
+            row=row_num,
+            location_id=location.location_id,
+            contact_name=entry.contact_name,
+            address=ChangedFieldStr(new_value=entry.address, old_value=location.address)
+            if address_changed
+            else entry.address,
+            delivery_group=ChangedFieldOptStr(
+                new_value=entry.delivery_group, old_value=old_delivery_group
+            )
+            if delivery_group_changed
+            else entry.delivery_group,
+            phone_primary=ChangedFieldStr(
+                new_value=entry.phone_primary, old_value=location.phone_primary
+            )
+            if phone_primary_changed
+            else entry.phone_primary,
+            phone_secondary=ChangedFieldOptStr(
+                new_value=entry.phone_secondary, old_value=location.phone_secondary
+            )
+            if phone_secondary_changed
+            else entry.phone_secondary,
+            num_children=ChangedFieldOptInt(
+                new_value=entry.num_children, old_value=location.num_children
+            )
+            if num_children_changed
+            else location.num_children,
+        )
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
         """Validate file type and read into a DataFrame."""
@@ -683,6 +930,17 @@ class LocationService:
             dietary_restrictions=get_value("dietary_restrictions"),
         )
 
+    @staticmethod
+    def _has_required_fields(
+        entry: LocationImportEntry,
+    ) -> TypeGuard[ValidatedLocationImportEntry]:
+        return (
+            entry.contact_name is not None
+            and entry.address is not None
+            and entry.phone_primary is not None
+            and entry.delivery_group is not None
+        )
+
     async def _build_location(self, location_data: LocationCreate) -> Location:
         """Geocode and build a Location object (does not add to session or commit)."""
         if not location_data.longitude or not location_data.latitude:
@@ -719,43 +977,42 @@ class LocationService:
     async def ingest_locations(
         self, session: AsyncSession, request: LocationIngestRequest
     ) -> LocationIngestResponse:
-        """Persist net-new locations and mark stale ones out-of-roster.
+        """Persist import merge results.
 
-        Stale rows are not deleted — they keep their note_chain so a future
-        reappearance can revive them.
+        Stale rows are not deleted. Address changes create a replacement
+        location carrying over notes/history and mark the old row inactive.
         """
         try:
             await self.validate_delivery_type(session, request.delivery_type)
-            # Fetch and mark stale locations out-of-roster in one SELECT IN
+            changed_ids = [entry.location_id for entry in request.changed]
+            if len(set(changed_ids)) != len(changed_ids):
+                raise ValueError("Each changed location can only be included once")
+
+            group_by_name = await self._ensure_location_groups_for_ingest(
+                session, request
+            )
+
             stale_ids = [loc.location_id for loc in request.stale]
-            stale_db_rows: list[Location] = []
-            if stale_ids:
+            existing_ids = list(set(stale_ids + changed_ids))
+            existing_by_id: dict[UUID, Location] = {}
+            if existing_ids:
                 result = await session.execute(
-                    select(Location).where(Location.location_id.in_(stale_ids))  # type: ignore[attr-defined]
+                    select(Location)
+                    .where(Location.location_id.in_(existing_ids))  # type: ignore[attr-defined]
+                    .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 )
-                stale_db_rows = list(result.scalars().all())
-                for loc in stale_db_rows:
+                existing_by_id = {
+                    location.location_id: location
+                    for location in result.scalars().all()
+                }
+
+            stale_db_rows: list[Location] = []
+            for stale_id in stale_ids:
+                loc = existing_by_id.get(stale_id)
+                if loc is not None:
                     loc.in_roster = False
+                    stale_db_rows.append(loc)
 
-            archived = [
-                self._to_read(loc, has_future_route=False) for loc in stale_db_rows
-            ]
-
-            if not request.net_new:
-                await session.commit()
-                # Recompute has_future_route for archived locations now that
-                # we've committed (their roster bit changed, but route stops
-                # didn't, so the answer is the same — we just want it accurate).
-                future_set = await self.load_has_future_route_set(
-                    session, [loc.location_id for loc in stale_db_rows]
-                )
-                archived = [
-                    self._to_read(loc, has_future_route=loc.location_id in future_set)
-                    for loc in stale_db_rows
-                ]
-                return LocationIngestResponse(created=[], archived=archived)
-
-            # Geocode all addresses concurrently
             geocode_results = await asyncio.gather(
                 *[
                     self.google_maps_service.geocode_address(entry.address)
@@ -763,28 +1020,6 @@ class LocationService:
                 ]
             )
 
-            # Fetch all existing LocationGroups in one query
-            groups_result = await session.execute(select(LocationGroup))
-            group_by_name: dict[str, LocationGroup] = {
-                g.name: g for g in groups_result.scalars().all()
-            }
-
-            needed_names = sorted(
-                {
-                    entry.delivery_group
-                    for entry in request.net_new
-                    if entry.delivery_group
-                    and entry.delivery_group not in group_by_name
-                }
-            )
-            for name in needed_names:
-                group = LocationGroup(name=name)  # type: ignore[call-arg]
-                session.add(group)
-                group_by_name[name] = group
-
-            # Build and batch-insert new Location records, each with its own
-            # NoteChain so ingested locations support notes like every other
-            # creation path (see create_location).
             new_note_chains: list[NoteChain] = []
             new_locations: list[Location] = []
             for entry, geocode_result in zip(
@@ -821,6 +1056,96 @@ class LocationService:
                     )
                 )
 
+            address_changed_entries = [
+                entry
+                for entry in request.changed
+                if isinstance(entry.address, ChangedFieldStr)
+            ]
+            changed_geocode_results = await asyncio.gather(
+                *[
+                    self.google_maps_service.geocode_address(
+                        self._changed_str_value(entry.address)
+                    )
+                    for entry in address_changed_entries
+                ]
+            )
+            geocode_by_changed_id = {
+                entry.location_id: geocode_result
+                for entry, geocode_result in zip(
+                    address_changed_entries, changed_geocode_results, strict=True
+                )
+            }
+
+            for changed_entry in request.changed:
+                location = existing_by_id.get(changed_entry.location_id)
+                if location is None:
+                    raise ValueError(
+                        f"Location with id {changed_entry.location_id} was not found"
+                    )
+
+                delivery_group = self._changed_optional_str_value(
+                    changed_entry.delivery_group
+                )
+                if not delivery_group:
+                    raise ValueError("Changed location is missing delivery_group")
+
+                if isinstance(changed_entry.address, ChangedFieldStr):
+                    geocode_result = geocode_by_changed_id[changed_entry.location_id]
+                    if not geocode_result:
+                        raise ValueError(
+                            f"Geocoding failed for address: {changed_entry.address.new_value}"
+                        )
+                    note_chain_id = location.note_chain_id
+                    location.in_roster = False
+                    location.note_chain_id = None
+                    if location not in stale_db_rows:
+                        stale_db_rows.append(location)
+                    new_locations.append(
+                        Location(
+                            name=changed_entry.contact_name,
+                            contact_name=changed_entry.contact_name,
+                            address=geocode_result.formatted_address,
+                            phone_primary=self._changed_str_value(
+                                changed_entry.phone_primary
+                            ),
+                            phone_secondary=self._changed_optional_str_value(
+                                changed_entry.phone_secondary
+                            ),
+                            longitude=geocode_result.longitude,
+                            latitude=geocode_result.latitude,
+                            place_id=geocode_result.place_id,
+                            halal=location.halal,
+                            dietary_restrictions=location.dietary_restrictions,
+                            num_children=self._changed_optional_int_value(
+                                changed_entry.num_children
+                            )
+                            or 0,
+                            delivery_type=request.delivery_type,
+                            in_roster=True,
+                            note_chain_id=note_chain_id,
+                            location_group_id=group_by_name[
+                                delivery_group
+                            ].location_group_id,
+                        )
+                    )
+                    continue
+
+                location.in_roster = True
+                location.name = changed_entry.contact_name
+                location.contact_name = changed_entry.contact_name
+                location.phone_primary = self._changed_str_value(
+                    changed_entry.phone_primary
+                )
+                location.phone_secondary = self._changed_optional_str_value(
+                    changed_entry.phone_secondary
+                )
+                location.num_children = (
+                    self._changed_optional_int_value(changed_entry.num_children) or 0
+                )
+                location.location_group_id = group_by_name[
+                    delivery_group
+                ].location_group_id
+
             session.add_all(new_note_chains)
             session.add_all(new_locations)
             await session.commit()
@@ -849,3 +1174,53 @@ class LocationService:
             self.logger.error(f"Failed to ingest locations: {e!s}")
             await session.rollback()
             raise e
+
+    async def _ensure_location_groups_for_ingest(
+        self, session: AsyncSession, request: LocationIngestRequest
+    ) -> dict[str, LocationGroup]:
+        groups_result = await session.execute(select(LocationGroup))
+        group_by_name: dict[str, LocationGroup] = {
+            group.name: group for group in groups_result.scalars().all()
+        }
+        needed_names = {
+            entry.delivery_group
+            for entry in request.net_new
+            if entry.delivery_group not in group_by_name
+        }
+        needed_names.update(
+            delivery_group
+            for delivery_group in (
+                self._changed_optional_str_value(entry.delivery_group)
+                for entry in request.changed
+            )
+            if delivery_group and delivery_group not in group_by_name
+        )
+        for name in sorted(needed_names):
+            group = LocationGroup(name=name)  # type: ignore[call-arg]
+            session.add(group)
+            group_by_name[name] = group
+        if needed_names:
+            await session.flush()
+        return group_by_name
+
+    @staticmethod
+    def _changed_str_value(value: str | ChangedFieldStr) -> str:
+        if isinstance(value, ChangedFieldStr):
+            return value.new_value
+        return value
+
+    @staticmethod
+    def _changed_optional_str_value(
+        value: str | None | ChangedFieldOptStr,
+    ) -> str | None:
+        if isinstance(value, ChangedFieldOptStr):
+            return value.new_value
+        return value
+
+    @staticmethod
+    def _changed_optional_int_value(
+        value: int | None | ChangedFieldOptInt,
+    ) -> int | None:
+        if isinstance(value, ChangedFieldOptInt):
+            return value.new_value
+        return value

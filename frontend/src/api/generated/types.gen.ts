@@ -7,17 +7,17 @@ export type ClientOptions = {
 /**
  * AlertCode
  *
- * Machine-readable blocking error code for an import row.
+ * Machine-readable reason code for an import alert.
  */
 export type AlertCode =
   | 'MISSING_ADDRESS'
   | 'INVALID_ADDRESS'
   | 'MISSING_PHONE_NUMBER'
   | 'INVALID_PHONE_NUMBER'
-  | 'MISSING_SCHOOL_OR_LAST_NAME'
-  | 'INVALID_SCHOOL_OR_LAST_NAME'
+  | 'MISSING_NAME'
+  | 'INVALID_NAME'
   | 'MISSING_DELIVERY_GROUP'
-  | 'DUPLICATE_ENTRY';
+  | 'LOCAL_DUPLICATE';
 
 /**
  * AnnouncementCreate
@@ -197,6 +197,10 @@ export type ChangedEntry = {
    */
   delivery_group?: string | ChangedFieldOptStr | null;
   /**
+   * Location Id
+   */
+  location_id: string;
+  /**
    * Num Children
    */
   num_children?: number | ChangedFieldOptInt | null;
@@ -208,6 +212,10 @@ export type ChangedEntry = {
    * Phone Secondary
    */
   phone_secondary?: string | ChangedFieldOptStr | null;
+  /**
+   * Row
+   */
+  row: number;
 };
 
 /**
@@ -550,6 +558,29 @@ export type DriverUpdate = {
 };
 
 /**
+ * DuplicateGroup
+ *
+ * Rows that refer to the same imported location under the 2-of-3 rule.
+ */
+export type DuplicateGroup = {
+  /**
+   * Matching Fields
+   */
+  matching_fields: Array<DuplicateMatchField>;
+  /**
+   * Rows
+   */
+  rows: Array<number>;
+};
+
+/**
+ * DuplicateMatchField
+ *
+ * Import fields that can participate in the 2-of-3 duplicate rule.
+ */
+export type DuplicateMatchField = 'contact_name' | 'address' | 'phone_primary';
+
+/**
  * EmailReminder
  *
  * A single reminder email configuration.
@@ -825,11 +856,9 @@ export type LocationImportEntry = {
  *
  * Combined validate + review-changes payload.
  *
- * success=False when any row has alerts. duplicate_groups lists row numbers
- * (1-based, matching LocationImportRow.row) for each within-file duplicate
- * cluster. net_new/stale/changed describe how the import would affect the
- * existing locations table; these are placeholders until the matching logic
- * is implemented.
+ * success=False when any row has alerts. duplicate_groups lists row numbers and
+ * matching fields for each within-file duplicate cluster. net_new/stale/changed
+ * describe how the import would affect the existing locations table.
  */
 export type LocationImportResponse = {
   /**
@@ -839,7 +868,7 @@ export type LocationImportResponse = {
   /**
    * Duplicate Groups
    */
-  duplicate_groups?: Array<Array<number>>;
+  duplicate_groups?: Array<DuplicateGroup>;
   /**
    * Net New
    */
@@ -885,6 +914,10 @@ export type LocationImportRow = {
  */
 export type LocationIngestRequest = {
   /**
+   * Changed
+   */
+  changed?: Array<ChangedEntry>;
+  /**
    * Delivery Type
    */
   delivery_type: string;
@@ -895,7 +928,7 @@ export type LocationIngestRequest = {
   /**
    * Stale
    */
-  stale: Array<LocationReadInput>;
+  stale: Array<StaleEntry>;
 };
 
 /**
@@ -905,11 +938,11 @@ export type LocationIngestResponse = {
   /**
    * Archived
    */
-  archived: Array<LocationReadOutput>;
+  archived: Array<LocationRead>;
   /**
    * Created
    */
-  created: Array<LocationReadOutput>;
+  created: Array<LocationRead>;
 };
 
 /**
@@ -921,103 +954,7 @@ export type LocationIngestResponse = {
  * against route_stops + route_groups), and `status` is derived from it +
  * in_roster. See LocationStatusEnum for the precedence rule.
  */
-export type LocationReadInput = {
-  /**
-   * Address
-   */
-  address: string;
-  /**
-   * Assigned Route
-   */
-  assigned_route?: string | null;
-  /**
-   * Contact Name
-   */
-  contact_name: string;
-  /**
-   * Delivery Type
-   */
-  delivery_type: string;
-  /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string;
-  /**
-   * Halal
-   */
-  halal?: boolean;
-  /**
-   * Has Future Route
-   */
-  has_future_route?: boolean;
-  /**
-   * In Roster
-   */
-  in_roster?: boolean;
-  /**
-   * Last Delivery Date
-   */
-  last_delivery_date?: string | null;
-  /**
-   * Latitude
-   */
-  latitude?: number | null;
-  /**
-   * Location Group Id
-   */
-  location_group_id: string;
-  /**
-   * Location Group Name
-   */
-  location_group_name: string;
-  /**
-   * Location Id
-   */
-  location_id: string;
-  /**
-   * Longitude
-   */
-  longitude?: number | null;
-  /**
-   * Name
-   */
-  name: string;
-  /**
-   * Note Chain Id
-   */
-  note_chain_id?: string | null;
-  /**
-   * Num Children
-   */
-  num_children?: number;
-  /**
-   * Phone Primary
-   */
-  phone_primary: string;
-  /**
-   * Phone Secondary
-   */
-  phone_secondary?: string | null;
-  /**
-   * Place Id
-   */
-  place_id?: string | null;
-  /**
-   * Total Deliveries
-   */
-  total_deliveries?: number;
-};
-
-/**
- * LocationRead
- *
- * Read response model.
- *
- * `has_future_route` is populated by the service layer (one batched query
- * against route_stops + route_groups), and `status` is derived from it +
- * in_roster. See LocationStatusEnum for the precedence rule.
- */
-export type LocationReadOutput = {
+export type LocationRead = {
   /**
    * Address
    */
@@ -1438,7 +1375,7 @@ export type PaginatedResponseLocationRead = {
   /**
    * Items
    */
-  items: Array<LocationReadOutput>;
+  items: Array<LocationRead>;
   /**
    * Page
    */
@@ -2344,11 +2281,11 @@ export type LocationIngestResponseWritable = {
   /**
    * Archived
    */
-  archived: Array<LocationReadOutputWritable>;
+  archived: Array<LocationReadWritable>;
   /**
    * Created
    */
-  created: Array<LocationReadOutputWritable>;
+  created: Array<LocationReadWritable>;
 };
 
 /**
@@ -2360,7 +2297,7 @@ export type LocationIngestResponseWritable = {
  * against route_stops + route_groups), and `status` is derived from it +
  * in_roster. See LocationStatusEnum for the precedence rule.
  */
-export type LocationReadOutputWritable = {
+export type LocationReadWritable = {
   /**
    * Address
    */
@@ -2454,7 +2391,7 @@ export type PaginatedResponseLocationReadWritable = {
   /**
    * Items
    */
-  items: Array<LocationReadOutputWritable>;
+  items: Array<LocationReadWritable>;
   /**
    * Page
    */
@@ -3506,7 +3443,7 @@ export type CreateLocationResponses = {
   /**
    * Successful Response
    */
-  201: LocationReadOutput;
+  201: LocationRead;
 };
 
 export type CreateLocationResponse =
@@ -3623,7 +3560,7 @@ export type GetLocationResponses = {
   /**
    * Successful Response
    */
-  200: LocationReadOutput;
+  200: LocationRead;
 };
 
 export type GetLocationResponse =
@@ -3655,7 +3592,7 @@ export type UpdateLocationResponses = {
   /**
    * Successful Response
    */
-  200: LocationReadOutput;
+  200: LocationRead;
 };
 
 export type UpdateLocationResponse =
