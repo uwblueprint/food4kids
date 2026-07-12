@@ -1771,6 +1771,7 @@ class TestLocationImportRoutes:
     ) -> None:
         from sqlmodel import select
 
+        from app.models.note import Note
         from app.models.note_chain import NoteChain
 
         review_maps = FakeGoogleMapsClient()
@@ -1779,6 +1780,12 @@ class TestLocationImportRoutes:
         )
         note_chain = NoteChain()
         test_session.add(note_chain)
+        await test_session.flush()
+        existing_note = Note(
+            note_chain_id=note_chain.note_chain_id,
+            message="keep this note history",
+        )
+        test_session.add(existing_note)
         address_change = Location(
             location_group_id=test_location_group.location_group_id,
             name="Address Change Family",
@@ -1787,7 +1794,6 @@ class TestLocationImportRoutes:
             phone_primary="+14164164169",
             num_children=2,
             delivery_type="Family",
-            notes="keep these notes",
             note_chain_id=note_chain.note_chain_id,
         )
         phone_change = Location(
@@ -1890,8 +1896,10 @@ class TestLocationImportRoutes:
         )
         assert replacement.in_roster is True
         assert replacement.note_chain_id == note_chain.note_chain_id
-        assert replacement.notes == "keep these notes"
         assert replacement.address == "Formatted New Address"
+        retained_note = await test_session.get(Note, existing_note.note_id)
+        assert retained_note is not None
+        assert retained_note.note_chain_id == replacement.note_chain_id
 
     @pytest.mark.asyncio
     async def test_ingest_locations_rejects_duplicate_changed_location_ids(

@@ -1122,7 +1122,6 @@ class LocationService:
                             or 0,
                             delivery_type=request.delivery_type,
                             in_roster=True,
-                            notes=location.notes,
                             note_chain_id=note_chain_id,
                             location_group_id=group_by_name[
                                 delivery_group
