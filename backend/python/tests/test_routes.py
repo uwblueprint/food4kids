@@ -940,13 +940,13 @@ class TestLocationRoutes:
         location_id = create_response.json()["location_id"]
 
         # Update the location
-        update_data = {"notes": "Updated notes"}
+        update_data = {"dietary_restrictions": "No shellfish"}
         response = await async_client.patch(
             f"/locations/{location_id}", json=update_data
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["notes"] == "Updated notes"
+        assert data["dietary_restrictions"] == "No shellfish"
 
     @pytest.mark.asyncio
     async def test_update_location_rejects_unknown_delivery_type(
@@ -1746,7 +1746,6 @@ class TestRouteRoutes:
                 contact_name=loc.contact_name,
                 phone_primary=loc.phone_primary,
                 num_children=8,
-                notes=loc.notes,
                 latitude=loc.latitude or 0.0,
                 longitude=loc.longitude or 0.0,
             )

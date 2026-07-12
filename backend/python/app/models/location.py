@@ -43,7 +43,6 @@ class LocationBase(SQLModel):
     # is derived from this plus whether the location appears in a present/
     # future route — see LocationRead.status.
     in_roster: bool = Field(default=True)
-    notes: str = Field(default="")
     # One-to-one: a note chain belongs to at most one location, enforced by a
     # DB-level unique constraint (NULLs are distinct in Postgres, so locations
     # without a chain are unconstrained).
@@ -248,7 +247,6 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
     in_roster: bool | None = None
-    notes: str | None = None
     note_chain_id: UUID | None = None
 
 

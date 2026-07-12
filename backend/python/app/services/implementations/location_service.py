@@ -714,7 +714,6 @@ class LocationService:
             num_children=location_data.num_children,
             delivery_type=location_data.delivery_type,
             in_roster=location_data.in_roster,
-            notes=location_data.notes,
         )
 
     async def ingest_locations(
