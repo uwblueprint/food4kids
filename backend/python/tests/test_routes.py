@@ -1493,11 +1493,14 @@ class TestLocationImportRoutes:
         assert response.status_code == 200
         body = response.json()
         assert body["success"] is False
-        assert [group["rows"] for group in body["duplicate_groups"]] == [
-            [1, 2],
-            [3, 4],
-            [5, 6],
-            [7, 8],
+        assert body["duplicate_groups"] == [
+            {"rows": [1, 2], "matching_fields": ["address", "contact_name"]},
+            {"rows": [3, 4], "matching_fields": ["contact_name", "phone_primary"]},
+            {"rows": [5, 6], "matching_fields": ["address", "phone_primary"]},
+            {
+                "rows": [7, 8],
+                "matching_fields": ["address", "contact_name", "phone_primary"],
+            },
         ]
         duplicate_rows = {
             row["row"] for row in body["rows"] if "LOCAL_DUPLICATE" in row["alerts"]

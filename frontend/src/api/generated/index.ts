@@ -186,6 +186,7 @@ export type {
   DriverRegisterResponseWritable,
   DriverUpdate,
   DuplicateGroup,
+  DuplicateMatchField,
   EmailReminder,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,

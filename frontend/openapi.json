@@ -11,10 +11,7 @@
           "MISSING_NAME",
           "INVALID_NAME",
           "MISSING_DELIVERY_GROUP",
-          "LOCAL_DUPLICATE",
-          "MISSING_FIELDS",
-          "INVALID_FORMAT",
-          "PARTIAL_DUPLICATE"
+          "LOCAL_DUPLICATE"
         ],
         "title": "AlertCode",
         "type": "string"
@@ -931,6 +928,13 @@
       "DuplicateGroup": {
         "description": "Rows that refer to the same imported location under the 2-of-3 rule.",
         "properties": {
+          "matching_fields": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateMatchField"
+            },
+            "title": "Matching Fields",
+            "type": "array"
+          },
           "rows": {
             "items": {
               "type": "integer"
@@ -940,10 +944,21 @@
           }
         },
         "required": [
-          "rows"
+          "rows",
+          "matching_fields"
         ],
         "title": "DuplicateGroup",
         "type": "object"
+      },
+      "DuplicateMatchField": {
+        "description": "Import fields that can participate in the 2-of-3 duplicate rule.",
+        "enum": [
+          "contact_name",
+          "address",
+          "phone_primary"
+        ],
+        "title": "DuplicateMatchField",
+        "type": "string"
       },
       "EmailReminder": {
         "description": "A single reminder email configuration.\n\nEach reminder fires ``days_before`` days ahead of a route's drive date, at its\nown ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a\nsame-day reminder at 11 AM.",
@@ -1409,7 +1424,7 @@
         "type": "object"
       },
       "LocationImportResponse": {
-        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers\n(1-based, matching LocationImportRow.row) for each within-file duplicate\ncluster. net_new/stale/changed describe how the import would affect the\nexisting locations table; these are placeholders until the matching logic\nis implemented.",
+        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers and\nmatching fields for each within-file duplicate cluster. net_new/stale/changed\ndescribe how the import would affect the existing locations table.",
         "properties": {
           "changed": {
             "default": [],

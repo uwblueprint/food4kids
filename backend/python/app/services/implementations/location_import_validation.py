@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TypeGuard
 
-from app.models.location import AlertCode, LocationImportEntry
+from app.models.location import AlertCode, DuplicateMatchField, LocationImportEntry
 from app.utilities.utils import validate_phone
 
 
@@ -95,29 +95,37 @@ def _phone_match_key(phone: str | None) -> str | None:
     return phone.strip()
 
 
-def count_duplicate_field_matches(
+def duplicate_matching_fields(
     left: LocationImportEntry,
     right: LocationImportEntry,
-) -> int:
-    """Count how many of {name, address, phone} match between two rows (2-of-3 rule)."""
-    matches = 0
+) -> list[DuplicateMatchField]:
+    """Return fields that match between two rows for the 2-of-3 duplicate rule."""
+    matches: list[DuplicateMatchField] = []
 
     left_name = _name_match_key(left.contact_name)
     right_name = _name_match_key(right.contact_name)
     if left_name and right_name and left_name == right_name:
-        matches += 1
+        matches.append(DuplicateMatchField.NAME)
 
     left_address = _address_match_key(left.address)
     right_address = _address_match_key(right.address)
     if left_address and right_address and left_address == right_address:
-        matches += 1
+        matches.append(DuplicateMatchField.ADDRESS)
 
     left_phone_key = _phone_match_key(left.phone_primary)
     right_phone_key = _phone_match_key(right.phone_primary)
     if left_phone_key and right_phone_key and left_phone_key == right_phone_key:
-        matches += 1
+        matches.append(DuplicateMatchField.PHONE)
 
     return matches
+
+
+def count_duplicate_field_matches(
+    left: LocationImportEntry,
+    right: LocationImportEntry,
+) -> int:
+    """Count how many of {name, address, phone} match between two rows."""
+    return len(duplicate_matching_fields(left, right))
 
 
 def rows_are_duplicates(

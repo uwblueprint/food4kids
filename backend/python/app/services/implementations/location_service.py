@@ -50,6 +50,7 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
+    duplicate_matching_fields,
     find_duplicate_index_groups,
     is_blank,
     present_str,
@@ -603,10 +604,24 @@ class LocationService:
                     LocationImportRow(row=row_num, location=entry, alerts=alerts)
                 )
 
-            duplicate_groups = [
-                DuplicateGroup(rows=[parsed_rows[i][0] for i in group])
-                for group in duplicate_index_groups
-            ]
+            duplicate_groups = []
+            for group in duplicate_index_groups:
+                matching_fields = {
+                    field
+                    for left_position, left_index in enumerate(group)
+                    for right_index in group[left_position + 1 :]
+                    for field in duplicate_matching_fields(
+                        entries[left_index], entries[right_index]
+                    )
+                }
+                duplicate_groups.append(
+                    DuplicateGroup(
+                        rows=[parsed_rows[i][0] for i in group],
+                        matching_fields=sorted(
+                            matching_fields, key=lambda field: field.value
+                        ),
+                    )
+                )
             valid_rows = [
                 (row.row, ValidatedLocationImportEntry.model_validate(row.location))
                 for row in rows

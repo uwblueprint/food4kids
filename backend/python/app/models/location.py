@@ -88,11 +88,14 @@ class AlertCode(str, Enum):
     INVALID_NAME = "INVALID_NAME"
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
     LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
-    # Deprecated import alert codes kept for old clients that may still decode
-    # historical responses; new validation emits the specific codes above.
-    MISSING_FIELDS = "MISSING_FIELDS"
-    INVALID_FORMAT = "INVALID_FORMAT"
-    PARTIAL_DUPLICATE = "PARTIAL_DUPLICATE"
+
+
+class DuplicateMatchField(str, Enum):
+    """Import fields that can participate in the 2-of-3 duplicate rule."""
+
+    NAME = "contact_name"
+    ADDRESS = "address"
+    PHONE = "phone_primary"
 
 
 class LocationImportEntry(SQLModel):
@@ -133,6 +136,7 @@ class DuplicateGroup(SQLModel):
     """Rows that refer to the same imported location under the 2-of-3 rule."""
 
     rows: list[int]
+    matching_fields: list[DuplicateMatchField]
 
 
 class NetNewEntry(SQLModel):
@@ -194,11 +198,9 @@ class ChangedEntry(SQLModel):
 class LocationImportResponse(SQLModel):
     """Combined validate + review-changes payload.
 
-    success=False when any row has alerts. duplicate_groups lists row numbers
-    (1-based, matching LocationImportRow.row) for each within-file duplicate
-    cluster. net_new/stale/changed describe how the import would affect the
-    existing locations table; these are placeholders until the matching logic
-    is implemented.
+    success=False when any row has alerts. duplicate_groups lists row numbers and
+    matching fields for each within-file duplicate cluster. net_new/stale/changed
+    describe how the import would affect the existing locations table.
     """
 
     success: bool

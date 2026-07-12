@@ -17,10 +17,7 @@ export type AlertCode =
   | 'MISSING_NAME'
   | 'INVALID_NAME'
   | 'MISSING_DELIVERY_GROUP'
-  | 'LOCAL_DUPLICATE'
-  | 'MISSING_FIELDS'
-  | 'INVALID_FORMAT'
-  | 'PARTIAL_DUPLICATE';
+  | 'LOCAL_DUPLICATE';
 
 /**
  * AnnouncementCreate
@@ -567,10 +564,21 @@ export type DriverUpdate = {
  */
 export type DuplicateGroup = {
   /**
+   * Matching Fields
+   */
+  matching_fields: Array<DuplicateMatchField>;
+  /**
    * Rows
    */
   rows: Array<number>;
 };
+
+/**
+ * DuplicateMatchField
+ *
+ * Import fields that can participate in the 2-of-3 duplicate rule.
+ */
+export type DuplicateMatchField = 'contact_name' | 'address' | 'phone_primary';
 
 /**
  * EmailReminder
@@ -848,11 +856,9 @@ export type LocationImportEntry = {
  *
  * Combined validate + review-changes payload.
  *
- * success=False when any row has alerts. duplicate_groups lists row numbers
- * (1-based, matching LocationImportRow.row) for each within-file duplicate
- * cluster. net_new/stale/changed describe how the import would affect the
- * existing locations table; these are placeholders until the matching logic
- * is implemented.
+ * success=False when any row has alerts. duplicate_groups lists row numbers and
+ * matching fields for each within-file duplicate cluster. net_new/stale/changed
+ * describe how the import would affect the existing locations table.
  */
 export type LocationImportResponse = {
   /**
