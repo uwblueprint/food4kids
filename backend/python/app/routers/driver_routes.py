@@ -267,14 +267,13 @@ async def delete_driver(
     _auth: bool = Depends(require_admin),
 ) -> None:
     """
-    Deactivate (soft-delete) a driver by ID.
+    Delete a driver by ID.
 
-    The driver row is kept — mileage history is derived from their routes,
-    so attribution must stay resolvable. The driver is excluded from
-    assignment suggestions.
+    Their routes and mileage adjustments are detached (driver_id SET NULL),
+    so the driver's km stop counting toward anyone.
     """
     try:
-        await driver_service.deactivate_driver_by_id(session, driver_id)
+        await driver_service.delete_driver_by_id(session, driver_id)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

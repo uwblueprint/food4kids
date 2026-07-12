@@ -423,20 +423,23 @@ async def test_yearly_totals_sum_all_months(
 
 
 # ---------------------------------------------------------------------------
-# Driver soft-delete
+# Driver delete
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_driver_delete_endpoint_deactivates_and_keeps_km(
+async def test_driver_delete_endpoint_detaches_routes_and_km(
     async_client: Any, test_session: AsyncSession, frozen_world: dict[str, Any]
 ) -> None:
+    """Deleting a driver removes the row; their frozen routes survive but
+    become unattributed (driver_id SET NULL), so the km stop counting."""
     a = frozen_world["driver_a"]
+    frozen_route = frozen_world["route"]
 
     resp = await async_client.delete(f"/drivers/{a.driver_id}")
     assert resp.status_code == 204
 
-    survivor = (
+    gone = (
         (
             await test_session.execute(
                 select(Driver).where(Driver.driver_id == a.driver_id)
@@ -445,10 +448,11 @@ async def test_driver_delete_endpoint_deactivates_and_keeps_km(
         .scalars()
         .first()
     )
-    assert survivor is not None
-    assert survivor.active is False
-    # Their history is intact: the routes still point at them.
-    assert await _lifetime(test_session, a.driver_id) == pytest.approx(FROZEN_KM)
+    assert gone is None
+    # The route itself survives, unassigned.
+    await test_session.refresh(frozen_route)
+    assert frozen_route.driver_id is None
+    assert await _lifetime(test_session, a.driver_id) == pytest.approx(0.0)
 
 
 @pytest.mark.asyncio

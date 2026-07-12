@@ -166,16 +166,12 @@ class DriverService:
             self.logger.error(f"Failed to update driver: {e!s}")
             raise e
 
-    async def deactivate_driver_by_id(
-        self, session: AsyncSession, driver_id: UUID
-    ) -> None:
-        """Deactivate (soft-delete) a driver.
+    async def delete_driver_by_id(self, session: AsyncSession, driver_id: UUID) -> None:
+        """Delete a driver.
 
-        Drivers are never hard-deleted: mileage history is derived from
-        their routes, so the driver row (and User name) must survive for
-        historical attribution to stay resolvable. Deactivated drivers are
-        excluded from assignment suggestions (which filter on Driver.active)
-        but remain visible in history.
+        Their routes and mileage adjustments are detached (driver_id SET
+        NULL), so the driver's km stop counting toward anyone — deleting a
+        driver means their history is no longer needed.
         """
         try:
             statement = select(Driver).where(Driver.driver_id == driver_id)
@@ -185,11 +181,11 @@ class DriverService:
             if not driver:
                 raise ValueError(f"Driver with id {driver_id} not found")
 
-            driver.active = False
+            await session.delete(driver)
             await session.commit()
 
         except Exception as e:
-            self.logger.error(f"Failed to deactivate driver: {e!s}")
+            self.logger.error(f"Failed to delete driver: {e!s}")
             await session.rollback()
             raise e
 

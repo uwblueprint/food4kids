@@ -237,16 +237,13 @@ class TestDriverRoutes:
     async def test_delete_driver(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """DELETE /drivers/{driver_id} soft-deletes: the driver is
-        deactivated but the row survives (mileage history derives from their
-        routes, so attribution must stay resolvable)."""
+        """DELETE /drivers/{driver_id} removes the driver; their routes are
+        detached (driver_id SET NULL) rather than deleted."""
         response = await async_client.delete(f"/drivers/{test_driver.driver_id}")
         assert response.status_code == 204
 
-        # The driver still exists — deactivated, not destroyed.
         get_response = await async_client.get(f"/drivers/{test_driver.driver_id}")
-        assert get_response.status_code == 200
-        assert get_response.json()["active"] is False
+        assert get_response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_driver_by_email(
