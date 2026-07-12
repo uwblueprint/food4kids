@@ -267,9 +267,19 @@ async def delete_driver(
     _auth: bool = Depends(require_admin),
 ) -> None:
     """
-    Delete a driver by ID
+    Deactivate (soft-delete) a driver by ID.
+
+    The driver row is kept — mileage history is derived from their routes,
+    so attribution must stay resolvable. The driver is excluded from
+    assignment suggestions.
     """
-    await driver_service.delete_driver_by_id(session, driver_id)
+    try:
+        await driver_service.deactivate_driver_by_id(session, driver_id)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
 
 
 @router.post("/test-event-email")

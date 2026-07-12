@@ -3,7 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
-from datetime import time
+from datetime import date, time
 from uuid import uuid4
 
 import pytest
@@ -23,9 +23,9 @@ from app.models.driver import (
     DriverUpdate,
 )
 from app.models.driver_history import (
-    DriverHistory,
     DriverHistoryRead,
-    DriverHistoryUpdate,
+    DriverMileageAdjustment,
+    DriverMileageAdjustmentCreate,
 )
 from app.models.enum import (
     NotePermission,
@@ -167,43 +167,23 @@ class TestCoreBusinessValidation:
             )
         assert "password" in str(exc_info.value)
 
-    def test_year_validation_business_rule(self) -> None:
-        """Test year (2025-2100) and month (1-12) validation for DriverHistory."""
-        # Test valid years and months (boundaries)
-        valid_years = [2025, 2030, 2100]
-        valid_months = [1, 6, 12]
+    def test_adjustment_note_business_rule(self) -> None:
+        """Manual mileage adjustments require a non-empty note; signed km is
+        allowed (negative = remove over-credited distance)."""
+        adjustment = DriverMileageAdjustmentCreate(
+            drive_date=date(2026, 6, 15),
+            km=-12.5,
+            note="Odometer correction",
+        )
+        assert adjustment.km == -12.5
 
-        for year in valid_years:
-            for month in valid_months:
-                history = DriverHistory(
-                    driver_id=uuid4(), year=year, month=month, km=1000.0
-                )
-                assert history.year == year
-                assert history.month == month
-
-        # Test invalid years
-        invalid_years = [2024, 2101, 2000]
-        for year in invalid_years:
-            with pytest.raises(ValidationError) as exc_info:
-                DriverHistory(
-                    driver_id=uuid4(),
-                    year=year,
-                    month=1,
-                    km=1000.0,
-                )
-            assert "year" in str(exc_info.value)
-
-        # Test invalid months
-        invalid_months = [0, 13, -1]
-        for month in invalid_months:
-            with pytest.raises(ValidationError) as exc_info:
-                DriverHistory(
-                    driver_id=uuid4(),
-                    year=2025,
-                    month=month,
-                    km=1000.0,
-                )
-            assert "month" in str(exc_info.value)
+        with pytest.raises(ValidationError) as exc_info:
+            DriverMileageAdjustmentCreate(
+                drive_date=date(2026, 6, 15),
+                km=5.0,
+                note="",  # Empty note not allowed
+            )
+        assert "note" in str(exc_info.value)
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
@@ -472,29 +452,38 @@ class TestCoreModels:
         assert route_group_read.route_group_id is not None
 
     def test_driver_history_core_operations(self) -> None:
-        """Test DriverHistory model core operations."""
+        """Test the mileage adjustment model + derived monthly read model."""
         from uuid import uuid4
 
-        # Create
-        history = DriverHistory(driver_id=uuid4(), year=2025, km=1500.5, month=12)
-        assert history.year == 2025
-        assert history.km == 1500.5
-        assert history.month == 12
-        assert history.created_at is not None
+        # Create an adjustment (the only stored mileage rows; route km is
+        # derived from frozen routes at read time)
+        adjustment = DriverMileageAdjustment(
+            driver_id=uuid4(),
+            drive_date=date(2025, 12, 3),
+            km=15.5,
+            note="backfill",
+        )
+        assert adjustment.drive_date == date(2025, 12, 3)
+        assert adjustment.km == 15.5
+        assert adjustment.created_at is not None
 
-        # Read
+        # Signed entries: negative km = downward correction
+        reversal = DriverMileageAdjustment(
+            driver_id=uuid4(),
+            drive_date=date(2025, 12, 3),
+            km=-15.5,
+            note="over-credited",
+        )
+        assert reversal.km == -15.5
+
+        # Monthly aggregate read model (computed, never stored)
         history_read = DriverHistoryRead(
-            driver_history_id=1,
             driver_id=uuid4(),
             year=2027,
             month=1,
             km=2200.0,
         )
-        assert history_read.driver_history_id == 1
-
-        # Update
-        history_update = DriverHistoryUpdate(km=2500.0)
-        assert history_update.km == 2500.0
+        assert history_read.km == 2200.0
 
     def test_job_core_operations(self) -> None:
         """Test Job model core operations."""

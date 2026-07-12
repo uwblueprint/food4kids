@@ -77,6 +77,13 @@ class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
 
 
+class LocationInUseError(Exception):
+    """Raised when deleting a location that route stops still reference.
+
+    Mapped to 409 by the router — deleting would otherwise fail at the FK
+    (route_stops.location_id has no ON DELETE action) with a raw 500."""
+
+
 class LocationService:
     """Service for managing delivery locations with geocoding support"""
 
@@ -460,7 +467,14 @@ class LocationService:
     async def delete_location_by_id(
         self, session: AsyncSession, location_id: UUID
     ) -> None:
-        """Delete location by ID"""
+        """Delete location by ID.
+
+        A location referenced by any route stop (past or future) cannot be
+        hard-deleted — the FK would reject it anyway; this surfaces a clean
+        LocationInUseError (409) with the referencing routes instead of a
+        raw IntegrityError 500. Use in_roster=False to retire a location
+        that has delivery history.
+        """
         try:
             statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
@@ -468,6 +482,30 @@ class LocationService:
 
             if not location:
                 raise ValueError(f"Location with id {location_id} not found")
+
+            referencing = await session.execute(
+                select(Route.name, RouteGroup.drive_date)
+                .select_from(RouteStop)
+                .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                .join(
+                    RouteGroup,
+                    RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                )
+                .where(RouteStop.location_id == location_id)
+                .order_by(col(RouteGroup.drive_date))
+            )
+            references = referencing.all()
+            if references:
+                routes_desc = ", ".join(
+                    f"'{name}' ({drive_date.date()})"
+                    for name, drive_date in references[:5]
+                )
+                more = f" and {len(references) - 5} more" if len(references) > 5 else ""
+                raise LocationInUseError(
+                    f"Location is used by {len(references)} route(s): "
+                    f"{routes_desc}{more}. Set in_roster to false to retire "
+                    f"it instead of deleting."
+                )
 
             await session.delete(location)
             await session.commit()

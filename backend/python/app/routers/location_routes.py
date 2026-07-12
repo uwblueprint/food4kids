@@ -28,6 +28,7 @@ from app.models.location import (
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
+    LocationInUseError,
     LocationService,
 )
 
@@ -189,6 +190,11 @@ async def delete_location(
     """
     try:
         await location_service.delete_location_by_id(session, location_id)
+    except LocationInUseError as le:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(le),
+        ) from le
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

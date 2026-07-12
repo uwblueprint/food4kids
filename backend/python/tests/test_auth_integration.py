@@ -110,9 +110,10 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("POST", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("PATCH", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("DELETE", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
+    ("GET", "/drivers/{driver_id}/history/adjustments"): Policy.SELF_DRIVER_OR_ADMIN,
+    # Mileage corrections are admin-only — drivers can no longer edit their
+    # own km (route-derived km follows assignment; adjustments are appends).
+    ("POST", "/drivers/{driver_id}/history/adjustments"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}/history/summary"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/{year}/export"): Policy.ADMIN_ONLY,
     # Two-step registration (#117): an admin creates the invite/initial user;

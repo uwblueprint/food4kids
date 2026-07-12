@@ -1,23 +1,37 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import extract, func, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.config import settings
 from app.models.driver import Driver
 from app.models.driver_history import (
     MAX_YEAR,
     MIN_YEAR,
-    DriverHistory,
+    DriverHistoryRead,
     DriverHistorySummary,
+    DriverMileageAdjustment,
 )
+from app.models.route import Route
+from app.models.route_group import RouteGroup
+from app.models.route_snapshot import RouteSnapshot
 
 
 class DriverHistoryService:
-    """Driver history service"""
+    """Driver mileage service.
+
+    Mileage is DERIVED, never stored: a driver's km is the sum of
+    Route.length over their frozen routes (routes with a RouteSnapshot),
+    bucketed by the route group's drive_date month, plus signed manual
+    adjustments. Reassigning a route, correcting its stops/length, or
+    fixing a group's date therefore updates history automatically — there
+    is no stored total to drift out of sync.
+    """
 
     def __init__(self, logger: logging.Logger) -> None:
         """Initialize service"""
@@ -27,202 +41,167 @@ class DriverHistoryService:
     def validate_year(self, year: int) -> bool:
         return isinstance(year, int) and MIN_YEAR <= year <= MAX_YEAR
 
-    def validate_year_and_month(self, year: int, month: int | None) -> bool:
-        return self.validate_year(year) and (not month or 1 <= month <= 12)
-
     async def driver_exists(self, session: AsyncSession, driver_id: UUID) -> bool:
         statement = select(Driver.driver_id).where(Driver.driver_id == driver_id)
         result = await session.execute(statement)
         return result.scalar_one_or_none() is not None
 
-    async def get_all_driver_histories(
-        self, session: AsyncSession
-    ) -> list[DriverHistory]:
-        """Get all driver histories"""
-        try:
-            statement = select(DriverHistory)
-            result = await session.execute(statement)
-            return list(result.scalars().all())
-        except Exception as e:
-            self.logger.error(f"Failed to get driver histories: {e!s}")
-            raise e
-
-    async def get_driver_history_by_id_year_and_month(
-        self, session: AsyncSession, driver_id: UUID, year: int, month: int
-    ) -> DriverHistory | None:
-        statement = select(DriverHistory).where(
-            DriverHistory.driver_id == driver_id,
-            DriverHistory.year == year,
-            DriverHistory.month == month,
-        )
-
-        result = await session.execute(statement)
-        return result.scalars().first()
-
-    async def get_driver_history_by_id_and_year(
-        self, session: AsyncSession, driver_id: UUID, year: int
-    ) -> list[DriverHistory]:
-        statement = (
-            select(DriverHistory)
-            .where(
-                DriverHistory.driver_id == driver_id,
-                DriverHistory.year == year,
+    @staticmethod
+    def _mileage_events(driver_id: UUID | None = None):  # type: ignore[no-untyped-def]
+        """UNION ALL of the two mileage sources as (driver_id, year, month,
+        km) rows: frozen-route lengths and manual adjustments. Optionally
+        scoped to one driver."""
+        frozen_routes: Any = (
+            select(
+                col(Route.driver_id).label("driver_id"),
+                extract("year", col(RouteGroup.drive_date)).label("year"),
+                extract("month", col(RouteGroup.drive_date)).label("month"),
+                col(Route.length).label("km"),
             )
-            .order_by(DriverHistory.month)  # type: ignore[arg-type]
+            .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+            .where(col(Route.driver_id).isnot(None))
         )
+        adjustments: Any = select(
+            col(DriverMileageAdjustment.driver_id).label("driver_id"),
+            extract("year", col(DriverMileageAdjustment.drive_date)).label("year"),
+            extract("month", col(DriverMileageAdjustment.drive_date)).label("month"),
+            col(DriverMileageAdjustment.km).label("km"),
+        ).where(col(DriverMileageAdjustment.driver_id).isnot(None))
 
-        result = await session.execute(statement)
-        return list(result.scalars().all())
+        if driver_id is not None:
+            frozen_routes = frozen_routes.where(Route.driver_id == driver_id)
+            adjustments = adjustments.where(
+                DriverMileageAdjustment.driver_id == driver_id
+            )
 
-    async def get_driver_history_by_id(
-        self, session: AsyncSession, driver_id: UUID
-    ) -> list[DriverHistory]:
-        statement = (
-            select(DriverHistory)
-            .where(DriverHistory.driver_id == driver_id)
-            .order_by(DriverHistory.year, DriverHistory.month)  # type: ignore[arg-type]
-        )
+        return union_all(frozen_routes, adjustments).subquery("mileage_events")
 
-        result = await session.execute(statement)
-        return list(result.scalars().all())
-
-    async def create_driver_history(
+    async def get_monthly_totals(
         self,
         session: AsyncSession,
         driver_id: UUID,
-        year: int,
-        month: int,
-        km: float,
-    ) -> DriverHistory:
-        """
-        Create a new monthly driver history record.
-        Enforces:
-        - driver must exist
-        - unique (driver_id, year, month)
-        """
+        year: int | None = None,
+        month: int | None = None,
+    ) -> list[DriverHistoryRead]:
+        """Monthly km totals for a driver, optionally narrowed to a year or
+        a single month."""
         try:
-            driver_history = DriverHistory(
-                driver_id=driver_id,
-                year=year,
-                month=month,
-                km=km,
-            )
-
-            session.add(driver_history)
-            await session.commit()
-            await session.refresh(driver_history)
-
-            return driver_history
-
-        except Exception as e:
-            self.logger.error(f"Failed to create driver history: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def update_driver_history(
-        self,
-        session: AsyncSession,
-        driver_id: UUID,
-        year: int,
-        month: int,
-        km: float,
-    ) -> DriverHistory:
-        """
-        Update an existing monthly driver history record.
-        """
-        try:
-            existing_history = await self.get_driver_history_by_id_year_and_month(
-                session, driver_id, year, month
-            )
-
-            if existing_history is None:
-                raise ValueError(
-                    f"Driver history for driver {driver_id}, year {year}, month {month} not found"
+            events = self._mileage_events(driver_id)
+            statement = (
+                select(
+                    events.c.year,
+                    events.c.month,
+                    func.sum(events.c.km).label("km"),
                 )
-
-            existing_history.km = km
-            existing_history.updated_at = datetime.now()
-
-            await session.commit()
-            await session.refresh(existing_history)
-
-            return existing_history
-
-        except Exception as e:
-            self.logger.error(f"Failed to update driver history: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def delete_driver_history(
-        self, session: AsyncSession, driver_id: UUID, year: int, month: int
-    ) -> None:
-        """
-        Delete a monthly driver history record.
-        """
-        try:
-            statement = select(DriverHistory).where(
-                DriverHistory.driver_id == driver_id,
-                DriverHistory.year == year,
-                DriverHistory.month == month,
+                .group_by(events.c.year, events.c.month)
+                .order_by(events.c.year, events.c.month)
             )
+            if year is not None:
+                statement = statement.where(events.c.year == year)
+            if month is not None:
+                statement = statement.where(events.c.month == month)
+
             result = await session.execute(statement)
-            driver_history = result.scalars().first()
-
-            if driver_history is None:
-                raise ValueError(
-                    f"Driver history for driver {driver_id}, year {year}, month {month} not found"
+            return [
+                DriverHistoryRead(
+                    driver_id=driver_id,
+                    year=int(row.year),
+                    month=int(row.month),
+                    km=float(row.km),
                 )
-
-            await session.delete(driver_history)
-            await session.commit()
-
+                for row in result.all()
+            ]
         except Exception as e:
-            self.logger.error(f"Error deleting driver history: {e}")
-            await session.rollback()
+            self.logger.error(f"Failed to get monthly totals: {e!s}")
             raise e
 
-    async def get_driver_history_by_year(
+    async def get_yearly_totals_by_driver(
         self, session: AsyncSession, year: int
-    ) -> list[DriverHistory]:
-        """Get all driver histories by year"""
+    ) -> dict[UUID, float]:
+        """Per-driver km totals for one year (powers the CSV export)."""
         try:
-            statement = select(DriverHistory).where(DriverHistory.year == year)
+            events = self._mileage_events()
+            statement = (
+                select(
+                    events.c.driver_id,
+                    func.sum(events.c.km).label("km"),
+                )
+                .where(events.c.year == year)
+                .group_by(events.c.driver_id)
+            )
             result = await session.execute(statement)
-            driver_history = result.scalars().all()
-
-            return list(driver_history)
+            return {row.driver_id: float(row.km) for row in result.all()}
         except Exception as e:
-            self.logger.error(f"Failed to get driver history by year: {e!s}")
+            self.logger.error(f"Failed to get yearly totals: {e!s}")
             raise e
 
     async def get_driver_history_summary(
         self, session: AsyncSession, driver_id: UUID
     ) -> DriverHistorySummary:
-        """Given a driver's ID, give the total km driven by the driver
-        (across all years, etc.), as well as the kilometers driven by the driver during the current year"""
+        """Total km driven by the driver across all time, plus the current
+        year's km (current year determined in the local timezone)."""
         try:
-            # Get driver's info
-            driver_history = await self.get_driver_history_by_id(session, driver_id)
-
-            # Calculate the current year in the local timezone to determine which year to get data for
             current_year = datetime.now(self.timezone).year
+            monthly = await self.get_monthly_totals(session, driver_id)
 
-            # Var to store total kms driven by driver
-            total_kms = sum([entry.km for entry in driver_history])
-
-            # Var to store total kms driven by the driver in the current year
-            current_year_km = sum(
-                [entry.km for entry in driver_history if current_year == entry.year]
+            return DriverHistorySummary(
+                lifetime_km=sum(m.km for m in monthly),
+                current_year_km=sum(m.km for m in monthly if m.year == current_year),
             )
-
-            driver_history_summary = DriverHistorySummary(
-                lifetime_km=total_kms, current_year_km=current_year_km
-            )
-
-            return driver_history_summary
-
         except Exception as e:
             self.logger.error(
                 f"Failed to get summary of driver's history (i.e. km driven in total and this year): {e}"
             )
+            raise e
+
+    async def create_adjustment(
+        self,
+        session: AsyncSession,
+        driver_id: UUID,
+        drive_date: date,
+        km: float,
+        note: str,
+    ) -> DriverMileageAdjustment:
+        """Post a signed manual mileage adjustment.
+
+        Corrections never overwrite: the driver's total is derived from
+        routes plus the sum of adjustments, so this composes with route
+        credits instead of fighting them.
+        """
+        if km == 0:
+            raise ValueError("Adjustment km must be non-zero")
+        try:
+            adjustment = DriverMileageAdjustment(
+                driver_id=driver_id,
+                drive_date=drive_date,
+                km=km,
+                note=note,
+            )
+            session.add(adjustment)
+            await session.commit()
+            await session.refresh(adjustment)
+            return adjustment
+        except Exception as e:
+            self.logger.error(f"Failed to create mileage adjustment: {e!s}")
+            await session.rollback()
+            raise e
+
+    async def get_adjustments(
+        self, session: AsyncSession, driver_id: UUID
+    ) -> list[DriverMileageAdjustment]:
+        """A driver's manual adjustments, newest first (audit view)."""
+        try:
+            statement = (
+                select(DriverMileageAdjustment)
+                .where(col(DriverMileageAdjustment.driver_id) == driver_id)
+                .order_by(
+                    col(DriverMileageAdjustment.drive_date).desc(),
+                    col(DriverMileageAdjustment.created_at).desc(),
+                )
+            )
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+        except Exception as e:
+            self.logger.error(f"Failed to get mileage adjustments: {e!s}")
             raise e
