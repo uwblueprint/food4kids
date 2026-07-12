@@ -267,9 +267,18 @@ async def delete_driver(
     _auth: bool = Depends(require_admin),
 ) -> None:
     """
-    Delete a driver by ID
+    Delete a driver by ID.
+
+    Their routes and mileage adjustments are detached (driver_id SET NULL),
+    so the driver's km stop counting toward anyone.
     """
-    await driver_service.delete_driver_by_id(session, driver_id)
+    try:
+        await driver_service.delete_driver_by_id(session, driver_id)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
 
 
 @router.post("/test-event-email")

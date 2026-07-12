@@ -19,7 +19,7 @@ from alembic import context
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.driver import Driver
-from app.models.driver_history import DriverHistory
+from app.models.driver_history import DriverMileageAdjustment
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup

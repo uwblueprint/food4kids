@@ -32,7 +32,7 @@ import app.seed_database as seed_module
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.driver import Driver
-from app.models.driver_history import DriverHistory
+from app.models.driver_history import DriverMileageAdjustment
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -120,7 +120,7 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
         ],
     ),
     (RouteGroup, ["name", "drive_date"]),
-    (DriverHistory, ["driver_id", "year", "month", "km"]),
+    (DriverMileageAdjustment, ["driver_id", "drive_date", "km", "note"]),
     (Job, ["route_group_id", "progress", "started_at"]),
     (
         SystemSettings,
@@ -256,12 +256,16 @@ class TestDataValidation:
     async def test_driver_history_years_in_range(
         self, test_session: AsyncSession
     ) -> None:
-        history = (await test_session.execute(select(DriverHistory))).scalars().all()
-        assert history, "No driver history seeded"
+        history = (
+            (await test_session.execute(select(DriverMileageAdjustment)))
+            .scalars()
+            .all()
+        )
+        assert history, "No driver mileage adjustments seeded"
         for entry in history:
-            assert _MIN_HISTORY_YEAR <= entry.year <= _MAX_HISTORY_YEAR, (
-                f"DriverHistory year {entry.year} should be in "
-                f"[{_MIN_HISTORY_YEAR}, {_MAX_HISTORY_YEAR}]"
+            assert _MIN_HISTORY_YEAR <= entry.drive_date.year <= _MAX_HISTORY_YEAR, (
+                f"Adjustment drive_date year {entry.drive_date.year} should be "
+                f"in [{_MIN_HISTORY_YEAR}, {_MAX_HISTORY_YEAR}]"
             )
 
     @pytest.mark.asyncio

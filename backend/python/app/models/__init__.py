@@ -96,7 +96,7 @@ def init_app(_app: Any | None = None) -> None:
     from .admin import Admin  # noqa: F401
     from .announcement import Announcement  # noqa: F401
     from .driver import Driver  # noqa: F401
-    from .driver_history import DriverHistory  # noqa: F401
+    from .driver_history import DriverMileageAdjustment  # noqa: F401
     from .job import Job  # noqa: F401
     from .location import Location  # noqa: F401
     from .location_group import LocationGroup  # noqa: F401

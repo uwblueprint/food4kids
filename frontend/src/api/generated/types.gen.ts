@@ -298,35 +298,12 @@ export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
 export type DriverAssignmentStatusEnum = 'Assigned' | 'Unassigned';
 
 /**
- * DriverHistoryCreate
- *
- * Create request model
- */
-export type DriverHistoryCreate = {
-  /**
-   * Km
-   */
-  km: number;
-  /**
-   * Month
-   */
-  month: number;
-  /**
-   * Year
-   */
-  year: number;
-};
-
-/**
  * DriverHistoryRead
  *
- * Read response model
+ * Monthly km read model: SUM(route.length) over the driver's frozen
+ * routes in that month plus their adjustments. Computed, never stored.
  */
 export type DriverHistoryRead = {
-  /**
-   * Driver History Id
-   */
-  driver_history_id: number;
   /**
    * Driver Id
    */
@@ -362,15 +339,52 @@ export type DriverHistorySummary = {
 };
 
 /**
- * DriverHistoryUpdate
+ * DriverMileageAdjustmentCreate
  *
- * Update request model, all fields are required for now since we are only updating km
+ * Create request model (admin-only). km is a signed delta and a note
+ * explaining the correction is required.
  */
-export type DriverHistoryUpdate = {
+export type DriverMileageAdjustmentCreate = {
+  /**
+   * Drive Date
+   */
+  drive_date: string;
   /**
    * Km
    */
   km: number;
+  /**
+   * Note
+   */
+  note: string;
+};
+
+/**
+ * DriverMileageAdjustmentRead
+ *
+ * Read response model
+ */
+export type DriverMileageAdjustmentRead = {
+  /**
+   * Adjustment Id
+   */
+  adjustment_id: string;
+  /**
+   * Drive Date
+   */
+  drive_date: string;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
+   * Km
+   */
+  km: number;
+  /**
+   * Note
+   */
+  note: string;
 };
 
 /**
@@ -2977,47 +2991,6 @@ export type UpdateDriverResponses = {
 export type UpdateDriverResponse =
   UpdateDriverResponses[keyof UpdateDriverResponses];
 
-export type DeleteDriverHistoryData = {
-  body?: never;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type DeleteDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type DeleteDriverHistoryError =
-  DeleteDriverHistoryErrors[keyof DeleteDriverHistoryErrors];
-
-export type DeleteDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  204: void;
-};
-
-export type DeleteDriverHistoryResponse =
-  DeleteDriverHistoryResponses[keyof DeleteDriverHistoryResponses];
-
 export type GetDriverHistoryData = {
   body?: never;
   path: {
@@ -3061,49 +3034,8 @@ export type GetDriverHistoryResponses = {
 export type GetDriverHistoryResponse =
   GetDriverHistoryResponses[keyof GetDriverHistoryResponses];
 
-export type UpdateDriverHistoryData = {
-  body: DriverHistoryUpdate;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type UpdateDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateDriverHistoryError =
-  UpdateDriverHistoryErrors[keyof UpdateDriverHistoryErrors];
-
-export type UpdateDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  200: DriverHistoryRead;
-};
-
-export type UpdateDriverHistoryResponse =
-  UpdateDriverHistoryResponses[keyof UpdateDriverHistoryResponses];
-
-export type CreateDriverHistoryData = {
-  body: DriverHistoryCreate;
+export type GetDriverMileageAdjustmentsData = {
+  body?: never;
   path: {
     /**
      * Driver Id
@@ -3111,28 +3043,62 @@ export type CreateDriverHistoryData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}/history/';
+  url: '/drivers/{driver_id}/history/adjustments';
 };
 
-export type CreateDriverHistoryErrors = {
+export type GetDriverMileageAdjustmentsErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type CreateDriverHistoryError =
-  CreateDriverHistoryErrors[keyof CreateDriverHistoryErrors];
+export type GetDriverMileageAdjustmentsError =
+  GetDriverMileageAdjustmentsErrors[keyof GetDriverMileageAdjustmentsErrors];
 
-export type CreateDriverHistoryResponses = {
+export type GetDriverMileageAdjustmentsResponses = {
+  /**
+   * Response Get Driver Mileage Adjustments
+   *
+   * Successful Response
+   */
+  200: Array<DriverMileageAdjustmentRead>;
+};
+
+export type GetDriverMileageAdjustmentsResponse =
+  GetDriverMileageAdjustmentsResponses[keyof GetDriverMileageAdjustmentsResponses];
+
+export type CreateDriverMileageAdjustmentData = {
+  body: DriverMileageAdjustmentCreate;
+  path: {
+    /**
+     * Driver Id
+     */
+    driver_id: string;
+  };
+  query?: never;
+  url: '/drivers/{driver_id}/history/adjustments';
+};
+
+export type CreateDriverMileageAdjustmentErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateDriverMileageAdjustmentError =
+  CreateDriverMileageAdjustmentErrors[keyof CreateDriverMileageAdjustmentErrors];
+
+export type CreateDriverMileageAdjustmentResponses = {
   /**
    * Successful Response
    */
-  201: DriverHistoryRead;
+  201: DriverMileageAdjustmentRead;
 };
 
-export type CreateDriverHistoryResponse =
-  CreateDriverHistoryResponses[keyof CreateDriverHistoryResponses];
+export type CreateDriverMileageAdjustmentResponse =
+  CreateDriverMileageAdjustmentResponses[keyof CreateDriverMileageAdjustmentResponses];
 
 export type GetDriverHistorySummaryData = {
   body?: never;

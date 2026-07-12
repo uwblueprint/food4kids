@@ -167,21 +167,26 @@ class DriverService:
             raise e
 
     async def delete_driver_by_id(self, session: AsyncSession, driver_id: UUID) -> None:
-        """Delete driver by ID"""
+        """Delete a driver.
+
+        Their routes and mileage adjustments are detached (driver_id SET
+        NULL), so the driver's km stop counting toward anyone — deleting a
+        driver means their history is no longer needed.
+        """
         try:
             statement = select(Driver).where(Driver.driver_id == driver_id)
             result = await session.execute(statement)
             driver = result.scalars().first()
 
             if not driver:
-                self.logger.error(f"Driver with id {driver_id} not found")
-                return
+                raise ValueError(f"Driver with id {driver_id} not found")
 
             await session.delete(driver)
             await session.commit()
 
         except Exception as e:
             self.logger.error(f"Failed to delete driver: {e!s}")
+            await session.rollback()
             raise e
 
     async def get_auth_id_by_driver_id(

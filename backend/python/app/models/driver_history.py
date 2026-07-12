@@ -1,57 +1,78 @@
-from typing import TYPE_CHECKING  # noqa: F401
-from uuid import UUID
+from datetime import date
+from uuid import UUID, uuid4
 
-from sqlalchemy import UniqueConstraint
-from sqlmodel import Field, Relationship, SQLModel  # noqa: F401
+from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
-
-# if TYPE_CHECKING:
-#     from .driver import Driver
 
 MIN_YEAR = 2025
 MAX_YEAR = 2100
 
 
-class DriverHistoryBase(SQLModel):
-    __table_args__ = (UniqueConstraint("driver_id", "year", "month"),)
+class DriverMileageAdjustmentBase(SQLModel):
+    """Shared fields between table and API models.
 
-    """Shared fields between table and API models"""
+    Driver mileage is DERIVED, not stored: a driver's km for a month is the
+    sum of `Route.length` over their frozen routes (routes with a
+    RouteSnapshot) whose group's drive_date falls in that month, PLUS the
+    signed adjustments in this table. Reassigning or editing a route
+    therefore updates history automatically — there is no stored total to
+    drift out of sync.
 
-    driver_id: UUID = Field(
-        foreign_key="drivers.driver_id", ondelete="CASCADE", index=True
+    Adjustments exist for what routes can't express: manual admin
+    corrections ("Alice actually drove 5 km more") and pre-app history
+    migrated from the old monthly-totals table. Corrections are new signed
+    entries — never edits — and every entry carries a note explaining why.
+    """
+
+    # SET NULL (never CASCADE): corrections are historical facts that must
+    # survive driver-row deletion. Soft-delete (Driver.active) means this
+    # rarely fires in practice.
+    driver_id: UUID | None = Field(
+        default=None,
+        foreign_key="drivers.driver_id",
+        ondelete="SET NULL",
+        nullable=True,
+        index=True,
     )
-    year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
-    month: int = Field(nullable=False, ge=1, le=12)
+    # The delivery date being corrected; monthly buckets follow this.
+    drive_date: date = Field(nullable=False, index=True)
+    # Signed: negative entries remove over-credited distance.
     km: float = Field(nullable=False)
+    note: str = Field(min_length=1, max_length=1000)
 
 
-class DriverHistory(DriverHistoryBase, BaseModel, table=True):
+class DriverMileageAdjustment(DriverMileageAdjustmentBase, BaseModel, table=True):
     """Database table model"""
 
-    __tablename__ = "driver_history"
-    driver_history_id: int | None = Field(default=None, primary_key=True)
-    # driver: "Driver" = Relationship(back_populates="history")
+    __tablename__ = "driver_mileage_adjustments"
+
+    adjustment_id: UUID = Field(default_factory=uuid4, primary_key=True)
 
 
-class DriverHistoryCreate(SQLModel):
-    """Create request model"""
+class DriverMileageAdjustmentCreate(SQLModel):
+    """Create request model (admin-only). km is a signed delta and a note
+    explaining the correction is required."""
 
-    year: int = Field(nullable=False, ge=MIN_YEAR, le=MAX_YEAR)
-    month: int = Field(nullable=False, ge=1, le=12)
-    km: float = Field(nullable=False)
+    drive_date: date
+    km: float
+    note: str = Field(min_length=1, max_length=1000)
 
 
-class DriverHistoryRead(DriverHistoryBase):
+class DriverMileageAdjustmentRead(DriverMileageAdjustmentBase):
     """Read response model"""
 
-    driver_history_id: int
+    adjustment_id: UUID
 
 
-class DriverHistoryUpdate(SQLModel):
-    """Update request model, all fields are required for now since we are only updating km"""
+class DriverHistoryRead(SQLModel):
+    """Monthly km read model: SUM(route.length) over the driver's frozen
+    routes in that month plus their adjustments. Computed, never stored."""
 
-    km: float = Field(nullable=False)
+    driver_id: UUID
+    year: int
+    month: int
+    km: float
 
 
 class DriverHistorySummary(SQLModel):

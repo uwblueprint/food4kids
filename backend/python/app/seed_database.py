@@ -25,7 +25,7 @@ from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
-from app.models.driver_history import DriverHistory
+from app.models.driver_history import DriverMileageAdjustment
 from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
@@ -601,7 +601,7 @@ def main() -> None:
             tables_to_clear = [
                 "notes",
                 "note_chain_reads",
-                "driver_history",
+                "driver_mileage_adjustments",
                 "jobs",
                 "route_stop_snapshots",
                 "route_snapshots",
@@ -1015,8 +1015,11 @@ def main() -> None:
                 f"with {route_notes_created} notes"
             )
 
-            # Create driver history
-            print("Creating driver history...")
+            # Create pre-app-era driver mileage. Recent months are derived
+            # from the frozen routes seeded above; this seeds older mileage
+            # as manual adjustments — the same shape the production
+            # migration's reconciliation produces.
+            print("Creating driver mileage adjustments...")
             history_entries = 0
             current_year = datetime.now().year
             years = [current_year - HISTORY_YEARS_BACK, current_year - 1, current_year]
@@ -1044,10 +1047,9 @@ def main() -> None:
                     months = random.sample(range(1, 13), random.randint(3, 12))
 
                     for month in months:
-                        driver_history = DriverHistory(
+                        adjustment = DriverMileageAdjustment(
                             driver_id=driver_row[0],
-                            year=year,
-                            month=month,
+                            drive_date=date(year, month, random.randint(1, 28)),
                             km=round(
                                 random.uniform(
                                     DRIVER_HISTORY_KM_MIN,
@@ -1055,14 +1057,15 @@ def main() -> None:
                                 ),
                                 2,
                             ),
+                            note="Seeded historical mileage",
                         )
 
-                        set_timestamps(driver_history)
-                        session.add(driver_history)
+                        set_timestamps(adjustment)
+                        session.add(adjustment)
                         history_entries += 1
 
             session.commit()
-            print(f"Created {history_entries} driver history entries")
+            print(f"Created {history_entries} driver mileage adjustments")
 
             # Create jobs (linked to past route groups)
             print("Creating jobs...")
