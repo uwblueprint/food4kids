@@ -4604,7 +4604,7 @@
     },
     "/drivers/{driver_id}": {
       "delete": {
-        "description": "Deactivate (soft-delete) a driver by ID.\n\nThe driver row is kept — mileage history is derived from their routes,\nso attribution must stay resolvable. The driver is excluded from\nassignment suggestions.",
+        "description": "Delete a driver by ID.\n\nTheir routes and mileage adjustments are detached (driver_id SET NULL),\nso the driver's km stop counting toward anyone.",
         "operationId": "delete_driver",
         "parameters": [
           {

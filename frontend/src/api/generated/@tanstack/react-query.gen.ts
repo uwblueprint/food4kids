@@ -709,11 +709,10 @@ export const testEventEmailMutation = (
 /**
  * Delete Driver
  *
- * Deactivate (soft-delete) a driver by ID.
+ * Delete a driver by ID.
  *
- * The driver row is kept — mileage history is derived from their routes,
- * so attribution must stay resolvable. The driver is excluded from
- * assignment suggestions.
+ * Their routes and mileage adjustments are detached (driver_id SET NULL),
+ * so the driver's km stop counting toward anyone.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
