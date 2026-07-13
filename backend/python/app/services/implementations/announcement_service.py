@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
@@ -210,7 +211,11 @@ class AnnouncementService:
     async def mark_announcements_as_read(
         self, session: AsyncSession, user_id: UUID
     ) -> AnnouncementLastRead:
-        """Upsert the user's last_read_at timestamp to now"""
+        """Upsert the user's last_read_at timestamp to now.
+
+        Uses INSERT ... ON CONFLICT so concurrent mark-read requests for the
+        same user cannot race into a unique-constraint IntegrityError.
+        """
         try:
             # Validate user exists
             user_statement = select(User).where(User.user_id == user_id)
@@ -218,23 +223,25 @@ class AnnouncementService:
             if not user_result.scalars().first():
                 raise ValueError(f"User with id {user_id} not found")
 
-            statement = select(AnnouncementLastRead).where(
-                AnnouncementLastRead.user_id == user_id
-            )
-            result = await session.execute(statement)
-            entry = result.scalars().first()
-
             now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+            insert_stmt = pg_insert(AnnouncementLastRead).values(
+                announcement_last_read_id=uuid4(),
+                user_id=user_id,
+                last_read_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            upsert_statement = insert_stmt.on_conflict_do_update(
+                constraint="uq_announcement_last_reads_user",
+                set_={
+                    "last_read_at": insert_stmt.excluded.last_read_at,
+                    "updated_at": insert_stmt.excluded.updated_at,
+                },
+            ).returning(AnnouncementLastRead)
 
-            if entry:
-                entry.last_read_at = now
-                entry.updated_at = now
-            else:
-                entry = AnnouncementLastRead(user_id=user_id, last_read_at=now)
-                session.add(entry)
-
+            result = await session.execute(upsert_statement)
+            entry = result.scalar_one()
             await session.commit()
-            await session.refresh(entry)
             return entry
 
         except Exception as error:

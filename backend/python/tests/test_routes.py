@@ -4534,6 +4534,12 @@ class TestDriverHistoryRoutes:
         assert mark_resp.status_code == 200
         assert mark_resp.json()["user_id"] == user_id
         assert "last_read_at" in mark_resp.json()
+        first_last_read_at = mark_resp.json()["last_read_at"]
+
+        mark_again = await authed_async_client.post("/announcements/mark-read")
+        assert mark_again.status_code == 200
+        assert mark_again.json()["user_id"] == user_id
+        assert mark_again.json()["last_read_at"] >= first_last_read_at
 
         # GET — is_read should be True now
         resp = await authed_async_client.get("/announcements/")

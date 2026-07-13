@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import case, col, func, select, update
 
+from app.models.driver import Driver
 from app.models.enum import NotePermission
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -112,6 +113,11 @@ class NoteChainService:
             await session.execute(
                 update(Route)
                 .where(col(Route.note_chain_id) == note_chain_id)
+                .values(note_chain_id=None)
+            )
+            await session.execute(
+                update(Driver)
+                .where(col(Driver.note_chain_id) == note_chain_id)
                 .values(note_chain_id=None)
             )
 
