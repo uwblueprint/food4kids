@@ -1987,21 +1987,6 @@
         "title": "LoginRequest",
         "type": "object"
       },
-      "MarkReadRequest": {
-        "description": "Request body for marking announcements as read",
-        "properties": {
-          "user_id": {
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "user_id"
-        ],
-        "title": "MarkReadRequest",
-        "type": "object"
-      },
       "MonthlyTotalsResponse": {
         "properties": {
           "month": {
@@ -3894,27 +3879,8 @@
     },
     "/announcements/": {
       "get": {
-        "description": "Retrieve all announcements. If user_id is provided, includes is_read status.",
+        "description": "Retrieve all announcements with is_read status for the authenticated user.",
         "operationId": "get_announcements",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "user_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "format": "uuid",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "User Id"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -3929,16 +3895,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "security": [
@@ -3999,18 +3955,8 @@
     },
     "/announcements/mark-read": {
       "post": {
-        "description": "Mark all announcements as read for the given user",
+        "description": "Mark all announcements as read for the authenticated user.",
         "operationId": "mark_announcements_as_read",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MarkReadRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
@@ -4021,16 +3967,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "security": [

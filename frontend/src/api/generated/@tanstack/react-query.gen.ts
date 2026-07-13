@@ -142,7 +142,6 @@ import type {
   GetAnnouncementError,
   GetAnnouncementResponse,
   GetAnnouncementsData,
-  GetAnnouncementsError,
   GetAnnouncementsResponse,
   GetDriverData,
   GetDriverError,
@@ -221,7 +220,6 @@ import type {
   LogoutError,
   LogoutResponse,
   MarkAnnouncementsAsReadData,
-  MarkAnnouncementsAsReadError,
   MarkAnnouncementsAsReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
@@ -348,14 +346,14 @@ export const getAnnouncementsQueryKey = (
 /**
  * Get Announcements
  *
- * Retrieve all announcements. If user_id is provided, includes is_read status.
+ * Retrieve all announcements with is_read status for the authenticated user.
  */
 export const getAnnouncementsOptions = (
   options?: Options<GetAnnouncementsData>
 ) =>
   queryOptions<
     GetAnnouncementsResponse,
-    AxiosError<GetAnnouncementsError>,
+    AxiosError<DefaultError>,
     GetAnnouncementsResponse,
     ReturnType<typeof getAnnouncementsQueryKey>
   >({
@@ -403,18 +401,18 @@ export const createAnnouncementMutation = (
 /**
  * Mark Announcements As Read
  *
- * Mark all announcements as read for the given user
+ * Mark all announcements as read for the authenticated user.
  */
 export const markAnnouncementsAsReadMutation = (
   options?: Partial<Options<MarkAnnouncementsAsReadData>>
 ): UseMutationOptions<
   MarkAnnouncementsAsReadResponse,
-  AxiosError<MarkAnnouncementsAsReadError>,
+  AxiosError<DefaultError>,
   Options<MarkAnnouncementsAsReadData>
 > => {
   const mutationOptions: UseMutationOptions<
     MarkAnnouncementsAsReadResponse,
-    AxiosError<MarkAnnouncementsAsReadError>,
+    AxiosError<DefaultError>,
     Options<MarkAnnouncementsAsReadData>
   > = {
     mutationFn: async (fnOptions) => {

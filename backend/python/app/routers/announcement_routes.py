@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -20,10 +20,7 @@ from app.models.announcement import (
     AnnouncementRead,
     AnnouncementUpdate,
 )
-from app.models.announcement_last_read import (
-    AnnouncementLastReadResponse,
-    MarkReadRequest,
-)
+from app.models.announcement_last_read import AnnouncementLastReadResponse
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 
@@ -32,29 +29,25 @@ router = APIRouter(prefix="/announcements", tags=["announcements"])
 
 @router.get("/", response_model=list[AnnouncementRead])
 async def get_announcements(
-    user_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
     _auth: bool = Depends(require_driver_or_admin),
+    current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> list[AnnouncementRead]:
-    """Retrieve all announcements. If user_id is provided, includes is_read status."""
+    """Retrieve all announcements with is_read status for the authenticated user."""
     try:
         announcements = await announcement_service.get_announcements(session)
-
-        last_read_at = None
-        if user_id is not None:
-            last_read_at = await announcement_service.get_last_read_at(session, user_id)
+        last_read_at = await announcement_service.get_last_read_at(
+            session, current_user_id
+        )
 
         results = []
         for a in announcements:
             item = AnnouncementRead.from_announcement(a)
-            if user_id is not None:
-                if last_read_at is None:
-                    item.is_read = False
-                else:
-                    item.is_read = (
-                        a.created_at is not None and a.created_at <= last_read_at
-                    )
+            if last_read_at is None:
+                item.is_read = False
+            else:
+                item.is_read = a.created_at is not None and a.created_at <= last_read_at
             results.append(item)
         return results
     except Exception as e:
@@ -65,15 +58,15 @@ async def get_announcements(
 
 @router.post("/mark-read", response_model=AnnouncementLastReadResponse)
 async def mark_announcements_as_read(
-    body: MarkReadRequest,
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
     _auth: bool = Depends(require_driver_or_admin),
+    current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> AnnouncementLastReadResponse:
-    """Mark all announcements as read for the given user"""
+    """Mark all announcements as read for the authenticated user."""
     try:
         entry = await announcement_service.mark_announcements_as_read(
-            session, body.user_id
+            session, current_user_id
         )
         return AnnouncementLastReadResponse.model_validate(entry)
     except ValueError as e:

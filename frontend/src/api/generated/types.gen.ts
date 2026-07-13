@@ -1165,18 +1165,6 @@ export type LoginRequest = {
 };
 
 /**
- * MarkReadRequest
- *
- * Request body for marking announcements as read
- */
-export type MarkReadRequest = {
-  /**
-   * User Id
-   */
-  user_id: string;
-};
-
-/**
  * MonthlyTotalsResponse
  */
 export type MonthlyTotalsResponse = {
@@ -2455,24 +2443,9 @@ export type TestResponse = TestResponses[keyof TestResponses];
 export type GetAnnouncementsData = {
   body?: never;
   path?: never;
-  query?: {
-    /**
-     * User Id
-     */
-    user_id?: string | null;
-  };
+  query?: never;
   url: '/announcements/';
 };
-
-export type GetAnnouncementsErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type GetAnnouncementsError =
-  GetAnnouncementsErrors[keyof GetAnnouncementsErrors];
 
 export type GetAnnouncementsResponses = {
   /**
@@ -2514,21 +2487,11 @@ export type CreateAnnouncementResponse =
   CreateAnnouncementResponses[keyof CreateAnnouncementResponses];
 
 export type MarkAnnouncementsAsReadData = {
-  body: MarkReadRequest;
+  body?: never;
   path?: never;
   query?: never;
   url: '/announcements/mark-read';
 };
-
-export type MarkAnnouncementsAsReadErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type MarkAnnouncementsAsReadError =
-  MarkAnnouncementsAsReadErrors[keyof MarkAnnouncementsAsReadErrors];
 
 export type MarkAnnouncementsAsReadResponses = {
   /**

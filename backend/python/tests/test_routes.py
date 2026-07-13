@@ -3806,9 +3806,11 @@ class TestAnnouncementRoutes:
     """Test suite for announcement API routes."""
 
     @pytest.mark.asyncio
-    async def test_get_announcements_empty(self, async_client: AsyncClient) -> None:
+    async def test_get_announcements_empty(
+        self, authed_async_client: AsyncClient
+    ) -> None:
         """Test GET /announcements returns empty list when none exist."""
-        response = await async_client.get("/announcements/")
+        response = await authed_async_client.get("/announcements/")
         assert response.status_code == 200
         assert response.json() == []
 
@@ -4522,34 +4524,18 @@ class TestDriverHistoryRoutes:
         )
         assert create_resp.status_code == 201
 
-        # GET without user_id — is_read should be null
+        # GET — is_read should be False (never marked read)
         resp = await authed_async_client.get("/announcements/")
-        assert resp.status_code == 200
-        assert resp.json()[0]["is_read"] is None
-
-        # GET with user_id — is_read should be False (never marked read)
-        resp = await authed_async_client.get(f"/announcements/?user_id={user_id}")
         assert resp.status_code == 200
         assert resp.json()[0]["is_read"] is False
 
-        # Mark as read
-        mark_resp = await authed_async_client.post(
-            "/announcements/mark-read", json={"user_id": user_id}
-        )
+        # Mark as read (user derived from auth token)
+        mark_resp = await authed_async_client.post("/announcements/mark-read")
         assert mark_resp.status_code == 200
         assert mark_resp.json()["user_id"] == user_id
         assert "last_read_at" in mark_resp.json()
 
-        # GET with user_id — is_read should be True now
-        resp = await authed_async_client.get(f"/announcements/?user_id={user_id}")
+        # GET — is_read should be True now
+        resp = await authed_async_client.get("/announcements/")
         assert resp.status_code == 200
         assert resp.json()[0]["is_read"] is True
-
-    @pytest.mark.asyncio
-    async def test_mark_read_invalid_user(self, async_client: AsyncClient) -> None:
-        """Test POST /announcements/mark-read returns 404 for nonexistent user."""
-        fake_id = str(uuid4())
-        response = await async_client.post(
-            "/announcements/mark-read", json={"user_id": fake_id}
-        )
-        assert response.status_code == 404

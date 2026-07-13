@@ -71,7 +71,6 @@ import type {
   GetAnnouncementErrors,
   GetAnnouncementResponses,
   GetAnnouncementsData,
-  GetAnnouncementsErrors,
   GetAnnouncementsResponses,
   GetDriverData,
   GetDriverErrors,
@@ -150,7 +149,6 @@ import type {
   LogoutErrors,
   LogoutResponses,
   MarkAnnouncementsAsReadData,
-  MarkAnnouncementsAsReadErrors,
   MarkAnnouncementsAsReadResponses,
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
@@ -239,14 +237,14 @@ export const test = <ThrowOnError extends boolean = false>(
 /**
  * Get Announcements
  *
- * Retrieve all announcements. If user_id is provided, includes is_read status.
+ * Retrieve all announcements with is_read status for the authenticated user.
  */
 export const getAnnouncements = <ThrowOnError extends boolean = false>(
   options?: Options<GetAnnouncementsData, ThrowOnError>
 ) =>
   (options?.client ?? client).get<
     GetAnnouncementsResponses,
-    GetAnnouncementsErrors,
+    unknown,
     ThrowOnError
   >({
     responseType: 'json',
@@ -281,24 +279,20 @@ export const createAnnouncement = <ThrowOnError extends boolean = false>(
 /**
  * Mark Announcements As Read
  *
- * Mark all announcements as read for the given user
+ * Mark all announcements as read for the authenticated user.
  */
 export const markAnnouncementsAsRead = <ThrowOnError extends boolean = false>(
-  options: Options<MarkAnnouncementsAsReadData, ThrowOnError>
+  options?: Options<MarkAnnouncementsAsReadData, ThrowOnError>
 ) =>
-  (options.client ?? client).post<
+  (options?.client ?? client).post<
     MarkAnnouncementsAsReadResponses,
-    MarkAnnouncementsAsReadErrors,
+    unknown,
     ThrowOnError
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/mark-read',
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**

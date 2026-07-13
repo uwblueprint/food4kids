@@ -30,9 +30,3 @@ class AnnouncementLastReadResponse(SQLModel):
     announcement_last_read_id: UUID
     user_id: UUID
     last_read_at: datetime
-
-
-class MarkReadRequest(SQLModel):
-    """Request body for marking announcements as read"""
-
-    user_id: UUID

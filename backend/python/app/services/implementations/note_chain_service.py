@@ -4,7 +4,6 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import case, col, func, select, update
 
-from app.models.driver import Driver
 from app.models.enum import NotePermission
 from app.models.location import Location
 from app.models.location_group import LocationGroup
