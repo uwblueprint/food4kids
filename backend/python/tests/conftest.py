@@ -12,7 +12,7 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, select
 
 from app import create_app
 from app.dependencies.auth import (
@@ -29,6 +29,16 @@ from app.models import get_session
 
 # Set test environment
 os.environ["APP_ENV"] = "testing"
+
+
+async def _ensure_system_settings(test_session: AsyncSession) -> None:
+    """Mirror app startup: API tests run with a settings row available."""
+    from app.models.system_settings import SystemSettings
+
+    result = await test_session.execute(select(SystemSettings).limit(1))
+    if result.scalars().first() is None:
+        test_session.add(SystemSettings())
+        await test_session.commit()
 
 
 @pytest.fixture(scope="session")
@@ -149,6 +159,8 @@ async def async_client(
     test_session: AsyncSession,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client with database session override."""
+    await _ensure_system_settings(test_session)
+
     app = create_app()
 
     # Override the database session dependency
@@ -180,6 +192,8 @@ async def client_with_overrides(
     async with contextlib.AsyncExitStack() as stack:
 
         async def _make(overrides: dict[Any, Any] | None = None) -> AsyncClient:
+            await _ensure_system_settings(test_session)
+
             app = create_app()
 
             async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
@@ -310,7 +324,6 @@ def sample_location_data() -> dict[str, Any]:
         "halal": False,
         "dietary_restrictions": "No nuts",
         "num_children": 150,
-        "notes": "Main entrance on Main St",
     }
 
 
@@ -412,6 +425,7 @@ async def authed_async_client(
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_database_user_id] = override_auth
+    _apply_auth_overrides(app)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

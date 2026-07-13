@@ -1,12 +1,23 @@
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
 from urllib.parse import quote
 
-if TYPE_CHECKING:
-    from app.models.location import Location
+
+@dataclass
+class MapWaypoint:
+    """A single resolved stop for a directions URL.
+
+    Decoupled from the ``Location`` model so callers can pass whatever the
+    route actually delivered to — e.g. a frozen snapshot's address/coords for
+    a past route, or the live location's for an upcoming one.
+    """
+
+    address: str | None
+    latitude: float | None
+    longitude: float | None
 
 
 def build_google_maps_directions_url(
-    locations: list["Location"],
+    stops: list[MapWaypoint],
     warehouse_lat: float,
     warehouse_lon: float,
 ) -> str:
@@ -23,7 +34,7 @@ def build_google_maps_directions_url(
     characters.  Both limits are enforced here.
 
     Args:
-        locations: Ordered list of Location objects (route stops).
+        stops: Ordered list of resolved waypoints (route stops).
         warehouse_lat: Latitude of the warehouse (route origin).
         warehouse_lon: Longitude of the warehouse (route origin).
 
@@ -31,16 +42,16 @@ def build_google_maps_directions_url(
         A fully-formed Google Maps directions URL string.
 
     Raises:
-        ValueError: If a location has neither an address nor coordinates,
+        ValueError: If a stop has neither an address nor coordinates,
             if there are more than 50 stops, or if the resulting URL
             exceeds 2 000 characters.
     """
     _MAX_WAYPOINTS = 50
     _MAX_URL_LENGTH = 2000
 
-    if len(locations) > _MAX_WAYPOINTS:
+    if len(stops) > _MAX_WAYPOINTS:
         raise ValueError(
-            f"Route has {len(locations)} stops, but Google Maps directions "
+            f"Route has {len(stops)} stops, but Google Maps directions "
             f"URLs support a maximum of {_MAX_WAYPOINTS} waypoints."
         )
 
@@ -49,11 +60,11 @@ def build_google_maps_directions_url(
     # Origin is always the warehouse coordinates
     segments: list[str] = [f"{warehouse_lat},{warehouse_lon}"]
 
-    for i, location in enumerate(locations):
-        if location.address:
-            segments.append(quote(location.address, safe=""))
-        elif location.latitude is not None and location.longitude is not None:
-            segments.append(f"{location.latitude},{location.longitude}")
+    for i, stop in enumerate(stops):
+        if stop.address:
+            segments.append(quote(stop.address, safe=""))
+        elif stop.latitude is not None and stop.longitude is not None:
+            segments.append(f"{stop.latitude},{stop.longitude}")
         else:
             raise ValueError(f"Stop {i + 1} has neither an address nor coordinates.")
 

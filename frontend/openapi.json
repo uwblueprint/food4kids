@@ -4,11 +4,14 @@
       "AlertCode": {
         "description": "Machine-readable reason code for an import alert.",
         "enum": [
-          "MISSING_FIELDS",
-          "INVALID_FORMAT",
-          "LOCAL_DUPLICATE",
+          "MISSING_ADDRESS",
+          "INVALID_ADDRESS",
+          "MISSING_PHONE_NUMBER",
+          "INVALID_PHONE_NUMBER",
+          "MISSING_NAME",
+          "INVALID_NAME",
           "MISSING_DELIVERY_GROUP",
-          "PARTIAL_DUPLICATE"
+          "LOCAL_DUPLICATE"
         ],
         "title": "AlertCode",
         "type": "string"
@@ -32,17 +35,11 @@
             "minLength": 1,
             "title": "Subject",
             "type": "string"
-          },
-          "user_id": {
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
           }
         },
         "required": [
           "subject",
-          "message",
-          "user_id"
+          "message"
         ],
         "title": "AnnouncementCreate",
         "type": "object"
@@ -61,6 +58,14 @@
             },
             "title": "Attachments",
             "type": "array"
+          },
+          "author_name": {
+            "title": "Author Name",
+            "type": "string"
+          },
+          "author_role": {
+            "title": "Author Role",
+            "type": "string"
           },
           "created_at": {
             "anyOf": [
@@ -107,6 +112,8 @@
           "message",
           "announcement_id",
           "user_id",
+          "author_name",
+          "author_role",
           "attachments",
           "created_at",
           "updated_at"
@@ -290,6 +297,11 @@
             ],
             "title": "Delivery Group"
           },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
           "num_children": {
             "anyOf": [
               {
@@ -328,9 +340,15 @@
               }
             ],
             "title": "Phone Secondary"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
           }
         },
         "required": [
+          "row",
+          "location_id",
           "contact_name",
           "address",
           "phone_primary"
@@ -433,14 +451,28 @@
         "title": "DeliveriesCountResponse",
         "type": "object"
       },
-      "DeliveryTypeEnum": {
-        "description": "Kind of recipient at a Location — set per location, enforced uniform\nwithin a RouteGroup at generation time.",
-        "enum": [
-          "School",
-          "Family"
+      "DeliveryTypeRename": {
+        "description": "Request body for renaming a configured delivery type.\n\nRename is a distinct operation from the list-replacing PATCH: it preserves\nthe type's identity, cascading the new name onto every location (active or\nnot) that references the old one. A plain PATCH that swaps a name looks like\na remove + add and is blocked by the in-use guard, so renames must come\nthrough here.",
+        "properties": {
+          "new_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "New Name",
+            "type": "string"
+          },
+          "old_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Old Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "old_name",
+          "new_name"
         ],
-        "title": "DeliveryTypeEnum",
-        "type": "string"
+        "title": "DeliveryTypeRename",
+        "type": "object"
       },
       "DriveDaysOfWeekEnum": {
         "enum": [
@@ -651,11 +683,17 @@
             "title": "License Plate",
             "type": "string"
           },
-          "notes": {
-            "default": "",
-            "maxLength": 1024,
-            "title": "Notes",
-            "type": "string"
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
           },
           "partner_driver_name": {
             "anyOf": [
@@ -862,18 +900,6 @@
             ],
             "title": "License Plate"
           },
-          "notes": {
-            "anyOf": [
-              {
-                "maxLength": 1024,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
           "partner_driver_name": {
             "anyOf": [
               {
@@ -902,6 +928,41 @@
         },
         "title": "DriverUpdate",
         "type": "object"
+      },
+      "DuplicateGroup": {
+        "description": "Rows that refer to the same imported location under the 2-of-3 rule.",
+        "properties": {
+          "matching_fields": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateMatchField"
+            },
+            "title": "Matching Fields",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "matching_fields"
+        ],
+        "title": "DuplicateGroup",
+        "type": "object"
+      },
+      "DuplicateMatchField": {
+        "description": "Import fields that can participate in the 2-of-3 duplicate rule.",
+        "enum": [
+          "contact_name",
+          "address",
+          "phone_primary"
+        ],
+        "title": "DuplicateMatchField",
+        "type": "string"
       },
       "EmailReminder": {
         "description": "A single reminder email configuration.\n\nEach reminder fires ``days_before`` days ahead of a route's drive date, at its\nown ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a\nsame-day reminder at 11 AM.",
@@ -995,7 +1056,10 @@
             "type": "string"
           },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Delivery Type",
+            "type": "string"
           },
           "dietary_restrictions": {
             "default": "",
@@ -1054,11 +1118,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
           },
           "num_children": {
             "default": 0,
@@ -1369,7 +1428,7 @@
         "type": "object"
       },
       "LocationImportResponse": {
-        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. net_new/stale/changed describe how the\nimport would affect the existing locations table; these are placeholders until\nthe matching logic is implemented.",
+        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers and\nmatching fields for each within-file duplicate cluster. net_new/stale/changed\ndescribe how the import would affect the existing locations table.",
         "properties": {
           "changed": {
             "default": [],
@@ -1377,6 +1436,14 @@
               "$ref": "#/components/schemas/ChangedEntry"
             },
             "title": "Changed",
+            "type": "array"
+          },
+          "duplicate_groups": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DuplicateGroup"
+            },
+            "title": "Duplicate Groups",
             "type": "array"
           },
           "net_new": {
@@ -1447,8 +1514,19 @@
       "LocationIngestRequest": {
         "description": "Ingest request — `delivery_type` applies to every net-new row in this\nimport (one Apricot sheet = one delivery type).",
         "properties": {
+          "changed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChangedEntry"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Delivery Type",
+            "type": "string"
           },
           "net_new": {
             "items": {
@@ -1459,7 +1537,7 @@
           },
           "stale": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Input"
+              "$ref": "#/components/schemas/StaleEntry"
             },
             "title": "Stale",
             "type": "array"
@@ -1477,14 +1555,14 @@
         "properties": {
           "archived": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Archived",
             "type": "array"
           },
           "created": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Created",
             "type": "array"
@@ -1497,7 +1575,7 @@
         "title": "LocationIngestResponse",
         "type": "object"
       },
-      "LocationRead-Input": {
+      "LocationRead": {
         "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
         "properties": {
           "address": {
@@ -1520,7 +1598,10 @@
             "type": "string"
           },
           "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Delivery Type",
+            "type": "string"
           },
           "dietary_restrictions": {
             "default": "",
@@ -1605,176 +1686,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
-          },
-          "num_children": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Num Children",
-            "type": "integer"
-          },
-          "phone_primary": {
-            "title": "Phone Primary",
-            "type": "string"
-          },
-          "phone_secondary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Secondary"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
-          },
-          "total_deliveries": {
-            "default": 0,
-            "title": "Total Deliveries",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "location_group_id",
-          "name",
-          "contact_name",
-          "address",
-          "phone_primary",
-          "delivery_type",
-          "location_id",
-          "location_group_name"
-        ],
-        "title": "LocationRead",
-        "type": "object"
-      },
-      "LocationRead-Output": {
-        "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "assigned_route": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assigned Route"
-          },
-          "contact_name": {
-            "title": "Contact Name",
-            "type": "string"
-          },
-          "delivery_type": {
-            "$ref": "#/components/schemas/DeliveryTypeEnum"
-          },
-          "dietary_restrictions": {
-            "default": "",
-            "title": "Dietary Restrictions",
-            "type": "string"
-          },
-          "halal": {
-            "default": false,
-            "title": "Halal",
-            "type": "boolean"
-          },
-          "has_future_route": {
-            "default": false,
-            "title": "Has Future Route",
-            "type": "boolean"
-          },
-          "in_roster": {
-            "default": true,
-            "title": "In Roster",
-            "type": "boolean"
-          },
-          "last_delivery_date": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Delivery Date"
-          },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
-          "location_group_id": {
-            "format": "uuid",
-            "title": "Location Group Id",
-            "type": "string"
-          },
-          "location_group_name": {
-            "title": "Location Group Name",
-            "type": "string"
-          },
-          "location_id": {
-            "format": "uuid",
-            "title": "Location Id",
-            "type": "string"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "note_chain_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Chain Id"
-          },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
           },
           "num_children": {
             "default": 0,
@@ -1870,12 +1781,15 @@
           "delivery_type": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DeliveryTypeEnum"
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Delivery Type"
           },
           "dietary_restrictions": {
             "anyOf": [
@@ -1966,17 +1880,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
           },
           "num_children": {
             "anyOf": [
@@ -2183,6 +2086,136 @@
         "title": "NoteCreate",
         "type": "object"
       },
+      "NoteFeedItem": {
+        "description": "A location note with enough context for cross-location feeds.",
+        "properties": {
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
+          },
+          "author_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Role"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "is_system": {
+            "default": false,
+            "title": "Is System",
+            "type": "boolean"
+          },
+          "location_address": {
+            "title": "Location Address",
+            "type": "string"
+          },
+          "location_group_name": {
+            "title": "Location Group Name",
+            "type": "string"
+          },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
+          "location_name": {
+            "title": "Location Name",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "format": "uuid",
+            "title": "Note Chain Id",
+            "type": "string"
+          },
+          "note_id": {
+            "format": "uuid",
+            "title": "Note Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "note_chain_id",
+          "message",
+          "note_id",
+          "location_id",
+          "location_name",
+          "location_address",
+          "location_group_name"
+        ],
+        "title": "NoteFeedItem",
+        "type": "object"
+      },
+      "NoteFeedSort": {
+        "enum": [
+          "recent",
+          "oldest",
+          "driver",
+          "location"
+        ],
+        "title": "NoteFeedSort",
+        "type": "string"
+      },
       "NoteListResponse": {
         "description": "Response for GET notes - includes unread count",
         "properties": {
@@ -2311,7 +2344,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Items",
             "type": "array"
@@ -2341,6 +2374,42 @@
           "total_pages"
         ],
         "title": "PaginatedResponse[LocationRead]",
+        "type": "object"
+      },
+      "PaginatedResponse_NoteFeedItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NoteFeedItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[NoteFeedItem]",
         "type": "object"
       },
       "PaginatedResponse_RouteWithDateRead_": {
@@ -2389,9 +2458,8 @@
         "title": "ProgressEnum",
         "type": "string"
       },
-      "Route": {
-        "additionalProperties": false,
-        "description": "Database table model for Routes",
+      "RouteDetailRead": {
+        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.",
         "properties": {
           "cloned_from_route_id": {
             "anyOf": [
@@ -2404,18 +2472,6 @@
               }
             ],
             "title": "Cloned From Route Id"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
           },
           "driver_id": {
             "anyOf": [
@@ -2509,24 +2565,20 @@
             ],
             "title": "Start Time"
           },
-          "updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStopDetailRead"
+            },
+            "title": "Stops",
+            "type": "array"
           }
         },
         "required": [
           "length",
-          "route_group_id"
+          "route_group_id",
+          "route_id"
         ],
-        "title": "Route",
+        "title": "RouteDetailRead",
         "type": "object"
       },
       "RouteGenerationGroupInput": {
@@ -2658,12 +2710,13 @@
           "delivery_type": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DeliveryTypeEnum"
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Delivery Type"
           },
           "drive_date": {
             "format": "date-time",
@@ -3003,6 +3056,63 @@
         "title": "RouteStatusEnum",
         "type": "string"
       },
+      "RouteStopDetailRead": {
+        "description": "A single ordered stop on a route, assembled with snapshot-over-live\nfield precedence: for a frozen (past) route the route_stop_snapshot wins,\notherwise the live Location is read. Embedded in RouteDetailRead.\n\nNotes are intentionally NOT embedded: note_chain_id points at the stop's\nnote chain, fetched separately via GET /note-chains/{id}/notes.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "boxes": {
+            "title": "Boxes",
+            "type": "integer"
+          },
+          "contact_name": {
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "phone_primary": {
+            "title": "Phone Primary",
+            "type": "string"
+          },
+          "phone_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Secondary"
+          },
+          "stop_number": {
+            "title": "Stop Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stop_number",
+          "address",
+          "contact_name",
+          "phone_primary",
+          "boxes"
+        ],
+        "title": "RouteStopDetailRead",
+        "type": "object"
+      },
       "RouteWithDateRead": {
         "description": "Read response model for routes with drive date information.\n\ndrive_date is sourced from RouteGroup.drive_date via the route_group\nrelationship.",
         "properties": {
@@ -3058,6 +3168,18 @@
             "title": "Route Id",
             "type": "string"
           },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -3069,6 +3191,7 @@
           "notes",
           "length",
           "drive_date",
+          "start_time",
           "num_stops",
           "box_total",
           "status"
@@ -3199,6 +3322,13 @@
               }
             ],
             "title": "Default Cap"
+          },
+          "delivery_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Delivery Types",
+            "type": "array"
           },
           "dropoff_minutes": {
             "default": 3,
@@ -3412,6 +3542,20 @@
               }
             ],
             "title": "Default Cap"
+          },
+          "delivery_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Types"
           },
           "dropoff_minutes": {
             "anyOf": [
@@ -3961,6 +4105,59 @@
           }
         ],
         "summary": "Update Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/announcements/{announcement_id}/email": {
+      "post": {
+        "description": "Send announcement notification emails to all active drivers (admin only).",
+        "operationId": "send_announcement_email",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Send Announcement Email",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Announcement Email",
         "tags": [
           "announcements"
         ]
@@ -5271,7 +5468,7 @@
               "anyOf": [
                 {
                   "items": {
-                    "$ref": "#/components/schemas/DeliveryTypeEnum"
+                    "type": "string"
                   },
                   "type": "array"
                 },
@@ -5404,7 +5601,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -5587,7 +5784,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -5644,7 +5841,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -6009,6 +6206,79 @@
         ]
       }
     },
+    "/notes": {
+      "get": {
+        "description": "Get location notes across all location note chains.",
+        "operationId": "get_notes_feed",
+        "parameters": [
+          {
+            "description": "Sort by recent, oldest, driver, or location",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/NoteFeedSort",
+              "default": "recent",
+              "description": "Sort by recent, oldest, driver, or location"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_NoteFeedItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Notes Feed",
+        "tags": [
+          "notes"
+        ]
+      }
+    },
     "/reports/deliveries/count": {
       "get": {
         "description": "Return total deliveries (route stop snapshots) between start and end.\nQuery params are treated as EST if no timezone is provided.",
@@ -6263,7 +6533,7 @@
               "anyOf": [
                 {
                   "items": {
-                    "$ref": "#/components/schemas/DeliveryTypeEnum"
+                    "type": "string"
                   },
                   "type": "array"
                 },
@@ -6551,6 +6821,22 @@
             }
           },
           {
+            "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
@@ -6672,7 +6958,7 @@
         ]
       },
       "get": {
-        "description": "Get a route by its unique identifier.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to GET.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    None. Responds with HTTP 200 OK on successful get.",
+        "description": "Get a route by its unique identifier, with its ordered stops embedded.\n\nEach stop carries its sequence #, address, contact name, phone (+ secondary),\nbox count, and a note_chain_id reference. Stops are sourced live from\nLocation for upcoming routes and from frozen route_stop_snapshots for past\nroutes. Notes are not embedded: fetch them via GET /note-chains/{id}/notes.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to GET.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    The route with its ordered stops. Responds with HTTP 200 OK on success.",
         "operationId": "get_route",
         "parameters": [
           {
@@ -6691,7 +6977,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Route"
+                  "$ref": "#/components/schemas/RouteDetailRead"
                 }
               }
             },
@@ -6970,6 +7256,53 @@
           }
         ],
         "summary": "Patch System Settings",
+        "tags": [
+          "system-settings"
+        ]
+      }
+    },
+    "/system-settings/delivery-types/rename": {
+      "post": {
+        "description": "Rename a configured delivery type, cascading onto every location using it.",
+        "operationId": "rename_delivery_type",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryTypeRename"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rename Delivery Type",
         "tags": [
           "system-settings"
         ]

@@ -32,8 +32,15 @@ class BaseModel(sm.SQLModel):
     # insert (equal to within microseconds) and `updated_at` is bumped on every
     # update. Models that genuinely need "null until first set" (e.g. Job, whose
     # lifecycle tracks started/updated/finished) override `updated_at` explicitly.
+    #
+    # `updated_at` is bumped by a column-level SQLAlchemy `onupdate`, which fires
+    # for BOTH ORM flushes and Core `update()` statements — so bulk updates stay
+    # accurate too — unless the statement sets `updated_at` itself.
     created_at: datetime | None = Field(default_factory=_now_est_naive)
-    updated_at: datetime | None = Field(default_factory=_now_est_naive)
+    updated_at: datetime | None = Field(
+        default_factory=_now_est_naive,
+        sa_column_kwargs={"onupdate": _now_est_naive},
+    )
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)

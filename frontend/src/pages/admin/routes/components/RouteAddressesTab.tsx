@@ -1,4 +1,4 @@
-import type { LocationReadOutput } from '@/api/generated/types.gen';
+import type { LocationRead } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
@@ -20,9 +20,8 @@ import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const ROUTE_STATUSES = ['Active', 'Unscheduled', 'Inactive'];
-const DELIVERY_TYPES = ['School', 'Family'];
 
-const COLUMNS: Column<LocationReadOutput>[] = [
+const COLUMNS: Column<LocationRead>[] = [
   {
     key: 'name',
     header: 'School / Last Name',
@@ -34,7 +33,6 @@ const COLUMNS: Column<LocationReadOutput>[] = [
     header: 'Delivery Group',
     render: (row) => row.location_group_name,
   },
-  { key: 'notes', header: 'Notes', render: (row) => row.notes },
   { key: 'status', header: 'Status', render: (row) => row.status ?? '—' },
 ];
 
@@ -42,6 +40,7 @@ type RouteAddressesTabProps = AddressesTabState;
 
 export function RouteAddressesTab({
   rows,
+  deliveryTypes,
   search,
   filterOpen,
   setFilterOpen,
@@ -107,7 +106,7 @@ export function RouteAddressesTab({
             </FilterChipGroup>
 
             <FilterChipGroup label="Delivery Type" showDelimiter>
-              {DELIVERY_TYPES.map((type) => (
+              {deliveryTypes.map((type) => (
                 <FilterChip
                   key={type}
                   selected={draftFilters.deliveryTypes.has(type)}

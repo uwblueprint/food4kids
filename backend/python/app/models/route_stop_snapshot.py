@@ -20,7 +20,10 @@ class RouteStopSnapshotBase(SQLModel):
 
     address: str = Field(min_length=1)
     contact_name: str = Field(min_length=1)
-    phone_number: str = Field(min_length=1)
+    # Mirrors Location.phone_primary / phone_secondary so reads can COALESCE
+    # each snapshot phone over its live counterpart field-for-field.
+    phone_primary: str = Field(min_length=1)
+    phone_secondary: str | None = None
     num_children: int = Field(ge=0)
     notes: str = Field(default="")
     latitude: float

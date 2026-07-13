@@ -26,7 +26,7 @@ from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
-from app.models.enum import DeliveryTypeEnum, NotePermission, ProgressEnum
+from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -38,7 +38,10 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
-from app.models.system_settings import EmailReminder, SystemSettings
+from app.models.system_settings import (
+    EmailReminder,
+    SystemSettings,
+)
 
 # Import all models to register them with SQLModel
 from app.models.user import User
@@ -64,20 +67,20 @@ PROBABILITY_ROUTE_NOTES = 0.1
 PROBABILITY_DIETARY_RESTRICTIONS = 0.3
 # Probability that a location will have a number of children specified
 PROBABILITY_NUM_CHILDREN = 0.8
-# Probability that a location will have notes
-PROBABILITY_LOCATION_NOTES = 0.4
-# Probability that a driver will have notes
-PROBABILITY_DRIVER_NOTES = 0.3
 # Probability to skip creating driver history for the current year
 PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 # Probability that a location note chain will have notes
 PROBABILITY_LOCATION_CHAIN_NOTES = 0.6
 # Probability that a route note chain will have notes
 PROBABILITY_ROUTE_CHAIN_NOTES = 0.4
+# Probability that a driver note chain will have notes
+PROBABILITY_DRIVER_CHAIN_NOTES = 0.5
 # Max notes per location chain
 MAX_LOCATION_CHAIN_NOTES = 3
 # Max notes per route chain
 MAX_ROUTE_CHAIN_NOTES = 2
+# Max notes per driver chain
+MAX_DRIVER_CHAIN_NOTES = 3
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -205,15 +208,19 @@ DEFAULT_CAP_MAX = 20
 # Default route start time (HH:MM:SS format)
 ROUTE_START_TIME = "08:00:00"
 
-# Location group schedule (weekday mapping)
+# Location group schedule: group name -> (weekday, alternating slot).
+# weekday is Monday=0 .. Sunday=6. Groups sharing a weekday are suffixed
+# "A"/"B" and deliver on *alternating* weeks, so any given date materializes
+# routes for at most one of them (slot None means "every occurrence of that
+# weekday", used for groups with no A/B partner).
 LOCATION_GROUP_SCHEDULE = {
-    "Schools": 4,
-    "Tuesday A": 1,
-    "Tuesday B": 1,
-    "Wednesday A": 2,
-    "Wednesday B": 2,
-    "Thursday A": 3,
-    "Thursday B": 3,
+    "Schools": (4, None),
+    "Tuesday A": (1, "A"),
+    "Tuesday B": (1, "B"),
+    "Wednesday A": (2, "A"),
+    "Wednesday B": (2, "B"),
+    "Thursday A": (3, "A"),
+    "Thursday B": (3, "B"),
 }
 
 # Cities that need specific group assignments (will be randomly assigned)
@@ -559,9 +566,9 @@ def materialize_route_for_group(
                 route_stop_id=stop.route_stop_id,
                 address=loc.address,
                 contact_name=loc.contact_name,
-                phone_number=loc.phone_primary,
+                phone_primary=loc.phone_primary,
+                phone_secondary=loc.phone_secondary,
                 num_children=loc.num_children,
-                notes=loc.notes,
                 latitude=loc.latitude,
                 longitude=loc.longitude,
             )
@@ -615,6 +622,51 @@ def main() -> None:
 
             session.commit()
             print("Database cleared successfully")
+
+            # Create admin accounts first so every note chain below can be
+            # authored by a real admin.
+            print("Creating admin accounts...")
+            admin_users: list[User] = []
+
+            for i in range(NUM_SEED_ADMINS):
+                admin_num = i + 1
+                uid = f"seed-admin-{admin_num}"
+                email = f"admin{admin_num}@f4k.dev"
+                first_name = fake.first_name()
+                last_name = fake.last_name()
+
+                ensure_firebase_user(
+                    uid=uid,
+                    email=email,
+                    password=SEED_PASSWORD,
+                    role="admin",
+                    first_name=first_name,
+                    last_name=last_name,
+                )
+
+                user = User(
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    auth_id=uid,
+                    role="admin",
+                )
+                set_timestamps(user)
+                session.add(user)
+
+                admin = Admin(
+                    admin_phone=generate_valid_phone(),
+                    user_id=user.user_id,
+                )
+                set_timestamps(admin)
+                session.add(admin)
+
+                admin_users.append(user)
+
+            session.commit()
+            print(f"Created {NUM_SEED_ADMINS} admin accounts")
+            # Author pool for the notes seeded into note chains below.
+            admin_author_ids = [user.user_id for user in admin_users]
 
             # Create location groups
             print("Creating location groups...")
@@ -673,11 +725,7 @@ def main() -> None:
                             schools_group_id is not None
                             and group_id == schools_group_id
                         )
-                        delivery_type = (
-                            DeliveryTypeEnum.SCHOOL
-                            if is_school
-                            else DeliveryTypeEnum.FAMILY
-                        )
+                        delivery_type = "School" if is_school else "Family"
 
                         contact_name = fake.name()
                         location = Location(
@@ -706,9 +754,6 @@ def main() -> None:
                             else 0,
                             delivery_type=delivery_type,
                             in_roster=True,
-                            notes=fake.sentence()
-                            if random.random() < PROBABILITY_LOCATION_NOTES
-                            else "",
                         )
                         set_timestamps(location)
                         session.add(location)
@@ -776,6 +821,17 @@ def main() -> None:
                     True if i < num_drivers // 2 else random.choice([True, False])
                 )
 
+                # Every driver owns an admin-only note chain (read AND write =
+                # Admin) so admins can leave notes the driver can't see — mirrors
+                # DriverService.create_driver.
+                note_chain = NoteChain(
+                    read_permission=NotePermission.ADMIN,
+                    write_permission=NotePermission.ADMIN,
+                )
+                set_timestamps(note_chain)
+                session.add(note_chain)
+                session.flush()
+
                 driver = Driver(
                     user_id=user.user_id,
                     phone=generate_valid_phone(),
@@ -787,12 +843,22 @@ def main() -> None:
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),
                     active=is_active,
-                    notes=fake.sentence()
-                    if random.random() < PROBABILITY_DRIVER_NOTES
-                    else "",
+                    note_chain_id=note_chain.note_chain_id,
                 )
                 set_timestamps(driver)
                 session.add(driver)
+
+                # Seed admin-authored notes into the driver's admin-only chain.
+                if random.random() < PROBABILITY_DRIVER_CHAIN_NOTES:
+                    for _ in range(random.randint(1, MAX_DRIVER_CHAIN_NOTES)):
+                        note = Note(
+                            note_chain_id=note_chain.note_chain_id,
+                            user_id=random.choice(admin_author_ids),
+                            message=fake.sentence(),
+                            is_system=False,
+                        )
+                        set_timestamps(note)
+                        session.add(note)
             session.commit()
             print(f"Created {num_drivers} drivers")
 
@@ -815,10 +881,14 @@ def main() -> None:
             current_date = start_date
             while current_date <= end_date:
                 weekday = current_date.weekday()
+                # Continuous week index (never resets across years), so
+                # consecutive occurrences of the same weekday always flip the
+                # slot -> A and B groups alternate week to week.
+                week_slot = "A" if (current_date.toordinal() // 7) % 2 == 0 else "B"
                 matching_groups = [
                     name
-                    for name, target_weekday in LOCATION_GROUP_SCHEDULE.items()
-                    if target_weekday == weekday
+                    for name, (target_weekday, slot) in LOCATION_GROUP_SCHEDULE.items()
+                    if target_weekday == weekday and (slot is None or slot == week_slot)
                 ]
 
                 for group_name in matching_groups:
@@ -882,9 +952,9 @@ def main() -> None:
                     for _ in range(num_notes):
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
+                            user_id=random.choice(admin_author_ids),
                             message=fake.sentence(),
-                            is_system=random.choice([True, False]),
+                            is_system=False,
                         )
                         set_timestamps(note)
                         session.add(note)
@@ -925,9 +995,9 @@ def main() -> None:
                     for _ in range(num_notes):
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=None,
+                            user_id=random.choice(admin_author_ids),
                             message=fake.sentence(),
-                            is_system=True,
+                            is_system=False,
                         )
                         set_timestamps(note)
                         session.add(note)
@@ -1067,48 +1137,6 @@ def main() -> None:
 
             session.commit()
             print("Created system settings info")
-
-            # Create admin accounts
-            print("Creating admin accounts...")
-            admin_users: list[User] = []
-
-            for i in range(NUM_SEED_ADMINS):
-                admin_num = i + 1
-                uid = f"seed-admin-{admin_num}"
-                email = f"admin{admin_num}@f4k.dev"
-                first_name = fake.first_name()
-                last_name = fake.last_name()
-
-                ensure_firebase_user(
-                    uid=uid,
-                    email=email,
-                    password=SEED_PASSWORD,
-                    role="admin",
-                    first_name=first_name,
-                    last_name=last_name,
-                )
-
-                user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    auth_id=uid,
-                    role="admin",
-                )
-                set_timestamps(user)
-                session.add(user)
-
-                admin = Admin(
-                    admin_phone=generate_valid_phone(),
-                    user_id=user.user_id,
-                )
-                set_timestamps(admin)
-                session.add(admin)
-
-                admin_users.append(user)
-
-            session.commit()
-            print(f"Created {NUM_SEED_ADMINS} admin accounts")
 
             # Create read tracking entries for some drivers
             print("Creating note chain read tracking entries...")

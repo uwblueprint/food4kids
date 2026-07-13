@@ -8,7 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
 import app.models as models
-from app.dependencies.services import get_scheduler_service
+from app.dependencies.services import (
+    get_scheduler_service,
+    get_system_settings_service,
+)
 from app.services.jobs import init_jobs
 
 from .config import settings
@@ -130,6 +133,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     if models.async_session_maker_instance is None:
         raise RuntimeError("Database not initialized. Call init_app() first.")
     async with models.async_session_maker_instance() as session:
+        # Guarantee the singleton settings row exists before anything reads it,
+        # so configurable settings (e.g. delivery_types) have a single source
+        # of truth and callers don't need a None-fallback.
+        await get_system_settings_service().ensure_settings(session)
+        await session.commit()
         await init_jobs(scheduler_service, session)
 
     yield
