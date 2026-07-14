@@ -1,13 +1,10 @@
 import { useRegisterDriver } from '@/api/auth';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { WrapperWithLogo } from './Wrapper';
-import { Button, Field, FieldLabel, Input } from '@/common/components';
-import { AlertTriangleIcon, CheckIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import EyeIcon from '@/assets/icons/eye.svg?react';
-import { EyeOffIcon } from 'lucide-react';
+import { Button } from '@/common/components';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { CreatePasswordForm } from './CreatePasswordForm';
 
 type Step = 'FORM' | 'CONFIRMATION';
 
@@ -15,30 +12,6 @@ export const CreatePassword = () => {
   const [step, setStep] = useState<Step>('FORM');
   const headerTitle = step === 'FORM' ? "Create a password" : "Account created"
   const subheaderTitle = step === 'FORM' ? "Create an account to access the app" : "You're in! Get ready to help fill some lunch bags and put smiles on some faces.";
-
-  return (
-    <WrapperWithLogo headerTitle={headerTitle} subheaderTitle={subheaderTitle} className="desktop:max-w-[362px]">
-      
-      {step === 'FORM' ? (
-        <CreatePasswordForm onSuccess={() => {setStep('CONFIRMATION')}}/>
-      ) : (
-        <AccountCreationConfirmation/>
-      )}
-    </WrapperWithLogo>
-  );
-}
-
-interface CreatePasswordFormProps {
-  onSuccess: () => void;
-}
-
-const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState(false);
-  const [confirmPasswordError, setConfirmPasswordError] = useState(false);
 
   const { token } = useParams();
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,207 +23,33 @@ const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
 
   const { mutate, isPending } = useRegisterDriver();
 
-  const requirements = [
-    {
-      label: '8+ characters (12 or more is recommended)',
-      isSatisfied: password.length >= 8,
-    },
-    {
-      label: 'One uppercase and one lowercase letter',
-      isSatisfied: /[a-z]/.test(password) && /[A-Z]/.test(password),
-    },
-    {
-      label: 'One number',
-      isSatisfied: /\d/.test(password),
-    },
-    {
-      label: 'One special character (e.g. ! @ # $ %)',
-      isSatisfied: /[^A-Za-z0-9]/.test(password),
-    },
-  ];
-
-  const allRequirementsMet = requirements.every((req) => req.isSatisfied);
-
-  const submitPassword = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const isPasswordInvalid = !password || !allRequirementsMet;
-    const isConfirmInvalid = !confirmPassword || password !== confirmPassword;
-
-    if (isPasswordInvalid) {
-      setPasswordError(true);
-    }
-
-    if (isConfirmInvalid) {
-      setConfirmPasswordError(true);
-    }
-
-    if (isPasswordInvalid || isConfirmInvalid) {
-      return;
-    }
-
+  const handleRegister = (password: string) => {
     mutate(
       {
         user_invite_id: token,
         password: password,
       },
       {
-        onSuccess: () => {
-          onSuccess();
-        },
+        onSuccess: () => setStep('CONFIRMATION'),
       }
     );
   };
 
   return (
-    <>
-      <div>
-        {/* Form */}
-        <form id="register-form" className="flex flex-col gap-6" onSubmit={submitPassword}>
-          {/* Password Field */}
-          <Field>
-            <FieldLabel htmlFor="password">Enter new password</FieldLabel>
-            <div className="relative w-full">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                placeholder="Enter your password"
-                className={cn(
-                  'px-6',
-                  passwordError && 'outline-red focus:outline-red'
-                )}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setPasswordError(false);
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
-                aria-label={
-                  showPassword ? 'Hide password' : 'Show password'
-                }
-              >
-                {showPassword ? (
-                  <EyeOffIcon className="h-6 w-6" />
-                ) : (
-                  <EyeIcon className="h-6 w-6" />
-                )}
-              </button>
-            </div>
-            {passwordError && (
-              <div className="text-red text-p2 flex items-center gap-1.5">
-                <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                <span>{password ? "Please make sure all criteria is met" : "Please enter a password"}</span>
-              </div>
-            )}
-          </Field>
-
-          <div className="flex flex-col gap-4">
-            {/* Confirm Password Field */}
-            <Field>
-              <FieldLabel htmlFor="password">Confirm password</FieldLabel>
-              <div className="relative w-full">
-                <Input
-                  id="password"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  className={cn(
-                    'px-6',
-                    confirmPasswordError && 'outline-red focus:outline-red'
-                  )}
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value);
-                    setConfirmPasswordError(false);
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
-                  aria-label={
-                    showConfirmPassword ? 'Hide password' : 'Show password'
-                  }
-                >
-                  {showConfirmPassword ? (
-                    <EyeOffIcon className="h-6 w-6" />
-                  ) : (
-                    <EyeIcon className="h-6 w-6" />
-                  )}
-                </button>
-              </div>
-              {confirmPasswordError && (
-                <div className="text-red text-p2 flex items-center gap-1.5">
-                  <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                  <span>{confirmPassword ? "Please make sure both passwords match" : "Please enter a password"}</span>
-                </div>
-              )}
-            </Field>
-          </div>
-        </form>
-
-        {/* Password Requirements */}
-        <div className="mt-2 desktop:mt-5">
-          <p className="mb-[3px] text-p2 font-semibold">Password must be:</p>
-          <ul className="space-y-[3px]">
-            {requirements.map((req, index) => (
-              <PasswordRequirement
-                key={index}
-                label={req.label}
-                isSatisfied={req.isSatisfied}
-              />
-            ))}
-          </ul>
-        </div>
-
-        {/* Create Account Button */}
-        <div className="flex flex-col">
-          <Button
-            form="register-form"
-            type="submit"
-            variant="primary"
-            shape="default"
-            className="mt-12 w-full py-3"
-            disabled={isPending}
-          >
-            Create account
-          </Button>
-        </div>
-      </div>
-    </>
-  )
-};
-
-interface PasswordRequirementProps {
-  label: string;
-  isSatisfied: boolean;
-}
-
-const PasswordRequirement = ({ label, isSatisfied }: PasswordRequirementProps) => {
-  return (
-    <li className="flex items-center gap-1 text-p2 font-semibold">
-      {isSatisfied ? (
-        <CheckIcon className="h-4 w-4 shrink-0 text-green-500" strokeWidth={3} />
+    <WrapperWithLogo headerTitle={headerTitle} subheaderTitle={subheaderTitle} className="desktop:max-w-[362px]">
+      
+      {step === 'FORM' ? (
+        <CreatePasswordForm 
+          onSubmit={handleRegister} 
+          isPending={isPending} 
+          submitButtonText="Create account"
+        />
       ) : (
-        // A little custom gray dot indicator when invalid
-        <div className="flex h-4 w-4 shrink-0 items-center justify-center">
-          <span className="h-1 w-1 rounded-full bg-black" />
-        </div>
+        <AccountCreationConfirmation/>
       )}
-      <span className={cn(
-        "transition-colors duration-200", 
-        isSatisfied ? "text-success-stroke" : "text-current"
-      )}>
-        {label}
-      </span>
-    </li>
+    </WrapperWithLogo>
   );
-};
+}
 
 const AccountCreationConfirmation = () => {
   const navigate = useNavigate();
