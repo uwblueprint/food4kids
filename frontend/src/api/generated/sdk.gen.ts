@@ -208,6 +208,9 @@ import type {
   UploadImageData,
   UploadImageErrors,
   UploadImageResponses,
+  ValidateResetTokenData,
+  ValidateResetTokenErrors,
+  ValidateResetTokenResponses,
 } from './types.gen';
 
 export type Options<
@@ -365,7 +368,6 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
   });
 
 /**
-<<<<<<< HEAD
  * Send Announcement Email
  *
  * Send announcement notification emails to all active drivers (admin only).
@@ -382,7 +384,9 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/{announcement_id}/email',
     ...options,
-=======
+  });
+
+/**
  * Forgot Password
  *
  * Triggers password reset for user with specified email (reset link will be emailed)
@@ -402,7 +406,6 @@ export const forgotPassword = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
->>>>>>> 6d8f2e1d (regen openapi spec)
   });
 
 /**
@@ -465,6 +468,27 @@ export const updatePassword = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/auth/update-password',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Validate Reset Token
+ *
+ * Validate that a password reset token exists, isn't used, and hasn't expired.
+ */
+export const validateResetToken = <ThrowOnError extends boolean = false>(
+  options: Options<ValidateResetTokenData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ValidateResetTokenResponses,
+    ValidateResetTokenErrors,
+    ThrowOnError
+  >({
+    url: '/auth/validate-reset-token',
     ...options,
     headers: {
       'Content-Type': 'application/json',

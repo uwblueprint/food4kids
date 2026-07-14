@@ -1,7 +1,7 @@
 """add password reset token table
 
 Revision ID: f40596bcb025
-Revises: d7e8f9a0b1c2
+Revises: 58e90e6bdd92
 Create Date: 2026-06-21 00:37:43.002365
 
 """
@@ -12,7 +12,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision = 'f40596bcb025'
-down_revision = 'd7e8f9a0b1c2'
+down_revision = '58e90e6bdd92'
 branch_labels = None
 depends_on = None
 

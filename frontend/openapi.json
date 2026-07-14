@@ -3769,6 +3769,19 @@
         "title": "UserFinalize",
         "type": "object"
       },
+      "ValidateResetTokenRequest": {
+        "properties": {
+          "password_reset_token": {
+            "title": "Password Reset Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password_reset_token"
+        ],
+        "title": "ValidateResetTokenRequest",
+        "type": "object"
+      },
       "ValidatedLocationImportEntry": {
         "description": "LocationImportEntry with required fields guaranteed non-None after validation.",
         "properties": {
@@ -4174,7 +4187,6 @@
         ]
       }
     },
-<<<<<<< HEAD
     "/announcements/{announcement_id}/email": {
       "post": {
         "description": "Send announcement notification emails to all active drivers (admin only).",
@@ -4204,7 +4216,30 @@
                 }
               }
             },
-=======
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Announcement Email",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
     "/auth/forgot-password": {
       "post": {
         "description": "Triggers password reset for user with specified email (reset link will be emailed)\nReturns 204 regardless to avoid enumeration attacks",
@@ -4221,7 +4256,6 @@
         },
         "responses": {
           "204": {
->>>>>>> 6d8f2e1d (regen openapi spec)
             "description": "Successful Response"
           },
           "422": {
@@ -4235,20 +4269,9 @@
             "description": "Validation Error"
           }
         },
-<<<<<<< HEAD
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Send Announcement Email",
-        "tags": [
-          "announcements"
-=======
         "summary": "Forgot Password",
         "tags": [
           "authentication"
->>>>>>> 6d8f2e1d (regen openapi spec)
         ]
       }
     },
@@ -4388,6 +4411,41 @@
           }
         },
         "summary": "Update Password",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/validate-reset-token": {
+      "post": {
+        "description": "Validate that a password reset token exists, isn't used, and hasn't expired.",
+        "operationId": "validate_reset_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateResetTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Reset Token",
         "tags": [
           "authentication"
         ]

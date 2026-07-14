@@ -2142,6 +2142,16 @@ export type UserFinalize = {
 };
 
 /**
+ * ValidateResetTokenRequest
+ */
+export type ValidateResetTokenRequest = {
+  /**
+   * Password Reset Token
+   */
+  password_reset_token: string;
+};
+
+/**
  * ValidatedLocationImportEntry
  *
  * LocationImportEntry with required fields guaranteed non-None after validation.
@@ -2630,7 +2640,6 @@ export type UpdateAnnouncementResponses = {
 export type UpdateAnnouncementResponse =
   UpdateAnnouncementResponses[keyof UpdateAnnouncementResponses];
 
-<<<<<<< HEAD
 export type SendAnnouncementEmailData = {
   body?: never;
   path: {
@@ -2644,23 +2653,12 @@ export type SendAnnouncementEmailData = {
 };
 
 export type SendAnnouncementEmailErrors = {
-=======
-export type ForgotPasswordData = {
-  body: ForgotPasswordRequest;
-  path?: never;
-  query?: never;
-  url: '/auth/forgot-password';
-};
-
-export type ForgotPasswordErrors = {
->>>>>>> 6d8f2e1d (regen openapi spec)
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-<<<<<<< HEAD
 export type SendAnnouncementEmailError =
   SendAnnouncementEmailErrors[keyof SendAnnouncementEmailErrors];
 
@@ -2677,7 +2675,21 @@ export type SendAnnouncementEmailResponses = {
 
 export type SendAnnouncementEmailResponse =
   SendAnnouncementEmailResponses[keyof SendAnnouncementEmailResponses];
-=======
+
+export type ForgotPasswordData = {
+  body: ForgotPasswordRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/forgot-password';
+};
+
+export type ForgotPasswordErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
 export type ForgotPasswordError =
   ForgotPasswordErrors[keyof ForgotPasswordErrors];
 
@@ -2690,7 +2702,6 @@ export type ForgotPasswordResponses = {
 
 export type ForgotPasswordResponse =
   ForgotPasswordResponses[keyof ForgotPasswordResponses];
->>>>>>> 6d8f2e1d (regen openapi spec)
 
 export type LoginData = {
   body: LoginRequest;
@@ -2789,6 +2800,33 @@ export type UpdatePasswordResponses = {
 
 export type UpdatePasswordResponse =
   UpdatePasswordResponses[keyof UpdatePasswordResponses];
+
+export type ValidateResetTokenData = {
+  body: ValidateResetTokenRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/validate-reset-token';
+};
+
+export type ValidateResetTokenErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ValidateResetTokenError =
+  ValidateResetTokenErrors[keyof ValidateResetTokenErrors];
+
+export type ValidateResetTokenResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ValidateResetTokenResponse =
+  ValidateResetTokenResponses[keyof ValidateResetTokenResponses];
 
 export type GetDriversData = {
   body?: never;

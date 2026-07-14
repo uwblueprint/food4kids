@@ -71,6 +71,7 @@ export {
   updateRoute,
   updateRouteGroup,
   uploadImage,
+  validateResetToken,
 } from './sdk.gen';
 export type {
   AlertCode,
@@ -489,5 +490,11 @@ export type {
   UploadImageResponses,
   UserFinalize,
   ValidatedLocationImportEntry,
+  ValidateResetTokenData,
+  ValidateResetTokenError,
+  ValidateResetTokenErrors,
+  ValidateResetTokenRequest,
+  ValidateResetTokenResponse,
+  ValidateResetTokenResponses,
   ValidationError,
 } from './types.gen';
