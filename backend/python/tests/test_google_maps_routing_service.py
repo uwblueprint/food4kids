@@ -97,7 +97,7 @@ class TestBuildPayload:
             }
             assert v["costPerHour"] == VEHICLE_COST_PER_HOUR
 
-        # --- objective: makespan pressure on the whole plan ---
+        # --- global duration cost per hour: minimize total time between first start and last end ---
         assert model["globalDurationCostPerHour"] == GLOBAL_DURATION_COST_PER_HOUR
 
         # --- shipments = forced_pickups + deliveries ---
