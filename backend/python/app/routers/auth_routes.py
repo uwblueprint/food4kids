@@ -16,7 +16,7 @@ from app.dependencies.services import (
 )
 from app.models import get_session
 from app.models.password_reset_token import PASSWORD_RESET_TOKEN_EXPIRY_DAYS
-from app.schemas.auth import AuthResponse, LoginRequest, ForgotPasswordRequest, UpdatePasswordRequest
+from app.schemas.auth import AuthResponse, LoginRequest, ForgotPasswordRequest, UpdatePasswordRequest, ValidateResetTokenRequest
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.user_service import UserService
 from app.services.implementations.email_dispatcher import EmailDispatcher
@@ -181,6 +181,24 @@ async def forgot_password(
     except Exception as e:
         logger.exception(f"Internal error processing forgot-password for {email}: {e}")
         return
+    
+@router.post("/validate-reset-token", status_code=status.HTTP_204_NO_CONTENT)
+async def validate_reset_token(
+    request: ValidateResetTokenRequest,
+    session: AsyncSession = Depends(get_session),
+    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service),
+) -> None:
+    """
+    Validate that a password reset token exists, isn't used, and hasn't expired.
+    """
+    token_obj = await token_service.read(session, request.token)
+    current_time = datetime.now(timezone.utc)
+
+    if not token_obj or token_obj.is_used or current_time > token_obj.expires_at.replace(tzinfo=timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token."
+        )
 
 @router.post("/update-password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_password(
