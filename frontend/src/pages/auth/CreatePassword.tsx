@@ -261,7 +261,7 @@ const AccountCreationConfirmation = () => {
         type="button"
         variant="primary"
         shape="default"
-        className="desktop:mt-2 w-full py-3"
+        className="desktop:mt-4 w-full py-3"
         onClick={() => navigate('/')}
       >
         Continue
