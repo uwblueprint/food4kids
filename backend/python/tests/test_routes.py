@@ -3505,7 +3505,7 @@ class TestNoteChainRoutes:
     async def test_notes_crud_and_read_tracking(
         self, authed_async_client: AsyncClient, test_session: Any
     ) -> None:
-        """Test note create, list (with unread count + auto mark-as-read), update, delete."""
+        """Test note create, list, update, delete."""
         chain_id = await self._create_chain(test_session)
 
         # Create
@@ -3516,18 +3516,10 @@ class TestNoteChainRoutes:
         assert note_resp.status_code == 201
         note_id = note_resp.json()["note_id"]
 
-        # List - unread_count=1, then auto-marked as read
+        # List notes
         list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
         assert list_resp.status_code == 200
-        data = list_resp.json()
-        assert len(data["notes"]) == 1
-        assert data["unread_count"] == 1
-
-        # List again - unread_count=0
-        list_again_resp = await authed_async_client.get(
-            f"/note-chains/{chain_id}/notes"
-        )
-        assert list_again_resp.json()["unread_count"] == 0
+        assert len(list_resp.json()) == 1
 
         # Update
         patch_resp = await authed_async_client.patch(
@@ -3814,9 +3806,11 @@ class TestAnnouncementRoutes:
     """Test suite for announcement API routes."""
 
     @pytest.mark.asyncio
-    async def test_get_announcements_empty(self, async_client: AsyncClient) -> None:
+    async def test_get_announcements_empty(
+        self, authed_async_client: AsyncClient
+    ) -> None:
         """Test GET /announcements returns empty list when none exist."""
-        response = await async_client.get("/announcements/")
+        response = await authed_async_client.get("/announcements/")
         assert response.status_code == 200
         assert response.json() == []
 
@@ -4513,3 +4507,41 @@ class TestDriverHistoryRoutes:
         # The CSV emits a per-year distance column, proving the export ran for
         # the requested year.
         assert "distance (km) in 2025" in response.text
+
+    @pytest.mark.asyncio
+    async def test_mark_read_and_is_read_status(
+        self,
+        authed_async_client: AsyncClient,
+        test_admin_user: Any,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test POST /announcements/mark-read and is_read on GET /announcements/."""
+        user_id = str(test_admin_user.user_id)
+
+        # Create an announcement
+        create_resp = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        assert create_resp.status_code == 201
+
+        # GET — is_read should be False (never marked read)
+        resp = await authed_async_client.get("/announcements/")
+        assert resp.status_code == 200
+        assert resp.json()[0]["is_read"] is False
+
+        # Mark as read (user derived from auth token)
+        mark_resp = await authed_async_client.post("/announcements/mark-read")
+        assert mark_resp.status_code == 200
+        assert mark_resp.json()["user_id"] == user_id
+        assert "last_read_at" in mark_resp.json()
+        first_last_read_at = mark_resp.json()["last_read_at"]
+
+        mark_again = await authed_async_client.post("/announcements/mark-read")
+        assert mark_again.status_code == 200
+        assert mark_again.json()["user_id"] == user_id
+        assert mark_again.json()["last_read_at"] >= first_last_read_at
+
+        # GET — is_read should be True now
+        resp = await authed_async_client.get("/announcements/")
+        assert resp.status_code == 200
+        assert resp.json()[0]["is_read"] is True

@@ -170,6 +170,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # --- announcements ---
     ("GET", "/announcements/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/announcements/"): Policy.DRIVER_OR_ADMIN,
+    ("POST", "/announcements/mark-read"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
     ("PUT", "/announcements/{announcement_id}"): Policy.ANNOUNCEMENT_OWNER_OR_ADMIN,
     ("DELETE", "/announcements/{announcement_id}"): Policy.ANNOUNCEMENT_OWNER_OR_ADMIN,

@@ -148,6 +148,8 @@ import type {
   LogoutData,
   LogoutErrors,
   LogoutResponses,
+  MarkAnnouncementsAsReadData,
+  MarkAnnouncementsAsReadResponses,
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
@@ -235,7 +237,7 @@ export const test = <ThrowOnError extends boolean = false>(
 /**
  * Get Announcements
  *
- * Retrieve all announcements
+ * Retrieve all announcements with is_read status for the authenticated user.
  */
 export const getAnnouncements = <ThrowOnError extends boolean = false>(
   options?: Options<GetAnnouncementsData, ThrowOnError>
@@ -272,6 +274,25 @@ export const createAnnouncement = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Mark Announcements As Read
+ *
+ * Mark all announcements as read for the authenticated user.
+ */
+export const markAnnouncementsAsRead = <ThrowOnError extends boolean = false>(
+  options?: Options<MarkAnnouncementsAsReadData, ThrowOnError>
+) =>
+  (options?.client ?? client).post<
+    MarkAnnouncementsAsReadResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/announcements/mark-read',
+    ...options,
   });
 
 /**
@@ -1064,7 +1085,7 @@ export const getNoteChain = <ThrowOnError extends boolean = false>(
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotes = <ThrowOnError extends boolean = false>(
   options: Options<GetNotesData, ThrowOnError>

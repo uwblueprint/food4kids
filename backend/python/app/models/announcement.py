@@ -49,6 +49,7 @@ class AnnouncementRead(AnnouncementBase):
     attachments: list[str]
     created_at: datetime | None
     updated_at: datetime | None
+    is_read: bool | None = None
 
     @classmethod
     def from_announcement(cls, announcement: Announcement) -> "AnnouncementRead":

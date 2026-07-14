@@ -40,6 +40,26 @@ export type AnnouncementCreate = {
 };
 
 /**
+ * AnnouncementLastReadResponse
+ *
+ * Response model for announcement last read
+ */
+export type AnnouncementLastReadResponse = {
+  /**
+   * Announcement Last Read Id
+   */
+  announcement_last_read_id: string;
+  /**
+   * Last Read At
+   */
+  last_read_at: string;
+  /**
+   * User Id
+   */
+  user_id: string;
+};
+
+/**
  * AnnouncementRead
  *
  * Announcement response model
@@ -65,6 +85,10 @@ export type AnnouncementRead = {
    * Created At
    */
   created_at: string | null;
+  /**
+   * Is Read
+   */
+  is_read?: boolean | null;
   /**
    * Message
    */
@@ -1298,22 +1322,6 @@ export type NoteFeedItem = {
 export type NoteFeedSort = 'recent' | 'oldest' | 'driver' | 'location';
 
 /**
- * NoteListResponse
- *
- * Response for GET notes - includes unread count
- */
-export type NoteListResponse = {
-  /**
-   * Notes
-   */
-  notes: Array<NoteRead>;
-  /**
-   * Unread Count
-   */
-  unread_count: number;
-};
-
-/**
  * NotePermission
  *
  * Controls who can read/write on a note chain
@@ -2477,6 +2485,23 @@ export type CreateAnnouncementResponses = {
 
 export type CreateAnnouncementResponse =
   CreateAnnouncementResponses[keyof CreateAnnouncementResponses];
+
+export type MarkAnnouncementsAsReadData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/announcements/mark-read';
+};
+
+export type MarkAnnouncementsAsReadResponses = {
+  /**
+   * Successful Response
+   */
+  200: AnnouncementLastReadResponse;
+};
+
+export type MarkAnnouncementsAsReadResponse =
+  MarkAnnouncementsAsReadResponses[keyof MarkAnnouncementsAsReadResponses];
 
 export type DeleteAnnouncementData = {
   body?: never;
@@ -3733,9 +3758,11 @@ export type GetNotesError = GetNotesErrors[keyof GetNotesErrors];
 
 export type GetNotesResponses = {
   /**
+   * Response Get Notes
+   *
    * Successful Response
    */
-  200: NoteListResponse;
+  200: Array<NoteRead>;
 };
 
 export type GetNotesResponse = GetNotesResponses[keyof GetNotesResponses];
