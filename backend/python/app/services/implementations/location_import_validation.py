@@ -146,30 +146,9 @@ def matching_fields(left: MatchKey, right: MatchKey) -> list[DuplicateMatchField
     ]
 
 
-def match_score(left: MatchKey, right: MatchKey) -> int:
-    """Count how many of {name, address, phone} match between two keys."""
-    return len(matching_fields(left, right))
-
-
 def is_same_location(left: MatchKey, right: MatchKey) -> bool:
     """True when at least two of {name, address, phone} match (2-of-3 rule)."""
-    return match_score(left, right) >= 2
-
-
-def duplicate_matching_fields(
-    left: LocationImportEntry,
-    right: LocationImportEntry,
-) -> list[DuplicateMatchField]:
-    """Return fields that match between two rows for the 2-of-3 duplicate rule."""
-    return matching_fields(entry_match_key(left), entry_match_key(right))
-
-
-def rows_are_duplicates(
-    left: LocationImportEntry,
-    right: LocationImportEntry,
-) -> bool:
-    """True when at least two of {name, address, phone} match (2-of-3 rule)."""
-    return is_same_location(entry_match_key(left), entry_match_key(right))
+    return len(matching_fields(left, right)) >= 2
 
 
 class _UnionFind:
@@ -190,19 +169,14 @@ class _UnionFind:
             self._parent[root_right] = root_left
 
 
-def find_duplicate_index_groups(
-    entries: list[LocationImportEntry],
-) -> list[list[int]]:
+def find_duplicate_index_groups(keys: list[MatchKey]) -> list[list[int]]:
     """Return duplicate clusters as lists of 0-based indices (size >= 2).
 
     Transitive duplicates are merged via union-find (A~B and B~C => one group).
-    Expects phone_primary to already be normalized when possible.
     """
-    size = len(entries)
+    size = len(keys)
     if size < 2:
         return []
-
-    keys = [entry_match_key(entry) for entry in entries]
 
     # Create a union-find data structure to find the connected components
     union_find = _UnionFind(size)

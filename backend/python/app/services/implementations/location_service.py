@@ -50,13 +50,12 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
-    duplicate_matching_fields,
     entry_match_key,
     find_duplicate_index_groups,
     is_blank,
     is_same_location,
     location_match_key,
-    match_score,
+    matching_fields,
     present_str,
     try_normalize_phone,
 )
@@ -575,8 +574,8 @@ class LocationService:
                 phone_invalid_flags.append(phone_invalid)
                 phone_secondary_invalid_flags.append(secondary_invalid)
 
-            entries = [entry for _, entry in parsed_rows]
-            duplicate_index_groups = find_duplicate_index_groups(entries)
+            entry_keys = [entry_match_key(entry) for _, entry in parsed_rows]
+            duplicate_index_groups = find_duplicate_index_groups(entry_keys)
             duplicate_indices = {
                 index for group in duplicate_index_groups for index in group
             }
@@ -610,19 +609,19 @@ class LocationService:
 
             duplicate_groups = []
             for group in duplicate_index_groups:
-                matching_fields = {
+                group_fields = {
                     field
                     for left_position, left_index in enumerate(group)
                     for right_index in group[left_position + 1 :]
-                    for field in duplicate_matching_fields(
-                        entries[left_index], entries[right_index]
+                    for field in matching_fields(
+                        entry_keys[left_index], entry_keys[right_index]
                     )
                 }
                 duplicate_groups.append(
                     DuplicateGroup(
                         rows=[parsed_rows[i][0] for i in group],
                         matching_fields=sorted(
-                            matching_fields, key=lambda field: field.value
+                            group_fields, key=lambda field: field.value
                         ),
                     )
                 )
@@ -733,7 +732,7 @@ class LocationService:
             location_key = location_match_key(location)
             if not is_same_location(entry_key, location_key):
                 continue
-            score = match_score(entry_key, location_key)
+            score = len(matching_fields(entry_key, location_key))
             if score > best_score:
                 best_score = score
                 best_match = location
