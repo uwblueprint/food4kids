@@ -5,15 +5,26 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 
-from app.models.location import AlertCode, Location, LocationImportEntry
+from app.models.location import (
+    AlertCode,
+    DuplicateMatchField,
+    Location,
+    LocationImportEntry,
+)
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
-    count_duplicate_field_matches,
+    duplicate_matching_fields,
+    entry_match_key,
     find_duplicate_index_groups,
     is_invalid_school_or_last_name,
+    is_same_location,
+    location_match_key,
+    match_score,
+    matching_fields,
     rows_are_duplicates,
 )
 from app.services.implementations.location_service import LocationService
@@ -180,7 +191,7 @@ class TestDuplicateDetection:
             address="100 Shared Building",
             phone_primary="+15192222222",
         )
-        assert count_duplicate_field_matches(left, right) == 1
+        assert duplicate_matching_fields(left, right) == [DuplicateMatchField.ADDRESS]
         assert not rows_are_duplicates(left, right)
 
     def test_one_of_three_phone_only_not_duplicate(self) -> None:
@@ -258,6 +269,66 @@ class TestDuplicateDetection:
         ]
         groups = find_duplicate_index_groups(entries)
         assert groups == [[0, 1]]
+
+
+class TestMatchKey:
+    """The same key function serves in-file dedup and entry-vs-Location matching."""
+
+    def _location(
+        self,
+        *,
+        contact_name: str = "Smith",
+        address: str = "123 Main St",
+        phone_primary: str = "+15195551234",
+    ) -> Location:
+        return Location(
+            location_group_id=uuid4(),
+            name=contact_name,
+            contact_name=contact_name,
+            address=address,
+            phone_primary=phone_primary,
+            delivery_type="Family",
+        )
+
+    def test_internal_whitespace_collapses(self) -> None:
+        left = entry_match_key(_entry(contact_name="John  Smith"))
+        right = entry_match_key(_entry(contact_name="John Smith"))
+        assert left.name == right.name
+
+    def test_blank_fields_never_match(self) -> None:
+        left = entry_match_key(
+            _entry(contact_name="  ", address="1 A St", phone_primary=None)
+        )
+        right = entry_match_key(
+            _entry(contact_name="", address="2 B St", phone_primary=None)
+        )
+        assert left.name is None
+        assert left.phone is None
+        assert match_score(left, right) == 0
+
+    def test_location_matches_entry_through_same_key(self) -> None:
+        entry_key = entry_match_key(
+            _entry(contact_name="smith", address="123  MAIN st")
+        )
+        location_key = location_match_key(self._location())
+        assert matching_fields(entry_key, location_key) == [
+            DuplicateMatchField.NAME,
+            DuplicateMatchField.ADDRESS,
+            DuplicateMatchField.PHONE,
+        ]
+        assert is_same_location(entry_key, location_key)
+
+    def test_location_one_field_match_is_not_same(self) -> None:
+        entry_key = entry_match_key(
+            _entry(
+                contact_name="Jones",
+                address="99 Elsewhere Rd",
+                phone_primary="+15195551234",
+            )
+        )
+        location_key = location_match_key(self._location())
+        assert match_score(entry_key, location_key) == 1
+        assert not is_same_location(entry_key, location_key)
 
 
 class TestExistingGeocodedAddresses:

@@ -51,8 +51,12 @@ from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
     duplicate_matching_fields,
+    entry_match_key,
     find_duplicate_index_groups,
     is_blank,
+    is_same_location,
+    location_match_key,
+    match_score,
     present_str,
     try_normalize_phone,
 )
@@ -678,44 +682,6 @@ class LocationService:
             return None
         return await self.google_maps_service.geocode_address(address)
 
-    @staticmethod
-    def _normalize_import_value(value: str | None) -> str:
-        return " ".join((value or "").strip().casefold().split())
-
-    @classmethod
-    def _match_key(cls, name: str, address: str, phone: str) -> tuple[str, str, str]:
-        return (
-            cls._normalize_import_value(name),
-            cls._normalize_import_value(address),
-            cls._normalize_import_value(phone),
-        )
-
-    @classmethod
-    def _import_entry_match_key(
-        cls, entry: ValidatedLocationImportEntry
-    ) -> tuple[str, str, str]:
-        return cls._match_key(entry.contact_name, entry.address, entry.phone_primary)
-
-    @classmethod
-    def _location_match_key(cls, location: Location) -> tuple[str, str, str]:
-        return cls._match_key(
-            location.contact_name, location.address, location.phone_primary
-        )
-
-    @staticmethod
-    def _match_score(left: tuple[str, str, str], right: tuple[str, str, str]) -> int:
-        return sum(
-            1
-            for left_value, right_value in zip(left, right, strict=True)
-            if left_value == right_value
-        )
-
-    @classmethod
-    def _is_same_import_location(
-        cls, left: tuple[str, str, str], right: tuple[str, str, str]
-    ) -> bool:
-        return cls._match_score(left, right) >= 2
-
     async def _classify_import_rows(
         self,
         session: AsyncSession,
@@ -759,18 +725,19 @@ class LocationService:
         entry: ValidatedLocationImportEntry,
         existing_locations: list[Location],
     ) -> Location | None:
-        entry_key = self._import_entry_match_key(entry)
-        matches = [
-            (self._match_score(entry_key, self._location_match_key(location)), location)
-            for location in existing_locations
-            if self._is_same_import_location(
-                entry_key, self._location_match_key(location)
-            )
-        ]
-        if not matches:
-            return None
-        matches.sort(key=lambda item: item[0], reverse=True)
-        return matches[0][1]
+        """Best existing match by the 2-of-3 rule; ties keep table order."""
+        entry_key = entry_match_key(entry)
+        best_score = 0
+        best_match: Location | None = None
+        for location in existing_locations:
+            location_key = location_match_key(location)
+            if not is_same_location(entry_key, location_key):
+                continue
+            score = match_score(entry_key, location_key)
+            if score > best_score:
+                best_score = score
+                best_match = location
+        return best_match
 
     @staticmethod
     def _to_net_new_entry(
@@ -801,16 +768,12 @@ class LocationService:
         self, row_num: int, entry: ValidatedLocationImportEntry, location: Location
     ) -> ChangedEntry | None:
         old_delivery_group = location.location_group.name
-        contact_name_changed = self._normalize_import_value(
-            entry.contact_name
-        ) != self._normalize_import_value(location.contact_name)
-        address_changed = self._normalize_import_value(
-            entry.address
-        ) != self._normalize_import_value(location.address)
+        entry_key = entry_match_key(entry)
+        location_key = location_match_key(location)
+        contact_name_changed = entry_key.name != location_key.name
+        address_changed = entry_key.address != location_key.address
         delivery_group_changed = entry.delivery_group != old_delivery_group
-        phone_primary_changed = self._normalize_import_value(
-            entry.phone_primary
-        ) != self._normalize_import_value(location.phone_primary)
+        phone_primary_changed = entry_key.phone != location_key.phone
         phone_secondary_changed = (entry.phone_secondary or None) != (
             location.phone_secondary or None
         )
