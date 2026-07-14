@@ -572,6 +572,14 @@ export type DriverUpdate = {
    */
   car_make_model?: string | null;
   /**
+   * First Name
+   */
+  first_name?: string | null;
+  /**
+   * Last Name
+   */
+  last_name?: string | null;
+  /**
    * License Plate
    */
   license_plate?: string | null;

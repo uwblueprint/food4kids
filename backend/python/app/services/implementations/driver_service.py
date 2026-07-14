@@ -148,10 +148,17 @@ class DriverService:
                 return None
 
             update_data = driver_data.model_dump(exclude_unset=True)
-            old_values = {field: getattr(driver, field) for field in update_data}
+            user_update_fields = {"first_name", "last_name"}
+            old_values = {
+                field: getattr(
+                    driver.user if field in user_update_fields else driver, field
+                )
+                for field in update_data
+            }
 
             for field, value in update_data.items():
-                setattr(driver, field, value)
+                target = driver.user if field in user_update_fields else driver
+                setattr(target, field, value)
 
             await session.commit()
             await session.refresh(driver, attribute_names=["user"])
@@ -161,7 +168,8 @@ class DriverService:
             # Rollback database changes
             assert driver is not None
             for field, value in old_values.items():
-                setattr(driver, field, value)
+                target = driver.user if field in {"first_name", "last_name"} else driver
+                setattr(target, field, value)
             await session.commit()
             self.logger.error(f"Failed to update driver: {e!s}")
             raise e

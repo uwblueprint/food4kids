@@ -19,6 +19,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -274,6 +275,106 @@ class TestDriverRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["partner_driver_name"] is None
+
+    @pytest.mark.asyncio
+    async def test_self_driver_updates_own_name_and_phone(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update can edit only User name fields and Driver phone."""
+        from app.models.user import User
+
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+        response = await self_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={
+                "first_name": "Updated",
+                "last_name": "Driver",
+                "phone": "+14165550123",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Updated"
+        assert data["last_name"] == "Driver"
+        assert data["phone"] == "+14165550123"
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Updated"
+        assert user.last_name == "Driver"
+        assert test_driver.phone == "+14165550123"
+
+    @pytest.mark.asyncio
+    async def test_self_driver_cannot_update_admin_only_fields(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update rejects admin-only fields and does not persist them."""
+        original_phone = test_driver.phone
+        original_address = test_driver.address
+        original_active = test_driver.active
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+
+        response = await self_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={
+                "phone": "+14165550123",
+                "address": "123 Admin Only St",
+                "active": False,
+            },
+        )
+
+        assert response.status_code == 403
+        await test_session.refresh(test_driver)
+        assert test_driver.phone == original_phone
+        assert test_driver.address == original_address
+        assert test_driver.active is original_active
+
+    @pytest.mark.asyncio
+    async def test_admin_updates_driver_name_and_admin_only_fields(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Admin update keeps the full DriverUpdate surface, including User names."""
+        from app.models.user import User
+
+        response = await async_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={
+                "first_name": "Admin",
+                "last_name": "Updated",
+                "address": "456 Admin Address St",
+                "active": False,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Admin"
+        assert data["last_name"] == "Updated"
+        assert data["address"] == "456 Admin Address St"
+        assert data["active"] is False
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Admin"
+        assert user.last_name == "Updated"
+        assert test_driver.address == "456 Admin Address St"
+        assert test_driver.active is False
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, async_client: AsyncClient) -> None:
