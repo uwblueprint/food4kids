@@ -13,8 +13,11 @@ type Step = 'FORM' | 'CONFIRMATION';
 
 export const CreatePassword = () => {
   const [step, setStep] = useState<Step>('FORM');
+  const headerTitle = step === 'FORM' ? "Create a password" : "Account created"
+  const subheaderTitle = step === 'FORM' ? "Create an account to access the app" : "You're in! Get ready to help fill some lunch bags and put smiles on some faces.";
+
   return (
-    <WrapperWithLogo headerTitle="Create a password" subheaderTitle="Create an account to access the app" className="desktop:max-w-[362px]">
+    <WrapperWithLogo headerTitle={headerTitle} subheaderTitle={subheaderTitle} className="desktop:max-w-[362px]">
       
       {step === 'FORM' ? (
         <CreatePasswordForm onSuccess={() => {setStep('CONFIRMATION')}}/>
@@ -45,7 +48,7 @@ const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
     return <Navigate to="/404" replace />;
   }
 
-  const { mutate, isPending, error } = useRegisterDriver();
+  const { mutate, isPending } = useRegisterDriver();
 
   const requirements = [
     {
