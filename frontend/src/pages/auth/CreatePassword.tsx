@@ -71,13 +71,18 @@ const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
   const submitPassword = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!allRequirementsMet) {
+    const isPasswordInvalid = !password || !allRequirementsMet;
+    const isConfirmInvalid = !confirmPassword || password !== confirmPassword;
+
+    if (isPasswordInvalid) {
       setPasswordError(true);
-      return;
     }
-    
-    if (password !== confirmPassword) {
+
+    if (isConfirmInvalid) {
       setConfirmPasswordError(true);
+    }
+
+    if (isPasswordInvalid || isConfirmInvalid) {
       return;
     }
 
@@ -117,7 +122,6 @@ const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
                   setPassword(e.target.value);
                   setPasswordError(false);
                 }}
-                required
               />
               <button
                 type="button"
@@ -137,7 +141,7 @@ const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
             {passwordError && (
               <div className="text-red text-p2 flex items-center gap-1.5">
                 <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                <span>Please make sure all criteria is met</span>
+                <span>{password ? "Please make sure all criteria is met" : "Please enter a password"}</span>
               </div>
             )}
           </Field>
@@ -161,7 +165,6 @@ const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
                     setConfirmPassword(e.target.value);
                     setConfirmPasswordError(false);
                   }}
-                  required
                 />
                 <button
                   type="button"
@@ -181,7 +184,7 @@ const CreatePasswordForm = ({ onSuccess }: CreatePasswordFormProps) => {
               {confirmPasswordError && (
                 <div className="text-red text-p2 flex items-center gap-1.5">
                   <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                  <span>Please make sure both passwords match</span>
+                  <span>{confirmPassword ? "Please make sure both passwords match" : "Please enter a password"}</span>
                 </div>
               )}
             </Field>
