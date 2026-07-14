@@ -1549,9 +1549,9 @@ export type RouteGenerationSettings = {
    */
   children_per_box?: number;
   /**
-   * Max Half Boxes Per Driver
+   * Max Boxes Per Driver
    */
-  max_half_boxes_per_driver?: number;
+  max_boxes_per_driver?: number;
   /**
    * Max Stops Per Route
    */
@@ -1564,12 +1564,6 @@ export type RouteGenerationSettings = {
    * Return To Warehouse
    */
   return_to_warehouse?: boolean;
-  /**
-   * Route Duration Limit Minutes
-   *
-   * Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.
-   */
-  route_duration_limit_minutes?: number | null;
   /**
    * Route Start Time
    */

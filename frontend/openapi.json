@@ -2623,10 +2623,10 @@
             "title": "Children Per Box",
             "type": "integer"
           },
-          "max_half_boxes_per_driver": {
-            "default": 28,
+          "max_boxes_per_driver": {
+            "default": 14,
             "exclusiveMinimum": 0,
-            "title": "Max Half Boxes Per Driver",
+            "title": "Max Boxes Per Driver",
             "type": "integer"
           },
           "max_stops_per_route": {
@@ -2648,19 +2648,6 @@
             "default": false,
             "title": "Return To Warehouse",
             "type": "boolean"
-          },
-          "route_duration_limit_minutes": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.",
-            "title": "Route Duration Limit Minutes"
           },
           "route_start_time": {
             "format": "date-time",
