@@ -148,6 +148,8 @@ import type {
   LogoutData,
   LogoutErrors,
   LogoutResponses,
+  MarkAnnouncementsAsReadData,
+  MarkAnnouncementsAsReadResponses,
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
@@ -162,6 +164,9 @@ import type {
   ReviewLocationsData,
   ReviewLocationsErrors,
   ReviewLocationsResponses,
+  SendAnnouncementEmailData,
+  SendAnnouncementEmailErrors,
+  SendAnnouncementEmailResponses,
   TestData,
   TestEventEmailData,
   TestEventEmailErrors,
@@ -232,7 +237,7 @@ export const test = <ThrowOnError extends boolean = false>(
 /**
  * Get Announcements
  *
- * Retrieve all announcements
+ * Retrieve all announcements with is_read status for the authenticated user.
  */
 export const getAnnouncements = <ThrowOnError extends boolean = false>(
   options?: Options<GetAnnouncementsData, ThrowOnError>
@@ -269,6 +274,25 @@ export const createAnnouncement = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Mark Announcements As Read
+ *
+ * Mark all announcements as read for the authenticated user.
+ */
+export const markAnnouncementsAsRead = <ThrowOnError extends boolean = false>(
+  options?: Options<MarkAnnouncementsAsReadData, ThrowOnError>
+) =>
+  (options?.client ?? client).post<
+    MarkAnnouncementsAsReadResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/announcements/mark-read',
+    ...options,
   });
 
 /**
@@ -329,6 +353,25 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Send Announcement Email
+ *
+ * Send announcement notification emails to all active drivers (admin only).
+ */
+export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
+  options: Options<SendAnnouncementEmailData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    SendAnnouncementEmailResponses,
+    SendAnnouncementEmailErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/announcements/{announcement_id}/email',
+    ...options,
   });
 
 /**
@@ -1042,7 +1085,7 @@ export const getNoteChain = <ThrowOnError extends boolean = false>(
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotes = <ThrowOnError extends boolean = false>(
   options: Options<GetNotesData, ThrowOnError>

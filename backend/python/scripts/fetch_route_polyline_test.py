@@ -36,7 +36,6 @@ async def test_fetch_route_polyline_with_return() -> None:
         halal=True,
         dietary_restrictions="",
         num_children=10,
-        notes="",
     )
 
     loc2 = Location(
@@ -51,7 +50,6 @@ async def test_fetch_route_polyline_with_return() -> None:
         halal=True,
         dietary_restrictions="",
         num_children=10,
-        notes="",
     )
 
     polyline, distance_km = await fetch_route_polyline(

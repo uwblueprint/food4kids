@@ -59,12 +59,14 @@ import {
   initializeDriver,
   login,
   logout,
+  markAnnouncementsAsRead,
   type Options,
   patchSystemSettings,
   refresh,
   renameDeliveryType,
   resetPassword,
   reviewLocations,
+  sendAnnouncementEmail,
   test,
   testEventEmail,
   updateAnnouncement,
@@ -217,6 +219,8 @@ import type {
   LogoutData,
   LogoutError,
   LogoutResponse,
+  MarkAnnouncementsAsReadData,
+  MarkAnnouncementsAsReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
@@ -231,6 +235,9 @@ import type {
   ReviewLocationsData,
   ReviewLocationsError,
   ReviewLocationsResponse,
+  SendAnnouncementEmailData,
+  SendAnnouncementEmailError,
+  SendAnnouncementEmailResponse,
   TestData,
   TestEventEmailData,
   TestEventEmailError,
@@ -339,7 +346,7 @@ export const getAnnouncementsQueryKey = (
 /**
  * Get Announcements
  *
- * Retrieve all announcements
+ * Retrieve all announcements with is_read status for the authenticated user.
  */
 export const getAnnouncementsOptions = (
   options?: Options<GetAnnouncementsData>
@@ -381,6 +388,35 @@ export const createAnnouncementMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await createAnnouncement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Mark Announcements As Read
+ *
+ * Mark all announcements as read for the authenticated user.
+ */
+export const markAnnouncementsAsReadMutation = (
+  options?: Partial<Options<MarkAnnouncementsAsReadData>>
+): UseMutationOptions<
+  MarkAnnouncementsAsReadResponse,
+  AxiosError<DefaultError>,
+  Options<MarkAnnouncementsAsReadData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarkAnnouncementsAsReadResponse,
+    AxiosError<DefaultError>,
+    Options<MarkAnnouncementsAsReadData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await markAnnouncementsAsRead({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -467,6 +503,35 @@ export const updateAnnouncementMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await updateAnnouncement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Send Announcement Email
+ *
+ * Send announcement notification emails to all active drivers (admin only).
+ */
+export const sendAnnouncementEmailMutation = (
+  options?: Partial<Options<SendAnnouncementEmailData>>
+): UseMutationOptions<
+  SendAnnouncementEmailResponse,
+  AxiosError<SendAnnouncementEmailError>,
+  Options<SendAnnouncementEmailData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    SendAnnouncementEmailResponse,
+    AxiosError<SendAnnouncementEmailError>,
+    Options<SendAnnouncementEmailData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await sendAnnouncementEmail({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1592,7 +1657,7 @@ export const getNotesQueryKey = (options: Options<GetNotesData>) =>
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotesOptions = (options: Options<GetNotesData>) =>
   queryOptions<
@@ -1620,7 +1685,7 @@ export const getNotesInfiniteQueryKey = (
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotesInfiniteOptions = (options: Options<GetNotesData>) =>
   infiniteQueryOptions<

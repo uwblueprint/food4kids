@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -59,6 +60,7 @@ class RouteService:
         end_date: str | None = None,
         pagination: PaginationParams | None = None,
         driver_id: UUID | None = None,
+        order: Literal["asc", "desc"] = "asc",
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
@@ -66,6 +68,10 @@ class RouteService:
         unassigned_only filters to routes with no driver_id. driver_id filters
         to routes assigned to that specific driver (powers the driver homepage
         feed). The date range filters on the route's RouteGroup.drive_date.
+
+        order controls the drive_date ordering: "asc" (default) for the
+        upcoming feed (oldest-first), "desc" for the past feed
+        (most-recent-first).
         """
         children_per_box = await resolve_children_per_box(session)
 
@@ -123,7 +129,12 @@ class RouteService:
         if driver_id is not None:
             statement = statement.where(Route.driver_id == driver_id)
 
-        statement = statement.order_by(RouteGroup.drive_date, Route.name)  # type: ignore[arg-type]
+        drive_date_order = (
+            col(RouteGroup.drive_date).desc()
+            if order == "desc"
+            else col(RouteGroup.drive_date).asc()
+        )
+        statement = statement.order_by(drive_date_order, col(Route.name))
 
         if pagination is None:
             pagination = PaginationParams()
@@ -138,6 +149,7 @@ class RouteService:
                 notes=row.Route.notes,
                 length=row.Route.length,
                 drive_date=row.drive_date,
+                start_time=row.Route.start_time,
                 num_stops=row.num_stops,
                 box_total=row.box_total,
             )
@@ -217,9 +229,11 @@ class RouteService:
                     snapshot.contact_name if snapshot else location.contact_name
                 ),
                 phone_primary=(
-                    snapshot.phone_number if snapshot else location.phone_primary
+                    snapshot.phone_primary if snapshot else location.phone_primary
                 ),
-                phone_secondary=location.phone_secondary,
+                phone_secondary=(
+                    snapshot.phone_secondary if snapshot else location.phone_secondary
+                ),
                 boxes=compute_boxes(
                     snapshot.num_children if snapshot else location.num_children,
                     children_per_box,

@@ -1,4 +1,5 @@
 import logging
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -38,6 +39,11 @@ async def get_routes(
     ),
     start_date: str = Query(None, description="Filter route groups from this date"),
     end_date: str = Query(None, description="Filter route groups until this date"),
+    order: Literal["asc", "desc"] = Query(
+        "asc",
+        description="Order by drive_date: 'asc' (default, oldest-first) for the "
+        "upcoming feed, 'desc' (most-recent-first) for the past feed.",
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Depends(resolve_route_list_driver_filter),
@@ -61,7 +67,7 @@ async def get_routes(
             "themselves, so they cannot list unassigned routes.)",
         )
     return await route_service.get_routes(
-        session, unassigned_only, start_date, end_date, pagination, driver_id
+        session, unassigned_only, start_date, end_date, pagination, driver_id, order
     )
 
 

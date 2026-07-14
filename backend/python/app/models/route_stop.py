@@ -89,8 +89,6 @@ class RouteStopDetailRead(SQLModel):
     address: str
     contact_name: str
     phone_primary: str
-    # Secondary phone lives only on the live Location (snapshots don't capture
-    # it), so it's read from there regardless of frozen state.
     phone_secondary: str | None = None
     boxes: int
     note_chain_id: UUID | None = None

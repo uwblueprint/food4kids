@@ -1,7 +1,7 @@
-import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
 import { Account, Button, Card, CardContent } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
+import { AnnouncementsBoard } from '@/features/announcements';
 
 const today = formatDisplayDate(new Date());
 
@@ -15,9 +15,7 @@ export const AdminHomePage = () => {
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
-            <Button variant="tertiary" shape="circular">
-              <MegaphoneIcon className="size-5 text-blue-300" />
-            </Button>
+            <AnnouncementsBoard />
             <Button variant="tertiary" shape="circular">
               <SearchIcon className="size-5 text-blue-300" />
             </Button>

@@ -23,6 +23,7 @@ from sqlmodel import Session, select
 from app import initialize_firebase
 from app.models.admin import Admin
 from app.models.announcement import Announcement
+from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.base import BaseModel
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
@@ -32,7 +33,6 @@ from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note import Note
 from app.models.note_chain import NoteChain
-from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
@@ -67,8 +67,6 @@ PROBABILITY_ROUTE_NOTES = 0.1
 PROBABILITY_DIETARY_RESTRICTIONS = 0.3
 # Probability that a location will have a number of children specified
 PROBABILITY_NUM_CHILDREN = 0.8
-# Probability that a location will have notes
-PROBABILITY_LOCATION_NOTES = 0.4
 # Probability to skip creating driver history for the current year
 PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 # Probability that a location note chain will have notes
@@ -568,9 +566,9 @@ def materialize_route_for_group(
                 route_stop_id=stop.route_stop_id,
                 address=loc.address,
                 contact_name=loc.contact_name,
-                phone_number=loc.phone_primary,
+                phone_primary=loc.phone_primary,
+                phone_secondary=loc.phone_secondary,
                 num_children=loc.num_children,
-                notes=loc.notes,
                 latitude=loc.latitude,
                 longitude=loc.longitude,
             )
@@ -598,8 +596,8 @@ def main() -> None:
             # route_groups.
             print("Clearing existing data...")
             tables_to_clear = [
+                "announcement_last_reads",
                 "notes",
-                "note_chain_reads",
                 "driver_history",
                 "jobs",
                 "route_stop_snapshots",
@@ -756,9 +754,6 @@ def main() -> None:
                             else 0,
                             delivery_type=delivery_type,
                             in_roster=True,
-                            notes=fake.sentence()
-                            if random.random() < PROBABILITY_LOCATION_NOTES
-                            else "",
                         )
                         set_timestamps(location)
                         session.add(location)
@@ -1143,39 +1138,6 @@ def main() -> None:
             session.commit()
             print("Created system settings info")
 
-            # Create read tracking entries for some drivers
-            print("Creating note chain read tracking entries...")
-            read_entries_created = 0
-            all_driver_users = session.execute(
-                text(
-                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
-                )
-            ).fetchall()
-
-            all_chain_ids = session.execute(
-                text("SELECT note_chain_id FROM note_chains")
-            ).fetchall()
-
-            for driver_user_row in all_driver_users:
-                num_chains_to_read = random.randint(0, min(5, len(all_chain_ids)))
-                if num_chains_to_read > 0:
-                    chains_to_read = random.sample(all_chain_ids, num_chains_to_read)
-                    for chain_row in chains_to_read:
-                        read_entry = NoteChainReadModel(
-                            note_chain_id=chain_row[0],
-                            user_id=driver_user_row[0],
-                            last_read_at=datetime.now(
-                                ZoneInfo("America/New_York")
-                            ).replace(tzinfo=None)
-                            - timedelta(hours=random.randint(0, 72)),
-                        )
-                        set_timestamps(read_entry)
-                        session.add(read_entry)
-                        read_entries_created += 1
-
-            session.commit()
-            print(f"Created {read_entries_created} note chain read tracking entries")
-
             # Create sample announcements
             print("Creating sample announcements...")
             # Drivers can post announcements too (the create endpoint allows
@@ -1218,6 +1180,31 @@ def main() -> None:
                 session.add(announcement)
             session.commit()
             print(f"Created {len(SAMPLE_ANNOUNCEMENTS)} sample announcements")
+
+            # Create announcement read tracking entries for some drivers
+            print("Creating announcement read tracking entries...")
+            read_entries_created = 0
+            all_driver_users = session.execute(
+                text(
+                    "SELECT u.user_id FROM users u JOIN drivers d ON u.user_id = d.user_id"
+                )
+            ).fetchall()
+
+            for driver_user_row in all_driver_users:
+                if random.random() < 0.6:
+                    read_entry = AnnouncementLastRead(
+                        user_id=driver_user_row[0],
+                        last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(
+                            tzinfo=None
+                        )
+                        - timedelta(hours=random.randint(0, 72)),
+                    )
+                    set_timestamps(read_entry)
+                    session.add(read_entry)
+                    read_entries_created += 1
+
+            session.commit()
+            print(f"Created {read_entries_created} announcement read tracking entries")
 
             print("Comprehensive database seeding completed successfully!")
 
