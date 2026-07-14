@@ -177,9 +177,10 @@ class TestBuildPayload:
         vehicle = payload["model"]["vehicles"][0]
         assert "endLocation" not in vehicle
 
-    def test_makespan_dominates_per_vehicle_cost(self) -> None:
-        """The global-duration term must outweigh the per-vehicle time cost,
-        or the optimizer would never trade total time for a shorter max route."""
+    def test_longest_route_cost_dominates_per_vehicle_cost(self) -> None:
+        """The cost of when the last driver finishes must outweigh the
+        per-vehicle time cost, or the optimizer would never trade extra total
+        driving time for getting the last driver home sooner."""
         assert GLOBAL_DURATION_COST_PER_HOUR > VEHICLE_COST_PER_HOUR
 
     def test_oversized_location_demand_clamped_to_capacity(
