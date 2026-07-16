@@ -71,6 +71,64 @@ class RouteGroupService:
 
         return route_group
 
+    async def duplicate_route_group(
+        self, session: AsyncSession, route_group_id: UUID
+    ) -> RouteGroup | None:
+        """Duplicate a route group with fresh route/stop rows.
+
+        Route snapshots and note chains are intentionally not copied: they are
+        historical records attached to the original route. New routes point
+        back to their source through cloned_from_route_id.
+        """
+        statement = (
+            select(RouteGroup)
+            .options(selectinload(RouteGroup.routes).selectinload(Route.route_stops))  # type: ignore[arg-type]
+            .where(RouteGroup.route_group_id == route_group_id)
+        )
+        result = await session.execute(statement)
+        route_group = result.scalars().first()
+
+        if not route_group:
+            self.logger.error(f"RouteGroup with id {route_group_id} not found")
+            return None
+
+        duplicated_group = RouteGroup(
+            name=f"Copy of {route_group.name}",
+            notes=route_group.notes,
+            drive_date=route_group.drive_date,
+        )
+        session.add(duplicated_group)
+        await session.flush()
+
+        for route in sorted(route_group.routes, key=lambda item: item.name):
+            duplicated_route = Route(
+                name=route.name,
+                notes=route.notes,
+                length=route.length,
+                encoded_polyline=route.encoded_polyline,
+                polyline_updated_at=route.polyline_updated_at,
+                ends_at_warehouse=route.ends_at_warehouse,
+                start_time=route.start_time,
+                route_group_id=duplicated_group.route_group_id,
+                driver_id=route.driver_id,
+                cloned_from_route_id=route.route_id,
+            )
+            session.add(duplicated_route)
+            await session.flush()
+
+            for stop in sorted(route.route_stops, key=lambda item: item.stop_number):
+                session.add(
+                    RouteStop(
+                        route_id=duplicated_route.route_id,
+                        location_id=stop.location_id,
+                        stop_number=stop.stop_number,
+                    )
+                )
+
+        await session.commit()
+        await session.refresh(duplicated_group, ["routes"])
+        return duplicated_group
+
     async def get_route_groups(
         self,
         session: AsyncSession,

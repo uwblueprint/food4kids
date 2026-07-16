@@ -160,6 +160,47 @@ async def update_route_group(
         ) from e
 
 
+@router.post(
+    "/{route_group_id}/duplicate",
+    response_model=RouteGroupRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_route_group(
+    route_group_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    route_group_service: RouteGroupService = Depends(get_route_group_service),
+    _auth: bool = Depends(require_admin),
+) -> RouteGroupRead:
+    """
+    Duplicate a route group and its routes/stops for a new planning cycle.
+    """
+    try:
+        duplicated_route_group = await route_group_service.duplicate_route_group(
+            session, route_group_id
+        )
+        if not duplicated_route_group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"RouteGroup with id {route_group_id} not found",
+            )
+        return RouteGroupRead(
+            route_group_id=duplicated_route_group.route_group_id,
+            name=duplicated_route_group.name,
+            notes=duplicated_route_group.notes,
+            drive_date=duplicated_route_group.drive_date,
+            created_at=duplicated_route_group.created_at,
+            updated_at=duplicated_route_group.updated_at,
+            num_routes=duplicated_route_group.num_routes,
+            status=_compute_status(duplicated_route_group),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+
 @router.delete("/{route_group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_route_group(
     route_group_id: UUID,
