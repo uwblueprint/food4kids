@@ -27,6 +27,9 @@ from app.models.route_group import (
 from app.models.route_stop import RouteStop
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
 
+ROUTE_GROUP_COPY_PREFIX = "Copy of "
+ROUTE_GROUP_NAME_MAX_LENGTH = 255
+
 
 class RouteGroupService:
     """Route group service for CRUD operations"""
@@ -93,12 +96,13 @@ class RouteGroupService:
             return None
 
         duplicated_group = RouteGroup(
-            name=f"Copy of {route_group.name}",
+            name=f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
+                :ROUTE_GROUP_NAME_MAX_LENGTH
+            ],
             notes=route_group.notes,
             drive_date=route_group.drive_date,
         )
         session.add(duplicated_group)
-        await session.flush()
 
         for route in sorted(route_group.routes, key=lambda item: item.name):
             duplicated_route = Route(
@@ -113,11 +117,10 @@ class RouteGroupService:
                 driver_id=route.driver_id,
                 cloned_from_route_id=route.route_id,
             )
-            session.add(duplicated_route)
-            await session.flush()
+            duplicated_group.routes.append(duplicated_route)
 
             for stop in sorted(route.route_stops, key=lambda item: item.stop_number):
-                session.add(
+                duplicated_route.route_stops.append(
                     RouteStop(
                         route_id=duplicated_route.route_id,
                         location_id=stop.location_id,

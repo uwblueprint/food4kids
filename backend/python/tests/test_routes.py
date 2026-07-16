@@ -3213,7 +3213,7 @@ class TestRouteGroupRoutes:
 
     @pytest.mark.asyncio
     async def test_duplicate_route_group_copies_routes_and_stops(
-        self, async_client: AsyncClient, test_session: AsyncSession
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
     ) -> None:
         """POST /route-groups/{id}/duplicate creates a copied group with route lineage."""
         from sqlalchemy.orm import selectinload
@@ -3251,31 +3251,43 @@ class TestRouteGroupRoutes:
         test_session.add(route_group)
         await test_session.flush()
 
-        route = Route(
+        route_a = Route(
             name="Route A",
             notes="route notes",
             length=12.5,
             encoded_polyline="abc123",
             ends_at_warehouse=True,
             route_group_id=route_group.route_group_id,
+            driver_id=test_driver.driver_id,
         )
-        test_session.add(route)
+        route_b = Route(
+            name="Route B",
+            notes="second route notes",
+            length=3.5,
+            route_group_id=route_group.route_group_id,
+        )
+        test_session.add_all([route_a, route_b])
         await test_session.flush()
 
         test_session.add_all(
             [
                 RouteStop(
-                    route_id=route.route_id,
+                    route_id=route_a.route_id,
                     location_id=loc_a.location_id,
                     stop_number=1,
                 ),
                 RouteStop(
-                    route_id=route.route_id,
+                    route_id=route_a.route_id,
                     location_id=loc_b.location_id,
                     stop_number=2,
                 ),
+                RouteStop(
+                    route_id=route_b.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=1,
+                ),
                 RouteSnapshot(
-                    route_id=route.route_id,
+                    route_id=route_a.route_id,
                     start_address="Original Warehouse",
                     start_latitude=43.0,
                     start_longitude=-80.0,
@@ -3293,30 +3305,71 @@ class TestRouteGroupRoutes:
         assert body["route_group_id"] != str(route_group.route_group_id)
         assert body["name"] == "Copy of July 9 - Tuesday A"
         assert body["notes"] == "original notes"
-        assert body["num_routes"] == 1
+        assert body["num_routes"] == 2
 
         duplicated_group_id = body["route_group_id"]
         result = await test_session.execute(
             select(Route)
             .where(Route.route_group_id == UUID(duplicated_group_id))
             .options(selectinload(Route.route_stops))  # type: ignore[arg-type]
+            .order_by(Route.name)
         )
-        duplicated_route = result.scalars().one()
-        assert duplicated_route.route_id != route.route_id
-        assert duplicated_route.name == "Route A"
-        assert duplicated_route.notes == "route notes"
-        assert duplicated_route.length == 12.5
-        assert duplicated_route.encoded_polyline == "abc123"
-        assert duplicated_route.ends_at_warehouse is True
-        assert duplicated_route.cloned_from_route_id == route.route_id
-        assert duplicated_route.note_chain_id is None
-        assert await test_session.get(RouteSnapshot, duplicated_route.route_id) is None
+        duplicated_routes = list(result.scalars().all())
+        duplicated_route_a, duplicated_route_b = duplicated_routes
+        assert duplicated_route_a.route_id != route_a.route_id
+        assert duplicated_route_a.name == "Route A"
+        assert duplicated_route_a.notes == "route notes"
+        assert duplicated_route_a.length == 12.5
+        assert duplicated_route_a.encoded_polyline == "abc123"
+        assert duplicated_route_a.ends_at_warehouse is True
+        assert duplicated_route_a.driver_id == test_driver.driver_id
+        assert duplicated_route_a.cloned_from_route_id == route_a.route_id
+        assert duplicated_route_a.note_chain_id is None
+        assert (
+            await test_session.get(RouteSnapshot, duplicated_route_a.route_id) is None
+        )
         assert [
             (stop.location_id, stop.stop_number)
             for stop in sorted(
-                duplicated_route.route_stops, key=lambda item: item.stop_number
+                duplicated_route_a.route_stops, key=lambda item: item.stop_number
             )
         ] == [(loc_a.location_id, 1), (loc_b.location_id, 2)]
+
+        assert duplicated_route_b.route_id != route_b.route_id
+        assert duplicated_route_b.name == "Route B"
+        assert duplicated_route_b.notes == "second route notes"
+        assert duplicated_route_b.length == 3.5
+        assert duplicated_route_b.driver_id is None
+        assert duplicated_route_b.cloned_from_route_id == route_b.route_id
+        assert [
+            (stop.location_id, stop.stop_number)
+            for stop in duplicated_route_b.route_stops
+        ] == [(loc_b.location_id, 1)]
+
+    @pytest.mark.asyncio
+    async def test_duplicate_empty_route_group_truncates_copy_name(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """An empty route group can be duplicated and the copied name stays valid."""
+        long_name = "A" * 255
+        route_group = RouteGroup(
+            name=long_name,
+            notes="empty group",
+            drive_date=datetime(2026, 7, 10, 9, 0),
+        )
+        test_session.add(route_group)
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate"
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == f"Copy of {long_name}"[:255]
+        assert len(body["name"]) == 255
+        assert body["num_routes"] == 0
 
     @pytest.mark.asyncio
     async def test_duplicate_route_group_not_found(
