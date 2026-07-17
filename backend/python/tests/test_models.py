@@ -520,6 +520,7 @@ class TestCoreModels:
             finished_at=datetime(2024, 1, 15, 10, 0),
         )
         assert job_update.progress == ProgressEnum.COMPLETED
+        assert ProgressEnum.CANCELLED.value == "Cancelled"
 
     def test_note_chain_core_operations(self) -> None:
         """Test NoteChain and Note model core operations."""

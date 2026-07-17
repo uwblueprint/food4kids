@@ -53,14 +53,57 @@ class JobService:
             if not job:
                 self.logger.error("No job with corresponding job ID")
                 return
+            if job.progress == ProgressEnum.CANCELLED:
+                self.logger.info(
+                    "Ignoring progress update for cancelled job %s: requested %s",
+                    job_id,
+                    progress,
+                )
+                return
             job.progress = progress
             job.updated_at = self.est_now_naive()
-            if progress in (ProgressEnum.COMPLETED, ProgressEnum.FAILED):
+            if progress in (
+                ProgressEnum.CANCELLED,
+                ProgressEnum.COMPLETED,
+                ProgressEnum.FAILED,
+            ):
                 job.finished_at = self.est_now_naive()
             self.session.add(job)
             await self.session.commit()
         except Exception as error:
             self.logger.error("Error creating job")
+            await self.session.rollback()
+            raise error
+
+    async def cancel_job(self, job_id: UUID) -> Job | None:
+        """Cancel pending/running route generation work.
+
+        Completed, failed, and already-cancelled jobs are treated as safe
+        no-ops and returned unchanged.
+        """
+        try:
+            job = await self.get_job(job_id)
+            if not job:
+                self.logger.error("Job %s not found during cancellation", job_id)
+                return None
+
+            if job.progress in (
+                ProgressEnum.COMPLETED,
+                ProgressEnum.FAILED,
+                ProgressEnum.CANCELLED,
+            ):
+                return job
+
+            now = self.est_now_naive()
+            job.progress = ProgressEnum.CANCELLED
+            job.updated_at = now
+            job.finished_at = now
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+            return job
+        except Exception as error:
+            self.logger.error("Error cancelling job")
             await self.session.rollback()
             raise error
 
