@@ -276,6 +276,10 @@
             "title": "Column Map",
             "type": "string"
           },
+          "delivery_type": {
+            "title": "Delivery Type",
+            "type": "string"
+          },
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",
@@ -284,7 +288,8 @@
         },
         "required": [
           "file",
-          "column_map"
+          "column_map",
+          "delivery_type"
         ],
         "title": "Body_review_locations",
         "type": "object"

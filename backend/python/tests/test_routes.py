@@ -61,7 +61,9 @@ class FakeGoogleMapsClient:
         )
 
 
-def import_review_request(rows: list[dict[str, str]]) -> dict[str, Any]:
+def import_review_request(
+    rows: list[dict[str, str]], delivery_type: str = "Family"
+) -> dict[str, Any]:
     headers = [
         "Name",
         "Address",
@@ -74,7 +76,10 @@ def import_review_request(rows: list[dict[str, str]]) -> dict[str, Any]:
     for row in rows:
         lines.append(",".join(row.get(header, "") for header in headers))
     return {
-        "data": {"column_map": json.dumps(IMPORT_COLUMN_MAP)},
+        "data": {
+            "column_map": json.dumps(IMPORT_COLUMN_MAP),
+            "delivery_type": delivery_type,
+        },
         "files": {"file": ("locations.csv", "\n".join(lines).encode(), "text/csv")},
     }
 
@@ -1754,6 +1759,106 @@ class TestLocationImportRoutes:
             "new_value": "+15195550123",
             "old_value": "+14164164170",
         }
+
+    @pytest.mark.asyncio
+    async def test_review_and_ingest_scope_stale_and_matches_to_delivery_type(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        family_match = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Shared Name",
+            contact_name="Shared Name",
+            address="Formatted 11 Main St",
+            phone_primary="+14164164168",
+            num_children=2,
+            delivery_type="Family",
+        )
+        school_same_identity = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Shared Name",
+            contact_name="Shared Name",
+            address="Formatted 11 Main St",
+            phone_primary="+14164164168",
+            num_children=2,
+            delivery_type="School",
+        )
+        stale_family = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Stale Family",
+            contact_name="Stale Family",
+            address="Formatted 12 Main St",
+            phone_primary="+14164164169",
+            num_children=1,
+            delivery_type="Family",
+        )
+        untouched_school = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Untouched School",
+            contact_name="Untouched School",
+            address="Formatted 13 Main St",
+            phone_primary="+14164164170",
+            num_children=1,
+            delivery_type="School",
+        )
+        test_session.add_all(
+            [family_match, school_same_identity, stale_family, untouched_school]
+        )
+        await test_session.commit()
+
+        review_request = import_review_request(
+            [
+                {
+                    "Name": "Shared Name",
+                    "Address": "11 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+15195550123",
+                    "Children": "2",
+                }
+            ],
+            delivery_type="Family",
+        )
+
+        review_response = await async_client.post("/locations/review", **review_request)
+
+        assert review_response.status_code == 200
+        review_body = review_response.json()
+        assert review_body["success"] is True
+        assert review_body["net_new"] == []
+        assert [entry["location_id"] for entry in review_body["stale"]] == [
+            str(stale_family.location_id)
+        ]
+        assert [entry["location_id"] for entry in review_body["changed"]] == [
+            str(family_match.location_id)
+        ]
+
+        ingest_response = await async_client.post(
+            "/locations/ingest",
+            json={
+                "delivery_type": "Family",
+                "net_new": review_body["net_new"],
+                "stale": review_body["stale"],
+                "changed": review_body["changed"],
+            },
+        )
+
+        assert ingest_response.status_code == 200
+        await test_session.refresh(family_match)
+        await test_session.refresh(school_same_identity)
+        await test_session.refresh(stale_family)
+        await test_session.refresh(untouched_school)
+        assert family_match.in_roster is True
+        assert family_match.phone_primary == "+15195550123"
+        assert school_same_identity.in_roster is True
+        assert school_same_identity.phone_primary == "+14164164168"
+        assert stale_family.in_roster is False
+        assert untouched_school.in_roster is True
 
     @pytest.mark.asyncio
     async def test_review_locations_blank_children_does_not_mark_changed(

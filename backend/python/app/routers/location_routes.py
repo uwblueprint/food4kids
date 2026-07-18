@@ -209,6 +209,7 @@ async def delete_location(
 async def review_locations(
     file: UploadFile = File(...),
     column_map: str = Form(...),
+    delivery_type: str = Form(...),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
@@ -226,8 +227,15 @@ async def review_locations(
             parsed_map: dict[str, str] = json.loads(column_map)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid column_map JSON: {e}") from e
-        result = await location_service.review_locations(session, file, parsed_map)
+        result = await location_service.review_locations(
+            session, file, parsed_map, delivery_type
+        )
         return result
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        ) from ve
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
