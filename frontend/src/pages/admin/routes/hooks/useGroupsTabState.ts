@@ -52,6 +52,10 @@ export interface GroupsTabState {
     key: K,
     value: SetElement<GroupsFilterState[K]>
   ) => void;
+  /** True when the draft has at least one chip selected (Clear All enabled). */
+  draftHasSelections: boolean;
+  /** Unselect every chip in the dialog; takes effect on Apply. */
+  clearDraft: () => void;
   handleApply: () => void;
 }
 
@@ -107,6 +111,12 @@ export function useGroupsTabState(): GroupsTabState {
     });
   };
 
+  const draftHasSelections = Object.values(draftFilters).some(
+    (s) => s.size > 0
+  );
+
+  const clearDraft = () => setDraftFilters(emptyFilters());
+
   const handleApply = () => {
     setAppliedFilters(copyFilters(draftFilters));
     setFilterOpen(false);
@@ -124,6 +134,8 @@ export function useGroupsTabState(): GroupsTabState {
     hasActiveFilters,
     openFilters,
     toggleDraft,
+    draftHasSelections,
+    clearDraft,
     handleApply,
   };
 }

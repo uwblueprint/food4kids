@@ -36,7 +36,9 @@ import { EmptyState } from './EmptyState';
 import { RouteGroupActionsCell } from './RouteGroupActionsCell';
 
 const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed', 'Archived'];
+// Archived is in the enum but group status is only ever computed as
+// Upcoming/Completed, so the dialog doesn't offer it (matches the Figma).
+const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed'];
 const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = [
   'Assigned',
   'Unassigned',
@@ -118,6 +120,8 @@ export function RouteGroupsTab({
   hasActiveFilters,
   openFilters,
   toggleDraft,
+  draftHasSelections,
+  clearDraft,
   handleApply,
 }: RouteGroupsTabProps) {
   const [addOpen, setAddOpen] = useState(false);
@@ -240,11 +244,11 @@ export function RouteGroupsTab({
         <ModalContent>
           <ModalHeader>
             <ModalTitle>Filters</ModalTitle>
-            <ModalDescription>Routes</ModalDescription>
+            <ModalDescription>Groups</ModalDescription>
           </ModalHeader>
 
           <div className="flex flex-col gap-4">
-            <FilterChipGroup label="Weekday">
+            <FilterChipGroup label="Day">
               {WEEKDAYS.map((day) => (
                 <FilterChip
                   key={day}
@@ -256,7 +260,7 @@ export function RouteGroupsTab({
               ))}
             </FilterChipGroup>
 
-            <FilterChipGroup label="Delivery Type" showDelimiter>
+            <FilterChipGroup label="Delivery Type">
               {deliveryTypes.map((type) => (
                 <FilterChip
                   key={type}
@@ -268,7 +272,7 @@ export function RouteGroupsTab({
               ))}
             </FilterChipGroup>
 
-            <FilterChipGroup label="Route Status" showDelimiter>
+            <FilterChipGroup label="Route Status">
               {ROUTE_STATUSES.map((status) => (
                 <FilterChip
                   key={status}
@@ -280,7 +284,7 @@ export function RouteGroupsTab({
               ))}
             </FilterChipGroup>
 
-            <FilterChipGroup label="Driver Status" showDelimiter>
+            <FilterChipGroup label="Driver Status">
               {DRIVER_STATUSES.map((status) => (
                 <FilterChip
                   key={status}
@@ -293,7 +297,19 @@ export function RouteGroupsTab({
             </FilterChipGroup>
           </div>
 
-          <ModalFooter>
+          <ModalFooter className="mt-4">
+            {/* Clear All only empties the dialog's chips; Apply persists them,
+                which is also how an applied filter gets cleared. */}
+            <Button
+              variant="secondary"
+              disabled={!draftHasSelections}
+              // The base button disables pointer events entirely; re-enable
+              // them so the not-allowed cursor can show over the button.
+              className="disabled:pointer-events-auto disabled:cursor-not-allowed"
+              onClick={clearDraft}
+            >
+              Clear All
+            </Button>
             <Button variant="primary" onClick={handleApply}>
               Apply
             </Button>
