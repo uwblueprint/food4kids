@@ -137,9 +137,9 @@ async def require_self_driver_or_admin(
 ) -> bool:
     """
     Allow access if the caller is an admin, or is the driver identified by the
-    route's ``{driver_id}`` path parameter. Used for GET /drivers/{driver_id}.
-    Returns True for admins and False for self-driver access so shared endpoints
-    can apply role-specific field restrictions after authorization.
+    route's ``{driver_id}`` path parameter. Returns True for admins and False
+    for self-driver access so shared endpoints can apply role-specific field
+    restrictions after authorization.
 
     The token is verified once (with email_verified enforced for everyone,
     admins included). The driver_id is read from the path via ``_path_uuid``,

@@ -289,14 +289,18 @@ class TestDriverRoutes:
         self_client = await client_with_overrides(
             {require_self_driver_or_admin: lambda: False}
         )
-        response = await self_client.put(
-            f"/drivers/{test_driver.driver_id}",
-            json={
-                "first_name": "Updated",
-                "last_name": "Driver",
-                "phone": "+14165550123",
-            },
-        )
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await self_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Updated",
+                    "last_name": "Driver",
+                    "phone": "+14165550123",
+                },
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -310,6 +314,18 @@ class TestDriverRoutes:
         assert user.first_name == "Updated"
         assert user.last_name == "Driver"
         assert test_driver.phone == "+14165550123"
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Updated Driver",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Updated",
+                "family_name": "Driver",
+            },
+        )
 
     @pytest.mark.asyncio
     async def test_self_driver_cannot_update_admin_only_fields(
@@ -351,15 +367,19 @@ class TestDriverRoutes:
         """Admin update keeps the full DriverUpdate surface, including User names."""
         from app.models.user import User
 
-        response = await async_client.put(
-            f"/drivers/{test_driver.driver_id}",
-            json={
-                "first_name": "Admin",
-                "last_name": "Updated",
-                "address": "456 Admin Address St",
-                "active": False,
-            },
-        )
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await async_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Admin",
+                    "last_name": "Updated",
+                    "address": "456 Admin Address St",
+                    "active": False,
+                },
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -375,6 +395,18 @@ class TestDriverRoutes:
         assert user.last_name == "Updated"
         assert test_driver.address == "456 Admin Address St"
         assert test_driver.active is False
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Admin Updated",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Admin",
+                "family_name": "Updated",
+            },
+        )
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, async_client: AsyncClient) -> None:
