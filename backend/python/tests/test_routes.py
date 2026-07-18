@@ -19,7 +19,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_self_driver_or_admin
+from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
 from app.models.enum import ProgressEnum
 from app.models.location import Location
@@ -288,7 +288,7 @@ class TestDriverRoutes:
         from app.models.user import User
 
         self_client = await client_with_overrides(
-            {require_self_driver_or_admin: lambda: False}
+            {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
         with (
             patch("firebase_admin.auth.update_user") as mock_update_user,
@@ -340,7 +340,7 @@ class TestDriverRoutes:
         original_address = test_driver.address
         original_active = test_driver.active
         self_client = await client_with_overrides(
-            {require_self_driver_or_admin: lambda: False}
+            {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
 
         response = await self_client.put(

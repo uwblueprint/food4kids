@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import (
+    DriverAccess,
     require_admin,
     require_driver_or_admin,
     require_self_driver_or_admin,
@@ -92,7 +93,7 @@ async def get_drivers(
 async def get_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_self_driver_or_admin),
+    _auth: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> DriverRead:
     """
     Get a single driver by ID
@@ -244,12 +245,12 @@ async def update_driver(
     driver_id: UUID,
     driver: DriverUpdate,
     session: AsyncSession = Depends(get_session),
-    is_admin: bool = Depends(require_self_driver_or_admin),
+    access: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> DriverRead:
     """
     Update an existing driver
     """
-    if not is_admin:
+    if access is not DriverAccess.ADMIN:
         self_editable_fields = {"first_name", "last_name", "phone"}
         requested_fields = set(driver.model_fields_set)
         admin_only_fields = requested_fields - self_editable_fields

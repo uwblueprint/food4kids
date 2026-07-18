@@ -16,6 +16,7 @@ from sqlmodel import SQLModel, select
 
 from app import create_app
 from app.dependencies.auth import (
+    DriverAccess,
     get_access_token,
     require_admin,
     require_announcement_owner_or_admin,
@@ -129,7 +130,7 @@ def _apply_auth_overrides(app: Any) -> None:
     app.dependency_overrides[require_admin] = lambda: True
     app.dependency_overrides[require_driver] = lambda: True
     app.dependency_overrides[require_driver_or_admin] = lambda: True
-    app.dependency_overrides[require_self_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_self_driver_or_admin] = lambda: DriverAccess.ADMIN
     app.dependency_overrides[require_route_assigned_or_admin] = lambda: True
     app.dependency_overrides[require_announcement_owner_or_admin] = lambda: True
     # GET /routes' sole auth dependency also resolves the driver_id filter;
