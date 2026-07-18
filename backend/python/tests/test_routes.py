@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
+from app.models.enum import ProgressEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -4382,6 +4383,91 @@ class TestJobRoutes:
         response = await client.post("/jobs/generate", json=body)
         assert response.status_code == 202
         assert response.json()["job_id"] == str(job_id)
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_job(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """POST /jobs/{id}/cancel marks a pending job as cancelled."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.PENDING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["progress"] == "Cancelled"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+        assert job.finished_at is not None
+
+    @pytest.mark.asyncio
+    async def test_cancel_running_job_prevents_late_completion(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A cancelled running job stays cancelled if worker completion arrives later."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.RUNNING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Cancelled"
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.update_progress(job.job_id, ProgressEnum.COMPLETED)
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_cancel_finished_job_is_safe_noop(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Cancelling completed/failed work returns the existing terminal state."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.COMPLETED)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Completed"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_cancel_job_not_found(self, async_client: AsyncClient) -> None:
+        """POST /jobs/{id}/cancel returns 404 for an unknown job."""
+        response = await async_client.post(f"/jobs/{uuid4()}/cancel")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_enqueue_cancelled_job_does_not_run(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Queued work checks job state before moving to Running."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.CANCELLED)
+        test_session.add(job)
+        await test_session.commit()
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.enqueue(job.job_id)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
 
 
 class TestSystemSettingsRoutes:

@@ -8,6 +8,9 @@ import {
 } from './client';
 import { client } from './client.gen';
 import type {
+  CancelJobData,
+  CancelJobErrors,
+  CancelJobResponses,
   CompleteDriverRegistrationData,
   CompleteDriverRegistrationErrors,
   CompleteDriverRegistrationResponses,
@@ -771,6 +774,25 @@ export const getJob = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/jobs/{job_id}',
+    ...options,
+  });
+
+/**
+ * Cancel Job
+ *
+ * Cancel an in-flight route generation job.
+ */
+export const cancelJob = <ThrowOnError extends boolean = false>(
+  options: Options<CancelJobData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    CancelJobResponses,
+    CancelJobErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/jobs/{job_id}/cancel',
     ...options,
   });
 
