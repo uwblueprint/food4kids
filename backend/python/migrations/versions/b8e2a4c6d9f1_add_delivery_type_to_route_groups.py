@@ -6,7 +6,7 @@ keep deriving their delivery type from their stops' locations; this stored
 value is only the fallback for empty groups.
 
 Revision ID: b8e2a4c6d9f1
-Revises: a7f3c1e94b28
+Revises: 58e90e6bdd92
 Create Date: 2026-07-13 00:00:00.000000
 
 """
@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "b8e2a4c6d9f1"
-down_revision = "a7f3c1e94b28"
+down_revision = "58e90e6bdd92"
 branch_labels = None
 depends_on = None
 
