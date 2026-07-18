@@ -13,6 +13,17 @@ export const formatShortDate = (isoDate: string): string => {
 };
 
 /**
+ * Format a local Date as "YYYY-MM-DD" without timezone conversion, for
+ * building the API's naive datetime strings.
+ */
+export const toNaiveDateString = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+/**
  * Parse the date part of an ISO date(-time) string as a local Date at
  * midnight, avoiding the UTC interpretation of `new Date("YYYY-MM-DD")`.
  */

@@ -3409,6 +3409,35 @@ class TestRouteGroupRoutes:
         assert body["num_routes"] == 0
 
     @pytest.mark.asyncio
+    async def test_duplicate_route_group_with_overrides(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """The optional body overrides the copy's name/drive_date; delivery_type carries over."""
+        route_group = RouteGroup(
+            name="Tuesday A - Cambridge North",
+            notes="",
+            drive_date=datetime(2026, 7, 9, 9, 0),
+            delivery_type="Family",
+        )
+        test_session.add(route_group)
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={
+                "name": "Tuesday A - Cambridge North (Copy)",
+                "drive_date": "2026-07-16T00:00:00",
+            },
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == "Tuesday A - Cambridge North (Copy)"
+        assert body["drive_date"] == "2026-07-16T00:00:00"
+        assert body["delivery_type"] == "Family"
+
+    @pytest.mark.asyncio
     async def test_duplicate_route_group_not_found(
         self, async_client: AsyncClient
     ) -> None:

@@ -1,1 +1,6 @@
-export { formatDisplayDate, formatShortDate, parseDateOnly } from './dateUtils';
+export {
+  formatDisplayDate,
+  formatShortDate,
+  parseDateOnly,
+  toNaiveDateString,
+} from './dateUtils';

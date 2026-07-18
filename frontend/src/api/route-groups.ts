@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   createRouteGroupMutation,
+  deleteRouteGroupMutation,
+  duplicateRouteGroupMutation,
   getRouteGroupsOptions,
   getRouteGroupsQueryKey,
   getRoutesQueryKey,
@@ -50,6 +52,37 @@ export function useUpdateRouteGroup() {
   const queryClient = useQueryClient();
   return useMutation({
     ...updateRouteGroupMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() });
+    },
+  });
+}
+
+/**
+ * DELETE /route-groups/{route_group_id}. Invalidates GET /route-groups and
+ * GET /routes since the group's routes are cascade-deleted with it.
+ */
+export function useDeleteRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...deleteRouteGroupMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() });
+    },
+  });
+}
+
+/**
+ * POST /route-groups/{route_group_id}/duplicate. The optional body overrides
+ * the copy's name and drive_date. Invalidates GET /route-groups and
+ * GET /routes since the group's routes are copied with it.
+ */
+export function useDuplicateRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...duplicateRouteGroupMutation(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() });

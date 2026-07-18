@@ -1599,6 +1599,25 @@ export type RouteGroupCreate = {
 };
 
 /**
+ * RouteGroupDuplicate
+ *
+ * Duplicate request model - overrides for the copied group.
+ *
+ * Both optional so the endpoint also works with no body: name falls back to
+ * "Copy of {original}" and drive_date to the original's date.
+ */
+export type RouteGroupDuplicate = {
+  /**
+   * Drive Date
+   */
+  drive_date?: string | null;
+  /**
+   * Name
+   */
+  name?: string | null;
+};
+
+/**
  * RouteGroupRead
  *
  * Read response model
@@ -4196,7 +4215,10 @@ export type UpdateRouteGroupResponse =
   UpdateRouteGroupResponses[keyof UpdateRouteGroupResponses];
 
 export type DuplicateRouteGroupData = {
-  body?: never;
+  /**
+   * Overrides
+   */
+  body?: RouteGroupDuplicate | null;
   path: {
     /**
      * Route Group Id

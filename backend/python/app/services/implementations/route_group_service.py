@@ -20,6 +20,7 @@ from app.models.route import Route
 from app.models.route_group import (
     RouteGroup,
     RouteGroupCreate,
+    RouteGroupDuplicate,
     RouteGroupRead,
     RouteGroupUpdate,
     RouteReadSummary,
@@ -75,9 +76,15 @@ class RouteGroupService:
         return route_group
 
     async def duplicate_route_group(
-        self, session: AsyncSession, route_group_id: UUID
+        self,
+        session: AsyncSession,
+        route_group_id: UUID,
+        overrides: RouteGroupDuplicate | None = None,
     ) -> RouteGroup | None:
         """Duplicate a route group with fresh route/stop rows.
+
+        `overrides` supplies the new group's name and drive_date; either falls
+        back to the original ("Copy of {name}" / same date) when omitted.
 
         Route snapshots and note chains are intentionally not copied: they are
         historical records attached to the original route. New routes point
@@ -95,12 +102,18 @@ class RouteGroupService:
             self.logger.error(f"RouteGroup with id {route_group_id} not found")
             return None
 
+        default_name = f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
+            :ROUTE_GROUP_NAME_MAX_LENGTH
+        ]
         duplicated_group = RouteGroup(
-            name=f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
-                :ROUTE_GROUP_NAME_MAX_LENGTH
-            ],
+            name=(overrides.name if overrides and overrides.name else default_name),
             notes=route_group.notes,
-            drive_date=route_group.drive_date,
+            drive_date=(
+                overrides.drive_date
+                if overrides and overrides.drive_date
+                else route_group.drive_date
+            ),
+            delivery_type=route_group.delivery_type,
         )
         session.add(duplicated_group)
 

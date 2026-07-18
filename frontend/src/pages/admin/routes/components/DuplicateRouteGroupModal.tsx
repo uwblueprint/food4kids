@@ -1,15 +1,11 @@
 import { useState } from 'react';
 
-import { useCreateRouteGroup } from '@/api/route-groups';
+import type { RouteGroupRead } from '@/api/generated/types.gen';
+import { useDuplicateRouteGroup } from '@/api/route-groups';
 import CalendarIcon from '@/assets/icons/calendar.svg?react';
 import {
   Button,
   Calendar,
-  Dropdown,
-  DropdownContent,
-  DropdownItem,
-  DropdownTrigger,
-  DropdownValue,
   Field,
   FieldDescription,
   FieldLabel,
@@ -25,39 +21,49 @@ import {
 import { formatShortDate, toNaiveDateString } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
-interface AddRouteGroupModalProps {
+interface DuplicateRouteGroupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  deliveryTypes: string[];
-  /** Called with the created group's id so the table can highlight it. */
-  onCreated: (routeGroupId: string) => void;
+  /** The group being duplicated; its routes/stops are copied server-side. */
+  routeGroup: RouteGroupRead;
+  /** Called with the copy's id so the table can highlight and scroll to it. */
+  onDuplicated: (routeGroupId: string) => void;
 }
 
-export function AddRouteGroupModal({
+/** What the copy inherits from the original, shown in the summary block. */
+function CopiedField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-p2 text-grey-400">{label}</span>
+      <span className="text-p2 text-grey-500">{value}</span>
+    </div>
+  );
+}
+
+export function DuplicateRouteGroupModal({
   open,
   onOpenChange,
-  deliveryTypes,
-  onCreated,
-}: AddRouteGroupModalProps) {
-  const [name, setName] = useState('');
+  routeGroup,
+  onDuplicated,
+}: DuplicateRouteGroupModalProps) {
+  const defaultName = `${routeGroup.name} (Copy)`;
+  const [name, setName] = useState(defaultName);
   const [date, setDate] = useState<Date | undefined>(undefined);
-  const [deliveryType, setDeliveryType] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
   const {
-    mutate: createRouteGroup,
+    mutate: duplicateRouteGroup,
     isPending,
     isError,
     reset,
-  } = useCreateRouteGroup();
+  } = useDuplicateRouteGroup();
 
-  const isValid = name.trim().length > 0 && !!date && deliveryType.length > 0;
+  const isValid = name.trim().length > 0 && !!date;
 
   const handleOpenChange = (next: boolean) => {
     onOpenChange(next);
     if (!next) {
-      setName('');
+      setName(defaultName);
       setDate(undefined);
-      setDeliveryType('');
       setCalendarOpen(false);
       reset();
     }
@@ -65,17 +71,17 @@ export function AddRouteGroupModal({
 
   const handleSubmit = () => {
     if (!isValid || !date) return;
-    createRouteGroup(
+    duplicateRouteGroup(
       {
+        path: { route_group_id: routeGroup.route_group_id },
         body: {
           name: name.trim(),
           drive_date: `${toNaiveDateString(date)}T00:00:00`,
-          delivery_type: deliveryType,
         },
       },
       {
-        onSuccess: (created) => {
-          onCreated(created.route_group_id);
+        onSuccess: (copy) => {
+          onDuplicated(copy.route_group_id);
           handleOpenChange(false);
         },
       }
@@ -86,17 +92,16 @@ export function AddRouteGroupModal({
     <Modal open={open} onOpenChange={handleOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>Add Route Group</ModalTitle>
+          <ModalTitle>Duplicate Route Group</ModalTitle>
         </ModalHeader>
 
         <div className="flex flex-col gap-4">
           <Field>
-            <FieldLabel required htmlFor="route-group-name">
+            <FieldLabel required htmlFor="duplicate-route-group-name">
               Name
             </FieldLabel>
             <Input
-              id="route-group-name"
-              placeholder="e.g., Tuesday A - Cambridge North"
+              id="duplicate-route-group-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -137,27 +142,32 @@ export function AddRouteGroupModal({
             </Popover>
           </Field>
 
-          <Field>
-            <FieldLabel required>Delivery Type</FieldLabel>
-            <Dropdown value={deliveryType} onValueChange={setDeliveryType}>
-              <DropdownTrigger className="rounded-lg px-3">
-                <DropdownValue placeholder="Select delivery type" />
-              </DropdownTrigger>
-              <DropdownContent>
-                {deliveryTypes.map((type) => (
-                  <DropdownItem key={type} value={type}>
-                    {type}
-                  </DropdownItem>
-                ))}
-              </DropdownContent>
-            </Dropdown>
-          </Field>
+          <div className="flex flex-col gap-3">
+            <p className="text-p2 text-grey-500 font-semibold">
+              The following will be copied from the original group:
+            </p>
+            <div className="border-grey-300 grid grid-cols-2 gap-x-8 gap-y-4 border-l-2 pl-4">
+              <CopiedField
+                label="Delivery Type"
+                value={routeGroup.delivery_type ?? '-'}
+              />
+              <CopiedField
+                label="Locations"
+                value={String(routeGroup.num_locations)}
+              />
+              <CopiedField label="Boxes" value={String(routeGroup.num_boxes)} />
+              <CopiedField
+                label="Routes"
+                value={String(routeGroup.num_routes)}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-4">
           {isError && (
             <FieldDescription error>
-              Something went wrong adding the group. Please try again.
+              Something went wrong duplicating the group. Please try again.
             </FieldDescription>
           )}
           <Button
@@ -165,7 +175,7 @@ export function AddRouteGroupModal({
             disabled={!isValid || isPending}
             onClick={handleSubmit}
           >
-            Add Group
+            Duplicate Group
           </Button>
         </div>
       </ModalContent>

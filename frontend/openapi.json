@@ -2707,6 +2707,38 @@
         "title": "RouteGroupCreate",
         "type": "object"
       },
+      "RouteGroupDuplicate": {
+        "description": "Duplicate request model - overrides for the copied group.\n\nBoth optional so the endpoint also works with no body: name falls back to\n\"Copy of {original}\" and drive_date to the original's date.",
+        "properties": {
+          "drive_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drive Date"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "RouteGroupDuplicate",
+        "type": "object"
+      },
       "RouteGroupRead": {
         "description": "Read response model",
         "properties": {
@@ -6836,7 +6868,7 @@
     },
     "/route-groups/{route_group_id}/duplicate": {
       "post": {
-        "description": "Duplicate a route group and its routes/stops for a new planning cycle.",
+        "description": "Duplicate a route group and its routes/stops for a new planning cycle.\nOptional body overrides the copy's name and drive date.",
         "operationId": "duplicate_route_group",
         "parameters": [
           {
@@ -6850,6 +6882,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RouteGroupDuplicate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Overrides"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {

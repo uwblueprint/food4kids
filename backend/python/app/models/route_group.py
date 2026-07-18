@@ -86,3 +86,14 @@ class RouteGroupUpdate(SQLModel):
     name: str | None = None
     notes: str | None = None
     drive_date: datetime | None = None
+
+
+class RouteGroupDuplicate(SQLModel):
+    """Duplicate request model - overrides for the copied group.
+
+    Both optional so the endpoint also works with no body: name falls back to
+    "Copy of {original}" and drive_date to the original's date.
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    drive_date: datetime | None = None

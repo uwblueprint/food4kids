@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type {
@@ -33,6 +33,7 @@ import type { GroupsTabState } from '../hooks';
 import { AddRouteGroupModal } from './AddRouteGroupModal';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
+import { RouteGroupActionsCell } from './RouteGroupActionsCell';
 
 const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed', 'Archived'];
@@ -127,14 +128,43 @@ export function RouteGroupsTab({
   const tableWrapRef = useRef<HTMLDivElement>(null);
   const scrolledIdRef = useRef<string | null>(null);
 
-  const handleCreated = (routeGroupId: string) => {
+  // Highlight + scroll for a newly added row — used by both the Add modal
+  // and each row's Duplicate action.
+  const handleCreated = useCallback((routeGroupId: string) => {
     clearTimeout(highlightTimer.current);
+    scrolledIdRef.current = null;
     setHighlightedId(routeGroupId);
     highlightTimer.current = setTimeout(
       () => setHighlightedId(null),
       HIGHLIGHT_MS
     );
-  };
+  }, []);
+
+  // The kebab lives inside the Status cell (the last column) rather than in
+  // its own column: an extra column would compete for the table's leftover
+  // width and either hoard it or squeeze the data columns. Status stretches
+  // to the table edge already, so justify-between pins the kebab there while
+  // the data columns keep their natural spread.
+  const columns = useMemo<Column<RouteGroupRead>[]>(
+    () =>
+      COLUMNS.map((col) =>
+        col.key === 'status'
+          ? {
+              ...col,
+              render: (row) => (
+                <div className="flex items-center justify-between gap-10">
+                  <span>{row.status}</span>
+                  <RouteGroupActionsCell
+                    row={row}
+                    onDuplicated={handleCreated}
+                  />
+                </div>
+              ),
+            }
+          : col
+      ),
+    [handleCreated]
+  );
 
   // Scroll the just-added group into view once the refetched rows contain it.
   // Runs again as `rows` updates because the row doesn't exist in the DOM
@@ -181,7 +211,7 @@ export function RouteGroupsTab({
 
       <div ref={tableWrapRef}>
         <DataTable
-          columns={COLUMNS}
+          columns={columns}
           rows={rows}
           getRowKey={(r) => r.route_group_id}
           getRowClassName={(r) =>

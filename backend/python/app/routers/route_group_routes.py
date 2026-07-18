@@ -17,6 +17,7 @@ from app.models.enum import (
 from app.models.route_group import (
     RouteGroup,
     RouteGroupCreate,
+    RouteGroupDuplicate,
     RouteGroupRead,
     RouteGroupUpdate,
 )
@@ -178,16 +179,18 @@ async def update_route_group(
 )
 async def duplicate_route_group(
     route_group_id: UUID,
+    overrides: RouteGroupDuplicate | None = None,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Duplicate a route group and its routes/stops for a new planning cycle.
+    Optional body overrides the copy's name and drive date.
     """
     try:
         duplicated_route_group = await route_group_service.duplicate_route_group(
-            session, route_group_id
+            session, route_group_id, overrides
         )
         if not duplicated_route_group:
             raise HTTPException(
@@ -199,6 +202,7 @@ async def duplicate_route_group(
             name=duplicated_route_group.name,
             notes=duplicated_route_group.notes,
             drive_date=duplicated_route_group.drive_date,
+            delivery_type=duplicated_route_group.delivery_type,
             created_at=duplicated_route_group.created_at,
             updated_at=duplicated_route_group.updated_at,
             num_routes=duplicated_route_group.num_routes,

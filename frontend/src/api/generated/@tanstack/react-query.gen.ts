@@ -2160,6 +2160,7 @@ export const updateRouteGroupMutation = (
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
+ * Optional body overrides the copy's name and drive date.
  */
 export const duplicateRouteGroupMutation = (
   options?: Partial<Options<DuplicateRouteGroupData>>

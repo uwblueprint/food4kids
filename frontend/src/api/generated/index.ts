@@ -403,6 +403,7 @@ export type {
   RouteGenerationGroupInput,
   RouteGenerationSettings,
   RouteGroupCreate,
+  RouteGroupDuplicate,
   RouteGroupRead,
   RouteGroupUpdate,
   RoutePatchRequest,
