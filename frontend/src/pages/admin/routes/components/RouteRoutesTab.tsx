@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
@@ -15,21 +16,12 @@ import {
   TooltipTrigger,
 } from '@/common/components';
 import { useSearch } from '@/common/hooks';
+import { cn } from '@/lib/utils';
 
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
-  {
-    key: 'drive_date',
-    header: 'Delivery Date',
-    render: (row) => (
-      <DriveDateCell
-        routeGroupId={row.route_group_id}
-        driveDate={row.drive_date}
-      />
-    ),
-  },
   {
     key: 'delivery_type',
     header: 'Delivery Type',
@@ -73,10 +65,63 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   },
 ];
 
+/** How long a re-dated route's row stays highlighted. */
+const HIGHLIGHT_MS = 3000;
+
 export function RouteRoutesTab() {
   const search = useSearch();
   const { data } = useRoutes();
-  const rows = data?.items ?? [];
+  const rows = useMemo(() => data?.items ?? [], [data]);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+  const scrolledIdRef = useRef<string | null>(null);
+
+  // Changing a route's date re-sorts it elsewhere in the list; highlight and
+  // scroll to it so the change is visible (same treatment as the Groups tab).
+  const handleDateChanged = useCallback((routeId: string) => {
+    clearTimeout(highlightTimer.current);
+    scrolledIdRef.current = null;
+    setHighlightedId(routeId);
+    highlightTimer.current = setTimeout(
+      () => setHighlightedId(null),
+      HIGHLIGHT_MS
+    );
+  }, []);
+
+  const columns = useMemo<Column<RouteWithDateRead>[]>(
+    () => [
+      {
+        key: 'drive_date',
+        header: 'Delivery Date',
+        render: (row) => (
+          <DriveDateCell
+            routeGroupId={row.route_group_id}
+            driveDate={row.drive_date}
+            onUpdated={() => handleDateChanged(row.route_id)}
+          />
+        ),
+      },
+      ...COLUMNS,
+    ],
+    [handleDateChanged]
+  );
+
+  // Scroll the re-dated route into view once the refetched rows place it.
+  // Runs again as `rows` updates because the row may re-sort after the list
+  // refetch lands; scrolledIdRef keeps it to one scroll per change.
+  useEffect(() => {
+    if (!highlightedId || scrolledIdRef.current === highlightedId) return;
+    const row = tableWrapRef.current?.querySelector(
+      `[data-row-key="${highlightedId}"]`
+    );
+    if (row) {
+      scrolledIdRef.current = highlightedId;
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedId, rows]);
 
   return (
     <>
@@ -97,17 +142,25 @@ export function RouteRoutesTab() {
         </div>
       </div>
 
-      <DataTable
-        columns={COLUMNS}
-        rows={rows}
-        getRowKey={(r) => r.route_id}
-        emptyState={
-          <EmptyState
-            title="No routes found"
-            description="Try adjusting or clearing your filters"
-          />
-        }
-      />
+      <div ref={tableWrapRef}>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.route_id}
+          getRowClassName={(r) =>
+            cn(
+              'transition-colors duration-500',
+              r.route_id === highlightedId && 'bg-blue-50'
+            )
+          }
+          emptyState={
+            <EmptyState
+              title="No routes found"
+              description="Try adjusting or clearing your filters"
+            />
+          }
+        />
+      </div>
     </>
   );
 }

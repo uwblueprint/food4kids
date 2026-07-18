@@ -19,6 +19,8 @@ interface DriveDateCellProps {
   routeGroupId: string;
   /** Current drive date as the API's naive ISO datetime string. */
   driveDate: string;
+  /** Called once the new date saves, e.g. to highlight the updated row. */
+  onUpdated?: () => void;
 }
 
 /**
@@ -27,7 +29,11 @@ interface DriveDateCellProps {
  * On the Routes tab this moves the whole group the route belongs to (the
  * date lives on the group, so sibling routes move with it).
  */
-export function DriveDateCell({ routeGroupId, driveDate }: DriveDateCellProps) {
+export function DriveDateCell({
+  routeGroupId,
+  driveDate,
+  onUpdated,
+}: DriveDateCellProps) {
   const [open, setOpen] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
@@ -56,10 +62,13 @@ export function DriveDateCell({ routeGroupId, driveDate }: DriveDateCellProps) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
-    updateRouteGroup({
-      path: { route_group_id: routeGroupId },
-      body: { drive_date: `${y}-${m}-${d}T${timePart}` },
-    });
+    updateRouteGroup(
+      {
+        path: { route_group_id: routeGroupId },
+        body: { drive_date: `${y}-${m}-${d}T${timePart}` },
+      },
+      { onSuccess: () => onUpdated?.() }
+    );
     setOpen(false);
   };
 

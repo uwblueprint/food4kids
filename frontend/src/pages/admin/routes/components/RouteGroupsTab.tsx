@@ -151,22 +151,32 @@ export function RouteGroupsTab({
   // the data columns keep their natural spread.
   const columns = useMemo<Column<RouteGroupRead>[]>(
     () =>
-      COLUMNS.map((col) =>
-        col.key === 'status'
-          ? {
-              ...col,
-              render: (row) => (
-                <div className="flex items-center justify-between gap-10">
-                  <span>{row.status}</span>
-                  <RouteGroupActionsCell
-                    row={row}
-                    onDuplicated={handleCreated}
-                  />
-                </div>
-              ),
-            }
-          : col
-      ),
+      COLUMNS.map((col) => {
+        if (col.key === 'drive_date') {
+          return {
+            ...col,
+            render: (row: RouteGroupRead) => (
+              <DriveDateCell
+                routeGroupId={row.route_group_id}
+                driveDate={row.drive_date}
+                onUpdated={() => handleCreated(row.route_group_id)}
+              />
+            ),
+          };
+        }
+        if (col.key === 'status') {
+          return {
+            ...col,
+            render: (row: RouteGroupRead) => (
+              <div className="flex items-center justify-between gap-10">
+                <span>{row.status}</span>
+                <RouteGroupActionsCell row={row} onDuplicated={handleCreated} />
+              </div>
+            ),
+          };
+        }
+        return col;
+      }),
     [handleCreated]
   );
 

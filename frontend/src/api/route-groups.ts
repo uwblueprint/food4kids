@@ -47,15 +47,20 @@ export function useCreateRouteGroup() {
  * PATCH /route-groups/{route_group_id}. Invalidates every cached
  * GET /route-groups variant so all filter combinations refetch, plus
  * GET /routes since each route's drive_date comes from its group.
+ *
+ * Returns the invalidation promise so per-call onSuccess callbacks run only
+ * after the refetched lists land — rows are already re-sorted by then, which
+ * the drive-date cell's highlight-and-scroll relies on.
  */
 export function useUpdateRouteGroup() {
   const queryClient = useQueryClient();
   return useMutation({
     ...updateRouteGroupMutation(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
-      queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() });
-    },
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() }),
+      ]),
   });
 }
 
