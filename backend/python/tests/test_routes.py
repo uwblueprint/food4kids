@@ -13,7 +13,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -25,6 +25,7 @@ from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.utilities.google_maps_client import GeocodeResult
@@ -3248,10 +3249,237 @@ class TestRouteGroupRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_route_group(
-        self, async_client: AsyncClient, test_route_group: Any
+    async def test_duplicate_route_group_copies_routes_and_stops(
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
     ) -> None:
-        """Test DELETE /route-groups/{route_group_id} deletes a route group."""
+        """POST /route-groups/{id}/duplicate creates a copied group with route lineage."""
+        from sqlalchemy.orm import selectinload
+        from sqlmodel import select
+
+        loc_group = LocationGroup(name="Duplicate Locations", color="#123456", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        loc_a = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location A",
+            delivery_type="Family",
+            contact_name="A",
+            address="1 Main St",
+            phone_primary="555-0001",
+            num_children=2,
+        )
+        loc_b = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location B",
+            delivery_type="Family",
+            contact_name="B",
+            address="2 Main St",
+            phone_primary="555-0002",
+            num_children=4,
+        )
+        test_session.add_all([loc_a, loc_b])
+
+        route_group = RouteGroup(
+            name="July 9 - Tuesday A",
+            notes="original notes",
+            drive_date=datetime(2026, 7, 9, 9, 0),
+        )
+        test_session.add(route_group)
+        await test_session.flush()
+
+        route_a = Route(
+            name="Route A",
+            notes="route notes",
+            length=12.5,
+            encoded_polyline="abc123",
+            ends_at_warehouse=True,
+            route_group_id=route_group.route_group_id,
+            driver_id=test_driver.driver_id,
+        )
+        route_b = Route(
+            name="Route B",
+            notes="second route notes",
+            length=3.5,
+            route_group_id=route_group.route_group_id,
+        )
+        test_session.add_all([route_a, route_b])
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=route_a.route_id,
+                    location_id=loc_a.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=route_a.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=2,
+                ),
+                RouteStop(
+                    route_id=route_b.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=1,
+                ),
+                RouteSnapshot(
+                    route_id=route_a.route_id,
+                    start_address="Original Warehouse",
+                    start_latitude=43.0,
+                    start_longitude=-80.0,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate"
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == "Copy of July 9 - Tuesday A"
+        assert body["notes"] == "original notes"
+        assert body["num_routes"] == 2
+
+        duplicated_group_id = body["route_group_id"]
+        result = await test_session.execute(
+            select(Route)
+            .where(Route.route_group_id == UUID(duplicated_group_id))
+            .options(selectinload(Route.route_stops))  # type: ignore[arg-type]
+            .order_by(Route.name)
+        )
+        duplicated_routes = list(result.scalars().all())
+        duplicated_route_a, duplicated_route_b = duplicated_routes
+        assert duplicated_route_a.route_id != route_a.route_id
+        assert duplicated_route_a.name == "Route A"
+        assert duplicated_route_a.notes == "route notes"
+        assert duplicated_route_a.length == 12.5
+        assert duplicated_route_a.encoded_polyline == "abc123"
+        assert duplicated_route_a.ends_at_warehouse is True
+        assert duplicated_route_a.driver_id == test_driver.driver_id
+        assert duplicated_route_a.cloned_from_route_id == route_a.route_id
+        assert duplicated_route_a.note_chain_id is None
+        assert (
+            await test_session.get(RouteSnapshot, duplicated_route_a.route_id) is None
+        )
+        assert [
+            (stop.location_id, stop.stop_number)
+            for stop in sorted(
+                duplicated_route_a.route_stops, key=lambda item: item.stop_number
+            )
+        ] == [(loc_a.location_id, 1), (loc_b.location_id, 2)]
+
+        assert duplicated_route_b.route_id != route_b.route_id
+        assert duplicated_route_b.name == "Route B"
+        assert duplicated_route_b.notes == "second route notes"
+        assert duplicated_route_b.length == 3.5
+        assert duplicated_route_b.driver_id is None
+        assert duplicated_route_b.cloned_from_route_id == route_b.route_id
+        assert [
+            (stop.location_id, stop.stop_number)
+            for stop in duplicated_route_b.route_stops
+        ] == [(loc_b.location_id, 1)]
+
+    @pytest.mark.asyncio
+    async def test_duplicate_empty_route_group_truncates_copy_name(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """An empty route group can be duplicated and the copied name stays valid."""
+        long_name = "A" * 255
+        route_group = RouteGroup(
+            name=long_name,
+            notes="empty group",
+            drive_date=datetime(2026, 7, 10, 9, 0),
+        )
+        test_session.add(route_group)
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate"
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == f"Copy of {long_name}"[:255]
+        assert len(body["name"]) == 255
+        assert body["num_routes"] == 0
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """POST /route-groups/{id}/duplicate returns 404 for a missing group."""
+        response = await async_client.post(f"/route-groups/{uuid4()}/duplicate")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_route_group(
+        self,
+        async_client: AsyncClient,
+        test_route_group: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """DELETE removes the route group and cascades routes, stops, and snapshots."""
+        loc_group = LocationGroup(
+            name="Delete Cascade Locations", color="#654321", notes=""
+        )
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Delete Cascade Location",
+            delivery_type="Family",
+            contact_name="Delete",
+            address="3 Main St",
+            phone_primary="555-0003",
+            num_children=2,
+        )
+        test_session.add(location)
+        await test_session.flush()
+
+        route = Route(
+            name="Delete Cascade Route",
+            length=5.0,
+            route_group_id=test_route_group.route_group_id,
+        )
+        test_session.add(route)
+        await test_session.flush()
+
+        route_stop = RouteStop(
+            route_id=route.route_id,
+            location_id=location.location_id,
+            stop_number=1,
+        )
+        test_session.add(route_stop)
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                RouteSnapshot(
+                    route_id=route.route_id,
+                    start_address="Warehouse",
+                    start_latitude=43.0,
+                    start_longitude=-80.0,
+                ),
+                RouteStopSnapshot(
+                    route_stop_id=route_stop.route_stop_id,
+                    address="Snapshot Address",
+                    contact_name="Snapshot Contact",
+                    phone_primary="555-0100",
+                    num_children=2,
+                    latitude=43.1,
+                    longitude=-80.1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
         response = await async_client.delete(
             f"/route-groups/{test_route_group.route_group_id}"
         )
@@ -3264,6 +3492,12 @@ class TestRouteGroupRoutes:
         assert not any(
             str(rg["route_group_id"]) == str(test_route_group.route_group_id)
             for rg in data
+        )
+        assert await test_session.get(Route, route.route_id) is None
+        assert await test_session.get(RouteStop, route_stop.route_stop_id) is None
+        assert await test_session.get(RouteSnapshot, route.route_id) is None
+        assert (
+            await test_session.get(RouteStopSnapshot, route_stop.route_stop_id) is None
         )
 
     @pytest.mark.asyncio

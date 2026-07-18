@@ -29,6 +29,7 @@ import {
   deleteNoteChain,
   deleteRoute,
   deleteRouteGroup,
+  duplicateRouteGroup,
   exportAllDriversHistory,
   generateJob,
   getAnnouncement,
@@ -133,6 +134,9 @@ import type {
   DeleteRouteGroupError,
   DeleteRouteGroupResponse,
   DeleteRouteResponse,
+  DuplicateRouteGroupData,
+  DuplicateRouteGroupError,
+  DuplicateRouteGroupResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
   GenerateJobData,
@@ -2142,6 +2146,35 @@ export const updateRouteGroupMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await updateRouteGroup({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Duplicate Route Group
+ *
+ * Duplicate a route group and its routes/stops for a new planning cycle.
+ */
+export const duplicateRouteGroupMutation = (
+  options?: Partial<Options<DuplicateRouteGroupData>>
+): UseMutationOptions<
+  DuplicateRouteGroupResponse,
+  AxiosError<DuplicateRouteGroupError>,
+  Options<DuplicateRouteGroupData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DuplicateRouteGroupResponse,
+    AxiosError<DuplicateRouteGroupError>,
+    Options<DuplicateRouteGroupData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await duplicateRouteGroup({
         ...options,
         ...fnOptions,
         throwOnError: true,

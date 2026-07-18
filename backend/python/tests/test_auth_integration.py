@@ -159,6 +159,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/route-groups"): Policy.ADMIN_ONLY,
     ("POST", "/route-groups"): Policy.ADMIN_ONLY,
     ("PATCH", "/route-groups/{route_group_id}"): Policy.ADMIN_ONLY,
+    ("POST", "/route-groups/{route_group_id}/duplicate"): Policy.ADMIN_ONLY,
     ("DELETE", "/route-groups/{route_group_id}"): Policy.ADMIN_ONLY,
     # --- routes ---
     ("GET", "/routes"): Policy.DRIVER_OR_ADMIN,
