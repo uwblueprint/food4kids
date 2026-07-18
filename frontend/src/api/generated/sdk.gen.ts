@@ -61,6 +61,9 @@ import type {
   DeleteRouteGroupErrors,
   DeleteRouteGroupResponses,
   DeleteRouteResponses,
+  DuplicateRouteGroupData,
+  DuplicateRouteGroupErrors,
+  DuplicateRouteGroupResponses,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryErrors,
   ExportAllDriversHistoryResponses,
@@ -1324,6 +1327,25 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Duplicate Route Group
+ *
+ * Duplicate a route group and its routes/stops for a new planning cycle.
+ */
+export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
+  options: Options<DuplicateRouteGroupData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    DuplicateRouteGroupResponses,
+    DuplicateRouteGroupErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/route-groups/{route_group_id}/duplicate',
+    ...options,
   });
 
 /**

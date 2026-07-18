@@ -6788,6 +6788,55 @@
         ]
       }
     },
+    "/route-groups/{route_group_id}/duplicate": {
+      "post": {
+        "description": "Duplicate a route group and its routes/stops for a new planning cycle.",
+        "operationId": "duplicate_route_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Duplicate Route Group",
+        "tags": [
+          "route-groups"
+        ]
+      }
+    },
     "/routes": {
       "get": {
         "description": "Get routes with pagination and optional filtering for unassigned routes and date range.\nReturns routes with their drive dates - routes can appear multiple times for different dates.\nWhen unassigned_only is False, returns all routes (no assignment filter).\nWhen unassigned_only is True, returns only routes that are unassigned for the given route group.\n\nRequires a driver or admin caller.\nAdmins may scope to any driver via driver_id (or omit it for all routes).\nDrivers are always scoped to their own routes: omitting driver_id returns\ntheir own routes, and requesting another driver's is rejected.",

@@ -4175,6 +4175,38 @@ export type UpdateRouteGroupResponses = {
 export type UpdateRouteGroupResponse =
   UpdateRouteGroupResponses[keyof UpdateRouteGroupResponses];
 
+export type DuplicateRouteGroupData = {
+  body?: never;
+  path: {
+    /**
+     * Route Group Id
+     */
+    route_group_id: string;
+  };
+  query?: never;
+  url: '/route-groups/{route_group_id}/duplicate';
+};
+
+export type DuplicateRouteGroupErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DuplicateRouteGroupError =
+  DuplicateRouteGroupErrors[keyof DuplicateRouteGroupErrors];
+
+export type DuplicateRouteGroupResponses = {
+  /**
+   * Successful Response
+   */
+  201: RouteGroupRead;
+};
+
+export type DuplicateRouteGroupResponse =
+  DuplicateRouteGroupResponses[keyof DuplicateRouteGroupResponses];
+
 export type GetRoutesData = {
   body?: never;
   path?: never;
