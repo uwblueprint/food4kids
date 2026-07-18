@@ -3195,6 +3195,10 @@
             ],
             "title": "Driver Name"
           },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
           "length": {
             "title": "Length",
             "type": "number"
@@ -3245,6 +3249,7 @@
           "notes",
           "length",
           "drive_date",
+          "group_name",
           "start_time",
           "num_stops",
           "box_total",

@@ -155,6 +155,9 @@ class RouteWithDateRead(SQLModel):
     notes: str
     length: float
     drive_date: datetime
+    # The group's name, for contexts that identify the route by its group
+    # (e.g. the reassign-driver dialog's "{route} • {group} • {date}" line)
+    group_name: str
     start_time: time | None
     num_stops: int
     box_total: int

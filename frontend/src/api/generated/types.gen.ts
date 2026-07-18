@@ -1878,6 +1878,10 @@ export type RouteWithDateRead = {
    */
   driver_name?: string | null;
   /**
+   * Group Name
+   */
+  group_name: string;
+  /**
    * Length
    */
   length: number;

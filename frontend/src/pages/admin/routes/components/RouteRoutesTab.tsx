@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
+import { RouteActionsCell } from './RouteActionsCell';
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
   {
@@ -79,9 +80,9 @@ export function RouteRoutesTab() {
   const tableWrapRef = useRef<HTMLDivElement>(null);
   const scrolledIdRef = useRef<string | null>(null);
 
-  // Changing a route's date re-sorts it elsewhere in the list; highlight and
-  // scroll to it so the change is visible (same treatment as the Groups tab).
-  const handleDateChanged = useCallback((routeId: string) => {
+  // Highlight and scroll to a row after it changes (date edits re-sort it,
+  // driver reassignments update it in place) — same treatment as Groups.
+  const handleRowChanged = useCallback((routeId: string) => {
     clearTimeout(highlightTimer.current);
     scrolledIdRef.current = null;
     setHighlightedId(routeId);
@@ -100,13 +101,30 @@ export function RouteRoutesTab() {
           <DriveDateCell
             routeGroupId={row.route_group_id}
             driveDate={row.drive_date}
-            onUpdated={() => handleDateChanged(row.route_id)}
+            onUpdated={() => handleRowChanged(row.route_id)}
           />
         ),
       },
-      ...COLUMNS,
+      ...COLUMNS.map((col) =>
+        col.key === 'status'
+          ? {
+              ...col,
+              // The kebab shares the Status cell (last column) so it doesn't
+              // compete for table width — same treatment as the Groups tab.
+              render: (row: RouteWithDateRead) => (
+                <div className="flex items-center justify-between gap-10">
+                  <span>{row.status}</span>
+                  <RouteActionsCell
+                    row={row}
+                    onUpdated={() => handleRowChanged(row.route_id)}
+                  />
+                </div>
+              ),
+            }
+          : col
+      ),
     ],
-    [handleDateChanged]
+    [handleRowChanged]
   );
 
   // Scroll the re-dated route into view once the refetched rows place it.

@@ -149,6 +149,7 @@ class RouteService:
         statement = select(  # type: ignore[call-overload]
             Route,
             RouteGroup.drive_date,
+            col(RouteGroup.name).label("group_name"),
             func.coalesce(route_totals.c.num_stops, 0).label("num_stops"),
             func.coalesce(route_totals.c.box_total, 0).label("box_total"),
             delivery_type_expr,
@@ -199,6 +200,7 @@ class RouteService:
                 notes=row.Route.notes,
                 length=row.Route.length,
                 drive_date=row.drive_date,
+                group_name=row.group_name,
                 start_time=row.Route.start_time,
                 num_stops=row.num_stops,
                 box_total=row.box_total,
