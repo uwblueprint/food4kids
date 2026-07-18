@@ -28,7 +28,9 @@ from app.services.implementations.mock_routing_algorithm import (
     MockRoutingAlgorithm,
 )
 from app.services.implementations.note_chain_service import NoteChainService
-from app.services.implementations.password_reset_token_service import PasswordResetTokenService
+from app.services.implementations.password_reset_token_service import (
+    PasswordResetTokenService,
+)
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.system_settings_service import SystemSettingsService

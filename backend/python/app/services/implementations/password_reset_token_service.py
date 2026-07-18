@@ -4,11 +4,11 @@ import secrets
 from uuid import UUID
 
 from sqlalchemy import delete
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
-from app.models.password_reset_token import PasswordResetToken, PasswordResetTokenCreate
+from app.models.password_reset_token import PasswordResetToken
 
 
 class PasswordResetTokenService:
@@ -30,22 +30,29 @@ class PasswordResetTokenService:
 
         return raw_token
 
-    async def read(self, session: AsyncSession, raw_token: str) -> PasswordResetToken | None:
+    async def read(
+        self, session: AsyncSession, raw_token: str
+    ) -> PasswordResetToken | None:
         """Retrieve a token object by its raw token value"""
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         result = await session.execute(
-            select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
+            select(PasswordResetToken)
+            .where(PasswordResetToken.token_hash == token_hash)
             .options(selectinload(PasswordResetToken.user))
-            .with_for_update() # Locks row to prevent replay attacks
+            .with_for_update()  # Locks row to prevent replay attacks
         )
         return result.scalar_one_or_none()
 
-    async def delete(self, session: AsyncSession, token_obj: PasswordResetToken) -> None:
+    async def delete(
+        self, session: AsyncSession, token_obj: PasswordResetToken
+    ) -> None:
         """Delete a specific token object"""
         session.delete(token_obj)
         await session.commit()
 
-    async def mark_as_used(self, session: AsyncSession, token_obj: PasswordResetToken) -> None:
+    async def mark_as_used(
+        self, session: AsyncSession, token_obj: PasswordResetToken
+    ) -> None:
         """Mark a password reset token as consumed"""
         token_obj.is_used = True
         session.add(token_obj)

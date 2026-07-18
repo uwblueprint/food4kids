@@ -6,7 +6,6 @@ import firebase_admin.auth
 import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 

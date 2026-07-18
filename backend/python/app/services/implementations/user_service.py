@@ -270,5 +270,7 @@ class UserService:
             self.logger.error(f"Firebase user {auth_id} not found: {e!s}")
             raise e
         except firebase_admin.exceptions.FirebaseError as e:
-            self.logger.error(f"Firebase failed to update password for {auth_id}: {e!s}")
+            self.logger.error(
+                f"Firebase failed to update password for {auth_id}: {e!s}"
+            )
             raise e

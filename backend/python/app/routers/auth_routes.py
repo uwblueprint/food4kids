@@ -1,26 +1,33 @@
 import logging
-from uuid import UUID
 from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import (
     get_auth_service,
+    get_email_dispatcher,
     get_password_reset_token_service,
     get_user_service,
-    get_email_dispatcher,
 )
 from app.models import get_session
 from app.models.password_reset_token import PASSWORD_RESET_TOKEN_EXPIRY_DAYS
-from app.schemas.auth import AuthResponse, LoginRequest, ForgotPasswordRequest, UpdatePasswordRequest, ValidateResetTokenRequest
+from app.schemas.auth import (
+    AuthResponse,
+    ForgotPasswordRequest,
+    LoginRequest,
+    UpdatePasswordRequest,
+    ValidateResetTokenRequest,
+)
 from app.services.implementations.auth_service import AuthService
-from app.services.implementations.user_service import UserService
 from app.services.implementations.email_dispatcher import EmailDispatcher
-from app.services.implementations.password_reset_token_service import PasswordResetTokenService
+from app.services.implementations.password_reset_token_service import (
+    PasswordResetTokenService,
+)
+from app.services.implementations.user_service import UserService
 from app.utilities.cookies import set_refresh_token_cookie
 
 # Initialize logger
@@ -146,9 +153,11 @@ async def logout(
 async def forgot_password(
     forgot_password_request: ForgotPasswordRequest,
     session: AsyncSession = Depends(get_session),
-    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service),
+    token_service: PasswordResetTokenService = Depends(
+        get_password_reset_token_service
+    ),
     user_service: UserService = Depends(get_user_service),
-    email_service: EmailDispatcher = Depends(get_email_dispatcher)
+    email_service: EmailDispatcher = Depends(get_email_dispatcher),
 ) -> None:
     """
     Triggers password reset for user with specified email (reset link will be emailed)
@@ -163,10 +172,12 @@ async def forgot_password(
             # Masking attack: Log it internally, but return a success status to the client
             logger.info(f"Password reset attempted for non-existent email: {email}")
             return
-        
+
         raw_token = await token_service.create(session, user.user_id)
 
-        reset_link = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/forgot-password/{raw_token}"
+        reset_link = (
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/forgot-password/{raw_token}"
+        )
 
         await email_service.dispatch(
             email_type="reset-password",
@@ -174,19 +185,22 @@ async def forgot_password(
             context={
                 "Driver_Name_To_Replace": user.first_name,
                 "Reset_Password_URL": reset_link,
-                "Days_Till_Expiry": str(PASSWORD_RESET_TOKEN_EXPIRY_DAYS)
-            }
+                "Days_Till_Expiry": str(PASSWORD_RESET_TOKEN_EXPIRY_DAYS),
+            },
         )
-        
+
     except Exception as e:
         logger.exception(f"Internal error processing forgot-password for {email}: {e}")
         return
-    
+
+
 @router.post("/validate-reset-token", status_code=status.HTTP_204_NO_CONTENT)
 async def validate_reset_token(
     request: ValidateResetTokenRequest,
     session: AsyncSession = Depends(get_session),
-    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service),
+    token_service: PasswordResetTokenService = Depends(
+        get_password_reset_token_service
+    ),
 ) -> None:
     """
     Validate that a password reset token exists, isn't used, and hasn't expired.
@@ -194,40 +208,57 @@ async def validate_reset_token(
     token_obj = await token_service.read(session, request.password_reset_token)
     current_time = datetime.now(timezone.utc)
 
-    if not token_obj or token_obj.is_used or current_time > token_obj.expires_at.replace(tzinfo=timezone.utc):
+    if (
+        not token_obj
+        or token_obj.is_used
+        or current_time > token_obj.expires_at.replace(tzinfo=timezone.utc)
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token."
+            detail="Invalid or expired password reset token.",
         )
+
 
 @router.post("/update-password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_password(
     update_password_request: UpdatePasswordRequest,
     session: AsyncSession = Depends(get_session),
-    token_service: PasswordResetTokenService = Depends(get_password_reset_token_service),
+    token_service: PasswordResetTokenService = Depends(
+        get_password_reset_token_service
+    ),
     user_service: UserService = Depends(get_user_service),
 ) -> None:
     """
     Update an existing user's password if provided a valid password reset token
     """
-    token_obj = await token_service.read(session, update_password_request.password_reset_token)
+    token_obj = await token_service.read(
+        session, update_password_request.password_reset_token
+    )
     current_time = datetime.now(timezone.utc)
 
-    if not token_obj or token_obj.is_used or current_time > token_obj.expires_at.replace(tzinfo=timezone.utc):
+    if (
+        not token_obj
+        or token_obj.is_used
+        or current_time > token_obj.expires_at.replace(tzinfo=timezone.utc)
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token."
+            detail="Invalid or expired password reset token.",
         )
-    
+
     await token_service.mark_as_used(session, token_obj)
-    
+
     try:
         user = token_obj.user
-        await user_service.update_password(user.auth_id, update_password_request.new_password)
-        
+        await user_service.update_password(
+            user.auth_id, update_password_request.new_password
+        )
+
     except Exception as e:
-        logger.exception(f"Internal error updating password for token {update_password_request.password_reset_token}: {e}")
+        logger.exception(
+            f"Internal error updating password for token {update_password_request.password_reset_token}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update password. Please request a new reset link."
-        )
+            detail="Failed to update password. Please request a new reset link.",
+        ) from None
