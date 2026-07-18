@@ -21,7 +21,7 @@ interface ResetPasswordContentProps {
 
 const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
   const headerTitle = "Rest your password";
-  const subheaderTitle = "Create an password to access the app";
+  const subheaderTitle = "Create a password to access the app";
 
   const navigate = useNavigate();
 
@@ -29,6 +29,8 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
     isLoading: isValidatingToken, 
     isError: isTokenInvalid 
   } = useValidateResetToken({ password_reset_token: token });
+
+  const { mutate, isPending } = useUpdatePassword();
 
   if (isValidatingToken) {
     return (
@@ -41,8 +43,6 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
   if (isTokenInvalid) {
     return <Navigate to="/404" replace />;
   }
-
-  const { mutate, isPending } = useUpdatePassword();
 
   const handleResetPassword = (password: string) => {
     mutate(

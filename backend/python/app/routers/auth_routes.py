@@ -191,7 +191,7 @@ async def validate_reset_token(
     """
     Validate that a password reset token exists, isn't used, and hasn't expired.
     """
-    token_obj = await token_service.read(session, request.token)
+    token_obj = await token_service.read(session, request.password_reset_token)
     current_time = datetime.now(timezone.utc)
 
     if not token_obj or token_obj.is_used or current_time > token_obj.expires_at.replace(tzinfo=timezone.utc):

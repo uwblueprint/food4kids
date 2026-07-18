@@ -65,7 +65,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/create-password/:token" element={<CreatePassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/forgot-password/:token" element={<ResetPassword />} />
 
       {/* Dev-only: style guide is not accessible in production */}
       {import.meta.env.DEV && (
