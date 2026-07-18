@@ -1,4 +1,4 @@
-import { useRegisterDriver } from '@/api/auth';
+import { useValidateResetToken, useUpdatePassword } from '@/api/auth';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { WrapperWithLogo } from './Wrapper';
@@ -6,25 +6,57 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { CreatePasswordForm } from './CreatePasswordForm';
 
 export const ResetPassword = () => {
-  const headerTitle = "Rest your password";
-  const subheaderTitle = "Create an password to access the app";
-
   const { token } = useParams();
 
   if (!token) {
     return <Navigate to="/404" replace />;
   }
 
-  const { mutate, isPending } = useRegisterDriver();
+  return <ResetPasswordContent token={token} />
+}
 
-  const handleRegister = (password: string) => {
+interface ResetPasswordContentProps {
+  token: string;
+}
+
+const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
+  const headerTitle = "Rest your password";
+  const subheaderTitle = "Create an password to access the app";
+
+  const navigate = useNavigate();
+
+  const { 
+    isLoading: isValidatingToken, 
+    isError: isTokenInvalid 
+  } = useValidateResetToken({ password_reset_token: token });
+
+  if (isValidatingToken) {
+    return (
+      <WrapperWithLogo headerTitle={headerTitle} subheaderTitle="Verifying link safety..." className="desktop:max-w-[362px]">
+        <div className="flex justify-center p-8 text-neutral-500">Checking token validity...</div>
+      </WrapperWithLogo>
+    );
+  }
+
+  if (isTokenInvalid) {
+    return <Navigate to="/404" replace />;
+  }
+
+  const { mutate, isPending } = useUpdatePassword();
+
+  const handleResetPassword = (password: string) => {
     mutate(
       {
-        user_invite_id: token,
-        password: password,
+        password_reset_token: token,
+        new_password: password,
       },
       {
-        onSuccess: () => {},
+        onSuccess: () => {
+          navigate('/login', { replace: true });
+        },
+        onError: () => {
+          navigate('/error', { replace: true });
+        }
       }
     );
   };
@@ -32,7 +64,7 @@ export const ResetPassword = () => {
   return (
     <WrapperWithLogo headerTitle={headerTitle} subheaderTitle={subheaderTitle} className="desktop:max-w-[362px]">
       <CreatePasswordForm 
-        onSubmit={handleRegister} 
+        onSubmit={handleResetPassword} 
         isPending={isPending} 
         submitButtonText="Create account"
       />

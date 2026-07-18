@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from './authStore';
-import { completeDriverRegistration, login, forgotPassword, type LoginRequest, refresh, type ForgotPasswordRequest, type UserFinalize } from './generated';
+import { completeDriverRegistration, login, forgotPassword, validateResetToken, updatePassword, type ValidateResetTokenRequest, type UpdatePasswordRequest, type LoginRequest, refresh, type ForgotPasswordRequest, type UserFinalize } from './generated';
 
 export function useRegisterDriver() {
   const setAuthFromRegister = useAuthStore((state) => state.setAuthFromRegister);
@@ -73,6 +73,33 @@ export function useForgotPassword() {
   return useMutation({
     mutationFn: async (payload: ForgotPasswordRequest) => {
       const { data } = await forgotPassword({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    }
+  });
+}
+
+export function useValidateResetToken(payload: ValidateResetTokenRequest) {
+  return useQuery({
+    queryKey: ['validate-reset-token', payload],
+    queryFn: async () => {
+      const { data } = await validateResetToken({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useUpdatePassword() {
+  return useMutation({
+    mutationFn: async (payload: UpdatePasswordRequest) => {
+      const { data } = await updatePassword({
         body: payload,
         throwOnError: true,
       });
