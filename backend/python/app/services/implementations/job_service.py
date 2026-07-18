@@ -1,14 +1,27 @@
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.schemas.route_generation import RouteGenerationGroupInput
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
+
+TERMINAL_PROGRESS_STATES = frozenset(
+    {
+        ProgressEnum.CANCELLED,
+        ProgressEnum.COMPLETED,
+        ProgressEnum.FAILED,
+    }
+)
 
 
 class JobService:
@@ -49,9 +62,30 @@ class JobService:
 
     async def update_progress(self, job_id: UUID, progress: ProgressEnum) -> None:
         try:
+            now = self.est_now_naive()
+            values = {
+                "progress": progress,
+                "updated_at": now,
+            }
+            if progress in TERMINAL_PROGRESS_STATES:
+                values["finished_at"] = now
+
+            result = cast(
+                "CursorResult[Any]",
+                await self.session.execute(
+                    update(Job)
+                    .where(col(Job.job_id) == job_id)
+                    .where(col(Job.progress) != ProgressEnum.CANCELLED)
+                    .values(**values)
+                ),
+            )
+            await self.session.commit()
+            if result.rowcount:
+                return
+
             job = await self.get_job(job_id)
             if not job:
-                self.logger.error("No job with corresponding job ID")
+                self.logger.error("Job %s not found during progress update", job_id)
                 return
             if job.progress == ProgressEnum.CANCELLED:
                 self.logger.info(
@@ -60,18 +94,8 @@ class JobService:
                     progress,
                 )
                 return
-            job.progress = progress
-            job.updated_at = self.est_now_naive()
-            if progress in (
-                ProgressEnum.CANCELLED,
-                ProgressEnum.COMPLETED,
-                ProgressEnum.FAILED,
-            ):
-                job.finished_at = self.est_now_naive()
-            self.session.add(job)
-            await self.session.commit()
         except Exception as error:
-            self.logger.error("Error creating job")
+            self.logger.error("Error updating job %s progress", job_id)
             await self.session.rollback()
             raise error
 
@@ -82,28 +106,36 @@ class JobService:
         no-ops and returned unchanged.
         """
         try:
+            now = self.est_now_naive()
+            result = cast(
+                "CursorResult[Any]",
+                await self.session.execute(
+                    update(Job)
+                    .where(col(Job.job_id) == job_id)
+                    .where(col(Job.progress).not_in(TERMINAL_PROGRESS_STATES))
+                    .values(
+                        progress=ProgressEnum.CANCELLED,
+                        updated_at=now,
+                        finished_at=now,
+                    )
+                ),
+            )
+            await self.session.commit()
+
             job = await self.get_job(job_id)
             if not job:
                 self.logger.error("Job %s not found during cancellation", job_id)
                 return None
 
-            if job.progress in (
-                ProgressEnum.COMPLETED,
-                ProgressEnum.FAILED,
-                ProgressEnum.CANCELLED,
-            ):
-                return job
-
-            now = self.est_now_naive()
-            job.progress = ProgressEnum.CANCELLED
-            job.updated_at = now
-            job.finished_at = now
-            self.session.add(job)
-            await self.session.commit()
-            await self.session.refresh(job)
+            if not result.rowcount:
+                self.logger.info(
+                    "Job %s cancellation was a no-op: current state is %s",
+                    job_id,
+                    job.progress,
+                )
             return job
         except Exception as error:
-            self.logger.error("Error cancelling job")
+            self.logger.error("Error cancelling job %s", job_id)
             await self.session.rollback()
             raise error
 
