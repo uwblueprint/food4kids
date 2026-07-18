@@ -4,6 +4,7 @@
 export { Account } from './Account';
 export { Banner } from './Banner';
 export { Button } from './Button';
+export { Calendar } from './Calendar';
 export {
   Card,
   CardContent,
@@ -44,6 +45,12 @@ export {
   ModalTitle,
   ModalTrigger,
 } from './Modal';
+export {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from './Popover';
 export { Progress } from './Progress';
 export { SearchBar } from './SearchBar';
 export {

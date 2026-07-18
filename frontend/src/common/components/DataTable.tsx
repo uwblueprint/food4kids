@@ -106,7 +106,11 @@ function DataTable<T>({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={getRowKey(row)} className={getRowClassName?.(row)}>
+                <tr
+                  key={getRowKey(row)}
+                  data-row-key={getRowKey(row)}
+                  className={getRowClassName?.(row)}
+                >
                   {columns.map((col) => (
                     <td
                       key={col.key}

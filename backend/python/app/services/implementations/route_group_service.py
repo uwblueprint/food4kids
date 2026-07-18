@@ -126,14 +126,16 @@ class RouteGroupService:
             .label("num_drivers_assigned")
         )
 
-        delivery_type_expr = (
+        # Prefer the delivery type derived from the group's stops; fall back
+        # to the one stored at creation for groups with no routes yet.
+        delivery_type_expr = func.coalesce(
             select(Location.delivery_type)
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
             .limit(1)
             .correlate(RouteGroup)
-            .scalar_subquery()
-            .label("delivery_type")
-        )
+            .scalar_subquery(),
+            RouteGroup.delivery_type,
+        ).label("delivery_type")
 
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

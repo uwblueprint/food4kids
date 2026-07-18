@@ -196,14 +196,17 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        'flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center leading-none font-normal',
+        // size-auto / border-0 also neutralize the Button variant's fixed
+        // circular size and border so cells track --cell-size with no outline
+        'tablet:size-auto flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center border-0 leading-none font-normal',
         // Outside days: more faded
         modifiers.outside ? 'text-grey-300' : 'text-grey-500',
-        // Default + today (unselected): transparent, circle border on hover
+        // Default: transparent; hovering a day fills it dark blue
         !modifiers.selected &&
-          'hover:border-grey-400 bg-transparent hover:border hover:bg-transparent',
-        // Selected: filled blue circle
-        modifiers.selected && 'text-grey-100 bg-blue-300 hover:bg-blue-400',
+          'hover:text-grey-100 bg-transparent hover:bg-blue-300',
+        // Selected (the currently-set date): light blue circle with a dark
+        // blue number, kept even while hovered
+        modifiers.selected && 'bg-blue-50 text-blue-400 hover:bg-blue-50',
         className
       )}
       {...props}

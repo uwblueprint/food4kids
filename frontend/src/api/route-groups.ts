@@ -1,6 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getRouteGroupsOptions } from './generated/@tanstack/react-query.gen';
+import {
+  createRouteGroupMutation,
+  getRouteGroupsOptions,
+  getRouteGroupsQueryKey,
+  getRoutesQueryKey,
+  updateRouteGroupMutation,
+} from './generated/@tanstack/react-query.gen';
 import type { GetRouteGroupsData } from './generated/types.gen';
 
 /**
@@ -18,5 +24,35 @@ export function useRouteGroups(query: GetRouteGroupsData['query']) {
   return useQuery({
     ...getRouteGroupsOptions({ query }),
     placeholderData: [],
+  });
+}
+
+/**
+ * POST /route-groups. Invalidates every cached GET /route-groups variant so
+ * all filter combinations refetch.
+ */
+export function useCreateRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...createRouteGroupMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
+    },
+  });
+}
+
+/**
+ * PATCH /route-groups/{route_group_id}. Invalidates every cached
+ * GET /route-groups variant so all filter combinations refetch, plus
+ * GET /routes since each route's drive_date comes from its group.
+ */
+export function useUpdateRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...updateRouteGroupMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() });
+    },
   });
 }

@@ -2668,6 +2668,18 @@
       "RouteGroupCreate": {
         "description": "Create request model",
         "properties": {
+          "delivery_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2710,6 +2722,7 @@
           "delivery_type": {
             "anyOf": [
               {
+                "maxLength": 100,
                 "type": "string"
               },
               {
@@ -3163,6 +3176,11 @@
             "title": "Num Stops",
             "type": "integer"
           },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
           "route_id": {
             "format": "uuid",
             "title": "Route Id",
@@ -3187,6 +3205,7 @@
         },
         "required": [
           "route_id",
+          "route_group_id",
           "name",
           "notes",
           "length",

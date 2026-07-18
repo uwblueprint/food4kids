@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type {
@@ -8,7 +9,7 @@ import type {
 } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
-import ShareIcon from '@/assets/icons/share.svg?react';
+import PlusIcon from '@/assets/icons/plus.svg?react';
 import type { Column } from '@/common/components';
 import {
   Button,
@@ -26,8 +27,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import type { GroupsTabState } from '../hooks';
+import { AddRouteGroupModal } from './AddRouteGroupModal';
+import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 
 const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -39,23 +43,38 @@ const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = [
 
 const COLUMNS: Column<RouteGroupRead>[] = [
   { key: 'name', header: 'Name', render: (row) => row.name },
-  { key: 'drive_date', header: 'Date', render: (row) => row.drive_date },
+  {
+    key: 'drive_date',
+    header: 'Date',
+    render: (row) => (
+      <DriveDateCell
+        routeGroupId={row.route_group_id}
+        driveDate={row.drive_date}
+      />
+    ),
+  },
   {
     key: 'delivery_type',
     header: 'Delivery Type',
     render: (row) => row.delivery_type,
   },
-  { key: 'num_routes', header: 'Routes', render: (row) => row.num_routes },
+  // Aggregate counts read '-' for groups with no routes yet (just created,
+  // ahead of route generation)
+  {
+    key: 'num_routes',
+    header: 'Routes',
+    render: (row) => row.num_routes || '-',
+  },
   {
     key: 'num_locations',
     header: 'Locations',
-    render: (row) => row.num_locations,
+    render: (row) => row.num_locations || '-',
   },
-  { key: 'num_boxes', header: 'Boxes', render: (row) => row.num_boxes },
+  { key: 'num_boxes', header: 'Boxes', render: (row) => row.num_boxes || '-' },
   {
     key: 'num_drivers_assigned',
     header: 'Drivers',
-    render: (row) => row.num_drivers_assigned,
+    render: (row) => row.num_drivers_assigned || '-',
   },
   {
     key: 'status',
@@ -85,6 +104,9 @@ const COLUMNS: Column<RouteGroupRead>[] = [
 
 type RouteGroupsTabProps = GroupsTabState;
 
+/** How long a newly added group's row stays highlighted. */
+const HIGHLIGHT_MS = 3000;
+
 export function RouteGroupsTab({
   rows,
   deliveryTypes,
@@ -97,6 +119,37 @@ export function RouteGroupsTab({
   toggleDraft,
   handleApply,
 }: RouteGroupsTabProps) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+  const scrolledIdRef = useRef<string | null>(null);
+
+  const handleCreated = (routeGroupId: string) => {
+    clearTimeout(highlightTimer.current);
+    setHighlightedId(routeGroupId);
+    highlightTimer.current = setTimeout(
+      () => setHighlightedId(null),
+      HIGHLIGHT_MS
+    );
+  };
+
+  // Scroll the just-added group into view once the refetched rows contain it.
+  // Runs again as `rows` updates because the row doesn't exist in the DOM
+  // until the list refetch lands; scrolledIdRef keeps it to one scroll per add.
+  useEffect(() => {
+    if (!highlightedId || scrolledIdRef.current === highlightedId) return;
+    const row = tableWrapRef.current?.querySelector(
+      `[data-row-key="${highlightedId}"]`
+    );
+    if (row) {
+      scrolledIdRef.current = highlightedId;
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedId, rows]);
+
   return (
     <>
       <div className="mb-8 flex items-center justify-between">
@@ -115,22 +168,42 @@ export function RouteGroupsTab({
           <Button variant="primary" asChild>
             <Link to="/admin/routes/generation">Generate Routes</Link>
           </Button>
-          <Button variant="primary" shape="circular">
-            <ShareIcon className="size-5" />
+          <Button
+            variant="primary"
+            shape="circular"
+            aria-label="Add route group"
+            onClick={() => setAddOpen(true)}
+          >
+            <PlusIcon className="size-5" />
           </Button>
         </div>
       </div>
 
-      <DataTable
-        columns={COLUMNS}
-        rows={rows}
-        getRowKey={(r) => r.route_group_id}
-        emptyState={
-          <EmptyState
-            title="No routes yet"
-            description="Try adjusting your filters or generating new routes"
-          />
-        }
+      <div ref={tableWrapRef}>
+        <DataTable
+          columns={COLUMNS}
+          rows={rows}
+          getRowKey={(r) => r.route_group_id}
+          getRowClassName={(r) =>
+            cn(
+              'transition-colors duration-500',
+              r.route_group_id === highlightedId && 'bg-blue-50'
+            )
+          }
+          emptyState={
+            <EmptyState
+              title="No routes yet"
+              description="Try adjusting your filters or generating new routes"
+            />
+          }
+        />
+      </div>
+
+      <AddRouteGroupModal
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        deliveryTypes={deliveryTypes}
+        onCreated={handleCreated}
       />
 
       <Modal open={filterOpen} onOpenChange={setFilterOpen}>

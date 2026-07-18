@@ -148,6 +148,9 @@ class RouteWithDateRead(SQLModel):
     """
 
     route_id: UUID
+    # The group's id rides along so clients can edit the shared drive_date
+    # (it lives on the RouteGroup, not the route)
+    route_group_id: UUID
     name: str
     notes: str
     length: float

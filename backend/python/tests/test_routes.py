@@ -3172,6 +3172,43 @@ class TestRouteGroupRoutes:
         assert "route_group_id" in result
 
     @pytest.mark.asyncio
+    async def test_create_route_group_with_delivery_type(
+        self, async_client: AsyncClient, sample_route_group_data: dict[str, Any]
+    ) -> None:
+        """A group created with a delivery type keeps it while it has no
+        routes: it comes back on the create response and on GET /route-groups
+        (where groups with routes derive it from their stops instead)."""
+        data = sample_route_group_data.copy()
+        data["drive_date"] = data["drive_date"].isoformat()
+        data["delivery_type"] = "School"
+
+        response = await async_client.post("/route-groups", json=data)
+        assert response.status_code == 201
+        result = response.json()
+        assert result["delivery_type"] == "School"
+
+        response = await async_client.get("/route-groups")
+        assert response.status_code == 200
+        created = next(
+            rg
+            for rg in response.json()
+            if str(rg["route_group_id"]) == str(result["route_group_id"])
+        )
+        assert created["delivery_type"] == "School"
+
+    @pytest.mark.asyncio
+    async def test_create_route_group_invalid_delivery_type(
+        self, async_client: AsyncClient, sample_route_group_data: dict[str, Any]
+    ) -> None:
+        """POST /route-groups rejects delivery types that aren't configured."""
+        data = sample_route_group_data.copy()
+        data["drive_date"] = data["drive_date"].isoformat()
+        data["delivery_type"] = "Not A Real Type"
+
+        response = await async_client.post("/route-groups", json=data)
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_get_route_groups_with_data(
         self, async_client: AsyncClient, test_route_group: Any
     ) -> None:

@@ -97,12 +97,17 @@ async def create_route_group(
     route_group: RouteGroupCreate,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
+    location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Create a new route group
     """
     try:
+        if route_group.delivery_type:
+            await location_service.validate_delivery_types(
+                session, [route_group.delivery_type]
+            )
         created_route_group = await route_group_service.create_route_group(
             session, route_group
         )
@@ -111,11 +116,16 @@ async def create_route_group(
             name=created_route_group.name,
             notes=created_route_group.notes,
             drive_date=created_route_group.drive_date,
+            delivery_type=created_route_group.delivery_type,
             created_at=created_route_group.created_at,
             updated_at=created_route_group.updated_at,
             num_routes=created_route_group.num_routes,
             status=_compute_status(created_route_group),
         )
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(ve)
+        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -147,6 +157,7 @@ async def update_route_group(
             name=updated_route_group.name,
             notes=updated_route_group.notes,
             drive_date=updated_route_group.drive_date,
+            delivery_type=updated_route_group.delivery_type,
             created_at=updated_route_group.created_at,
             updated_at=updated_route_group.updated_at,
             num_routes=updated_route_group.num_routes,

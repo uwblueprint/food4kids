@@ -16,18 +16,19 @@ import {
 } from '@/common/components';
 import { useSearch } from '@/common/hooks';
 
+import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
   {
     key: 'drive_date',
     header: 'Delivery Date',
-    render: (row) =>
-      new Date(row.drive_date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }),
+    render: (row) => (
+      <DriveDateCell
+        routeGroupId={row.route_group_id}
+        driveDate={row.drive_date}
+      />
+    ),
   },
   {
     key: 'delivery_type',
@@ -41,7 +42,11 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
     header: 'Distance (km)',
     render: (row) => row.length,
   },
-  { key: 'driver_name', header: 'Driver', render: (row) => row.driver_name ?? '—' },
+  {
+    key: 'driver_name',
+    header: 'Driver',
+    render: (row) => row.driver_name ?? '—',
+  },
   {
     key: 'status',
     header: (

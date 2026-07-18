@@ -139,11 +139,14 @@ class RouteService:
 
         # driver name (NULL when route is unassigned)
         driver_name_expr = case(
-            (col(Route.driver_id).is_not(None), func.concat(User.first_name, " ", User.last_name)),
+            (
+                col(Route.driver_id).is_not(None),
+                func.concat(User.first_name, " ", User.last_name),
+            ),
             else_=None,
         ).label("driver_name")
 
-        statement = select(
+        statement = select(  # type: ignore[call-overload]
             Route,
             RouteGroup.drive_date,
             func.coalesce(route_totals.c.num_stops, 0).label("num_stops"),
@@ -153,16 +156,14 @@ class RouteService:
             driver_name_expr,
         ).join(
             RouteGroup,
-            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+            RouteGroup.route_group_id == Route.route_group_id,
         )
         statement = statement.outerjoin(
             route_totals, route_totals.c.route_id == Route.route_id
         )
         statement = statement.outerjoin(
             Driver, col(Driver.driver_id) == col(Route.driver_id)
-        ).outerjoin(
-            User, col(User.user_id) == col(Driver.user_id)
-        )
+        ).outerjoin(User, col(User.user_id) == col(Driver.user_id))
 
         if start_date:
             start_dt = datetime.fromisoformat(start_date)
@@ -193,6 +194,7 @@ class RouteService:
         items = [
             RouteWithDateRead(
                 route_id=row.Route.route_id,
+                route_group_id=row.Route.route_group_id,
                 name=row.Route.name,
                 notes=row.Route.notes,
                 length=row.Route.length,

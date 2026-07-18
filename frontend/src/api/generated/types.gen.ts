@@ -1579,6 +1579,10 @@ export type RouteGenerationSettings = {
  */
 export type RouteGroupCreate = {
   /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
+  /**
    * Drive Date
    */
   drive_date: string;
@@ -1868,6 +1872,10 @@ export type RouteWithDateRead = {
    * Num Stops
    */
   num_stops: number;
+  /**
+   * Route Group Id
+   */
+  route_group_id: string;
   /**
    * Route Id
    */
