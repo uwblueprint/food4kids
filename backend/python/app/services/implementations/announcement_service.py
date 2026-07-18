@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
@@ -12,6 +13,7 @@ from app.models.announcement import (
     AnnouncementCreate,
     AnnouncementUpdate,
 )
+from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.driver import Driver
 from app.models.user import User
 from app.services.implementations.email_dispatcher import EmailDispatcher
@@ -203,3 +205,56 @@ class AnnouncementService:
                 )
 
         return {"sent": sent_count, "failed": failed_count}
+
+    # --- Read Tracking ---
+
+    async def mark_announcements_as_read(
+        self, session: AsyncSession, user_id: UUID
+    ) -> AnnouncementLastRead:
+        """Upsert the user's last_read_at timestamp to now.
+
+        Uses INSERT ... ON CONFLICT so concurrent mark-read requests for the
+        same user cannot race into a unique-constraint IntegrityError.
+        """
+        try:
+            # Validate user exists
+            user_statement = select(User).where(User.user_id == user_id)
+            user_result = await session.execute(user_statement)
+            if not user_result.scalars().first():
+                raise ValueError(f"User with id {user_id} not found")
+
+            now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+            insert_stmt = pg_insert(AnnouncementLastRead).values(
+                announcement_last_read_id=uuid4(),
+                user_id=user_id,
+                last_read_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            upsert_statement = insert_stmt.on_conflict_do_update(
+                constraint="uq_announcement_last_reads_user",
+                set_={
+                    "last_read_at": insert_stmt.excluded.last_read_at,
+                    "updated_at": insert_stmt.excluded.updated_at,
+                },
+            ).returning(AnnouncementLastRead)
+
+            result = await session.execute(upsert_statement)
+            entry = result.scalar_one()
+            await session.commit()
+            return entry
+
+        except Exception as error:
+            self.logger.error(f"Failed to mark announcements as read: {error!s}")
+            await session.rollback()
+            raise error
+
+    async def get_last_read_at(
+        self, session: AsyncSession, user_id: UUID
+    ) -> datetime | None:
+        """Get the user's last_read_at timestamp, or None if never read"""
+        statement = select(AnnouncementLastRead.last_read_at).where(
+            AnnouncementLastRead.user_id == user_id
+        )
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()

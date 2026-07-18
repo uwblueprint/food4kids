@@ -44,6 +44,33 @@
         "title": "AnnouncementCreate",
         "type": "object"
       },
+      "AnnouncementLastReadResponse": {
+        "description": "Response model for announcement last read",
+        "properties": {
+          "announcement_last_read_id": {
+            "format": "uuid",
+            "title": "Announcement Last Read Id",
+            "type": "string"
+          },
+          "last_read_at": {
+            "format": "date-time",
+            "title": "Last Read At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_last_read_id",
+          "user_id",
+          "last_read_at"
+        ],
+        "title": "AnnouncementLastReadResponse",
+        "type": "object"
+      },
       "AnnouncementRead": {
         "description": "Announcement response model",
         "properties": {
@@ -78,6 +105,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "is_read": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Read"
           },
           "message": {
             "title": "Message",
@@ -2216,28 +2254,6 @@
         "title": "NoteFeedSort",
         "type": "string"
       },
-      "NoteListResponse": {
-        "description": "Response for GET notes - includes unread count",
-        "properties": {
-          "notes": {
-            "items": {
-              "$ref": "#/components/schemas/NoteRead"
-            },
-            "title": "Notes",
-            "type": "array"
-          },
-          "unread_count": {
-            "title": "Unread Count",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "notes",
-          "unread_count"
-        ],
-        "title": "NoteListResponse",
-        "type": "object"
-      },
       "NotePermission": {
         "description": "Controls who can read/write on a note chain",
         "enum": [
@@ -2607,10 +2623,10 @@
             "title": "Children Per Box",
             "type": "integer"
           },
-          "max_half_boxes_per_driver": {
-            "default": 28,
+          "max_boxes_per_driver": {
+            "default": 14,
             "exclusiveMinimum": 0,
-            "title": "Max Half Boxes Per Driver",
+            "title": "Max Boxes Per Driver",
             "type": "integer"
           },
           "max_stops_per_route": {
@@ -2632,19 +2648,6 @@
             "default": false,
             "title": "Return To Warehouse",
             "type": "boolean"
-          },
-          "route_duration_limit_minutes": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.",
-            "title": "Route Duration Limit Minutes"
           },
           "route_start_time": {
             "format": "date-time",
@@ -3909,7 +3912,7 @@
     },
     "/announcements/": {
       "get": {
-        "description": "Retrieve all announcements",
+        "description": "Retrieve all announcements with is_read status for the authenticated user.",
         "operationId": "get_announcements",
         "responses": {
           "200": {
@@ -3978,6 +3981,33 @@
           }
         ],
         "summary": "Create Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/announcements/mark-read": {
+      "post": {
+        "description": "Mark all announcements as read for the authenticated user.",
+        "operationId": "mark_announcements_as_read",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementLastReadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Announcements As Read",
         "tags": [
           "announcements"
         ]
@@ -5979,7 +6009,7 @@
     },
     "/note-chains/{note_chain_id}/notes": {
       "get": {
-        "description": "Get notes for a chain with pagination. Returns unread count and auto-marks as read.",
+        "description": "Get notes for a chain with pagination.",
         "operationId": "get_notes",
         "parameters": [
           {
@@ -6021,7 +6051,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NoteListResponse"
+                  "items": {
+                    "$ref": "#/components/schemas/NoteRead"
+                  },
+                  "title": "Response Get Notes",
+                  "type": "array"
                 }
               }
             },

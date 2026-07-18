@@ -20,6 +20,7 @@ from app.models.announcement import (
     AnnouncementRead,
     AnnouncementUpdate,
 )
+from app.models.announcement_last_read import AnnouncementLastReadResponse
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 
@@ -31,11 +32,45 @@ async def get_announcements(
     session: AsyncSession = Depends(get_session),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
     _auth: bool = Depends(require_driver_or_admin),
+    current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> list[AnnouncementRead]:
-    """Retrieve all announcements"""
+    """Retrieve all announcements with is_read status for the authenticated user."""
     try:
         announcements = await announcement_service.get_announcements(session)
-        return [AnnouncementRead.from_announcement(a) for a in announcements]
+        last_read_at = await announcement_service.get_last_read_at(
+            session, current_user_id
+        )
+
+        results = []
+        for a in announcements:
+            item = AnnouncementRead.from_announcement(a)
+            if last_read_at is None:
+                item.is_read = False
+            else:
+                item.is_read = a.created_at is not None and a.created_at <= last_read_at
+            results.append(item)
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+
+@router.post("/mark-read", response_model=AnnouncementLastReadResponse)
+async def mark_announcements_as_read(
+    session: AsyncSession = Depends(get_session),
+    announcement_service: AnnouncementService = Depends(get_announcement_service),
+    _auth: bool = Depends(require_driver_or_admin),
+    current_user_id: UUID = Depends(get_current_database_user_id),
+) -> AnnouncementLastReadResponse:
+    """Mark all announcements as read for the authenticated user."""
+    try:
+        entry = await announcement_service.mark_announcements_as_read(
+            session, current_user_id
+        )
+        return AnnouncementLastReadResponse.model_validate(entry)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
