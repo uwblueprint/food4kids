@@ -4,6 +4,7 @@ import secrets
 from uuid import UUID
 
 from sqlalchemy import delete
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -34,6 +35,7 @@ class PasswordResetTokenService:
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         result = await session.execute(
             select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
+            .options(selectinload(PasswordResetToken.user))
             .with_for_update() # Locks row to prevent replay attacks
         )
         return result.scalar_one_or_none()

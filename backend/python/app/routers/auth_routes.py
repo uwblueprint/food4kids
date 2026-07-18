@@ -219,7 +219,7 @@ async def update_password(
             detail="Invalid or expired password reset token."
         )
     
-    await token_service.mark_used(session, token_obj)
+    await token_service.mark_as_used(session, token_obj)
     
     try:
         user = token_obj.user
