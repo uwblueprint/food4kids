@@ -244,11 +244,21 @@ async def update_driver(
     driver_id: UUID,
     driver: DriverUpdate,
     session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_self_driver_or_admin),
+    is_admin: bool = Depends(require_self_driver_or_admin),
 ) -> DriverRead:
     """
     Update an existing driver
     """
+    if not is_admin:
+        self_editable_fields = {"first_name", "last_name", "phone"}
+        requested_fields = set(driver.model_fields_set)
+        admin_only_fields = requested_fields - self_editable_fields
+        if admin_only_fields:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can update these driver fields.",
+            )
+
     updated_driver = await driver_service.update_driver_by_id(
         session, driver_id, driver
     )
