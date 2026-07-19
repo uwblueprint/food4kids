@@ -3440,6 +3440,14 @@ class TestRouteGroupRoutes:
         assert body["name"] == "Copy of July 9 - Tuesday A"
         assert body["notes"] == "original notes"
         assert body["num_routes"] == 2
+        # Aggregate stats reflect the copied content: 2 distinct locations
+        # (loc_b appears on both routes but counts once), boxes derived from
+        # num_children (2 + 4 children at the default 2 children/box = 3
+        # boxes), and route_a's driver carried over.
+        assert body["num_locations"] == 2
+        assert body["num_boxes"] == 3
+        assert body["num_drivers_assigned"] == 1
+        assert body["delivery_type"] == "Family"
 
         duplicated_group_id = body["route_group_id"]
         result = await test_session.execute(
@@ -3479,6 +3487,20 @@ class TestRouteGroupRoutes:
             (stop.location_id, stop.stop_number)
             for stop in duplicated_route_b.route_stops
         ] == [(loc_b.location_id, 1)]
+
+        # PATCH on a group with content returns the same populated aggregates.
+        patch_response = await async_client.patch(
+            f"/route-groups/{duplicated_group_id}",
+            json={"notes": "updated copy notes"},
+        )
+        assert patch_response.status_code == 200
+        patch_body = patch_response.json()
+        assert patch_body["notes"] == "updated copy notes"
+        assert patch_body["num_routes"] == 2
+        assert patch_body["num_locations"] == 2
+        assert patch_body["num_boxes"] == 3
+        assert patch_body["num_drivers_assigned"] == 1
+        assert patch_body["delivery_type"] == "Family"
 
     @pytest.mark.asyncio
     async def test_duplicate_empty_route_group_truncates_copy_name(
