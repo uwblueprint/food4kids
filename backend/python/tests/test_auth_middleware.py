@@ -287,9 +287,9 @@ def _make_driver_id_app() -> FastAPI:
 
     @app.get("/drivers/{driver_id}")
     async def get_driver(
-        driver_id: str, _auth: Any = Depends(require_self_driver_or_admin)
+        driver_id: str, is_admin: bool = Depends(require_self_driver_or_admin)
     ) -> dict:
-        return {"driver_id": driver_id}
+        return {"driver_id": driver_id, "is_admin": is_admin}
 
     return app
 
@@ -343,6 +343,7 @@ class TestRequireSelfDriverOrAdmin:
             resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 200
+        assert resp.json()["is_admin"] is True
 
     @pytest.mark.asyncio
     async def test_driver_can_access_own_id(self) -> None:
@@ -368,6 +369,7 @@ class TestRequireSelfDriverOrAdmin:
             resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 200
+        assert resp.json()["is_admin"] is False
 
     @pytest.mark.asyncio
     async def test_driver_cannot_access_other_driver(self) -> None:

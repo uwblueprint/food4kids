@@ -572,6 +572,14 @@ export type DriverUpdate = {
    */
   car_make_model?: string | null;
   /**
+   * First Name
+   */
+  first_name?: string | null;
+  /**
+   * Last Name
+   */
+  last_name?: string | null;
+  /**
    * License Plate
    */
   license_plate?: string | null;
@@ -1461,7 +1469,12 @@ export type PaginatedResponseRouteWithDateRead = {
 /**
  * ProgressEnum
  */
-export type ProgressEnum = 'Pending' | 'Running' | 'Completed' | 'Failed';
+export type ProgressEnum =
+  | 'Pending'
+  | 'Running'
+  | 'Cancelled'
+  | 'Completed'
+  | 'Failed';
 
 /**
  * RouteDetailRead
@@ -3264,6 +3277,36 @@ export type GetJobResponses = {
 };
 
 export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
+
+export type CancelJobData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/jobs/{job_id}/cancel';
+};
+
+export type CancelJobErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelJobError = CancelJobErrors[keyof CancelJobErrors];
+
+export type CancelJobResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobRead;
+};
+
+export type CancelJobResponse = CancelJobResponses[keyof CancelJobResponses];
 
 export type GetLocationGroupsData = {
   body?: never;

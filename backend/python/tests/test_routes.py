@@ -19,7 +19,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
+from app.models.enum import ProgressEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -274,6 +276,138 @@ class TestDriverRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["partner_driver_name"] is None
+
+    @pytest.mark.asyncio
+    async def test_self_driver_updates_own_name_and_phone(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update can edit only User name fields and Driver phone."""
+        from app.models.user import User
+
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await self_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Updated",
+                    "last_name": "Driver",
+                    "phone": "+14165550123",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Updated"
+        assert data["last_name"] == "Driver"
+        assert data["phone"] == "+14165550123"
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Updated"
+        assert user.last_name == "Driver"
+        assert test_driver.phone == "+14165550123"
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Updated Driver",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Updated",
+                "family_name": "Driver",
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_self_driver_cannot_update_admin_only_fields(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update rejects admin-only fields and does not persist them."""
+        original_phone = test_driver.phone
+        original_address = test_driver.address
+        original_active = test_driver.active
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+
+        response = await self_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={
+                "phone": "+14165550123",
+                "address": "123 Admin Only St",
+                "active": False,
+            },
+        )
+
+        assert response.status_code == 403
+        await test_session.refresh(test_driver)
+        assert test_driver.phone == original_phone
+        assert test_driver.address == original_address
+        assert test_driver.active is original_active
+
+    @pytest.mark.asyncio
+    async def test_admin_updates_driver_name_and_admin_only_fields(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Admin update keeps the full DriverUpdate surface, including User names."""
+        from app.models.user import User
+
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await async_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Admin",
+                    "last_name": "Updated",
+                    "address": "456 Admin Address St",
+                    "active": False,
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Admin"
+        assert data["last_name"] == "Updated"
+        assert data["address"] == "456 Admin Address St"
+        assert data["active"] is False
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Admin"
+        assert user.last_name == "Updated"
+        assert test_driver.address == "456 Admin Address St"
+        assert test_driver.active is False
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Admin Updated",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Admin",
+                "family_name": "Updated",
+            },
+        )
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, async_client: AsyncClient) -> None:
@@ -4271,6 +4405,91 @@ class TestJobRoutes:
         response = await client.post("/jobs/generate", json=body)
         assert response.status_code == 202
         assert response.json()["job_id"] == str(job_id)
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_job(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """POST /jobs/{id}/cancel marks a pending job as cancelled."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.PENDING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["progress"] == "Cancelled"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+        assert job.finished_at is not None
+
+    @pytest.mark.asyncio
+    async def test_cancel_running_job_prevents_late_completion(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A cancelled running job stays cancelled if worker completion arrives later."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.RUNNING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Cancelled"
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.update_progress(job.job_id, ProgressEnum.COMPLETED)
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_cancel_finished_job_is_safe_noop(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Cancelling completed/failed work returns the existing terminal state."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.COMPLETED)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Completed"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_cancel_job_not_found(self, async_client: AsyncClient) -> None:
+        """POST /jobs/{id}/cancel returns 404 for an unknown job."""
+        response = await async_client.post(f"/jobs/{uuid4()}/cancel")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_enqueue_cancelled_job_does_not_run(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Queued work checks job state before moving to Running."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.CANCELLED)
+        test_session.add(job)
+        await test_session.commit()
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.enqueue(job.job_id)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
 
 
 class TestSystemSettingsRoutes:
