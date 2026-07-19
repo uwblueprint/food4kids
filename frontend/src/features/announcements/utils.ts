@@ -3,6 +3,7 @@ import type { Announcement } from '@/types/announcement';
 
 export const MESSAGE_MAX = 1500;
 export const SUBJECT_MAX = 100;
+// New badge is displayed for announcements posted within the last 7 days
 const NEW_BADGE_DAYS = 7;
 
 /** Figma: fixed 544px side panel width. */
@@ -94,13 +95,9 @@ export function isAnnouncementEdited(announcement: Announcement): boolean {
   return updated - created > 1000;
 }
 
-/** New = posted within 7 days and not yet opened by the current user. */
-export function isAnnouncementNew(
-  announcement: Announcement,
-  readIds: Set<string>
-): boolean {
+export function isAnnouncementNew(announcement: Announcement): boolean {
   if (!announcement.created_at) return false;
-  if (readIds.has(announcement.announcement_id)) return false;
+  if (announcement.is_read === true) return false;
   const created = new Date(announcement.created_at).getTime();
   const cutoff = Date.now() - NEW_BADGE_DAYS * 24 * 60 * 60 * 1000;
   return created >= cutoff;

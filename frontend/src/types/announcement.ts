@@ -8,6 +8,7 @@ export interface Announcement {
   attachments: string[];
   created_at: string | null;
   updated_at: string | null;
+  is_read?: boolean | null;
 }
 
 export interface AnnouncementCreatePayload {

@@ -7,6 +7,7 @@ import {
   useSendAnnouncementEmail,
   useUpdateAnnouncement,
 } from '@/api/announcements';
+import { useAuthStore } from '@/api/authStore';
 import MegaphoneIcon from '@/assets/icons/megaphone.svg?react';
 import { Button } from '@/common/components';
 import type { Announcement } from '@/types/announcement';
@@ -25,7 +26,7 @@ type ConfirmState =
 
 export function AnnouncementsBoard() {
   const role = roleFromStoredToken();
-  const currentUserId = '';
+  const currentUserId = useAuthStore((state) => state.user?.id ?? '');
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -39,7 +40,7 @@ export function AnnouncementsBoard() {
   );
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
-  const { readIds, markAsRead } = useAnnouncementReads(currentUserId);
+  const { markBoardAsRead } = useAnnouncementReads();
   const { data: announcements = [], isLoading } = useAnnouncements();
   const createMutation = useCreateAnnouncement();
   const updateMutation = useUpdateAnnouncement();
@@ -47,6 +48,11 @@ export function AnnouncementsBoard() {
   const sendEmailMutation = useSendAnnouncementEmail();
 
   const hasPendingDeletes = pendingDeleteIds.size > 0;
+
+  const closePanel = () => {
+    setPanelOpen(false);
+    markBoardAsRead();
+  };
 
   const resetEditBoardState = () => {
     setEditBoardOpen(false);
@@ -153,10 +159,6 @@ export function AnnouncementsBoard() {
     }
   };
 
-  const handleAnnouncementOpen = (announcement: Announcement) => {
-    markAsRead(announcement.announcement_id);
-  };
-
   const isSubmitting =
     createMutation.isPending ||
     updateMutation.isPending ||
@@ -177,15 +179,13 @@ export function AnnouncementsBoard() {
 
       <AnnouncementsPanel
         open={panelOpen}
-        onClose={() => setPanelOpen(false)}
+        onClose={closePanel}
         announcements={announcements}
         isLoading={isLoading}
         currentUserId={currentUserId}
-        readIds={readIds}
         role={role}
         onCreateClick={openCreateForm}
         onEditBoardClick={() => setEditBoardOpen(true)}
-        onAnnouncementOpen={handleAnnouncementOpen}
         onEdit={openEditForm}
         onDelete={handleDeleteRequest}
       />
