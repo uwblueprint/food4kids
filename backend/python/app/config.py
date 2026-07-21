@@ -2,6 +2,8 @@ import os
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import json
+from pathlib import Path
 
 
 class Settings(BaseSettings):
@@ -171,8 +173,41 @@ class TestingSettings(Settings):
 
 
 def get_settings() -> Settings:
-    """Get settings based on environment"""
+    """Get settings based on environment, parsing cloud secrets if mounted"""
     environment = os.getenv("APP_ENV", "development")
+    
+    secrets_file_path = Path("/secrets/config.json")
+    cloud_secrets = {}
+    
+    if secrets_file_path.exists():
+        try:
+            with open(secrets_file_path, "r") as f:
+                raw_secrets = json.load(f)
+                
+                # Convert uppercase JSON keys to lowercase for Pydantic mapping
+                lowercased_secrets = {k.lower(): v for k, v in raw_secrets.items()}
+                
+                target_class = DevelopmentSettings
+                if environment == "production":
+                    target_class = ProductionSettings
+                elif environment == "testing":
+                    target_class = TestingSettings
+                
+                # Filter keys using Pydantic v1 __fields__ syntax to avoid breaking
+                allowed_fields = target_class.__fields__.keys()
+                cloud_secrets = {k: v for k, v in lowercased_secrets.items() if k in allowed_fields}
+
+                print(f"--- DIAGNOSTIC DB_HOST: '{cloud_secrets.get('db_host')}' ---")
+                print(f"--- DIAGNOSTIC USER: '{cloud_secrets.get('postgres_user')}' ---")
+                # Print the length and first 3 characters to protect your secret while confirming it
+                pwd = cloud_secrets.get('postgres_password', '')
+                print(f"--- DIAGNOSTIC PWD_LEN: {len(pwd)} | PWD_START: '{pwd[:3]}' ---")
+                
+        except Exception as e:
+            print(f"WARNING: Found secret file but failed to parse JSON: {e}")
+
+    if secrets_file_path.exists():
+        return Settings(**cloud_secrets)
 
     if environment == "production":
         return ProductionSettings()

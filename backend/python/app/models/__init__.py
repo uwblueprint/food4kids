@@ -1,6 +1,7 @@
 import os
 from collections.abc import AsyncGenerator
 from typing import Any
+from app.config import settings
 
 from sqlalchemy import Engine, make_url
 from sqlalchemy.ext.asyncio import (
@@ -18,36 +19,41 @@ async_session_maker_instance: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_database_url() -> str:
-    """Get database URL based on environment"""
-    if os.getenv("APP_ENV") == "production":
-        return os.getenv("DATABASE_URL", "").replace(
-            "postgresql://", "postgresql+asyncpg://"
-        )
+    """Get database URL based on configuration settings"""
+    # 1. Use the unified URL if provided (Cloud Run secret mount)
+    if settings.database_url:
+        url_obj = make_url(settings.database_url)
+        print("--- DEBUG RAW database_url FIELD: " + settings.database_url + " ---")
+        print("--- DEBUG FULL RENDERED URL: " + url_obj.render_as_string(hide_password=False) + " ---")
+        
+        return str(url_obj.set(drivername="postgresql+asyncpg"))
+        
+    # 2. Fallback for local development (safe for localhost, no forced SSL)
+    base_url = f"postgresql+asyncpg://{settings.postgres_user}:{settings.postgres_password}@{settings.db_host}:5432"
+    
+    if settings.is_testing:
+        return f"{base_url}/{settings.postgres_db_test}"
     else:
-        return "postgresql+asyncpg://{username}:{password}@{host}:5432/{db}".format(
-            username=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD"),
-            host=os.getenv("DB_HOST"),
-            db=(
-                os.getenv("POSTGRES_DB_TEST")
-                if os.getenv("APP_ENV") == "testing"
-                else os.getenv("POSTGRES_DB_DEV")
-            ),
-        )
-
+        return f"{base_url}/{settings.postgres_db_dev}?sslmode=require"
 
 def init_database() -> None:
     """Initialize database engines and session makers"""
     global engine, async_engine, async_session_maker_instance
 
     database_url = get_database_url()
-    sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
 
+    # 1. Check if we're pointing to Neon
+    is_neon = "neon.tech" in database_url
+
+    # 2. Synchronous engine (Alembic/psycopg2) loves the string parameter
+    sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    if is_neon and "sslmode" not in sync_database_url:
+        sync_database_url += "?sslmode=require" if "?" not in sync_database_url else "&sslmode=require"
+    
     # Set echo based on environment
     app_env = os.getenv("APP_ENV")
     echo_sql = app_env in ("development", "testing")
 
-    # Synchronous engine for migrations
     engine = create_engine(sync_database_url, echo=echo_sql)
 
     # asyncpg doesn't accept libpq-style query params (sslmode, channel_binding
@@ -60,6 +66,8 @@ def init_database() -> None:
         connect_args["ssl"] = query.pop("sslmode")
         query.pop("channel_binding", None)
         async_url = async_url.set(query=query)
+    elif is_neon:
+        connect_args["ssl"] = "require"
 
     # Asynchronous engine for application
     async_engine = create_async_engine(
