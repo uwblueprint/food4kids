@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { useRegisterDriver } from '@/api/auth';
-import { Button } from '@/common/components';
+import { Button, NotFoundPage } from '@/common/components';
 
 import { CreatePasswordForm } from './CreatePasswordForm';
 import { WrapperWithLogo } from './Wrapper';
@@ -25,7 +25,7 @@ export const CreatePassword = () => {
   const isValidUuid = token && uuidRegex.test(token);
 
   if (!isValidUuid) {
-    return <Navigate to="/404" replace />;
+    return <NotFoundPage />;
   }
 
   const handleRegister = (password: string) => {

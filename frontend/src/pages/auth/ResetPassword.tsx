@@ -1,6 +1,8 @@
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { useUpdatePassword, useValidateResetToken } from '@/api/auth';
+import { CatchAllErrorPage, NotFoundPage } from '@/common/components';
 
 import { CreatePasswordForm } from './CreatePasswordForm';
 import { WrapperWithLogo } from './Wrapper';
@@ -9,7 +11,7 @@ export const ResetPassword = () => {
   const { token } = useParams();
 
   if (!token) {
-    return <Navigate to="/404" replace />;
+    return <NotFoundPage />;
   }
 
   return <ResetPasswordContent token={token} />;
@@ -24,6 +26,7 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
   const subheaderTitle = 'Create a password to access the app';
 
   const navigate = useNavigate();
+  const [hasSubmitError, setHasSubmitError] = useState(false);
 
   const { isLoading: isValidatingToken, isError: isTokenInvalid } =
     useValidateResetToken({ password_reset_token: token });
@@ -45,7 +48,11 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
   }
 
   if (isTokenInvalid) {
-    return <Navigate to="/404" replace />;
+    return <NotFoundPage />;
+  }
+
+  if (hasSubmitError) {
+    return <CatchAllErrorPage />;
   }
 
   const handleResetPassword = (password: string) => {
@@ -59,7 +66,7 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
           navigate('/login', { replace: true });
         },
         onError: () => {
-          navigate('/error', { replace: true });
+          setHasSubmitError(true);
         },
       }
     );
