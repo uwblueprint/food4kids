@@ -27,7 +27,7 @@ import {
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
-const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
+const ACCEPTED_EXTENSIONS = new Set(['.xlsx', '.csv']);
 
 interface SystemField {
   key: string;
@@ -94,7 +94,7 @@ export function ImportStep() {
     const ext = '.' + selected.name.split('.').pop()?.toLowerCase();
     if (!ACCEPTED_EXTENSIONS.has(ext)) {
       setFormatError(
-        'Unsupported format — please upload an Excel (.xlsx) file'
+        'Unsupported format — please upload an Excel (.xlsx) or CSV file'
       );
       return;
     }
@@ -200,8 +200,8 @@ export function ImportStep() {
         <CardHeader>
           <CardTitle>Import Data</CardTitle>
           <CardDescription>
-            Select a delivery type, then upload an Excel file (.xlsx) with
-            delivery information
+            Select a delivery type, then upload an Excel (.xlsx) or CSV file
+            with delivery information
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pt-4">
