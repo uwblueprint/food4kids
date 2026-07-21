@@ -121,13 +121,13 @@ export const CreatePasswordForm = ({
           <div className="flex flex-col gap-4">
             {/* Confirm Password Field */}
             <Field>
-              <FieldLabel htmlFor="password">Confirm password</FieldLabel>
+              <FieldLabel htmlFor="confirm-password">Confirm password</FieldLabel>
               <div className="relative w-full">
                 <Input
-                  id="password"
+                  id="confirm-password"
                   type={showConfirmPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
+                  autoComplete="new-password"
+                  placeholder="Confirm your password"
                   className={cn(
                     'px-6',
                     confirmPasswordError && 'outline-red focus:outline-red'
