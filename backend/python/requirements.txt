@@ -9,7 +9,7 @@ python-multipart>=0.0.6
 # Database
 sqlmodel>=0.0.25
 asyncpg>=0.29.0
-psycopg2>=2.8.6
+psycopg2-binary==2.9.12
 alembic>=1.13.1
 
 # Authentication & Security
