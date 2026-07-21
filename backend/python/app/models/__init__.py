@@ -1,7 +1,6 @@
 import os
 from collections.abc import AsyncGenerator
 from typing import Any
-from app.config import settings
 
 from sqlalchemy import Engine, make_url
 from sqlalchemy.ext.asyncio import (
@@ -11,6 +10,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlmodel import SQLModel, create_engine
+
+from app.config import settings
 
 # Database engines
 engine: Engine | None = None
@@ -23,24 +24,25 @@ def get_database_url() -> str:
     # 1. Use the unified URL if provided (Cloud Run secret mount)
     if settings.database_url:
         url_obj = make_url(settings.database_url)
-        print("--- DEBUG RAW database_url FIELD: " + settings.database_url + " ---")
-        print("--- DEBUG FULL RENDERED URL: " + url_obj.render_as_string(hide_password=False) + " ---")
-        
-        return str(url_obj.set(drivername="postgresql+asyncpg"))
-        
+        return url_obj.set(drivername="postgresql+asyncpg").render_as_string(
+            hide_password=False
+        )
+
     # 2. Fallback for local development (safe for localhost, no forced SSL)
     base_url = f"postgresql+asyncpg://{settings.postgres_user}:{settings.postgres_password}@{settings.db_host}:5432"
-    
+
     if settings.is_testing:
         return f"{base_url}/{settings.postgres_db_test}"
     else:
         return f"{base_url}/{settings.postgres_db_dev}?sslmode=require"
+
 
 def init_database() -> None:
     """Initialize database engines and session makers"""
     global engine, async_engine, async_session_maker_instance
 
     database_url = get_database_url()
+    print(database_url, type(database_url))
 
     # 1. Check if we're pointing to Neon
     is_neon = "neon.tech" in database_url
@@ -48,8 +50,10 @@ def init_database() -> None:
     # 2. Synchronous engine (Alembic/psycopg2) loves the string parameter
     sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
     if is_neon and "sslmode" not in sync_database_url:
-        sync_database_url += "?sslmode=require" if "?" not in sync_database_url else "&sslmode=require"
-    
+        sync_database_url += (
+            "?sslmode=require" if "?" not in sync_database_url else "&sslmode=require"
+        )
+
     # Set echo based on environment
     app_env = os.getenv("APP_ENV")
     echo_sql = app_env in ("development", "testing")
