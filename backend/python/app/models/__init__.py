@@ -42,7 +42,6 @@ def init_database() -> None:
     global engine, async_engine, async_session_maker_instance
 
     database_url = get_database_url()
-    print(database_url, type(database_url))
 
     # 1. Check if we're pointing to Neon
     is_neon = "neon.tech" in database_url

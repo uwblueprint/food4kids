@@ -59,8 +59,8 @@ def get_database_url() -> str:
             print(f"--- DEBUG: Successfully loaded JSON. Keys found: {list(secret_data.keys())} ---")
                 
             # Try using the direct full connection string first
-            if "database_url" in secret_data:
-                url = secret_data["database_url"]
+            if "DATABASE_URL" in secret_data:
+                url = secret_data["DATABASE_URL"]
                 # Convert driver for Alembic/psycopg2 (it needs postgresql:// instead of postgresql+asyncpg://)
                 if url.startswith("postgresql+asyncpg://"):
                     url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
@@ -78,7 +78,7 @@ def get_database_url() -> str:
             host = secret_data.get("DB_HOST", os.getenv("DB_HOST"))
             db = secret_data.get("POSTGRES_DB_DEV", os.getenv("POSTGRES_DB_DEV"))
             
-            print(f"--- DEBUG: Extracted user={username}, host={host}, db={db}, has_password=bool(password) ---")
+            print(f"--- DEBUG: Extracted user={username}, host={host}, db={db}, has_password={bool(password)} ---")
             
             base_url = f"postgresql://{username}:{password}@{host}:5432/{db}"
             if "sslmode" not in base_url:
