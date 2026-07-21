@@ -250,6 +250,10 @@ async def update_password(
 
     try:
         user = token_obj.user
+
+        if user.auth_id is None:
+            raise RuntimeError(f"User {user.user_id} has a token but missing auth_id.")
+
         await user_service.update_password(
             user.auth_id, update_password_request.new_password
         )

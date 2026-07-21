@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.models.password_reset_token import PasswordResetToken
 
@@ -21,7 +21,7 @@ class PasswordResetTokenService:
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
 
         await session.execute(
-            delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id)
+            delete(PasswordResetToken).where(col(PasswordResetToken.user_id) == user_id)
         )
 
         new_token = PasswordResetToken(user_id=user_id, token_hash=token_hash)
@@ -38,7 +38,7 @@ class PasswordResetTokenService:
         result = await session.execute(
             select(PasswordResetToken)
             .where(PasswordResetToken.token_hash == token_hash)
-            .options(selectinload(PasswordResetToken.user))
+            .options(selectinload(PasswordResetToken.user))  # type: ignore[arg-type]
             .with_for_update()  # Locks row to prevent replay attacks
         )
         return result.scalar_one_or_none()
@@ -47,7 +47,7 @@ class PasswordResetTokenService:
         self, session: AsyncSession, token_obj: PasswordResetToken
     ) -> None:
         """Delete a specific token object"""
-        session.delete(token_obj)
+        await session.delete(token_obj)
         await session.commit()
 
     async def mark_as_used(
