@@ -246,8 +246,6 @@ async def update_password(
             detail="Invalid or expired password reset token.",
         )
 
-    await token_service.mark_as_used(session, token_obj)
-
     try:
         user = token_obj.user
 
@@ -266,3 +264,13 @@ async def update_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update password. Please request a new reset link.",
         ) from None
+
+    try:
+        await token_service.mark_as_used(session, token_obj)
+    except Exception:
+        # 204 - Firebase password update succeeds, but password reset token is still valid?
+        logger.critical(
+            "PASSWORD UPDATED BUT TOKEN %s NOT BURNED",
+            update_password_request.password_reset_token,
+        )
+        return
