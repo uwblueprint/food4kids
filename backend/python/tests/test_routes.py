@@ -100,9 +100,6 @@ class TestDriverRoutes:
         # We don't want to actually to send an email so we mock the call
         with (
             patch(
-                "app.services.implementations.auth_service.AuthService.send_create_password_email"
-            ),
-            patch(
                 "app.dependencies.auth.auth_service.is_authorized_by_role",
                 new_callable=AsyncMock,
                 return_value=True,
