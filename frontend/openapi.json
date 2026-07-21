@@ -2,16 +2,16 @@
   "components": {
     "schemas": {
       "AlertCode": {
-        "description": "Machine-readable blocking error code for an import row.",
+        "description": "Machine-readable reason code for an import alert.",
         "enum": [
           "MISSING_ADDRESS",
           "INVALID_ADDRESS",
           "MISSING_PHONE_NUMBER",
           "INVALID_PHONE_NUMBER",
-          "MISSING_SCHOOL_OR_LAST_NAME",
-          "INVALID_SCHOOL_OR_LAST_NAME",
+          "MISSING_NAME",
+          "INVALID_NAME",
           "MISSING_DELIVERY_GROUP",
-          "DUPLICATE_ENTRY"
+          "LOCAL_DUPLICATE"
         ],
         "title": "AlertCode",
         "type": "string"
@@ -35,6 +35,27 @@
             "minLength": 1,
             "title": "Subject",
             "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "message"
+        ],
+        "title": "AnnouncementCreate",
+        "type": "object"
+      },
+      "AnnouncementLastReadResponse": {
+        "description": "Response model for announcement last read",
+        "properties": {
+          "announcement_last_read_id": {
+            "format": "uuid",
+            "title": "Announcement Last Read Id",
+            "type": "string"
+          },
+          "last_read_at": {
+            "format": "date-time",
+            "title": "Last Read At",
+            "type": "string"
           },
           "user_id": {
             "format": "uuid",
@@ -43,11 +64,11 @@
           }
         },
         "required": [
-          "subject",
-          "message",
-          "user_id"
+          "announcement_last_read_id",
+          "user_id",
+          "last_read_at"
         ],
-        "title": "AnnouncementCreate",
+        "title": "AnnouncementLastReadResponse",
         "type": "object"
       },
       "AnnouncementRead": {
@@ -65,6 +86,14 @@
             "title": "Attachments",
             "type": "array"
           },
+          "author_name": {
+            "title": "Author Name",
+            "type": "string"
+          },
+          "author_role": {
+            "title": "Author Role",
+            "type": "string"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -76,6 +105,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "is_read": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Read"
           },
           "message": {
             "title": "Message",
@@ -110,6 +150,8 @@
           "message",
           "announcement_id",
           "user_id",
+          "author_name",
+          "author_role",
           "attachments",
           "created_at",
           "updated_at"
@@ -293,6 +335,11 @@
             ],
             "title": "Delivery Group"
           },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
           "num_children": {
             "anyOf": [
               {
@@ -331,9 +378,15 @@
               }
             ],
             "title": "Phone Secondary"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
           }
         },
         "required": [
+          "row",
+          "location_id",
           "contact_name",
           "address",
           "phone_primary"
@@ -872,6 +925,32 @@
             ],
             "title": "Car Make Model"
           },
+          "first_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
           "license_plate": {
             "anyOf": [
               {
@@ -913,6 +992,41 @@
         },
         "title": "DriverUpdate",
         "type": "object"
+      },
+      "DuplicateGroup": {
+        "description": "Rows that refer to the same imported location under the 2-of-3 rule.",
+        "properties": {
+          "matching_fields": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateMatchField"
+            },
+            "title": "Matching Fields",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "matching_fields"
+        ],
+        "title": "DuplicateGroup",
+        "type": "object"
+      },
+      "DuplicateMatchField": {
+        "description": "Import fields that can participate in the 2-of-3 duplicate rule.",
+        "enum": [
+          "contact_name",
+          "address",
+          "phone_primary"
+        ],
+        "title": "DuplicateMatchField",
+        "type": "string"
       },
       "EmailReminder": {
         "description": "A single reminder email configuration.\n\nEach reminder fires ``days_before`` days ahead of a route's drive date, at its\nown ``time`` — so admins can set, e.g., a day-before reminder at 9 AM and a\nsame-day reminder at 11 AM.",
@@ -1068,11 +1182,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
           },
           "num_children": {
             "default": 0,
@@ -1383,7 +1492,7 @@
         "type": "object"
       },
       "LocationImportResponse": {
-        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers\n(1-based, matching LocationImportRow.row) for each within-file duplicate\ncluster. net_new/stale/changed describe how the import would affect the\nexisting locations table; these are placeholders until the matching logic\nis implemented.",
+        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers and\nmatching fields for each within-file duplicate cluster. net_new/stale/changed\ndescribe how the import would affect the existing locations table.",
         "properties": {
           "changed": {
             "default": [],
@@ -1396,10 +1505,7 @@
           "duplicate_groups": {
             "default": [],
             "items": {
-              "items": {
-                "type": "integer"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/DuplicateGroup"
             },
             "title": "Duplicate Groups",
             "type": "array"
@@ -1472,6 +1578,14 @@
       "LocationIngestRequest": {
         "description": "Ingest request — `delivery_type` applies to every net-new row in this\nimport (one Apricot sheet = one delivery type).",
         "properties": {
+          "changed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChangedEntry"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
           "delivery_type": {
             "maxLength": 100,
             "minLength": 1,
@@ -1487,7 +1601,7 @@
           },
           "stale": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Input"
+              "$ref": "#/components/schemas/StaleEntry"
             },
             "title": "Stale",
             "type": "array"
@@ -1505,14 +1619,14 @@
         "properties": {
           "archived": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Archived",
             "type": "array"
           },
           "created": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Created",
             "type": "array"
@@ -1525,7 +1639,7 @@
         "title": "LocationIngestResponse",
         "type": "object"
       },
-      "LocationRead-Input": {
+      "LocationRead": {
         "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
         "properties": {
           "address": {
@@ -1636,179 +1750,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
-          },
-          "num_children": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Num Children",
-            "type": "integer"
-          },
-          "phone_primary": {
-            "title": "Phone Primary",
-            "type": "string"
-          },
-          "phone_secondary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Secondary"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
-          },
-          "total_deliveries": {
-            "default": 0,
-            "title": "Total Deliveries",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "location_group_id",
-          "name",
-          "contact_name",
-          "address",
-          "phone_primary",
-          "delivery_type",
-          "location_id",
-          "location_group_name"
-        ],
-        "title": "LocationRead",
-        "type": "object"
-      },
-      "LocationRead-Output": {
-        "description": "Read response model.\n\n`has_future_route` is populated by the service layer (one batched query\nagainst route_stops + route_groups), and `status` is derived from it +\nin_roster. See LocationStatusEnum for the precedence rule.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "assigned_route": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assigned Route"
-          },
-          "contact_name": {
-            "title": "Contact Name",
-            "type": "string"
-          },
-          "delivery_type": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Delivery Type",
-            "type": "string"
-          },
-          "dietary_restrictions": {
-            "default": "",
-            "title": "Dietary Restrictions",
-            "type": "string"
-          },
-          "halal": {
-            "default": false,
-            "title": "Halal",
-            "type": "boolean"
-          },
-          "has_future_route": {
-            "default": false,
-            "title": "Has Future Route",
-            "type": "boolean"
-          },
-          "in_roster": {
-            "default": true,
-            "title": "In Roster",
-            "type": "boolean"
-          },
-          "last_delivery_date": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Delivery Date"
-          },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
-          "location_group_id": {
-            "format": "uuid",
-            "title": "Location Group Id",
-            "type": "string"
-          },
-          "location_group_name": {
-            "title": "Location Group Name",
-            "type": "string"
-          },
-          "location_id": {
-            "format": "uuid",
-            "title": "Location Id",
-            "type": "string"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "note_chain_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Chain Id"
-          },
-          "notes": {
-            "default": "",
-            "title": "Notes",
-            "type": "string"
           },
           "num_children": {
             "default": 0,
@@ -2003,17 +1944,6 @@
               }
             ],
             "title": "Note Chain Id"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
           },
           "num_children": {
             "anyOf": [
@@ -2350,28 +2280,6 @@
         "title": "NoteFeedSort",
         "type": "string"
       },
-      "NoteListResponse": {
-        "description": "Response for GET notes - includes unread count",
-        "properties": {
-          "notes": {
-            "items": {
-              "$ref": "#/components/schemas/NoteRead"
-            },
-            "title": "Notes",
-            "type": "array"
-          },
-          "unread_count": {
-            "title": "Unread Count",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "notes",
-          "unread_count"
-        ],
-        "title": "NoteListResponse",
-        "type": "object"
-      },
       "NotePermission": {
         "description": "Controls who can read/write on a note chain",
         "enum": [
@@ -2478,7 +2386,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/LocationRead-Output"
+              "$ref": "#/components/schemas/LocationRead"
             },
             "title": "Items",
             "type": "array"
@@ -2586,6 +2494,7 @@
         "enum": [
           "Pending",
           "Running",
+          "Cancelled",
           "Completed",
           "Failed"
         ],
@@ -2741,10 +2650,10 @@
             "title": "Children Per Box",
             "type": "integer"
           },
-          "max_half_boxes_per_driver": {
-            "default": 28,
+          "max_boxes_per_driver": {
+            "default": 14,
             "exclusiveMinimum": 0,
-            "title": "Max Half Boxes Per Driver",
+            "title": "Max Boxes Per Driver",
             "type": "integer"
           },
           "max_stops_per_route": {
@@ -2766,19 +2675,6 @@
             "default": false,
             "title": "Return To Warehouse",
             "type": "boolean"
-          },
-          "route_duration_limit_minutes": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.",
-            "title": "Route Duration Limit Minutes"
           },
           "route_start_time": {
             "format": "date-time",
@@ -3997,7 +3893,7 @@
     },
     "/announcements/": {
       "get": {
-        "description": "Retrieve all announcements",
+        "description": "Retrieve all announcements with is_read status for the authenticated user.",
         "operationId": "get_announcements",
         "responses": {
           "200": {
@@ -4066,6 +3962,33 @@
           }
         ],
         "summary": "Create Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/announcements/mark-read": {
+      "post": {
+        "description": "Mark all announcements as read for the authenticated user.",
+        "operationId": "mark_announcements_as_read",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementLastReadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Announcements As Read",
         "tags": [
           "announcements"
         ]
@@ -4212,6 +4135,59 @@
           }
         ],
         "summary": "Update Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/announcements/{announcement_id}/email": {
+      "post": {
+        "description": "Send announcement notification emails to all active drivers (admin only).",
+        "operationId": "send_announcement_email",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Send Announcement Email",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Announcement Email",
         "tags": [
           "announcements"
         ]
@@ -5268,6 +5244,55 @@
         ]
       }
     },
+    "/jobs/{job_id}/cancel": {
+      "post": {
+        "description": "Cancel an in-flight route generation job.",
+        "operationId": "cancel_job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/location-groups/": {
       "get": {
         "description": "Get all location groups",
@@ -5655,7 +5680,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -5838,7 +5863,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -5895,7 +5920,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead-Output"
+                  "$ref": "#/components/schemas/LocationRead"
                 }
               }
             },
@@ -6014,7 +6039,7 @@
     },
     "/note-chains/{note_chain_id}/notes": {
       "get": {
-        "description": "Get notes for a chain with pagination. Returns unread count and auto-marks as read.",
+        "description": "Get notes for a chain with pagination.",
         "operationId": "get_notes",
         "parameters": [
           {
@@ -6056,7 +6081,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NoteListResponse"
+                  "items": {
+                    "$ref": "#/components/schemas/NoteRead"
+                  },
+                  "title": "Response Get Notes",
+                  "type": "array"
                 }
               }
             },
@@ -6830,6 +6859,55 @@
           }
         ],
         "summary": "Update Route Group",
+        "tags": [
+          "route-groups"
+        ]
+      }
+    },
+    "/route-groups/{route_group_id}/duplicate": {
+      "post": {
+        "description": "Duplicate a route group and its routes/stops for a new planning cycle.",
+        "operationId": "duplicate_route_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Duplicate Route Group",
         "tags": [
           "route-groups"
         ]

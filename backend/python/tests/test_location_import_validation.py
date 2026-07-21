@@ -43,7 +43,7 @@ class TestFieldValidation:
             _entry(contact_name=None),
             geocode_ok=True,
             phone_invalid=False,
-        ) == [AlertCode.MISSING_SCHOOL_OR_LAST_NAME]
+        ) == [AlertCode.MISSING_NAME]
 
         assert collect_field_alerts(
             _entry(address=None),
@@ -73,7 +73,7 @@ class TestFieldValidation:
             geocode_ok=True,
             phone_invalid=False,
         )
-        assert AlertCode.INVALID_SCHOOL_OR_LAST_NAME in alerts
+        assert AlertCode.INVALID_NAME in alerts
 
     def test_invalid_address_when_geocode_fails(self) -> None:
         alerts = collect_field_alerts(
@@ -112,7 +112,7 @@ class TestFieldValidation:
             geocode_ok=True,
             phone_invalid=False,
         )
-        assert AlertCode.INVALID_SCHOOL_OR_LAST_NAME in alerts
+        assert AlertCode.INVALID_NAME in alerts
         assert AlertCode.MISSING_DELIVERY_GROUP in alerts
 
 

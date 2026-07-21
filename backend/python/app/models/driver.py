@@ -115,26 +115,8 @@ class DriverRead(DriverBase):
 
 
 class DriverUpdate(SQLModel):
-    phone: str | None = Field(default=None, min_length=1, max_length=20)
-    partner_driver_name: str | None = Field(default=None, max_length=255)
-    availability: list[bool] | None = Field(default=None)
-    address: str | None = Field(default=None, min_length=1, max_length=255)
-    license_plate: str | None = Field(default=None, min_length=1, max_length=20)
-    car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
-    active: bool | None = Field(default=None)
-
-    @field_validator("availability")
-    @classmethod
-    def validate_availability(cls, v: list[bool] | None) -> list[bool] | None:
-        if v is not None and len(v) != 7:
-            raise ValueError("availability must contain 7 slots, Monday = 0")
-        return v
-
-
-class DriverUpdatePayload(SQLModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=255)
     last_name: str | None = Field(default=None, min_length=1, max_length=255)
-    email: EmailStr | None = Field(default=None, max_length=254)
     phone: str | None = Field(default=None, min_length=1, max_length=20)
     partner_driver_name: str | None = Field(default=None, max_length=255)
     availability: list[bool] | None = Field(default=None)

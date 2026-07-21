@@ -43,7 +43,6 @@ class LocationBase(SQLModel):
     # is derived from this plus whether the location appears in a present/
     # future route — see LocationRead.status.
     in_roster: bool = Field(default=True)
-    notes: str = Field(default="")
     # One-to-one: a note chain belongs to at most one location, enforced by a
     # DB-level unique constraint (NULLs are distinct in Postgres, so locations
     # without a chain are unconstrained).
@@ -79,16 +78,24 @@ class Location(LocationBase, BaseModel, table=True):
 
 
 class AlertCode(str, Enum):
-    """Machine-readable blocking error code for an import row."""
+    """Machine-readable reason code for an import alert."""
 
     MISSING_ADDRESS = "MISSING_ADDRESS"
     INVALID_ADDRESS = "INVALID_ADDRESS"
     MISSING_PHONE_NUMBER = "MISSING_PHONE_NUMBER"
     INVALID_PHONE_NUMBER = "INVALID_PHONE_NUMBER"
-    MISSING_SCHOOL_OR_LAST_NAME = "MISSING_SCHOOL_OR_LAST_NAME"
-    INVALID_SCHOOL_OR_LAST_NAME = "INVALID_SCHOOL_OR_LAST_NAME"
+    MISSING_NAME = "MISSING_NAME"
+    INVALID_NAME = "INVALID_NAME"
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
-    DUPLICATE_ENTRY = "DUPLICATE_ENTRY"
+    LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
+
+
+class DuplicateMatchField(str, Enum):
+    """Import fields that can participate in the 2-of-3 duplicate rule."""
+
+    NAME = "contact_name"
+    ADDRESS = "address"
+    PHONE = "phone_primary"
 
 
 class LocationImportEntry(SQLModel):
@@ -123,6 +130,13 @@ class LocationImportRow(SQLModel):
     row: int
     location: LocationImportEntry
     alerts: list[AlertCode]
+
+
+class DuplicateGroup(SQLModel):
+    """Rows that refer to the same imported location under the 2-of-3 rule."""
+
+    rows: list[int]
+    matching_fields: list[DuplicateMatchField]
 
 
 class NetNewEntry(SQLModel):
@@ -171,6 +185,8 @@ class ChangedEntry(SQLModel):
     carrying both new and old values.
     """
 
+    row: int
+    location_id: UUID
     contact_name: str
     address: str | ChangedFieldStr
     delivery_group: str | None | ChangedFieldOptStr = None
@@ -182,17 +198,15 @@ class ChangedEntry(SQLModel):
 class LocationImportResponse(SQLModel):
     """Combined validate + review-changes payload.
 
-    success=False when any row has alerts. duplicate_groups lists row numbers
-    (1-based, matching LocationImportRow.row) for each within-file duplicate
-    cluster. net_new/stale/changed describe how the import would affect the
-    existing locations table; these are placeholders until the matching logic
-    is implemented.
+    success=False when any row has alerts. duplicate_groups lists row numbers and
+    matching fields for each within-file duplicate cluster. net_new/stale/changed
+    describe how the import would affect the existing locations table.
     """
 
     success: bool
     total_rows: int
     rows: list[LocationImportRow]
-    duplicate_groups: list[list[int]] = []
+    duplicate_groups: list[DuplicateGroup] = []
     net_new: list[NetNewEntry] = []
     stale: list[StaleEntry] = []
     changed: list[ChangedEntry] = []
@@ -248,7 +262,6 @@ class LocationUpdate(SQLModel):
     num_children: int | None = None
     delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
     in_roster: bool | None = None
-    notes: str | None = None
     note_chain_id: UUID | None = None
 
 
@@ -258,7 +271,8 @@ class LocationIngestRequest(SQLModel):
 
     delivery_type: str = Field(min_length=1, max_length=100)
     net_new: list[ValidatedLocationImportEntry]
-    stale: list[LocationRead]
+    stale: list[StaleEntry]
+    changed: list[ChangedEntry] = []
 
 
 class LocationIngestResponse(SQLModel):

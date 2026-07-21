@@ -9,22 +9,74 @@ Tests cover:
 - Error handling (404s, validation errors)
 """
 
+import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_self_driver_or_admin
+from app.dependencies.services import get_google_maps_client
+from app.models.enum import ProgressEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.utilities.google_maps_client import GeocodeResult
+
+IMPORT_COLUMN_MAP = {
+    "contact_name": "Name",
+    "address": "Address",
+    "delivery_group": "Delivery Group",
+    "phone_primary": "Phone",
+    "phone_secondary": "Secondary Phone",
+    "num_children": "Children",
+}
+
+
+class FakeGoogleMapsClient:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def geocode_address(self, address: str) -> GeocodeResult | None:
+        self.calls.append(address)
+        if "Invalid" in address:
+            return None
+        formatted_address = (
+            address if address.startswith("Formatted ") else f"Formatted {address}"
+        )
+        return GeocodeResult(
+            formatted_address=formatted_address,
+            place_id=f"place-{address}",
+            latitude=43.0,
+            longitude=-80.0,
+        )
+
+
+def import_review_request(rows: list[dict[str, str]]) -> dict[str, Any]:
+    headers = [
+        "Name",
+        "Address",
+        "Delivery Group",
+        "Phone",
+        "Secondary Phone",
+        "Children",
+    ]
+    lines = [",".join(headers)]
+    for row in rows:
+        lines.append(",".join(row.get(header, "") for header in headers))
+    return {
+        "data": {"column_map": json.dumps(IMPORT_COLUMN_MAP)},
+        "files": {"file": ("locations.csv", "\n".join(lines).encode(), "text/csv")},
+    }
 
 
 class TestDriverRoutes:
@@ -224,6 +276,138 @@ class TestDriverRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["partner_driver_name"] is None
+
+    @pytest.mark.asyncio
+    async def test_self_driver_updates_own_name_and_phone(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update can edit only User name fields and Driver phone."""
+        from app.models.user import User
+
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await self_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Updated",
+                    "last_name": "Driver",
+                    "phone": "+14165550123",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Updated"
+        assert data["last_name"] == "Driver"
+        assert data["phone"] == "+14165550123"
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Updated"
+        assert user.last_name == "Driver"
+        assert test_driver.phone == "+14165550123"
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Updated Driver",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Updated",
+                "family_name": "Driver",
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_self_driver_cannot_update_admin_only_fields(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update rejects admin-only fields and does not persist them."""
+        original_phone = test_driver.phone
+        original_address = test_driver.address
+        original_active = test_driver.active
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+
+        response = await self_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={
+                "phone": "+14165550123",
+                "address": "123 Admin Only St",
+                "active": False,
+            },
+        )
+
+        assert response.status_code == 403
+        await test_session.refresh(test_driver)
+        assert test_driver.phone == original_phone
+        assert test_driver.address == original_address
+        assert test_driver.active is original_active
+
+    @pytest.mark.asyncio
+    async def test_admin_updates_driver_name_and_admin_only_fields(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Admin update keeps the full DriverUpdate surface, including User names."""
+        from app.models.user import User
+
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await async_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Admin",
+                    "last_name": "Updated",
+                    "address": "456 Admin Address St",
+                    "active": False,
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Admin"
+        assert data["last_name"] == "Updated"
+        assert data["address"] == "456 Admin Address St"
+        assert data["active"] is False
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Admin"
+        assert user.last_name == "Updated"
+        assert test_driver.address == "456 Admin Address St"
+        assert test_driver.active is False
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Admin Updated",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Admin",
+                "family_name": "Updated",
+            },
+        )
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, async_client: AsyncClient) -> None:
@@ -940,13 +1124,13 @@ class TestLocationRoutes:
         location_id = create_response.json()["location_id"]
 
         # Update the location
-        update_data = {"notes": "Updated notes"}
+        update_data = {"dietary_restrictions": "No shellfish"}
         response = await async_client.patch(
             f"/locations/{location_id}", json=update_data
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["notes"] == "Updated notes"
+        assert data["dietary_restrictions"] == "No shellfish"
 
     @pytest.mark.asyncio
     async def test_update_location_rejects_unknown_delivery_type(
@@ -1313,6 +1497,575 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["assigned_route"] == "Sooner Route"
+
+
+class TestLocationImportRoutes:
+    """Test suite for location import validation, review, and ingest."""
+
+    @pytest.mark.asyncio
+    async def test_review_locations_emits_specific_blocking_alerts(
+        self, client_with_overrides: Any
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {"Name": "", "Address": "", "Delivery Group": "", "Phone": ""},
+                {
+                    "Name": "12345",
+                    "Address": "1 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164168",
+                },
+                {
+                    "Name": "Invalid Address Family",
+                    "Address": "Invalid Address",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+                {
+                    "Name": "Invalid Phone Family",
+                    "Address": "2 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "not-a-phone",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is False
+        assert set(body["rows"][0]["alerts"]) == {
+            "MISSING_NAME",
+            "MISSING_ADDRESS",
+            "MISSING_DELIVERY_GROUP",
+            "MISSING_PHONE_NUMBER",
+        }
+        assert body["rows"][1]["alerts"] == ["INVALID_NAME"]
+        assert body["rows"][2]["alerts"] == ["INVALID_ADDRESS"]
+        assert body["rows"][3]["alerts"] == ["INVALID_PHONE_NUMBER"]
+        assert fake_maps.calls == ["1 Valid St", "Invalid Address", "2 Valid St"]
+
+    @pytest.mark.asyncio
+    async def test_review_locations_detects_duplicate_groups_by_two_of_three(
+        self, client_with_overrides: Any
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Same Name Address",
+                    "Address": "10 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164168",
+                },
+                {
+                    "Name": "Same Name Address",
+                    "Address": "10 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+                {
+                    "Name": "Same Name Phone",
+                    "Address": "11 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164170",
+                },
+                {
+                    "Name": "Same Name Phone",
+                    "Address": "12 Changed St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164170",
+                },
+                {
+                    "Name": "Same Address Phone A",
+                    "Address": "13 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14165550100",
+                },
+                {
+                    "Name": "Same Address Phone B",
+                    "Address": "13 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14165550100",
+                },
+                {
+                    "Name": "Exact Duplicate",
+                    "Address": "14 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+15195550123",
+                },
+                {
+                    "Name": "Exact Duplicate",
+                    "Address": "14 Match St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+15195550123",
+                },
+                {
+                    "Name": "Apartment A",
+                    "Address": "15 Shared Building",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164171",
+                },
+                {
+                    "Name": "Apartment B",
+                    "Address": "15 Shared Building",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164172",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is False
+        assert body["duplicate_groups"] == [
+            {"rows": [1, 2], "matching_fields": ["address", "contact_name"]},
+            {"rows": [3, 4], "matching_fields": ["contact_name", "phone_primary"]},
+            {"rows": [5, 6], "matching_fields": ["address", "phone_primary"]},
+            {
+                "rows": [7, 8],
+                "matching_fields": ["address", "contact_name", "phone_primary"],
+            },
+        ]
+        duplicate_rows = {
+            row["row"] for row in body["rows"] if "LOCAL_DUPLICATE" in row["alerts"]
+        }
+        assert duplicate_rows == {1, 2, 3, 4, 5, 6, 7, 8}
+        assert body["rows"][8]["alerts"] == []
+        assert body["rows"][9]["alerts"] == []
+
+    @pytest.mark.asyncio
+    async def test_review_locations_classifies_import_rows_with_two_of_three_matching(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        stale_group = LocationGroup(name="Stale Group", color="#222222", notes="")
+        test_session.add(stale_group)
+        test_session.add_all(
+            [
+                Location(
+                    location_group_id=test_location_group.location_group_id,
+                    name="Exact Family",
+                    contact_name="Exact Family",
+                    address="Formatted 1 Main St",
+                    phone_primary="+14164164168",
+                    num_children=1,
+                    delivery_type="Family",
+                ),
+                Location(
+                    location_group_id=test_location_group.location_group_id,
+                    name="Address Change Family",
+                    contact_name="Address Change Family",
+                    address="Formatted Old Address",
+                    phone_primary="+14164164169",
+                    num_children=2,
+                    delivery_type="Family",
+                ),
+                Location(
+                    location_group_id=test_location_group.location_group_id,
+                    name="Phone Change Family",
+                    contact_name="Phone Change Family",
+                    address="Formatted 3 Main St",
+                    phone_primary="+14164164170",
+                    num_children=3,
+                    delivery_type="Family",
+                ),
+                Location(
+                    location_group_id=stale_group.location_group_id,
+                    name="Stale Family",
+                    contact_name="Stale Family",
+                    address="Formatted 9 Main St",
+                    phone_primary="+14165550100",
+                    num_children=4,
+                    delivery_type="Family",
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Exact Family",
+                    "Address": "1 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "1",
+                },
+                {
+                    "Name": "Address Change Family",
+                    "Address": "New Address",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164169",
+                    "Children": "2",
+                },
+                {
+                    "Name": "Phone Change Family",
+                    "Address": "3 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+15195550123",
+                    "Children": "3",
+                },
+                {
+                    "Name": "Net New Family",
+                    "Address": "4 Main St",
+                    "Delivery Group": "New Group",
+                    "Phone": "+14164164171",
+                    "Children": "5",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert [entry["contact_name"] for entry in body["net_new"]] == [
+            "Net New Family"
+        ]
+        assert [entry["contact_name"] for entry in body["stale"]] == ["Stale Family"]
+        changed_by_name = {entry["contact_name"]: entry for entry in body["changed"]}
+        assert set(changed_by_name) == {
+            "Address Change Family",
+            "Phone Change Family",
+        }
+        assert changed_by_name["Address Change Family"]["address"] == {
+            "new_value": "Formatted New Address",
+            "old_value": "Formatted Old Address",
+        }
+        assert changed_by_name["Phone Change Family"]["phone_primary"] == {
+            "new_value": "+15195550123",
+            "old_value": "+14164164170",
+        }
+
+    @pytest.mark.asyncio
+    async def test_review_locations_blank_children_does_not_mark_changed(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Blank Children Family",
+                contact_name="Blank Children Family",
+                address="Formatted 22 Main St",
+                phone_primary="+14164164168",
+                num_children=7,
+                delivery_type="Family",
+            )
+        )
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Blank Children Family",
+                    "Address": "22 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "",
+                }
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["changed"] == []
+        assert body["net_new"] == []
+        assert body["stale"] == []
+
+    @pytest.mark.asyncio
+    async def test_review_locations_claims_existing_matches_once(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Shared Match",
+                contact_name="Shared Match",
+                address="Formatted 44 Main St",
+                phone_primary="+14164164168",
+                num_children=2,
+                delivery_type="Family",
+            )
+        )
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Shared Match",
+                    "Address": "44 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164169",
+                    "Children": "2",
+                },
+                {
+                    "Name": "Different Name",
+                    "Address": "44 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "2",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert len(body["changed"]) == 1
+        assert len(body["net_new"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_review_locations_revives_previously_stale_location(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        stale_location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Returning Family",
+            contact_name="Returning Family",
+            address="Formatted 55 Main St",
+            phone_primary="+14164164168",
+            num_children=3,
+            delivery_type="Family",
+            in_roster=False,
+        )
+        test_session.add(stale_location)
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Returning Family",
+                    "Address": "55 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "3",
+                }
+            ]
+        )
+
+        response = await async_client.post("/locations/review", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["net_new"] == []
+        assert body["stale"] == []
+        assert len(body["changed"]) == 1
+        assert body["changed"][0]["location_id"] == str(stale_location.location_id)
+
+    @pytest.mark.asyncio
+    async def test_ingest_locations_applies_stale_and_changed_rows(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        from sqlmodel import select
+
+        from app.models.note import Note
+        from app.models.note_chain import NoteChain
+
+        review_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: review_maps}
+        )
+        note_chain = NoteChain()
+        test_session.add(note_chain)
+        await test_session.flush()
+        existing_note = Note(
+            note_chain_id=note_chain.note_chain_id,
+            message="keep this note history",
+        )
+        test_session.add(existing_note)
+        address_change = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Address Change Family",
+            contact_name="Address Change Family",
+            address="Formatted Old Address",
+            phone_primary="+14164164169",
+            num_children=2,
+            delivery_type="Family",
+            note_chain_id=note_chain.note_chain_id,
+        )
+        phone_change = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Phone Change Family",
+            contact_name="Phone Change Family",
+            address="Formatted 3 Main St",
+            phone_primary="+14164164170",
+            num_children=3,
+            delivery_type="Family",
+        )
+        stale = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Stale Family",
+            contact_name="Stale Family",
+            address="Formatted 9 Main St",
+            phone_primary="+14165550100",
+            num_children=4,
+            delivery_type="Family",
+        )
+        test_session.add_all([address_change, phone_change, stale])
+        await test_session.commit()
+
+        review_request = import_review_request(
+            [
+                {
+                    "Name": "Address Change Family",
+                    "Address": "New Address",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164169",
+                    "Children": "2",
+                },
+                {
+                    "Name": "Phone Change Family",
+                    "Address": "3 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+15195550123",
+                    "Children": "3",
+                },
+                {
+                    "Name": "Net New Family",
+                    "Address": "4 Main St",
+                    "Delivery Group": "New Group",
+                    "Phone": "+14164164171",
+                    "Children": "5",
+                },
+            ]
+        )
+        review_response = await async_client.post("/locations/review", **review_request)
+        assert review_response.status_code == 200
+        review_body = review_response.json()
+
+        ingest_maps = FakeGoogleMapsClient()
+        ingest_client = await client_with_overrides(
+            {get_google_maps_client: lambda: ingest_maps}
+        )
+        ingest_payload = {
+            "delivery_type": "Family",
+            "net_new": [
+                {
+                    "contact_name": entry["contact_name"],
+                    "address": entry["address"],
+                    "delivery_group": entry["delivery_group"],
+                    "phone_primary": entry["phone_primary"],
+                    "phone_secondary": entry["phone_secondary"],
+                    "num_children": entry["num_children"],
+                }
+                for entry in review_body["net_new"]
+            ],
+            "stale": review_body["stale"],
+            "changed": review_body["changed"],
+        }
+
+        ingest_response = await ingest_client.post(
+            "/locations/ingest", json=ingest_payload
+        )
+
+        assert ingest_response.status_code == 200
+        assert ingest_maps.calls == ["Formatted 4 Main St", "Formatted New Address"]
+        body = ingest_response.json()
+        assert len(body["created"]) == 2
+        assert len(body["archived"]) == 2
+
+        await test_session.refresh(address_change)
+        await test_session.refresh(phone_change)
+        await test_session.refresh(stale)
+        assert address_change.in_roster is False
+        assert stale.in_roster is False
+        assert phone_change.in_roster is True
+        assert phone_change.phone_primary == "+15195550123"
+
+        result = await test_session.execute(
+            select(Location).where(Location.contact_name == "Address Change Family")
+        )
+        address_change_locations = list(result.scalars().all())
+        replacement = next(
+            loc
+            for loc in address_change_locations
+            if loc.location_id != address_change.location_id
+        )
+        assert replacement.in_roster is True
+        assert replacement.note_chain_id == note_chain.note_chain_id
+        assert replacement.address == "Formatted New Address"
+        retained_note = await test_session.get(Note, existing_note.note_id)
+        assert retained_note is not None
+        assert retained_note.note_chain_id == replacement.note_chain_id
+
+    @pytest.mark.asyncio
+    async def test_ingest_locations_rejects_duplicate_changed_location_ids(
+        self,
+        async_client: AsyncClient,
+        test_location_group: Any,
+    ) -> None:
+        location_id = uuid4()
+        changed_entry = {
+            "row": 1,
+            "location_id": str(location_id),
+            "contact_name": "Duplicate Change",
+            "address": "Formatted 1 Main St",
+            "delivery_group": test_location_group.name,
+            "phone_primary": "+14164164168",
+            "phone_secondary": None,
+            "num_children": 1,
+        }
+
+        response = await async_client.post(
+            "/locations/ingest",
+            json={
+                "delivery_type": "Family",
+                "net_new": [],
+                "stale": [],
+                "changed": [changed_entry, changed_entry],
+            },
+        )
+
+        assert response.status_code == 400
+        assert "only be included once" in response.json()["detail"]
 
 
 class TestLocationGroupRoutes:
@@ -1746,7 +2499,6 @@ class TestRouteRoutes:
                 contact_name=loc.contact_name,
                 phone_primary=loc.phone_primary,
                 num_children=8,
-                notes=loc.notes,
                 latitude=loc.latitude or 0.0,
                 longitude=loc.longitude or 0.0,
             )
@@ -2594,10 +3346,259 @@ class TestRouteGroupRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_route_group(
-        self, async_client: AsyncClient, test_route_group: Any
+    async def test_duplicate_route_group_copies_routes_and_stops(
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
     ) -> None:
-        """Test DELETE /route-groups/{route_group_id} deletes a route group."""
+        """POST /route-groups/{id}/duplicate creates a copied group with route lineage."""
+        from sqlalchemy.orm import selectinload
+        from sqlmodel import select
+
+        loc_group = LocationGroup(name="Duplicate Locations", color="#123456", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        loc_a = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location A",
+            delivery_type="Family",
+            contact_name="A",
+            address="1 Main St",
+            phone_primary="555-0001",
+            num_children=2,
+        )
+        loc_b = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location B",
+            delivery_type="Family",
+            contact_name="B",
+            address="2 Main St",
+            phone_primary="555-0002",
+            num_children=4,
+        )
+        test_session.add_all([loc_a, loc_b])
+
+        route_group = RouteGroup(
+            name="July 9 - Tuesday A",
+            notes="original notes",
+            drive_date=datetime(2026, 7, 9, 9, 0),
+        )
+        test_session.add(route_group)
+        await test_session.flush()
+
+        route_a = Route(
+            name="Route A",
+            notes="route notes",
+            length=12.5,
+            encoded_polyline="abc123",
+            ends_at_warehouse=True,
+            route_group_id=route_group.route_group_id,
+            driver_id=test_driver.driver_id,
+        )
+        route_b = Route(
+            name="Route B",
+            notes="second route notes",
+            length=3.5,
+            route_group_id=route_group.route_group_id,
+        )
+        test_session.add_all([route_a, route_b])
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=route_a.route_id,
+                    location_id=loc_a.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=route_a.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=2,
+                ),
+                RouteStop(
+                    route_id=route_b.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=1,
+                ),
+                RouteSnapshot(
+                    route_id=route_a.route_id,
+                    start_address="Original Warehouse",
+                    start_latitude=43.0,
+                    start_longitude=-80.0,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate"
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == "Copy of July 9 - Tuesday A"
+        assert body["notes"] == "original notes"
+        assert body["num_routes"] == 2
+        # Aggregate stats reflect the copied content: 2 distinct locations
+        # (loc_b appears on both routes but counts once), boxes derived from
+        # num_children (2 + 4 children at the default 2 children/box = 3
+        # boxes), and route_a's driver carried over.
+        assert body["num_locations"] == 2
+        assert body["num_boxes"] == 3
+        assert body["num_drivers_assigned"] == 1
+        assert body["delivery_type"] == "Family"
+
+        duplicated_group_id = body["route_group_id"]
+        result = await test_session.execute(
+            select(Route)
+            .where(Route.route_group_id == UUID(duplicated_group_id))
+            .options(selectinload(Route.route_stops))  # type: ignore[arg-type]
+            .order_by(Route.name)
+        )
+        duplicated_routes = list(result.scalars().all())
+        duplicated_route_a, duplicated_route_b = duplicated_routes
+        assert duplicated_route_a.route_id != route_a.route_id
+        assert duplicated_route_a.name == "Route A"
+        assert duplicated_route_a.notes == "route notes"
+        assert duplicated_route_a.length == 12.5
+        assert duplicated_route_a.encoded_polyline == "abc123"
+        assert duplicated_route_a.ends_at_warehouse is True
+        assert duplicated_route_a.driver_id == test_driver.driver_id
+        assert duplicated_route_a.cloned_from_route_id == route_a.route_id
+        assert duplicated_route_a.note_chain_id is None
+        assert (
+            await test_session.get(RouteSnapshot, duplicated_route_a.route_id) is None
+        )
+        assert [
+            (stop.location_id, stop.stop_number)
+            for stop in sorted(
+                duplicated_route_a.route_stops, key=lambda item: item.stop_number
+            )
+        ] == [(loc_a.location_id, 1), (loc_b.location_id, 2)]
+
+        assert duplicated_route_b.route_id != route_b.route_id
+        assert duplicated_route_b.name == "Route B"
+        assert duplicated_route_b.notes == "second route notes"
+        assert duplicated_route_b.length == 3.5
+        assert duplicated_route_b.driver_id is None
+        assert duplicated_route_b.cloned_from_route_id == route_b.route_id
+        assert [
+            (stop.location_id, stop.stop_number)
+            for stop in duplicated_route_b.route_stops
+        ] == [(loc_b.location_id, 1)]
+
+        # PATCH on a group with content returns the same populated aggregates.
+        patch_response = await async_client.patch(
+            f"/route-groups/{duplicated_group_id}",
+            json={"notes": "updated copy notes"},
+        )
+        assert patch_response.status_code == 200
+        patch_body = patch_response.json()
+        assert patch_body["notes"] == "updated copy notes"
+        assert patch_body["num_routes"] == 2
+        assert patch_body["num_locations"] == 2
+        assert patch_body["num_boxes"] == 3
+        assert patch_body["num_drivers_assigned"] == 1
+        assert patch_body["delivery_type"] == "Family"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_empty_route_group_truncates_copy_name(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """An empty route group can be duplicated and the copied name stays valid."""
+        long_name = "A" * 255
+        route_group = RouteGroup(
+            name=long_name,
+            notes="empty group",
+            drive_date=datetime(2026, 7, 10, 9, 0),
+        )
+        test_session.add(route_group)
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate"
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == f"Copy of {long_name}"[:255]
+        assert len(body["name"]) == 255
+        assert body["num_routes"] == 0
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """POST /route-groups/{id}/duplicate returns 404 for a missing group."""
+        response = await async_client.post(f"/route-groups/{uuid4()}/duplicate")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_route_group(
+        self,
+        async_client: AsyncClient,
+        test_route_group: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """DELETE removes the route group and cascades routes, stops, and snapshots."""
+        loc_group = LocationGroup(
+            name="Delete Cascade Locations", color="#654321", notes=""
+        )
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Delete Cascade Location",
+            delivery_type="Family",
+            contact_name="Delete",
+            address="3 Main St",
+            phone_primary="555-0003",
+            num_children=2,
+        )
+        test_session.add(location)
+        await test_session.flush()
+
+        route = Route(
+            name="Delete Cascade Route",
+            length=5.0,
+            route_group_id=test_route_group.route_group_id,
+        )
+        test_session.add(route)
+        await test_session.flush()
+
+        route_stop = RouteStop(
+            route_id=route.route_id,
+            location_id=location.location_id,
+            stop_number=1,
+        )
+        test_session.add(route_stop)
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                RouteSnapshot(
+                    route_id=route.route_id,
+                    start_address="Warehouse",
+                    start_latitude=43.0,
+                    start_longitude=-80.0,
+                ),
+                RouteStopSnapshot(
+                    route_stop_id=route_stop.route_stop_id,
+                    address="Snapshot Address",
+                    contact_name="Snapshot Contact",
+                    phone_primary="555-0100",
+                    num_children=2,
+                    latitude=43.1,
+                    longitude=-80.1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
         response = await async_client.delete(
             f"/route-groups/{test_route_group.route_group_id}"
         )
@@ -2610,6 +3611,12 @@ class TestRouteGroupRoutes:
         assert not any(
             str(rg["route_group_id"]) == str(test_route_group.route_group_id)
             for rg in data
+        )
+        assert await test_session.get(Route, route.route_id) is None
+        assert await test_session.get(RouteStop, route_stop.route_stop_id) is None
+        assert await test_session.get(RouteSnapshot, route.route_id) is None
+        assert (
+            await test_session.get(RouteStopSnapshot, route_stop.route_stop_id) is None
         )
 
     @pytest.mark.asyncio
@@ -2888,7 +3895,7 @@ class TestNoteChainRoutes:
     async def test_notes_crud_and_read_tracking(
         self, authed_async_client: AsyncClient, test_session: Any
     ) -> None:
-        """Test note create, list (with unread count + auto mark-as-read), update, delete."""
+        """Test note create, list, update, delete."""
         chain_id = await self._create_chain(test_session)
 
         # Create
@@ -2899,18 +3906,10 @@ class TestNoteChainRoutes:
         assert note_resp.status_code == 201
         note_id = note_resp.json()["note_id"]
 
-        # List - unread_count=1, then auto-marked as read
+        # List notes
         list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
         assert list_resp.status_code == 200
-        data = list_resp.json()
-        assert len(data["notes"]) == 1
-        assert data["unread_count"] == 1
-
-        # List again - unread_count=0
-        list_again_resp = await authed_async_client.get(
-            f"/note-chains/{chain_id}/notes"
-        )
-        assert list_again_resp.json()["unread_count"] == 0
+        assert len(list_resp.json()) == 1
 
         # Update
         patch_resp = await authed_async_client.patch(
@@ -3197,75 +4196,46 @@ class TestAnnouncementRoutes:
     """Test suite for announcement API routes."""
 
     @pytest.mark.asyncio
-    async def test_get_announcements_empty(self, async_client: AsyncClient) -> None:
+    async def test_get_announcements_empty(
+        self, authed_async_client: AsyncClient
+    ) -> None:
         """Test GET /announcements returns empty list when none exist."""
-        response = await async_client.get("/announcements/")
+        response = await authed_async_client.get("/announcements/")
         assert response.status_code == 200
         assert response.json() == []
 
     @pytest.mark.asyncio
     async def test_create_announcement(
         self,
-        async_client: AsyncClient,
-        test_session: AsyncSession,
+        authed_async_client: AsyncClient,
+        test_admin_user: Any,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test POST /announcements creates a new announcement."""
-        from app.models.user import User
-
-        user = User(
-            first_name="Test",
-            last_name="Admin",
-            email="admin@test.com",
-            auth_id="test-admin-ann-123",
-            role="admin",
+        response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
         )
-        test_session.add(user)
-        await test_session.commit()
-        await test_session.refresh(user)
-
-        announcement_data = {
-            **sample_announcement_data,
-            "user_id": str(user.user_id),
-        }
-        response = await async_client.post("/announcements/", json=announcement_data)
         assert response.status_code == 201
         data = response.json()
         assert data["subject"] == sample_announcement_data["subject"]
         assert data["message"] == sample_announcement_data["message"]
-        assert data["user_id"] == str(user.user_id)
+        assert data["user_id"] == str(test_admin_user.user_id)
         assert "announcement_id" in data
         assert "created_at" in data
 
     @pytest.mark.asyncio
     async def test_get_announcement_by_id(
         self,
-        async_client: AsyncClient,
-        test_session: AsyncSession,
+        authed_async_client: AsyncClient,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test GET /announcements/{id} returns the announcement."""
-        from app.models.user import User
-
-        user = User(
-            first_name="Test",
-            last_name="Admin",
-            email="admin2@test.com",
-            auth_id="test-admin-ann-456",
-            role="admin",
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
         )
-        test_session.add(user)
-        await test_session.commit()
-        await test_session.refresh(user)
-
-        create_data = {
-            **sample_announcement_data,
-            "user_id": str(user.user_id),
-        }
-        create_response = await async_client.post("/announcements/", json=create_data)
         announcement_id = create_response.json()["announcement_id"]
 
-        response = await async_client.get(f"/announcements/{announcement_id}")
+        response = await authed_async_client.get(f"/announcements/{announcement_id}")
         assert response.status_code == 200
         assert response.json()["subject"] == sample_announcement_data["subject"]
 
@@ -3280,81 +4250,80 @@ class TestAnnouncementRoutes:
     @pytest.mark.asyncio
     async def test_update_announcement(
         self,
-        async_client: AsyncClient,
-        test_session: AsyncSession,
+        authed_async_client: AsyncClient,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test PUT /announcements/{id} updates the announcement."""
-        from app.models.user import User
-
-        user = User(
-            first_name="Test",
-            last_name="Admin",
-            email="admin3@test.com",
-            auth_id="test-admin-ann-789",
-            role="admin",
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
         )
-        test_session.add(user)
-        await test_session.commit()
-        await test_session.refresh(user)
-
-        create_data = {
-            **sample_announcement_data,
-            "user_id": str(user.user_id),
-        }
-        create_response = await async_client.post("/announcements/", json=create_data)
         announcement_id = create_response.json()["announcement_id"]
 
         update_data = {"subject": "Updated Subject"}
-        response = await async_client.put(
+        response = await authed_async_client.put(
             f"/announcements/{announcement_id}", json=update_data
         )
         assert response.status_code == 200
-        assert response.json()["subject"] == "Updated Subject"
-        assert response.json()["message"] == sample_announcement_data["message"]
+        data = response.json()
+        assert data["subject"] == "Updated Subject"
+        assert data["message"] == sample_announcement_data["message"]
+        assert data["updated_at"] is not None
+        assert data["updated_at"] != data["created_at"]
 
     @pytest.mark.asyncio
     async def test_delete_announcement(
         self,
-        async_client: AsyncClient,
-        test_session: AsyncSession,
+        authed_async_client: AsyncClient,
         sample_announcement_data: dict[str, Any],
     ) -> None:
         """Test DELETE /announcements/{id} removes the announcement."""
-        from app.models.user import User
-
-        user = User(
-            first_name="Test",
-            last_name="Admin",
-            email="admin4@test.com",
-            auth_id="test-admin-ann-101",
-            role="admin",
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
         )
-        test_session.add(user)
-        await test_session.commit()
-        await test_session.refresh(user)
-
-        create_data = {
-            **sample_announcement_data,
-            "user_id": str(user.user_id),
-        }
-        create_response = await async_client.post("/announcements/", json=create_data)
         announcement_id = create_response.json()["announcement_id"]
 
-        response = await async_client.delete(f"/announcements/{announcement_id}")
+        response = await authed_async_client.delete(f"/announcements/{announcement_id}")
         assert response.status_code == 204
 
-        get_response = await async_client.get(f"/announcements/{announcement_id}")
+        get_response = await authed_async_client.get(
+            f"/announcements/{announcement_id}"
+        )
         assert get_response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_delete_announcement_not_found(
-        self, async_client: AsyncClient
+        self, authed_async_client: AsyncClient
     ) -> None:
         """Test DELETE /announcements/{id} returns 404 for nonexistent ID."""
         fake_id = uuid4()
-        response = await async_client.delete(f"/announcements/{fake_id}")
+        response = await authed_async_client.delete(f"/announcements/{fake_id}")
         assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email(
+        self,
+        authed_async_client: AsyncClient,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """POST /announcements/{id}/email notifies active drivers."""
+        mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email"
+        )
+        assert response.status_code == 200
+        assert response.json() == {"sent": 1, "failed": 0}
+        assert test_driver.user_id is not None
 
 
 class TestJobRoutes:
@@ -3436,6 +4405,91 @@ class TestJobRoutes:
         response = await client.post("/jobs/generate", json=body)
         assert response.status_code == 202
         assert response.json()["job_id"] == str(job_id)
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_job(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """POST /jobs/{id}/cancel marks a pending job as cancelled."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.PENDING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["progress"] == "Cancelled"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+        assert job.finished_at is not None
+
+    @pytest.mark.asyncio
+    async def test_cancel_running_job_prevents_late_completion(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A cancelled running job stays cancelled if worker completion arrives later."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.RUNNING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Cancelled"
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.update_progress(job.job_id, ProgressEnum.COMPLETED)
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_cancel_finished_job_is_safe_noop(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Cancelling completed/failed work returns the existing terminal state."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.COMPLETED)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Completed"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_cancel_job_not_found(self, async_client: AsyncClient) -> None:
+        """POST /jobs/{id}/cancel returns 404 for an unknown job."""
+        response = await async_client.post(f"/jobs/{uuid4()}/cancel")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_enqueue_cancelled_job_does_not_run(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Queued work checks job state before moving to Running."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.CANCELLED)
+        test_session.add(job)
+        await test_session.commit()
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.enqueue(job.job_id)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
 
 
 class TestSystemSettingsRoutes:
@@ -3928,3 +4982,41 @@ class TestDriverHistoryRoutes:
         # The CSV emits a per-year distance column, proving the export ran for
         # the requested year.
         assert "distance (km) in 2025" in response.text
+
+    @pytest.mark.asyncio
+    async def test_mark_read_and_is_read_status(
+        self,
+        authed_async_client: AsyncClient,
+        test_admin_user: Any,
+        sample_announcement_data: dict[str, Any],
+    ) -> None:
+        """Test POST /announcements/mark-read and is_read on GET /announcements/."""
+        user_id = str(test_admin_user.user_id)
+
+        # Create an announcement
+        create_resp = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        assert create_resp.status_code == 201
+
+        # GET — is_read should be False (never marked read)
+        resp = await authed_async_client.get("/announcements/")
+        assert resp.status_code == 200
+        assert resp.json()[0]["is_read"] is False
+
+        # Mark as read (user derived from auth token)
+        mark_resp = await authed_async_client.post("/announcements/mark-read")
+        assert mark_resp.status_code == 200
+        assert mark_resp.json()["user_id"] == user_id
+        assert "last_read_at" in mark_resp.json()
+        first_last_read_at = mark_resp.json()["last_read_at"]
+
+        mark_again = await authed_async_client.post("/announcements/mark-read")
+        assert mark_again.status_code == 200
+        assert mark_again.json()["user_id"] == user_id
+        assert mark_again.json()["last_read_at"] >= first_last_read_at
+
+        # GET — is_read should be True now
+        resp = await authed_async_client.get("/announcements/")
+        assert resp.status_code == 200
+        assert resp.json()[0]["is_read"] is True
