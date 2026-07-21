@@ -9,7 +9,7 @@ from app.config import settings
 from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import (
     get_auth_service,
-    get_email_dispatcher,
+    get_email_dispatcher_depends,
     get_password_reset_token_service,
     get_user_service,
 )
@@ -157,7 +157,7 @@ async def forgot_password(
         get_password_reset_token_service
     ),
     user_service: UserService = Depends(get_user_service),
-    email_service: EmailDispatcher = Depends(get_email_dispatcher),
+    email_service: EmailDispatcher = Depends(get_email_dispatcher_depends),
 ) -> None:
     """
     Triggers password reset for user with specified email (reset link will be emailed)
