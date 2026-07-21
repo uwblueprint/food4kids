@@ -1,4 +1,4 @@
 export { CreatePassword } from './CreatePassword';
+export { ForgotPassword } from './ForgotPassword';
 export { LoginPage } from './LoginPage';
-export { ForgotPassword } from './ForgotPassword'
-export { ResetPassword } from './ResetPassword'
+export { ResetPassword } from './ResetPassword';

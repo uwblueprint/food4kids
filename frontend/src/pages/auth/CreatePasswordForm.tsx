@@ -1,9 +1,9 @@
+import { AlertTriangleIcon, CheckIcon, EyeOffIcon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { Button, Field, FieldLabel, Input } from '@/common/components';
-import { AlertTriangleIcon, CheckIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 import EyeIcon from '@/assets/icons/eye.svg?react';
-import { EyeOffIcon } from 'lucide-react';
+import { Button, Field, FieldLabel, Input } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 interface CreatePasswordFormProps {
   onSubmit: (password: string) => void;
@@ -11,7 +11,11 @@ interface CreatePasswordFormProps {
   submitButtonText: string;
 }
 
-export const CreatePasswordForm = ({ onSubmit, isPending, submitButtonText }: CreatePasswordFormProps) => {
+export const CreatePasswordForm = ({
+  onSubmit,
+  isPending,
+  submitButtonText,
+}: CreatePasswordFormProps) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,14 +62,18 @@ export const CreatePasswordForm = ({ onSubmit, isPending, submitButtonText }: Cr
       return;
     }
 
-    onSubmit(password)
+    onSubmit(password);
   };
 
   return (
     <>
       <div>
         {/* Form */}
-        <form id="register-form" className="flex flex-col gap-6" onSubmit={submitPassword}>
+        <form
+          id="register-form"
+          className="flex flex-col gap-6"
+          onSubmit={submitPassword}
+        >
           {/* Password Field */}
           <Field>
             <FieldLabel htmlFor="password">Enter new password</FieldLabel>
@@ -89,9 +97,7 @@ export const CreatePasswordForm = ({ onSubmit, isPending, submitButtonText }: Cr
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
-                aria-label={
-                  showPassword ? 'Hide password' : 'Show password'
-                }
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? (
                   <EyeOffIcon className="h-6 w-6" />
@@ -103,7 +109,11 @@ export const CreatePasswordForm = ({ onSubmit, isPending, submitButtonText }: Cr
             {passwordError && (
               <div className="text-red text-p2 flex items-center gap-1.5">
                 <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                <span>{password ? "Please make sure all criteria is met" : "Please enter a password"}</span>
+                <span>
+                  {password
+                    ? 'Please make sure all criteria is met'
+                    : 'Please enter a password'}
+                </span>
               </div>
             )}
           </Field>
@@ -146,7 +156,11 @@ export const CreatePasswordForm = ({ onSubmit, isPending, submitButtonText }: Cr
               {confirmPasswordError && (
                 <div className="text-red text-p2 flex items-center gap-1.5">
                   <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                  <span>{confirmPassword ? "Please make sure both passwords match" : "Please enter a password"}</span>
+                  <span>
+                    {confirmPassword
+                      ? 'Please make sure both passwords match'
+                      : 'Please enter a password'}
+                  </span>
                 </div>
               )}
             </Field>
@@ -154,8 +168,8 @@ export const CreatePasswordForm = ({ onSubmit, isPending, submitButtonText }: Cr
         </form>
 
         {/* Password Requirements */}
-        <div className="mt-2 desktop:mt-5">
-          <p className="mb-[3px] text-p2 font-semibold">Password must be:</p>
+        <div className="desktop:mt-5 mt-2">
+          <p className="text-p2 mb-[3px] font-semibold">Password must be:</p>
           <ul className="space-y-[3px]">
             {requirements.map((req, index) => (
               <PasswordRequirement
@@ -182,7 +196,7 @@ export const CreatePasswordForm = ({ onSubmit, isPending, submitButtonText }: Cr
         </div>
       </div>
     </>
-  )
+  );
 };
 
 interface PasswordRequirementProps {
@@ -190,21 +204,29 @@ interface PasswordRequirementProps {
   isSatisfied: boolean;
 }
 
-const PasswordRequirement = ({ label, isSatisfied }: PasswordRequirementProps) => {
+const PasswordRequirement = ({
+  label,
+  isSatisfied,
+}: PasswordRequirementProps) => {
   return (
-    <li className="flex items-center gap-1 text-p2 font-semibold">
+    <li className="text-p2 flex items-center gap-1 font-semibold">
       {isSatisfied ? (
-        <CheckIcon className="h-4 w-4 shrink-0 text-green-500" strokeWidth={3} />
+        <CheckIcon
+          className="h-4 w-4 shrink-0 text-green-500"
+          strokeWidth={3}
+        />
       ) : (
         // A little custom gray dot indicator when invalid
         <div className="flex h-4 w-4 shrink-0 items-center justify-center">
           <span className="h-1 w-1 rounded-full bg-black" />
         </div>
       )}
-      <span className={cn(
-        "transition-colors duration-200", 
-        isSatisfied ? "text-success-stroke" : "text-current"
-      )}>
+      <span
+        className={cn(
+          'transition-colors duration-200',
+          isSatisfied ? 'text-success-stroke' : 'text-current'
+        )}
+      >
         {label}
       </span>
     </li>

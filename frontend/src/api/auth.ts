@@ -1,10 +1,24 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from './authStore';
-import { completeDriverRegistration, login, forgotPassword, validateResetToken, updatePassword, type ValidateResetTokenRequest, type UpdatePasswordRequest, type LoginRequest, refresh, type ForgotPasswordRequest, type UserFinalize } from './generated';
+import {
+  completeDriverRegistration,
+  forgotPassword,
+  type ForgotPasswordRequest,
+  login,
+  type LoginRequest,
+  refresh,
+  updatePassword,
+  type UpdatePasswordRequest,
+  type UserFinalize,
+  validateResetToken,
+  type ValidateResetTokenRequest,
+} from './generated';
 
 export function useRegisterDriver() {
-  const setAuthFromRegister = useAuthStore((state) => state.setAuthFromRegister);
+  const setAuthFromRegister = useAuthStore(
+    (state) => state.setAuthFromRegister
+  );
 
   return useMutation({
     mutationFn: async (payload: UserFinalize) => {
@@ -77,7 +91,7 @@ export function useForgotPassword() {
         throwOnError: true,
       });
       return data;
-    }
+    },
   });
 }
 
@@ -104,6 +118,6 @@ export function useUpdatePassword() {
         throwOnError: true,
       });
       return data;
-    }
+    },
   });
 }

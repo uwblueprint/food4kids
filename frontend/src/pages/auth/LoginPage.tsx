@@ -1,21 +1,22 @@
 import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useLogin } from '@/api';
 import AlertTriangleIcon from '@/assets/icons/alert-triangle.svg?react';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
-
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
-import { WrapperWithLogo } from './Wrapper';
 
+import { WrapperWithLogo } from './Wrapper';
 
 export const LoginPage = () => {
   return (
-    <WrapperWithLogo headerTitle="Hi there!" subheaderTitle="Continue to access the app">
-      <LoginForm/>
+    <WrapperWithLogo
+      headerTitle="Hi there!"
+      subheaderTitle="Continue to access the app"
+    >
+      <LoginForm />
     </WrapperWithLogo>
   );
 };
@@ -103,9 +104,7 @@ const LoginForm = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="text-p1 absolute top-1/2 right-6 -translate-y-1/2 cursor-pointer"
-                  aria-label={
-                    showPassword ? 'Hide password' : 'Show password'
-                  }
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOffIcon className="h-6 w-6" />
@@ -170,5 +169,5 @@ const LoginForm = () => {
         </p>
       </div>
     </>
-  )
-}
+  );
+};

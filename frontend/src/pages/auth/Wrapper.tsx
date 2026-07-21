@@ -11,12 +11,22 @@ interface WrapperProps {
   className?: string;
 }
 
-export const WrapperWithLogo = ({children, headerTitle, subheaderTitle, className}: WrapperProps) => {
+export const WrapperWithLogo = ({
+  children,
+  headerTitle,
+  subheaderTitle,
+  className,
+}: WrapperProps) => {
   return (
     <div className="desktop:overflow-hidden relative flex h-screen w-full flex-row overflow-auto">
       {/* Left Column: Form Section */}
       <div className="tablet:flex desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full">
-        <div className={cn("tablet:pt-0 tablet:px-0 tablet:max-w-126 tablet:gap-4 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16", className)}>
+        <div
+          className={cn(
+            'tablet:pt-0 tablet:px-0 tablet:max-w-126 tablet:gap-4 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
+            className
+          )}
+        >
           {/* Logo and Heading */}
           <div className="flex-col">
             <div className="self-start">
@@ -43,9 +53,7 @@ export const WrapperWithLogo = ({children, headerTitle, subheaderTitle, classNam
             </div>
             {/* Heading */}
             <h1>{headerTitle}</h1>
-            <p className="text-m-p2 tablet:font-medium">
-              {subheaderTitle}
-            </p>
+            <p className="text-m-p2 tablet:font-medium">{subheaderTitle}</p>
           </div>
           {children}
         </div>
@@ -59,5 +67,5 @@ export const WrapperWithLogo = ({children, headerTitle, subheaderTitle, classNam
         />
       </div>
     </div>
-  )
-}
+  );
+};
