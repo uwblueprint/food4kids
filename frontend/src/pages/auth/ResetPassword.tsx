@@ -20,7 +20,7 @@ interface ResetPasswordContentProps {
 }
 
 const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
-  const headerTitle = 'Rest your password';
+  const headerTitle = 'Reset your password';
   const subheaderTitle = 'Create a password to access the app';
 
   const navigate = useNavigate();
