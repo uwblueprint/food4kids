@@ -121,7 +121,9 @@ export const CreatePasswordForm = ({
           <div className="flex flex-col gap-4">
             {/* Confirm Password Field */}
             <Field>
-              <FieldLabel htmlFor="confirm-password">Confirm password</FieldLabel>
+              <FieldLabel htmlFor="confirm-password">
+                Confirm password
+              </FieldLabel>
               <div className="relative w-full">
                 <Input
                   id="confirm-password"
