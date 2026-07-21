@@ -234,6 +234,10 @@ class LocationRead(LocationBase):
     assigned_route: str | None = None
     last_delivery_date: datetime | None = None
     total_deliveries: int = 0
+    # Most recent non-system note in this location's chain, for the notes
+    # preview column in list views. Populated by the service; None when the
+    # location has no chain or only system notes.
+    latest_note: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

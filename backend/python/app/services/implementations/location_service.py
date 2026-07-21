@@ -41,6 +41,7 @@ from app.models.location import (
     ValidatedLocationImportEntry,
 )
 from app.models.location_group import LocationGroup
+from app.models.note import Note
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -149,6 +150,7 @@ class LocationService:
         future_set = await self.load_has_future_route_set(session, ids)
         assigned = await self.load_assigned_routes(session, ids)
         aggregates = await self.load_delivery_aggregates(session, ids)
+        latest_notes = await self.load_latest_notes(session, [location.note_chain_id])
         total, last_date = aggregates.get(location_id, (0, None))
         return self._to_read(
             location,
@@ -156,6 +158,11 @@ class LocationService:
             assigned_route=assigned.get(location_id),
             last_delivery_date=last_date,
             total_deliveries=total,
+            latest_note=(
+                latest_notes.get(location.note_chain_id)
+                if location.note_chain_id
+                else None
+            ),
         )
 
     async def get_locations(
@@ -233,6 +240,9 @@ class LocationService:
             future_set = await self.load_has_future_route_set(session, loc_ids)
             assigned = await self.load_assigned_routes(session, loc_ids)
             aggregates = await self.load_delivery_aggregates(session, loc_ids)
+            latest_notes = await self.load_latest_notes(
+                session, (loc.note_chain_id for loc in items)
+            )
             reads = [
                 self._to_read(
                     loc,
@@ -240,6 +250,11 @@ class LocationService:
                     assigned_route=assigned.get(loc.location_id),
                     last_delivery_date=aggregates.get(loc.location_id, (0, None))[1],
                     total_deliveries=aggregates.get(loc.location_id, (0, None))[0],
+                    latest_note=(
+                        latest_notes.get(loc.note_chain_id)
+                        if loc.note_chain_id
+                        else None
+                    ),
                 )
                 for loc in items
             ]
@@ -374,6 +389,31 @@ class LocationService:
         result = await session.execute(statement)
         return {row[0]: (row[1], row[2]) for row in result.all()}
 
+    async def load_latest_notes(
+        self, session: AsyncSession, note_chain_ids: Iterable[UUID | None]
+    ) -> dict[UUID, str]:
+        """Return a mapping of note_chain_id → most recent non-system note
+        message, for the notes preview column.
+
+        One query rather than per-location N+1. System notes (auto-generated
+        events) are excluded so the preview shows human-authored notes only.
+        """
+        ids = [cid for cid in note_chain_ids if cid is not None]
+        if not ids:
+            return {}
+        statement = (
+            select(Note.note_chain_id, Note.message)
+            .where(col(Note.note_chain_id).in_(ids))
+            .where(col(Note.is_system).is_(False))
+            .order_by(col(Note.created_at).desc())
+        )
+        result = await session.execute(statement)
+        latest: dict[UUID, str] = {}
+        for chain_id, message in result.all():
+            if chain_id not in latest:
+                latest[chain_id] = message
+        return latest
+
     def _to_read(
         self,
         loc: Location,
@@ -381,6 +421,7 @@ class LocationService:
         assigned_route: str | None = None,
         last_delivery_date: datetime | None = None,
         total_deliveries: int = 0,
+        latest_note: str | None = None,
     ) -> LocationRead:
         """Build a LocationRead with the derived has_future_route populated.
 
@@ -392,6 +433,7 @@ class LocationService:
         read.assigned_route = assigned_route
         read.last_delivery_date = last_delivery_date
         read.total_deliveries = total_deliveries
+        read.latest_note = latest_note
         return read
 
     async def create_location(

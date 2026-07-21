@@ -1,5 +1,6 @@
 import type { LocationRead } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
+import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
@@ -14,26 +15,98 @@ import {
   ModalHeader,
   ModalTitle,
   SearchBar,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from '@/common/components';
+import { formatShortDate } from '@/common/utils';
 
 import type { AddressesTabState } from '../hooks';
 import { EmptyState } from './EmptyState';
 
 const ROUTE_STATUSES = ['Active', 'Unscheduled', 'Inactive'];
 
+/** Renders a nullable/empty cell value as an em dash. */
+const orDash = (value: string | null | undefined) =>
+  value && value.length > 0 ? value : '—';
+
 const COLUMNS: Column<LocationRead>[] = [
   {
-    key: 'name',
-    header: 'School / Last Name',
-    render: (row) => row.name,
+    key: 'contact_name',
+    header: 'Contact Name',
+    render: (row) => row.contact_name,
   },
   { key: 'address', header: 'Address', render: (row) => row.address },
+  {
+    key: 'phone_primary',
+    header: 'Phone Number',
+    render: (row) => orDash(row.phone_primary),
+  },
+  {
+    key: 'assigned_route',
+    header: 'Assigned Route',
+    render: (row) => orDash(row.assigned_route),
+  },
   {
     key: 'delivery_group',
     header: 'Delivery Group',
     render: (row) => row.location_group_name,
   },
-  { key: 'status', header: 'Status', render: (row) => row.status ?? '—' },
+  {
+    key: 'last_delivery',
+    header: 'Last Delivery',
+    render: (row) =>
+      row.last_delivery_date ? formatShortDate(row.last_delivery_date) : '—',
+  },
+  {
+    key: 'total_deliveries',
+    header: 'Deliveries',
+    render: (row) => row.total_deliveries,
+  },
+  {
+    key: 'num_children',
+    header: '# of Children',
+    render: (row) => row.num_children,
+  },
+  {
+    key: 'dietary_restrictions',
+    header: 'Food Restrictions',
+    render: (row) => orDash(row.dietary_restrictions),
+  },
+  { key: 'halal', header: 'Halal', render: (row) => (row.halal ? 'Y' : 'N') },
+  {
+    key: 'latest_note',
+    header: 'Notes',
+    render: (row) => orDash(row.latest_note),
+  },
+  {
+    key: 'status',
+    header: (
+      <span className="flex items-center gap-1.5">
+        Status
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <InfoCircleIcon className="size-4 cursor-pointer" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>
+              <span className="font-semibold">Active:</span> Scheduled on an
+              upcoming route
+            </p>
+            <p>
+              <span className="font-semibold">Unscheduled:</span> On the roster
+              but not on an upcoming route
+            </p>
+            <p>
+              <span className="font-semibold">Inactive:</span> Not on the
+              current roster
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </span>
+    ),
+    render: (row) => row.status,
+  },
 ];
 
 type RouteAddressesTabProps = AddressesTabState;

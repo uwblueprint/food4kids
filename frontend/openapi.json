@@ -1673,6 +1673,17 @@
             ],
             "title": "Last Delivery Date"
           },
+          "latest_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Note"
+          },
           "latitude": {
             "anyOf": [
               {

@@ -1020,6 +1020,10 @@ export type LocationRead = {
    */
   last_delivery_date?: string | null;
   /**
+   * Latest Note
+   */
+  latest_note?: string | null;
+  /**
    * Latitude
    */
   latitude?: number | null;
@@ -2383,6 +2387,10 @@ export type LocationReadWritable = {
    * Last Delivery Date
    */
   last_delivery_date?: string | null;
+  /**
+   * Latest Note
+   */
+  latest_note?: string | null;
   /**
    * Latitude
    */

@@ -1166,6 +1166,69 @@ class TestLocationRoutes:
         assert loc["assigned_route"] is None
         assert loc["last_delivery_date"] is None
         assert loc["total_deliveries"] == 0
+        assert loc["latest_note"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_locations_surfaces_latest_non_system_note(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations returns the most recent non-system note as latest_note."""
+        from app.models.note import Note
+
+        chain = NoteChain(read_permission="All", write_permission="All")
+        test_session.add(chain)
+        await test_session.flush()
+
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Noted Family",
+            contact_name="Noted Family",
+            address="7 Note St",
+            phone_primary="5550000000",
+            delivery_type="Family",
+            note_chain_id=chain.note_chain_id,
+        )
+        # An older human note, a newer human note, and a still-newer system
+        # note: the preview should be the newest *non-system* message.
+        test_session.add_all(
+            [
+                location,
+                Note(
+                    note_chain_id=chain.note_chain_id,
+                    message="Old note",
+                    is_system=False,
+                    created_at=datetime(2026, 1, 1),
+                    updated_at=datetime(2026, 1, 1),
+                ),
+                Note(
+                    note_chain_id=chain.note_chain_id,
+                    message="Gate code 2736",
+                    is_system=False,
+                    created_at=datetime(2026, 2, 1),
+                    updated_at=datetime(2026, 2, 1),
+                ),
+                Note(
+                    note_chain_id=chain.note_chain_id,
+                    message="System event",
+                    is_system=True,
+                    created_at=datetime(2026, 3, 1),
+                    updated_at=datetime(2026, 3, 1),
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/locations/")
+        assert response.status_code == 200
+        loc = next(
+            item
+            for item in response.json()["items"]
+            if item["location_id"] == str(location.location_id)
+        )
+        assert loc["latest_note"] == "Gate code 2736"
 
     @pytest.mark.asyncio
     async def test_get_location_by_id_returns_aggregate_fields(
