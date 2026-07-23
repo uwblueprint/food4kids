@@ -2394,6 +2394,10 @@ class TestRouteRoutes:
         body = response.json()
         assert body["route_id"] == str(test_route.route_id)
         assert body["stops"] == []
+        # drive_date is sourced from the route's group; with no stops there's no
+        # location to read a delivery_type from.
+        assert body["drive_date"] is not None
+        assert body["delivery_type"] is None
 
     @pytest.mark.asyncio
     async def test_get_route_by_id_embeds_ordered_stops(
@@ -2457,8 +2461,13 @@ class TestRouteRoutes:
 
         response = await async_client.get(f"/routes/{test_route.route_id}")
         assert response.status_code == 200
-        stops = response.json()["stops"]
+        body = response.json()
+        stops = body["stops"]
         assert [s["stop_number"] for s in stops] == [1, 2]
+        # drive_date from the group; delivery_type read from the stops' locations
+        # (uniform across the route).
+        assert body["drive_date"] is not None
+        assert body["delivery_type"] == "Family"
 
         first, second = stops
         # Stop 1 -> loc_b
