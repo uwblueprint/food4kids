@@ -123,18 +123,18 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         {subtitle && <p className="text-p2 text-grey-400">{subtitle}</p>}
       </div>
 
-      {/* Meta */}
-      <div className="text-p2 text-grey-500 [&_svg]:text-grey-400 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <span className="flex items-center gap-1.5">
-          <MapPin className="size-4" />
-          {stops.length} {stops.length === 1 ? 'stop' : 'stops'}
-        </span>
+      {/* Meta: 2-column grid on mobile, single inline row from tablet up. */}
+      <div className="text-p2 text-grey-500 [&_svg]:text-grey-400 tablet:flex tablet:flex-wrap tablet:items-center tablet:gap-x-5 grid grid-cols-2 gap-x-4 gap-y-2">
         {route.delivery_type && (
           <span className="flex items-center gap-1.5">
             <Users className="size-4" />
             {route.delivery_type}
           </span>
         )}
+        <span className="flex items-center gap-1.5">
+          <MapPin className="size-4" />
+          {stops.length} {stops.length === 1 ? 'stop' : 'stops'}
+        </span>
         <span className="flex items-center gap-1.5">
           <Map className="size-4" />
           {route.length.toFixed(1)} km
