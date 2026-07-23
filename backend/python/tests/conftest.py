@@ -70,6 +70,7 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         # Import in dependency order to avoid relationship resolution issues
         from app.models.admin import Admin  # noqa: F401
         from app.models.announcement import Announcement  # noqa: F401
+        from app.models.announcement_last_read import AnnouncementLastRead  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
         from app.models.driver_history import DriverHistory  # noqa: F401
         from app.models.job import Job  # noqa: F401
@@ -77,7 +78,6 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.location_group import LocationGroup  # noqa: F401
         from app.models.note import Note  # noqa: F401
         from app.models.note_chain import NoteChain  # noqa: F401
-        from app.models.note_chain_read import NoteChainReadModel  # noqa: F401
         from app.models.route import Route  # noqa: F401
         from app.models.route_group import RouteGroup  # noqa: F401
         from app.models.route_snapshot import RouteSnapshot  # noqa: F401

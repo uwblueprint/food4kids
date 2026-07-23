@@ -11,6 +11,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import {
+  cancelJob,
   completeDriverRegistration,
   createAnnouncement,
   createDriverHistory,
@@ -29,6 +30,7 @@ import {
   deleteNoteChain,
   deleteRoute,
   deleteRouteGroup,
+  duplicateRouteGroup,
   exportAllDriversHistory,
   generateJob,
   getAnnouncement,
@@ -59,6 +61,7 @@ import {
   initializeDriver,
   login,
   logout,
+  markAnnouncementsAsRead,
   type Options,
   patchSystemSettings,
   refresh,
@@ -79,6 +82,9 @@ import {
   uploadImage,
 } from '../sdk.gen';
 import type {
+  CancelJobData,
+  CancelJobError,
+  CancelJobResponse,
   CompleteDriverRegistrationData,
   CompleteDriverRegistrationError,
   CompleteDriverRegistrationResponse,
@@ -132,6 +138,9 @@ import type {
   DeleteRouteGroupError,
   DeleteRouteGroupResponse,
   DeleteRouteResponse,
+  DuplicateRouteGroupData,
+  DuplicateRouteGroupError,
+  DuplicateRouteGroupResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
   GenerateJobData,
@@ -218,6 +227,8 @@ import type {
   LogoutData,
   LogoutError,
   LogoutResponse,
+  MarkAnnouncementsAsReadData,
+  MarkAnnouncementsAsReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
@@ -343,7 +354,7 @@ export const getAnnouncementsQueryKey = (
 /**
  * Get Announcements
  *
- * Retrieve all announcements
+ * Retrieve all announcements with is_read status for the authenticated user.
  */
 export const getAnnouncementsOptions = (
   options?: Options<GetAnnouncementsData>
@@ -385,6 +396,35 @@ export const createAnnouncementMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await createAnnouncement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Mark Announcements As Read
+ *
+ * Mark all announcements as read for the authenticated user.
+ */
+export const markAnnouncementsAsReadMutation = (
+  options?: Partial<Options<MarkAnnouncementsAsReadData>>
+): UseMutationOptions<
+  MarkAnnouncementsAsReadResponse,
+  AxiosError<DefaultError>,
+  Options<MarkAnnouncementsAsReadData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarkAnnouncementsAsReadResponse,
+    AxiosError<DefaultError>,
+    Options<MarkAnnouncementsAsReadData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await markAnnouncementsAsRead({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1097,6 +1137,35 @@ export const getJobOptions = (options: Options<GetJobData>) =>
     queryKey: getJobQueryKey(options),
   });
 
+/**
+ * Cancel Job
+ *
+ * Cancel an in-flight route generation job.
+ */
+export const cancelJobMutation = (
+  options?: Partial<Options<CancelJobData>>
+): UseMutationOptions<
+  CancelJobResponse,
+  AxiosError<CancelJobError>,
+  Options<CancelJobData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CancelJobResponse,
+    AxiosError<CancelJobError>,
+    Options<CancelJobData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await cancelJob({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const getLocationGroupsQueryKey = (
   options?: Options<GetLocationGroupsData>
 ) => createQueryKey('getLocationGroups', options);
@@ -1625,7 +1694,7 @@ export const getNotesQueryKey = (options: Options<GetNotesData>) =>
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotesOptions = (options: Options<GetNotesData>) =>
   queryOptions<
@@ -1653,7 +1722,7 @@ export const getNotesInfiniteQueryKey = (
 /**
  * Get Notes
  *
- * Get notes for a chain with pagination. Returns unread count and auto-marks as read.
+ * Get notes for a chain with pagination.
  */
 export const getNotesInfiniteOptions = (options: Options<GetNotesData>) =>
   infiniteQueryOptions<
@@ -2110,6 +2179,35 @@ export const updateRouteGroupMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await updateRouteGroup({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Duplicate Route Group
+ *
+ * Duplicate a route group and its routes/stops for a new planning cycle.
+ */
+export const duplicateRouteGroupMutation = (
+  options?: Partial<Options<DuplicateRouteGroupData>>
+): UseMutationOptions<
+  DuplicateRouteGroupResponse,
+  AxiosError<DuplicateRouteGroupError>,
+  Options<DuplicateRouteGroupData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DuplicateRouteGroupResponse,
+    AxiosError<DuplicateRouteGroupError>,
+    Options<DuplicateRouteGroupData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await duplicateRouteGroup({
         ...options,
         ...fnOptions,
         throwOnError: true,

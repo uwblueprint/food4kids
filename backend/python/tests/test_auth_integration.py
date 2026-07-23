@@ -124,6 +124,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/jobs/{job_id}"): Policy.DRIVER_OR_ADMIN,
+    ("POST", "/jobs/{job_id}/cancel"): Policy.ADMIN_ONLY,
     # --- location groups ---
     ("GET", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
@@ -159,6 +160,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/route-groups"): Policy.ADMIN_ONLY,
     ("POST", "/route-groups"): Policy.ADMIN_ONLY,
     ("PATCH", "/route-groups/{route_group_id}"): Policy.ADMIN_ONLY,
+    ("POST", "/route-groups/{route_group_id}/duplicate"): Policy.ADMIN_ONLY,
     ("DELETE", "/route-groups/{route_group_id}"): Policy.ADMIN_ONLY,
     # --- routes ---
     ("GET", "/routes"): Policy.DRIVER_OR_ADMIN,
@@ -170,6 +172,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # --- announcements ---
     ("GET", "/announcements/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/announcements/"): Policy.DRIVER_OR_ADMIN,
+    ("POST", "/announcements/mark-read"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/announcements/{announcement_id}"): Policy.DRIVER_OR_ADMIN,
     ("PUT", "/announcements/{announcement_id}"): Policy.ANNOUNCEMENT_OWNER_OR_ADMIN,
     ("DELETE", "/announcements/{announcement_id}"): Policy.ANNOUNCEMENT_OWNER_OR_ADMIN,
