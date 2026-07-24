@@ -11,6 +11,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import {
+  cancelJob,
   completeDriverRegistration,
   createAnnouncement,
   createDriverHistory,
@@ -29,6 +30,7 @@ import {
   deleteNoteChain,
   deleteRoute,
   deleteRouteGroup,
+  duplicateRouteGroup,
   exportAllDriversHistory,
   generateJob,
   getAnnouncement,
@@ -80,6 +82,9 @@ import {
   uploadImage,
 } from '../sdk.gen';
 import type {
+  CancelJobData,
+  CancelJobError,
+  CancelJobResponse,
   CompleteDriverRegistrationData,
   CompleteDriverRegistrationError,
   CompleteDriverRegistrationResponse,
@@ -133,6 +138,9 @@ import type {
   DeleteRouteGroupError,
   DeleteRouteGroupResponse,
   DeleteRouteResponse,
+  DuplicateRouteGroupData,
+  DuplicateRouteGroupError,
+  DuplicateRouteGroupResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
   GenerateJobData,
@@ -1128,6 +1136,35 @@ export const getJobOptions = (options: Options<GetJobData>) =>
     },
     queryKey: getJobQueryKey(options),
   });
+
+/**
+ * Cancel Job
+ *
+ * Cancel an in-flight route generation job.
+ */
+export const cancelJobMutation = (
+  options?: Partial<Options<CancelJobData>>
+): UseMutationOptions<
+  CancelJobResponse,
+  AxiosError<CancelJobError>,
+  Options<CancelJobData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CancelJobResponse,
+    AxiosError<CancelJobError>,
+    Options<CancelJobData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await cancelJob({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getLocationGroupsQueryKey = (
   options?: Options<GetLocationGroupsData>
@@ -2142,6 +2179,35 @@ export const updateRouteGroupMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await updateRouteGroup({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Duplicate Route Group
+ *
+ * Duplicate a route group and its routes/stops for a new planning cycle.
+ */
+export const duplicateRouteGroupMutation = (
+  options?: Partial<Options<DuplicateRouteGroupData>>
+): UseMutationOptions<
+  DuplicateRouteGroupResponse,
+  AxiosError<DuplicateRouteGroupError>,
+  Options<DuplicateRouteGroupData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DuplicateRouteGroupResponse,
+    AxiosError<DuplicateRouteGroupError>,
+    Options<DuplicateRouteGroupData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await duplicateRouteGroup({
         ...options,
         ...fnOptions,
         throwOnError: true,

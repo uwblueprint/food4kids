@@ -8,6 +8,9 @@ import {
 } from './client';
 import { client } from './client.gen';
 import type {
+  CancelJobData,
+  CancelJobErrors,
+  CancelJobResponses,
   CompleteDriverRegistrationData,
   CompleteDriverRegistrationErrors,
   CompleteDriverRegistrationResponses,
@@ -61,6 +64,9 @@ import type {
   DeleteRouteGroupErrors,
   DeleteRouteGroupResponses,
   DeleteRouteResponses,
+  DuplicateRouteGroupData,
+  DuplicateRouteGroupErrors,
+  DuplicateRouteGroupResponses,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryErrors,
   ExportAllDriversHistoryResponses,
@@ -772,6 +778,25 @@ export const getJob = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Cancel Job
+ *
+ * Cancel an in-flight route generation job.
+ */
+export const cancelJob = <ThrowOnError extends boolean = false>(
+  options: Options<CancelJobData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    CancelJobResponses,
+    CancelJobErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/jobs/{job_id}/cancel',
+    ...options,
+  });
+
+/**
  * Get Location Groups
  *
  * Get all location groups
@@ -1324,6 +1349,25 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Duplicate Route Group
+ *
+ * Duplicate a route group and its routes/stops for a new planning cycle.
+ */
+export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
+  options: Options<DuplicateRouteGroupData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    DuplicateRouteGroupResponses,
+    DuplicateRouteGroupErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/route-groups/{route_group_id}/duplicate',
+    ...options,
   });
 
 /**

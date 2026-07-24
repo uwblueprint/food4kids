@@ -13,18 +13,21 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
+from app.models.enum import ProgressEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.utilities.google_maps_client import GeocodeResult
@@ -273,6 +276,138 @@ class TestDriverRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["partner_driver_name"] is None
+
+    @pytest.mark.asyncio
+    async def test_self_driver_updates_own_name_and_phone(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update can edit only User name fields and Driver phone."""
+        from app.models.user import User
+
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await self_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Updated",
+                    "last_name": "Driver",
+                    "phone": "+14165550123",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Updated"
+        assert data["last_name"] == "Driver"
+        assert data["phone"] == "+14165550123"
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Updated"
+        assert user.last_name == "Driver"
+        assert test_driver.phone == "+14165550123"
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Updated Driver",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Updated",
+                "family_name": "Driver",
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_self_driver_cannot_update_admin_only_fields(
+        self,
+        client_with_overrides: Any,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Self-driver update rejects admin-only fields and does not persist them."""
+        original_phone = test_driver.phone
+        original_address = test_driver.address
+        original_active = test_driver.active
+        self_client = await client_with_overrides(
+            {require_self_driver_or_admin: lambda: False}
+        )
+
+        response = await self_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={
+                "phone": "+14165550123",
+                "address": "123 Admin Only St",
+                "active": False,
+            },
+        )
+
+        assert response.status_code == 403
+        await test_session.refresh(test_driver)
+        assert test_driver.phone == original_phone
+        assert test_driver.address == original_address
+        assert test_driver.active is original_active
+
+    @pytest.mark.asyncio
+    async def test_admin_updates_driver_name_and_admin_only_fields(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Admin update keeps the full DriverUpdate surface, including User names."""
+        from app.models.user import User
+
+        with (
+            patch("firebase_admin.auth.update_user") as mock_update_user,
+            patch("firebase_admin.auth.set_custom_user_claims") as mock_claims,
+        ):
+            response = await async_client.put(
+                f"/drivers/{test_driver.driver_id}",
+                json={
+                    "first_name": "Admin",
+                    "last_name": "Updated",
+                    "address": "456 Admin Address St",
+                    "active": False,
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["first_name"] == "Admin"
+        assert data["last_name"] == "Updated"
+        assert data["address"] == "456 Admin Address St"
+        assert data["active"] is False
+
+        await test_session.refresh(test_driver)
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        assert user.first_name == "Admin"
+        assert user.last_name == "Updated"
+        assert test_driver.address == "456 Admin Address St"
+        assert test_driver.active is False
+        mock_update_user.assert_called_once_with(
+            user.auth_id,
+            display_name="Admin Updated",
+        )
+        mock_claims.assert_called_once_with(
+            user.auth_id,
+            {
+                "role": user.role,
+                "given_name": "Admin",
+                "family_name": "Updated",
+            },
+        )
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, async_client: AsyncClient) -> None:
@@ -3211,10 +3346,259 @@ class TestRouteGroupRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_route_group(
-        self, async_client: AsyncClient, test_route_group: Any
+    async def test_duplicate_route_group_copies_routes_and_stops(
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
     ) -> None:
-        """Test DELETE /route-groups/{route_group_id} deletes a route group."""
+        """POST /route-groups/{id}/duplicate creates a copied group with route lineage."""
+        from sqlalchemy.orm import selectinload
+        from sqlmodel import select
+
+        loc_group = LocationGroup(name="Duplicate Locations", color="#123456", notes="")
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        loc_a = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location A",
+            delivery_type="Family",
+            contact_name="A",
+            address="1 Main St",
+            phone_primary="555-0001",
+            num_children=2,
+        )
+        loc_b = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Location B",
+            delivery_type="Family",
+            contact_name="B",
+            address="2 Main St",
+            phone_primary="555-0002",
+            num_children=4,
+        )
+        test_session.add_all([loc_a, loc_b])
+
+        route_group = RouteGroup(
+            name="July 9 - Tuesday A",
+            notes="original notes",
+            drive_date=datetime(2026, 7, 9, 9, 0),
+        )
+        test_session.add(route_group)
+        await test_session.flush()
+
+        route_a = Route(
+            name="Route A",
+            notes="route notes",
+            length=12.5,
+            encoded_polyline="abc123",
+            ends_at_warehouse=True,
+            route_group_id=route_group.route_group_id,
+            driver_id=test_driver.driver_id,
+        )
+        route_b = Route(
+            name="Route B",
+            notes="second route notes",
+            length=3.5,
+            route_group_id=route_group.route_group_id,
+        )
+        test_session.add_all([route_a, route_b])
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=route_a.route_id,
+                    location_id=loc_a.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=route_a.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=2,
+                ),
+                RouteStop(
+                    route_id=route_b.route_id,
+                    location_id=loc_b.location_id,
+                    stop_number=1,
+                ),
+                RouteSnapshot(
+                    route_id=route_a.route_id,
+                    start_address="Original Warehouse",
+                    start_latitude=43.0,
+                    start_longitude=-80.0,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate"
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == "Copy of July 9 - Tuesday A"
+        assert body["notes"] == "original notes"
+        assert body["num_routes"] == 2
+        # Aggregate stats reflect the copied content: 2 distinct locations
+        # (loc_b appears on both routes but counts once), boxes derived from
+        # num_children (2 + 4 children at the default 2 children/box = 3
+        # boxes), and route_a's driver carried over.
+        assert body["num_locations"] == 2
+        assert body["num_boxes"] == 3
+        assert body["num_drivers_assigned"] == 1
+        assert body["delivery_type"] == "Family"
+
+        duplicated_group_id = body["route_group_id"]
+        result = await test_session.execute(
+            select(Route)
+            .where(Route.route_group_id == UUID(duplicated_group_id))
+            .options(selectinload(Route.route_stops))  # type: ignore[arg-type]
+            .order_by(Route.name)
+        )
+        duplicated_routes = list(result.scalars().all())
+        duplicated_route_a, duplicated_route_b = duplicated_routes
+        assert duplicated_route_a.route_id != route_a.route_id
+        assert duplicated_route_a.name == "Route A"
+        assert duplicated_route_a.notes == "route notes"
+        assert duplicated_route_a.length == 12.5
+        assert duplicated_route_a.encoded_polyline == "abc123"
+        assert duplicated_route_a.ends_at_warehouse is True
+        assert duplicated_route_a.driver_id == test_driver.driver_id
+        assert duplicated_route_a.cloned_from_route_id == route_a.route_id
+        assert duplicated_route_a.note_chain_id is None
+        assert (
+            await test_session.get(RouteSnapshot, duplicated_route_a.route_id) is None
+        )
+        assert [
+            (stop.location_id, stop.stop_number)
+            for stop in sorted(
+                duplicated_route_a.route_stops, key=lambda item: item.stop_number
+            )
+        ] == [(loc_a.location_id, 1), (loc_b.location_id, 2)]
+
+        assert duplicated_route_b.route_id != route_b.route_id
+        assert duplicated_route_b.name == "Route B"
+        assert duplicated_route_b.notes == "second route notes"
+        assert duplicated_route_b.length == 3.5
+        assert duplicated_route_b.driver_id is None
+        assert duplicated_route_b.cloned_from_route_id == route_b.route_id
+        assert [
+            (stop.location_id, stop.stop_number)
+            for stop in duplicated_route_b.route_stops
+        ] == [(loc_b.location_id, 1)]
+
+        # PATCH on a group with content returns the same populated aggregates.
+        patch_response = await async_client.patch(
+            f"/route-groups/{duplicated_group_id}",
+            json={"notes": "updated copy notes"},
+        )
+        assert patch_response.status_code == 200
+        patch_body = patch_response.json()
+        assert patch_body["notes"] == "updated copy notes"
+        assert patch_body["num_routes"] == 2
+        assert patch_body["num_locations"] == 2
+        assert patch_body["num_boxes"] == 3
+        assert patch_body["num_drivers_assigned"] == 1
+        assert patch_body["delivery_type"] == "Family"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_empty_route_group_truncates_copy_name(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """An empty route group can be duplicated and the copied name stays valid."""
+        long_name = "A" * 255
+        route_group = RouteGroup(
+            name=long_name,
+            notes="empty group",
+            drive_date=datetime(2026, 7, 10, 9, 0),
+        )
+        test_session.add(route_group)
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate"
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["route_group_id"] != str(route_group.route_group_id)
+        assert body["name"] == f"Copy of {long_name}"[:255]
+        assert len(body["name"]) == 255
+        assert body["num_routes"] == 0
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_not_found(
+        self, async_client: AsyncClient
+    ) -> None:
+        """POST /route-groups/{id}/duplicate returns 404 for a missing group."""
+        response = await async_client.post(f"/route-groups/{uuid4()}/duplicate")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_route_group(
+        self,
+        async_client: AsyncClient,
+        test_route_group: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """DELETE removes the route group and cascades routes, stops, and snapshots."""
+        loc_group = LocationGroup(
+            name="Delete Cascade Locations", color="#654321", notes=""
+        )
+        test_session.add(loc_group)
+        await test_session.flush()
+
+        location = Location(
+            location_group_id=loc_group.location_group_id,
+            name="Delete Cascade Location",
+            delivery_type="Family",
+            contact_name="Delete",
+            address="3 Main St",
+            phone_primary="555-0003",
+            num_children=2,
+        )
+        test_session.add(location)
+        await test_session.flush()
+
+        route = Route(
+            name="Delete Cascade Route",
+            length=5.0,
+            route_group_id=test_route_group.route_group_id,
+        )
+        test_session.add(route)
+        await test_session.flush()
+
+        route_stop = RouteStop(
+            route_id=route.route_id,
+            location_id=location.location_id,
+            stop_number=1,
+        )
+        test_session.add(route_stop)
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                RouteSnapshot(
+                    route_id=route.route_id,
+                    start_address="Warehouse",
+                    start_latitude=43.0,
+                    start_longitude=-80.0,
+                ),
+                RouteStopSnapshot(
+                    route_stop_id=route_stop.route_stop_id,
+                    address="Snapshot Address",
+                    contact_name="Snapshot Contact",
+                    phone_primary="555-0100",
+                    num_children=2,
+                    latitude=43.1,
+                    longitude=-80.1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
         response = await async_client.delete(
             f"/route-groups/{test_route_group.route_group_id}"
         )
@@ -3227,6 +3611,12 @@ class TestRouteGroupRoutes:
         assert not any(
             str(rg["route_group_id"]) == str(test_route_group.route_group_id)
             for rg in data
+        )
+        assert await test_session.get(Route, route.route_id) is None
+        assert await test_session.get(RouteStop, route_stop.route_stop_id) is None
+        assert await test_session.get(RouteSnapshot, route.route_id) is None
+        assert (
+            await test_session.get(RouteStopSnapshot, route_stop.route_stop_id) is None
         )
 
     @pytest.mark.asyncio
@@ -4015,6 +4405,91 @@ class TestJobRoutes:
         response = await client.post("/jobs/generate", json=body)
         assert response.status_code == 202
         assert response.json()["job_id"] == str(job_id)
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_job(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """POST /jobs/{id}/cancel marks a pending job as cancelled."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.PENDING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["progress"] == "Cancelled"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+        assert job.finished_at is not None
+
+    @pytest.mark.asyncio
+    async def test_cancel_running_job_prevents_late_completion(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A cancelled running job stays cancelled if worker completion arrives later."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.RUNNING)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Cancelled"
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.update_progress(job.job_id, ProgressEnum.COMPLETED)
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_cancel_finished_job_is_safe_noop(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Cancelling completed/failed work returns the existing terminal state."""
+        from app.models.job import Job
+
+        job = Job(progress=ProgressEnum.COMPLETED)
+        test_session.add(job)
+        await test_session.commit()
+
+        response = await async_client.post(f"/jobs/{job.job_id}/cancel")
+
+        assert response.status_code == 200
+        assert response.json()["progress"] == "Completed"
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_cancel_job_not_found(self, async_client: AsyncClient) -> None:
+        """POST /jobs/{id}/cancel returns 404 for an unknown job."""
+        response = await async_client.post(f"/jobs/{uuid4()}/cancel")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_enqueue_cancelled_job_does_not_run(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Queued work checks job state before moving to Running."""
+        from app.models.job import Job
+        from app.services.implementations.job_service import JobService
+
+        job = Job(progress=ProgressEnum.CANCELLED)
+        test_session.add(job)
+        await test_session.commit()
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        await service.enqueue(job.job_id)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.CANCELLED
 
 
 class TestSystemSettingsRoutes:

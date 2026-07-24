@@ -11,7 +11,9 @@ import pytest
 
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
+    GLOBAL_DURATION_COST_PER_HOUR,
     MANDATORY_DELIVERY_PENALTY,
+    VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
 )
 
@@ -91,8 +93,12 @@ class TestBuildPayload:
             assert v["displayName"] == f"driver_{i}"
             assert v["startLocation"] == {"latitude": 43.0, "longitude": -79.0}
             assert v["loadLimits"] == {
-                "load": {"maxLoad": str(sample_settings.max_half_boxes_per_driver)}
+                "load": {"maxLoad": str(sample_settings.max_boxes_per_driver)}
             }
+            assert v["costPerHour"] == VEHICLE_COST_PER_HOUR
+
+        # --- global duration cost per hour: minimize total time between first start and last end ---
+        assert model["globalDurationCostPerHour"] == GLOBAL_DURATION_COST_PER_HOUR
 
         # --- shipments = forced_pickups + deliveries ---
         shipments = model["shipments"]
@@ -117,9 +123,9 @@ class TestBuildPayload:
                 "latitude": loc.latitude,
                 "longitude": loc.longitude,
             }
-            assert delivery["loadDemands"] == {
-                "load": {"amount": str(loc.num_children)}
-            }
+            # Demand is the derived box count, not raw children:
+            # ceil(2 children / 2 per box) = 1 box.
+            assert delivery["loadDemands"] == {"load": {"amount": "1"}}
 
     def test_service_duration_on_deliveries(
         self,
@@ -171,38 +177,76 @@ class TestBuildPayload:
         vehicle = payload["model"]["vehicles"][0]
         assert "endLocation" not in vehicle
 
-    def test_route_duration_limit(
-        self,
-        algorithm: GoogleMapsFleetRoutingAlgorithm,
-        make_location: Any,
-    ) -> None:
-        """When route_duration_limit_minutes is set, vehicles get routeDurationLimit."""
-        settings = RouteGenerationSettings(
-            num_routes=1,
-            route_start_time=datetime(2025, 1, 1, 9, 0),
-            route_duration_limit_minutes=120,
-        )
-        locs = [make_location()]
+    def test_longest_route_cost_dominates_per_vehicle_cost(self) -> None:
+        """The cost of when the last driver finishes must outweigh the
+        per-vehicle time cost, or the optimizer would never trade extra total
+        driving time for getting the last driver home sooner."""
+        assert GLOBAL_DURATION_COST_PER_HOUR > VEHICLE_COST_PER_HOUR
 
-        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
-
-        vehicle = payload["model"]["vehicles"][0]
-        assert vehicle["routeDurationLimit"]["softMaxDuration"] == "7200s"
-        assert vehicle["routeDurationLimit"]["costPerHourAfterSoftMax"] > 0
-
-    def test_no_route_duration_limit_omits_field(
+    def test_oversized_location_demand_clamped_to_capacity(
         self,
         algorithm: GoogleMapsFleetRoutingAlgorithm,
         make_location: Any,
         sample_settings: RouteGenerationSettings,
     ) -> None:
-        """When route_duration_limit_minutes is None, no routeDurationLimit."""
-        locs = [make_location()]
+        """A location over vehicle capacity is clamped to exactly the capacity,
+        saturating one vehicle so it gets a dedicated route (the van case)."""
+        cap_boxes = sample_settings.max_boxes_per_driver
+        # (cap + 4) boxes worth of children, at children_per_box=2
+        locs = [make_location(num_children=(cap_boxes + 4) * 2)]
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
 
-        vehicle = payload["model"]["vehicles"][0]
-        assert "routeDurationLimit" not in vehicle
+        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        assert delivery["loadDemands"] == {"load": {"amount": str(cap_boxes)}}
+
+    def test_demand_at_capacity_not_clamped(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """A location exactly at vehicle capacity passes through unchanged."""
+        cap_boxes = sample_settings.max_boxes_per_driver
+        locs = [make_location(num_children=cap_boxes * 2)]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
+
+        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        assert delivery["loadDemands"] == {"load": {"amount": str(cap_boxes)}}
+
+    def test_demand_below_capacity_rounds_up_to_whole_boxes(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """A normal location demands its box count, with partial boxes
+        rounded up: 5 children at 2 per box is 3 boxes, not 2.5."""
+        locs = [make_location(num_children=5)]
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, sample_settings)
+
+        delivery = payload["model"]["shipments"][2]["deliveries"][0]
+        assert delivery["loadDemands"] == {"load": {"amount": "3"}}
+
+    def test_custom_children_per_box(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """Box derivation honours a non-default children_per_box."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2025, 1, 1, 9, 0),
+            children_per_box=3,
+        )
+        locs = [make_location(num_children=7)]  # ceil(7 / 3) = 3 boxes
+
+        payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
+
+        delivery = payload["model"]["shipments"][1]["deliveries"][0]
+        assert delivery["loadDemands"] == {"load": {"amount": "3"}}
 
 
 # ---------------------------------------------------------------------------

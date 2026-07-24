@@ -925,6 +925,32 @@
             ],
             "title": "Car Make Model"
           },
+          "first_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
           "license_plate": {
             "anyOf": [
               {
@@ -2468,6 +2494,7 @@
         "enum": [
           "Pending",
           "Running",
+          "Cancelled",
           "Completed",
           "Failed"
         ],
@@ -2623,10 +2650,10 @@
             "title": "Children Per Box",
             "type": "integer"
           },
-          "max_half_boxes_per_driver": {
-            "default": 28,
+          "max_boxes_per_driver": {
+            "default": 14,
             "exclusiveMinimum": 0,
-            "title": "Max Half Boxes Per Driver",
+            "title": "Max Boxes Per Driver",
             "type": "integer"
           },
           "max_stops_per_route": {
@@ -2648,19 +2675,6 @@
             "default": false,
             "title": "Return To Warehouse",
             "type": "boolean"
-          },
-          "route_duration_limit_minutes": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.",
-            "title": "Route Duration Limit Minutes"
           },
           "route_start_time": {
             "format": "date-time",
@@ -5230,6 +5244,55 @@
         ]
       }
     },
+    "/jobs/{job_id}/cancel": {
+      "post": {
+        "description": "Cancel an in-flight route generation job.",
+        "operationId": "cancel_job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/location-groups/": {
       "get": {
         "description": "Get all location groups",
@@ -6796,6 +6859,55 @@
           }
         ],
         "summary": "Update Route Group",
+        "tags": [
+          "route-groups"
+        ]
+      }
+    },
+    "/route-groups/{route_group_id}/duplicate": {
+      "post": {
+        "description": "Duplicate a route group and its routes/stops for a new planning cycle.",
+        "operationId": "duplicate_route_group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Duplicate Route Group",
         "tags": [
           "route-groups"
         ]

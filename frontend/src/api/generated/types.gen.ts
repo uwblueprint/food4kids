@@ -572,6 +572,14 @@ export type DriverUpdate = {
    */
   car_make_model?: string | null;
   /**
+   * First Name
+   */
+  first_name?: string | null;
+  /**
+   * Last Name
+   */
+  last_name?: string | null;
+  /**
    * License Plate
    */
   license_plate?: string | null;
@@ -1461,7 +1469,12 @@ export type PaginatedResponseRouteWithDateRead = {
 /**
  * ProgressEnum
  */
-export type ProgressEnum = 'Pending' | 'Running' | 'Completed' | 'Failed';
+export type ProgressEnum =
+  | 'Pending'
+  | 'Running'
+  | 'Cancelled'
+  | 'Completed'
+  | 'Failed';
 
 /**
  * RouteDetailRead
@@ -1549,9 +1562,9 @@ export type RouteGenerationSettings = {
    */
   children_per_box?: number;
   /**
-   * Max Half Boxes Per Driver
+   * Max Boxes Per Driver
    */
-  max_half_boxes_per_driver?: number;
+  max_boxes_per_driver?: number;
   /**
    * Max Stops Per Route
    */
@@ -1564,12 +1577,6 @@ export type RouteGenerationSettings = {
    * Return To Warehouse
    */
   return_to_warehouse?: boolean;
-  /**
-   * Route Duration Limit Minutes
-   *
-   * Soft cap on total route duration (minutes). Routes exceeding this incur an optimization penalty to spread deliveries more evenly.
-   */
-  route_duration_limit_minutes?: number | null;
   /**
    * Route Start Time
    */
@@ -3271,6 +3278,36 @@ export type GetJobResponses = {
 
 export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
 
+export type CancelJobData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/jobs/{job_id}/cancel';
+};
+
+export type CancelJobErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelJobError = CancelJobErrors[keyof CancelJobErrors];
+
+export type CancelJobResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobRead;
+};
+
+export type CancelJobResponse = CancelJobResponses[keyof CancelJobResponses];
+
 export type GetLocationGroupsData = {
   body?: never;
   path?: never;
@@ -4180,6 +4217,38 @@ export type UpdateRouteGroupResponses = {
 
 export type UpdateRouteGroupResponse =
   UpdateRouteGroupResponses[keyof UpdateRouteGroupResponses];
+
+export type DuplicateRouteGroupData = {
+  body?: never;
+  path: {
+    /**
+     * Route Group Id
+     */
+    route_group_id: string;
+  };
+  query?: never;
+  url: '/route-groups/{route_group_id}/duplicate';
+};
+
+export type DuplicateRouteGroupErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DuplicateRouteGroupError =
+  DuplicateRouteGroupErrors[keyof DuplicateRouteGroupErrors];
+
+export type DuplicateRouteGroupResponses = {
+  /**
+   * Successful Response
+   */
+  201: RouteGroupRead;
+};
+
+export type DuplicateRouteGroupResponse =
+  DuplicateRouteGroupResponses[keyof DuplicateRouteGroupResponses];
 
 export type GetRoutesData = {
   body?: never;
