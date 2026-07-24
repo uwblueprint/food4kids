@@ -5,16 +5,24 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 
-from app.models.location import AlertCode, Location, LocationImportEntry
+from app.models.location import (
+    AlertCode,
+    DuplicateMatchField,
+    Location,
+    LocationImportEntry,
+)
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
-    count_duplicate_field_matches,
+    entry_match_key,
     find_duplicate_index_groups,
     is_invalid_school_or_last_name,
-    rows_are_duplicates,
+    is_same_location,
+    location_match_key,
+    matching_fields,
 )
 from app.services.implementations.location_service import LocationService
 
@@ -35,6 +43,14 @@ def _entry(
         delivery_group=delivery_group,
         phone_primary=phone_primary,
     )
+
+
+def _rows_are_duplicates(left: LocationImportEntry, right: LocationImportEntry) -> bool:
+    return is_same_location(entry_match_key(left), entry_match_key(right))
+
+
+def _find_groups(entries: list[LocationImportEntry]) -> list[list[int]]:
+    return find_duplicate_index_groups([entry_match_key(entry) for entry in entries])
 
 
 class TestFieldValidation:
@@ -128,7 +144,7 @@ class TestDuplicateDetection:
             address="105 Albert St",
             phone_primary="+15192842498",
         )
-        assert rows_are_duplicates(left, right)
+        assert _rows_are_duplicates(left, right)
 
     def test_name_and_phone_two_of_three(self) -> None:
         left = _entry(
@@ -141,7 +157,7 @@ class TestDuplicateDetection:
             address="20 Second Ave",
             phone_primary="+14272842498",
         )
-        assert rows_are_duplicates(left, right)
+        assert _rows_are_duplicates(left, right)
 
     def test_address_and_phone_two_of_three(self) -> None:
         left = _entry(
@@ -154,7 +170,7 @@ class TestDuplicateDetection:
             address="80 Mooregate Cres",
             phone_primary="+15193034390",
         )
-        assert rows_are_duplicates(left, right)
+        assert _rows_are_duplicates(left, right)
 
     def test_name_and_address_two_of_three(self) -> None:
         left = _entry(
@@ -167,7 +183,7 @@ class TestDuplicateDetection:
             address="527 Parkside Dr",
             phone_primary="+15192222222",
         )
-        assert rows_are_duplicates(left, right)
+        assert _rows_are_duplicates(left, right)
 
     def test_one_of_three_address_only_not_duplicate(self) -> None:
         left = _entry(
@@ -180,8 +196,10 @@ class TestDuplicateDetection:
             address="100 Shared Building",
             phone_primary="+15192222222",
         )
-        assert count_duplicate_field_matches(left, right) == 1
-        assert not rows_are_duplicates(left, right)
+        assert matching_fields(entry_match_key(left), entry_match_key(right)) == [
+            DuplicateMatchField.ADDRESS
+        ]
+        assert not _rows_are_duplicates(left, right)
 
     def test_one_of_three_phone_only_not_duplicate(self) -> None:
         left = _entry(
@@ -194,7 +212,7 @@ class TestDuplicateDetection:
             address="2 B St",
             phone_primary="+15193034390",
         )
-        assert not rows_are_duplicates(left, right)
+        assert not _rows_are_duplicates(left, right)
 
     def test_one_of_three_name_only_not_duplicate(self) -> None:
         left = _entry(
@@ -207,7 +225,7 @@ class TestDuplicateDetection:
             address="2 B St",
             phone_primary="+15192222222",
         )
-        assert not rows_are_duplicates(left, right)
+        assert not _rows_are_duplicates(left, right)
 
     def test_different_address_formatting_not_duplicate(self) -> None:
         left = _entry(
@@ -218,17 +236,17 @@ class TestDuplicateDetection:
             address="123 Main Street",
             phone_primary="+15195551234",
         )
-        assert not rows_are_duplicates(left, right)
+        assert not _rows_are_duplicates(left, right)
 
     def test_name_match_is_case_insensitive(self) -> None:
         left = _entry(contact_name="Smith")
         right = _entry(contact_name="smith")
-        assert rows_are_duplicates(left, right)
+        assert _rows_are_duplicates(left, right)
 
     def test_address_match_is_case_insensitive(self) -> None:
         left = _entry(address="123 Main St")
         right = _entry(address="123 main st")
-        assert rows_are_duplicates(left, right)
+        assert _rows_are_duplicates(left, right)
 
     def test_transitive_duplicate_cluster(self) -> None:
         entries = [
@@ -248,7 +266,7 @@ class TestDuplicateDetection:
                 phone_primary="+15191111111",
             ),
         ]
-        groups = find_duplicate_index_groups(entries)
+        groups = _find_groups(entries)
         assert groups == [[0, 1, 2]]
 
     def test_all_members_in_duplicate_group(self) -> None:
@@ -256,8 +274,68 @@ class TestDuplicateDetection:
             _entry(contact_name="A", address="1 St", phone_primary="+15191111111"),
             _entry(contact_name="A", address="2 St", phone_primary="+15191111111"),
         ]
-        groups = find_duplicate_index_groups(entries)
+        groups = _find_groups(entries)
         assert groups == [[0, 1]]
+
+
+class TestMatchKey:
+    """The same key function serves in-file dedup and entry-vs-Location matching."""
+
+    def _location(
+        self,
+        *,
+        contact_name: str = "Smith",
+        address: str = "123 Main St",
+        phone_primary: str = "+15195551234",
+    ) -> Location:
+        return Location(
+            location_group_id=uuid4(),
+            name=contact_name,
+            contact_name=contact_name,
+            address=address,
+            phone_primary=phone_primary,
+            delivery_type="Family",
+        )
+
+    def test_internal_whitespace_collapses(self) -> None:
+        left = entry_match_key(_entry(contact_name="John  Smith"))
+        right = entry_match_key(_entry(contact_name="John Smith"))
+        assert left.name == right.name
+
+    def test_blank_fields_never_match(self) -> None:
+        left = entry_match_key(
+            _entry(contact_name="  ", address="1 A St", phone_primary=None)
+        )
+        right = entry_match_key(
+            _entry(contact_name="", address="2 B St", phone_primary=None)
+        )
+        assert left.name is None
+        assert left.phone is None
+        assert matching_fields(left, right) == []
+
+    def test_location_matches_entry_through_same_key(self) -> None:
+        entry_key = entry_match_key(
+            _entry(contact_name="smith", address="123  MAIN st")
+        )
+        location_key = location_match_key(self._location())
+        assert matching_fields(entry_key, location_key) == [
+            DuplicateMatchField.NAME,
+            DuplicateMatchField.ADDRESS,
+            DuplicateMatchField.PHONE,
+        ]
+        assert is_same_location(entry_key, location_key)
+
+    def test_location_one_field_match_is_not_same(self) -> None:
+        entry_key = entry_match_key(
+            _entry(
+                contact_name="Jones",
+                address="99 Elsewhere Rd",
+                phone_primary="+15195551234",
+            )
+        )
+        location_key = location_match_key(self._location())
+        assert matching_fields(entry_key, location_key) == [DuplicateMatchField.PHONE]
+        assert not is_same_location(entry_key, location_key)
 
 
 class TestExistingGeocodedAddresses:
