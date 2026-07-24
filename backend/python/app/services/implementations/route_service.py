@@ -14,6 +14,7 @@ from app.models.route import (
     Route,
     RouteDetailRead,
     RoutePatchRequest,
+    RouteRead,
     RouteWithDateRead,
     SuggestedDriverResponse,
 )
@@ -211,6 +212,15 @@ class RouteService:
 
             children_per_box = await resolve_children_per_box(session)
             rows = await self._fetch_ordered_stops(session, route_id)
+            # drive_date lives on the route's group (same source as the list
+            # endpoint's RouteWithDateRead).
+            drive_date = (
+                await session.execute(
+                    select(RouteGroup.drive_date).where(
+                        RouteGroup.route_group_id == route.route_group_id
+                    )
+                )
+            ).scalar_one()
         except HTTPException:
             raise
         except Exception as error:
@@ -243,9 +253,17 @@ class RouteService:
             for stop, location, snapshot in rows
         ]
 
-        detail = RouteDetailRead.model_validate(route, from_attributes=True)
-        detail.stops = stops
-        return detail
+        # delivery_type is uniform across a route's locations; read it off the
+        # first stop's live Location (None when the route has no stops).
+        delivery_type = rows[0][1].delivery_type if rows else None
+
+        route_read = RouteRead.model_validate(route, from_attributes=True)
+        return RouteDetailRead(
+            **route_read.model_dump(),
+            drive_date=drive_date,
+            delivery_type=delivery_type,
+            stops=stops,
+        )
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""

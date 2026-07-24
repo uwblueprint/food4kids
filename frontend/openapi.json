@@ -2502,7 +2502,7 @@
         "type": "string"
       },
       "RouteDetailRead": {
-        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.",
+        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
           "cloned_from_route_id": {
             "anyOf": [
@@ -2515,6 +2515,22 @@
               }
             ],
             "title": "Cloned From Route Id"
+          },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
+          "drive_date": {
+            "format": "date-time",
+            "title": "Drive Date",
+            "type": "string"
           },
           "driver_id": {
             "anyOf": [
@@ -2619,7 +2635,8 @@
         "required": [
           "length",
           "route_group_id",
-          "route_id"
+          "route_id",
+          "drive_date"
         ],
         "title": "RouteDetailRead",
         "type": "object"
