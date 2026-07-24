@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
-import { useReviewLocations } from '@/api';
+import {
+  getConfiguredDeliveryTypes,
+  useReviewLocations,
+  useSystemSettings,
+} from '@/api';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -73,11 +77,15 @@ export function ImportStep() {
     setFileHeaders,
     columnMap,
     setColumnMap,
+    selectedDeliveryType,
+    setSelectedDeliveryType,
     setReviewResult,
   } = useOutletContext<GenerationOutletContext>();
 
   const { mutateAsync: reviewLocations, isPending: isReviewing } =
     useReviewLocations();
+  const { data: systemSettings } = useSystemSettings();
+  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
 
   const [formatError, setFormatError] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -95,6 +103,7 @@ export function ImportStep() {
       const headers = await parseHeaders(selected);
       setFile(selected);
       setFileHeaders(headers);
+      setReviewResult(null);
       // Drop any saved mappings whose target column isn't in this file
       const validHeaders = new Set(headers);
       setColumnMap(
@@ -110,6 +119,7 @@ export function ImportStep() {
   const handleClearFile = () => {
     setFile(null);
     setFileHeaders([]);
+    setReviewResult(null);
   };
 
   const headerOptions = fileHeaders.map((h) => ({ label: h, value: h }));
@@ -151,14 +161,19 @@ export function ImportStep() {
   ];
 
   const canContinue =
+    selectedDeliveryType !== '' &&
     file !== null &&
     SYSTEM_FIELDS.filter((f) => f.required).every((f) => !!columnMap[f.key]);
 
   const handleContinue = async () => {
-    if (!file) return;
+    if (!file || !selectedDeliveryType) return;
     setReviewError(null);
     try {
-      const result = await reviewLocations({ file, columnMap });
+      const result = await reviewLocations({
+        file,
+        columnMap,
+        deliveryType: selectedDeliveryType,
+      });
       setReviewResult(result);
       navigate('/admin/routes/generation/validate');
     } catch {
@@ -185,15 +200,43 @@ export function ImportStep() {
         <CardHeader>
           <CardTitle>Import Data</CardTitle>
           <CardDescription>
-            Upload an Excel file (.xlsx) with delivery information
+            Select a delivery type, then upload an Excel file (.xlsx) with
+            delivery information
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-4">
-          <FileInput
-            onFileSelect={handleFileSelect}
-            selectedFile={file}
-            onClearFile={handleClearFile}
-          />
+        <CardContent className="flex flex-col gap-4 pt-4">
+          <div className="flex max-w-xs flex-col gap-2">
+            <span className="text-p2 text-grey-500 font-medium">
+              Delivery Type
+            </span>
+            <Dropdown
+              value={selectedDeliveryType}
+              onValueChange={(value) => {
+                setSelectedDeliveryType(value);
+                setFile(null);
+                setFileHeaders([]);
+                setReviewResult(null);
+              }}
+            >
+              <DropdownTrigger>
+                <DropdownValue placeholder="Select Delivery Type" />
+              </DropdownTrigger>
+              <DropdownContent>
+                {deliveryTypes.map((deliveryType) => (
+                  <DropdownItem key={deliveryType} value={deliveryType}>
+                    {deliveryType}
+                  </DropdownItem>
+                ))}
+              </DropdownContent>
+            </Dropdown>
+          </div>
+          {selectedDeliveryType && (
+            <FileInput
+              onFileSelect={handleFileSelect}
+              selectedFile={file}
+              onClearFile={handleClearFile}
+            />
+          )}
         </CardContent>
       </Card>
 

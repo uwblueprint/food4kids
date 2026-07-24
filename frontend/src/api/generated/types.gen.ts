@@ -188,6 +188,10 @@ export type BodyReviewLocations = {
    */
   column_map: string;
   /**
+   * Delivery Type
+   */
+  delivery_type: string;
+  /**
    * File
    */
   file: Blob | File;

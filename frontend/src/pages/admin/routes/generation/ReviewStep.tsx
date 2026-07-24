@@ -6,15 +6,18 @@ import {
   useOutletContext,
 } from 'react-router-dom';
 
+import { useIngestLocations } from '@/api';
 import type {
   ChangedEntry,
   NetNewEntry,
   StaleEntry,
+  ValidatedLocationImportEntry,
 } from '@/api/generated/types.gen';
 import CheckIcon from '@/assets/icons/check.svg?react';
 import XIcon from '@/assets/icons/x.svg?react';
 import type { Column } from '@/common/components';
 import {
+  Banner,
   Button,
   DataTable,
   Modal,
@@ -132,21 +135,36 @@ const staleColumns: Column<StaleEntry>[] = [
 // ReviewStep
 // ---------------------------------------------------------------------------
 
-// TODO: replace with net_new/stale/changed from the POST /locations/review response once backend matching logic is implemented
-const PLACEHOLDER_NET_NEW: NetNewEntry[] = [];
-const PLACEHOLDER_STALE: StaleEntry[] = [];
-const PLACEHOLDER_CHANGED: ChangedEntry[] = [];
+function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
+  return {
+    contact_name: entry.contact_name,
+    address: entry.address,
+    delivery_group: entry.delivery_group ?? '',
+    phone_primary: entry.phone_primary,
+    phone_secondary: entry.phone_secondary,
+    num_children: entry.num_children,
+  };
+}
 
 export function ReviewStep() {
   const navigate = useNavigate();
-  const { file } = useOutletContext<GenerationOutletContext>();
+  const { file, reviewResult, selectedDeliveryType } =
+    useOutletContext<GenerationOutletContext>();
+  const { mutateAsync: ingestLocations, isPending: isIngesting } =
+    useIngestLocations();
 
   const [accepted, setAccepted] = useState<Set<number>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [ingestError, setIngestError] = useState<string | null>(null);
 
-  if (!file) {
+  if (!file || !reviewResult || !selectedDeliveryType) {
     return <Navigate to="/admin/routes/generation/import" replace />;
   }
+
+  const data = reviewResult;
+  const netNewRows = data.net_new ?? [];
+  const staleRows = data.stale ?? [];
+  const changedEntries = data.changed ?? [];
 
   const toggleAccepted = (index: number) => {
     setAccepted((prev) => {
@@ -160,9 +178,20 @@ export function ReviewStep() {
     });
   };
 
-  const handleConfirm = () => {
-    setConfirmOpen(false);
-    navigate('/admin/routes/generation/configure');
+  const handleConfirm = async () => {
+    setIngestError(null);
+    try {
+      await ingestLocations({
+        delivery_type: selectedDeliveryType,
+        net_new: netNewRows.map(toIngestNetNew),
+        stale: staleRows,
+        changed: changedEntries,
+      });
+      setConfirmOpen(false);
+      navigate('/admin/routes/generation/configure');
+    } catch {
+      setIngestError('Could not apply the import changes — please try again.');
+    }
   };
 
   const changedColumns: Column<ChangedEntry & { _index: number }>[] = [
@@ -226,13 +255,19 @@ export function ReviewStep() {
     },
   ];
 
-  const changedRows = PLACEHOLDER_CHANGED.map((entry, i) => ({
+  const changedRows = changedEntries.map((entry, i) => ({
     ...entry,
     _index: i,
   }));
 
   return (
     <>
+      {ingestError && (
+        <Banner variant="error" onDismiss={() => setIngestError(null)}>
+          {ingestError}
+        </Banner>
+      )}
+
       {/* New in Spreadsheet */}
       <section className="flex flex-col gap-3">
         <div>
@@ -243,7 +278,7 @@ export function ReviewStep() {
         </div>
         <DataTable
           columns={netNewColumns}
-          rows={PLACEHOLDER_NET_NEW}
+          rows={netNewRows}
           getRowKey={(r) => r.row}
           emptyState={
             <EmptyState
@@ -264,7 +299,7 @@ export function ReviewStep() {
         </div>
         <DataTable
           columns={staleColumns}
-          rows={PLACEHOLDER_STALE}
+          rows={staleRows}
           getRowKey={(r) => r.location_id}
           emptyState={
             <EmptyState
@@ -326,8 +361,12 @@ export function ReviewStep() {
             <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleConfirm}>
-              Apply Changes
+            <Button
+              variant="primary"
+              disabled={isIngesting}
+              onClick={handleConfirm}
+            >
+              {isIngesting ? 'Applying…' : 'Apply Changes'}
             </Button>
           </ModalFooter>
         </ModalContent>
