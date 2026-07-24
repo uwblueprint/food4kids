@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, computed_field
+from pydantic import BaseModel, EmailStr, Field, computed_field
 
 from app.models.driver import DriverRead
 
@@ -10,6 +10,19 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ValidateResetTokenRequest(BaseModel):
+    password_reset_token: str
+
+
+class UpdatePasswordRequest(BaseModel):
+    password_reset_token: str
+    new_password: str = Field(min_length=8, max_length=100)
 
 
 class AuthResponse(BaseModel):

@@ -1,72 +1,82 @@
-import axios from 'axios';
-import { type FormEvent, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+
+import { useRegisterDriver } from '@/api/auth';
+import { Button, NotFoundPage } from '@/common/components';
+
+import { CreatePasswordForm } from './CreatePasswordForm';
+import { WrapperWithLogo } from './Wrapper';
+
+type Step = 'FORM' | 'CONFIRMATION';
 
 export const CreatePassword = () => {
-  const [password, setPassword] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const [step, setStep] = useState<Step>('FORM');
+  const headerTitle = step === 'FORM' ? 'Create a password' : 'Account created';
+  const subheaderTitle =
+    step === 'FORM'
+      ? 'Create an account to access the app'
+      : "You're in! Get ready to help fill some lunch bags and put smiles on some faces.";
+
+  const { mutate, isPending } = useRegisterDriver();
+
   const { token } = useParams();
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isValidUuid = token && uuidRegex.test(token);
 
-  const submitPassword = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setFeedback('Connecting...');
+  if (!isValidUuid) {
+    return <NotFoundPage />;
+  }
 
-    try {
-      // Axios handles JSON stringification automatically
-      const response = await axios.post(
-        'http://localhost:8080/drivers/register',
-        {
-          user_invite_id: token,
-          password: password,
-        }
-      );
+  const handleRegister = (password: string) => {
+    if (!token) return;
 
-      console.log('Backend response:', response.data);
-      setFeedback('Success: Password recorded.');
-      setPassword(''); // Clear input on success
-    } catch (err) {
-      // Axios catches 4xx/5xx errors automatically
-      let errorMessage = 'Server unreachable';
-      if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || errorMessage;
+    mutate(
+      {
+        user_invite_id: token,
+        password: password,
+      },
+      {
+        onSuccess: () => setStep('CONFIRMATION'),
       }
-      setFeedback(`Error: ${errorMessage}`);
-    }
+    );
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-8 text-center shadow-sm">
-        <h1 className="mb-6 text-2xl font-bold text-gray-800">
-          Create Password
-        </h1>
+    <WrapperWithLogo
+      headerTitle={headerTitle}
+      subheaderTitle={subheaderTitle}
+      className="desktop:max-w-[362px]"
+    >
+      {step === 'FORM' ? (
+        <CreatePasswordForm
+          onSubmit={handleRegister}
+          isPending={isPending}
+          submitButtonText="Create account"
+        />
+      ) : (
+        <AccountCreationConfirmation />
+      )}
+    </WrapperWithLogo>
+  );
+};
 
-        <form onSubmit={submitPassword} className="flex flex-col gap-4">
-          <input
-            type="password"
-            placeholder="Enter test password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-lg border border-gray-200 p-3 transition-all outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
+const AccountCreationConfirmation = () => {
+  const navigate = useNavigate();
 
-          <button
-            type="submit"
-            className="rounded-lg bg-blue-600 py-3 font-bold text-white transition-colors hover:bg-blue-700"
-          >
-            Test Backend
-          </button>
-        </form>
-
-        {feedback && (
-          <p
-            className={`mt-4 text-sm font-medium ${feedback.includes('Error') ? 'text-red-500' : 'text-green-600'}`}
-          >
-            {feedback}
-          </p>
-        )}
+  return (
+    <>
+      <div className="flex flex-col">
+        <Button
+          type="button"
+          variant="primary"
+          shape="default"
+          className="desktop:mt-4 w-full py-3"
+          onClick={() => navigate('/')}
+        >
+          Continue
+        </Button>
       </div>
-    </div>
+    </>
   );
 };

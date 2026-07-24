@@ -6,7 +6,6 @@ import firebase_admin.auth
 import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient
 
@@ -122,60 +121,6 @@ class AuthService:
             return auth_response, token_response.refresh_token
         except Exception as e:
             self.logger.error(f"Failed to refresh token: {e}")
-            raise e
-
-    def reset_password(self, email: str) -> None:
-        if not self.email_service:
-            error_message = """
-                Attempted to call reset_password but this instance of AuthService 
-                does not have an EmailService instance
-                """
-            self.logger.error(error_message)
-            raise Exception(error_message)
-
-        try:
-            reset_link = firebase_admin.auth.generate_password_reset_link(email)
-            email_body = f"""
-                Hello,
-                <br><br>
-                We have received a password reset request for your account. 
-                Please click the following link to reset it. 
-                <strong>This link is only valid for 1 hour.</strong>
-                <br><br>
-                <a href={reset_link}>Reset Password</a>
-                """
-            self.email_service.send_email(email, "Your Password Reset Link", email_body)
-        except Exception as e:
-            reason = getattr(e, "message", None)
-            self.logger.error(
-                f"Failed to send password reset link for {email}. Reason = {reason if reason else str(e)}"
-            )
-            raise e
-
-    def send_create_password_email(self, email: str, user_invite_id: UUID) -> None:
-        if not self.email_service:
-            error_message = """
-                Attempted to call send_create_password_email but this instance of AuthService 
-                does not have an EmailService instance
-                """
-            self.logger.error(error_message)
-            raise Exception(error_message)
-
-        try:
-            driver_signup_link = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite_id}"
-            email_body = f"""
-                Hello,
-                <br><br>
-                Please click the following link to verify your email and activate your account.
-                <strong>This link is only valid for 2 days.</strong>
-                <br><br>
-                <a href={driver_signup_link}>Verify email</a>
-                """
-            self.email_service.send_email(email, "Verify your email", email_body)
-        except Exception as e:
-            self.logger.error(
-                f"Failed to generate email verification link for user with email {email}."
-            )
             raise e
 
     async def is_authorized_by_role(

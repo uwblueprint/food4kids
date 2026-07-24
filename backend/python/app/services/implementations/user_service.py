@@ -37,8 +37,7 @@ class UserService:
     async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
         """Get user by email using Firebase"""
         try:
-            firebase_user: UserRecord = firebase_admin.auth.get_user_by_email(email)
-            statement = select(User).where(User.auth_id == firebase_user.uid)
+            statement = select(User).where(User.email == email)
             result = await session.execute(statement)
             user = result.scalars().first()
 
@@ -262,4 +261,16 @@ class UserService:
             return user.user_id
         except Exception as e:
             self.logger.error(f"Failed to get user_id by auth_id: {e!s}")
+            raise e
+
+    async def update_password(self, auth_id: str, new_password: str) -> None:
+        try:
+            firebase_admin.auth.update_user(auth_id, password=new_password)
+        except firebase_admin.auth.UserNotFoundError as e:
+            self.logger.error(f"Firebase user {auth_id} not found: {e!s}")
+            raise e
+        except firebase_admin.exceptions.FirebaseError as e:
+            self.logger.error(
+                f"Firebase failed to update password for {auth_id}: {e!s}"
+            )
             raise e

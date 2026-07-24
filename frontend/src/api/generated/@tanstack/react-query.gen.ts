@@ -32,6 +32,7 @@ import {
   deleteRouteGroup,
   duplicateRouteGroup,
   exportAllDriversHistory,
+  forgotPassword,
   generateJob,
   getAnnouncement,
   getAnnouncements,
@@ -66,7 +67,6 @@ import {
   patchSystemSettings,
   refresh,
   renameDeliveryType,
-  resetPassword,
   reviewLocations,
   sendAnnouncementEmail,
   test,
@@ -77,9 +77,11 @@ import {
   updateLocation,
   updateLocationGroup,
   updateNote,
+  updatePassword,
   updateRoute,
   updateRouteGroup,
   uploadImage,
+  validateResetToken,
 } from '../sdk.gen';
 import type {
   CancelJobData,
@@ -143,6 +145,9 @@ import type {
   DuplicateRouteGroupResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
+  ForgotPasswordData,
+  ForgotPasswordError,
+  ForgotPasswordResponse,
   GenerateJobData,
   GenerateJobError,
   GenerateJobResponse,
@@ -237,9 +242,6 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
-  ResetPasswordData,
-  ResetPasswordError,
-  ResetPasswordResponse,
   ReviewLocationsData,
   ReviewLocationsError,
   ReviewLocationsResponse,
@@ -269,6 +271,9 @@ import type {
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
+  UpdatePasswordData,
+  UpdatePasswordError,
+  UpdatePasswordResponse,
   UpdateRouteData,
   UpdateRouteError,
   UpdateRouteGroupData,
@@ -278,6 +283,9 @@ import type {
   UploadImageData,
   UploadImageError,
   UploadImageResponse,
+  ValidateResetTokenData,
+  ValidateResetTokenError,
+  ValidateResetTokenResponse,
 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
@@ -551,6 +559,36 @@ export const sendAnnouncementEmailMutation = (
 };
 
 /**
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPasswordMutation = (
+  options?: Partial<Options<ForgotPasswordData>>
+): UseMutationOptions<
+  ForgotPasswordResponse,
+  AxiosError<ForgotPasswordError>,
+  Options<ForgotPasswordData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ForgotPasswordResponse,
+    AxiosError<ForgotPasswordError>,
+    Options<ForgotPasswordData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await forgotPassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Login
  *
  * Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -638,24 +676,53 @@ export const refreshMutation = (
 };
 
 /**
- * Reset Password
+ * Update Password
  *
- * Triggers password reset for user with specified email (reset link will be emailed)
+ * Update an existing user's password if provided a valid password reset token
  */
-export const resetPasswordMutation = (
-  options?: Partial<Options<ResetPasswordData>>
+export const updatePasswordMutation = (
+  options?: Partial<Options<UpdatePasswordData>>
 ): UseMutationOptions<
-  ResetPasswordResponse,
-  AxiosError<ResetPasswordError>,
-  Options<ResetPasswordData>
+  UpdatePasswordResponse,
+  AxiosError<UpdatePasswordError>,
+  Options<UpdatePasswordData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ResetPasswordResponse,
-    AxiosError<ResetPasswordError>,
-    Options<ResetPasswordData>
+    UpdatePasswordResponse,
+    AxiosError<UpdatePasswordError>,
+    Options<UpdatePasswordData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await resetPassword({
+      const { data } = await updatePassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Validate Reset Token
+ *
+ * Validate that a password reset token exists, isn't used, and hasn't expired.
+ */
+export const validateResetTokenMutation = (
+  options?: Partial<Options<ValidateResetTokenData>>
+): UseMutationOptions<
+  ValidateResetTokenResponse,
+  AxiosError<ValidateResetTokenError>,
+  Options<ValidateResetTokenData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ValidateResetTokenResponse,
+    AxiosError<ValidateResetTokenError>,
+    Options<ValidateResetTokenData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await validateResetToken({
         ...options,
         ...fnOptions,
         throwOnError: true,

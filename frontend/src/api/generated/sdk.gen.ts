@@ -70,6 +70,9 @@ import type {
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryErrors,
   ExportAllDriversHistoryResponses,
+  ForgotPasswordData,
+  ForgotPasswordErrors,
+  ForgotPasswordResponses,
   GenerateJobData,
   GenerateJobErrors,
   GenerateJobResponses,
@@ -164,9 +167,6 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
-  ResetPasswordData,
-  ResetPasswordErrors,
-  ResetPasswordResponses,
   ReviewLocationsData,
   ReviewLocationsErrors,
   ReviewLocationsResponses,
@@ -196,6 +196,9 @@ import type {
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
+  UpdatePasswordData,
+  UpdatePasswordErrors,
+  UpdatePasswordResponses,
   UpdateRouteData,
   UpdateRouteErrors,
   UpdateRouteGroupData,
@@ -205,6 +208,9 @@ import type {
   UploadImageData,
   UploadImageErrors,
   UploadImageResponses,
+  ValidateResetTokenData,
+  ValidateResetTokenErrors,
+  ValidateResetTokenResponses,
 } from './types.gen';
 
 export type Options<
@@ -381,6 +387,28 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPassword = <ThrowOnError extends boolean = false>(
+  options: Options<ForgotPasswordData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ForgotPasswordResponses,
+    ForgotPasswordErrors,
+    ThrowOnError
+  >({
+    url: '/auth/forgot-password',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Login
  *
  * Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -427,21 +455,45 @@ export const refresh = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Reset Password
+ * Update Password
  *
- * Triggers password reset for user with specified email (reset link will be emailed)
+ * Update an existing user's password if provided a valid password reset token
  */
-export const resetPassword = <ThrowOnError extends boolean = false>(
-  options: Options<ResetPasswordData, ThrowOnError>
+export const updatePassword = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePasswordData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    ResetPasswordResponses,
-    ResetPasswordErrors,
+    UpdatePasswordResponses,
+    UpdatePasswordErrors,
     ThrowOnError
   >({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/auth/resetPassword/{email}',
+    url: '/auth/update-password',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Validate Reset Token
+ *
+ * Validate that a password reset token exists, isn't used, and hasn't expired.
+ */
+export const validateResetToken = <ThrowOnError extends boolean = false>(
+  options: Options<ValidateResetTokenData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ValidateResetTokenResponses,
+    ValidateResetTokenErrors,
+    ThrowOnError
+  >({
+    url: '/auth/validate-reset-token',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
