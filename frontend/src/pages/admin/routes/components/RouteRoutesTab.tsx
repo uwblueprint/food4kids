@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
+import AlertCircleIcon from '@/assets/icons/alert-circle.svg?react';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
+  Banner,
   Button,
   DataTable,
   SearchBar,
@@ -38,7 +40,13 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   {
     key: 'driver_name',
     header: 'Driver',
-    render: (row) => row.driver_name ?? '—',
+    render: (row) =>
+      row.driver_name ?? (
+        <span className="flex items-center gap-2">
+          <AlertCircleIcon className="text-red size-4 shrink-0" />
+          Unassigned
+        </span>
+      ),
   },
   {
     key: 'status',
@@ -73,6 +81,7 @@ export function RouteRoutesTab() {
   const search = useSearch();
   const { data } = useRoutes();
   const rows = useMemo(() => data?.items ?? [], [data]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
@@ -127,6 +136,11 @@ export function RouteRoutesTab() {
     [handleRowChanged]
   );
 
+  const unassignedCount = useMemo(
+    () => rows.filter((r) => !r.driver_name).length,
+    [rows]
+  );
+
   // Scroll the re-dated route into view once the refetched rows place it.
   // Runs again as `rows` updates because the row may re-sort after the list
   // refetch lands; scrolledIdRef keeps it to one scroll per change.
@@ -143,6 +157,18 @@ export function RouteRoutesTab() {
 
   return (
     <>
+      {unassignedCount > 0 && !bannerDismissed && (
+        <Banner
+          variant="error"
+          className="mb-6 py-4"
+          onDismiss={() => setBannerDismissed(true)}
+        >
+          <span className="text-red font-bold">{unassignedCount}</span> route
+          {unassignedCount === 1 ? '' : 's'} missing assigned driver
+          {unassignedCount === 1 ? '' : 's'}
+        </Banner>
+      )}
+
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-5">
           <SearchBar placeholder="Search anything" {...search} />

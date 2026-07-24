@@ -287,6 +287,7 @@ class TestRouteStopSequence:
         routes = (await test_session.execute(select(Route))).scalars().all()
         assert routes, "Need at least one route to test stops"
 
+        routes_with_stops = 0
         for route in routes:
             stops = (
                 (
@@ -299,13 +300,21 @@ class TestRouteStopSequence:
                 .scalars()
                 .all()
             )
-            assert stops, f"Route {route.route_id} should have stops"
+            # The seed intentionally includes a no-stop fixture route (to
+            # exercise the "delete enabled only when empty" UI state), so an
+            # empty stop list is allowed. When a route does have stops, they
+            # must still be numbered 1..N.
+            if not stops:
+                continue
+            routes_with_stops += 1
 
             stop_numbers = [stop.stop_number for stop in stops]
             assert stop_numbers == list(range(1, len(stops) + 1)), (
                 f"Route {route.route_id} stops should be 1..{len(stops)}, "
                 f"got {stop_numbers}"
             )
+
+        assert routes_with_stops, "Expected at least one route to have stops"
 
 
 @pytest.mark.slow

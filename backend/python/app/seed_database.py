@@ -929,6 +929,131 @@ def main() -> None:
                 f"and {routes_created} route instances"
             )
 
+            # ----------------------------------------------------------------
+            # Explicit test fixtures. Dated one day before every other seeded
+            # group so they pin to the top of the oldest-first routes feed (page
+            # size 50), where the random past data is otherwise all assigned and
+            # fully stopped. These exercise UI states the random data won't
+            # reliably surface on page 1:
+            #   - two unassigned routes -> the "missing assigned drivers" banner
+            #   - a route with no stops -> route delete enabled
+            #   - a route with stops   -> route delete disabled (tooltip)
+            #   - an empty route group -> group delete enabled
+            #   - unscheduled + inactive standalone locations -> status/filter,
+            #     both safe to delete (not referenced by any route)
+            # All are named "TEST ..." so they're easy to spot and remove.
+            # ----------------------------------------------------------------
+            print("Creating explicit test fixtures...")
+            fixture_date = datetime.combine(
+                start_date - timedelta(days=1), datetime.min.time()
+            )
+            fixture_loc_group_id = group_ids["Tuesday A"]
+            # Reuse a few existing locations as stops for the populated route.
+            stop_locations = list(
+                session.exec(
+                    select(Location)
+                    .where(
+                        Location.location_group_id == uuid.UUID(fixture_loc_group_id)
+                    )
+                    .limit(3)
+                ).all()
+            )
+
+            # 1) Empty group: no routes -> Groups tab delete enabled.
+            empty_group = RouteGroup(
+                name="TEST - Empty Group (no routes)",
+                notes="Seeded fixture: empty group, safe to delete.",
+                drive_date=fixture_date,
+                delivery_type="Family",
+            )
+            set_timestamps(empty_group)
+            session.add(empty_group)
+
+            # 2) Group with two unassigned routes: one with no stops (route
+            #    delete enabled) and one with stops (route delete disabled ->
+            #    tooltip). Both unassigned -> Routes banner reads "2 routes ...".
+            fixture_group = RouteGroup(
+                name="TEST - Fixture Routes",
+                notes="Seeded fixture: unassigned routes for banner/delete tests.",
+                drive_date=fixture_date,
+                delivery_type="Family",
+            )
+            set_timestamps(fixture_group)
+            session.add(fixture_group)
+            session.flush()
+
+            route_no_stops = Route(
+                name="TEST Route (no stops)",
+                notes="Seeded fixture: no stops, delete enabled.",
+                length=0.0,
+                route_group_id=fixture_group.route_group_id,
+                driver_id=None,
+            )
+            set_timestamps(route_no_stops)
+            session.add(route_no_stops)
+
+            route_with_stops = Route(
+                name="TEST Route (has stops)",
+                notes="Seeded fixture: unassigned, has stops (delete disabled).",
+                length=5.0,
+                route_group_id=fixture_group.route_group_id,
+                driver_id=None,
+            )
+            set_timestamps(route_with_stops)
+            session.add(route_with_stops)
+            session.flush()
+
+            for stop_num, loc in enumerate(stop_locations, start=1):
+                stop = RouteStop(
+                    route_id=route_with_stops.route_id,
+                    location_id=loc.location_id,
+                    stop_number=stop_num,
+                )
+                set_timestamps(stop)
+                session.add(stop)
+
+            # 3) Standalone locations for the Addresses tab: one unscheduled (on
+            #    the roster, no upcoming route) and one inactive (off the
+            #    roster). Neither is on a route, so both are safe to delete.
+            unscheduled_loc = Location(
+                location_group_id=uuid.UUID(fixture_loc_group_id),
+                name="TEST Unscheduled Family",
+                contact_name="TEST Unscheduled Family",
+                address="1 Test Street, Kitchener, ON, N2A 0T0",
+                phone_primary=generate_valid_phone(),
+                longitude=WAREHOUSE_LON,
+                latitude=WAREHOUSE_LAT,
+                halal=False,
+                dietary_restrictions="Nut allergy",
+                num_children=2,
+                delivery_type="Family",
+                in_roster=True,
+            )
+            inactive_loc = Location(
+                location_group_id=uuid.UUID(fixture_loc_group_id),
+                name="TEST Inactive Family",
+                contact_name="TEST Inactive Family",
+                address="2 Test Street, Kitchener, ON, N2A 0T0",
+                phone_primary=generate_valid_phone(),
+                longitude=WAREHOUSE_LON,
+                latitude=WAREHOUSE_LAT,
+                halal=True,
+                dietary_restrictions="",
+                num_children=0,
+                delivery_type="Family",
+                in_roster=False,
+            )
+            set_timestamps(unscheduled_loc)
+            set_timestamps(inactive_loc)
+            session.add(unscheduled_loc)
+            session.add(inactive_loc)
+
+            session.commit()
+            print(
+                "Created test fixtures: 1 empty group, 1 group with 2 unassigned "
+                "routes (no-stops + has-stops), 2 standalone locations"
+            )
+
             # Create note chains for locations
             print("Creating note chains for locations...")
             location_chains_created = 0
