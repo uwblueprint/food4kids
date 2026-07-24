@@ -18,7 +18,7 @@ pydantic-settings>=2.0.0
 
 # Google Cloud & APIs
 google-api-python-client>=2.176.0
-google-api-python-client-stubs>=1.30.0
+google-api-python-client-stubs==1.39.0
 google-auth>=2.0.0
 google-auth-httplib2>=0.2.0
 google-api-core>=2.0.0
@@ -42,22 +42,30 @@ urllib3>=2.0.0
 uritemplate>=3.0.1
 
 # Development & Testing
-mypy>=1.8.0
-mypy-extensions>=1.0.0
+# Lint/type-check/test tools are pinned exactly: an unbounded `>=` lets CI
+# resolve whatever is newest, and a linter/checker bump silently adds rules
+# (ruff 0.16.0 stabilized RUF036 and started formatting markdown code blocks,
+# turning lint red tree-wide). Bump these deliberately and re-run CI rather
+# than float. Versions below are the current CI-verified-green set.
+mypy==2.3.0
+mypy-extensions==1.1.0
 ruff==0.16.0
-pytest>=6.2.4
-pytest-mock>=3.6.1
-pytest-asyncio>=0.21.0
-pytest-cov>=4.0.0
+pytest==9.1.1
+pytest-mock==3.15.1
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
 httpx>=0.24.0
 aiosqlite>=0.21.0
 asyncpg>=0.29.0
 
 # Type stubs
-types-requests>=2.32.0
-types-PyYAML>=6.0.0
-types-setuptools>=80.0.0
-types-firebase-admin>=0.1.1
+# Pinned exactly: stub releases feed the mypy step, so a new stub version can
+# introduce type errors and break lint the same way a mypy bump does. Bump
+# deliberately alongside mypy. (pandas-stubs / types-seaborn pinned below.)
+types-requests==2.33.0.20260712
+types-PyYAML==6.0.12.20260518
+types-setuptools==83.0.0.20260716
+types-firebase-admin==0.1.1
 
 # Utilities
 python-dotenv>=0.21.0
@@ -80,8 +88,8 @@ scikit-learn-extra==0.2.0
 seaborn==0.13.2
 matplotlib>=3.10.8
 pandas==2.3.3
-pandas-stubs
-types-seaborn
+pandas-stubs==3.0.3.260530
+types-seaborn==0.13.2.20260518
 googlemaps>=4.10.0
 openpyxl>=3.1.5
 
