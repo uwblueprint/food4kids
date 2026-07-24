@@ -1173,7 +1173,7 @@ class LocationService:
 
     @staticmethod
     def _changed_optional_str_value(
-        value: str | None | ChangedFieldOptStr,
+        value: str | ChangedFieldOptStr | None,
     ) -> str | None:
         if isinstance(value, ChangedFieldOptStr):
             return value.new_value
@@ -1181,7 +1181,7 @@ class LocationService:
 
     @staticmethod
     def _changed_optional_int_value(
-        value: int | None | ChangedFieldOptInt,
+        value: int | ChangedFieldOptInt | None,
     ) -> int | None:
         if isinstance(value, ChangedFieldOptInt):
             return value.new_value
