@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 
-import type { LocationRead } from '@/api/generated/types.gen';
+import type {
+  LocationRead,
+  LocationStatusEnum,
+} from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
@@ -27,7 +30,7 @@ import type { AddressesTabState } from '../hooks';
 import { AddressActionsCell } from './AddressActionsCell';
 import { EmptyState } from './EmptyState';
 
-const ROUTE_STATUSES = ['Upcoming', 'Completed'];
+const STATUSES: LocationStatusEnum[] = ['Active', 'Unscheduled', 'Inactive'];
 
 /** Renders a nullable/empty cell value as an em dash. */
 const orDash = (value: string | null | undefined) =>
@@ -191,12 +194,12 @@ export function RouteAddressesTab({
           </ModalHeader>
 
           <div className="flex flex-col gap-4">
-            <FilterChipGroup label="Route Status">
-              {ROUTE_STATUSES.map((status) => (
+            <FilterChipGroup label="Status">
+              {STATUSES.map((status) => (
                 <FilterChip
                   key={status}
-                  selected={draftFilters.routeStatuses.has(status)}
-                  onClick={() => toggleDraft('routeStatuses', status)}
+                  selected={draftFilters.statuses.has(status)}
+                  onClick={() => toggleDraft('statuses', status)}
                 >
                   {status}
                 </FilterChip>
