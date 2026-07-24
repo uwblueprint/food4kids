@@ -1,14 +1,7 @@
 import { useDeleteAddress } from '@/api/addresses';
 import type { LocationRead } from '@/api/generated/types.gen';
-import {
-  Button,
-  FieldDescription,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalHeader,
-  ModalTitle,
-} from '@/common/components';
+
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface DeleteAddressModalProps {
   open: boolean;
@@ -42,38 +35,20 @@ export function DeleteAddressModal({
   };
 
   return (
-    <Modal open={open} onOpenChange={handleOpenChange}>
-      <ModalContent>
-        <ModalHeader>
-          <ModalTitle>Delete Address</ModalTitle>
-          <ModalDescription>
-            This will permanently delete {address.contact_name}. This action
-            cannot be undone.
-          </ModalDescription>
-        </ModalHeader>
-
-        <div className="flex items-center justify-end gap-4">
-          {isError && (
-            <FieldDescription error>
-              Something went wrong deleting the address. Please try again.
-            </FieldDescription>
-          )}
-          <Button
-            variant="tertiary"
-            onClick={() => handleOpenChange(false)}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={isPending}
-          >
-            Delete
-          </Button>
-        </div>
-      </ModalContent>
-    </Modal>
+    <ConfirmDeleteModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      title="Delete Address"
+      description={
+        <>
+          This will permanently delete {address.contact_name}. This action
+          cannot be undone.
+        </>
+      }
+      isPending={isPending}
+      isError={isError}
+      errorMessage="Something went wrong deleting the address. Please try again."
+      onConfirm={handleDelete}
+    />
   );
 }
