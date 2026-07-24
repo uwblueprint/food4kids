@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import type { LocationRead } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
@@ -22,9 +24,10 @@ import {
 import { formatShortDate } from '@/common/utils';
 
 import type { AddressesTabState } from '../hooks';
+import { AddressActionsCell } from './AddressActionsCell';
 import { EmptyState } from './EmptyState';
 
-const ROUTE_STATUSES = ['Active', 'Unscheduled', 'Inactive'];
+const ROUTE_STATUSES = ['Upcoming', 'Completed'];
 
 /** Renders a nullable/empty cell value as an em dash. */
 const orDash = (value: string | null | undefined) =>
@@ -121,8 +124,30 @@ export function RouteAddressesTab({
   hasActiveFilters,
   openFilters,
   toggleDraft,
+  draftHasSelections,
+  clearDraft,
   handleApply,
 }: RouteAddressesTabProps) {
+  // The kebab shares the Status cell (last column) so it doesn't compete for
+  // table width — same treatment as the Groups and Routes tabs.
+  const columns = useMemo<Column<LocationRead>[]>(
+    () =>
+      COLUMNS.map((col) =>
+        col.key === 'status'
+          ? {
+              ...col,
+              render: (row: LocationRead) => (
+                <div className="flex items-center justify-between gap-10">
+                  <span>{row.status}</span>
+                  <AddressActionsCell row={row} />
+                </div>
+              ),
+            }
+          : col
+      ),
+    []
+  );
+
   return (
     <>
       <div className="mb-8 flex items-center justify-between">
@@ -146,7 +171,7 @@ export function RouteAddressesTab({
       </div>
 
       <DataTable
-        columns={COLUMNS}
+        columns={columns}
         rows={rows}
         getRowKey={(r) => r.location_id}
         emptyState={
@@ -178,7 +203,7 @@ export function RouteAddressesTab({
               ))}
             </FilterChipGroup>
 
-            <FilterChipGroup label="Delivery Type" showDelimiter>
+            <FilterChipGroup label="Delivery Type">
               {deliveryTypes.map((type) => (
                 <FilterChip
                   key={type}
@@ -191,7 +216,17 @@ export function RouteAddressesTab({
             </FilterChipGroup>
           </div>
 
-          <ModalFooter>
+          <ModalFooter className="mt-4">
+            {/* Clear All only empties the dialog's chips; Apply persists them,
+                which is also how an applied filter gets cleared. */}
+            <Button
+              variant="secondary"
+              disabled={!draftHasSelections}
+              className="disabled:pointer-events-auto disabled:cursor-not-allowed"
+              onClick={clearDraft}
+            >
+              Clear All
+            </Button>
             <Button variant="primary" onClick={handleApply}>
               Apply
             </Button>

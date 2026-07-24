@@ -36,6 +36,10 @@ export interface AddressesTabState {
   hasActiveFilters: boolean;
   openFilters: () => void;
   toggleDraft: (key: keyof AddressesFilterState, value: string) => void;
+  /** True when the draft has at least one chip selected (Clear All enabled). */
+  draftHasSelections: boolean;
+  /** Unselect every chip in the dialog; takes effect on Apply. */
+  clearDraft: () => void;
   handleApply: () => void;
 }
 
@@ -76,6 +80,12 @@ export function useAddressesTabState(): AddressesTabState {
     });
   };
 
+  const draftHasSelections = Object.values(draftFilters).some(
+    (s) => s.size > 0
+  );
+
+  const clearDraft = () => setDraftFilters(emptyFilters());
+
   const handleApply = () => {
     setAppliedFilters(copyFilters(draftFilters));
     setFilterOpen(false);
@@ -93,6 +103,8 @@ export function useAddressesTabState(): AddressesTabState {
     hasActiveFilters,
     openFilters,
     toggleDraft,
+    draftHasSelections,
+    clearDraft,
     handleApply,
   };
 }

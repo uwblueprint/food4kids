@@ -1,6 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getLocationsOptions } from './generated/@tanstack/react-query.gen';
+import {
+  deleteLocationMutation,
+  getLocationsOptions,
+  getLocationsQueryKey,
+} from './generated/@tanstack/react-query.gen';
 
 /**
  * Fetch the (paginated) list of locations for the admin routes "Addresses" tab.
@@ -11,4 +15,14 @@ import { getLocationsOptions } from './generated/@tanstack/react-query.gen';
  */
 export function useAddresses() {
   return useQuery(getLocationsOptions());
+}
+
+/** DELETE /locations/{location_id}. Invalidates the locations list. */
+export function useDeleteAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...deleteLocationMutation(),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: getLocationsQueryKey() }),
+  });
 }
