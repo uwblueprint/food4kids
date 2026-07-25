@@ -201,7 +201,7 @@ class TestDriverRoutes:
         ):
             user_finalize_data = {
                 "user_invite_id": str(fake_user_invite.user_invite_id),
-                "password": "testing123",
+                "password": "Testing123!",
             }
             response = await async_client.post(
                 "/drivers/register", json=user_finalize_data

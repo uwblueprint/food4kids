@@ -153,9 +153,9 @@ class TestCoreBusinessValidation:
         # Test valid password
         user_finalize = UserFinalize(
             user_invite_id=uuid4(),
-            password="securepassword123",
+            password="Securepassword123!",
         )
-        assert user_finalize.password == "securepassword123"
+        assert user_finalize.password == "Securepassword123!"
 
         # Test invalid password (too short)
         with pytest.raises(ValidationError) as exc_info:
@@ -164,6 +164,38 @@ class TestCoreBusinessValidation:
                 password="123",  # Too short
             )
         assert "password" in str(exc_info.value)
+
+        # Test invalid password (missing lowercase)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="AAAAA123!",
+            )
+        assert "lowercase letter" in str(exc_info.value)
+
+        # Test invalid password (missing uppercase)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabc123!",
+            )
+        assert "uppercase letter" in str(exc_info.value)
+
+        # Test invalid password (missing number)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabcAAA!",
+            )
+        assert "number" in str(exc_info.value)
+
+        # Test invalid password (missing special character)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabcAAA111",
+            )
+        assert "special character" in str(exc_info.value)
 
     def test_year_validation_business_rule(self) -> None:
         """Test year (2025-2100) and month (1-12) validation for DriverHistory."""
