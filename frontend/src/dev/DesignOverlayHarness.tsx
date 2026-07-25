@@ -27,6 +27,8 @@ interface ManifestFrame {
   id: string;
   nodeId: string;
   label: string;
+  /** Which flow the frame belongs to, e.g. "log in" / "drivers screen". */
+  flow: string;
   viewport: string;
   route: string | null;
   width: number;
@@ -38,6 +40,7 @@ interface Manifest {
   fileName: string;
   fetchedAt: string;
   viewports: Record<string, { label: string; width: number }>;
+  flows: Record<string, { label: string }>;
   frames: ManifestFrame[];
 }
 
@@ -175,10 +178,15 @@ export function DesignOverlayHarness() {
     () => Object.keys(manifest?.viewports ?? {}),
     [manifest]
   );
+  const flows = useMemo(() => Object.keys(manifest?.flows ?? {}), [manifest]);
+  const activeFlow = frame?.flow ?? flows[0] ?? null;
   const activeViewport = frame?.viewport ?? viewports[0] ?? null;
   const viewportFrames = useMemo(
-    () => frames.filter((f) => f.viewport === activeViewport),
-    [frames, activeViewport]
+    () =>
+      frames.filter(
+        (f) => f.flow === activeFlow && f.viewport === activeViewport
+      ),
+    [frames, activeFlow, activeViewport]
   );
 
   const selectFrame = useCallback(
@@ -199,13 +207,26 @@ export function DesignOverlayHarness() {
   /** Same screen, different viewport — matched on label, else that viewport's first. */
   const switchViewport = useCallback(
     (viewport: string) => {
-      const inViewport = frames.filter((f) => f.viewport === viewport);
+      const candidates = frames.filter(
+        (f) => f.viewport === viewport && f.flow === activeFlow
+      );
       const sameLabel = frame
-        ? inViewport.find((f) => f.label === frame.label)
+        ? candidates.find((f) => f.label === frame.label)
         : undefined;
-      selectFrame(sameLabel ?? inViewport[0]);
+      selectFrame(sameLabel ?? candidates[0]);
     },
-    [frames, frame, selectFrame]
+    [frames, frame, activeFlow, selectFrame]
+  );
+
+  /** Switching flow keeps the current viewport where that flow has one. */
+  const switchFlow = useCallback(
+    (flow: string) => {
+      const candidates = frames.filter((f) => f.flow === flow);
+      selectFrame(
+        candidates.find((f) => f.viewport === activeViewport) ?? candidates[0]
+      );
+    },
+    [frames, activeViewport, selectFrame]
   );
 
   const stepFrame = useCallback(
@@ -363,6 +384,24 @@ export function DesignOverlayHarness() {
 
         {manifest ? (
           <>
+            {/* Flow picker */}
+            {flows.length > 1 && (
+              <label style={row}>
+                <span style={lbl}>Flow</span>
+                <select
+                  value={activeFlow ?? ''}
+                  onChange={(e) => switchFlow(e.target.value)}
+                  style={{ ...num, flex: 1 }}
+                >
+                  {flows.map((f) => (
+                    <option key={f} value={f}>
+                      {manifest.flows[f].label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             {/* Viewport tabs */}
             <div style={{ display: 'flex', gap: 4 }}>
               {viewports.map((v, i) => (
