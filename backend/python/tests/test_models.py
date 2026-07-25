@@ -39,7 +39,6 @@ from app.models.note import (
     Attachment,
     Note,
     NoteCreate,
-    NoteListResponse,
     NoteRead,
     NoteUpdate,
 )
@@ -48,7 +47,6 @@ from app.models.note_chain import (
     NoteChainCreate,
     NoteChainRead,
 )
-from app.models.note_chain_read import NoteChainReadModel, NoteChainReadResponse
 from app.models.route import Route, RouteUpdate
 from app.models.route_group import (
     RouteGroup,
@@ -334,6 +332,38 @@ class TestCoreModels:
         assert driver_update.address == "456 Oak Ave, City, State 12345"
         assert driver_update.license_plate is None
 
+    def test_driver_update_rejects_explicit_null_for_non_nullable_fields(
+        self,
+    ) -> None:
+        """Explicit null is a 422 for fields backed by non-nullable columns.
+
+        None as a *default* means "not provided" and stays valid; only a null
+        that the client actually sent is rejected. partner_driver_name is the
+        one nullable column, where explicit null legitimately clears the value.
+        """
+        non_nullable_fields = [
+            "first_name",
+            "last_name",
+            "phone",
+            "availability",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "active",
+        ]
+        for field in non_nullable_fields:
+            with pytest.raises(ValidationError, match="cannot be null"):
+                DriverUpdate.model_validate({field: None})
+
+        # Omitting every field is still a valid (no-op) update
+        empty_update = DriverUpdate.model_validate({})
+        assert empty_update.model_fields_set == set()
+
+        # Explicit null still clears the nullable partner_driver_name
+        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
+        assert cleared.partner_driver_name is None
+        assert "partner_driver_name" in cleared.model_fields_set
+
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
         # Create with all fields
@@ -349,7 +379,6 @@ class TestCoreModels:
             halal=False,
             dietary_restrictions="No nuts",
             num_children=150,
-            notes="Main entrance on Main St",
         )
         assert location.name == "Central Elementary"
         assert location.delivery_type == "School"
@@ -370,7 +399,6 @@ class TestCoreModels:
         )
         assert location_minimal.name == "John Doe"
         assert location_minimal.delivery_type == "Family"
-        assert location_minimal.notes == ""  # Default value
 
         # Read model
         location_read = LocationRead(
@@ -513,6 +541,7 @@ class TestCoreModels:
             finished_at=datetime(2024, 1, 15, 10, 0),
         )
         assert job_update.progress == ProgressEnum.COMPLETED
+        assert ProgressEnum.CANCELLED.value == "Cancelled"
 
     def test_note_chain_core_operations(self) -> None:
         """Test NoteChain and Note model core operations."""
@@ -604,33 +633,6 @@ class TestCoreModels:
         # NoteUpdate
         note_update = NoteUpdate(message="Updated")
         assert note_update.message == "Updated"
-
-        # NoteChainReadModel
-        from datetime import datetime, timezone
-
-        read_model = NoteChainReadModel(
-            note_chain_id=uuid4(),
-            user_id=uuid4(),
-            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
-        )
-        assert read_model.note_chain_read_id is not None
-
-        # NoteChainReadResponse
-        read_response = NoteChainReadResponse(
-            note_chain_read_id=uuid4(),
-            note_chain_id=uuid4(),
-            user_id=uuid4(),
-            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
-        )
-        assert read_response.note_chain_read_id is not None
-
-        # NoteListResponse
-        list_response = NoteListResponse(
-            notes=[note_read],
-            unread_count=1,
-        )
-        assert len(list_response.notes) == 1
-        assert list_response.unread_count == 1
 
     def test_relationship_models_core_operations(self) -> None:
         """Test RouteStop creation."""
@@ -738,7 +740,6 @@ class TestEnumsAndSerialization:
             latitude=37.8000,
             halal=True,
         )
-        assert location.notes == ""  # Default value
         assert location.delivery_type == "Family"
         assert location.dietary_restrictions == ""  # Default value
         assert location.num_children == 0  # Default value

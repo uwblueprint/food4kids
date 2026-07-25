@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { AnnouncementsBoard } from '@/features/announcements';
+
 import { RouteMapView } from './components';
 
 export const DriverHomePage = () => {
@@ -8,7 +10,10 @@ export const DriverHomePage = () => {
 
   return (
     <main className="page-margins flex flex-col gap-4">
-      <h1>Driver Home</h1>
+      <div className="flex items-start justify-between">
+        <h1>Driver Home</h1>
+        <AnnouncementsBoard />
+      </div>
 
       <div className="flex flex-col gap-2">
         <label htmlFor="route-id" className="text-p2 text-grey-500">

@@ -5,7 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_admin, require_self_driver_or_admin
+from app.dependencies.auth import (
+    DriverAccess,
+    require_admin,
+    require_self_driver_or_admin,
+)
 from app.models import get_session
 from app.models.driver_mileage import (
     MAX_YEAR,
@@ -33,7 +37,7 @@ router = APIRouter(prefix="/drivers/{driver_id}/history", tags=["driver-history"
 async def get_driver_history_summary(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_self_driver_or_admin),
+    _auth: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> DriverHistorySummary:
     """Get lifetime and current year KM summary for a driver"""
     try:
@@ -117,7 +121,7 @@ async def get_driver_history(
     year: int | None = Query(default=None, ge=MIN_YEAR, le=MAX_YEAR),
     month: int | None = Query(default=None, ge=1, le=12),
     session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_self_driver_or_admin),
+    _auth: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> list[DriverHistoryRead]:
     """
     Get monthly km totals, derived from the driver's frozen routes plus
@@ -159,7 +163,7 @@ async def get_driver_history(
 async def get_driver_mileage_adjustments(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_self_driver_or_admin),
+    _auth: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> list[DriverMileageAdjustmentRead]:
     """A driver's manual mileage adjustments, newest first (audit view).
     Route-derived km isn't listed here — see the driver's routes for that."""

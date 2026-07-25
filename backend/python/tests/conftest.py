@@ -16,6 +16,7 @@ from sqlmodel import SQLModel, select
 
 from app import create_app
 from app.dependencies.auth import (
+    DriverAccess,
     get_access_token,
     require_admin,
     require_announcement_owner_or_admin,
@@ -70,6 +71,7 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         # Import in dependency order to avoid relationship resolution issues
         from app.models.admin import Admin  # noqa: F401
         from app.models.announcement import Announcement  # noqa: F401
+        from app.models.announcement_last_read import AnnouncementLastRead  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
         from app.models.driver_mileage import (  # noqa: F401
             DriverMileageAdjustment,
@@ -79,7 +81,6 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.location_group import LocationGroup  # noqa: F401
         from app.models.note import Note  # noqa: F401
         from app.models.note_chain import NoteChain  # noqa: F401
-        from app.models.note_chain_read import NoteChainReadModel  # noqa: F401
         from app.models.route import Route  # noqa: F401
         from app.models.route_group import RouteGroup  # noqa: F401
         from app.models.route_snapshot import RouteSnapshot  # noqa: F401
@@ -131,7 +132,7 @@ def _apply_auth_overrides(app: Any) -> None:
     app.dependency_overrides[require_admin] = lambda: True
     app.dependency_overrides[require_driver] = lambda: True
     app.dependency_overrides[require_driver_or_admin] = lambda: True
-    app.dependency_overrides[require_self_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_self_driver_or_admin] = lambda: DriverAccess.ADMIN
     app.dependency_overrides[require_route_assigned_or_admin] = lambda: True
     app.dependency_overrides[require_announcement_owner_or_admin] = lambda: True
     # GET /routes' sole auth dependency also resolves the driver_id filter;
@@ -326,7 +327,6 @@ def sample_location_data() -> dict[str, Any]:
         "halal": False,
         "dietary_restrictions": "No nuts",
         "num_children": 150,
-        "notes": "Main entrance on Main St",
     }
 
 
@@ -428,6 +428,7 @@ async def authed_async_client(
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_database_user_id] = override_auth
+    _apply_auth_overrides(app)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

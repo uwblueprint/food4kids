@@ -180,7 +180,6 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
             phone_primary=locations[0].phone_primary,
             phone_secondary=locations[0].phone_secondary,
             num_children=locations[0].num_children,
-            notes=locations[0].notes,
             latitude=locations[0].latitude,
             longitude=locations[0].longitude,
         )

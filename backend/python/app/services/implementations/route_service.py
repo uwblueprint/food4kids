@@ -445,7 +445,6 @@ class RouteService:
                                 phone_primary=location.phone_primary,
                                 phone_secondary=location.phone_secondary,
                                 num_children=location.num_children,
-                                notes=location.notes,
                                 latitude=location.latitude,
                                 longitude=location.longitude,
                             )

@@ -115,6 +115,8 @@ class DriverRead(DriverBase):
 
 
 class DriverUpdate(SQLModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_name: str | None = Field(default=None, min_length=1, max_length=255)
     phone: str | None = Field(default=None, min_length=1, max_length=20)
     partner_driver_name: str | None = Field(default=None, max_length=255)
     availability: list[bool] | None = Field(default=None)
@@ -130,24 +132,30 @@ class DriverUpdate(SQLModel):
             raise ValueError("availability must contain 7 slots, Monday = 0")
         return v
 
-
-class DriverUpdatePayload(SQLModel):
-    first_name: str | None = Field(default=None, min_length=1, max_length=255)
-    last_name: str | None = Field(default=None, min_length=1, max_length=255)
-    email: EmailStr | None = Field(default=None, max_length=254)
-    phone: str | None = Field(default=None, min_length=1, max_length=20)
-    partner_driver_name: str | None = Field(default=None, max_length=255)
-    availability: list[bool] | None = Field(default=None)
-    address: str | None = Field(default=None, min_length=1, max_length=255)
-    license_plate: str | None = Field(default=None, min_length=1, max_length=20)
-    car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
-    active: bool | None = Field(default=None)
-
-    @field_validator("availability")
+    @field_validator(
+        "first_name",
+        "last_name",
+        "phone",
+        "availability",
+        "address",
+        "license_plate",
+        "car_make_model",
+        "active",
+        mode="before",
+    )
     @classmethod
-    def validate_availability(cls, v: list[bool] | None) -> list[bool] | None:
-        if v is not None and len(v) != 7:
-            raise ValueError("availability must contain 7 slots, Monday = 0")
+    def reject_explicit_null(cls, v: Any) -> Any:
+        """
+        Reject an explicit ``null`` for fields whose columns are non-nullable
+        (every field except ``partner_driver_name``, where null means "clear").
+
+        The ``None`` default only means "not provided" — validators don't run
+        for defaults, so reaching here with ``None`` means the client sent a
+        null. Failing here yields a 422 instead of a NOT NULL violation at
+        commit time.
+        """
+        if v is None:
+            raise ValueError("cannot be null; omit the field to leave it unchanged")
         return v
 
 

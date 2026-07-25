@@ -1,7 +1,8 @@
 import logging
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
+import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
@@ -14,6 +15,8 @@ from app.models.user import User
 
 class DriverService:
     """Service for managing drivers with Firebase authentication integration"""
+
+    USER_UPDATE_FIELDS: ClassVar[set[str]] = {"first_name", "last_name"}
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
@@ -148,12 +151,36 @@ class DriverService:
                 return None
 
             update_data = driver_data.model_dump(exclude_unset=True)
-            old_values = {field: getattr(driver, field) for field in update_data}
+            old_values = {
+                field: getattr(
+                    driver.user if field in self.USER_UPDATE_FIELDS else driver, field
+                )
+                for field in update_data
+            }
 
             for field, value in update_data.items():
-                setattr(driver, field, value)
+                target = driver.user if field in self.USER_UPDATE_FIELDS else driver
+                setattr(target, field, value)
 
             await session.commit()
+
+            if (
+                self.USER_UPDATE_FIELDS.intersection(update_data)
+                and driver.user.auth_id is not None
+            ):
+                firebase_admin.auth.update_user(
+                    driver.user.auth_id,
+                    display_name=driver.user.full_name,
+                )
+                firebase_admin.auth.set_custom_user_claims(
+                    driver.user.auth_id,
+                    {
+                        "role": driver.user.role,
+                        "given_name": driver.user.first_name,
+                        "family_name": driver.user.last_name,
+                    },
+                )
+
             await session.refresh(driver, attribute_names=["user"])
             return driver
 
@@ -161,7 +188,8 @@ class DriverService:
             # Rollback database changes
             assert driver is not None
             for field, value in old_values.items():
-                setattr(driver, field, value)
+                target = driver.user if field in self.USER_UPDATE_FIELDS else driver
+                setattr(target, field, value)
             await session.commit()
             self.logger.error(f"Failed to update driver: {e!s}")
             raise e

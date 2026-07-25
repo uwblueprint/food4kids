@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Link,
   Navigate,
@@ -8,6 +8,7 @@ import {
 
 import type {
   AlertCode,
+  DuplicateMatchField,
   LocationImportResponse,
   LocationImportRow,
 } from '@/api/generated/types.gen';
@@ -29,10 +30,10 @@ function getAlertDisplay(code: AlertCode): {
   label: string;
 } {
   switch (code) {
-    case 'MISSING_SCHOOL_OR_LAST_NAME':
-      return { type: 'error', label: 'Missing School / Last Name' };
-    case 'INVALID_SCHOOL_OR_LAST_NAME':
-      return { type: 'error', label: 'Invalid School / Last Name' };
+    case 'MISSING_NAME':
+      return { type: 'error', label: 'Missing Name' };
+    case 'INVALID_NAME':
+      return { type: 'error', label: 'Invalid Name' };
     case 'MISSING_ADDRESS':
       return { type: 'error', label: 'Missing Address' };
     case 'INVALID_ADDRESS':
@@ -43,7 +44,7 @@ function getAlertDisplay(code: AlertCode): {
       return { type: 'error', label: 'Invalid Phone Number' };
     case 'MISSING_DELIVERY_GROUP':
       return { type: 'error', label: 'Missing Delivery Group' };
-    case 'DUPLICATE_ENTRY':
+    case 'LOCAL_DUPLICATE':
       return { type: 'error', label: 'Duplicate Entry' };
     default: {
       const _exhaustive: never = code;
@@ -52,12 +53,8 @@ function getAlertDisplay(code: AlertCode): {
   }
 }
 
-const isDuplicateRow = (row: LocationImportRow) =>
-  row.alerts.includes('DUPLICATE_ENTRY');
-
 const hasContactNameAlert = (alerts: AlertCode[]) =>
-  alerts.includes('MISSING_SCHOOL_OR_LAST_NAME') ||
-  alerts.includes('INVALID_SCHOOL_OR_LAST_NAME');
+  alerts.includes('MISSING_NAME') || alerts.includes('INVALID_NAME');
 
 const hasAddressAlert = (alerts: AlertCode[]) =>
   alerts.includes('MISSING_ADDRESS') || alerts.includes('INVALID_ADDRESS');
@@ -68,16 +65,35 @@ const hasPhoneAlert = (alerts: AlertCode[]) =>
 
 // Returns the cell highlight class for non-alert data columns
 function getCellClass(
-  row: LocationImportRow,
-  hasFieldError: boolean
+  hasFieldError: boolean,
+  duplicateField?: DuplicateMatchField,
+  duplicateFields?: Set<DuplicateMatchField>
 ): string | undefined {
-  if (hasFieldError || isDuplicateRow(row)) return ERROR_CELL_CLASS;
+  if (
+    hasFieldError ||
+    (duplicateField !== undefined && duplicateFields?.has(duplicateField))
+  ) {
+    return ERROR_CELL_CLASS;
+  }
   return undefined;
 }
 
 export function ValidateStep() {
   const navigate = useNavigate();
   const { file, reviewResult } = useOutletContext<GenerationOutletContext>();
+  const duplicateFieldsByRow = useMemo(() => {
+    const byRow = new Map<number, Set<DuplicateMatchField>>();
+    for (const group of reviewResult?.duplicate_groups ?? []) {
+      for (const row of group.rows) {
+        const fields = byRow.get(row) ?? new Set<DuplicateMatchField>();
+        for (const field of group.matching_fields) {
+          fields.add(field);
+        }
+        byRow.set(row, fields);
+      }
+    }
+    return byRow;
+  }, [reviewResult?.duplicate_groups]);
 
   // Track which data the user dismissed the banner for. The banner is shown
   // again automatically when a new response comes in (different reference).
@@ -118,20 +134,29 @@ export function ValidateStep() {
       key: 'row',
       header: 'Row',
       render: (row) => String(row.row),
-      getCellClassName: (row) => getCellClass(row, false),
+      getCellClassName: () => getCellClass(false),
     },
     {
       key: 'contact_name',
       header: 'School / Last Name',
       render: (row) => row.location.contact_name ?? '',
       getCellClassName: (row) =>
-        getCellClass(row, hasContactNameAlert(row.alerts)),
+        getCellClass(
+          hasContactNameAlert(row.alerts),
+          'contact_name',
+          duplicateFieldsByRow.get(row.row)
+        ),
     },
     {
       key: 'address',
       header: 'Address',
       render: (row) => row.location.address ?? '',
-      getCellClassName: (row) => getCellClass(row, hasAddressAlert(row.alerts)),
+      getCellClassName: (row) =>
+        getCellClass(
+          hasAddressAlert(row.alerts),
+          'address',
+          duplicateFieldsByRow.get(row.row)
+        ),
     },
     {
       key: 'delivery_group',
@@ -139,7 +164,6 @@ export function ValidateStep() {
       render: (row) => row.location.delivery_group ?? '',
       getCellClassName: (row) =>
         getCellClass(
-          row,
           row.alerts.includes('MISSING_DELIVERY_GROUP') &&
             !row.location.delivery_group
         ),
@@ -148,7 +172,12 @@ export function ValidateStep() {
       key: 'phone_primary',
       header: 'Primary Phone',
       render: (row) => row.location.phone_primary ?? '',
-      getCellClassName: (row) => getCellClass(row, hasPhoneAlert(row.alerts)),
+      getCellClassName: (row) =>
+        getCellClass(
+          hasPhoneAlert(row.alerts),
+          'phone_primary',
+          duplicateFieldsByRow.get(row.row)
+        ),
     },
   ];
 
