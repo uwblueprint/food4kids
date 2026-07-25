@@ -8,6 +8,7 @@ const PUBLIC_ROUTES = [
   '/login',
   '/create-password',
   '/forgot-password',
+  '/get-login-link',
   '/404',
   '/403',
   '/503',
