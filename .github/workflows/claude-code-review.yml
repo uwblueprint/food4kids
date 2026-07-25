@@ -48,3 +48,17 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
+      # TEMPORARY (colin/debug-claude-review): the action logs only a summary of
+      # the result message, so the actual error string is invisible. Print it.
+      - name: Debug — dump Claude execution result
+        if: always()
+        run: |
+          f="${{ steps.claude-review.outputs.execution_file }}"
+          [ -n "$f" ] && [ -f "$f" ] || f=/home/runner/work/_temp/claude-execution-output.json
+          echo "execution file: $f"
+          if [ -f "$f" ]; then
+            jq -r '.[] | select(.type == "result")' "$f" || cat "$f"
+          else
+            echo "no execution file found"
+          fi
