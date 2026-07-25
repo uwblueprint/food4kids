@@ -15,6 +15,8 @@ const PUBLIC_ROUTES = [
   '/error',
   '/style-guide',
   '/test-image-upload',
+  // Dev-only design-overlay harness (see src/dev/DesignOverlayHarness.tsx).
+  ...(import.meta.env.DEV ? ['/dev/overlay'] : []),
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
