@@ -22,6 +22,7 @@ import {
 import {
   CreatePassword,
   ForgotPassword,
+  GetLoginLink,
   LoginPage,
   ResetPassword,
 } from './pages/auth';
@@ -73,6 +74,7 @@ function App() {
       <Route path="/create-password/:token" element={<CreatePassword />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/forgot-password/:token" element={<ResetPassword />} />
+      <Route path="/get-login-link" element={<GetLoginLink />} />
 
       {/* Dev-only: style guide is not accessible in production */}
       {import.meta.env.DEV && (
