@@ -19,15 +19,23 @@ import process from 'node:process';
 const OUT_DIR = path.resolve(import.meta.dirname, '../public/design-exports');
 const API = 'https://api.figma.com/v1';
 
-/** Sections to pull, keyed by the viewport prefix in their Figma name. */
+/**
+ * Viewports, in tab order. `max` is the app's breakpoint ceiling, used to infer
+ * a viewport for sections whose name doesn't announce one (see viewportOf).
+ * Keep in sync with --breakpoint-* in src/index.css.
+ */
 const VIEWPORTS = {
-  mobile: { label: 'Mobile', width: 375 },
-  tablet: { label: 'Tablet', width: 834 },
-  desktop: { label: 'Desktop', width: 1440 },
+  mobile: { label: 'Mobile', width: 375, max: 499 },
+  tablet: { label: 'Tablet', width: 834, max: 1023 },
+  desktop: { label: 'Desktop', width: 1440, max: Infinity },
 };
 
-/** Only sections whose name matches this are pulled. */
-const SECTION_PATTERN = /log in/i;
+/**
+ * Sections are named "<Viewport> - <Flow>", e.g. "Mobile - Drivers Screens".
+ * Every section on the page is pulled by default so one fetch covers every
+ * flow; narrow with `--sections <regex>`.
+ */
+const DEFAULT_SECTION_PATTERN = /./;
 
 /**
  * The file carries older copies of these sections on other pages, so scope to
@@ -70,6 +78,29 @@ const ROUTES = {
   'Create Password - New Drivers': `/create-password/${DEMO_TOKEN}`,
 };
 
+/**
+ * Some sections name every frame "Desktop (2)" / "Tablet (7)", which is both
+ * useless in the picker and impossible to key a route off. These override by
+ * frame id (`<flow>/<viewport>/<slug>`) and win over ROUTES.
+ *
+ * Identify a frame by opening public/design-exports/<id>.png.
+ */
+const BY_ID = {
+  // PR #211 — driver individual route page
+  'drivers-screen/mobile/routes-individual-driver': {
+    label: 'Individual Route',
+    route: '/driver/route',
+  },
+  'drivers-screen/tablet/tablet-2': {
+    label: 'Individual Route',
+    route: '/driver/route',
+  },
+  'drivers-screen/desktop/desktop-2': {
+    label: 'Individual Route',
+    route: '/driver/route',
+  },
+};
+
 async function readToken() {
   if (process.env.FIGMA_TOKEN) return process.env.FIGMA_TOKEN;
   const file = path.join(os.homedir(), '.config/figma/credentials.json');
@@ -108,17 +139,33 @@ function slugify(name) {
     .replace(/^-|-$/g, '');
 }
 
-function viewportOf(sectionName) {
-  const key = Object.keys(VIEWPORTS).find((v) =>
+/**
+ * Viewport for a section: from its name prefix when it has one, else inferred
+ * from the frame width against the app's breakpoints.
+ */
+function viewportOf(sectionName, frameWidth) {
+  const named = Object.keys(VIEWPORTS).find((v) =>
     sectionName.toLowerCase().startsWith(v)
   );
-  if (!key) {
-    throw new Error(
-      `Section "${sectionName}" does not start with a known viewport ` +
-        `(${Object.keys(VIEWPORTS).join(', ')}). Rename it or extend VIEWPORTS.`
-    );
-  }
-  return key;
+  if (named) return named;
+  return (
+    Object.keys(VIEWPORTS).find((v) => frameWidth <= VIEWPORTS[v].max) ??
+    'desktop'
+  );
+}
+
+/**
+ * Flow for a section: its name with any "<Viewport> - " prefix stripped.
+ * Returns a grouping key plus the label to show. The key ignores a trailing
+ * "s" because the sections are named inconsistently — "Mobile - Drivers
+ * Screens" vs "Desktop - Drivers Screen" are the same flow.
+ */
+function flowOf(sectionName) {
+  const label = sectionName
+    .replace(new RegExp(`^(${Object.keys(VIEWPORTS).join('|')})\\s*-\\s*`, 'i'), '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return { key: label.toLowerCase().replace(/s$/, ''), label };
 }
 
 async function main() {
@@ -148,12 +195,18 @@ async function main() {
   }
   const page = pages[0];
 
+  const sectionArg = process.argv[process.argv.indexOf('--sections') + 1];
+  const sectionPattern =
+    process.argv.includes('--sections') && sectionArg
+      ? new RegExp(sectionArg, 'i')
+      : DEFAULT_SECTION_PATTERN;
+
   const sections = (page.children ?? []).filter(
-    (n) => n.type === 'SECTION' && SECTION_PATTERN.test(n.name)
+    (n) => n.type === 'SECTION' && sectionPattern.test(n.name)
   );
   if (sections.length === 0) {
     throw new Error(
-      `No SECTION matching ${SECTION_PATTERN} on page "${page.name}". ` +
+      `No SECTION matching ${sectionPattern} on page "${page.name}". ` +
         `Sections there: ${(page.children ?? [])
           .filter((c) => c.type === 'SECTION')
           .map((c) => c.name)
@@ -173,8 +226,10 @@ async function main() {
 
   const frames = [];
   const unmapped = [];
+  const flows = new Map();
   for (const section of sections) {
-    const viewport = viewportOf(section.name);
+    const flow = flowOf(section.name);
+    flows.set(flow.key, flow.label);
     const children = detail.nodes[section.id].document.children ?? [];
     const seen = new Map();
     for (const frame of children) {
@@ -183,34 +238,65 @@ async function main() {
       const name = frame.name.trim().replace(/\s+/g, ' ');
       if (SKIP_FRAMES.some((re) => re.test(name))) continue;
 
+      const viewport = viewportOf(
+        section.name,
+        frame.absoluteBoundingBox?.width ?? 0
+      );
+
       // Figma allows duplicate frame names; disambiguate so files don't collide.
       const n = (seen.get(name) ?? 0) + 1;
       seen.set(name, n);
       const slug = slugify(name) + (n > 1 ? `-${n}` : '');
 
-      const route = ROUTES[name] ?? null;
-      if (!route) unmapped.push(`${viewport}/${name}`);
-
       const box = frame.absoluteBoundingBox ?? {};
+      // Flow-qualified so the same frame name in two flows can't collide.
+      const id = `${slugify(flow.key)}/${viewport}/${slug}`;
+      const override = BY_ID[id] ?? {};
+
+      const route = override.route ?? ROUTES[name] ?? null;
+      if (!route) unmapped.push(id);
+
       frames.push({
-        id: `${viewport}/${slug}`,
+        id,
         nodeId: frame.id,
-        label: name + (n > 1 ? ` (${n})` : ''),
+        label: override.label ?? name + (n > 1 ? ` (${n})` : ''),
+        flow: flow.key,
         viewport,
         route,
         width: Math.round(box.width ?? VIEWPORTS[viewport].width),
         height: Math.round(box.height ?? 0),
-        image: `/design-exports/${viewport}/${slug}.png`,
+        image: `/design-exports/${id}.png`,
       });
     }
   }
-  console.log(`Exporting ${frames.length} frames …`);
+  // `--reuse-images` re-derives the manifest from frames already on disk, for
+  // when only the label/route tables changed. Re-renders anything missing.
+  const reuse = process.argv.includes('--reuse-images');
+  const onDisk = new Set();
+  if (reuse) {
+    await Promise.all(
+      frames.map(async (f) => {
+        try {
+          await fs.access(path.join(OUT_DIR, `${f.id}.png`));
+          onDisk.add(f.nodeId);
+        } catch {
+          /* needs rendering */
+        }
+      })
+    );
+  }
+  const toRender = frames.filter((f) => !onDisk.has(f.nodeId));
+  console.log(
+    `Exporting ${frames.length} frames` +
+      (reuse ? ` (${onDisk.size} reused, ${toRender.length} to render)` : '') +
+      ' …'
+  );
 
   // Figma caps the ids per image request; batch conservatively.
   const urls = {};
   const BATCH = 20;
-  for (let i = 0; i < frames.length; i += BATCH) {
-    const batch = frames.slice(i, i + BATCH);
+  for (let i = 0; i < toRender.length; i += BATCH) {
+    const batch = toRender.slice(i, i + BATCH);
     const res = await figma(
       token,
       `${API}/images/${fileKey}?ids=${batch
@@ -221,21 +307,20 @@ async function main() {
     Object.assign(urls, res.images);
   }
 
-  await fs.rm(OUT_DIR, { recursive: true, force: true });
-  for (const viewport of Object.keys(VIEWPORTS)) {
-    await fs.mkdir(path.join(OUT_DIR, viewport), { recursive: true });
-  }
+  // A full run starts clean so frames deleted in Figma don't linger.
+  if (!reuse) await fs.rm(OUT_DIR, { recursive: true, force: true });
 
   let written = 0;
-  for (const frame of frames) {
+  for (const frame of toRender) {
     const url = urls[frame.nodeId];
     if (!url) throw new Error(`Figma returned no image for ${frame.label}`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Download failed for ${frame.label}: ${res.status}`);
     const dest = path.join(OUT_DIR, `${frame.id}.png`);
+    await fs.mkdir(path.dirname(dest), { recursive: true });
     await fs.writeFile(dest, Buffer.from(await res.arrayBuffer()));
     written += 1;
-    process.stdout.write(`\r  ${written}/${frames.length}`);
+    process.stdout.write(`\r  ${written}/${toRender.length}`);
   }
   process.stdout.write('\n');
 
@@ -244,8 +329,10 @@ async function main() {
     fileName: file.name,
     fetchedAt: new Date().toISOString(),
     viewports: VIEWPORTS,
+    flows: Object.fromEntries([...flows].map(([key, label]) => [key, { label }])),
     frames: frames.sort(
       (a, b) =>
+        a.flow.localeCompare(b.flow) ||
         Object.keys(VIEWPORTS).indexOf(a.viewport) -
           Object.keys(VIEWPORTS).indexOf(b.viewport) ||
         a.label.localeCompare(b.label)
@@ -256,7 +343,10 @@ async function main() {
     JSON.stringify(manifest, null, 2)
   );
 
-  console.log(`\nWrote ${written} frames + manifest.json to public/design-exports/`);
+  console.log(
+    `\nWrote ${written} new + ${frames.length - written} reused frames ` +
+      `and manifest.json to public/design-exports/`
+  );
   if (unmapped.length) {
     console.log(
       `\n${unmapped.length} frame(s) have no route mapping — pick a route in the ` +
