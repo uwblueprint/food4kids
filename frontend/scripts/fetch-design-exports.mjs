@@ -29,6 +29,12 @@ const VIEWPORTS = {
 /** Only sections whose name matches this are pulled. */
 const SECTION_PATTERN = /log in/i;
 
+/**
+ * The file carries older copies of these sections on other pages, so scope to
+ * the canonical page. Override with `--page <name>`.
+ */
+const DEFAULT_PAGE_PATTERN = /finalized/i;
+
 /** Frames that are exploration or annotation, not screens to review. */
 const SKIP_FRAMES = [/^Developer Notes$/, /^Could do sum like$/];
 
@@ -56,7 +62,7 @@ const ROUTES = {
   'Default Log In - Error States': '/login',
   'No Account Yet - Get Login Link': '/login',
   'Redo Log in Driver': '/login',
-  'Forgot Password  | Driver Create Password Section': '/forgot-password',
+  'Forgot Password | Driver Create Password Section': '/forgot-password',
   'First Time Login - Driver - Through Invite link': `/create-password/${DEMO_TOKEN}`,
   'First Time Login - Criteria Not Met': `/create-password/${DEMO_TOKEN}`,
   "First Time Login - Passwords Don't Match": `/create-password/${DEMO_TOKEN}`,
@@ -117,29 +123,46 @@ function viewportOf(sectionName) {
 
 async function main() {
   const token = await readToken();
-  const fileKey = parseFileKey(process.argv[2]);
+  // `pnpm run x -- <arg>` forwards the `--` too, so skip it.
+  const fileKey = parseFileKey(process.argv.slice(2).find((a) => a !== '--'));
 
   console.log(`Reading file ${fileKey} …`);
   // depth=2 → pages and their direct children (the sections), no frame internals.
   const file = await figma(token, `${API}/files/${fileKey}?depth=2`);
 
-  const sections = [];
-  for (const page of file.document.children) {
-    for (const node of page.children ?? []) {
-      if (node.type === 'SECTION' && SECTION_PATTERN.test(node.name)) {
-        sections.push({ ...node, page: page.name });
-      }
-    }
+  const pageArg = process.argv[process.argv.indexOf('--page') + 1];
+  const pagePattern =
+    process.argv.includes('--page') && pageArg
+      ? new RegExp(pageArg, 'i')
+      : DEFAULT_PAGE_PATTERN;
+
+  const pages = file.document.children.filter((p) => pagePattern.test(p.name));
+  if (pages.length !== 1) {
+    throw new Error(
+      `Expected exactly one page matching ${pagePattern}, got ${pages.length}.\n` +
+        `Pages in "${file.name}": ${file.document.children
+          .map((p) => p.name)
+          .join(', ')}\n` +
+        `Pass --page <name> to pick one.`
+    );
   }
+  const page = pages[0];
+
+  const sections = (page.children ?? []).filter(
+    (n) => n.type === 'SECTION' && SECTION_PATTERN.test(n.name)
+  );
   if (sections.length === 0) {
     throw new Error(
-      `No SECTION matching ${SECTION_PATTERN} in "${file.name}". ` +
-        `Top-level names: ${file.document.children
-          .flatMap((p) => (p.children ?? []).map((c) => c.name))
+      `No SECTION matching ${SECTION_PATTERN} on page "${page.name}". ` +
+        `Sections there: ${(page.children ?? [])
+          .filter((c) => c.type === 'SECTION')
+          .map((c) => c.name)
           .join(', ')}`
     );
   }
-  console.log(`Found sections: ${sections.map((s) => s.name).join(', ')}`);
+  console.log(
+    `Page "${page.name}" → sections: ${sections.map((s) => s.name).join(', ')}`
+  );
 
   // Section children come back empty at depth=2, so fetch each section's frames.
   const ids = sections.map((s) => s.id).join(',');
@@ -156,21 +179,23 @@ async function main() {
     const seen = new Map();
     for (const frame of children) {
       if (frame.type !== 'FRAME') continue;
-      if (SKIP_FRAMES.some((re) => re.test(frame.name))) continue;
+      // Figma names carry stray whitespace; trim before matching anything.
+      const name = frame.name.trim().replace(/\s+/g, ' ');
+      if (SKIP_FRAMES.some((re) => re.test(name))) continue;
 
       // Figma allows duplicate frame names; disambiguate so files don't collide.
-      const n = (seen.get(frame.name) ?? 0) + 1;
-      seen.set(frame.name, n);
-      const slug = slugify(frame.name) + (n > 1 ? `-${n}` : '');
+      const n = (seen.get(name) ?? 0) + 1;
+      seen.set(name, n);
+      const slug = slugify(name) + (n > 1 ? `-${n}` : '');
 
-      const route = ROUTES[frame.name] ?? null;
-      if (!route) unmapped.push(`${viewport}/${frame.name}`);
+      const route = ROUTES[name] ?? null;
+      if (!route) unmapped.push(`${viewport}/${name}`);
 
       const box = frame.absoluteBoundingBox ?? {};
       frames.push({
         id: `${viewport}/${slug}`,
         nodeId: frame.id,
-        label: frame.name + (n > 1 ? ` (${n})` : ''),
+        label: name + (n > 1 ? ` (${n})` : ''),
         viewport,
         route,
         width: Math.round(box.width ?? VIEWPORTS[viewport].width),
