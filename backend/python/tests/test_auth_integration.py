@@ -124,6 +124,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/jobs/{job_id}"): Policy.DRIVER_OR_ADMIN,
+    ("POST", "/jobs/{job_id}/cancel"): Policy.ADMIN_ONLY,
     # --- location groups ---
     ("GET", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/location-groups/"): Policy.DRIVER_OR_ADMIN,

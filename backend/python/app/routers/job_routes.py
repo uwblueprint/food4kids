@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_driver_or_admin
+from app.dependencies.auth import require_admin, require_driver_or_admin
 from app.models import get_session
 from app.models.enum import ProgressEnum
 from app.models.job import JobRead
@@ -68,6 +68,28 @@ async def get_job(
             )
     except HTTPException:
         # Don't let the 404 get swallowed and rewrapped as a 500 below.
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+    return JobRead.model_validate(job)
+
+
+@router.post("/{job_id}/cancel", response_model=JobRead)
+async def cancel_job(
+    job_id: UUID,
+    service: JobService = Depends(get_job_service),
+    _auth: bool = Depends(require_admin),
+) -> JobRead:
+    """Cancel an in-flight route generation job."""
+    try:
+        job = await service.cancel_job(job_id)
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+            )
+    except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(

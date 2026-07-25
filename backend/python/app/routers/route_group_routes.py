@@ -1,11 +1,9 @@
 from datetime import datetime
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.dependencies.auth import require_admin
 from app.dependencies.services import get_location_service, get_route_group_service
 from app.models import get_session
@@ -15,7 +13,6 @@ from app.models.enum import (
     RouteStatusEnum,
 )
 from app.models.route_group import (
-    RouteGroup,
     RouteGroupCreate,
     RouteGroupDuplicate,
     RouteGroupRead,
@@ -26,16 +23,6 @@ from app.services.implementations.location_service import (
     LocationService,
 )
 from app.services.implementations.route_group_service import RouteGroupService
-
-
-def _compute_status(rg: RouteGroup) -> RouteStatusEnum:
-    tz = ZoneInfo(settings.scheduler_timezone)
-    now = datetime.now(tz).replace(tzinfo=None)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    if rg.drive_date >= today_start:
-        return RouteStatusEnum.UPCOMING
-    return RouteStatusEnum.COMPLETED
-
 
 router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
@@ -109,20 +96,7 @@ async def create_route_group(
             await location_service.validate_delivery_types(
                 session, [route_group.delivery_type]
             )
-        created_route_group = await route_group_service.create_route_group(
-            session, route_group
-        )
-        return RouteGroupRead(
-            route_group_id=created_route_group.route_group_id,
-            name=created_route_group.name,
-            notes=created_route_group.notes,
-            drive_date=created_route_group.drive_date,
-            delivery_type=created_route_group.delivery_type,
-            created_at=created_route_group.created_at,
-            updated_at=created_route_group.updated_at,
-            num_routes=created_route_group.num_routes,
-            status=_compute_status(created_route_group),
-        )
+        return await route_group_service.create_route_group(session, route_group)
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(ve)
@@ -153,17 +127,7 @@ async def update_route_group(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"RouteGroup with id {route_group_id} not found",
             )
-        return RouteGroupRead(
-            route_group_id=updated_route_group.route_group_id,
-            name=updated_route_group.name,
-            notes=updated_route_group.notes,
-            drive_date=updated_route_group.drive_date,
-            delivery_type=updated_route_group.delivery_type,
-            created_at=updated_route_group.created_at,
-            updated_at=updated_route_group.updated_at,
-            num_routes=updated_route_group.num_routes,
-            status=_compute_status(updated_route_group),
-        )
+        return updated_route_group
     except HTTPException:
         raise
     except Exception as e:
@@ -197,17 +161,7 @@ async def duplicate_route_group(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"RouteGroup with id {route_group_id} not found",
             )
-        return RouteGroupRead(
-            route_group_id=duplicated_route_group.route_group_id,
-            name=duplicated_route_group.name,
-            notes=duplicated_route_group.notes,
-            drive_date=duplicated_route_group.drive_date,
-            delivery_type=duplicated_route_group.delivery_type,
-            created_at=duplicated_route_group.created_at,
-            updated_at=duplicated_route_group.updated_at,
-            num_routes=duplicated_route_group.num_routes,
-            status=_compute_status(duplicated_route_group),
-        )
+        return duplicated_route_group
     except HTTPException:
         raise
     except Exception as e:

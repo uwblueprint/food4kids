@@ -11,6 +11,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import {
+  cancelJob,
   completeDriverRegistration,
   createAnnouncement,
   createDriverHistory,
@@ -81,6 +82,9 @@ import {
   uploadImage,
 } from '../sdk.gen';
 import type {
+  CancelJobData,
+  CancelJobError,
+  CancelJobResponse,
   CompleteDriverRegistrationData,
   CompleteDriverRegistrationError,
   CompleteDriverRegistrationResponse,
@@ -1132,6 +1136,35 @@ export const getJobOptions = (options: Options<GetJobData>) =>
     },
     queryKey: getJobQueryKey(options),
   });
+
+/**
+ * Cancel Job
+ *
+ * Cancel an in-flight route generation job.
+ */
+export const cancelJobMutation = (
+  options?: Partial<Options<CancelJobData>>
+): UseMutationOptions<
+  CancelJobResponse,
+  AxiosError<CancelJobError>,
+  Options<CancelJobData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CancelJobResponse,
+    AxiosError<CancelJobError>,
+    Options<CancelJobData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await cancelJob({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getLocationGroupsQueryKey = (
   options?: Options<GetLocationGroupsData>
