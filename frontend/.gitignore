@@ -21,3 +21,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Dev-only Figma exports pulled by scripts/fetch-design-exports.mjs
+public/design-exports/
