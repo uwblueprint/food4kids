@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Awaitable, Callable
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -37,6 +38,19 @@ auth_service = AuthService(logger, user_service, driver_service, email_service)
 
 # Security scheme
 security = HTTPBearer()
+
+
+class DriverAccess(StrEnum):
+    """
+    How the caller was authorized for a ``/drivers/{driver_id}``-scoped route.
+
+    Returned by ``require_self_driver_or_admin`` so shared endpoints can apply
+    role-specific behavior (e.g. field restrictions) after authorization.
+    Unauthorized callers never reach a value — the dependency raises instead.
+    """
+
+    ADMIN = "admin"
+    SELF = "self"
 
 
 def get_access_token(
@@ -134,11 +148,12 @@ async def require_self_driver_or_admin(
     request: Request,
     access_token: str = Depends(get_access_token),
     session: AsyncSession = Depends(get_session),
-) -> bool:
+) -> DriverAccess:
     """
     Allow access if the caller is an admin, or is the driver identified by the
-    route's ``{driver_id}`` path parameter. Returns True for admins and False
-    for self-driver access so shared endpoints can apply role-specific field
+    route's ``{driver_id}`` path parameter. Used on the /drivers/{driver_id}
+    routes and driver history routes. Returns ``DriverAccess.ADMIN`` or
+    ``DriverAccess.SELF`` so shared endpoints can apply role-specific field
     restrictions after authorization.
 
     The token is verified once (with email_verified enforced for everyone,
@@ -150,7 +165,7 @@ async def require_self_driver_or_admin(
     decoded_token = _verified_token(access_token)
 
     if decoded_token.get("role") == "admin":
-        return True
+        return DriverAccess.ADMIN
 
     token_driver_id = await driver_service.get_driver_id_by_auth_id(
         session, decoded_token["uid"]
@@ -160,7 +175,7 @@ async def require_self_driver_or_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this resource.",
         )
-    return False
+    return DriverAccess.SELF
 
 
 async def require_route_assigned_or_admin(

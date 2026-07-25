@@ -16,6 +16,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import (
+    DriverAccess,
     get_access_token,
     get_current_database_user_id,
     get_current_user_email,
@@ -287,9 +288,9 @@ def _make_driver_id_app() -> FastAPI:
 
     @app.get("/drivers/{driver_id}")
     async def get_driver(
-        driver_id: str, is_admin: bool = Depends(require_self_driver_or_admin)
+        driver_id: str, access: DriverAccess = Depends(require_self_driver_or_admin)
     ) -> dict:
-        return {"driver_id": driver_id, "is_admin": is_admin}
+        return {"driver_id": driver_id, "access": access}
 
     return app
 
@@ -343,7 +344,7 @@ class TestRequireSelfDriverOrAdmin:
             resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 200
-        assert resp.json()["is_admin"] is True
+        assert resp.json()["access"] == DriverAccess.ADMIN
 
     @pytest.mark.asyncio
     async def test_driver_can_access_own_id(self) -> None:
@@ -369,7 +370,7 @@ class TestRequireSelfDriverOrAdmin:
             resp = await _get_driver(app, driver_id, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 200
-        assert resp.json()["is_admin"] is False
+        assert resp.json()["access"] == DriverAccess.SELF
 
     @pytest.mark.asyncio
     async def test_driver_cannot_access_other_driver(self) -> None:

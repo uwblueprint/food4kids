@@ -19,7 +19,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_self_driver_or_admin
+from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
 from app.models.enum import ProgressEnum
 from app.models.location import Location
@@ -288,7 +288,7 @@ class TestDriverRoutes:
         from app.models.user import User
 
         self_client = await client_with_overrides(
-            {require_self_driver_or_admin: lambda: False}
+            {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
         with (
             patch("firebase_admin.auth.update_user") as mock_update_user,
@@ -340,7 +340,7 @@ class TestDriverRoutes:
         original_address = test_driver.address
         original_active = test_driver.active
         self_client = await client_with_overrides(
-            {require_self_driver_or_admin: lambda: False}
+            {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
 
         response = await self_client.put(
@@ -357,6 +357,29 @@ class TestDriverRoutes:
         assert test_driver.phone == original_phone
         assert test_driver.address == original_address
         assert test_driver.active is original_active
+
+    @pytest.mark.asyncio
+    async def test_update_driver_rejects_explicit_null(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Explicit null for a non-nullable field is a 422, not a commit-time 500."""
+        from app.models.user import User
+
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        original_first_name = user.first_name
+
+        response = await async_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={"first_name": None},
+        )
+
+        assert response.status_code == 422
+        await test_session.refresh(user)
+        assert user.first_name == original_first_name
 
     @pytest.mark.asyncio
     async def test_admin_updates_driver_name_and_admin_only_fields(

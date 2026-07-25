@@ -352,6 +352,38 @@ class TestCoreModels:
         assert driver_update.address == "456 Oak Ave, City, State 12345"
         assert driver_update.license_plate is None
 
+    def test_driver_update_rejects_explicit_null_for_non_nullable_fields(
+        self,
+    ) -> None:
+        """Explicit null is a 422 for fields backed by non-nullable columns.
+
+        None as a *default* means "not provided" and stays valid; only a null
+        that the client actually sent is rejected. partner_driver_name is the
+        one nullable column, where explicit null legitimately clears the value.
+        """
+        non_nullable_fields = [
+            "first_name",
+            "last_name",
+            "phone",
+            "availability",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "active",
+        ]
+        for field in non_nullable_fields:
+            with pytest.raises(ValidationError, match="cannot be null"):
+                DriverUpdate.model_validate({field: None})
+
+        # Omitting every field is still a valid (no-op) update
+        empty_update = DriverUpdate.model_validate({})
+        assert empty_update.model_fields_set == set()
+
+        # Explicit null still clears the nullable partner_driver_name
+        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
+        assert cleared.partner_driver_name is None
+        assert "partner_driver_name" in cleared.model_fields_set
+
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
         # Create with all fields
