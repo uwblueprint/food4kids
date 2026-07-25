@@ -1,8 +1,10 @@
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from pydantic import EmailStr, computed_field
+from pydantic import EmailStr, computed_field, field_validator
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.utilities.utils import validate_password_complexity
 
 from .base import BaseModel
 
@@ -48,3 +50,8 @@ class UserUpdate(SQLModel):
 class UserFinalize(SQLModel):
     user_invite_id: UUID
     password: str = Field(min_length=8, max_length=100)
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, password: str) -> str:
+        return validate_password_complexity(password)
