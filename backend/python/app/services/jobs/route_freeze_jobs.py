@@ -5,22 +5,21 @@ is today or earlier) and not yet frozen, create the RouteSnapshot +
 RouteStopSnapshot rows that lock in what was delivered. The presence of the
 snapshot is the freeze signal — there is no separate flag column.
 
-The job writes NO mileage: driver history is derived at read time from
-frozen routes (SUM(Route.length) grouped by driver and drive_date month)
-plus manual adjustments — see DriverHistoryService. Freezing a route is what
-makes it count.
+The job writes no mileage: driver history is derived at read time from
+frozen routes plus manual adjustments (see DriverHistoryService). Freezing
+a route is what makes it count.
 
 Because the scan is "due and un-frozen" rather than "dated today", a missed
-run (server down at 23:59), a crash mid-run, or a night with unconfigured
-warehouse coordinates self-heals on the next successful run: whatever wasn't
-frozen is still due. Each route is processed in its own session/transaction,
-so one failing route can't poison the rest of the run.
+run, a crash mid-run, or a night with unconfigured warehouse coordinates
+self-heals on the next successful run. Each route is processed in its own
+session/transaction, so one failing route can't poison the rest of the run.
 """
 
 from __future__ import annotations
 
 from datetime import date, datetime
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -30,6 +29,7 @@ if TYPE_CHECKING:
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
+from app.config import settings
 from app.dependencies.services import get_logger
 from app.models import async_session_maker_instance
 from app.models.route import Route
@@ -119,7 +119,10 @@ async def process_daily_driver_history() -> None:
         logger.error("Database session maker not initialized")
         return
 
-    today = date.today()
+    # Resolve "today" in the scheduler's timezone, not the process's. The
+    # container runs UTC, so date.today() at 23:59 local is already
+    # tomorrow — which would freeze tomorrow's routes a day early.
+    today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
     end_of_today = datetime.combine(today, datetime.max.time())
 
     try:

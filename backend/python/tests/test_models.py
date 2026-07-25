@@ -22,7 +22,7 @@ from app.models.driver import (
     DriverCreate,
     DriverUpdate,
 )
-from app.models.driver_history import (
+from app.models.driver_mileage import (
     DriverHistoryRead,
     DriverMileageAdjustment,
     DriverMileageAdjustmentCreate,

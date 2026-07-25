@@ -300,8 +300,7 @@ export type DriverAssignmentStatusEnum = 'Assigned' | 'Unassigned';
 /**
  * DriverHistoryRead
  *
- * Monthly km read model: SUM(route.length) over the driver's frozen
- * routes in that month plus their adjustments. Computed, never stored.
+ * One month's km for a driver. Computed, never stored.
  */
 export type DriverHistoryRead = {
   /**
@@ -341,8 +340,7 @@ export type DriverHistorySummary = {
 /**
  * DriverMileageAdjustmentCreate
  *
- * Create request model (admin-only). km is a signed delta and a note
- * explaining the correction is required.
+ * Create request model (admin-only). km is a signed delta.
  */
 export type DriverMileageAdjustmentCreate = {
   /**
@@ -376,7 +374,7 @@ export type DriverMileageAdjustmentRead = {
   /**
    * Driver Id
    */
-  driver_id?: string | null;
+  driver_id: string;
   /**
    * Km
    */

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_admin, require_self_driver_or_admin
 from app.models import get_session
-from app.models.driver_history import (
+from app.models.driver_mileage import (
     MAX_YEAR,
     MIN_YEAR,
     DriverHistoryRead,
@@ -164,8 +164,15 @@ async def get_driver_mileage_adjustments(
     """A driver's manual mileage adjustments, newest first (audit view).
     Route-derived km isn't listed here — see the driver's routes for that."""
     try:
+        if not await driver_history_service.driver_exists(session, driver_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver with id {driver_id} does not exist",
+            )
         adjustments = await driver_history_service.get_adjustments(session, driver_id)
         return [DriverMileageAdjustmentRead.model_validate(a) for a in adjustments]
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -188,28 +195,26 @@ async def create_driver_mileage_adjustment(
 
     km is a delta (negative to remove over-credited distance) and a note
     explaining the correction is required. Totals are derived from routes
-    plus adjustments, so corrections compose with route credits instead of
-    being overwritten by them.
+    plus adjustments, so corrections compose with route credits.
     """
-    if create.km == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Adjustment km must be non-zero",
-        )
+    try:
+        if not await driver_history_service.driver_exists(session, driver_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver with id {driver_id} does not exist",
+            )
 
-    if not driver_history_service.validate_year(create.drive_date.year):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"drive_date year must be between {MIN_YEAR} and {MAX_YEAR}",
+        adjustment = await driver_history_service.create_adjustment(
+            session, driver_id, create.drive_date, create.km, create.note
         )
-
-    if not await driver_history_service.driver_exists(session, driver_id):
+        return DriverMileageAdjustmentRead.model_validate(adjustment)
+    except HTTPException:
+        raise
+    except ValueError as ve:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Driver with id {driver_id} does not exist",
-        )
-
-    adjustment = await driver_history_service.create_adjustment(
-        session, driver_id, create.drive_date, create.km, create.note
-    )
-    return DriverMileageAdjustmentRead.model_validate(adjustment)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)
+        ) from ve
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e

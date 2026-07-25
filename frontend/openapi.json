@@ -480,7 +480,7 @@
         "type": "string"
       },
       "DriverHistoryRead": {
-        "description": "Monthly km read model: SUM(route.length) over the driver's frozen\nroutes in that month plus their adjustments. Computed, never stored.",
+        "description": "One month's km for a driver. Computed, never stored.",
         "properties": {
           "driver_id": {
             "format": "uuid",
@@ -529,7 +529,7 @@
         "type": "object"
       },
       "DriverMileageAdjustmentCreate": {
-        "description": "Create request model (admin-only). km is a signed delta and a note\nexplaining the correction is required.",
+        "description": "Create request model (admin-only). km is a signed delta.",
         "properties": {
           "drive_date": {
             "format": "date",
@@ -569,16 +569,9 @@
             "type": "string"
           },
           "driver_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Driver Id"
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
           },
           "km": {
             "title": "Km",
@@ -592,6 +585,7 @@
           }
         },
         "required": [
+          "driver_id",
           "drive_date",
           "km",
           "note",
@@ -4890,7 +4884,7 @@
         ]
       },
       "post": {
-        "description": "Post a signed manual mileage adjustment (admin-only).\n\nkm is a delta (negative to remove over-credited distance) and a note\nexplaining the correction is required. Totals are derived from routes\nplus adjustments, so corrections compose with route credits instead of\nbeing overwritten by them.",
+        "description": "Post a signed manual mileage adjustment (admin-only).\n\nkm is a delta (negative to remove over-credited distance) and a note\nexplaining the correction is required. Totals are derived from routes\nplus adjustments, so corrections compose with route credits.",
         "operationId": "create_driver_mileage_adjustment",
         "parameters": [
           {

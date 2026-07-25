@@ -11,7 +11,10 @@ from app.models.driver import Driver
 from app.models.route_group import RouteGroup
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.user import User
-from app.services.implementations.driver_history_service import DriverHistoryService
+from app.services.implementations.driver_history_service import (
+    mileage_events,
+    month_bounds,
+)
 
 
 class DriverReportService:
@@ -26,14 +29,13 @@ class DriverReportService:
 
         Derived: frozen-route lengths + manual adjustments."""
         try:
-            events = DriverHistoryService._mileage_events()
+            events = mileage_events(bounds=month_bounds(year, month))
             km_sum = func.sum(events.c.km).label("km")
             statement = (
                 select(events.c.driver_id, User.first_name, User.last_name, km_sum)
                 .select_from(events)
                 .join(Driver, col(Driver.driver_id) == events.c.driver_id)
                 .join(User, col(User.user_id) == col(Driver.user_id))
-                .where(events.c.year == year, events.c.month == month)
                 .group_by(events.c.driver_id, User.first_name, User.last_name)
                 .order_by(km_sum.desc())
             )
@@ -59,10 +61,8 @@ class DriverReportService:
         self, session: AsyncSession, year: int, month: int
     ) -> float:
         try:
-            events = DriverHistoryService._mileage_events()
-            statement = select(func.coalesce(func.sum(events.c.km), 0.0)).where(
-                events.c.year == year, events.c.month == month
-            )
+            events = mileage_events(bounds=month_bounds(year, month))
+            statement = select(func.coalesce(func.sum(events.c.km), 0.0))
             result = await session.execute(statement)
             total = result.scalar_one()
             return float(total or 0.0)

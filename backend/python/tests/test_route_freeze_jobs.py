@@ -2,12 +2,12 @@
 
 The job creates snapshots only — mileage is derived at read time from
 frozen routes, so freezing a route is what makes it count. The job opens
-its own sessions via the module-global session maker and reads
-date.today(), so we point that global at the test engine (monkeypatch) and
-seed data with committed rows the job's separate sessions can see.
+its own sessions via the module-global session maker, so we point that
+global at the test engine (monkeypatch) and seed committed rows the job's
+separate sessions can see.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -24,7 +24,7 @@ from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
-from app.services.jobs import driver_history_jobs
+from app.services.jobs import route_freeze_jobs
 
 ROUTE_KM = 12.5
 
@@ -140,16 +140,16 @@ async def test_freeze_then_idempotent(
     """First run freezes today's route; a second run is a no-op (no
     duplicate snapshots)."""
     maker = _maker(test_db_engine)
-    monkeypatch.setattr(driver_history_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
     await _seed(maker)
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
     after_first = await _counts(maker)
     assert after_first["snapshots"] == 1
     assert after_first["stop_snapshots"] == 1
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
     after_second = await _counts(maker)
     assert after_second["snapshots"] == 1
     assert after_second["stop_snapshots"] == 1
@@ -163,11 +163,11 @@ async def test_catch_up_freezes_missed_past_dates(
     night) is swept up by the next run — its mileage starts counting as soon
     as it's frozen, under its own drive_date month."""
     maker = _maker(test_db_engine)
-    monkeypatch.setattr(driver_history_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
     seeded = await _seed(maker, drive_date=date.today() - timedelta(days=3))
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
 
     after = await _counts(maker)
     assert after["snapshots"] == 1
@@ -179,13 +179,50 @@ async def test_future_routes_not_frozen(
     test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     maker = _maker(test_db_engine)
-    monkeypatch.setattr(driver_history_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
     await _seed(maker, drive_date=date.today() + timedelta(days=2))
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
     after = await _counts(maker)
     assert after["snapshots"] == 0
+
+
+@pytest.mark.asyncio
+async def test_due_window_follows_scheduler_timezone(
+    test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ "Today" is resolved in the scheduler's timezone, not the process's.
+
+    The job fires at 23:59 America/New_York, but the container clock is UTC
+    — where that instant is already the next calendar day. Using the process
+    date would pull tomorrow's routes into the due window and freeze them a
+    day early. Pinned to a real instant so the result can't depend on the
+    host's timezone.
+    """
+    maker = _maker(test_db_engine)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(
+        route_freeze_jobs.settings, "scheduler_timezone", "America/New_York"
+    )
+
+    # 2026-07-25 23:59 in New York is 2026-07-26 03:59 UTC.
+    instant = datetime(2026, 7, 26, 3, 59, tzinfo=timezone.utc)
+
+    class _PinnedClock(datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> Any:
+            return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
+
+    monkeypatch.setattr(route_freeze_jobs, "datetime", _PinnedClock)
+
+    today_in_ny = await _seed(maker, drive_date=date(2026, 7, 25))
+    await _seed(maker, drive_date=date(2026, 7, 26))
+
+    await route_freeze_jobs.process_daily_driver_history()
+
+    after = await _counts(maker)
+    assert after["snapshot_route_ids"] == {today_in_ny["route_id"]}
 
 
 @pytest.mark.asyncio
@@ -195,11 +232,11 @@ async def test_driverless_route_still_frozen(
     """A driverless route is still frozen — the delivery is a historical
     fact. It just derives to no one's mileage until someone is assigned."""
     maker = _maker(test_db_engine)
-    monkeypatch.setattr(driver_history_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
     await _seed(maker, assign_driver=False)
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
     after = await _counts(maker)
     assert after["snapshots"] == 1
     assert after["stop_snapshots"] == 1
@@ -212,7 +249,7 @@ async def test_warehouse_unconfigured_self_heals(
     """Without warehouse coords the job freezes nothing — and the routes
     stay due, so the first run after coords are set picks them up."""
     maker = _maker(test_db_engine)
-    monkeypatch.setattr(driver_history_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
     await _seed(maker)
     async with maker() as s:
@@ -223,7 +260,7 @@ async def test_warehouse_unconfigured_self_heals(
         settings.warehouse_longitude = None
         await s.commit()
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
     assert (await _counts(maker))["snapshots"] == 0
 
     async with maker() as s:
@@ -234,7 +271,7 @@ async def test_warehouse_unconfigured_self_heals(
         settings.warehouse_longitude = -80.0
         await s.commit()
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
     assert (await _counts(maker))["snapshots"] == 1
 
 
@@ -245,21 +282,21 @@ async def test_failing_route_does_not_poison_the_run(
     """One route failing to freeze must not stop other due routes from
     being frozen in the same run (per-route sessions/transactions)."""
     maker = _maker(test_db_engine)
-    monkeypatch.setattr(driver_history_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
     poisoned = await _seed(maker, drive_date=date.today() - timedelta(days=1))
     healthy = await _seed(maker)
 
-    real_freeze = driver_history_jobs._freeze_route
+    real_freeze = route_freeze_jobs._freeze_route
 
     async def failing_freeze(maker_: Any, route_id: Any, *args: Any) -> None:
         if route_id == poisoned["route_id"]:
             raise RuntimeError("injected freeze failure")
         await real_freeze(maker_, route_id, *args)
 
-    monkeypatch.setattr(driver_history_jobs, "_freeze_route", failing_freeze)
+    monkeypatch.setattr(route_freeze_jobs, "_freeze_route", failing_freeze)
 
-    await driver_history_jobs.process_daily_driver_history()
+    await route_freeze_jobs.process_daily_driver_history()
 
     after = await _counts(maker)
     assert after["snapshot_route_ids"] == {healthy["route_id"]}

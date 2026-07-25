@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver import Driver
+from app.models.driver_mileage import DriverMileageAdjustment
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route, RoutePatchRequest
@@ -432,9 +433,15 @@ async def test_driver_delete_endpoint_detaches_routes_and_km(
     async_client: Any, test_session: AsyncSession, frozen_world: dict[str, Any]
 ) -> None:
     """Deleting a driver removes the row; their frozen routes survive but
-    become unattributed (driver_id SET NULL), so the km stop counting."""
+    become unattributed (driver_id SET NULL), so the km stop counting.
+    Their adjustments CASCADE away — those are per-driver corrections with
+    no meaning once the driver is gone."""
     a = frozen_world["driver_a"]
     frozen_route = frozen_world["route"]
+
+    await history_service.create_adjustment(
+        test_session, a.driver_id, date(2026, 3, 4), 12.0, "manual correction"
+    )
 
     resp = await async_client.delete(f"/drivers/{a.driver_id}")
     assert resp.status_code == 204
@@ -452,6 +459,19 @@ async def test_driver_delete_endpoint_detaches_routes_and_km(
     # The route itself survives, unassigned.
     await test_session.refresh(frozen_route)
     assert frozen_route.driver_id is None
+    # The adjustment is gone with the driver.
+    remaining = (
+        (
+            await test_session.execute(
+                select(DriverMileageAdjustment).where(
+                    DriverMileageAdjustment.driver_id == a.driver_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert list(remaining) == []
     assert await _lifetime(test_session, a.driver_id) == pytest.approx(0.0)
 
 

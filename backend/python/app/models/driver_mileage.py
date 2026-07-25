@@ -12,28 +12,17 @@ MAX_YEAR = 2100
 class DriverMileageAdjustmentBase(SQLModel):
     """Shared fields between table and API models.
 
-    Driver mileage is DERIVED, not stored: a driver's km for a month is the
-    sum of `Route.length` over their frozen routes (routes with a
-    RouteSnapshot) whose group's drive_date falls in that month, PLUS the
-    signed adjustments in this table. Reassigning or editing a route
-    therefore updates history automatically — there is no stored total to
-    drift out of sync.
-
-    Adjustments exist for what routes can't express: manual admin
-    corrections ("Alice actually drove 5 km more") and pre-app history
-    migrated from the old monthly-totals table. Corrections are new signed
-    entries — never edits — and every entry carries a note explaining why.
+    Driver mileage is derived, not stored: a driver's km for a month is the
+    sum of `Route.length` over their frozen routes (those with a
+    RouteSnapshot) in that month, plus the signed adjustments here.
+    Adjustments cover what routes can't express — manual admin corrections
+    and pre-app history. Corrections are new signed entries, never edits.
     """
 
-    # SET NULL (never CASCADE): corrections are historical facts that must
-    # survive driver-row deletion. Soft-delete (Driver.active) means this
-    # rarely fires in practice.
-    driver_id: UUID | None = Field(
-        default=None,
-        foreign_key="drivers.driver_id",
-        ondelete="SET NULL",
-        nullable=True,
-        index=True,
+    # CASCADE: driver deletion is a hard delete, and an adjustment without a
+    # driver is unreachable by every query here.
+    driver_id: UUID = Field(
+        foreign_key="drivers.driver_id", ondelete="CASCADE", index=True
     )
     # The delivery date being corrected; monthly buckets follow this.
     drive_date: date = Field(nullable=False, index=True)
@@ -51,8 +40,7 @@ class DriverMileageAdjustment(DriverMileageAdjustmentBase, BaseModel, table=True
 
 
 class DriverMileageAdjustmentCreate(SQLModel):
-    """Create request model (admin-only). km is a signed delta and a note
-    explaining the correction is required."""
+    """Create request model (admin-only). km is a signed delta."""
 
     drive_date: date
     km: float
@@ -66,8 +54,7 @@ class DriverMileageAdjustmentRead(DriverMileageAdjustmentBase):
 
 
 class DriverHistoryRead(SQLModel):
-    """Monthly km read model: SUM(route.length) over the driver's frozen
-    routes in that month plus their adjustments. Computed, never stored."""
+    """One month's km for a driver. Computed, never stored."""
 
     driver_id: UUID
     year: int

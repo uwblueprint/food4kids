@@ -596,8 +596,7 @@ export const getDriverMileageAdjustments = <
  *
  * km is a delta (negative to remove over-credited distance) and a note
  * explaining the correction is required. Totals are derived from routes
- * plus adjustments, so corrections compose with route credits instead of
- * being overwritten by them.
+ * plus adjustments, so corrections compose with route credits.
  */
 export const createDriverMileageAdjustment = <
   ThrowOnError extends boolean = false,

@@ -25,7 +25,7 @@ from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.base import BaseModel
 from app.models.driver import Driver
-from app.models.driver_history import DriverMileageAdjustment
+from app.models.driver_mileage import DriverMileageAdjustment
 from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
