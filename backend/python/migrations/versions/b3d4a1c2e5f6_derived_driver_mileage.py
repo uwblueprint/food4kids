@@ -10,7 +10,7 @@ No backfill: there is no production deployment, so legacy driver_history
 rows are dropped rather than reconciled into adjustments.
 
 Revision ID: b3d4a1c2e5f6
-Revises: d7e8f9a0b1c2
+Revises: 58e90e6bdd92
 Create Date: 2026-07-12
 """
 
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "b3d4a1c2e5f6"
-down_revision = "d7e8f9a0b1c2"
+down_revision = "58e90e6bdd92"
 branch_labels = None
 depends_on = None
 
