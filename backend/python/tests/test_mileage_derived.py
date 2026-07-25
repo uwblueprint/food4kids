@@ -342,6 +342,40 @@ async def test_frozen_stop_edit_updates_km_and_rebuilds_snapshots(
 
 
 @pytest.mark.asyncio
+async def test_frozen_stop_edit_rejects_ungeocoded_location(
+    test_session: AsyncSession,
+    frozen_world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Amending a frozen route with an un-geocoded stop is rejected.
+
+    The route is already frozen, so nothing will revisit it — a stop skipped
+    during the rebuild would keep no address or contact details forever.
+    Unlike the freeze job, there is no 'stay due and retry' here, so the
+    only safe answer is to refuse the edit.
+    """
+    from app.services.implementations import route_service as route_service_module
+
+    async def fake_polyline(**_kwargs: Any) -> tuple[str, float]:
+        return "fake-polyline", 60.0
+
+    monkeypatch.setattr(route_service_module, "fetch_route_polyline", fake_polyline)
+
+    locs = frozen_world["locations"]
+    locs[1].latitude = None
+    locs[1].longitude = None
+    await test_session.commit()
+
+    service = RouteService(logger)
+    with pytest.raises(ValueError, match="un-geocoded"):
+        await service.update_route(
+            test_session,
+            frozen_world["route"].route_id,
+            RoutePatchRequest(location_ids=[locs[1].location_id, locs[0].location_id]),
+        )
+
+
+@pytest.mark.asyncio
 async def test_stop_edit_on_unfrozen_route_creates_no_snapshots(
     test_session: AsyncSession,
     frozen_world: dict[str, Any],

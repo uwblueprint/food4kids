@@ -10,14 +10,21 @@ frozen routes plus manual adjustments (see DriverHistoryService). Freezing
 a route is what makes it count.
 
 Because the scan is "due and un-frozen" rather than "dated today", a missed
-run, a crash mid-run, or a night with unconfigured warehouse coordinates
-self-heals on the next successful run. Each route is processed in its own
-session/transaction, so one failing route can't poison the rest of the run.
+run, a crash mid-run, a night with unconfigured warehouse coordinates, or a
+route whose stops aren't geocoded yet all self-heal on the next successful
+run. Each route is processed in its own session/transaction, so one failing
+route can't poison the rest of the run.
+
+Freezing a route is all-or-nothing. The route snapshot is what stops the
+scan from revisiting it, so a partial freeze would strand un-snapshotted
+stops with no preserved address or contact details, permanently.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import date, datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -40,13 +47,23 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 
 
+class FreezeOutcome(StrEnum):
+    """What happened to one route in a freeze run."""
+
+    FROZEN = "frozen"
+    # Already frozen, or deleted between the scan and the write.
+    NOTHING_TO_DO = "nothing_to_do"
+    # A stop's location isn't geocoded yet. The route stays due.
+    DEFERRED = "deferred"
+
+
 async def _freeze_route(
     maker: async_sessionmaker[AsyncSession],
     route_id: UUID,
     warehouse_address: str,
     warehouse_latitude: float,
     warehouse_longitude: float,
-) -> None:
+) -> FreezeOutcome:
     """Freeze one route atomically in a fresh session.
 
     Raises on failure (nothing is committed in that case — the route stays
@@ -68,8 +85,28 @@ async def _freeze_route(
         )
         route = result.scalars().first()
         if route is None or route.snapshot is not None:
-            # Deleted or frozen since the scan — nothing to do.
-            return
+            return FreezeOutcome.NOTHING_TO_DO
+
+        # All-or-nothing: freezing is what makes a route's record permanent,
+        # and the route snapshot is the signal that stops the scan from ever
+        # revisiting it. Snapshotting only the geocoded stops would strand
+        # the rest with no address or contact details, unrecoverably. Bail
+        # instead and let the route stay due until geocoding lands.
+        ungeocoded = [
+            stop
+            for stop in route.route_stops
+            if stop.snapshot is None
+            and (stop.location.latitude is None or stop.location.longitude is None)
+        ]
+        if ungeocoded:
+            logger.warning(
+                f"Route {route.route_id} has {len(ungeocoded)} stop(s) whose "
+                f"location isn't geocoded "
+                f"({', '.join(str(s.location.location_id) for s in ungeocoded)}); "
+                f"not freezing. It stays due and will freeze on the next run "
+                f"once the coordinates are set."
+            )
+            return FreezeOutcome.DEFERRED
 
         session.add(
             RouteSnapshot(
@@ -84,12 +121,6 @@ async def _freeze_route(
             if stop.snapshot is not None:
                 continue
             loc = stop.location
-            if loc.latitude is None or loc.longitude is None:
-                logger.warning(
-                    f"Location {loc.location_id} missing coordinates; "
-                    f"skipping snapshot for stop {stop.route_stop_id}."
-                )
-                continue
             session.add(
                 RouteStopSnapshot(
                     route_stop_id=stop.route_stop_id,
@@ -107,6 +138,7 @@ async def _freeze_route(
         # One commit: the route snapshot and its stop snapshots land
         # together or not at all.
         await session.commit()
+        return FreezeOutcome.FROZEN
 
 
 async def process_daily_driver_history() -> None:
@@ -186,18 +218,19 @@ async def process_daily_driver_history() -> None:
         # 3. Freeze, one fresh session/transaction per route. A failing
         #    route is logged and skipped without poisoning the run.
         # --------------------------------------------------------------
-        frozen_count = 0
+        tally = Counter[FreezeOutcome]()
         failed_count = 0
         for route_id, drive_date in due:
             try:
-                await _freeze_route(
-                    async_session_maker_instance,
-                    route_id,
-                    warehouse_address,
-                    warehouse_latitude,
-                    warehouse_longitude,
-                )
-                frozen_count += 1
+                tally[
+                    await _freeze_route(
+                        async_session_maker_instance,
+                        route_id,
+                        warehouse_address,
+                        warehouse_latitude,
+                        warehouse_longitude,
+                    )
+                ] += 1
             except Exception:
                 failed_count += 1
                 logger.exception(
@@ -206,7 +239,11 @@ async def process_daily_driver_history() -> None:
                     f"the next run."
                 )
 
-        logger.info(f"Froze {frozen_count} routes ({failed_count} failures).")
+        logger.info(
+            f"Froze {tally[FreezeOutcome.FROZEN]} routes "
+            f"({tally[FreezeOutcome.DEFERRED]} deferred for missing "
+            f"geocoding, {failed_count} failures)."
+        )
 
     except Exception as error:
         logger.error(

@@ -416,17 +416,27 @@ class RouteService:
                 # with the old stops) so the frozen delivery record reflects
                 # what actually happened instead of silently vanishing.
                 if route.snapshot is not None:
+                    # Reject rather than snapshot a subset: the route is
+                    # already frozen, so a stop skipped here would keep no
+                    # address or contact details and nothing would ever
+                    # revisit it (unlike the freeze job, which can defer).
+                    ungeocoded = [
+                        location
+                        for location in ordered_locations
+                        if location.latitude is None or location.longitude is None
+                    ]
+                    if ungeocoded:
+                        raise ValueError(
+                            "Cannot amend a frozen route with un-geocoded "
+                            "location(s): "
+                            f"{', '.join(str(loc.location_id) for loc in ungeocoded)}. "
+                            "Geocode them first so the frozen delivery record "
+                            "stays complete."
+                        )
                     await session.flush()  # assign route_stop_ids
                     for new_stop, location in zip(
                         new_stops, ordered_locations, strict=True
                     ):
-                        if location.latitude is None or location.longitude is None:
-                            self.logger.warning(
-                                f"Location {location.location_id} missing "
-                                f"coordinates; skipping frozen-stop snapshot "
-                                f"for route {route.route_id}."
-                            )
-                            continue
                         session.add(
                             RouteStopSnapshot(
                                 route_stop_id=new_stop.route_stop_id,

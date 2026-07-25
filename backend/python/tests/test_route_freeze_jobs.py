@@ -276,6 +276,47 @@ async def test_warehouse_unconfigured_self_heals(
 
 
 @pytest.mark.asyncio
+async def test_ungeocoded_stop_defers_whole_route_and_self_heals(
+    test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A route with an un-geocoded stop is not frozen at all.
+
+    Freezing is what makes the record permanent and stops the scan from
+    revisiting the route, so a partial freeze would strand that stop with no
+    preserved address or contact details forever. The route stays due and
+    freezes once the location is geocoded.
+    """
+    maker = _maker(test_db_engine)
+    monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
+
+    await _seed(maker)
+    async with maker() as s:
+        loc = (await s.execute(select(Location))).scalars().first()
+        assert loc is not None
+        loc.latitude = None
+        loc.longitude = None
+        await s.commit()
+
+    await route_freeze_jobs.process_daily_driver_history()
+    after = await _counts(maker)
+    # Nothing partial: no route snapshot AND no stop snapshots.
+    assert after["snapshots"] == 0
+    assert after["stop_snapshots"] == 0
+
+    async with maker() as s:
+        loc = (await s.execute(select(Location))).scalars().first()
+        assert loc is not None
+        loc.latitude = 43.1
+        loc.longitude = -80.1
+        await s.commit()
+
+    await route_freeze_jobs.process_daily_driver_history()
+    healed = await _counts(maker)
+    assert healed["snapshots"] == 1
+    assert healed["stop_snapshots"] == 1
+
+
+@pytest.mark.asyncio
 async def test_failing_route_does_not_poison_the_run(
     test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -289,10 +330,10 @@ async def test_failing_route_does_not_poison_the_run(
 
     real_freeze = route_freeze_jobs._freeze_route
 
-    async def failing_freeze(maker_: Any, route_id: Any, *args: Any) -> None:
+    async def failing_freeze(maker_: Any, route_id: Any, *args: Any) -> Any:
         if route_id == poisoned["route_id"]:
             raise RuntimeError("injected freeze failure")
-        await real_freeze(maker_, route_id, *args)
+        return await real_freeze(maker_, route_id, *args)
 
     monkeypatch.setattr(route_freeze_jobs, "_freeze_route", failing_freeze)
 
