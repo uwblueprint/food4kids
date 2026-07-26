@@ -7,9 +7,20 @@ import {
   getRoutesQueryKey,
   updateRouteMutation,
 } from './generated/@tanstack/react-query.gen';
+import type { GetRoutesData } from './generated/types.gen';
 
-export function useRoutes() {
-  return useQuery(getRoutesOptions());
+/**
+ * GET /routes for the admin routes "Routes" tab.
+ *
+ * The `search` query filters (case-insensitive) on the assigned driver's name
+ * server-side, before pagination. Keeps the previous page visible while a new
+ * search refetches so the table doesn't flash empty.
+ */
+export function useRoutes(query?: GetRoutesData['query']) {
+  return useQuery({
+    ...getRoutesOptions({ query }),
+    placeholderData: (prev) => prev,
+  });
 }
 
 /**

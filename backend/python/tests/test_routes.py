@@ -632,6 +632,47 @@ class TestLocationRoutes:
         assert school_id not in family_ids
 
     @pytest.mark.asyncio
+    async def test_get_locations_search_by_address(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations?search filters (case-insensitive) on address/postal code."""
+        maple = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Maple Fam",
+            contact_name="Maple Fam",
+            address="123 Maple Street, Riverview, ON, T0T 0T0",
+            phone_primary="5550000001",
+            delivery_type="Family",
+        )
+        oak = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Oak Fam",
+            contact_name="Oak Fam",
+            address="9 Oak Avenue, Elmira, ON, N3B 1A1",
+            phone_primary="5550000002",
+            delivery_type="Family",
+        )
+        test_session.add_all([maple, oak])
+        await test_session.commit()
+        await test_session.refresh(maple)
+
+        # Match by street name (case-insensitive).
+        by_street = await async_client.get("/locations/", params={"search": "maple"})
+        assert by_street.status_code == 200
+        assert {loc["location_id"] for loc in by_street.json()["items"]} == {
+            str(maple.location_id)
+        }
+
+        # The address carries the postal code, so a postal fragment matches too.
+        by_postal = await async_client.get("/locations/", params={"search": "T0T"})
+        assert {loc["location_id"] for loc in by_postal.json()["items"]} == {
+            str(maple.location_id)
+        }
+
+    @pytest.mark.asyncio
     async def test_get_locations_rejects_unknown_delivery_type_filter(
         self, async_client: AsyncClient
     ) -> None:
@@ -2517,6 +2558,43 @@ class TestRouteRoutes:
         )
 
     @pytest.mark.asyncio
+    async def test_get_routes_search_by_driver_name(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_driver: Any,
+    ) -> None:
+        """GET /routes?search filters (case-insensitive) on the driver's name."""
+        assigned = Route(
+            name="Assigned Route",
+            length=1.0,
+            route_group_id=test_route_group.route_group_id,
+            driver_id=test_driver.driver_id,
+        )
+        unassigned = Route(
+            name="Unassigned Route",
+            length=1.0,
+            route_group_id=test_route_group.route_group_id,
+        )
+        test_session.add_all([assigned, unassigned])
+        await test_session.commit()
+        await test_session.refresh(assigned)
+
+        # test_driver is "John Doe"; a case-insensitive fragment matches only
+        # the assigned route (the unassigned one has no driver name).
+        resp = await async_client.get("/routes?search=john")
+        assert resp.status_code == 200
+        assert {item["route_id"] for item in resp.json()["items"]} == {
+            str(assigned.route_id)
+        }
+
+        # A name that matches nobody returns no rows.
+        empty = await async_client.get("/routes?search=nobody")
+        assert empty.status_code == 200
+        assert empty.json()["items"] == []
+
+    @pytest.mark.asyncio
     async def test_get_routes_uses_snapshotted_box_totals_for_frozen_routes(
         self,
         async_client: AsyncClient,
@@ -3787,6 +3865,30 @@ class TestRouteGroupRoutes:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_search_by_name(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """GET /route-groups?search filters (case-insensitive) on the group name."""
+        cambridge = RouteGroup(
+            name="Tuesday A - Cambridge North",
+            drive_date=datetime(2026, 7, 9, 9, 0),
+        )
+        elmira = RouteGroup(
+            name="Wednesday B - Elmira",
+            drive_date=datetime(2026, 7, 10, 9, 0),
+        )
+        test_session.add_all([cambridge, elmira])
+        await test_session.commit()
+        await test_session.refresh(cambridge)
+
+        resp = await async_client.get("/route-groups", params={"search": "cambridge"})
+        assert resp.status_code == 200
+        # The list endpoint returns a plain list (not paginated).
+        assert {rg["route_group_id"] for rg in resp.json()} == {
+            str(cambridge.route_group_id)
+        }
 
     @pytest.mark.asyncio
     async def test_get_route_groups_include_routes(

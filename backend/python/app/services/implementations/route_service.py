@@ -62,6 +62,7 @@ class RouteService:
         pagination: PaginationParams | None = None,
         driver_id: UUID | None = None,
         order: Literal["asc", "desc"] = "asc",
+        search: str | None = None,
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
@@ -69,6 +70,10 @@ class RouteService:
         unassigned_only filters to routes with no driver_id. driver_id filters
         to routes assigned to that specific driver (powers the driver homepage
         feed). The date range filters on the route's RouteGroup.drive_date.
+
+        search filters (case-insensitive substring) on the assigned driver's
+        full name, applied before pagination so the paged results are drawn
+        from the matches.
 
         order controls the drive_date ordering: "asc" (default) for the
         upcoming feed (oldest-first), "desc" for the past feed
@@ -178,6 +183,13 @@ class RouteService:
 
         if driver_id is not None:
             statement = statement.where(Route.driver_id == driver_id)
+
+        if search and search.strip():
+            statement = statement.where(
+                func.concat(User.first_name, " ", User.last_name).ilike(
+                    f"%{search.strip()}%"
+                )
+            )
 
         drive_date_order = (
             col(RouteGroup.drive_date).desc()

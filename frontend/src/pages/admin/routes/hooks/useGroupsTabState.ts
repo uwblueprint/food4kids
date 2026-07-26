@@ -12,7 +12,7 @@ import {
   useSystemSettings,
 } from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
-import { useSearch } from '@/common/hooks';
+import { useDebouncedValue, useSearch } from '@/common/hooks';
 
 export interface GroupsFilterState {
   weekdays: Set<DriveDaysOfWeekEnum>;
@@ -42,6 +42,8 @@ export interface GroupsTabState {
   isLoading: boolean;
   deliveryTypes: string[];
   search: UseSearchReturn;
+  /** Debounced search term the rows were filtered by, for highlighting. */
+  searchTerm: string;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
   appliedFilters: GroupsFilterState;
@@ -73,9 +75,12 @@ export function useGroupsTabState(): GroupsTabState {
     (s) => s.size > 0
   );
 
-  // Search is local-only UI — the endpoint has no search param yet, so only the
-  // filter chips hit the server.
+  // Debounced so the server query fires once typing pauses. Filters by the
+  // group name (GET /route-groups?search).
+  const debouncedSearch = useDebouncedValue(search.value);
+
   const { data: rows = [], isLoading } = useRouteGroups({
+    search: debouncedSearch.trim() || undefined,
     weekday:
       appliedFilters.weekdays.size > 0
         ? [...appliedFilters.weekdays]
@@ -127,6 +132,7 @@ export function useGroupsTabState(): GroupsTabState {
     isLoading,
     deliveryTypes,
     search,
+    searchTerm: debouncedSearch.trim(),
     filterOpen,
     setFilterOpen,
     appliedFilters,

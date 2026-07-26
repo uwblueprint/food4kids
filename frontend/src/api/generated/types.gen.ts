@@ -3541,6 +3541,12 @@ export type GetLocationsData = {
      */
     location_group_id?: Array<string> | null;
     /**
+     * Search
+     *
+     * Case-insensitive filter on the delivery address/postal code
+     */
+    search?: string | null;
+    /**
      * Page
      *
      * Page number (1-indexed)
@@ -4152,6 +4158,12 @@ export type GetRouteGroupsData = {
      * Include routes in the response
      */
     include_routes?: boolean;
+    /**
+     * Search
+     *
+     * Case-insensitive filter on the route group name
+     */
+    search?: string | null;
   };
   url: '/route-groups';
 };
@@ -4332,6 +4344,12 @@ export type GetRoutesData = {
      * Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
      */
     order?: 'asc' | 'desc';
+    /**
+     * Search
+     *
+     * Case-insensitive filter on the assigned driver's name
+     */
+    search?: string | null;
     /**
      * Page
      *

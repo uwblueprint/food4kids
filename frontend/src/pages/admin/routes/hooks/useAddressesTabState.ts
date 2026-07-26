@@ -10,7 +10,7 @@ import {
   useSystemSettings,
 } from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
-import { useSearch } from '@/common/hooks';
+import { useDebouncedValue, useSearch } from '@/common/hooks';
 
 export interface AddressesFilterState {
   statuses: Set<LocationStatusEnum>;
@@ -34,6 +34,8 @@ export interface AddressesTabState {
   isLoading: boolean;
   deliveryTypes: string[];
   search: UseSearchReturn;
+  /** Debounced search term the rows were filtered by, for highlighting. */
+  searchTerm: string;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
   appliedFilters: AddressesFilterState;
@@ -65,10 +67,13 @@ export function useAddressesTabState(): AddressesTabState {
     (s) => s.size > 0
   );
 
-  // The filter chips hit the server (GET /locations accepts status and
-  // delivery_type). Search has no backend param yet, so the search box is
-  // still local-only UI.
+  // Filters and search all hit the server (GET /locations accepts status,
+  // delivery_type, and a case-insensitive address/postal search). Debounced so
+  // the query fires once typing pauses.
+  const debouncedSearch = useDebouncedValue(search.value);
+
   const { data, isLoading } = useAddresses({
+    search: debouncedSearch.trim() || undefined,
     status:
       appliedFilters.statuses.size > 0
         ? [...appliedFilters.statuses]
@@ -115,6 +120,7 @@ export function useAddressesTabState(): AddressesTabState {
     isLoading,
     deliveryTypes,
     search,
+    searchTerm: debouncedSearch.trim(),
     filterOpen,
     setFilterOpen,
     appliedFilters,

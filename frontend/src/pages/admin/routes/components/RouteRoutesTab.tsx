@@ -5,29 +5,29 @@ import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
 import AlertCircleIcon from '@/assets/icons/alert-circle.svg?react';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
-import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
   Banner,
   Button,
   DataTable,
+  HighlightText,
   SearchBar,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from '@/common/components';
-import { useSearch } from '@/common/hooks';
+import { useDebouncedValue, useSearch, useTableSort } from '@/common/hooks';
 import { cn } from '@/lib/utils';
 
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
+import { StatusHeader } from './StatusHeader';
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
   {
     key: 'delivery_type',
     header: 'Delivery Type',
+    sortable: true,
+    sortValue: (row) => row.delivery_type,
     render: (row) => row.delivery_type ?? '—',
   },
   { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
@@ -50,25 +50,19 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   },
   {
     key: 'status',
+    sortable: true,
+    sortValue: (row) => row.status,
     header: (
-      <span className="flex items-center gap-1.5">
-        Status
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <InfoCircleIcon className="size-4 cursor-pointer" />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>
-              <span className="font-semibold">Upcoming:</span> Route is
-              scheduled for the future
-            </p>
-            <p>
-              <span className="font-semibold">Completed:</span> Route has been
-              delivered
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </span>
+      <StatusHeader>
+        <p>
+          <span className="font-semibold">Upcoming:</span> Route is scheduled
+          for the future
+        </p>
+        <p>
+          <span className="font-semibold">Completed:</span> Route has been
+          delivered
+        </p>
+      </StatusHeader>
     ),
     render: (row) => row.status,
   },
@@ -79,8 +73,11 @@ const HIGHLIGHT_MS = 3000;
 
 export function RouteRoutesTab() {
   const search = useSearch();
-  const { data } = useRoutes();
+  // Debounced so the driver-name search hits the server once typing pauses.
+  const searchTerm = useDebouncedValue(search.value).trim();
+  const { data } = useRoutes({ search: searchTerm || undefined });
   const rows = useMemo(() => data?.items ?? [], [data]);
+  const { sort, toggleSort } = useTableSort();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -106,6 +103,8 @@ export function RouteRoutesTab() {
       {
         key: 'drive_date',
         header: 'Delivery Date',
+        sortable: true,
+        sortValue: (row: RouteWithDateRead) => new Date(row.drive_date),
         render: (row) => (
           <DriveDateCell
             routeGroupId={row.route_group_id}
@@ -114,26 +113,41 @@ export function RouteRoutesTab() {
           />
         ),
       },
-      ...COLUMNS.map((col) =>
-        col.key === 'status'
-          ? {
-              ...col,
-              // The kebab shares the Status cell (last column) so it doesn't
-              // compete for table width — same treatment as the Groups tab.
-              render: (row: RouteWithDateRead) => (
-                <div className="flex items-center justify-between gap-10">
-                  <span>{row.status}</span>
-                  <RouteActionsCell
-                    row={row}
-                    onUpdated={() => handleRowChanged(row.route_id)}
-                  />
-                </div>
+      ...COLUMNS.map((col) => {
+        if (col.key === 'driver_name') {
+          return {
+            ...col,
+            render: (row: RouteWithDateRead) =>
+              row.driver_name ? (
+                <HighlightText text={row.driver_name} query={searchTerm} />
+              ) : (
+                <span className="flex items-center gap-2">
+                  <AlertCircleIcon className="text-red size-4 shrink-0" />
+                  Unassigned
+                </span>
               ),
-            }
-          : col
-      ),
+          };
+        }
+        if (col.key === 'status') {
+          return {
+            ...col,
+            // The kebab shares the Status cell (last column) so it doesn't
+            // compete for table width — same treatment as the Groups tab.
+            render: (row: RouteWithDateRead) => (
+              <div className="flex items-center justify-between gap-10">
+                <span>{row.status}</span>
+                <RouteActionsCell
+                  row={row}
+                  onUpdated={() => handleRowChanged(row.route_id)}
+                />
+              </div>
+            ),
+          };
+        }
+        return col;
+      }),
     ],
-    [handleRowChanged]
+    [handleRowChanged, searchTerm]
   );
 
   const unassignedCount = useMemo(
@@ -191,6 +205,8 @@ export function RouteRoutesTab() {
           columns={columns}
           rows={rows}
           getRowKey={(r) => r.route_id}
+          sort={sort}
+          onSortChange={toggleSort}
           getRowClassName={(r) =>
             cn(
               'transition-colors duration-500',
@@ -200,7 +216,7 @@ export function RouteRoutesTab() {
           emptyState={
             <EmptyState
               title="No routes found"
-              description="Try adjusting or clearing your filters"
+              description="Try adjusting your filters or generating new routes"
             />
           }
         />

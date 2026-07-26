@@ -44,6 +44,9 @@ async def get_routes(
         description="Order by drive_date: 'asc' (default, oldest-first) for the "
         "upcoming feed, 'desc' (most-recent-first) for the past feed.",
     ),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the assigned driver's name"
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Depends(resolve_route_list_driver_filter),
@@ -67,7 +70,14 @@ async def get_routes(
             "themselves, so they cannot list unassigned routes.)",
         )
     return await route_service.get_routes(
-        session, unassigned_only, start_date, end_date, pagination, driver_id, order
+        session,
+        unassigned_only,
+        start_date,
+        end_date,
+        pagination,
+        driver_id,
+        order,
+        search,
     )
 
 

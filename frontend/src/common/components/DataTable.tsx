@@ -1,8 +1,18 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import AlertCircle from '@/assets/icons/alert-circle.svg?react';
 import AlertTriangle from '@/assets/icons/alert-triangle.svg?react';
+import ChevronDown from '@/assets/icons/chevron-down.svg?react';
+import ChevronUp from '@/assets/icons/chevron-up.svg?react';
 import { cn } from '@/lib/utils';
+
+/** Value a sortable column compares by. Nullish sorts to the end. */
+type SortValue = string | number | Date | null | undefined;
+
+export interface SortState {
+  key: string;
+  dir: 'asc' | 'desc';
+}
 
 export interface Column<T> {
   key: string;
@@ -13,6 +23,10 @@ export interface Column<T> {
   getCellClassName?: (row: T) => string | undefined;
   /** Static className applied to the header <th> cell. */
   headerClassName?: string;
+  /** When set, the header is a sort toggle and rows sort by `sortValue`. */
+  sortable?: boolean;
+  /** Comparable value for sorting; required for the sort to do anything. */
+  sortValue?: (row: T) => SortValue;
 }
 
 export interface DataTableProps<T> {
@@ -24,6 +38,20 @@ export interface DataTableProps<T> {
   /** Rendered when rows is empty. */
   emptyState?: ReactNode;
   className?: string;
+  /** Active sort; when set, rows are sorted by the matching column's sortValue. */
+  sort?: SortState | null;
+  /** Called with a column key when its sortable header is clicked. */
+  onSortChange?: (key: string) => void;
+}
+
+function compareSortValues(a: SortValue, b: SortValue): number {
+  // Nullish values sort to the end regardless of direction.
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b));
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +101,21 @@ function DataTable<T>({
   getRowClassName,
   emptyState,
   className,
+  sort,
+  onSortChange,
 }: DataTableProps<T>) {
+  const sortedRows = useMemo(() => {
+    if (!sort) return rows;
+    const col = columns.find((c) => c.key === sort.key);
+    if (!col?.sortValue) return rows;
+    const sortValue = col.sortValue;
+    const factor = sort.dir === 'asc' ? 1 : -1;
+    // Copy so we never mutate the caller's array; stable enough for display.
+    return [...rows].sort(
+      (a, b) => factor * compareSortValues(sortValue(a), sortValue(b))
+    );
+  }, [rows, sort, columns]);
+
   return (
     <div
       className={cn(
@@ -85,27 +127,53 @@ function DataTable<T>({
         <table className="w-full">
           <thead>
             <tr className="border-grey-300 border-b">
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={cn(
-                    'text-p1 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
-                    col.headerClassName
-                  )}
-                >
-                  {col.header}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const isSorted = sort?.key === col.key;
+                return (
+                  <th
+                    key={col.key}
+                    aria-sort={
+                      isSorted
+                        ? sort?.dir === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : undefined
+                    }
+                    className={cn(
+                      'text-p1 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
+                      col.headerClassName
+                    )}
+                  >
+                    {col.sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => onSortChange?.(col.key)}
+                        className="hover:text-grey-500 flex cursor-pointer items-center gap-1.5"
+                      >
+                        {col.header}
+                        {isSorted &&
+                          (sort?.dir === 'asc' ? (
+                            <ChevronUp className="size-4" />
+                          ) : (
+                            <ChevronDown className="size-4" />
+                          ))}
+                      </button>
+                    ) : (
+                      col.header
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
           <tbody className="divide-grey-300 divide-y">
-            {rows.length === 0 ? (
+            {sortedRows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length}>{emptyState}</td>
               </tr>
             ) : (
-              rows.map((row) => (
+              sortedRows.map((row) => (
                 <tr
                   key={getRowKey(row)}
                   data-row-key={getRowKey(row)}

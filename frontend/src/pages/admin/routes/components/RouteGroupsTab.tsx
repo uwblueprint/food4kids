@@ -8,7 +8,6 @@ import type {
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
-import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import type { Column } from '@/common/components';
 import {
@@ -16,6 +15,7 @@ import {
   DataTable,
   FilterChip,
   FilterChipGroup,
+  HighlightText,
   Modal,
   ModalContent,
   ModalDescription,
@@ -23,10 +23,8 @@ import {
   ModalHeader,
   ModalTitle,
   SearchBar,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from '@/common/components';
+import { useTableSort } from '@/common/hooks';
 import { cn } from '@/lib/utils';
 
 import type { GroupsTabState } from '../hooks';
@@ -34,6 +32,7 @@ import { AddRouteGroupModal } from './AddRouteGroupModal';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 import { RouteGroupActionsCell } from './RouteGroupActionsCell';
+import { StatusHeader } from './StatusHeader';
 
 const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 // Archived is in the enum but group status is only ever computed as
@@ -49,6 +48,8 @@ const COLUMNS: Column<RouteGroupRead>[] = [
   {
     key: 'drive_date',
     header: 'Date',
+    sortable: true,
+    sortValue: (row) => new Date(row.drive_date),
     render: (row) => (
       <DriveDateCell
         routeGroupId={row.route_group_id}
@@ -59,6 +60,8 @@ const COLUMNS: Column<RouteGroupRead>[] = [
   {
     key: 'delivery_type',
     header: 'Delivery Type',
+    sortable: true,
+    sortValue: (row) => row.delivery_type,
     render: (row) => row.delivery_type,
   },
   // Aggregate counts read '-' for groups with no routes yet (just created,
@@ -81,25 +84,19 @@ const COLUMNS: Column<RouteGroupRead>[] = [
   },
   {
     key: 'status',
+    sortable: true,
+    sortValue: (row) => row.status,
     header: (
-      <span className="flex items-center gap-1.5">
-        Status
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <InfoCircleIcon className="size-4 cursor-pointer" />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>
-              <span className="font-semibold">Upcoming:</span> Route is
-              scheduled for the future
-            </p>
-            <p>
-              <span className="font-semibold">Completed:</span> Route has been
-              delivered
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </span>
+      <StatusHeader>
+        <p>
+          <span className="font-semibold">Upcoming:</span> Route is scheduled
+          for the future
+        </p>
+        <p>
+          <span className="font-semibold">Completed:</span> Route has been
+          delivered
+        </p>
+      </StatusHeader>
     ),
     render: (row) => row.status,
   },
@@ -114,6 +111,7 @@ export function RouteGroupsTab({
   rows,
   deliveryTypes,
   search,
+  searchTerm,
   filterOpen,
   setFilterOpen,
   draftFilters,
@@ -126,6 +124,7 @@ export function RouteGroupsTab({
 }: RouteGroupsTabProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const { sort, toggleSort } = useTableSort();
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
   );
@@ -152,6 +151,14 @@ export function RouteGroupsTab({
   const columns = useMemo<Column<RouteGroupRead>[]>(
     () =>
       COLUMNS.map((col) => {
+        if (col.key === 'name') {
+          return {
+            ...col,
+            render: (row: RouteGroupRead) => (
+              <HighlightText text={row.name} query={searchTerm} />
+            ),
+          };
+        }
         if (col.key === 'drive_date') {
           return {
             ...col,
@@ -177,7 +184,7 @@ export function RouteGroupsTab({
         }
         return col;
       }),
-    [handleCreated]
+    [handleCreated, searchTerm]
   );
 
   // Scroll the just-added group into view once the refetched rows contain it.
@@ -228,6 +235,8 @@ export function RouteGroupsTab({
           columns={columns}
           rows={rows}
           getRowKey={(r) => r.route_group_id}
+          sort={sort}
+          onSortChange={toggleSort}
           getRowClassName={(r) =>
             cn(
               'transition-colors duration-500',
@@ -236,7 +245,7 @@ export function RouteGroupsTab({
           }
           emptyState={
             <EmptyState
-              title="No routes yet"
+              title="No routes found"
               description="Try adjusting your filters or generating new routes"
             />
           }

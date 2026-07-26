@@ -48,6 +48,9 @@ async def get_route_groups(
         None, description="Filter by one or more driver assignment statuses"
     ),
     include_routes: bool = Query(False, description="Include routes in the response"),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the route group name"
+    ),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     location_service: LocationService = Depends(get_location_service),
@@ -69,6 +72,7 @@ async def get_route_groups(
             route_status,
             driver_assignment_status,
             include_routes,
+            search,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(

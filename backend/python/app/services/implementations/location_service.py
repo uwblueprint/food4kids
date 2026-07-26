@@ -175,6 +175,7 @@ class LocationService:
         delivery_type: list[str] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
         location_group_id: list[UUID] | None = None,
+        search: str | None = None,
     ) -> PaginatedResponse[LocationRead]:
         """Get paginated locations.
 
@@ -184,6 +185,9 @@ class LocationService:
         from in_roster + whether the location appears in a present/future
         route. Callers can narrow via the optional ``status_filter`` and
         ``delivery_type`` and ``location_group_id`` query params.
+
+        ``search`` filters (case-insensitive substring) on the delivery
+        address, which carries the postal code, applied before pagination.
         """
         try:
             statement = (
@@ -200,6 +204,11 @@ class LocationService:
             if location_group_id:
                 statement = statement.where(
                     col(Location.location_group_id).in_(location_group_id)
+                )
+
+            if search and search.strip():
+                statement = statement.where(
+                    col(Location.address).ilike(f"%{search.strip()}%")
                 )
 
             if status_filter:

@@ -5697,6 +5697,24 @@
             }
           },
           {
+            "description": "Case-insensitive filter on the delivery address/postal code",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the delivery address/postal code",
+              "title": "Search"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
@@ -6775,6 +6793,24 @@
               "title": "Include Routes",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Case-insensitive filter on the route group name",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the route group name",
+              "title": "Search"
+            }
           }
         ],
         "responses": {
@@ -7077,6 +7113,24 @@
               ],
               "title": "Order",
               "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive filter on the assigned driver's name",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the assigned driver's name",
+              "title": "Search"
             }
           },
           {

@@ -288,11 +288,20 @@ class RouteGroupService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
+        search: str | None = None,
     ) -> list[RouteGroupRead]:
-        """Get route groups with optional date filtering and aggregate stats."""
+        """Get route groups with optional date filtering and aggregate stats.
+
+        ``search`` filters (case-insensitive substring) on the group name.
+        """
 
         children_per_box = await resolve_children_per_box(session)
         statement = self._read_statement(children_per_box)
+
+        if search and search.strip():
+            statement = statement.where(
+                col(RouteGroup.name).ilike(f"%{search.strip()}%")
+            )
 
         if start_date:
             statement = statement.where(RouteGroup.drive_date >= start_date)

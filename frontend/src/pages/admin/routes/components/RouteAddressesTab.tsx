@@ -5,7 +5,6 @@ import type {
   LocationStatusEnum,
 } from '@/api/generated/types.gen';
 import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
-import InfoCircleIcon from '@/assets/icons/info-circle.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
@@ -13,6 +12,7 @@ import {
   DataTable,
   FilterChip,
   FilterChipGroup,
+  HighlightText,
   Modal,
   ModalContent,
   ModalDescription,
@@ -20,15 +20,14 @@ import {
   ModalHeader,
   ModalTitle,
   SearchBar,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from '@/common/components';
+import { useTableSort } from '@/common/hooks';
 import { formatShortDate } from '@/common/utils';
 
 import type { AddressesTabState } from '../hooks';
 import { AddressActionsCell } from './AddressActionsCell';
 import { EmptyState } from './EmptyState';
+import { StatusHeader } from './StatusHeader';
 
 const STATUSES: LocationStatusEnum[] = ['Active', 'Unscheduled', 'Inactive'];
 
@@ -61,6 +60,10 @@ const COLUMNS: Column<LocationRead>[] = [
   {
     key: 'last_delivery',
     header: 'Last Delivery',
+    sortable: true,
+    // Nullish (never delivered) sorts to the end via DataTable's comparator.
+    sortValue: (row) =>
+      row.last_delivery_date ? new Date(row.last_delivery_date) : null,
     render: (row) =>
       row.last_delivery_date ? formatShortDate(row.last_delivery_date) : '—',
   },
@@ -87,29 +90,23 @@ const COLUMNS: Column<LocationRead>[] = [
   },
   {
     key: 'status',
+    sortable: true,
+    sortValue: (row) => row.status,
     header: (
-      <span className="flex items-center gap-1.5">
-        Status
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <InfoCircleIcon className="size-4 cursor-pointer" />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>
-              <span className="font-semibold">Active:</span> Scheduled on an
-              upcoming route
-            </p>
-            <p>
-              <span className="font-semibold">Unscheduled:</span> On the roster
-              but not on an upcoming route
-            </p>
-            <p>
-              <span className="font-semibold">Inactive:</span> Not on the
-              current roster
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </span>
+      <StatusHeader>
+        <p>
+          <span className="font-semibold">Active:</span> Scheduled on an
+          upcoming route
+        </p>
+        <p>
+          <span className="font-semibold">Unscheduled:</span> On the roster but
+          not on an upcoming route
+        </p>
+        <p>
+          <span className="font-semibold">Inactive:</span> Not on the current
+          roster
+        </p>
+      </StatusHeader>
     ),
     render: (row) => row.status,
   },
@@ -121,6 +118,7 @@ export function RouteAddressesTab({
   rows,
   deliveryTypes,
   search,
+  searchTerm,
   filterOpen,
   setFilterOpen,
   draftFilters,
@@ -131,24 +129,35 @@ export function RouteAddressesTab({
   clearDraft,
   handleApply,
 }: RouteAddressesTabProps) {
-  // The kebab shares the Status cell (last column) so it doesn't compete for
-  // table width — same treatment as the Groups and Routes tabs.
+  const { sort, toggleSort } = useTableSort();
+
   const columns = useMemo<Column<LocationRead>[]>(
     () =>
-      COLUMNS.map((col) =>
-        col.key === 'status'
-          ? {
-              ...col,
-              render: (row: LocationRead) => (
-                <div className="flex items-center justify-between gap-10">
-                  <span>{row.status}</span>
-                  <AddressActionsCell row={row} />
-                </div>
-              ),
-            }
-          : col
-      ),
-    []
+      COLUMNS.map((col) => {
+        if (col.key === 'address') {
+          return {
+            ...col,
+            render: (row: LocationRead) => (
+              <HighlightText text={row.address} query={searchTerm} />
+            ),
+          };
+        }
+        if (col.key === 'status') {
+          // The kebab shares the Status cell (last column) so it doesn't
+          // compete for table width — same treatment as Groups and Routes.
+          return {
+            ...col,
+            render: (row: LocationRead) => (
+              <div className="flex items-center justify-between gap-10">
+                <span>{row.status}</span>
+                <AddressActionsCell row={row} />
+              </div>
+            ),
+          };
+        }
+        return col;
+      }),
+    [searchTerm]
   );
 
   return (
@@ -177,6 +186,8 @@ export function RouteAddressesTab({
         columns={columns}
         rows={rows}
         getRowKey={(r) => r.location_id}
+        sort={sort}
+        onSortChange={toggleSort}
         emptyState={
           <EmptyState
             title="No addresses found"
