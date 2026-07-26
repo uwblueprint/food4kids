@@ -104,8 +104,8 @@ async def init_jobs(
     2. Define your job function
     3. Import and register it here
     """
-    from .driver_history_jobs import process_daily_driver_history
     from .email_jobs import send_route_reminders
+    from .route_freeze_jobs import process_daily_driver_history
 
     # Driver history mark daily routes as complete
     scheduler_service.add_cron_job(
