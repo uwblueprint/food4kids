@@ -652,3 +652,20 @@ than about this screen.
 Separately, the frame repeats "Please make sure all password criteria is met"
 under *both* fields. The code says "Please make sure both passwords match"
 under the confirm field, which is what that field's failure actually is.
+
+
+## Harness: reaching the states, and a route I got wrong
+
+The reset form is at `/forgot-password/:token`, not `/reset-password/:token`.
+I mapped it to the latter when correcting the frame→route table, which does not
+exist in the router, so it fell through to the catch-all. Corrected.
+
+Every frame in the Log In flow now shows the screen it depicts. The states
+behind a server call are reached by answering that one request inside the
+iframe — registration for "Account created", token validation for the reset
+form — which the panel says out loud, because a stubbed response is only good
+enough to compare layout.
+
+`No Account Yet | Get Link` / `- Get Login Link` is the one frame with no screen
+behind it: "Didn't get a link?" is not built, and the route falls back to
+`/login`. The harness names that rather than letting it look like a bug.
