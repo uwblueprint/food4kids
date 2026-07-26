@@ -212,14 +212,11 @@ class RouteService:
 
             children_per_box = await resolve_children_per_box(session)
             rows = await self._fetch_ordered_stops(session, route_id)
-        except HTTPException:
-            raise
-        except Exception as error:
-            self.logger.exception("Failed to get route " + str(route_id))
+        except Exception:
+            # Roll back so the caller's session is usable, then let the error
+            # through: UnhandledExceptionMiddleware logs it and answers 500.
             await session.rollback()
-            raise HTTPException(
-                status_code=500, detail="Failed to retrieve route."
-            ) from error
+            raise
 
         stops = [
             RouteStopDetailRead(

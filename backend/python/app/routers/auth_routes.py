@@ -11,7 +11,7 @@ from app.dependencies.services import (
 )
 from app.models import get_session
 from app.schemas.auth import AuthResponse, LoginRequest
-from app.services.implementations.auth_service import AuthService
+from app.services.implementations.auth_service import AuthService, SessionExpiredError
 from app.utilities.cookies import set_refresh_token_cookie
 
 # Initialize logger
@@ -47,24 +47,6 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         ) from e
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
-
-
-_FIREBASE_401_CODES = {
-    "TOKEN_EXPIRED",
-    "INVALID_REFRESH_TOKEN",
-    "INVALID_GRANT",
-    "USER_DISABLED",
-    "USER_NOT_FOUND",
-    "DB_USER_MISSING",  # Not a Firebase code
-}
 
 
 @router.post("/refresh", response_model=AuthResponse)
@@ -92,17 +74,9 @@ async def refresh(
         set_refresh_token_cookie(response, new_refresh_token)
 
         return auth_data
-    except HTTPException:
-        raise
-    except Exception as e:
-        if str(e) in _FIREBASE_401_CODES:
-            raise HTTPException(status_code=401, detail="Session expired") from e
-
-        logger.error(f"Failed to refresh: {e}")
-        error_message = getattr(e, "message", None)
+    except SessionExpiredError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
         ) from e
 
 
@@ -123,16 +97,7 @@ async def logout(
             detail="You are not authorized to logout this driver",
         )
 
-    try:
-        await auth_service.revoke_tokens(session, user_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+    await auth_service.revoke_tokens(session, user_id)
 
 
 @router.post("/resetPassword/{email}", status_code=status.HTTP_204_NO_CONTENT)
@@ -152,13 +117,4 @@ async def reset_password(
             detail="You are not authorized to reset this email's password",
         )
 
-    try:
-        auth_service.reset_password(email)
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+    auth_service.reset_password(email)
