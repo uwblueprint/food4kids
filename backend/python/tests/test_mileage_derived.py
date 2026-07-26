@@ -574,6 +574,18 @@ async def test_history_api_monthly_view(
 
 
 @pytest.mark.asyncio
+async def test_monthly_totals_rejects_month_without_year(
+    test_session: AsyncSession, frozen_world: dict[str, Any]
+) -> None:
+    """A month with no year has nothing to anchor it to. The service raises
+    rather than silently widening to every month of every year (the router
+    maps this to a 400)."""
+    a = frozen_world["driver_a"].driver_id
+    with pytest.raises(ValueError, match="month cannot be provided without year"):
+        await history_service.get_monthly_totals(test_session, a, year=None, month=5)
+
+
+@pytest.mark.asyncio
 async def test_history_csv_export(
     async_client: Any, frozen_world: dict[str, Any]
 ) -> None:

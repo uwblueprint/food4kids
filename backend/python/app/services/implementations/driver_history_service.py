@@ -102,6 +102,12 @@ class DriverHistoryService:
     ) -> list[DriverHistoryRead]:
         """Monthly km totals for a driver, optionally narrowed to a year or
         a single month."""
+        # Without a year there's nothing to anchor the month to, and silently
+        # widening to "every month across every year" would be a wrong answer
+        # rather than an error.
+        if month is not None and year is None:
+            raise ValueError("month cannot be provided without year")
+
         try:
             bounds = month_bounds(year, month) if year is not None else None
             events = mileage_events(driver_id, bounds)

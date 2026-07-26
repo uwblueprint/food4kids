@@ -91,10 +91,10 @@ async def export_all_drivers_history(
         driver_data = await get_drivers(session, driver_id=None, email=None)
 
         generator = DriverHistoryCSVGenerator(
-            session, current_year_totals, past_year_totals, driver_data
+            current_year_totals, past_year_totals, driver_data
         )
 
-        csv_data, filename = await generator.generate_all_drivers_csv(year)
+        csv_data, filename = generator.generate_all_drivers_csv(year)
         csv_output = generate_csv_from_list(csv_data, header=True)
 
         return StreamingResponse(

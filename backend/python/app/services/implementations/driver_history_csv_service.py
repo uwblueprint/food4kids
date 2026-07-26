@@ -2,7 +2,6 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.driver import DriverRead
 
@@ -12,22 +11,18 @@ class DriverHistoryCSVGenerator:
 
     def __init__(
         self,
-        session: AsyncSession,
         current_year_totals: dict[UUID, float],
         past_year_totals: dict[UUID, float],
         driver_data: list[DriverRead],
     ):
-        self.session = session
         self.current_year_totals = current_year_totals
         self.past_year_totals = past_year_totals
         self.driver_data = driver_data
 
-    async def generate_all_drivers_csv(
-        self, year: int
-    ) -> tuple[list[dict[str, Any]], str]:
+    def generate_all_drivers_csv(self, year: int) -> tuple[list[dict[str, Any]], str]:
         """Generate CSV data for all drivers for a given year.
 
-        Totals are per-driver yearly sums over the mileage ledger. Drivers
+        Totals are per-driver yearly sums over their frozen routes. Drivers
         with km in the requested year appear first, sorted by last name then
         first name; drivers with only previous-year km follow, sorted the
         same way.
