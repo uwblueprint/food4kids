@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import secrets
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import delete
@@ -8,12 +9,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
+from app.models.base import now_est_naive
 from app.models.password_reset_token import PasswordResetToken
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class PasswordResetTokenService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+
+    async def seconds_since_last_issued(
+        self, session: AsyncSession, user_id: UUID
+    ) -> float | None:
+        """Seconds since this user was last issued a reset token, or None if never.
+
+        `create` deletes any existing row before inserting, and `user_id` is
+        unique, so at most one row exists per user and its `created_at` is
+        exactly when we last emailed that user a reset link.
+
+        This is what paces the resend cooldown. It reads state the database
+        already holds, which means it holds across Cloud Run instances -- unlike
+        the in-memory counters in `app.dependencies.rate_limit` -- without
+        needing a new table or any new infrastructure.
+        """
+        result = await session.execute(
+            select(PasswordResetToken.created_at).where(
+                col(PasswordResetToken.user_id) == user_id
+            )
+        )
+        created_at: datetime | None = result.scalar_one_or_none()
+        if created_at is None:
+            return None
+
+        # `created_at` is tz-naive local time (see `now_est_naive`), so it has to
+        # be compared against the same clock rather than a UTC now().
+        return (now_est_naive() - created_at).total_seconds()
 
     async def create(self, session: AsyncSession, user_id: UUID) -> str:
         """Generate and store a password reset token, replacing any existing one"""

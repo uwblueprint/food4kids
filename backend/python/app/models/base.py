@@ -12,8 +12,14 @@ _ONGOING_MODEL_VALIDATE: ContextVar[bool] = ContextVar("_ONGOING_MODEL_VALIDATE"
 T = TypeVar("T", bound="BaseModel")
 
 
-def _now_est_naive() -> datetime:
-    """Current time in F4K's timezone (America/New_York), stored tz-naive."""
+def now_est_naive() -> datetime:
+    """Current time in F4K's timezone (America/New_York), stored tz-naive.
+
+    Public because anything comparing against a `created_at`/`updated_at` has to
+    use this same clock -- those columns are tz-naive local time, so measuring an
+    elapsed interval against `datetime.now(timezone.utc)` is silently wrong by
+    the UTC offset.
+    """
     return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
 
@@ -36,10 +42,10 @@ class BaseModel(sm.SQLModel):
     # `updated_at` is bumped by a column-level SQLAlchemy `onupdate`, which fires
     # for BOTH ORM flushes and Core `update()` statements — so bulk updates stay
     # accurate too — unless the statement sets `updated_at` itself.
-    created_at: datetime | None = Field(default_factory=_now_est_naive)
+    created_at: datetime | None = Field(default_factory=now_est_naive)
     updated_at: datetime | None = Field(
-        default_factory=_now_est_naive,
-        sa_column_kwargs={"onupdate": _now_est_naive},
+        default_factory=now_est_naive,
+        sa_column_kwargs={"onupdate": now_est_naive},
     )
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

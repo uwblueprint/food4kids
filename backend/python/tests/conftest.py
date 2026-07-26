@@ -25,6 +25,7 @@ from app.dependencies.auth import (
     require_self_driver_or_admin,
     resolve_route_list_driver_filter,
 )
+from app.dependencies.rate_limit import reset_all_rate_limiters
 from app.models import get_session
 
 # Set test environment
@@ -39,6 +40,19 @@ async def _ensure_system_settings(test_session: AsyncSession) -> None:
     if result.scalars().first() is None:
         test_session.add(SystemSettings())
         await test_session.commit()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters() -> Generator[None, None, None]:
+    """Clear auth rate-limit counters around every test.
+
+    The limiters in `app.dependencies.rate_limit` are module-level singletons, so
+    without this a test that logs in several times would leak its counts into
+    whatever runs next and eventually trip an unrelated test with a 429.
+    """
+    reset_all_rate_limiters()
+    yield
+    reset_all_rate_limiters()
 
 
 @pytest.fixture(scope="session")
