@@ -679,6 +679,21 @@ export function DesignOverlayHarness() {
           always 1:1, no resize needed
         </div>
 
+        {/*
+         * The stage is 1:1 in design pixels, but it is scaled to fit the
+         * window, and at anything other than 100% the live text and the design
+         * PNG resample differently. Small text then looks doubled even when the
+         * boxes are identical — which reads as a spacing bug and is not one.
+         * Headings and buttons stay crisp, so the effect looks selective, which
+         * makes it more convincing rather than less.
+         */}
+        {fit < 0.995 && (
+          <div style={{ color: '#a1a1aa', fontSize: 11 }}>
+            Body text looks doubled below 100% — that is resampling, not
+            misalignment. Make the window taller to judge it.
+          </div>
+        )}
+
         {viewportFallback && (
           <div
             style={{
