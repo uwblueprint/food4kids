@@ -154,8 +154,15 @@ export function RouteGroupsTab({
         if (col.key === 'name') {
           return {
             ...col,
+            // Placeholder link to the (not-yet-built) individual group page;
+            // underlines on hover.
             render: (row: RouteGroupRead) => (
-              <HighlightText text={row.name} query={searchTerm} />
+              <Link
+                to={`/admin/routes/groups/${row.route_group_id}`}
+                className="decoration-blue-300 hover:underline"
+              >
+                <HighlightText text={row.name} query={searchTerm} />
+              </Link>
             ),
           };
         }
