@@ -9,6 +9,13 @@ interface WrapperProps {
   headerTitle: string;
   subheaderTitle: string;
   className?: string;
+  /**
+   * Below `desktop`, an illustration sits between the logo and the heading.
+   * The password-entry forms opt out: their field list plus the password
+   * criteria already overflow a phone screen, and the designs drop the
+   * graphic there. Every other auth screen keeps it.
+   */
+  showMobileIllustration?: boolean;
 }
 
 export const WrapperWithLogo = ({
@@ -16,14 +23,38 @@ export const WrapperWithLogo = ({
   headerTitle,
   subheaderTitle,
   className,
+  showMobileIllustration = true,
 }: WrapperProps) => {
   return (
     <div className="desktop:overflow-hidden relative flex h-screen w-full flex-row overflow-auto">
       {/* Left Column: Form Section */}
-      <div className="tablet:flex desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full">
+      <div
+        className={cn(
+          'tablet:flex desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full',
+          /*
+           * Without the illustration the designs centre the content vertically
+           * rather than pin it below a fixed offset: the taller "filled" frames
+           * start higher by exactly the height they gain (522 tall at y=150,
+           * 578 tall at y=122, in an 821 frame). A fixed padding would only be
+           * right at one viewport height.
+           */
+          !showMobileIllustration && 'flex items-center justify-center'
+        )}
+      >
         <div
           className={cn(
-            'tablet:pt-0 tablet:px-0 tablet:max-w-126 tablet:gap-4 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
+            /*
+             * The heading→form gap does not vary by breakpoint in the designs:
+             * login and the password screens are 32 at every width, the
+             * confirmation screens 16 at every width. So it is one value per
+             * screen, overridden via `className`, and never a `tablet:` variant.
+             */
+            'tablet:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
+            // Centred by the parent instead (see above), so replace `pt-16`'s
+            // one-sided offset with symmetric padding — anything asymmetric
+            // would bias the centring — and keep the content off the edges on
+            // short viewports.
+            !showMobileIllustration && 'py-8',
             className
           )}
         >
@@ -44,13 +75,15 @@ export const WrapperWithLogo = ({
               />
             </div>
             {/* Mobile Login Illustration */}
-            <div className="desktop:hidden mb-6 flex flex-row items-center justify-center">
-              <img
-                src={loginPageIllustrationMobile}
-                alt="Food4Kids Waterloo Region Illustration"
-                className="h-[212px] w-[307px] object-contain"
-              />
-            </div>
+            {showMobileIllustration && (
+              <div className="desktop:hidden mb-6 flex flex-row items-center justify-center">
+                <img
+                  src={loginPageIllustrationMobile}
+                  alt="Food4Kids Waterloo Region Illustration"
+                  className="h-[212px] w-[307px] object-contain"
+                />
+              </div>
+            )}
             {/* Heading */}
             <h1>{headerTitle}</h1>
             <p className="text-m-p2 tablet:font-medium">{subheaderTitle}</p>
