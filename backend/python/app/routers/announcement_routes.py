@@ -35,25 +35,18 @@ async def get_announcements(
     current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> list[AnnouncementRead]:
     """Retrieve all announcements with is_read status for the authenticated user."""
-    try:
-        announcements = await announcement_service.get_announcements(session)
-        last_read_at = await announcement_service.get_last_read_at(
-            session, current_user_id
-        )
+    announcements = await announcement_service.get_announcements(session)
+    last_read_at = await announcement_service.get_last_read_at(session, current_user_id)
 
-        results = []
-        for a in announcements:
-            item = AnnouncementRead.from_announcement(a)
-            if last_read_at is None:
-                item.is_read = False
-            else:
-                item.is_read = a.created_at is not None and a.created_at <= last_read_at
-            results.append(item)
-        return results
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    results = []
+    for a in announcements:
+        item = AnnouncementRead.from_announcement(a)
+        if last_read_at is None:
+            item.is_read = False
+        else:
+            item.is_read = a.created_at is not None and a.created_at <= last_read_at
+        results.append(item)
+    return results
 
 
 @router.post("/mark-read", response_model=AnnouncementLastReadResponse)
@@ -71,10 +64,6 @@ async def mark_announcements_as_read(
         return AnnouncementLastReadResponse.model_validate(entry)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
 
 
 @router.get("/{announcement_id}", response_model=AnnouncementRead)
@@ -103,15 +92,10 @@ async def create_announcement(
     current_user_id: UUID = Depends(get_current_database_user_id),
 ) -> AnnouncementRead:
     """Create a new announcement"""
-    try:
-        created_announcement = await announcement_service.create_announcement(
-            session, current_user_id, announcement
-        )
-        return AnnouncementRead.from_announcement(created_announcement)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    created_announcement = await announcement_service.create_announcement(
+        session, current_user_id, announcement
+    )
+    return AnnouncementRead.from_announcement(created_announcement)
 
 
 @router.put("/{announcement_id}", response_model=AnnouncementRead)
@@ -187,10 +171,5 @@ async def send_announcement_email(
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(error),
         ) from error

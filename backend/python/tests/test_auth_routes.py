@@ -1,12 +1,13 @@
 """Status-code contract for the ``/auth`` routes.
 
-Every handler in ``app/routers/auth_routes.py`` wraps its body in a broad
-``except Exception`` that converts whatever it catches into a 500. Because
-``HTTPException`` subclasses ``Exception``, any deliberate 4xx raised inside
-such a body is swallowed and re-emitted as a 500 unless the handler re-raises
-``HTTPException`` first. These tests pin that contract for all four handlers,
-plus the status codes ``/auth/login`` and ``/auth/refresh`` are meant to return
-for bad input and for expired/unknown sessions.
+The handlers in ``app/routers/auth_routes.py`` used to wrap their bodies in a
+broad ``except Exception`` that converted whatever it caught into a 500 —
+including, since ``HTTPException`` subclasses ``Exception``, the deliberate 4xx
+they had just raised. The blanket handlers are gone (unexpected errors now
+reach ``UnhandledExceptionMiddleware``), but the contract is the same and is
+still worth pinning: these tests cover all four handlers, plus the status codes
+``/auth/login`` and ``/auth/refresh`` are meant to return for bad input and for
+expired/unknown sessions.
 """
 
 from collections.abc import Awaitable, Callable
@@ -98,7 +99,7 @@ async def _client_raising(
 
 
 class TestHandlerExceptionMapping:
-    """The broad ``except Exception`` must not rewrite deliberate HTTP errors."""
+    """Nothing between the handler and the client rewrites a deliberate 4xx."""
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(("overrides", "request_fn"), AUTH_ENDPOINTS)

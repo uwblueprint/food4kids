@@ -25,14 +25,8 @@ async def get_location_groups(
     """
     Get all location groups
     """
-    try:
-        location_groups = await location_group_service.get_location_groups(session)
-        return [LocationGroupRead.model_validate(lg) for lg in location_groups]
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        ) from e
+    location_groups = await location_group_service.get_location_groups(session)
+    return [LocationGroupRead.model_validate(lg) for lg in location_groups]
 
 
 @router.get("/{location_group_id}", response_model=LocationGroupRead)
@@ -66,16 +60,10 @@ async def create_location_group(
     """
     Create a new location group
     """
-    try:
-        new_location_group = await location_group_service.create_location_group(
-            session, location_group
-        )
-        return LocationGroupRead.model_validate(new_location_group)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        ) from e
+    new_location_group = await location_group_service.create_location_group(
+        session, location_group
+    )
+    return LocationGroupRead.model_validate(new_location_group)
 
 
 @router.patch("/{location_group_id}", response_model=LocationGroupRead)

@@ -38,21 +38,12 @@ async def get_driver_history_summary(
     _auth: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> DriverHistorySummary:
     """Get lifetime and current year KM summary for a driver"""
-    try:
-        if not await driver_history_service.driver_exists(session, driver_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver with id {driver_id} does not exist",
-            )
-        return await driver_history_service.get_driver_history_summary(
-            session, driver_id
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
+    if not await driver_history_service.driver_exists(session, driver_id):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Driver with id {driver_id} does not exist",
+        )
+    return await driver_history_service.get_driver_history_summary(session, driver_id)
 
 
 @router.get("/{year}/export", response_class=StreamingResponse)
@@ -68,49 +59,39 @@ async def export_all_drivers_history(
     - driver_id: Must be "all"
     - year: The year to export data for
     """
-    try:
-        if driver_id != "all":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid driver_id: {driver_id}. Must be 'all' for year-based export",
-            )
-
-        current_year_totals = await driver_history_service.get_yearly_totals_by_driver(
-            session, year
-        )
-        past_year_totals = await driver_history_service.get_yearly_totals_by_driver(
-            session, year - 1
-        )
-
-        if not current_year_totals and not past_year_totals:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No driver history found for year {year} or {year - 1}",
-            )
-
-        driver_data = await get_drivers(session, driver_id=None, email=None)
-
-        generator = DriverHistoryCSVGenerator(
-            current_year_totals, past_year_totals, driver_data
-        )
-
-        csv_data, filename = generator.generate_all_drivers_csv(year)
-        csv_output = generate_csv_from_list(csv_data, header=True)
-
-        return StreamingResponse(
-            iter([csv_output]),
-            media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"Unexpected error exporting driver history: {e}")
+    if driver_id != "all":
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while exporting driver history",
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid driver_id: {driver_id}. Must be 'all' for year-based export",
+        )
+
+    current_year_totals = await driver_history_service.get_yearly_totals_by_driver(
+        session, year
+    )
+    past_year_totals = await driver_history_service.get_yearly_totals_by_driver(
+        session, year - 1
+    )
+
+    if not current_year_totals and not past_year_totals:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No driver history found for year {year} or {year - 1}",
+        )
+
+    driver_data = await get_drivers(session, driver_id=None, email=None)
+
+    generator = DriverHistoryCSVGenerator(
+        current_year_totals, past_year_totals, driver_data
+    )
+
+    csv_data, filename = generator.generate_all_drivers_csv(year)
+    csv_output = generate_csv_from_list(csv_data, header=True)
+
+    return StreamingResponse(
+        iter([csv_output]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/", response_model=list[DriverHistoryRead])
@@ -136,22 +117,14 @@ async def get_driver_history(
             detail="Cannot provide month without year",
         )
 
-    try:
-        totals = await driver_history_service.get_monthly_totals(
-            session, driver_id, year, month
+    totals = await driver_history_service.get_monthly_totals(
+        session, driver_id, year, month
+    )
+
+    if not totals:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No driver history found for the provided filters",
         )
 
-        if not totals:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No driver history found for the provided filters",
-            )
-
-        return totals
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    return totals
