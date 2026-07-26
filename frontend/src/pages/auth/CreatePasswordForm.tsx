@@ -5,22 +5,13 @@ import EyeIcon from '@/assets/icons/eye.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
 
+import { fieldNote } from './styles';
+
 interface CreatePasswordFormProps {
   onSubmit: (password: string) => void;
   isPending: boolean;
   submitButtonText: string;
 }
-
-/**
- * The small print under a field — validation errors and the password criteria.
- *
- * 14px at every width, which is why this uses the static `text-m-p3` token
- * rather than the responsive `text-p2`: that one renders 16px on mobile, and no
- * mobile style defines 16px for this. Only the weight varies by breakpoint,
- * because each ramp has its own weight at 14px — Regular on mobile
- * (`Mobile/Paragraph/P3`), SemiBold from tablet up (`Desktop/Paragraph/P2`).
- */
-const fieldNote = 'text-m-p3 font-normal tablet:font-semibold';
 
 export const CreatePasswordForm = ({
   onSubmit,
@@ -126,7 +117,7 @@ export const CreatePasswordForm = ({
             </div>
             {passwordError && (
               <div
-                className={cn(fieldNote, 'text-red flex items-center gap-1.5')}
+                className={cn(fieldNote, 'text-red flex items-center gap-1')}
               >
                 <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                 <span>
@@ -177,10 +168,7 @@ export const CreatePasswordForm = ({
               </div>
               {confirmPasswordError && (
                 <div
-                  className={cn(
-                    fieldNote,
-                    'text-red flex items-center gap-1.5'
-                  )}
+                  className={cn(fieldNote, 'text-red flex items-center gap-1')}
                 >
                   <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                   <span>
