@@ -9,11 +9,13 @@ separate sessions can see.
 
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlmodel import select
 
+from app.config import settings as app_settings
 from app.models.driver import Driver
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -29,6 +31,17 @@ from app.services.jobs import route_freeze_jobs
 ROUTE_KM = 12.5
 
 
+def _today() -> date:
+    """Today in the scheduler's timezone — the job's own notion of "due".
+
+    Deliberately not date.today(), which reads the process timezone (UTC in
+    CI and in the container) and straddles a different midnight than the
+    scheduler's. Seeding against the process date makes these tests pass or
+    fail depending on the hour CI happens to run.
+    """
+    return datetime.now(ZoneInfo(app_settings.scheduler_timezone)).date()
+
+
 async def _seed(
     maker: async_sessionmaker[AsyncSession],
     *,
@@ -38,7 +51,7 @@ async def _seed(
     """Seed (committed) an active driver + a freezable route on the given
     drive_date (default today), visiting one geocoded location, with
     warehouse coords set. Reuses shared rows if called more than once."""
-    the_date = drive_date or date.today()
+    the_date = drive_date or _today()
     async with maker() as s:
         settings = (await s.execute(select(SystemSettings))).scalars().first()
         if settings is None:
@@ -165,7 +178,7 @@ async def test_catch_up_freezes_missed_past_dates(
     maker = _maker(test_db_engine)
     monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
-    seeded = await _seed(maker, drive_date=date.today() - timedelta(days=3))
+    seeded = await _seed(maker, drive_date=_today() - timedelta(days=3))
 
     await route_freeze_jobs.process_daily_driver_history()
 
@@ -181,7 +194,7 @@ async def test_future_routes_not_frozen(
     maker = _maker(test_db_engine)
     monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
-    await _seed(maker, drive_date=date.today() + timedelta(days=2))
+    await _seed(maker, drive_date=_today() + timedelta(days=2))
 
     await route_freeze_jobs.process_daily_driver_history()
     after = await _counts(maker)
@@ -325,7 +338,7 @@ async def test_failing_route_does_not_poison_the_run(
     maker = _maker(test_db_engine)
     monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
-    poisoned = await _seed(maker, drive_date=date.today() - timedelta(days=1))
+    poisoned = await _seed(maker, drive_date=_today() - timedelta(days=1))
     healthy = await _seed(maker)
 
     real_freeze = route_freeze_jobs._freeze_route
