@@ -7,6 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies.auth import get_current_database_user_id
+from app.dependencies.rate_limit import (
+    FORGOT_PASSWORD_EMAIL_LIMIT,
+    FORGOT_PASSWORD_IP_LIMIT,
+    LOGIN_EMAIL_LIMIT,
+    LOGIN_IP_LIMIT,
+    RESET_TOKEN_IP_LIMIT,
+    client_ip,
+)
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -39,6 +47,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 @router.post("/login", response_model=AuthResponse)
 async def login(
     login_request: LoginRequest,
+    request: Request,
     response: Response,
     session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
@@ -46,6 +55,11 @@ async def login(
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
     """
+    # Checked outside the try below: that block turns every exception into a 500,
+    # which would swallow the 429 these raise.
+    LOGIN_IP_LIMIT.check(client_ip(request))
+    LOGIN_EMAIL_LIMIT.check(login_request.email.lower())
+
     logger.info(f"Login request: {login_request}")
     try:
         if not login_request.email or not login_request.password:
@@ -149,9 +163,17 @@ async def logout(
         ) from e
 
 
+# How long a user must wait between reset emails. This is the server-side
+# counterpart of the resend countdown in `frontend/src/pages/auth/ForgotPassword.tsx`
+# -- that countdown is React state, so it constrains the button and nothing else.
+# Keep the two values in step.
+RESET_EMAIL_COOLDOWN_SECONDS = 60
+
+
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
 async def forgot_password(
     forgot_password_request: ForgotPasswordRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     token_service: PasswordResetTokenService = Depends(
         get_password_reset_token_service
@@ -165,12 +187,39 @@ async def forgot_password(
     """
     email = forgot_password_request.email
 
+    # Rate limited on the *submitted* address, before the account lookup and
+    # outside the try below (which turns every exception into a silent 204).
+    # Keying on the submitted address is what keeps 429 non-enumerating: it is
+    # returned for a made-up address exactly as readily as for a real one.
+    FORGOT_PASSWORD_IP_LIMIT.check(client_ip(request))
+    FORGOT_PASSWORD_EMAIL_LIMIT.check(email.lower())
+
     try:
         user = await user_service.get_user_by_email(session, email)
 
         if not user or not getattr(user, "auth_id", None):
             # Masking attack: Log it internally, but return a success status to the client
             logger.info(f"Password reset attempted for non-existent email: {email}")
+            return
+
+        # The resend cooldown. Unlike the counters above this survives across
+        # Cloud Run instances, so it is what actually bounds mail-bombing one
+        # person. It can only be checked once the account is known to exist, so
+        # it must not change the response -- suppressing the email silently and
+        # still returning 204 keeps the endpoint non-enumerating.
+        seconds_since_last = await token_service.seconds_since_last_issued(
+            session, user.user_id
+        )
+        if (
+            seconds_since_last is not None
+            and seconds_since_last < RESET_EMAIL_COOLDOWN_SECONDS
+        ):
+            logger.info(
+                "Reset email for %s suppressed: last sent %.0fs ago (cooldown %ds)",
+                email,
+                seconds_since_last,
+                RESET_EMAIL_COOLDOWN_SECONDS,
+            )
             return
 
         raw_token = await token_service.create(session, user.user_id)
@@ -197,6 +246,7 @@ async def forgot_password(
 @router.post("/validate-reset-token", status_code=status.HTTP_204_NO_CONTENT)
 async def validate_reset_token(
     request: ValidateResetTokenRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     token_service: PasswordResetTokenService = Depends(
         get_password_reset_token_service
@@ -205,6 +255,8 @@ async def validate_reset_token(
     """
     Validate that a password reset token exists, isn't used, and hasn't expired.
     """
+    RESET_TOKEN_IP_LIMIT.check(client_ip(http_request))
+
     token_obj = await token_service.read(session, request.password_reset_token)
     current_time = datetime.now(timezone.utc)
 
@@ -222,6 +274,7 @@ async def validate_reset_token(
 @router.post("/update-password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_password(
     update_password_request: UpdatePasswordRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     token_service: PasswordResetTokenService = Depends(
         get_password_reset_token_service
@@ -231,6 +284,8 @@ async def update_password(
     """
     Update an existing user's password if provided a valid password reset token
     """
+    RESET_TOKEN_IP_LIMIT.check(client_ip(request))
+
     token_obj = await token_service.read(
         session, update_password_request.password_reset_token
     )
