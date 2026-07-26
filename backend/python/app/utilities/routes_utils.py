@@ -107,5 +107,3 @@ async def fetch_route_polyline(
         ) from e
     except google_exceptions.RetryError as e:
         raise HTTPException(status_code=504, detail="Request timed out") from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {e!s}") from e

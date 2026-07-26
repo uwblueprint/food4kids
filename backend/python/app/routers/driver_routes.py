@@ -1,5 +1,4 @@
 import logging
-import traceback
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -59,35 +58,27 @@ async def get_drivers(
             detail="Cannot query by both driver_id and email",
         )
 
-    try:
-        if driver_id:
-            driver = await driver_service.get_driver_by_id(session, driver_id)
-            if not driver:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Driver with id {driver_id} not found",
-                )
-            return [DriverRead.model_validate(driver)]
+    if driver_id:
+        driver = await driver_service.get_driver_by_id(session, driver_id)
+        if not driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver with id {driver_id} not found",
+            )
+        return [DriverRead.model_validate(driver)]
 
-        elif email:
-            driver = await driver_service.get_driver_by_email(session, email)
-            if not driver:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Driver with email {email} not found",
-                )
-            return [DriverRead.model_validate(driver)]
+    elif email:
+        driver = await driver_service.get_driver_by_email(session, email)
+        if not driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver with email {email} not found",
+            )
+        return [DriverRead.model_validate(driver)]
 
-        else:
-            drivers = await driver_service.get_drivers(session)
-            return [DriverRead.model_validate(driver) for driver in drivers]
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    else:
+        drivers = await driver_service.get_drivers(session)
+        return [DriverRead.model_validate(driver) for driver in drivers]
 
 
 @router.get("/{driver_id}", response_model=DriverRead)
@@ -124,64 +115,46 @@ async def initialize_driver(
     NOTE: This does not create a firebase user, ie the User is in a hanging state
     We need to do this so that we can implement our invite only system
     """
-    user = None
+    async with session.begin_nested():
+        # Create user first
+        user_data = register_request.model_dump(
+            include=set(UserBase.model_fields.keys())
+        )
+        user_base = UserBase(**user_data)
+        user = await user_service.create_user(session, user_base)
 
-    try:
-        async with session.begin_nested():
-            # Create user first
-            user_data = register_request.model_dump(
-                include=set(UserBase.model_fields.keys())
-            )
-            user_base = UserBase(**user_data)
-            user = await user_service.create_user(session, user_base)
+        # Create driver after
+        driver_data = register_request.model_dump(
+            include=set(DriverCreate.model_fields.keys())
+        )
+        driver_data["user_id"] = user.user_id
+        driver = DriverCreate(**driver_data)
+        created_driver = await driver_service.create_driver(session, driver)
 
-            # Create driver after
-            driver_data = register_request.model_dump(
-                include=set(DriverCreate.model_fields.keys())
-            )
-            driver_data["user_id"] = user.user_id
-            driver = DriverCreate(**driver_data)
-            created_driver = await driver_service.create_driver(session, driver)
-
-            # Create User Invite Record
-            user_invite_create = UserInviteCreate(user_id=user.user_id)
-            user_invite = await user_invite_service.create_user_invite(
-                session, user_invite_create
-            )
-
-        await session.commit()
-        await session.refresh(created_driver)
-
-        # Send invitation email
-        driver_signup_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite.user_invite_id}"
-        driver_name = (
-            f"{register_request.first_name} {register_request.last_name}".strip()
+        # Create User Invite Record
+        user_invite_create = UserInviteCreate(user_id=user.user_id)
+        user_invite = await user_invite_service.create_user_invite(
+            session, user_invite_create
         )
 
-        await email_dispatcher.dispatch(
-            email_type="account-creation",
-            to=register_request.email,
-            context={
-                "Driver_Name_To_Replace": driver_name if driver_name else "Driver",
-                "Sign_Up_URL": driver_signup_url,
-                "Hours_Till_Expiry": 48,
-            },
-        )
+    await session.commit()
+    await session.refresh(created_driver)
 
-        return DriverRead.model_validate(created_driver)
+    # Send invitation email
+    driver_signup_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite.user_invite_id}"
+    driver_name = f"{register_request.first_name} {register_request.last_name}".strip()
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Compensating transaction: rollback all changes
-        logger.error(f"Error registering driver: {e}")
-        logger.error(traceback.format_exc())
+    await email_dispatcher.dispatch(
+        email_type="account-creation",
+        to=register_request.email,
+        context={
+            "Driver_Name_To_Replace": driver_name if driver_name else "Driver",
+            "Sign_Up_URL": driver_signup_url,
+            "Hours_Till_Expiry": 48,
+        },
+    )
 
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+    return DriverRead.model_validate(created_driver)
 
 
 @router.post(
@@ -200,56 +173,44 @@ async def complete_driver_registration(
     """
     Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
     """
-    try:
-        async with session.begin_nested():
-            # Validate invite token and lock the row to prevent race conditions
-            user_invite_id = registration_data.user_invite_id
-            user_invite = await user_invite_service.get_user_invite_by_id(
-                session, user_invite_id, for_update=True
-            )
-
-            if (
-                not user_invite
-                or user_invite.is_used
-                or user_invite.expires_at < datetime.now(timezone.utc)
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Invalid or expired registration link.",
-                )
-
-            # Create Firebase account for user
-            user = user_invite.user
-            await user_service.link_firebase_to_user(
-                session, user, registration_data.password
-            )
-
-            user_invite.is_used = True
-
-        await session.commit()
-
-        # Generate authentication tokens
-        auth_dto, refresh_token = await auth_service.generate_token(
-            session, user.email, registration_data.password
+    async with session.begin_nested():
+        # Validate invite token and lock the row to prevent race conditions
+        user_invite_id = registration_data.user_invite_id
+        user_invite = await user_invite_service.get_user_invite_by_id(
+            session, user_invite_id, for_update=True
         )
 
-        # Set refresh token as httpOnly cookie
-        set_refresh_token_cookie(response, refresh_token)
+        if (
+            not user_invite
+            or user_invite.is_used
+            or user_invite.expires_at < datetime.now(timezone.utc)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid or expired registration link.",
+            )
 
-        return DriverRegisterResponse(
-            driver=DriverRead.model_validate(user.driver), auth=auth_dto
+        # Create Firebase account for user
+        user = user_invite.user
+        await user_service.link_firebase_to_user(
+            session, user, registration_data.password
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error registering driver: {e}")
-        logger.error(traceback.format_exc())
 
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+        user_invite.is_used = True
+
+    await session.commit()
+
+    # Generate authentication tokens
+    auth_dto, refresh_token = await auth_service.generate_token(
+        session, user.email, registration_data.password
+    )
+
+    # Set refresh token as httpOnly cookie
+    set_refresh_token_cookie(response, refresh_token)
+
+    return DriverRegisterResponse(
+        driver=DriverRead.model_validate(user.driver), auth=auth_dto
+    )
 
 
 @router.put("/{driver_id}", response_model=DriverRead)

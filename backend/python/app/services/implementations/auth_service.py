@@ -7,7 +7,7 @@ import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.auth import AuthResponse
-from app.utilities.firebase_rest_client import FirebaseRestClient
+from app.utilities.firebase_rest_client import FirebaseRestClient, FirebaseRestError
 
 if TYPE_CHECKING:
     from firebase_admin.auth import UserRecord
@@ -15,6 +15,28 @@ if TYPE_CHECKING:
     from app.services.implementations.driver_service import DriverService
     from app.services.implementations.email_service import EmailService
     from app.services.implementations.user_service import UserService
+
+
+class SessionExpiredError(Exception):
+    """The refresh token can no longer produce a session; re-login is required.
+
+    The one signal ``/auth/refresh`` maps to a 401. Raising this is how
+    ``renew_token`` says "this is the client's problem, not ours" — everything
+    else it lets out is an unexpected failure and becomes a 500.
+    """
+
+
+# Firebase error codes that mean the refresh token itself is finished. Any
+# other code is a fault on our side or Firebase's, not an expired session.
+REAUTH_REQUIRED_FIREBASE_CODES = frozenset(
+    {
+        "TOKEN_EXPIRED",
+        "INVALID_REFRESH_TOKEN",
+        "INVALID_GRANT",
+        "USER_DISABLED",
+        "USER_NOT_FOUND",
+    }
+)
 
 
 class AuthService:
@@ -94,34 +116,44 @@ class AuthService:
     async def renew_token(
         self, session: AsyncSession, refresh_token: str
     ) -> tuple[AuthResponse, str]:
+        """Exchange a refresh token for a fresh session.
+
+        :raises SessionExpiredError: if the token can no longer produce a
+            session — Firebase rejected it, or it is valid but its user is no
+            longer in our database. Both mean the client must log in again.
+        """
         try:
             token_response = self.firebase_rest_client.refresh_token(refresh_token)
-            new_access_token = token_response.access_token
-            payload = jwt.decode(
-                new_access_token,
-                options={"verify_signature": False},
-                algorithms=["RS256"],
-            )
-            auth_id = payload.get("sub", "")
-            user = await self.user_service.get_user_by_auth_id(session, auth_id)
+        except FirebaseRestError as e:
+            if e.code in REAUTH_REQUIRED_FIREBASE_CODES:
+                raise SessionExpiredError(
+                    f"Firebase rejected the refresh token: {e.code}"
+                ) from e
+            raise
 
-            if user is None:
-                # The message is the error *code* the router maps to a 401 — it
-                # is matched exactly, so it must not carry extra prose.
-                raise ValueError("DB_USER_MISSING")
+        new_access_token = token_response.access_token
+        payload = jwt.decode(
+            new_access_token,
+            options={"verify_signature": False},
+            algorithms=["RS256"],
+        )
+        auth_id = payload.get("sub", "")
+        user = await self.user_service.get_user_by_auth_id(session, auth_id)
 
-            auth_response = AuthResponse(
-                access_token=new_access_token,
-                id=user.user_id,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                email=user.email,
-                role=user.role,
+        if user is None:
+            raise SessionExpiredError(
+                f"No user in the database for Firebase auth_id {auth_id}"
             )
-            return auth_response, token_response.refresh_token
-        except Exception as e:
-            self.logger.error(f"Failed to refresh token: {e}")
-            raise e
+
+        auth_response = AuthResponse(
+            access_token=new_access_token,
+            id=user.user_id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            role=user.role,
+        )
+        return auth_response, token_response.refresh_token
 
     async def is_authorized_by_role(
         self, _session: AsyncSession, access_token: str, roles: set[str]
