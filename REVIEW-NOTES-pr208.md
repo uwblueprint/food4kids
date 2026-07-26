@@ -188,6 +188,45 @@ Consequently `index.css` is **correct** as written — tablet does use the
 desktop scale, and the drivers designs are the thing that disagrees. No code
 change; `Wrapper.tsx`'s `text-m-p2 tablet:font-medium` stands.
 
+#### What was fixed (2026-07-26), and the rule used
+
+Only where a desktop style exists at the **same font size**, so that no node is
+resized and nothing can reflow:
+
+| From | To | Nodes |
+|---|---|---|
+| `Mobile/Paragraph/P2` 16 Regular lh24 | `Desktop/Paragraph/P1` 16 Medium lh24 | 35 |
+| `Mobile/Paragraph/P3` 14 Regular lh18 | `Desktop/Paragraph/P2` 14 SemiBold lh18 | 2 |
+
+Confidence came from the sections contradicting themselves rather than from the
+ramp alone: the *same string in the same role* is bound both ways within one
+section — `eric.baker@gmail.com`, `519 349 5094`, `Oct 18`, `8:00AM`, `Edit`,
+`Delete`, `Starts in 15h 30m` each appear as `Desktop/Paragraph/P1` in one
+frame and `Mobile/Paragraph/P2` in another. That is copy-paste drift.
+
+Verified after: 35/35 bound to `Desktop/Paragraph/P1` at 16px lh24, **0 height
+changes** (nothing rewrapped), 14 boxes 1px wider from Medium glyphs and 4
+right-aligned countdowns shifted 1px.
+
+#### Still broken in the drivers designs — blocks implementing those screens
+
+- **110 loose nodes on an 18px style the desktop ramp does not have.**
+  `Mobile/Paragraph/P1` (18 Regular): 38 tablet, 50 desktop.
+  `Mobile/Heading/H3` (18 Bold): 12 tablet, 10 desktop. Desktop jumps 16 → 20,
+  so every one of these is a *resize* decision, and it differs per element
+  (body copy probably 16, section headings probably 20). Not guessable at 110
+  nodes' scale.
+- **106 nodes inside a component named `Address Mobile`** placed on the tablet
+  and desktop frames (56 + 50). Wants a non-mobile variant; per-instance
+  overrides would fight the next component update. Plus 9 in
+  "Announcement Board".
+- **131 text nodes bound to no style at all** (50 tablet, 81 desktop).
+- Unresolved even among the fixed nodes: the `Oct 18` / `8:00AM` pairs went to
+  P1 by the same-size rule, but the sibling precedent disagrees across
+  sections — tablet's correct copy is `Desktop/Paragraph/P1` (16px), desktop's
+  is `Desktop/Paragraph/P2` (14px). If dates are meant to be 14px that is a
+  resize, so it was left alone.
+
 Clean, no action needed: both Mobile sections (their subtitles are correctly
 `Mobile/P2`; the 14px criteria use `Desktop/Paragraph/P2` only because the
 mobile scale has no 14px SemiBold), Error Pages and Route Generation
