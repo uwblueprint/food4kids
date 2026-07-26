@@ -503,3 +503,137 @@ Four routes, checked at mobile (375) / tablet (834) / desktop (1440):
 
 `CreatePasswordForm` is shared by the last two; its empty / criteria-not-met /
 passwords-don't-match states need checking from both entry points.
+
+---
+
+# Overlay walkthrough — results
+
+Every number below is the top of the text's line box in frame coordinates,
+design against code, measured through `/dev/overlay` at 375 / 834 / 1440.
+
+## Harness bugs found first
+
+The viewport keys matched frames by **label**, and the sections do not agree on
+names — mobile and tablet say `Login | Admin` where desktop says `Default Log
+In - All Users`. Switching to desktop from login found no label match and fell
+through to `candidates[0]`, landing on create-password. Every "desktop looks
+off" reading before this was comparing one screen's design against another
+screen's code. Fixed by matching route first, and by showing a notice whenever
+the screen label changes at all (a route match can still swap the *state*).
+
+Two frames were also mapped to the wrong route: `Redo Log in Driver` is the
+account-created confirmation, not login, and `Forgot Password | Driver Create
+Password Section` is the reset form.
+
+## Code fixes made
+
+| # | Fix | Was | Now |
+|---|---|---|---|
+| 1 | Block pinned to a fixed top through tablet, centred only at desktop | tablet forgot-password heading 387 vs design 376 | exact |
+| 2 | Create-password field gap 32 / button gap 40 below desktop | mobile+tablet stepped −9 from "Confirm password" down | ±1 |
+| 3 | Login errors take the 14px `fieldNote` token, not `text-p2` | 16px on mobile, rows below pushed down | exact |
+| 4 | Icon→text gap 6 → 4 | 2px | exact |
+
+Fix 1 also improved tablet login, which had been uniformly +1: centring a
+692-tall block in an 821 frame lands on 64.5 against the design's 64, which is
+why it read as correct and why the shorter screens did not.
+
+Fix 2 is the one worth remembering. The two gaps swap exactly — 32/40 below
+desktop, 24/48 at desktop — so the block came out the same height either way
+and both the heading and the button landed on the design. Only the six rows
+between them were wrong.
+
+## Verified matching
+
+| Screen | mobile | tablet | desktop |
+|---|---|---|---|
+| Login | exact | exact | exact (x −1) |
+| Login \| Error | exact | exact | exact (x −1) |
+| Create Password | −1 | ±1 | +1 |
+| Forgot Password | −4 below the heading | −4 below the heading | exact |
+| Link sent / Account created | −4 below the heading | −4 below the heading | no finalized frame |
+
+The residual ±1 is centring landing on a half pixel in an odd-height frame. The
+desktop x of −1 is `desktop:pl-[8.5vw]` resolving to 122.4 at 1440 against a
+design that uses a fixed 123 — a viewport-relative value standing in for a
+fixed one, so it drifts at other widths rather than being a constant pixel.
+
+The −4 is the last open item; see below.
+
+## Two layout systems in the design
+
+Not drift — two coherent systems, and the code follows both correctly now:
+
+| | block top | illus→heading | heading→subtitle | heading→form | logo x |
+|---|---|---|---|---|---|
+| **A** — Login, Login \| Error | 64 | 24 | 0 | 32 | 20 |
+| **B** — Forgot Password, No Account Yet, link-sent, Account Created | 124 | 40 | **4** | 16 | **24** |
+| Create Password (no illustration) | centred | — | 0 | 32 | 20 |
+
+## Open — needs your call
+
+### a. The 4px heading→subtitle gap (13 frames)
+
+System B puts 4px between the heading and the subtitle. Everything else in the
+file — every login frame, every create-password frame, desktop Forgot Password,
+and the desktop confirmation drafts — uses 0. The same screen disagrees with
+itself: desktop Forgot Password is 0, mobile and tablet Forgot Password are 4.
+
+Normalising to 0 makes the whole file one rule and the code already matches.
+Doing it in code instead means a new prop for 4px.
+
+Set `itemSpacing` to 0 on:
+
+```
+mobile   4438:35256 4438:35268 4438:35282 4438:35296 4438:35310 4438:35323
+tablet   4438:35453 4438:35465 4438:35479 4438:35493 4438:35507 4438:35520
+desktop  4438:35003
+```
+
+### b. The logo sits at x=24 on the System B frames (12 frames)
+
+Every other frame puts it at 20, which is what the code does (`left-5`).
+
+```
+mobile   4438:35263 4438:35277 4438:35291 4438:35305 4438:35318 4438:35331
+tablet   4438:35460 4438:35474 4438:35488 4438:35502 4438:35515 4438:35528
+```
+
+### c. Tablet System B contradicts itself — for Gurman
+
+Four tablet frames put the heading at 360 (illustration gap 24), two at 376
+(gap 40). All six mobile frames agree on 376, so the code follows 376 and the
+four at 360 are 16px out.
+
+| tablet frame | gap | heading |
+|---|---|---|
+| Forgot Password, Forgot Password Link Sent | 40 | 376 |
+| Account Created, Creation Link Sent, Resend Link, No Account Yet | 24 | 360 |
+
+### d. Stale copy on the mobile/tablet System B frames
+
+The desktop frames carry the current copy and the code matches them; the mobile
+and tablet frames were not updated.
+
+| role | mobile/tablet frame | desktop frame + code |
+|---|---|---|
+| confirmation heading | "Creation link sent" | "Reset link sent" |
+| primary button | "Log in" | "Back to log in" |
+| resend link | "Resend link" | "Send link again" |
+| account-created heading | "Account Created" | "Account created" |
+| account-created body | "Great job! Now go back to log in…" | "You're in! Get ready to help fill some lunch bags" |
+| account-created button | "Continue to platform" | "Continue" |
+
+Two more, unrelated to that split:
+
+- `Forgot Password | Driver Create Password Section` reads **"Create an
+  password to access the app"**. The code says "a password".
+- The criteria line is "12 or more is **better**" on mobile and tablet and "12
+  or more is **recommended**" on desktop. The code says "better".
+
+### e. Desktop "reset link sent" has no finalized frame
+
+The only desktop designs for it are four frames literally named "Could do sum
+like", and they disagree with each other — one puts the heading at 438, another
+at 448. The code's copy came from `4438:35055`. Nothing to measure against
+until one is promoted, so the harness leaves them unrouted.
