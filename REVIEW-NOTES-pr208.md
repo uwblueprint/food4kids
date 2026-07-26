@@ -74,16 +74,26 @@ the Account Created confirmation all keep it). Added
 - Forgot-password heading: here *desktop* was the outlier, so `4438:35025`
   "Forgot password" → "Forgot password?", matching mobile/tablet and the code.
 
+### 7. "Confirm password" casing — FIXED (Figma)
+
+The flow is sentence case throughout ("Enter new password"; desktop is 6/6
+"Confirm password"). Mobile and tablet had five "Confirm Password" outliers,
+now normalised: `I4438:35163;2941:20669`, `I4438:35202;2941:20669` (mobile);
+`I4438:35360;2941:20669`, `I4438:35399;2941:20669`,
+`I4438:35418;2941:25244` (tablet).
+
 ## Still open in Figma
 
 - **Create-password subheader.** Desktop and the code have "Create an account
   to access the app" under the heading; mobile and tablet have no subheader at
-  all. Not added: the frames are auto-layout, and the plugin's `create_text`
-  appends as the last child with no way to reorder, so a new node lands at the
-  bottom of the form rather than under the heading. `clone_node` can't
-  reparent either. Needs a designer to add it by hand.
-- Nit, not raised: mobile/tablet label reads "Confirm Password"; desktop and
-  the code use "Confirm password".
+  all. Tested rather than assumed: `create_text` with the correct coordinates
+  and `parentId` landed the node *below the Create Account button*, because
+  the frame is auto-layout and appends children in order. There is no reorder
+  tool, `clone_node` cannot reparent, and `create_text` has no font-family
+  option (so it would not be Nunito Sans anyway). The test node was deleted.
+  Converting the frame's auto-layout off and back on would reorder by
+  position but would drop its spacing and padding settings, which is a worse
+  outcome than a missing subheader. Needs a designer to add it by hand.
 
 ## Verified as matching the design notes
 
