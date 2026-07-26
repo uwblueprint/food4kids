@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { useRegisterDriver } from '@/api/auth';
 import { Button, NotFoundPage } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import { CreatePasswordForm } from './CreatePasswordForm';
 import { WrapperWithLogo } from './Wrapper';
@@ -46,7 +47,12 @@ export const CreatePassword = () => {
     <WrapperWithLogo
       headerTitle={headerTitle}
       subheaderTitle={subheaderTitle}
-      className="desktop:max-w-[362px]"
+      className={cn(
+        'desktop:max-w-[362px]',
+        // Account Created sits lower and tighter than the form: the design puts
+        // its heading at y=376 with a 16px gap to the button.
+        step === 'CONFIRMATION' && 'gap-4 pt-35'
+      )}
       // The form is too tall for the graphic on mobile; the confirmation isn't.
       showMobileIllustration={step === 'CONFIRMATION'}
     >

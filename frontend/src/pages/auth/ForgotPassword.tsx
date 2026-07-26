@@ -23,7 +23,7 @@ export const ForgotPassword = () => {
     <WrapperWithLogo
       headerTitle={headerTitle}
       subheaderTitle={subheaderTitle}
-      className="desktop:max-w-[362px] desktop:gap-8 gap-4 pt-31"
+      className="desktop:max-w-[362px] desktop:gap-8 gap-4 pt-35"
     >
       {step === 'FORM' ? (
         <ForgotPasswordForm

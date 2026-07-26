@@ -31,7 +31,13 @@ export const WrapperWithLogo = ({
       <div className="tablet:flex desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full">
         <div
           className={cn(
-            'tablet:pt-0 tablet:px-0 tablet:max-w-126 tablet:gap-4 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
+            /*
+             * The heading→form gap does not vary by breakpoint in the designs:
+             * login and the password screens are 32 at every width, the
+             * confirmation screens 16 at every width. So it is one value per
+             * screen, overridden via `className`, and never a `tablet:` variant.
+             */
+            'tablet:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
             /*
              * Dropping the illustration must not close the gap it left. The
              * mobile designs put the heading at y=154 on the password-entry
