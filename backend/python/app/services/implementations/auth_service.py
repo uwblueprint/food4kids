@@ -107,9 +107,9 @@ class AuthService:
             user = await self.user_service.get_user_by_auth_id(session, auth_id)
 
             if user is None:
-                raise ValueError(
-                    "DB_USER_MISSINGG: User associated with this token does not exist."
-                )
+                # The message is the error *code* the router maps to a 401 — it
+                # is matched exactly, so it must not carry extra prose.
+                raise ValueError("DB_USER_MISSING")
 
             auth_response = AuthResponse(
                 access_token=new_access_token,
