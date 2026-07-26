@@ -192,6 +192,13 @@ export function DesignOverlayHarness() {
     [frames, activeFlow, activeViewport]
   );
 
+  /**
+   * Set when a viewport switch could not find the same screen and had to show a
+   * different one. Silent fallback is worse than none: it presents one screen's
+   * design over another's code, which reads as a layout bug.
+   */
+  const [viewportFallback, setViewportFallback] = useState<string | null>(null);
+
   const selectFrame = useCallback(
     (next: ManifestFrame | null | undefined) => {
       if (!next) return;
@@ -207,16 +214,41 @@ export function DesignOverlayHarness() {
     [updateWith]
   );
 
-  /** Same screen, different viewport — matched on label, else that viewport's first. */
+  /**
+   * Same screen, different viewport.
+   *
+   * Matched on route first, because the sections do not agree on frame names:
+   * mobile and tablet say "Login | Admin" where desktop says "Default Log In -
+   * All Users". Label matching alone silently landed on an unrelated screen —
+   * comparing one screen's code against another's design, which looks like a
+   * layout bug and isn't. Label is still tried second, to tell apart the
+   * several frames that share a route (its states).
+   */
   const switchViewport = useCallback(
     (viewport: string) => {
       const candidates = frames.filter(
         (f) => f.viewport === viewport && f.flow === activeFlow
       );
-      const sameLabel = frame
-        ? candidates.find((f) => f.label === frame.label)
-        : undefined;
-      selectFrame(sameLabel ?? candidates[0]);
+      const sameRoute = frame?.route
+        ? candidates.filter((f) => f.route === frame.route)
+        : [];
+      const match =
+        sameRoute.find((f) => f.label === frame?.label) ??
+        sameRoute[0] ??
+        candidates.find((f) => f.label === frame?.label);
+      const chosen = match ?? candidates[0];
+      selectFrame(chosen);
+      /*
+       * Warn whenever the screen changed, not merely when the route could not
+       * be matched. Several frames share one route — every create-password
+       * state, for instance — so a route match can still swap the *state* out
+       * from under you, which is just as misleading as swapping the screen.
+       */
+      setViewportFallback(
+        !chosen || !frame || chosen.label === frame.label
+          ? null
+          : `No "${frame.label}" here — showing "${chosen.label}"`
+      );
     },
     [frames, frame, activeFlow, selectFrame]
   );
@@ -593,6 +625,20 @@ export function DesignOverlayHarness() {
           {state.designWidth}×{state.designHeight} @ {Math.round(fit * 100)}% —
           always 1:1, no resize needed
         </div>
+
+        {viewportFallback && (
+          <div
+            style={{
+              color: '#fdba74',
+              fontSize: 11,
+              border: '1px solid #b45309',
+              borderRadius: 4,
+              padding: '4px 6px',
+            }}
+          >
+            ⚠ {viewportFallback}
+          </div>
+        )}
 
         <input
           ref={fileInputRef}
