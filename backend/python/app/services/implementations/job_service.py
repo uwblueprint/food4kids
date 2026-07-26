@@ -1,13 +1,12 @@
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
+from app.models.base import now_est_naive
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.schemas.route_generation import RouteGenerationGroupInput
@@ -39,9 +38,6 @@ class JobService:
         result = await self.session.execute(statement)
         return list(result.scalars().all())
 
-    def est_now_naive(self) -> datetime:
-        return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
-
     async def generate_job(self, _req: RouteGenerationGroupInput | None = None) -> UUID:
         """Create a job"""
         try:
@@ -62,7 +58,7 @@ class JobService:
 
     async def update_progress(self, job_id: UUID, progress: ProgressEnum) -> None:
         try:
-            now = self.est_now_naive()
+            now = now_est_naive()
             values = {
                 "progress": progress,
                 "updated_at": now,
@@ -106,7 +102,7 @@ class JobService:
         no-ops and returned unchanged.
         """
         try:
-            now = self.est_now_naive()
+            now = now_est_naive()
             result = cast(
                 "CursorResult[Any]",
                 await self.session.execute(
@@ -156,7 +152,7 @@ class JobService:
                 return
 
             job.progress = ProgressEnum.RUNNING
-            job.started_at = self.est_now_naive()
+            job.started_at = now_est_naive()
             self.session.add(job)
             await self.session.commit()
         except Exception:

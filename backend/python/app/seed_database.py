@@ -9,7 +9,6 @@ import random
 import uuid
 from datetime import date, datetime, time, timedelta
 from typing import cast
-from zoneinfo import ZoneInfo
 
 import faker
 import firebase_admin
@@ -24,7 +23,7 @@ from app import initialize_firebase
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
-from app.models.base import BaseModel
+from app.models.base import BaseModel, now_est_naive
 from app.models.driver import Driver
 from app.models.driver_history import DriverHistory
 from app.models.enum import NotePermission, ProgressEnum
@@ -1172,9 +1171,7 @@ def main() -> None:
                     attachments=[],
                 )
                 set_timestamps(announcement)
-                posted_at = datetime.now(ZoneInfo("America/New_York")).replace(
-                    tzinfo=None
-                ) - timedelta(days=days_ago)
+                posted_at = now_est_naive() - timedelta(days=days_ago)
                 announcement.created_at = posted_at
                 announcement.updated_at = posted_at
                 session.add(announcement)
@@ -1194,9 +1191,7 @@ def main() -> None:
                 if random.random() < 0.6:
                     read_entry = AnnouncementLastRead(
                         user_id=driver_user_row[0],
-                        last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(
-                            tzinfo=None
-                        )
+                        last_read_at=now_est_naive()
                         - timedelta(hours=random.randint(0, 72)),
                     )
                     set_timestamps(read_entry)
