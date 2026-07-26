@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
 import AlertCircleIcon from '@/assets/icons/alert-circle.svg?react';
-import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -162,14 +161,9 @@ export function RouteRoutesTab() {
         search={search}
         showFilter
         actions={
-          <>
-            <Button variant="primary" asChild>
-              <Link to="/admin/routes/generation">Generate Routes</Link>
-            </Button>
-            <Button variant="primary" shape="circular">
-              <ShareIcon className="size-5" />
-            </Button>
-          </>
+          <Button variant="primary" asChild>
+            <Link to="/admin/routes/generation">Generate Routes</Link>
+          </Button>
         }
       />
 

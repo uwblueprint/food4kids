@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import type {
@@ -7,7 +7,6 @@ import type {
   RouteGroupRead,
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
-import PlusIcon from '@/assets/icons/plus.svg?react';
 import type { Column } from '@/common/components';
 import {
   Button,
@@ -26,7 +25,6 @@ import {
 import { useRowHighlight, useTableSort } from '@/common/hooks';
 
 import type { GroupsTabState } from '../hooks';
-import { AddRouteGroupModal } from './AddRouteGroupModal';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 import { RouteGroupActionsCell } from './RouteGroupActionsCell';
@@ -117,7 +115,6 @@ export function RouteGroupsTab({
   clearDraft,
   handleApply,
 }: RouteGroupsTabProps) {
-  const [addOpen, setAddOpen] = useState(false);
   const { sort, toggleSort } = useTableSort();
   // Highlight + scroll for a row that was just added, duplicated, or re-dated.
   const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
@@ -181,19 +178,9 @@ export function RouteGroupsTab({
         onFilterClick={openFilters}
         hasActiveFilters={hasActiveFilters}
         actions={
-          <>
-            <Button variant="primary" asChild>
-              <Link to="/admin/routes/generation">Generate Routes</Link>
-            </Button>
-            <Button
-              variant="primary"
-              shape="circular"
-              aria-label="Add route group"
-              onClick={() => setAddOpen(true)}
-            >
-              <PlusIcon className="size-5" />
-            </Button>
-          </>
+          <Button variant="primary" asChild>
+            <Link to="/admin/routes/generation">Generate Routes</Link>
+          </Button>
         }
       />
 
@@ -213,13 +200,6 @@ export function RouteGroupsTab({
           }
         />
       </div>
-
-      <AddRouteGroupModal
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        deliveryTypes={deliveryTypes}
-        onCreated={highlightRow}
-      />
 
       <Modal open={filterOpen} onOpenChange={setFilterOpen}>
         <ModalContent>

@@ -4,7 +4,6 @@ import type {
   LocationRead,
   LocationStatusEnum,
 } from '@/api/generated/types.gen';
-import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
   Button,
@@ -166,14 +165,6 @@ export function RouteAddressesTab({
         showFilter
         onFilterClick={openFilters}
         hasActiveFilters={hasActiveFilters}
-        actions={
-          <>
-            <Button variant="primary">Mark Inactive</Button>
-            <Button variant="primary" shape="circular">
-              <ShareIcon className="size-5" />
-            </Button>
-          </>
-        }
       />
 
       <DataTable
