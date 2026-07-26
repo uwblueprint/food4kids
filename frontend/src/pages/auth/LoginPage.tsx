@@ -8,6 +8,7 @@ import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
 
+import { fieldNote } from './styles';
 import { WrapperWithLogo } from './Wrapper';
 
 export const LoginPage = () => {
@@ -72,7 +73,9 @@ const LoginForm = () => {
               required
             />
             {loginError && (
-              <div className="text-red text-p2 flex items-center gap-1.5">
+              <div
+                className={cn(fieldNote, 'text-red flex items-center gap-1')}
+              >
                 <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                 <span>Incorrect email or password</span>
               </div>
@@ -114,7 +117,9 @@ const LoginForm = () => {
                 </button>
               </div>
               {loginError && (
-                <div className="text-red text-p2 flex items-center gap-1.5">
+                <div
+                  className={cn(fieldNote, 'text-red flex items-center gap-1')}
+                >
                   <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                   <span>Incorrect email or password</span>
                 </div>
