@@ -32,6 +32,14 @@ export const WrapperWithLogo = ({
         <div
           className={cn(
             'tablet:pt-0 tablet:px-0 tablet:max-w-126 tablet:gap-4 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
+            /*
+             * Dropping the illustration must not close the gap it left. The
+             * mobile designs put the heading at y=154 on the password-entry
+             * frames — less room than the illustration screens get, but far
+             * more than the 64px of base padding alone. `pt-16` is correct
+             * only where the illustration follows it.
+             */
+            !showMobileIllustration && 'pt-[154px]',
             className
           )}
         >
