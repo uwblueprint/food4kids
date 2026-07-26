@@ -15,13 +15,20 @@ out: heading→subheader gap 0px in all six, matching desktop; wrapper→form ga
 24px on all three mobile frames and 32px on all three tablet frames; x aligned
 to the heading; 16px/24 line-height, `#1c1b1f` throughout.
 
-One inconsistency: all six are **Nunito Sans Regular (400)**. Per
-`Wrapper.tsx` (`text-m-p2 tablet:font-medium`) and the ramp note in
-`index.css`, the subtitle is Regular on mobile but **Medium (500) from tablet
-up** — and desktop's subheader is Medium. So the three mobile ones are right;
-the three tablet ones should be Medium: `7601:30613`, `7601:30618`,
-`7601:30622`. No font-weight setter exists in the plugin, so this needs doing
-by hand.
+One inconsistency: all six use `Mobile/Paragraph/P2` (16 Regular). Correct on
+mobile; on tablet it should be `Desktop/Paragraph/P1` (16 Medium) —
+`7601:30613`, `7601:30618`, `7601:30622`. No font-weight setter exists in the
+plugin, so this needs doing by hand.
+
+Why: the file has no tablet text styles, and the tablet frames use `Desktop/*`
+styles for *every* text node — heading `Desktop/Heading/H1`, labels
+`Desktop/Heading/H3`, placeholders `Desktop/Paragraph/P1`, criteria
+`Desktop/Paragraph/P2`. The clearest precedent is "Return to Log in": the same
+16px paragraph role, already `Desktop/Paragraph/P1` on tablet where mobile has
+`Mobile/Paragraph/P2`. This matches the note in `index.css` attributing to
+design (Gurman/Fehin, 2026-06) that tablet uses the desktop type scale and
+only 0–499px uses the mobile scale, and it is what `Wrapper.tsx` renders via
+`text-m-p2 tablet:font-medium`.
 
 Not cross-checked: desktop's wrapper is the last child of its parent, so
 there is no desktop wrapper→form gap to compare the 24/32px against.
@@ -54,6 +61,12 @@ multiple live reset tokens.
 `backend/python/app/` — no slowapi, no limiter, no throttling. With a known
 address, that endpoint can be used to mail-bomb a volunteer and to burn email
 quota. Worth raising as its own review point, independent of the timer value.
+
+Tracked as its own task (spawned 2026-07-26) rather than piled onto #208,
+since it is a backend concern that predates this PR: add limiting to
+`/forgot-password`, `/login` and the reset/registration routes, per-IP and
+per-email, 429 + `Retry-After`, keeping the non-enumerating 204 response. Pick
+storage based on how many replicas actually run.
 
 ### 2. Password-criteria copy — FIXED (code + Figma)
 
