@@ -249,7 +249,6 @@ async def update_password(
         )
 
     try:
-<<<<<<< HEAD
         user = token_obj.user
 
         if user.auth_id is None:
@@ -258,12 +257,8 @@ async def update_password(
         await user_service.update_password(
             user.auth_id, update_password_request.new_password
         )
-
-=======
-        auth_service.reset_password(email)
     except HTTPException:
         raise
->>>>>>> origin/main
     except Exception as e:
         logger.exception(
             f"Internal error updating password for token {update_password_request.password_reset_token}: {e}"
