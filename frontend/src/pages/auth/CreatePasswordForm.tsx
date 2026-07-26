@@ -80,9 +80,16 @@ export const CreatePasswordForm = ({
     <>
       <div>
         {/* Form */}
+        {/*
+         * Desktop tightens the gap between the two password fields and spends
+         * what it saves on the run-up to the button — 24/48 against 32/40 below
+         * it. The two swap exactly, so the block is the same height either way;
+         * getting one of them wrong moves everything between them without
+         * moving the heading or the button, which is why it reads as correct.
+         */}
         <form
           id="register-form"
-          className="flex flex-col gap-6"
+          className="desktop:gap-6 flex flex-col gap-8"
           onSubmit={submitPassword}
         >
           {/* Password Field */}
@@ -208,7 +215,7 @@ export const CreatePasswordForm = ({
             type="submit"
             variant="primary"
             shape="default"
-            className="mt-12 w-full py-3"
+            className="desktop:mt-12 mt-10 w-full py-3"
             disabled={isPending}
           >
             {submitButtonText}
