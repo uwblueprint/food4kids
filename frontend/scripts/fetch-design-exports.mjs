@@ -76,7 +76,7 @@ const ROUTES = {
   // the account-created confirmation ("You're in!" / Continue) and the "Forgot
   // Password" one is the reset form ("Reset your password").
   'Redo Log in Driver': `/create-password/${DEMO_TOKEN}`,
-  'Forgot Password | Driver Create Password Section': `/reset-password/${DEMO_TOKEN}`,
+  'Forgot Password | Driver Create Password Section': `/forgot-password/${DEMO_TOKEN}`,
   'First Time Login - Driver - Through Invite link': `/create-password/${DEMO_TOKEN}`,
   'First Time Login - Criteria Not Met': `/create-password/${DEMO_TOKEN}`,
   "First Time Login - Passwords Don't Match": `/create-password/${DEMO_TOKEN}`,
