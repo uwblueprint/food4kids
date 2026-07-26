@@ -418,10 +418,38 @@ create-password (154, now fixed) match. `ForgotPassword` already hand-tunes its
 own `pt-31`, so the per-screen-padding convention exists — these two just have
 the wrong numbers.
 
+### 13. Mobile password screens centre vertically — and the design gap is now 32
+
+Colin set the three mobile create-password wrappers (`4438:35156`,
+`4438:35195`, `4438:35215`) to `itemSpacing` 32 via the plugin, verified by
+REST. Measuring after, the heading moved 154 → 150, i.e. the whole block rose by
+half of what it grew, which shows these frames **centre** their content:
+522 tall at y=150 with 150 below; the taller filled variant 578 at y=122 with
+122 below.
+
+So `pt-[154px]` was wrong in principle — right only at an 821px viewport. Now
+the parent centres on mobile when the illustration is absent, and the inner
+block uses symmetric `py-8` (anything one-sided biases the centring). Verified:
+space above equals space below at 821, 667 and 540, never clipped, never
+scrolls, `/login` unmoved at 300.
+
+### 14. Create-password is missing the "Return to Log in" link
+
+All six create-password frames — mobile and tablet — have it; the code has no
+such link on `/create-password` or `/forgot-password/:token`. It is the entire
+remaining discrepancy: with it absent the code's content is ~48px shorter than
+the design's 522, so centring lands the heading 24px low (174 vs 150). Add the
+link and it lands on 150 without touching any spacing.
+
+There are three spellings in play, which needs one decision: the design says
+"Return to Log in", `ForgotPassword.tsx:108` says "Return to login", and the
+flow's sentence-case convention (finding 7) implies "Return to log in".
+
 ### 10. Nits found while measuring
 
-- The two "Driver | Create Password Filled" mobile frames disagree with each
-  other: heading at 154 in one, 126 in the other.
+- ~~The two "Create Password Filled" mobile frames disagree, 154 vs 126.~~
+  **Withdrawn** — that is the centring in finding 13, not drift. The taller
+  frame starts higher by exactly the height it gains.
 - The design's button reads "Create Account"; the code says "Create account".
   The flow is sentence case throughout (see finding 7), so the code is right
   and the Figma button wants changing — but it is inside a `UI/Button`
