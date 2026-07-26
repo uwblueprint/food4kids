@@ -2,16 +2,15 @@
 
 The invariant under test throughout: a driver's km is always
 SUM(route.length) over their FROZEN routes (those with a RouteSnapshot),
-bucketed by the group's drive_date month, plus their signed manual
-adjustments. There is no stored total — so reassignment, route edits, date
-corrections, and deletions all update history automatically and can never
-drift.
+bucketed by the group's drive_date month. There is no stored total — so
+reassignment, route edits, date corrections, and deletions all update
+history automatically and can never drift.
 """
 
 import logging
 from datetime import date, datetime, timedelta
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
@@ -19,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver import Driver
-from app.models.driver_mileage import DriverMileageAdjustment
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route, RoutePatchRequest
@@ -47,6 +45,66 @@ history_service = DriverHistoryService(logger)
 async def _lifetime(session: AsyncSession, driver_id: UUID) -> float:
     summary = await history_service.get_driver_history_summary(session, driver_id)
     return summary.lifetime_km
+
+
+async def _add_frozen_route(
+    session: AsyncSession,
+    driver_id: UUID,
+    location: Location,
+    drive_date: date,
+    km: float,
+) -> Route:
+    """Add an already-frozen route on drive_date. Frozen routes are the only
+    thing that produces km, so this is how a test creates mileage."""
+    rg = RouteGroup(
+        name=f"G {drive_date.isoformat()}",
+        drive_date=datetime.combine(drive_date, datetime.min.time()),
+    )
+    session.add(rg)
+    await session.commit()
+    await session.refresh(rg)
+
+    route = Route(
+        name=f"R {drive_date.isoformat()}",
+        length=km,
+        route_group_id=rg.route_group_id,
+        driver_id=driver_id,
+    )
+    session.add(route)
+    await session.commit()
+    await session.refresh(route)
+
+    stop = RouteStop(
+        route_id=route.route_id,
+        location_id=location.location_id,
+        stop_number=1,
+    )
+    session.add(stop)
+    await session.commit()
+    await session.refresh(stop)
+
+    session.add(
+        RouteSnapshot(
+            route_id=route.route_id,
+            start_address="Warehouse",
+            start_latitude=43.0,
+            start_longitude=-80.0,
+        )
+    )
+    session.add(
+        RouteStopSnapshot(
+            route_stop_id=stop.route_stop_id,
+            address=location.address,
+            contact_name=location.contact_name,
+            phone_primary=location.phone_primary,
+            phone_secondary=location.phone_secondary,
+            num_children=location.num_children,
+            latitude=location.latitude,
+            longitude=location.longitude,
+        )
+    )
+    await session.commit()
+    return route
 
 
 async def _make_driver(session: AsyncSession, tag: str) -> Driver:
@@ -402,38 +460,6 @@ async def test_stop_edit_on_unfrozen_route_creates_no_snapshots(
     assert len(after) == len(before)
 
 
-# ---------------------------------------------------------------------------
-# Adjustments: manual corrections compose with route-derived km
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_adjustments_compose_with_route_km(
-    test_session: AsyncSession, frozen_world: dict[str, Any]
-) -> None:
-    a = frozen_world["driver_a"].driver_id
-    yesterday = frozen_world["yesterday"]
-
-    # Same-month correction plus a different-month backfill.
-    await history_service.create_adjustment(
-        test_session, a, yesterday, -2.5, "over-credited"
-    )
-    other_month = (yesterday.replace(day=15) - timedelta(days=40)).replace(day=10)
-    await history_service.create_adjustment(
-        test_session, a, other_month, 7.0, "missed delivery"
-    )
-
-    monthly = await history_service.get_monthly_totals(test_session, a)
-    by_bucket = {(t.year, t.month): t.km for t in monthly}
-    assert by_bucket[(yesterday.year, yesterday.month)] == pytest.approx(
-        FROZEN_KM - 2.5
-    )
-    assert by_bucket[(other_month.year, other_month.month)] == pytest.approx(7.0)
-
-    summary = await history_service.get_driver_history_summary(test_session, a)
-    assert summary.lifetime_km == pytest.approx(FROZEN_KM - 2.5 + 7.0)
-
-
 @pytest.mark.asyncio
 async def test_yearly_totals_sum_all_months(
     test_session: AsyncSession, frozen_world: dict[str, Any]
@@ -443,11 +469,10 @@ async def test_yearly_totals_sum_all_months(
     a = frozen_world["driver_a"].driver_id
     yesterday = frozen_world["yesterday"]
 
-    # Add km in a second month of the same year (guaranteed same-year by
-    # construction below).
+    # A second frozen route in a different month of the same year.
     other_month_date = date(yesterday.year, 1 if yesterday.month != 1 else 2, 10)
-    await history_service.create_adjustment(
-        test_session, a, other_month_date, 10.0, "second month"
+    await _add_frozen_route(
+        test_session, a, frozen_world["locations"][1], other_month_date, 10.0
     )
 
     totals = await history_service.get_yearly_totals_by_driver(
@@ -466,15 +491,9 @@ async def test_driver_delete_endpoint_detaches_routes_and_km(
     async_client: Any, test_session: AsyncSession, frozen_world: dict[str, Any]
 ) -> None:
     """Deleting a driver removes the row; their frozen routes survive but
-    become unattributed (driver_id SET NULL), so the km stop counting.
-    Their adjustments CASCADE away — those are per-driver corrections with
-    no meaning once the driver is gone."""
+    become unattributed (driver_id SET NULL), so the km stop counting."""
     a = frozen_world["driver_a"]
     frozen_route = frozen_world["route"]
-
-    await history_service.create_adjustment(
-        test_session, a.driver_id, date(2026, 3, 4), 12.0, "manual correction"
-    )
 
     resp = await async_client.delete(f"/drivers/{a.driver_id}")
     assert resp.status_code == 204
@@ -492,19 +511,6 @@ async def test_driver_delete_endpoint_detaches_routes_and_km(
     # The route itself survives, unassigned.
     await test_session.refresh(frozen_route)
     assert frozen_route.driver_id is None
-    # The adjustment is gone with the driver.
-    remaining = (
-        (
-            await test_session.execute(
-                select(DriverMileageAdjustment).where(
-                    DriverMileageAdjustment.driver_id == a.driver_id
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    assert list(remaining) == []
     assert await _lifetime(test_session, a.driver_id) == pytest.approx(0.0)
 
 
@@ -568,47 +574,17 @@ async def test_history_api_monthly_view(
 
 
 @pytest.mark.asyncio
-async def test_adjustment_api_roundtrip(
-    async_client: Any, test_session: AsyncSession, frozen_world: dict[str, Any]
-) -> None:
-    a = frozen_world["driver_a"].driver_id
-
-    created = await async_client.post(
-        f"/drivers/{a}/history/adjustments",
-        json={"drive_date": "2026-06-15", "km": -3.5, "note": "odometer check"},
-    )
-    assert created.status_code == 201, created.text
-    body = created.json()
-    assert body["km"] == pytest.approx(-3.5)
-    assert body["note"] == "odometer check"
-
-    listing = await async_client.get(f"/drivers/{a}/history/adjustments")
-    assert listing.status_code == 200
-    assert len(listing.json()) == 1
-
-    assert await _lifetime(test_session, a) == pytest.approx(FROZEN_KM - 3.5)
-
-
-@pytest.mark.asyncio
-async def test_adjustment_api_validation(
+async def test_history_csv_export(
     async_client: Any, frozen_world: dict[str, Any]
 ) -> None:
-    a = frozen_world["driver_a"].driver_id
+    """GET /drivers/all/history/{year}/export streams a CSV of every driver's
+    yearly km (driver_id must be the literal "all")."""
+    year = frozen_world["yesterday"].year
 
-    no_note = await async_client.post(
-        f"/drivers/{a}/history/adjustments",
-        json={"drive_date": "2026-06-15", "km": 5.0, "note": ""},
-    )
-    assert no_note.status_code == 422  # min_length=1
+    resp = await async_client.get(f"/drivers/all/history/{year}/export")
+    assert resp.status_code == 200, resp.text
+    assert "text/csv" in resp.headers.get("content-type", "")
+    assert f"distance (km) in {year}" in resp.text
 
-    zero_km = await async_client.post(
-        f"/drivers/{a}/history/adjustments",
-        json={"drive_date": "2026-06-15", "km": 0, "note": "noop"},
-    )
-    assert zero_km.status_code == 400
-
-    missing_driver = await async_client.post(
-        "/drivers/00000000-0000-0000-0000-000000000000/history/adjustments",
-        json={"drive_date": "2026-06-15", "km": 5.0, "note": "n"},
-    )
-    assert missing_driver.status_code == 404
+    not_all = await async_client.get(f"/drivers/{uuid4()}/history/{year}/export")
+    assert not_all.status_code == 400

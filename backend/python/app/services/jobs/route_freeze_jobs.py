@@ -6,8 +6,8 @@ RouteStopSnapshot rows that lock in what was delivered. The presence of the
 snapshot is the freeze signal — there is no separate flag column.
 
 The job writes no mileage: driver history is derived at read time from
-frozen routes plus manual adjustments (see DriverHistoryService). Freezing
-a route is what makes it count.
+frozen routes (see DriverHistoryService). Freezing a route is what makes
+it count.
 
 Because the scan is "due and un-frozen" rather than "dated today", a missed
 run, a crash mid-run, a night with unconfigured warehouse coordinates, or a

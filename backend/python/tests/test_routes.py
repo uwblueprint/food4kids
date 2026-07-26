@@ -4905,60 +4905,17 @@ class TestDriverHistoryRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_create_adjustment(
+    async def test_list_driver_history_empty(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """POST /adjustments appends a signed mileage correction."""
-        response = await async_client.post(
-            f"{self._base(test_driver)}/adjustments",
-            json={"drive_date": "2025-01-15", "km": 12.5, "note": "backfill"},
-        )
-        assert response.status_code == 201
-        assert response.json()["km"] == 12.5
+        """GET / is a 404 for a driver with no frozen routes.
 
-    @pytest.mark.asyncio
-    async def test_create_adjustment_driver_not_found(
-        self, async_client: AsyncClient
-    ) -> None:
-        """POST /adjustments returns 404 when the driver doesn't exist."""
-        response = await async_client.post(
-            f"/drivers/{uuid4()}/history/adjustments",
-            json={"drive_date": "2025-01-15", "km": 5.0, "note": "backfill"},
-        )
-        assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_adjustments_compose(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """Two adjustments in the same month SUM in the monthly view —
-        corrections append, they never overwrite."""
-        base = self._base(test_driver)
-        for km in (3.0, 4.0):
-            resp = await async_client.post(
-                f"{base}/adjustments",
-                json={"drive_date": "2025-02-10", "km": km, "note": "n"},
-            )
-            assert resp.status_code == 201
-
-        monthly = await async_client.get(f"{base}/?year=2025&month=2")
-        assert monthly.status_code == 200
-        rows = monthly.json()
-        assert len(rows) == 1
-        assert rows[0]["km"] == 7.0
-
-    @pytest.mark.asyncio
-    async def test_list_driver_history(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """GET / lists the driver's monthly km totals."""
-        await async_client.post(
-            f"{self._base(test_driver)}/adjustments",
-            json={"drive_date": "2025-03-05", "km": 7.0, "note": "n"},
-        )
+        Populated listings are covered in test_mileage_derived.py, which can
+        freeze routes directly — km is derived, so there is no API that
+        creates it.
+        """
         response = await async_client.get(f"{self._base(test_driver)}/")
-        assert response.status_code == 200
-        assert any(h["month"] == 3 for h in response.json())
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_list_driver_history_month_without_year(
@@ -4969,37 +4926,15 @@ class TestDriverHistoryRoutes:
         assert response.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_list_adjustments(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """GET /adjustments lists the driver's corrections (audit view)."""
-        await async_client.post(
-            f"{self._base(test_driver)}/adjustments",
-            json={"drive_date": "2025-04-05", "km": -2.0, "note": "correction"},
-        )
-        response = await async_client.get(f"{self._base(test_driver)}/adjustments")
-        assert response.status_code == 200
-        adjustments = response.json()
-        assert len(adjustments) == 1
-        assert adjustments[0]["km"] == -2.0
-        assert adjustments[0]["note"] == "correction"
+    async def test_export_driver_history_empty(self, async_client: AsyncClient) -> None:
+        """GET /drivers/all/history/{year}/export is a 404 when no driver has
+        km in that year or the one before.
 
-    @pytest.mark.asyncio
-    async def test_export_driver_history(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """GET /drivers/all/history/{year}/export streams a CSV of all drivers'
-        history (driver_id must be the literal "all")."""
-        await async_client.post(
-            f"{self._base(test_driver)}/adjustments",
-            json={"drive_date": "2025-06-20", "km": 4.0, "note": "n"},
-        )
+        The populated CSV path needs frozen routes to derive km from, so it
+        lives in test_mileage_derived.py.
+        """
         response = await async_client.get("/drivers/all/history/2025/export")
-        assert response.status_code == 200
-        assert "text/csv" in response.headers.get("content-type", "")
-        # The CSV emits a per-year distance column, proving the export ran for
-        # the requested year.
-        assert "distance (km) in 2025" in response.text
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_mark_read_and_is_read_status(

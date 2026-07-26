@@ -17,9 +17,6 @@ import type {
   CreateAnnouncementData,
   CreateAnnouncementErrors,
   CreateAnnouncementResponses,
-  CreateDriverMileageAdjustmentData,
-  CreateDriverMileageAdjustmentErrors,
-  CreateDriverMileageAdjustmentResponses,
   CreateLocationData,
   CreateLocationErrors,
   CreateLocationGroupData,
@@ -83,9 +80,6 @@ import type {
   GetDriverHistorySummaryData,
   GetDriverHistorySummaryErrors,
   GetDriverHistorySummaryResponses,
-  GetDriverMileageAdjustmentsData,
-  GetDriverMileageAdjustmentsErrors,
-  GetDriverMileageAdjustmentsResponses,
   GetDriverResponses,
   GetDriversData,
   GetDriversErrors,
@@ -533,8 +527,8 @@ export const testEventEmail = <ThrowOnError extends boolean = false>(
  *
  * Delete a driver by ID.
  *
- * Their routes and mileage adjustments are detached (driver_id SET NULL),
- * so the driver's km stop counting toward anyone.
+ * Their routes are detached (driver_id SET NULL), so the driver's km stop
+ * counting toward anyone.
  */
 export const deleteDriver = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDriverData, ThrowOnError>
@@ -594,8 +588,8 @@ export const updateDriver = <ThrowOnError extends boolean = false>(
 /**
  * Get Driver History
  *
- * Get monthly km totals, derived from the driver's frozen routes plus
- * manual adjustments (bucketed by drive_date month).
+ * Get monthly km totals, derived from the driver's frozen routes
+ * (bucketed by drive_date month).
  * Rules:
  * - No year, no month: return all months with activity
  * - Year only: return all months for that year
@@ -614,57 +608,6 @@ export const getDriverHistory = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}/history/',
     ...options,
-  });
-
-/**
- * Get Driver Mileage Adjustments
- *
- * A driver's manual mileage adjustments, newest first (audit view).
- * Route-derived km isn't listed here — see the driver's routes for that.
- */
-export const getDriverMileageAdjustments = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<GetDriverMileageAdjustmentsData, ThrowOnError>
-) =>
-  (options.client ?? client).get<
-    GetDriverMileageAdjustmentsResponses,
-    GetDriverMileageAdjustmentsErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/adjustments',
-    ...options,
-  });
-
-/**
- * Create Driver Mileage Adjustment
- *
- * Post a signed manual mileage adjustment (admin-only).
- *
- * km is a delta (negative to remove over-credited distance) and a note
- * explaining the correction is required. Totals are derived from routes
- * plus adjustments, so corrections compose with route credits.
- */
-export const createDriverMileageAdjustment = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<CreateDriverMileageAdjustmentData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CreateDriverMileageAdjustmentResponses,
-    CreateDriverMileageAdjustmentErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/adjustments',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**

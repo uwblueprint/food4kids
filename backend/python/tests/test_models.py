@@ -3,7 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
-from datetime import date, time
+from datetime import time
 from uuid import uuid4
 
 import pytest
@@ -22,11 +22,7 @@ from app.models.driver import (
     DriverCreate,
     DriverUpdate,
 )
-from app.models.driver_mileage import (
-    DriverHistoryRead,
-    DriverMileageAdjustment,
-    DriverMileageAdjustmentCreate,
-)
+from app.models.driver_mileage import DriverHistoryRead
 from app.models.enum import (
     NotePermission,
     ProgressEnum,
@@ -164,24 +160,6 @@ class TestCoreBusinessValidation:
                 password="123",  # Too short
             )
         assert "password" in str(exc_info.value)
-
-    def test_adjustment_note_business_rule(self) -> None:
-        """Manual mileage adjustments require a non-empty note; signed km is
-        allowed (negative = remove over-credited distance)."""
-        adjustment = DriverMileageAdjustmentCreate(
-            drive_date=date(2026, 6, 15),
-            km=-12.5,
-            note="Odometer correction",
-        )
-        assert adjustment.km == -12.5
-
-        with pytest.raises(ValidationError) as exc_info:
-            DriverMileageAdjustmentCreate(
-                drive_date=date(2026, 6, 15),
-                km=5.0,
-                note="",  # Empty note not allowed
-            )
-        assert "note" in str(exc_info.value)
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
@@ -479,32 +457,10 @@ class TestCoreModels:
         )
         assert route_group_read.route_group_id is not None
 
-    def test_driver_history_core_operations(self) -> None:
-        """Test the mileage adjustment model + derived monthly read model."""
+    def test_driver_history_read_model(self) -> None:
+        """The monthly read model is computed at read time, never stored."""
         from uuid import uuid4
 
-        # Create an adjustment (the only stored mileage rows; route km is
-        # derived from frozen routes at read time)
-        adjustment = DriverMileageAdjustment(
-            driver_id=uuid4(),
-            drive_date=date(2025, 12, 3),
-            km=15.5,
-            note="backfill",
-        )
-        assert adjustment.drive_date == date(2025, 12, 3)
-        assert adjustment.km == 15.5
-        assert adjustment.created_at is not None
-
-        # Signed entries: negative km = downward correction
-        reversal = DriverMileageAdjustment(
-            driver_id=uuid4(),
-            drive_date=date(2025, 12, 3),
-            km=-15.5,
-            note="over-credited",
-        )
-        assert reversal.km == -15.5
-
-        # Monthly aggregate read model (computed, never stored)
         history_read = DriverHistoryRead(
             driver_id=uuid4(),
             year=2027,
@@ -512,6 +468,7 @@ class TestCoreModels:
             km=2200.0,
         )
         assert history_read.km == 2200.0
+        assert history_read.month == 1
 
     def test_job_core_operations(self) -> None:
         """Test Job model core operations."""

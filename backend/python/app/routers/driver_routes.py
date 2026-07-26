@@ -280,8 +280,8 @@ async def delete_driver(
     """
     Delete a driver by ID.
 
-    Their routes and mileage adjustments are detached (driver_id SET NULL),
-    so the driver's km stop counting toward anyone.
+    Their routes are detached (driver_id SET NULL), so the driver's km stop
+    counting toward anyone.
     """
     try:
         await driver_service.delete_driver_by_id(session, driver_id)

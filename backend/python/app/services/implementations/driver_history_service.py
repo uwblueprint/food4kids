@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import extract, func, union_all
+from sqlalchemy import extract, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import Subquery
 from sqlmodel import col, select
@@ -16,7 +16,6 @@ from app.models.driver_mileage import (
     MIN_YEAR,
     DriverHistoryRead,
     DriverHistorySummary,
-    DriverMileageAdjustment,
 )
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -40,13 +39,13 @@ def mileage_events(
     driver_id: UUID | None = None,
     bounds: tuple[date, date] | None = None,
 ) -> Subquery:
-    """UNION ALL of the two mileage sources as (driver_id, year, month, km)
-    rows: frozen-route lengths and manual adjustments.
+    """Frozen-route mileage as (driver_id, year, month, km) rows.
 
-    `bounds` is a half-open [start, end) drive_date range, pushed into both
-    branches so the filter stays index-friendly.
+    A route counts once it's frozen (has a RouteSnapshot), bucketed by its
+    group's drive_date month. `bounds` is a half-open [start, end)
+    drive_date range, applied to the raw column so it stays index-friendly.
     """
-    frozen_routes: Any = (
+    events: Any = (
         select(
             col(Route.driver_id).label("driver_id"),
             extract("year", col(RouteGroup.drive_date)).label("year"),
@@ -57,38 +56,28 @@ def mileage_events(
         .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
         .where(col(Route.driver_id).isnot(None))
     )
-    adjustments: Any = select(
-        col(DriverMileageAdjustment.driver_id).label("driver_id"),
-        extract("year", col(DriverMileageAdjustment.drive_date)).label("year"),
-        extract("month", col(DriverMileageAdjustment.drive_date)).label("month"),
-        col(DriverMileageAdjustment.km).label("km"),
-    )
 
     if driver_id is not None:
-        frozen_routes = frozen_routes.where(Route.driver_id == driver_id)
-        adjustments = adjustments.where(DriverMileageAdjustment.driver_id == driver_id)
+        events = events.where(Route.driver_id == driver_id)
 
     if bounds is not None:
         start, end = bounds
-        frozen_routes = frozen_routes.where(
+        events = events.where(
             col(RouteGroup.drive_date) >= start, col(RouteGroup.drive_date) < end
         )
-        adjustments = adjustments.where(
-            col(DriverMileageAdjustment.drive_date) >= start,
-            col(DriverMileageAdjustment.drive_date) < end,
-        )
 
-    return union_all(frozen_routes, adjustments).subquery()
+    subquery: Subquery = events.subquery()
+    return subquery
 
 
 class DriverHistoryService:
     """Driver mileage service.
 
     Mileage is derived, never stored: the sum of Route.length over a
-    driver's frozen routes, bucketed by the route group's drive_date month,
-    plus signed manual adjustments. Reassigning a route, correcting its
-    stops, or fixing a group's date therefore updates history
-    automatically — there is no stored total to drift out of sync.
+    driver's frozen routes, bucketed by the route group's drive_date month.
+    Reassigning a route, correcting its stops, or fixing a group's date
+    therefore updates history automatically — there is no stored total to
+    drift out of sync.
     """
 
     def __init__(self, logger: logging.Logger) -> None:
@@ -173,58 +162,4 @@ class DriverHistoryService:
             self.logger.error(
                 f"Failed to get summary of driver's history (i.e. km driven in total and this year): {e}"
             )
-            raise e
-
-    async def create_adjustment(
-        self,
-        session: AsyncSession,
-        driver_id: UUID,
-        drive_date: date,
-        km: float,
-        note: str,
-    ) -> DriverMileageAdjustment:
-        """Post a signed manual mileage adjustment.
-
-        Corrections never overwrite: the total is derived from routes plus
-        the sum of adjustments, so this composes with route credits.
-        """
-        if km == 0:
-            raise ValueError("Adjustment km must be non-zero")
-        if not self.validate_year(drive_date.year):
-            raise ValueError(
-                f"drive_date year must be between {MIN_YEAR} and {MAX_YEAR}"
-            )
-        try:
-            adjustment = DriverMileageAdjustment(
-                driver_id=driver_id,
-                drive_date=drive_date,
-                km=km,
-                note=note,
-            )
-            session.add(adjustment)
-            await session.commit()
-            await session.refresh(adjustment)
-            return adjustment
-        except Exception as e:
-            self.logger.error(f"Failed to create mileage adjustment: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def get_adjustments(
-        self, session: AsyncSession, driver_id: UUID
-    ) -> list[DriverMileageAdjustment]:
-        """A driver's manual adjustments, newest first (audit view)."""
-        try:
-            statement = (
-                select(DriverMileageAdjustment)
-                .where(col(DriverMileageAdjustment.driver_id) == driver_id)
-                .order_by(
-                    col(DriverMileageAdjustment.drive_date).desc(),
-                    col(DriverMileageAdjustment.created_at).desc(),
-                )
-            )
-            result = await session.execute(statement)
-            return list(result.scalars().all())
-        except Exception as e:
-            self.logger.error(f"Failed to get mileage adjustments: {e!s}")
             raise e

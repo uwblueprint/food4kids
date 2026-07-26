@@ -14,7 +14,6 @@ import {
   cancelJob,
   completeDriverRegistration,
   createAnnouncement,
-  createDriverMileageAdjustment,
   createLocation,
   createLocationGroup,
   createNote,
@@ -37,7 +36,6 @@ import {
   getDriver,
   getDriverHistory,
   getDriverHistorySummary,
-  getDriverMileageAdjustments,
   getDrivers,
   getGoogleMapsLink,
   getJob,
@@ -90,9 +88,6 @@ import type {
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
-  CreateDriverMileageAdjustmentData,
-  CreateDriverMileageAdjustmentError,
-  CreateDriverMileageAdjustmentResponse,
   CreateLocationData,
   CreateLocationError,
   CreateLocationGroupData,
@@ -155,9 +150,6 @@ import type {
   GetDriverHistorySummaryData,
   GetDriverHistorySummaryError,
   GetDriverHistorySummaryResponse,
-  GetDriverMileageAdjustmentsData,
-  GetDriverMileageAdjustmentsError,
-  GetDriverMileageAdjustmentsResponse,
   GetDriverResponse,
   GetDriversData,
   GetDriversError,
@@ -784,8 +776,8 @@ export const testEventEmailMutation = (
  *
  * Delete a driver by ID.
  *
- * Their routes and mileage adjustments are detached (driver_id SET NULL),
- * so the driver's km stop counting toward anyone.
+ * Their routes are detached (driver_id SET NULL), so the driver's km stop
+ * counting toward anyone.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -874,8 +866,8 @@ export const getDriverHistoryQueryKey = (
 /**
  * Get Driver History
  *
- * Get monthly km totals, derived from the driver's frozen routes plus
- * manual adjustments (bucketed by drive_date month).
+ * Get monthly km totals, derived from the driver's frozen routes
+ * (bucketed by drive_date month).
  * Rules:
  * - No year, no month: return all months with activity
  * - Year only: return all months for that year
@@ -902,70 +894,6 @@ export const getDriverHistoryOptions = (
     },
     queryKey: getDriverHistoryQueryKey(options),
   });
-
-export const getDriverMileageAdjustmentsQueryKey = (
-  options: Options<GetDriverMileageAdjustmentsData>
-) => createQueryKey('getDriverMileageAdjustments', options);
-
-/**
- * Get Driver Mileage Adjustments
- *
- * A driver's manual mileage adjustments, newest first (audit view).
- * Route-derived km isn't listed here — see the driver's routes for that.
- */
-export const getDriverMileageAdjustmentsOptions = (
-  options: Options<GetDriverMileageAdjustmentsData>
-) =>
-  queryOptions<
-    GetDriverMileageAdjustmentsResponse,
-    AxiosError<GetDriverMileageAdjustmentsError>,
-    GetDriverMileageAdjustmentsResponse,
-    ReturnType<typeof getDriverMileageAdjustmentsQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getDriverMileageAdjustments({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getDriverMileageAdjustmentsQueryKey(options),
-  });
-
-/**
- * Create Driver Mileage Adjustment
- *
- * Post a signed manual mileage adjustment (admin-only).
- *
- * km is a delta (negative to remove over-credited distance) and a note
- * explaining the correction is required. Totals are derived from routes
- * plus adjustments, so corrections compose with route credits.
- */
-export const createDriverMileageAdjustmentMutation = (
-  options?: Partial<Options<CreateDriverMileageAdjustmentData>>
-): UseMutationOptions<
-  CreateDriverMileageAdjustmentResponse,
-  AxiosError<CreateDriverMileageAdjustmentError>,
-  Options<CreateDriverMileageAdjustmentData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CreateDriverMileageAdjustmentResponse,
-    AxiosError<CreateDriverMileageAdjustmentError>,
-    Options<CreateDriverMileageAdjustmentData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await createDriverMileageAdjustment({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 export const getDriverHistorySummaryQueryKey = (
   options: Options<GetDriverHistorySummaryData>

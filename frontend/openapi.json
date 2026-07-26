@@ -533,7 +533,7 @@
         "type": "string"
       },
       "DriverHistoryRead": {
-        "description": "One month's km for a driver. Computed, never stored.",
+        "description": "One month's km for a driver.\n\nComputed, never stored: the sum of `Route.length` over the driver's\nfrozen routes (those with a RouteSnapshot) in that month. Reassigning a\nroute or correcting its stops updates history automatically, so there is\nno stored total to drift out of sync.",
         "properties": {
           "driver_id": {
             "format": "uuid",
@@ -579,72 +579,6 @@
           "current_year_km"
         ],
         "title": "DriverHistorySummary",
-        "type": "object"
-      },
-      "DriverMileageAdjustmentCreate": {
-        "description": "Create request model (admin-only). km is a signed delta.",
-        "properties": {
-          "drive_date": {
-            "format": "date",
-            "title": "Drive Date",
-            "type": "string"
-          },
-          "km": {
-            "title": "Km",
-            "type": "number"
-          },
-          "note": {
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Note",
-            "type": "string"
-          }
-        },
-        "required": [
-          "drive_date",
-          "km",
-          "note"
-        ],
-        "title": "DriverMileageAdjustmentCreate",
-        "type": "object"
-      },
-      "DriverMileageAdjustmentRead": {
-        "description": "Read response model",
-        "properties": {
-          "adjustment_id": {
-            "format": "uuid",
-            "title": "Adjustment Id",
-            "type": "string"
-          },
-          "drive_date": {
-            "format": "date",
-            "title": "Drive Date",
-            "type": "string"
-          },
-          "driver_id": {
-            "format": "uuid",
-            "title": "Driver Id",
-            "type": "string"
-          },
-          "km": {
-            "title": "Km",
-            "type": "number"
-          },
-          "note": {
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Note",
-            "type": "string"
-          }
-        },
-        "required": [
-          "driver_id",
-          "drive_date",
-          "km",
-          "note",
-          "adjustment_id"
-        ],
-        "title": "DriverMileageAdjustmentRead",
         "type": "object"
       },
       "DriverRankingItem": {
@@ -4574,7 +4508,7 @@
     },
     "/drivers/{driver_id}": {
       "delete": {
-        "description": "Delete a driver by ID.\n\nTheir routes and mileage adjustments are detached (driver_id SET NULL),\nso the driver's km stop counting toward anyone.",
+        "description": "Delete a driver by ID.\n\nTheir routes are detached (driver_id SET NULL), so the driver's km stop\ncounting toward anyone.",
         "operationId": "delete_driver",
         "parameters": [
           {
@@ -4720,7 +4654,7 @@
     },
     "/drivers/{driver_id}/history/": {
       "get": {
-        "description": "Get monthly km totals, derived from the driver's frozen routes plus\nmanual adjustments (bucketed by drive_date month).\nRules:\n- No year, no month: return all months with activity\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
+        "description": "Get monthly km totals, derived from the driver's frozen routes\n(bucketed by drive_date month).\nRules:\n- No year, no month: return all months with activity\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
         "operationId": "get_driver_history",
         "parameters": [
           {
@@ -4802,116 +4736,6 @@
           }
         ],
         "summary": "Get Driver History",
-        "tags": [
-          "driver-history"
-        ]
-      }
-    },
-    "/drivers/{driver_id}/history/adjustments": {
-      "get": {
-        "description": "A driver's manual mileage adjustments, newest first (audit view).\nRoute-derived km isn't listed here — see the driver's routes for that.",
-        "operationId": "get_driver_mileage_adjustments",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DriverMileageAdjustmentRead"
-                  },
-                  "title": "Response Get Driver Mileage Adjustments",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Driver Mileage Adjustments",
-        "tags": [
-          "driver-history"
-        ]
-      },
-      "post": {
-        "description": "Post a signed manual mileage adjustment (admin-only).\n\nkm is a delta (negative to remove over-credited distance) and a note\nexplaining the correction is required. Totals are derived from routes\nplus adjustments, so corrections compose with route credits.",
-        "operationId": "create_driver_mileage_adjustment",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DriverMileageAdjustmentCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverMileageAdjustmentRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Create Driver Mileage Adjustment",
         "tags": [
           "driver-history"
         ]

@@ -26,7 +26,6 @@ from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.base import BaseModel
 from app.models.driver import Driver
-from app.models.driver_mileage import DriverMileageAdjustment
 from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
@@ -67,8 +66,6 @@ PROBABILITY_ROUTE_NOTES = 0.1
 PROBABILITY_DIETARY_RESTRICTIONS = 0.3
 # Probability that a location will have a number of children specified
 PROBABILITY_NUM_CHILDREN = 0.8
-# Probability to skip creating driver history for the current year
-PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 # Probability that a location note chain will have notes
 PROBABILITY_LOCATION_CHAIN_NOTES = 0.6
 # Probability that a route note chain will have notes
@@ -169,8 +166,6 @@ SAMPLE_ANNOUNCEMENTS: list[tuple[str, str, int, str]] = [
 ]
 # Number of days considered as "next week" for assignment strategy
 NEXT_WEEK_DAYS = 7
-# Number of years back to generate driver history for
-HISTORY_YEARS_BACK = 2
 # Maximum number of past route groups to fetch when creating jobs
 PAST_ROUTE_GROUPS_LIMIT = 5
 # Minimum number of jobs to create
@@ -183,10 +178,6 @@ MAX_JOBS = 5
 NUM_CHILDREN_MIN = 1
 # Maximum number of children at a location
 NUM_CHILDREN_MAX = 4
-# Minimum kilometers driven in driver history (per year)
-DRIVER_HISTORY_KM_MIN = 500
-# Maximum kilometers driven in driver history (per year)
-DRIVER_HISTORY_KM_MAX = 3000
 # Minimum hour of day for job start time (24-hour format)
 JOB_START_HOUR_MIN = 8
 # Maximum hour of day for job start time (24-hour format)
@@ -598,7 +589,6 @@ def main() -> None:
             tables_to_clear = [
                 "announcement_last_reads",
                 "notes",
-                "driver_mileage_adjustments",
                 "jobs",
                 "route_stop_snapshots",
                 "route_snapshots",
@@ -1008,58 +998,6 @@ def main() -> None:
                 f"Created {route_chains_created} route note chains "
                 f"with {route_notes_created} notes"
             )
-
-            # Create pre-app-era driver mileage. Recent months are derived
-            # from the frozen routes seeded above; this seeds older mileage
-            # as manual adjustments — the same shape the production
-            # migration's reconciliation produces.
-            print("Creating driver mileage adjustments...")
-            history_entries = 0
-            current_year = datetime.now().year
-            years = [current_year - HISTORY_YEARS_BACK, current_year - 1, current_year]
-
-            all_drivers_result = session.execute(
-                text("SELECT driver_id FROM drivers")
-            ).fetchall()
-
-            for driver_row in all_drivers_result:
-                valid_years = [y for y in years if 2025 <= y <= 2100]
-                if not valid_years:
-                    valid_years = [current_year]
-
-                driver_years = random.sample(
-                    valid_years, random.randint(1, len(valid_years))
-                )
-
-                for year in driver_years:
-                    if (
-                        year == current_year
-                        and random.random() < PROBABILITY_SKIP_CURRENT_YEAR_HISTORY
-                    ):
-                        continue
-
-                    months = random.sample(range(1, 13), random.randint(3, 12))
-
-                    for month in months:
-                        adjustment = DriverMileageAdjustment(
-                            driver_id=driver_row[0],
-                            drive_date=date(year, month, random.randint(1, 28)),
-                            km=round(
-                                random.uniform(
-                                    DRIVER_HISTORY_KM_MIN,
-                                    DRIVER_HISTORY_KM_MAX,
-                                ),
-                                2,
-                            ),
-                            note="Seeded historical mileage",
-                        )
-
-                        set_timestamps(adjustment)
-                        session.add(adjustment)
-                        history_entries += 1
-
-            session.commit()
-            print(f"Created {history_entries} driver mileage adjustments")
 
             # Create jobs (linked to past route groups)
             print("Creating jobs...")

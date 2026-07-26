@@ -16,8 +16,6 @@ from app.models.driver_mileage import (
     MIN_YEAR,
     DriverHistoryRead,
     DriverHistorySummary,
-    DriverMileageAdjustmentCreate,
-    DriverMileageAdjustmentRead,
 )
 from app.routers.driver_routes import get_drivers
 from app.services.implementations.driver_history_csv_service import (
@@ -124,8 +122,8 @@ async def get_driver_history(
     _auth: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> list[DriverHistoryRead]:
     """
-    Get monthly km totals, derived from the driver's frozen routes plus
-    manual adjustments (bucketed by drive_date month).
+    Get monthly km totals, derived from the driver's frozen routes
+    (bucketed by drive_date month).
     Rules:
     - No year, no month: return all months with activity
     - Year only: return all months for that year
@@ -153,71 +151,6 @@ async def get_driver_history(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
-
-
-@router.get("/adjustments", response_model=list[DriverMileageAdjustmentRead])
-async def get_driver_mileage_adjustments(
-    driver_id: UUID,
-    session: AsyncSession = Depends(get_session),
-    _auth: DriverAccess = Depends(require_self_driver_or_admin),
-) -> list[DriverMileageAdjustmentRead]:
-    """A driver's manual mileage adjustments, newest first (audit view).
-    Route-derived km isn't listed here — see the driver's routes for that."""
-    try:
-        if not await driver_history_service.driver_exists(session, driver_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver with id {driver_id} does not exist",
-            )
-        adjustments = await driver_history_service.get_adjustments(session, driver_id)
-        return [DriverMileageAdjustmentRead.model_validate(a) for a in adjustments]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
-
-
-@router.post(
-    "/adjustments",
-    response_model=DriverMileageAdjustmentRead,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_driver_mileage_adjustment(
-    driver_id: UUID,
-    create: DriverMileageAdjustmentCreate,
-    session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_admin),
-) -> DriverMileageAdjustmentRead:
-    """
-    Post a signed manual mileage adjustment (admin-only).
-
-    km is a delta (negative to remove over-credited distance) and a note
-    explaining the correction is required. Totals are derived from routes
-    plus adjustments, so corrections compose with route credits.
-    """
-    try:
-        if not await driver_history_service.driver_exists(session, driver_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver with id {driver_id} does not exist",
-            )
-
-        adjustment = await driver_history_service.create_adjustment(
-            session, driver_id, create.drive_date, create.km, create.note
-        )
-        return DriverMileageAdjustmentRead.model_validate(adjustment)
-    except HTTPException:
-        raise
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)
-        ) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

@@ -27,7 +27,7 @@ class DriverReportService:
     ) -> list[dict]:
         """Return per-driver km for given year/month ordered desc by km.
 
-        Derived: frozen-route lengths + manual adjustments."""
+        Derived from frozen-route lengths."""
         try:
             events = mileage_events(bounds=month_bounds(year, month))
             km_sum = func.sum(events.c.km).label("km")
