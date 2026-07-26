@@ -17,6 +17,9 @@ import path from 'node:path';
 import process from 'node:process';
 
 const OUT_DIR = path.resolve(import.meta.dirname, '../public/design-exports');
+// Staged beside OUT_DIR, then renamed over it (see the swap at the end of run).
+const STAGE_DIR = `${OUT_DIR}.staging`;
+const OLD_DIR = `${OUT_DIR}.previous`;
 const API = 'https://api.figma.com/v1';
 
 /**
@@ -162,7 +165,10 @@ function viewportOf(sectionName, frameWidth) {
  */
 function flowOf(sectionName) {
   const label = sectionName
-    .replace(new RegExp(`^(${Object.keys(VIEWPORTS).join('|')})\\s*-\\s*`, 'i'), '')
+    .replace(
+      new RegExp(`^(${Object.keys(VIEWPORTS).join('|')})\\s*-\\s*`, 'i'),
+      ''
+    )
     .replace(/\s+/g, ' ')
     .trim();
   return { key: label.toLowerCase().replace(/s$/, ''), label };
@@ -307,16 +313,23 @@ async function main() {
     Object.assign(urls, res.images);
   }
 
-  // A full run starts clean so frames deleted in Figma don't linger.
-  if (!reuse) await fs.rm(OUT_DIR, { recursive: true, force: true });
+  // Build the new set alongside the live one and swap at the end. Writing in
+  // place would leave the harness serving 404s for the minutes a full run
+  // takes, and a failed run halfway through would leave it permanently broken.
+  await fs.rm(STAGE_DIR, { recursive: true, force: true });
+  await fs.mkdir(STAGE_DIR, { recursive: true });
+  // A full run starts clean so frames deleted in Figma don't linger; a reusing
+  // run seeds the staging copy with the images it is not re-rendering.
+  if (reuse) await fs.cp(OUT_DIR, STAGE_DIR, { recursive: true });
 
   let written = 0;
   for (const frame of toRender) {
     const url = urls[frame.nodeId];
     if (!url) throw new Error(`Figma returned no image for ${frame.label}`);
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Download failed for ${frame.label}: ${res.status}`);
-    const dest = path.join(OUT_DIR, `${frame.id}.png`);
+    if (!res.ok)
+      throw new Error(`Download failed for ${frame.label}: ${res.status}`);
+    const dest = path.join(STAGE_DIR, `${frame.id}.png`);
     await fs.mkdir(path.dirname(dest), { recursive: true });
     await fs.writeFile(dest, Buffer.from(await res.arrayBuffer()));
     written += 1;
@@ -329,7 +342,9 @@ async function main() {
     fileName: file.name,
     fetchedAt: new Date().toISOString(),
     viewports: VIEWPORTS,
-    flows: Object.fromEntries([...flows].map(([key, label]) => [key, { label }])),
+    flows: Object.fromEntries(
+      [...flows].map(([key, label]) => [key, { label }])
+    ),
     frames: frames.sort(
       (a, b) =>
         a.flow.localeCompare(b.flow) ||
@@ -339,9 +354,19 @@ async function main() {
     ),
   };
   await fs.writeFile(
-    path.join(OUT_DIR, 'manifest.json'),
+    path.join(STAGE_DIR, 'manifest.json'),
     JSON.stringify(manifest, null, 2)
   );
+
+  // Swap. Two renames rather than one, so there is a sub-millisecond gap where
+  // the directory is absent — vastly better than the whole run being a gap, but
+  // not literally atomic.
+  await fs.rm(OLD_DIR, { recursive: true, force: true });
+  await fs.rename(OUT_DIR, OLD_DIR).catch((err) => {
+    if (err.code !== 'ENOENT') throw err; // first ever run: nothing to move
+  });
+  await fs.rename(STAGE_DIR, OUT_DIR);
+  await fs.rm(OLD_DIR, { recursive: true, force: true });
 
   console.log(
     `\nWrote ${written} new + ${frames.length - written} reused frames ` +
