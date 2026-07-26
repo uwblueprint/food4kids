@@ -35,11 +35,28 @@ include:" with four. Code had the desktop bullets under the mobile heading.
   (`4438:35155`) and tablet (`4438:35352`), and the separate lowercase bullet
   deleted so both list four items.
 
-**Still open** — the four "Driver | Create Password Filled" frames (mobile
-`4438:35194`, `4438:35214`; tablet `4438:35391`, `4438:35411`) are untouched.
-They show uppercase satisfied while lowercase is not, which the merged
-"One uppercase and one lowercase letter" bullet cannot express. Needs a call
-from the designer on what those states should show before editing.
+The four "Create Password Filled" state frames (mobile `4438:35194`,
+`4438:35214`; tablet `4438:35391`, `4438:35411`) took the desktop wording too.
+Each showed uppercase satisfied but lowercase not, which the merged bullet
+can't express, so the merged row inherits the *unmet* styling — done by
+deleting the satisfied (green) row and keeping the unmet (black) one, then
+retexting it. Number and special-character stay green. Net effect: the
+colouring still reads "not all criteria met", which is what those frames are
+demonstrating.
+
+### 4. Email field on mobile create-password — FIXED (Figma)
+
+Mobile and tablet "Driver | Create Password" had an Email field above the
+password fields. The flow identifies the user by the invite token in the URL,
+so it is not functionally needed, and desktop omits it. Deleted from mobile
+`4438:35155`/`4438:35194` and tablet `4438:35352`/`4438:35391` (the "(2)"
+variants never had one). No code change — the implementation never had it.
+
+### 5. Forgot-password subheader — FIXED (Figma)
+
+Desktop (`4438:35026`) already read "What email did your admin use to sign you
+up?", matching the code. Mobile (`4438:35325`) and tablet (`4438:35522`) had a
+longer variant; both now match desktop and the code.
 
 ### 3. Create-password mobile graphic — FIXED (code)
 
@@ -49,13 +66,17 @@ the Account Created confirmation all keep it). Added
 `showMobileIllustration` (default true); `CreatePassword` passes
 `step === 'CONFIRMATION'` and `ResetPassword` passes `false`.
 
-## Not yet raised — more design/code mismatches
+## Still divergent — not yet decided
 
-- Mobile "Driver | Create Password" has an **Email** field above the password
-  fields; the desktop frame and the implementation both omit it.
-- Mobile "Forgot Password" subheader reads "Enter the email address your admin
-  used to invite you. We'll send a link to reset your password."; the code
-  uses "What email did your admin use to sign you up?".
+Same shape as the ones already resolved (desktop agrees with the code, mobile
+and tablet don't), so the same "make Figma match desktop" call would settle
+them — but they're titles, so worth confirming rather than assuming:
+
+- Create-password heading: desktop "Create a password" + subheader "Create an
+  account to access the app"; mobile/tablet just "Create Password" with no
+  subheader. The code follows desktop.
+- Forgot-password heading: desktop "Forgot password"; mobile/tablet and the
+  code have "Forgot password?" — here it's *desktop* that's the odd one out.
 
 ## Verified as matching the design notes
 
