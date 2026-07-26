@@ -28,6 +28,7 @@ from app.models.location import (
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
+    LocationInUseError,
     LocationService,
 )
 
@@ -75,11 +76,6 @@ async def get_locations(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.get("/{location_id}", response_model=LocationRead)
@@ -99,11 +95,6 @@ async def get_location(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post("/", response_model=LocationRead, status_code=status.HTTP_201_CREATED)
@@ -124,11 +115,6 @@ async def create_location(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.patch(
@@ -160,11 +146,6 @@ async def update_location(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -176,13 +157,7 @@ async def delete_all_locations(
     """
     Delete all locations
     """
-    try:
-        await location_service.delete_all_locations(session)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
+    await location_service.delete_all_locations(session)
 
 
 @router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -197,16 +172,16 @@ async def delete_location(
     """
     try:
         await location_service.delete_location_by_id(session, location_id)
+    except LocationInUseError as le:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(le),
+        ) from le
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post(
@@ -241,11 +216,6 @@ async def review_locations(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post(
@@ -274,8 +244,3 @@ async def ingest_locations(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e

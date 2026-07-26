@@ -50,19 +50,13 @@ async def get_total_deliveries_between(
     """Return total deliveries (route stop snapshots) between start and end.
     Query params are treated as EST if no timezone is provided.
     """
-    try:
-        start_est = _ensure_est(start)
-        end_est = _ensure_est(end)
+    start_est = _ensure_est(start)
+    end_est = _ensure_est(end)
 
-        # Pass scheduler-timezone-aware datetimes to the service. The service
-        # will normalize them to naive scheduler-local datetimes to match DB.
-        total = await service.get_total_deliveries_between(session, start_est, end_est)
-        return DeliveriesCountResponse(total_deliveries=total)
-    except Exception as e:
-        logger.exception(f"Failed to get deliveries between: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    # Pass scheduler-timezone-aware datetimes to the service. The service
+    # will normalize them to naive scheduler-local datetimes to match DB.
+    total = await service.get_total_deliveries_between(session, start_est, end_est)
+    return DeliveriesCountResponse(total_deliveries=total)
 
 
 @router.get("/monthly/{year}/{month}/ranking", response_model=list[DriverRankingItem])
@@ -73,21 +67,13 @@ async def get_monthly_ranking(
     _auth: bool = Depends(require_admin),
 ) -> list[DriverRankingItem]:
     """Return monthly ranking list of drivers by km (descending)."""
-    try:
-        if month < 1 or month > 12:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
-            )
-        rankings = await service.get_monthly_km_ranking(session, year, month)
-        items: list[DriverRankingItem] = [DriverRankingItem(**r) for r in rankings]
-        return items
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"Failed to get monthly ranking: {e}")
+    if month < 1 or month > 12:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
+        )
+    rankings = await service.get_monthly_km_ranking(session, year, month)
+    items: list[DriverRankingItem] = [DriverRankingItem(**r) for r in rankings]
+    return items
 
 
 @router.get("/monthly/{year}/{month}/totals", response_model=MonthlyTotalsResponse)
@@ -98,25 +84,17 @@ async def get_monthly_totals(
     _auth: bool = Depends(require_admin),
 ) -> MonthlyTotalsResponse:
     """Return total distance driven and total deliveries for the month."""
-    try:
-        if month < 1 or month > 12:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
-            )
-        total_km = await service.get_total_km_for_month(session, year, month)
-        total_deliveries = await service.get_total_deliveries_for_month(
-            session, year, month
-        )
-        return MonthlyTotalsResponse(
-            year=year,
-            month=month,
-            total_km=total_km,
-            total_deliveries=total_deliveries,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"Failed to get monthly totals: {e}")
+    if month < 1 or month > 12:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
+        )
+    total_km = await service.get_total_km_for_month(session, year, month)
+    total_deliveries = await service.get_total_deliveries_for_month(
+        session, year, month
+    )
+    return MonthlyTotalsResponse(
+        year=year,
+        month=month,
+        total_km=total_km,
+        total_deliveries=total_deliveries,
+    )
