@@ -14,31 +14,42 @@ Screen**, on the 🌟 Finalized page.
 **1. Should the tablet and desktop Drivers frames use the desktop scale, like
 the login screens now do?**
 
-Asking because both sections currently mix the two, and it looks accidental
-rather than chosen: the *same string in the same role* is bound one way in one
-frame and the other way in a neighbouring frame — `eric.baker@gmail.com`,
-`519 349 5094`, `Oct 18`, `8:00AM`, `Edit`, `Delete`, `Starts in 15h 30m` each
-appear as both `Desktop/Paragraph/P1` and `Mobile/Paragraph/P2`.
+Asking because both sections mix the two in a way that can't be deliberate.
+The clearest example — the dashboard header, in two states of the *same* page:
+
+| Element | `Desktop \| 1 route` | `Desktop \| Announcment` |
+|---|---|---|
+| This Year / Lifetime | 18px Regular `Mobile/Paragraph/P1` | 16px Medium `Desktop/Paragraph/P1` |
+| Upcoming / Past | 16px Bold `Desktop/Heading/H3` | 18px `Mobile/Heading/H3` + `Mobile/Paragraph/P1` |
+
+Each frame has half on the desktop scale and half on the mobile scale — and the
+halves are **swapped** between the two. That reads as copy-paste between state
+frames rather than a choice. It holds across 22 distinct strings in the tablet
+section and 11 in the desktop one, including `eric.baker@gmail.com`,
+`519 349 5094`, `Oct 18`, `8:00AM`, `Edit`, `Delete`, `Starts in 15h 30m`.
 
 If yes, we've already converted the 37 nodes where a desktop style exists at the
-identical font size (so nothing resized or re-wrapped). Everything below is what
-we couldn't decide without you.
+identical font size, so nothing resized or re-wrapped (verified: zero height
+changes afterwards).
 
-**2. There's no 18px step in the desktop scale. What should the 18px text
-become — or should an 18px desktop style be added?**
+**2. Can we map the 18px text to 16px — and what should the 18px *headings*
+become?**
 
-139 nodes sit on 18px mobile styles: `Mobile/Paragraph/P1` (18 Regular, 117
-nodes) and `Mobile/Heading/H3` (18 Bold, 22). The desktop scale jumps straight
-from 16 to 20:
+There is no 18px step in the desktop scale; it jumps 16 → 20. 139 nodes sit on
+18px mobile styles. Encouragingly, most have a 16px twin elsewhere in the same
+section, so the intent looks readable off the file:
 
-| | 16px | 18px | 20px |
-|---|---|---|---|
-| Headings | Desktop/Heading/H3 (Bold) | — | Desktop/Heading/H2 (Bold) |
-| Paragraphs | Desktop/Paragraph/P1 (Medium) | — | — |
+| From | To | Evidence |
+|---|---|---|
+| `Mobile/Paragraph/P1` 18 Regular | `Desktop/Paragraph/P1` 16 Medium | the same label is 16px on other frames — 26 distinct strings |
+| `Mobile/Heading/H3` 18 Bold | **unclear** | maps to `Desktop/Heading/H3` (16) in one place and `Desktop/Heading/H2` (20) in another |
 
-So each of these is a resize, which changes layout — hence not something we
-want to pick. Our guess would be body copy → 16 and section headings → 20, but
-if 18px is deliberate on the bigger breakpoints, adding the style is cleaner.
+So: confirm the first row and we'll apply it (85 nodes have twins). The ~22
+`Mobile/Heading/H3` nodes need your call — 16 or 20, or add an 18px style if
+that size is deliberate on the larger breakpoints.
+
+Unlike question 1's fix, this one changes font size and so will reflow layout;
+we'd re-measure every frame afterwards and flag anything that re-wraps.
 
 **3. A component named `Address Mobile` is placed on the tablet and desktop
 frames (106 nodes). Should there be a non-mobile variant?**
@@ -53,6 +64,11 @@ component update — a variant seems right. Same question for
 Intentional one-offs, or should they be bound? This is the one that most
 affects us: unbound text means we can't read the intended size off the style,
 so we're guessing from pixel values when we build these screens.
+
+**5. Two panes are stacked on the `Desktop | Announcment` frames.** A
+hand-built `Divers Pane` sits underneath the newer `Announcement Board`
+component, which covers it exactly — so about 10 text nodes (including two
+`Oct 2` dates) are invisible in the render. Safe to delete the hand-built one?
 
 **Also, small:** dates are inconsistent — `Oct 18` / `8:00AM` use
 `Desktop/Paragraph/P1` (16px) on the tablet frames but `Desktop/Paragraph/P2`
