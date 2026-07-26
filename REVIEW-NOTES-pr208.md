@@ -766,11 +766,81 @@ Same generation gap as the headings, on the buttons of the same screens:
 | "Log In" ×2 | "Log in" | the 12 other instances, and the code |
 | "Create Account" ×6 | "Create account" | every desktop frame, and the code |
 
-Scoped to the auth screens on purpose. The drivers screens use Title Case for
-their action buttons ("Add Note", "Change Password") and that is their own
-convention, not drift.
+Scoped to the auth screens at first, on the reading that the drivers screens'
+Title Case ("Add Note", "Change Password") was their own convention rather than
+drift. **The PM has since confirmed it is drift** — see the next section.
 
 The four "Could do sum like" desktop drafts still read "Back to log in" and
 "Back to login". They are explorations, excluded from the export, and left
 alone — but they are the only desktop reference for the reset confirmation, so
 whichever is promoted should be corrected then.
+
+---
+
+# Sentence case across the drivers screens (2026-07-26)
+
+The PM confirmed the drivers screens' Title Case buttons are wrong, so the same
+rule the auth screens now follow was applied across all three Drivers Screen
+sections on `🌟 Finalized`: **111 text nodes**, each verified from a fresh REST
+read after writing.
+
+| was | is | mobile | tablet | desktop | total |
+|---|---|---|---|---|---|
+| View Route | View route | 14 | 8 | 11 | 33 |
+| Back to Home | Back to home | 13 | 6 | 5 | 24 |
+| Add Note | Add note | 11 | 5 | 3 | 19 |
+| Create Announcement / Announcment | Create announcement | 2 | 2 | 6 | 10 |
+| Change Password | Change password | 2 | 2 | 2 | 6 |
+| Upload Image | Upload image | 3 | 2 | 1 | 6 |
+| Go Back | Go back | 1 | 1 | 1 | 3 |
+| Log Out | Log out | 1 | 1 | 1 | 3 |
+| Log Out *(modal heading)* | Log out | 1 | 1 | 1 | 3 |
+| Back to Profile | Back to profile | 1 | — | — | 1 |
+
+Left alone, deliberately: `Call Food4Kids` and `Google Maps` (brand names after
+the first word), and every single-word label (`Cancel`, `Post`, `Save`,
+`Logout`, `Navigate`, `Open`, `Export`, `PDF`), which is already correct.
+
+Three things worth carrying forward:
+
+**The log-out modal lives in a frame named "Alternate thing it could say!".**
+That name reads as an exploration, but it is the *only* log-out modal on any of
+the three viewports — so it is the design of record regardless of what it is
+called. A frame name is not a status field; anything that relies on reading one
+(including the export script's exclusion list) is guessing.
+
+**"Create Announcment" was misspelled on 3 nodes**, sitting next to correctly
+spelled buttons on the same screens. Fixed to "Create announcement" in the same
+pass, which collapses the two spellings onto the one the code already uses.
+
+**The modal's heading was Title Case too**, which is how we learned this is not
+a button rule. Sentence case is the platform's rule for headings as well — the
+earlier survey found 12 of 13 auth headings already in sentence case, with
+Title Case reserved for feature names like "Route Generation".
+
+The code side is a separate task (chip `task_e051f2d7`): `Create Announcement`
+appears in `AnnouncementsEmptyState.tsx` and `AnnouncementsPanel.tsx`, plus a
+handful of admin-side buttons with the same shape. It is deliberately not in
+this PR — different screens, different reviewers.
+
+---
+
+# Merge of main, 2026-07-26
+
+#217 landed mid-review and rewrote the three files this branch touches most.
+Resolution is recorded in the merge commit; the short version is that the
+branch's new handlers were written against the pre-#217 shape and had to be
+brought onto the new one rather than taken wholesale:
+
+- `update-password` lost its blanket 500 (the structural test in #217 fails on
+  any `except Exception` under `app/` that raises its own 500). Its
+  `mark_as_used` swallow stays — it answers 204 on purpose.
+- `forgot-password` keeps the last broad catch in any router, because a 500 for
+  a real address beside a 204 for an unknown one is the enumeration oracle the
+  endpoint exists to close. Now commented as such.
+- `refresh` takes #217's `SessionExpiredError` and loses `_FIREBASE_401_CODES`.
+- `initialize_driver` drops the outer try, keeping this branch's inline
+  `email_dispatcher.dispatch`.
+
+`alembic heads` is single (the hazard from the migration branch did not recur).
+Full backend suite in the container: 497 passed.
