@@ -341,30 +341,35 @@ breakpoint, `--text-p2` (14px) from tablet up. So mobile renders 16px where the
 mobile design frames show 14px SemiBold.
 
 **Do not "fix" the code to 14px on that basis.** I first read the design's 14px
-as a mobile spec. It isn't — it is inherited. The mobile frames get it from
-shared components authored on the desktop scale, and 40 of the 43
-desktop-styled text nodes on **Mobile - Log In** are inside instances:
+as a mobile spec, then as a badly-authored component. Both were wrong. The real
+cause is an **incomplete per-instance override** on the mobile frames.
 
-| Component | Nodes | Desktop styles it carries onto mobile |
-|---|---|---|
-| `Password` | 18 | Heading/H3, Paragraph/P2 |
-| `Text Field` | 10 | Heading/H3, Paragraph/P2 |
-| `Status Message` | 12 | Paragraph/P2 |
-| loose on the frame | 3 | Paragraph/P2 — the "Password must include:" headings (`4438:35165`, `4438:35204`, `4438:35223`) |
+The `Password` component's default is entirely desktop, which is right — tablet
+uses the desktop scale, and the tablet instances render exactly that. On the
+mobile frames, only two of its four texts were overridden:
 
-Which means neither side is grounded in a mobile decision:
+| Layer | Component default | On the mobile frame | |
+|---|---|---|---|
+| label | `Desktop/Heading/H3` 16 Bold | `Mobile/Heading/H3` 18 Bold | overridden |
+| placeholder | `Desktop/Paragraph/P1` 16 Medium | `Mobile/Paragraph/P2` 16 Regular | overridden |
+| required `*` | `Desktop/Heading/H3` 16 Bold | unchanged | **missed** |
+| helper text | `Desktop/Paragraph/P2` 14 SemiBold | unchanged | **missed** |
 
-- the mobile ramp has **no 14px SemiBold** at all (P3 is 14 Regular, P2 is
-  16 Regular), so nothing in it matches what the frames display;
-- the code renders 16px SemiBold, which is also not any mobile style.
+`Status Message` — the four criteria — was never overridden at all, which is why
+all 12 of its nodes show desktop styles, and the three loose "Password must
+include:" headings (`4438:35165`, `4438:35204`, `4438:35223`) were styled to
+match what it renders. Totals on **Mobile - Log In**: `Password` 18,
+`Text Field` 10, `Status Message` 12, loose 3.
 
-So the criteria's mobile type is genuinely unspecified, and picking either
-number would be inventing a spec. Needs the designer.
+So the 14px is a desktop default leaking through, not a mobile decision — and
+the override cannot simply be completed, because the mobile ramp has no
+equivalents: no 14px SemiBold for the helper text and criteria (P3 is 14
+Regular), and no 16px Bold for the asterisk (Mobile/Heading/H3 is 18 Bold).
 
-This is the same failure as `Address Mobile` on the drivers screens, inverted:
-a component authored for one breakpoint instantiated at another. Here it hits
-the shared form components, so it reaches every screen that uses a text field —
-not just this flow.
+**Leave the code as it is.** At 16px SemiBold the criteria are arguably closer
+to the mobile scale than the design is — 16px is `Mobile/Paragraph/P2`'s size —
+and the label at 18px Bold already matches the one text that *was* overridden.
+Changing to 14px would chase an artifact.
 
 ### 10. Nits found while measuring
 

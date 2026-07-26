@@ -83,25 +83,27 @@ those should be mobile.
 This one is the mirror image of question 3, and it is not a drivers-screen
 issue — it affects the **mobile** frames of every flow with a text field.
 
-`Password`, `Text Field` and `Status Message` are authored on the desktop type
-scale, so instantiating them on a mobile frame puts desktop styles there: 40
-text nodes across **Mobile - Log In** (plus 3 loose "Password must include:"
-headings), and 9 on **Mobile - Drivers Screens**.
+`Password`, `Text Field` and `Status Message` default to the desktop type scale,
+which is correct — the tablet instances render exactly that. But on the **mobile**
+frames the override to mobile styles is only half done:
 
-| Component | Nodes on mobile frames | Styles carried over |
-|---|---|---|
-| `Password` | 18 | `Desktop/Heading/H3`, `Desktop/Paragraph/P2` |
-| `Text Field` | 10 | `Desktop/Heading/H3`, `Desktop/Paragraph/P2` |
-| `Status Message` | 12 | `Desktop/Paragraph/P2` |
+| Layer of `Password` | Component default | On the mobile frame | |
+|---|---|---|---|
+| label | `Desktop/Heading/H3` 16 Bold | `Mobile/Heading/H3` 18 Bold | overridden |
+| placeholder | `Desktop/Paragraph/P1` 16 Medium | `Mobile/Paragraph/P2` 16 Regular | overridden |
+| required `*` | `Desktop/Heading/H3` 16 Bold | unchanged | **missed** |
+| helper text | `Desktop/Paragraph/P2` 14 SemiBold | unchanged | **missed** |
 
-The concrete blocker for us: the password criteria show as 14px SemiBold on the
-mobile frames, but that is what the desktop-authored component renders, not a
-mobile decision — and the mobile ramp has **no 14px SemiBold** (P3 is 14
-Regular, P2 is 16 Regular). Our code currently renders them 16px SemiBold,
-which is not a mobile style either. So we need an actual call: what type should
-a field's helper text, required asterisk, error message and the password
-criteria use at mobile? Mobile variants of these three components would settle
-it everywhere at once.
+`Status Message` (the password criteria) was never overridden at all. In total 40
+nodes across **Mobile - Log In** plus 3 loose "Password must include:" headings,
+and 9 on **Mobile - Drivers Screens**, still show desktop type on a mobile frame.
+
+We can't just finish the override, because the mobile ramp has no equivalents:
+**no 14px SemiBold** for the helper text and criteria (P3 is 14 Regular) and
+**no 16px Bold** for the asterisk (Mobile/Heading/H3 is 18 Bold). So this needs
+a call: what type should a field's helper text, required asterisk, error message
+and the password criteria use at mobile? Either new mobile styles, or mobile
+variants of these three components, would settle it everywhere at once.
 
 ---
 
