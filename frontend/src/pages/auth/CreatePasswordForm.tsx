@@ -11,6 +11,17 @@ interface CreatePasswordFormProps {
   submitButtonText: string;
 }
 
+/**
+ * The small print under a field — validation errors and the password criteria.
+ *
+ * 14px at every width, which is why this uses the static `text-m-p3` token
+ * rather than the responsive `text-p2`: that one renders 16px on mobile, and no
+ * mobile style defines 16px for this. Only the weight varies by breakpoint,
+ * because each ramp has its own weight at 14px — Regular on mobile
+ * (`Mobile/Paragraph/P3`), SemiBold from tablet up (`Desktop/Paragraph/P2`).
+ */
+const fieldNote = 'text-m-p3 font-normal tablet:font-semibold';
+
 export const CreatePasswordForm = ({
   onSubmit,
   isPending,
@@ -107,7 +118,9 @@ export const CreatePasswordForm = ({
               </button>
             </div>
             {passwordError && (
-              <div className="text-red text-p2 flex items-center gap-1.5">
+              <div
+                className={cn(fieldNote, 'text-red flex items-center gap-1.5')}
+              >
                 <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                 <span>
                   {password
@@ -156,7 +169,12 @@ export const CreatePasswordForm = ({
                 </button>
               </div>
               {confirmPasswordError && (
-                <div className="text-red text-p2 flex items-center gap-1.5">
+                <div
+                  className={cn(
+                    fieldNote,
+                    'text-red flex items-center gap-1.5'
+                  )}
+                >
                   <AlertTriangleIcon className="h-4 w-4 shrink-0" />
                   <span>
                     {confirmPassword
@@ -171,9 +189,7 @@ export const CreatePasswordForm = ({
 
         {/* Password Requirements */}
         <div className="desktop:mt-5 mt-2">
-          <p className="text-p2 mb-[3px] font-semibold">
-            Password must include:
-          </p>
+          <p className={cn(fieldNote, 'mb-[3px]')}>Password must include:</p>
           <ul className="space-y-[3px]">
             {requirements.map((req, index) => (
               <PasswordRequirement
@@ -213,7 +229,7 @@ const PasswordRequirement = ({
   isSatisfied,
 }: PasswordRequirementProps) => {
   return (
-    <li className="text-p2 flex items-center gap-1 font-semibold">
+    <li className={cn(fieldNote, 'flex items-center gap-1')}>
       {isSatisfied ? (
         <CheckIcon
           className="h-4 w-4 shrink-0 text-green-500"

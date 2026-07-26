@@ -165,7 +165,10 @@ function viewportOf(sectionName, frameWidth) {
  */
 function flowOf(sectionName) {
   const label = sectionName
-    .replace(new RegExp(`^(${Object.keys(VIEWPORTS).join('|')})\\s*-\\s*`, 'i'), '')
+    .replace(
+      new RegExp(`^(${Object.keys(VIEWPORTS).join('|')})\\s*-\\s*`, 'i'),
+      ''
+    )
     .replace(/\s+/g, ' ')
     .trim();
   return { key: label.toLowerCase().replace(/s$/, ''), label };
@@ -324,7 +327,8 @@ async function main() {
     const url = urls[frame.nodeId];
     if (!url) throw new Error(`Figma returned no image for ${frame.label}`);
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Download failed for ${frame.label}: ${res.status}`);
+    if (!res.ok)
+      throw new Error(`Download failed for ${frame.label}: ${res.status}`);
     const dest = path.join(STAGE_DIR, `${frame.id}.png`);
     await fs.mkdir(path.dirname(dest), { recursive: true });
     await fs.writeFile(dest, Buffer.from(await res.arrayBuffer()));
@@ -338,7 +342,9 @@ async function main() {
     fileName: file.name,
     fetchedAt: new Date().toISOString(),
     viewports: VIEWPORTS,
-    flows: Object.fromEntries([...flows].map(([key, label]) => [key, { label }])),
+    flows: Object.fromEntries(
+      [...flows].map(([key, label]) => [key, { label }])
+    ),
     frames: frames.sort(
       (a, b) =>
         a.flow.localeCompare(b.flow) ||

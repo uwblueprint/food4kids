@@ -86,28 +86,25 @@ export function DesignOverlay() {
     });
   }, []);
 
-  const loadImageFile = useCallback(
-    async (file: File | undefined | null) => {
-      if (!file || !file.type.startsWith('image/')) return;
-      const src = await readFileAsDataUrl(file);
-      // Auto-match: scale the export down so it renders at the design's CSS
-      // width (1 design px = 1 CSS px). Handles 2x/3x exports without manual
-      // scale-fiddling — see matchDesign() for the math.
-      const img = new Image();
-      img.onload = () => {
-        setState((prev) => {
-          const next: OverlayState = { ...prev, src, visible: true, x: 0, y: 0 };
-          if (prev.designWidth > 0 && img.naturalWidth > 0) {
-            next.scale = prev.designWidth / img.naturalWidth;
-          }
-          persistState(next);
-          return next;
-        });
-      };
-      img.src = src;
-    },
-    []
-  );
+  const loadImageFile = useCallback(async (file: File | undefined | null) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const src = await readFileAsDataUrl(file);
+    // Auto-match: scale the export down so it renders at the design's CSS
+    // width (1 design px = 1 CSS px). Handles 2x/3x exports without manual
+    // scale-fiddling — see matchDesign() for the math.
+    const img = new Image();
+    img.onload = () => {
+      setState((prev) => {
+        const next: OverlayState = { ...prev, src, visible: true, x: 0, y: 0 };
+        if (prev.designWidth > 0 && img.naturalWidth > 0) {
+          next.scale = prev.designWidth / img.naturalWidth;
+        }
+        persistState(next);
+        return next;
+      });
+    };
+    img.src = src;
+  }, []);
 
   // Toggle hotkey (Cmd/Ctrl+Shift+O) + arrow-key nudge while panel is focused.
   useEffect(() => {

@@ -73,7 +73,10 @@ function loadState(): HarnessState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw)
-      return { ...DEFAULT_STATE, ...(JSON.parse(raw) as Partial<HarnessState>) };
+      return {
+        ...DEFAULT_STATE,
+        ...(JSON.parse(raw) as Partial<HarnessState>),
+      };
   } catch {
     /* ignore */
   }
@@ -284,7 +287,11 @@ export function DesignOverlayHarness() {
   const imageSrc = state.manualSrc ?? frame?.image ?? null;
 
   // Fit the design-sized stage into the window. Never upscale past 1:1.
-  const fit = Math.min(1, vw / state.designWidth, (vh - 8) / state.designHeight);
+  const fit = Math.min(
+    1,
+    vw / state.designWidth,
+    (vh - 8) / state.designHeight
+  );
 
   return (
     <div
@@ -356,7 +363,8 @@ export function DesignOverlayHarness() {
           left: 12,
           bottom: 12,
           zIndex: 10,
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          fontFamily:
+            'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
           fontSize: 12,
           color: '#e5e7eb',
           background: 'rgba(17,17,20,0.92)',
@@ -605,10 +613,10 @@ function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   return Boolean(
     el &&
-      (el.tagName === 'INPUT' ||
-        el.tagName === 'TEXTAREA' ||
-        el.tagName === 'SELECT' ||
-        el.isContentEditable)
+    (el.tagName === 'INPUT' ||
+      el.tagName === 'TEXTAREA' ||
+      el.tagName === 'SELECT' ||
+      el.isContentEditable)
   );
 }
 

@@ -371,6 +371,53 @@ to the mobile scale than the design is — 16px is `Mobile/Paragraph/P2`'s size 
 and the label at 18px Bold already matches the one text that *was* overridden.
 Changing to 14px would chase an artifact.
 
+### 8b. FIXED — mobile create-password now lands on the design
+
+After the `pt-[154px]` change, measured at 375px against frame `4438:35155`:
+h1 154 (Δ0), subheader 186 (Δ0), criteria heading 434 (Δ0), first criterion 455
+(Δ+1), submit 584 (Δ−4). `/login` unmoved at 300, matching its own frame.
+
+### 9b. FIXED — criteria and error text now 14px at every width
+
+`fieldNote` in `CreatePasswordForm` is `text-m-p3 font-normal
+tablet:font-semibold`: constant 14px/18px, Regular on mobile
+(`Mobile/Paragraph/P3`) and SemiBold from tablet up (`Desktop/Paragraph/P2`) —
+each ramp's own weight at 14px, per the mapping Colin approved.
+
+My first attempt was `text-p3 tablet:text-p2`, which the repo's own ESLint rule
+rejected: the `text-p1..p3` utilities carry their own internal breakpoint, so a
+`tablet:` variant does not compose and the inner media query wins. The rule
+names the fix — a static `text-m-*` for a constant size. Verified 14px/18px with
+weight 400 at 375px and 600 at 834px and 1440px.
+
+### 11. Wrapper gap is wrong at tablet on every screen
+
+The design's wrapper→form spacing, read off the frames' auto-layout
+`itemSpacing`, is per screen family. `Wrapper` hardcodes `gap-8 tablet:gap-4`:
+
+| Family | Design mobile | Design tablet | Code mobile | Code tablet |
+|---|---|---|---|---|
+| create-password | 24 | 32 | 32 (**+8**) | 16 (**−16**) |
+| login | 32 | 32 | 32 ✓ | 16 (**−16**) |
+| forgot / confirmations | 16 | 16 | 16 ✓ | 16 ✓ |
+
+The forgot family only lands right because `ForgotPassword` passes `gap-4`.
+`tablet:gap-4` is wrong wherever the design says 32, and the Account Created
+confirmation wants 16/16 but inherits the wrapper's 32.
+
+Fixing it properly means: base `tablet:gap-8`; `gap-6` on the password-entry
+screens; `tablet:gap-4` added to `ForgotPassword` so it stays at 16; and a
+gap for `CreatePassword`'s CONFIRMATION step. Not done — see finding 12, since
+it is the same shared-spacing question.
+
+### 12. Heading position on the forgot/confirmation family is 16–76px short
+
+Measured at 375px: `/forgot-password` h1 at 360 against the design's 376, and
+Account Created computes to 300 against 376. Only `/login` (300) and
+create-password (154, now fixed) match. `ForgotPassword` already hand-tunes its
+own `pt-31`, so the per-screen-padding convention exists — these two just have
+the wrong numbers.
+
 ### 10. Nits found while measuring
 
 - The two "Driver | Create Password Filled" mobile frames disagree with each
