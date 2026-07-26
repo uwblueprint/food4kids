@@ -172,31 +172,59 @@ const RECIPES: Recipe[] = [
       await until(() => /Incorrect email or password/.test(doc.body.innerText));
     },
   },
+  /*
+   * The three password-error frames are three different states, not one state
+   * drawn three times, and each has to be reached with its own input. An error
+   * row is 26px tall including its gap, so driving the app into a two-error
+   * state under a one-error frame shifts everything below it — and, because
+   * the block is vertically centred, everything above it by half as much in
+   * the other direction. That read as a 13px layout bug until the frames were
+   * measured: the code was right and the harness was showing the wrong state.
+   */
   {
-    labels: [
-      'Driver | Create Password Filled (2)',
-      'First Time Login - Criteria Not Met',
-      "First Time Login - Passwords Don't Match",
-    ],
+    labels: ['Driver | Create Password Filled (2)'],
+    describe: 'submitted a password that fails the criteria and a mismatch',
+    run: async (doc) => {
+      const fields = doc.querySelectorAll<HTMLInputElement>(
+        'input[type=password]'
+      );
+      if (fields.length < 2) return;
+      // Both rows: "Password" fails the digit and symbol rules, and the confirm
+      // has to differ from it or the fields match and only the first errors.
+      setValue(fields[0], 'Password');
+      setValue(fields[1], 'Password1');
+      doc.querySelector('form')?.requestSubmit();
+      await until(() => /criteria/i.test(doc.body.innerText));
+    },
+  },
+  {
+    labels: ['First Time Login - Criteria Not Met'],
     describe: 'submitted a password that fails the criteria',
     run: async (doc) => {
       const fields = doc.querySelectorAll<HTMLInputElement>(
         'input[type=password]'
       );
       if (fields.length < 2) return;
-      /*
-       * The frame shows an error under both fields. "Password" fails the digit
-       * and symbol rules, and the second has to differ from the first or they
-       * match and only the first errors — one row short of the design.
-       *
-       * The text still differs: the design repeats the criteria message under
-       * the confirm field where the code says the passwords do not match. The
-       * layout is what this reproduces.
-       */
+      // First row only: the confirm matches, so its own check passes.
       setValue(fields[0], 'Password');
-      setValue(fields[1], 'Password1');
+      setValue(fields[1], 'Password');
       doc.querySelector('form')?.requestSubmit();
       await until(() => /criteria/i.test(doc.body.innerText));
+    },
+  },
+  {
+    labels: ["First Time Login - Passwords Don't Match"],
+    describe: 'submitted two passwords that do not match',
+    run: async (doc) => {
+      const fields = doc.querySelectorAll<HTMLInputElement>(
+        'input[type=password]'
+      );
+      if (fields.length < 2) return;
+      // Second row only: the first password satisfies every criterion.
+      setValue(fields[0], 'Securepassword123!');
+      setValue(fields[1], 'Differentpassword1!');
+      doc.querySelector('form')?.requestSubmit();
+      await until(() => /passwords match/i.test(doc.body.innerText));
     },
   },
   {

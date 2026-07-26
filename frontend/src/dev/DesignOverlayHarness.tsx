@@ -20,6 +20,30 @@ import { setupFor, unreachableReason } from './frameSetup';
  *   2. Drag-drop, paste (⌘V), or the file picker, for a one-off image.
  *
  * Settings persist in localStorage. Mounted only under import.meta.env.DEV.
+ *
+ * ---
+ *
+ * If you go past eyeballing and script a numeric comparison against the Figma
+ * REST API, three things will otherwise cost you an afternoon each:
+ *
+ * 1. Figma's `absoluteBoundingBox` for a TEXT node is its LINE box. A browser
+ *    element box only equals that for block text. For a `<button>` or `<input>`
+ *    the line sits at `y + (height - lineHeight) / 2`, and a `Range` over a text
+ *    node gives the GLYPH box, which reads ~1px high on a 24px heading. Compare
+ *    the wrong pair and you will invent differences that are not there.
+ * 2. There is a real floor of about 1px: Figma and Chrome measure the same
+ *    string at slightly different widths (Figma says 165 for "Forgot your
+ *    password?" where Chrome says 164). Right edges and line positions still
+ *    agree. That residue is not a defect and cannot be fixed on either side.
+ * 3. A frame showing a form error is a SPECIFIC error state. An error row is
+ *    26px tall including its gap, so driving the app into a two-error state
+ *    under a one-error frame shifts everything below it — and, because these
+ *    blocks are vertically centred, everything above it by half as much in the
+ *    other direction. That reads exactly like a layout bug. See frameSetup.ts,
+ *    where the three password-error frames get three separate recipes.
+ *
+ * Text that the design shows as a typed field value ("PASS!W1") will never
+ * match: the app masks it. Exclude those rather than chasing them.
  */
 
 const STORAGE_KEY = 'f4k_design_overlay_harness';
