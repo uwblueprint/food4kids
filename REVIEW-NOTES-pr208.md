@@ -669,3 +669,46 @@ enough to compare layout.
 `No Account Yet | Get Link` / `- Get Login Link` is the one frame with no screen
 behind it: "Didn't get a link?" is not built, and the route falls back to
 `/login`. The harness names that rather than letting it look like a bug.
+
+
+## Applied in Figma
+
+**The 4px heading gap is gone.** `itemSpacing` set to 0 on all 13 frames that
+had it, matching every other frame in the file. Mobile and tablet now measure
+exactly against the code on every System B screen:
+
+| screen | design | code |
+|---|---|---|
+| mobile Forgot Password | 376 / 408 / 472 / 516 / 596 | identical |
+| mobile Account Created | 376 / 408 / 484 | identical |
+| mobile Forgot Password Link Sent | 376 / 408 / 508 / 564 | identical |
+| tablet Forgot Password | 376 / 420 / 460 / 500 / 580 | identical |
+
+**Account Created's copy now matches the desktop frame** on mobile and tablet:
+"Account created" / "You're in! Get ready to help fill some lunch bags and put
+smiles on some faces." / "Continue".
+
+The casing question behind it: page headings in the auth and error screens are
+sentence case — 12 of the 13 auth headings across all three viewports, and the
+code agrees on every one. Title Case in this file belongs to action titles
+("Add Note", "Change Password") and feature names ("Route Generation"), not to
+page headings. Mobile "Account Created" was the single exception.
+
+One inconsistency that came out of that survey and is **not** this PR's to fix:
+`Service Unavailable` is Title Case in both the design and `ErrorScreen.tsx`,
+sitting next to `Page not found` and `Something went wrong` — same surface,
+same component, two rules.
+
+### Still open on the link-sent frames
+
+Their copy was deliberately left alone. All three mobile/tablet frames read
+"Creation link sent", but their names say they are two different things —
+"Creation Link Sent" (an account-creation link) and "Forgot Password Link Sent"
+/ "Resend Link" (a reset link). The code implements only the reset one, as
+"Reset link sent". Changing all three to match the code would erase a
+distinction the frame names claim exists, so it needs the product answer first:
+is there a separate account-creation link screen, or is one set of frames
+redundant?
+
+The same applies to "Log in" vs the code's "Back to log in" and "Resend link"
+vs "Send link again" on those frames.
