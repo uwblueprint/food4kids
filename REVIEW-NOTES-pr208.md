@@ -127,6 +127,54 @@ now normalised: `I4438:35163;2941:20669`, `I4438:35202;2941:20669` (mobile);
 `I4438:35360;2941:20669`, `I4438:35399;2941:20669`,
 `I4438:35418;2941:25244` (tablet).
 
+## Type-scale sweep (2026-07-26)
+
+The tablet subtitle issue is systemic, not limited to the three added
+subheaders. In **Tablet - Log In**, ten text nodes sit on
+`Mobile/Paragraph/P2` and should be `Desktop/Paragraph/P1` (16 Medium):
+
+`4438:35378`, `4438:35436`, `4438:35535` (login subtitles) ·
+`4438:35455` (Account Created) · `4438:35467`, `4438:35481`, `4438:35495`
+(link-sent confirmations) · `7601:30613`, `7601:30618`, `7601:30622`
+(create-password subheaders)
+
+None are inside component instances, so a style can be applied directly. The
+supporting evidence is that "Return to Log in" on those same frames is already
+`Desktop/Paragraph/P1`, and the code gives the subtitle and that footer link
+the identical class (`text-m-p2 tablet:font-medium`) — so the design treats
+them differently where the implementation does not.
+
+**Do not bulk-fix Tablet - Drivers Screen.** It has 123 nodes on `Mobile/*`
+styles (12 H3, 54 P1, 45 P2, 12 P3) — the whole section is built on the mobile
+scale, which looks deliberate: those frames are widened single-column mobile
+layouts, and their section ids (`3337`/`3551`/`3560`) predate the login ones
+(`4438`) and so predate the June 2026 tablet-uses-desktop-scale decision. Many
+are inside instances, where applying a style just sprays overrides. Needs the
+designer.
+
+Consequence worth raising separately: if the drivers tablet screens are
+intentional, the rule as written in `index.css` ("tablet uses the DESKTOP type
+scale") is wrong, and the frontend will render those screens heavier than
+designed once they are built.
+
+Clean, no action needed: both Mobile sections (their subtitles are correctly
+`Mobile/P2`; the 14px criteria use `Desktop/Paragraph/P2` only because the
+mobile scale has no 14px SemiBold), Error Pages and Route Generation
+(desktop-only), Email Templates (different medium).
+
+## Hazard: stale duplicates on the Hi-fi page
+
+Every fix in this document was made on the **🌟 Finalized** page. The
+**🟢 Hi-fi** page carries its own "Desktop / Mobile / Tablet - Log In"
+sections with the pre-fix copy — "Password must be:" with five bullets, the
+Email field, "Create Password", "Confirm Password", the old forgot-password
+subheader. Anyone implementing from Hi-fi will build the old design. Point
+reviewers at Finalized, and consider moving Hi-fi to 🗑️ Archive.
+
+(The Figma plugin can only read and write the current page, which is why the
+REST fetch script pins to `/finalized/i` — and why none of these edits could
+have landed on the wrong page.)
+
 ## Still open in Figma
 
 - **Create-password subheader.** Desktop and the code have "Create an account
