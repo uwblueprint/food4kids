@@ -77,6 +77,7 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
       headerTitle={headerTitle}
       subheaderTitle={subheaderTitle}
       className="desktop:max-w-[362px]"
+      showMobileIllustration={false}
     >
       <CreatePasswordForm
         onSubmit={handleResetPassword}

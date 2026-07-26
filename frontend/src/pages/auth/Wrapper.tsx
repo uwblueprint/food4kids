@@ -9,6 +9,13 @@ interface WrapperProps {
   headerTitle: string;
   subheaderTitle: string;
   className?: string;
+  /**
+   * Below `desktop`, an illustration sits between the logo and the heading.
+   * The password-entry forms opt out: their field list plus the password
+   * criteria already overflow a phone screen, and the designs drop the
+   * graphic there. Every other auth screen keeps it.
+   */
+  showMobileIllustration?: boolean;
 }
 
 export const WrapperWithLogo = ({
@@ -16,6 +23,7 @@ export const WrapperWithLogo = ({
   headerTitle,
   subheaderTitle,
   className,
+  showMobileIllustration = true,
 }: WrapperProps) => {
   return (
     <div className="desktop:overflow-hidden relative flex h-screen w-full flex-row overflow-auto">
@@ -44,13 +52,15 @@ export const WrapperWithLogo = ({
               />
             </div>
             {/* Mobile Login Illustration */}
-            <div className="desktop:hidden mb-6 flex flex-row items-center justify-center">
-              <img
-                src={loginPageIllustrationMobile}
-                alt="Food4Kids Waterloo Region Illustration"
-                className="h-[212px] w-[307px] object-contain"
-              />
-            </div>
+            {showMobileIllustration && (
+              <div className="desktop:hidden mb-6 flex flex-row items-center justify-center">
+                <img
+                  src={loginPageIllustrationMobile}
+                  alt="Food4Kids Waterloo Region Illustration"
+                  className="h-[212px] w-[307px] object-contain"
+                />
+              </div>
+            )}
             {/* Heading */}
             <h1>{headerTitle}</h1>
             <p className="text-m-p2 tablet:font-medium">{subheaderTitle}</p>

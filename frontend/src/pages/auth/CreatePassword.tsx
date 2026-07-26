@@ -47,6 +47,8 @@ export const CreatePassword = () => {
       headerTitle={headerTitle}
       subheaderTitle={subheaderTitle}
       className="desktop:max-w-[362px]"
+      // The form is too tall for the graphic on mobile; the confirmation isn't.
+      showMobileIllustration={step === 'CONFIRMATION'}
     >
       {step === 'FORM' ? (
         <CreatePasswordForm

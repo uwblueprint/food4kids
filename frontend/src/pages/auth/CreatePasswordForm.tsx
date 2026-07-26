@@ -25,7 +25,7 @@ export const CreatePasswordForm = ({
 
   const requirements = [
     {
-      label: '8+ characters (12 or more is recommended)',
+      label: '8+ characters (12 or more is better)',
       isSatisfied: password.length >= 8,
     },
     {
@@ -171,7 +171,9 @@ export const CreatePasswordForm = ({
 
         {/* Password Requirements */}
         <div className="desktop:mt-5 mt-2">
-          <p className="text-p2 mb-[3px] font-semibold">Password must be:</p>
+          <p className="text-p2 mb-[3px] font-semibold">
+            Password must include:
+          </p>
           <ul className="space-y-[3px]">
             {requirements.map((req, index) => (
               <PasswordRequirement
