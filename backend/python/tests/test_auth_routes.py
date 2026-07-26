@@ -23,9 +23,13 @@ from httpx import AsyncClient, Response
 
 from app.dependencies.auth import get_current_database_user_id, get_current_user_email
 from app.dependencies.services import get_auth_service
-from app.routers.auth_routes import _FIREBASE_401_CODES
 from app.schemas.auth import TokenResponse
-from app.services.implementations.auth_service import AuthService
+from app.services.implementations.auth_service import (
+    REAUTH_REQUIRED_FIREBASE_CODES,
+    AuthService,
+    SessionExpiredError,
+)
+from app.utilities.firebase_rest_client import FirebaseRestError
 
 USER_ID: UUID = uuid4()
 EMAIL = "driver@example.com"
@@ -203,12 +207,11 @@ class TestRefresh:
         assert response.json()["detail"] == "Refresh token not found"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("code", sorted(_FIREBASE_401_CODES))
-    async def test_expired_session_codes_are_401(
-        self, client_with_overrides: Any, code: str
-    ) -> None:
-        """Each known session-ended code maps to 401, so clients can re-login."""
-        client = await _client_raising(client_with_overrides, ValueError(code), {})
+    async def test_session_expired_is_401(self, client_with_overrides: Any) -> None:
+        """``SessionExpiredError`` is the one signal that means "log in again"."""
+        client = await _client_raising(
+            client_with_overrides, SessionExpiredError("token is finished"), {}
+        )
 
         response = await client.post(
             "/auth/refresh", headers={"Cookie": "refreshToken=stub-refresh-token"}
@@ -218,10 +221,22 @@ class TestRefresh:
         assert response.json()["detail"] == "Session expired"
 
     @pytest.mark.asyncio
-    async def test_unknown_failure_is_500(self, client_with_overrides: Any) -> None:
-        client = await _client_raising(
-            client_with_overrides, ValueError("SOMETHING_ELSE"), {}
-        )
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(ValueError("SOMETHING_ELSE"), id="value-error"),
+            # Every one of these used to reach the router, which decided by
+            # comparing str(e) to a set it owned. Now only the service's own
+            # SessionExpiredError means 401 — a raw Firebase error is a 500,
+            # even one whose text looks exactly like a session-ended code.
+            pytest.param(FirebaseRestError("TOKEN_EXPIRED"), id="raw-firebase-code"),
+            pytest.param(RuntimeError("database on fire"), id="runtime-error"),
+        ],
+    )
+    async def test_anything_else_is_500(
+        self, client_with_overrides: Any, error: Exception
+    ) -> None:
+        client = await _client_raising(client_with_overrides, error, {})
 
         response = await client.post(
             "/auth/refresh", headers={"Cookie": "refreshToken=stub-refresh-token"}
@@ -230,44 +245,79 @@ class TestRefresh:
         assert response.status_code == 500
 
 
-class TestRenewTokenDbUserMissing:
-    """``renew_token``'s message is matched against ``_FIREBASE_401_CODES``.
+class TestRenewTokenSessionExpiry:
+    """``renew_token`` is the single place that decides "log in again".
 
-    The router compares ``str(e)`` to the code set exactly, so the service has
-    to raise the bare code — any surrounding prose silently downgrades a
-    "your session is gone, log in again" into a 500.
+    Before, it signalled by *message*: it raised with a bare error code that
+    the router string-matched against a set. That contract broke silently the
+    moment the message carried a typo or any extra prose — which is exactly
+    what #216 found. These tests pin the decision at the service, where it
+    belongs, so the router needs to know only one exception type.
     """
 
-    def _service(self, user: Any) -> AuthService:
+    def _service(
+        self, user: Any = None, refresh_error: Exception | None = None
+    ) -> AuthService:
         user_service = MagicMock()
         user_service.get_user_by_auth_id = AsyncMock(return_value=user)
         service = AuthService(getLogger(__name__), user_service, MagicMock())
         firebase_client: Any = MagicMock()
-        firebase_client.refresh_token.return_value = TokenResponse(
-            # renew_token decodes without verifying, so any well-formed token
-            # carrying a "sub" claim will do.
-            access_token=jwt.encode({"sub": "firebase-uid"}, "k" * 32, "HS256"),
-            refresh_token="new-refresh-token",
-        )
+        if refresh_error is not None:
+            firebase_client.refresh_token.side_effect = refresh_error
+        else:
+            firebase_client.refresh_token.return_value = TokenResponse(
+                # renew_token decodes without verifying, so any well-formed
+                # token carrying a "sub" claim will do.
+                access_token=jwt.encode({"sub": "firebase-uid"}, "k" * 32, "HS256"),
+                refresh_token="new-refresh-token",
+            )
         service.firebase_rest_client = firebase_client
         return service
 
     @pytest.mark.asyncio
-    async def test_missing_db_user_raises_the_bare_401_code(self) -> None:
+    async def test_missing_db_user_is_a_session_expiry(self) -> None:
+        """A token Firebase still honours, for a user we no longer have."""
         service = self._service(user=None)
 
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(SessionExpiredError):
             await service.renew_token(MagicMock(), "stub-refresh-token")
 
-        assert str(excinfo.value) == "DB_USER_MISSING"
-        assert str(excinfo.value) in _FIREBASE_401_CODES
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("code", sorted(REAUTH_REQUIRED_FIREBASE_CODES))
+    async def test_reauth_firebase_codes_become_session_expiry(self, code: str) -> None:
+        """Each code Firebase uses for a dead token maps to the domain error."""
+        service = self._service(refresh_error=FirebaseRestError(code))
+
+        with pytest.raises(SessionExpiredError):
+            await service.renew_token(MagicMock(), "stub-refresh-token")
 
     @pytest.mark.asyncio
-    async def test_missing_db_user_surfaces_as_401_through_the_route(
-        self, client_with_overrides: Any
+    async def test_other_firebase_codes_are_not_swallowed(self) -> None:
+        """An unexpected Firebase failure must stay unexpected — a 500, not a
+        401 that tells the user to log in again for no reason."""
+        service = self._service(refresh_error=FirebaseRestError("QUOTA_EXCEEDED"))
+
+        with pytest.raises(FirebaseRestError) as excinfo:
+            await service.renew_token(MagicMock(), "stub-refresh-token")
+
+        assert excinfo.value.code == "QUOTA_EXCEEDED"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "service_kwargs",
+        [
+            pytest.param({"user": None}, id="missing-db-user"),
+            pytest.param(
+                {"refresh_error": FirebaseRestError("TOKEN_EXPIRED")},
+                id="firebase-rejected-token",
+            ),
+        ],
+    )
+    async def test_session_expiry_surfaces_as_401_through_the_route(
+        self, client_with_overrides: Any, service_kwargs: dict[str, Any]
     ) -> None:
-        """End-to-end: the service's error and the router's set line up."""
-        service = self._service(user=None)
+        """End-to-end through the real service: no string contract in between."""
+        service = self._service(**service_kwargs)
         client: AsyncClient = await client_with_overrides(
             {get_auth_service: lambda: service}
         )

@@ -11,7 +11,7 @@ from app.dependencies.services import (
 )
 from app.models import get_session
 from app.schemas.auth import AuthResponse, LoginRequest
-from app.services.implementations.auth_service import AuthService
+from app.services.implementations.auth_service import AuthService, SessionExpiredError
 from app.utilities.cookies import set_refresh_token_cookie
 
 # Initialize logger
@@ -49,16 +49,6 @@ async def login(
         ) from e
 
 
-_FIREBASE_401_CODES = {
-    "TOKEN_EXPIRED",
-    "INVALID_REFRESH_TOKEN",
-    "INVALID_GRANT",
-    "USER_DISABLED",
-    "USER_NOT_FOUND",
-    "DB_USER_MISSING",  # Not a Firebase code
-}
-
-
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(
     request: Request,
@@ -84,13 +74,10 @@ async def refresh(
         set_refresh_token_cookie(response, new_refresh_token)
 
         return auth_data
-    except Exception as e:
-        # ``renew_token`` signals "this session is gone, log in again" by
-        # raising with the bare code as the message. Anything else is a real
-        # failure: let it out so it is logged and answered as a 500.
-        if str(e) not in _FIREBASE_401_CODES:
-            raise
-        raise HTTPException(status_code=401, detail="Session expired") from e
+    except SessionExpiredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
+        ) from e
 
 
 @router.post("/logout/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
