@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { setupFor, unreachableReason } from './frameSetup';
+
 /**
  * Dev-only pixel-perfect design-comparison harness (route: /dev/overlay).
  *
@@ -177,6 +179,15 @@ export function DesignOverlayHarness() {
 
   const frames = useMemo(() => manifest?.frames ?? [], [manifest]);
   const frame = frames.find((f) => f.id === state.frameId) ?? null;
+
+  /*
+   * Resolved before the memos below. The React Compiler treats a call into an
+   * imported function as able to mutate anything reachable from its argument,
+   * so doing this after `viewportFrames` made it consider that memo's inputs
+   * modifiable and bail out of optimizing the component entirely.
+   */
+  const setup = setupFor(frame?.label);
+  const unreachable = unreachableReason(frame?.label);
   const viewports = useMemo(
     () => Object.keys(manifest?.viewports ?? {}),
     [manifest]
@@ -198,6 +209,31 @@ export function DesignOverlayHarness() {
    * design over another's code, which reads as a layout bug.
    */
   const [viewportFallback, setViewportFallback] = useState<string | null>(null);
+
+  /** What the harness did to the app to reach this frame's state, if anything. */
+  const [setupNote, setSetupNote] = useState<string | null>(null);
+
+  /**
+   * Drive the app into the frame's state once the iframe has loaded. The iframe
+   * is keyed on the frame, so this fires on every switch — always from a fresh
+   * mount, never on top of the previous frame's leftovers.
+   */
+  const runSetup = async (iframe: HTMLIFrameElement | null) => {
+    if (!setup) {
+      setSetupNote(null);
+      return;
+    }
+    const doc = iframe?.contentDocument;
+    if (!doc) return;
+    setSetupNote('setting up…');
+    try {
+      await setup.run(doc);
+      setSetupNote(setup.describe);
+    } catch {
+      // Same-origin only in dev, and the app can always be driven by hand.
+      setSetupNote(`could not set up — do it by hand (${setup.describe})`);
+    }
+  };
 
   const selectFrame = useCallback(
     (next: ManifestFrame | null | undefined) => {
@@ -378,6 +414,7 @@ export function DesignOverlayHarness() {
           key={frame?.id ?? state.appPath}
           title="app"
           src={state.appPath}
+          onLoad={(e) => void runSetup(e.currentTarget)}
           style={{
             width: state.designWidth,
             height: state.designHeight,
@@ -654,6 +691,31 @@ export function DesignOverlayHarness() {
           >
             ⚠ {viewportFallback}
           </div>
+        )}
+
+        {/*
+         * Say what state the app is in, because for these frames it is not the
+         * one a cold load gives you. Silence here is what made a driven-into
+         * state look like a layout bug.
+         */}
+        {unreachable ? (
+          <div
+            style={{
+              color: '#fdba74',
+              fontSize: 11,
+              border: '1px solid #b45309',
+              borderRadius: 4,
+              padding: '4px 6px',
+            }}
+          >
+            ⚠ Cannot reach this state: {unreachable}
+          </div>
+        ) : (
+          setupNote && (
+            <div style={{ color: '#a1a1aa', fontSize: 11 }}>
+              ⏵ app {setupNote}
+            </div>
+          )
         )}
 
         <input
