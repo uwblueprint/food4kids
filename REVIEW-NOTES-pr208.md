@@ -455,6 +455,43 @@ flow's sentence-case convention (finding 7) implies "Return to log in".
   and the Figma button wants changing — but it is inside a `UI/Button`
   component instance, so it needs care.
 
+## Walkthrough: /login default state — MATCHES (2026-07-26)
+
+Measured element by element against `4438:35175` (mobile), `4438:35372`
+(tablet), `4438:34813` (desktop). Text nodes compared as text; inputs and the
+button compared box-to-box, since the design's placeholder sits inside the
+control's padding.
+
+| Element | M375 | T834 | D1440 |
+|---|---|---|---|
+| `Hi there!` | 0 | +1 | 0 |
+| subheader | 0 | +1 | 0 |
+| Email label | 0 | +1 | 0 |
+| email input box | 0 | +1 | 0 |
+| Password label | 0 | +1 | 0 |
+| password input box | 0 | +1 | 0 |
+| Remember me | 0 | +1 | 0 |
+| Forgot your password? | +1 | +1 | 0 |
+| Log in button | 0 | +1 | 0 |
+| Don't have an account? | +1 | +2 | +1 |
+| Get your login link | +1 | +2 | +1 |
+
+Box sizes match exactly: inputs 335/504/400 × 48, button × 44. Every font size
+and weight matches, including the ramp switch — 18px Bold labels on mobile,
+16px Bold on tablet and desktop, 16px Medium subheader above mobile.
+
+Tablet's uniform +1 is centring rounding. Desktop's x is uniformly −1 (122 vs
+123) because `desktop:pl-[8.5vw]` resolves to 122.4 at 1440 — the design uses a
+fixed left edge where the code uses a viewport-relative one, so this drifts at
+other widths rather than being a constant 1px.
+
+### 15. "Get your login link" is inert
+
+`LoginPage.tsx:164` — `// TODO: Implement get login link action`, an
+`e.preventDefault()` and no handler. Consistent with the "No Account Yet"
+screen being unimplemented, so it is expected scope, but it should be an
+explicit review comment rather than a silent gap.
+
 ## Screens still to walk
 
 Four routes, checked at mobile (375) / tablet (834) / desktop (1440):
