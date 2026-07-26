@@ -112,6 +112,14 @@ const RECIPES: Recipe[] = [
       await until(() => /Send again in|link sent/i.test(doc.body.innerText));
     },
   },
+  {
+    labels: ['First Time Login - Empty State'],
+    describe: 'submitted the form empty',
+    run: async (doc) => {
+      doc.querySelector('form')?.requestSubmit();
+      await until(() => /Please enter a password/.test(doc.body.innerText));
+    },
+  },
 ];
 
 /**
