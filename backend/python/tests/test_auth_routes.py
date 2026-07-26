@@ -129,13 +129,17 @@ AUTH_ENDPOINTS: list[Any] = [
 
 
 async def _client_raising(
-    client_with_overrides: Any, error: Exception, overrides: Any
+    client_with_overrides: Any,
+    error: Exception,
+    overrides: Callable[[Exception], dict[Any, Any]] = lambda _error: {},
 ) -> AsyncClient:
     """Build a client whose service layer raises ``error``.
 
     ``overrides`` is a factory rather than a dict because handlers differ in
     which service they fail through: most reach ``AuthService``, while
-    ``/auth/update-password`` fails through ``UserService``.
+    ``/auth/update-password`` fails through ``UserService``. It defaults to
+    "nothing extra" so the callers that only need ``AuthService`` — most of
+    them — do not have to spell an empty factory.
     """
     stub = StubAuthService(error)
     client: AsyncClient = await client_with_overrides(
@@ -212,7 +216,7 @@ class TestLoginValidation:
         expected_status: int,
     ) -> None:
         client = await _client_raising(
-            client_with_overrides, ValueError("Invalid email or password"), {}
+            client_with_overrides, ValueError("Invalid email or password")
         )
 
         response = await client.post("/auth/login", json=payload)
@@ -225,7 +229,7 @@ class TestLoginValidation:
     ) -> None:
         """Authentication failures return one generic 401 (no user enumeration)."""
         client = await _client_raising(
-            client_with_overrides, ValueError("Invalid email or password"), {}
+            client_with_overrides, ValueError("Invalid email or password")
         )
 
         response = await client.post(
@@ -240,7 +244,7 @@ class TestRefresh:
     @pytest.mark.asyncio
     async def test_missing_cookie_is_401(self, client_with_overrides: Any) -> None:
         client = await _client_raising(
-            client_with_overrides, AssertionError("service must not be reached"), {}
+            client_with_overrides, AssertionError("service must not be reached")
         )
 
         response = await client.post("/auth/refresh")
@@ -254,7 +258,7 @@ class TestRefresh:
         self, client_with_overrides: Any, code: str
     ) -> None:
         """Each known session-ended code maps to 401, so clients can re-login."""
-        client = await _client_raising(client_with_overrides, ValueError(code), {})
+        client = await _client_raising(client_with_overrides, ValueError(code))
 
         response = await client.post(
             "/auth/refresh", headers={"Cookie": "refreshToken=stub-refresh-token"}
@@ -266,7 +270,7 @@ class TestRefresh:
     @pytest.mark.asyncio
     async def test_unknown_failure_is_500(self, client_with_overrides: Any) -> None:
         client = await _client_raising(
-            client_with_overrides, ValueError("SOMETHING_ELSE"), {}
+            client_with_overrides, ValueError("SOMETHING_ELSE")
         )
 
         response = await client.post(
