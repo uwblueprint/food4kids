@@ -334,35 +334,16 @@ export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
 export type DriverAssignmentStatusEnum = 'Assigned' | 'Unassigned';
 
 /**
- * DriverHistoryCreate
- *
- * Create request model
- */
-export type DriverHistoryCreate = {
-  /**
-   * Km
-   */
-  km: number;
-  /**
-   * Month
-   */
-  month: number;
-  /**
-   * Year
-   */
-  year: number;
-};
-
-/**
  * DriverHistoryRead
  *
- * Read response model
+ * One month's km for a driver.
+ *
+ * Computed, never stored: the sum of `Route.length` over the driver's
+ * frozen routes (those with a RouteSnapshot) in that month. Reassigning a
+ * route or correcting its stops updates history automatically, so there is
+ * no stored total to drift out of sync.
  */
 export type DriverHistoryRead = {
-  /**
-   * Driver History Id
-   */
-  driver_history_id: number;
   /**
    * Driver Id
    */
@@ -395,18 +376,6 @@ export type DriverHistorySummary = {
    * Lifetime Km
    */
   lifetime_km: number;
-};
-
-/**
- * DriverHistoryUpdate
- *
- * Update request model, all fields are required for now since we are only updating km
- */
-export type DriverHistoryUpdate = {
-  /**
-   * Km
-   */
-  km: number;
 };
 
 /**
@@ -3050,47 +3019,6 @@ export type UpdateDriverResponses = {
 export type UpdateDriverResponse =
   UpdateDriverResponses[keyof UpdateDriverResponses];
 
-export type DeleteDriverHistoryData = {
-  body?: never;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type DeleteDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type DeleteDriverHistoryError =
-  DeleteDriverHistoryErrors[keyof DeleteDriverHistoryErrors];
-
-export type DeleteDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  204: void;
-};
-
-export type DeleteDriverHistoryResponse =
-  DeleteDriverHistoryResponses[keyof DeleteDriverHistoryResponses];
-
 export type GetDriverHistoryData = {
   body?: never;
   path: {
@@ -3133,79 +3061,6 @@ export type GetDriverHistoryResponses = {
 
 export type GetDriverHistoryResponse =
   GetDriverHistoryResponses[keyof GetDriverHistoryResponses];
-
-export type UpdateDriverHistoryData = {
-  body: DriverHistoryUpdate;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type UpdateDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateDriverHistoryError =
-  UpdateDriverHistoryErrors[keyof UpdateDriverHistoryErrors];
-
-export type UpdateDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  200: DriverHistoryRead;
-};
-
-export type UpdateDriverHistoryResponse =
-  UpdateDriverHistoryResponses[keyof UpdateDriverHistoryResponses];
-
-export type CreateDriverHistoryData = {
-  body: DriverHistoryCreate;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query?: never;
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type CreateDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CreateDriverHistoryError =
-  CreateDriverHistoryErrors[keyof CreateDriverHistoryErrors];
-
-export type CreateDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  201: DriverHistoryRead;
-};
-
-export type CreateDriverHistoryResponse =
-  CreateDriverHistoryResponses[keyof CreateDriverHistoryResponses];
 
 export type GetDriverHistorySummaryData = {
   body?: never;

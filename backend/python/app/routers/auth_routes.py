@@ -46,13 +46,9 @@ async def login(
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
     """
-    logger.info(f"Login request: {login_request}")
+    # Never log login_request itself — its repr contains the plaintext password.
+    logger.info(f"Login request for {login_request.email}")
     try:
-        if not login_request.email or not login_request.password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email and password are required",
-            )
         auth_dto, refresh_token = await auth_service.generate_token(
             session, login_request.email, login_request.password
         )
@@ -67,6 +63,8 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         ) from e
+    except HTTPException:
+        raise
     except Exception as e:
         error_message = getattr(e, "message", None)
         raise HTTPException(
@@ -110,6 +108,8 @@ async def refresh(
         set_refresh_token_cookie(response, new_refresh_token)
 
         return auth_data
+    except HTTPException:
+        raise
     except Exception as e:
         if str(e) in _FIREBASE_401_CODES:
             raise HTTPException(status_code=401, detail="Session expired") from e
@@ -141,6 +141,8 @@ async def logout(
 
     try:
         await auth_service.revoke_tokens(session, user_id)
+    except HTTPException:
+        raise
     except Exception as e:
         error_message = getattr(e, "message", None)
         raise HTTPException(
@@ -247,6 +249,7 @@ async def update_password(
         )
 
     try:
+<<<<<<< HEAD
         user = token_obj.user
 
         if user.auth_id is None:
@@ -256,6 +259,11 @@ async def update_password(
             user.auth_id, update_password_request.new_password
         )
 
+=======
+        auth_service.reset_password(email)
+    except HTTPException:
+        raise
+>>>>>>> origin/main
     except Exception as e:
         logger.exception(
             f"Internal error updating password for token {update_password_request.password_reset_token}: {e}"

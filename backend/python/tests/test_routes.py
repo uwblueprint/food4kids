@@ -19,7 +19,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_self_driver_or_admin
+from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
 from app.models.enum import ProgressEnum
 from app.models.location import Location
@@ -290,7 +290,7 @@ class TestDriverRoutes:
         from app.models.user import User
 
         self_client = await client_with_overrides(
-            {require_self_driver_or_admin: lambda: False}
+            {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
         with (
             patch("firebase_admin.auth.update_user") as mock_update_user,
@@ -342,7 +342,7 @@ class TestDriverRoutes:
         original_address = test_driver.address
         original_active = test_driver.active
         self_client = await client_with_overrides(
-            {require_self_driver_or_admin: lambda: False}
+            {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
 
         response = await self_client.put(
@@ -359,6 +359,29 @@ class TestDriverRoutes:
         assert test_driver.phone == original_phone
         assert test_driver.address == original_address
         assert test_driver.active is original_active
+
+    @pytest.mark.asyncio
+    async def test_update_driver_rejects_explicit_null(
+        self,
+        async_client: AsyncClient,
+        test_driver: Any,
+        test_session: AsyncSession,
+    ) -> None:
+        """Explicit null for a non-nullable field is a 422, not a commit-time 500."""
+        from app.models.user import User
+
+        user = await test_session.get(User, test_driver.user_id)
+        assert user is not None
+        original_first_name = user.first_name
+
+        response = await async_client.put(
+            f"/drivers/{test_driver.driver_id}",
+            json={"first_name": None},
+        )
+
+        assert response.status_code == 422
+        await test_session.refresh(user)
+        assert user.first_name == original_first_name
 
     @pytest.mark.asyncio
     async def test_admin_updates_driver_name_and_admin_only_fields(
@@ -423,11 +446,11 @@ class TestDriverRoutes:
     async def test_delete_driver(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """Test DELETE /drivers/{driver_id} deletes a driver."""
+        """DELETE /drivers/{driver_id} removes the driver; their routes are
+        detached (driver_id SET NULL) rather than deleted."""
         response = await async_client.delete(f"/drivers/{test_driver.driver_id}")
         assert response.status_code == 204
 
-        # Verify deletion
         get_response = await async_client.get(f"/drivers/{test_driver.driver_id}")
         assert get_response.status_code == 404
 
@@ -4884,51 +4907,17 @@ class TestDriverHistoryRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_create_driver_history(
+    async def test_list_driver_history_empty(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """POST / creates a history entry."""
-        response = await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 1, "km": 12.5},
-        )
-        assert response.status_code == 201
-        assert response.json()["km"] == 12.5
+        """GET / is a 404 for a driver with no frozen routes.
 
-    @pytest.mark.asyncio
-    async def test_create_driver_history_driver_not_found(
-        self, async_client: AsyncClient
-    ) -> None:
-        """POST / returns 404 when the driver doesn't exist."""
-        response = await async_client.post(
-            f"/drivers/{uuid4()}/history/",
-            json={"year": 2025, "month": 1, "km": 5.0},
-        )
-        assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_create_driver_history_conflict(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """POST / twice for the same (driver, year, month) returns 409."""
-        body = {"year": 2025, "month": 2, "km": 3.0}
-        first = await async_client.post(f"{self._base(test_driver)}/", json=body)
-        assert first.status_code == 201
-        second = await async_client.post(f"{self._base(test_driver)}/", json=body)
-        assert second.status_code == 409
-
-    @pytest.mark.asyncio
-    async def test_list_driver_history(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """GET / lists the driver's history entries."""
-        await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 3, "km": 7.0},
-        )
+        Populated listings are covered in test_mileage_derived.py, which can
+        freeze routes directly — km is derived, so there is no API that
+        creates it.
+        """
         response = await async_client.get(f"{self._base(test_driver)}/")
-        assert response.status_code == 200
-        assert any(h["month"] == 3 for h in response.json())
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_list_driver_history_month_without_year(
@@ -4939,51 +4928,15 @@ class TestDriverHistoryRoutes:
         assert response.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_update_driver_history(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """PATCH /?year=&month= updates the km for that entry."""
-        await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 4, "km": 1.0},
-        )
-        response = await async_client.patch(
-            f"{self._base(test_driver)}/?year=2025&month=4",
-            json={"km": 9.0},
-        )
-        assert response.status_code == 200
-        assert response.json()["km"] == 9.0
+    async def test_export_driver_history_empty(self, async_client: AsyncClient) -> None:
+        """GET /drivers/all/history/{year}/export is a 404 when no driver has
+        km in that year or the one before.
 
-    @pytest.mark.asyncio
-    async def test_delete_driver_history(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """DELETE /?year=&month= removes the entry."""
-        await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 5, "km": 2.0},
-        )
-        response = await async_client.delete(
-            f"{self._base(test_driver)}/?year=2025&month=5"
-        )
-        assert response.status_code == 204
-
-    @pytest.mark.asyncio
-    async def test_export_driver_history(
-        self, async_client: AsyncClient, test_driver: Any
-    ) -> None:
-        """GET /drivers/all/history/{year}/export streams a CSV of all drivers'
-        history (driver_id must be the literal "all")."""
-        await async_client.post(
-            f"{self._base(test_driver)}/",
-            json={"year": 2025, "month": 6, "km": 4.0},
-        )
+        The populated CSV path needs frozen routes to derive km from, so it
+        lives in test_mileage_derived.py.
+        """
         response = await async_client.get("/drivers/all/history/2025/export")
-        assert response.status_code == 200
-        assert "text/csv" in response.headers.get("content-type", "")
-        # The CSV emits a per-year distance column, proving the export ran for
-        # the requested year.
-        assert "distance (km) in 2025" in response.text
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_mark_read_and_is_read_status(

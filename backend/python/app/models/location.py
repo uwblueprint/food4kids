@@ -189,10 +189,10 @@ class ChangedEntry(SQLModel):
     location_id: UUID
     contact_name: str
     address: str | ChangedFieldStr
-    delivery_group: str | None | ChangedFieldOptStr = None
+    delivery_group: str | ChangedFieldOptStr | None = None
     phone_primary: str | ChangedFieldStr
-    phone_secondary: str | None | ChangedFieldOptStr = None
-    num_children: int | None | ChangedFieldOptInt = None
+    phone_secondary: str | ChangedFieldOptStr | None = None
+    num_children: int | ChangedFieldOptInt | None = None
 
 
 class LocationImportResponse(SQLModel):

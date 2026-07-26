@@ -132,6 +132,32 @@ class DriverUpdate(SQLModel):
             raise ValueError("availability must contain 7 slots, Monday = 0")
         return v
 
+    @field_validator(
+        "first_name",
+        "last_name",
+        "phone",
+        "availability",
+        "address",
+        "license_plate",
+        "car_make_model",
+        "active",
+        mode="before",
+    )
+    @classmethod
+    def reject_explicit_null(cls, v: Any) -> Any:
+        """
+        Reject an explicit ``null`` for fields whose columns are non-nullable
+        (every field except ``partner_driver_name``, where null means "clear").
+
+        The ``None`` default only means "not provided" — validators don't run
+        for defaults, so reaching here with ``None`` means the client sent a
+        null. Failing here yields a 422 instead of a NOT NULL violation at
+        commit time.
+        """
+        if v is None:
+            raise ValueError("cannot be null; omit the field to leave it unchanged")
+        return v
+
 
 class DriverRegister(SQLModel):
     """Driver registration request"""

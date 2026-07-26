@@ -12,7 +12,9 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision = 'f40596bcb025'
-down_revision = '58e90e6bdd92'
+# Re-parented onto main's derived-mileage migration when main was merged in;
+# both were originally authored against 58e90e6bdd92, which would leave two heads.
+down_revision = 'b3d4a1c2e5f6'
 branch_labels = None
 depends_on = None
 

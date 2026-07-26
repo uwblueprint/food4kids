@@ -15,7 +15,6 @@ marked ``slow`` because each one pays a full seed cycle.
 import os
 import random
 import re
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
@@ -32,7 +31,6 @@ import app.seed_database as seed_module
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.driver import Driver
-from app.models.driver_history import DriverHistory
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -45,12 +43,6 @@ from app.models.user import User
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "test_locations.csv")
-
-# Driver history spans current_year-HISTORY_YEARS_BACK..current_year,
-# clamped to >= 2025 by the seed itself (seed_database.py:764).
-_CURRENT_YEAR = datetime.now().year
-_MIN_HISTORY_YEAR = max(2025, _CURRENT_YEAR - seed_module.HISTORY_YEARS_BACK)
-_MAX_HISTORY_YEAR = _CURRENT_YEAR
 
 
 def _run_seed_script() -> None:
@@ -120,7 +112,6 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
         ],
     ),
     (RouteGroup, ["name", "drive_date"]),
-    (DriverHistory, ["driver_id", "year", "month", "km"]),
     (Job, ["route_group_id", "progress", "started_at"]),
     (
         SystemSettings,
@@ -250,18 +241,6 @@ class TestDataValidation:
         for route in routes:
             assert route.length >= 0, (
                 f"Route {route.route_id} length {route.length} should be non-negative"
-            )
-
-    @pytest.mark.asyncio
-    async def test_driver_history_years_in_range(
-        self, test_session: AsyncSession
-    ) -> None:
-        history = (await test_session.execute(select(DriverHistory))).scalars().all()
-        assert history, "No driver history seeded"
-        for entry in history:
-            assert _MIN_HISTORY_YEAR <= entry.year <= _MAX_HISTORY_YEAR, (
-                f"DriverHistory year {entry.year} should be in "
-                f"[{_MIN_HISTORY_YEAR}, {_MAX_HISTORY_YEAR}]"
             )
 
     @pytest.mark.asyncio

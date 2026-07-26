@@ -532,41 +532,9 @@
         "title": "DriverAssignmentStatusEnum",
         "type": "string"
       },
-      "DriverHistoryCreate": {
-        "description": "Create request model",
-        "properties": {
-          "km": {
-            "title": "Km",
-            "type": "number"
-          },
-          "month": {
-            "maximum": 12,
-            "minimum": 1,
-            "title": "Month",
-            "type": "integer"
-          },
-          "year": {
-            "maximum": 2100,
-            "minimum": 2025,
-            "title": "Year",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "year",
-          "month",
-          "km"
-        ],
-        "title": "DriverHistoryCreate",
-        "type": "object"
-      },
       "DriverHistoryRead": {
-        "description": "Read response model",
+        "description": "One month's km for a driver.\n\nComputed, never stored: the sum of `Route.length` over the driver's\nfrozen routes (those with a RouteSnapshot) in that month. Reassigning a\nroute or correcting its stops updates history automatically, so there is\nno stored total to drift out of sync.",
         "properties": {
-          "driver_history_id": {
-            "title": "Driver History Id",
-            "type": "integer"
-          },
           "driver_id": {
             "format": "uuid",
             "title": "Driver Id",
@@ -577,14 +545,10 @@
             "type": "number"
           },
           "month": {
-            "maximum": 12,
-            "minimum": 1,
             "title": "Month",
             "type": "integer"
           },
           "year": {
-            "maximum": 2100,
-            "minimum": 2025,
             "title": "Year",
             "type": "integer"
           }
@@ -593,8 +557,7 @@
           "driver_id",
           "year",
           "month",
-          "km",
-          "driver_history_id"
+          "km"
         ],
         "title": "DriverHistoryRead",
         "type": "object"
@@ -616,20 +579,6 @@
           "current_year_km"
         ],
         "title": "DriverHistorySummary",
-        "type": "object"
-      },
-      "DriverHistoryUpdate": {
-        "description": "Update request model, all fields are required for now since we are only updating km",
-        "properties": {
-          "km": {
-            "title": "Km",
-            "type": "number"
-          }
-        },
-        "required": [
-          "km"
-        ],
-        "title": "DriverHistoryUpdate",
         "type": "object"
       },
       "DriverRankingItem": {
@@ -4669,7 +4618,7 @@
     },
     "/drivers/{driver_id}": {
       "delete": {
-        "description": "Delete a driver by ID",
+        "description": "Delete a driver by ID.\n\nTheir routes are detached (driver_id SET NULL), so the driver's km stop\ncounting toward anyone.",
         "operationId": "delete_driver",
         "parameters": [
           {
@@ -4814,70 +4763,8 @@
       }
     },
     "/drivers/{driver_id}/history/": {
-      "delete": {
-        "description": "Delete a monthly driver history entry.",
-        "operationId": "delete_driver_history",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "year",
-            "required": true,
-            "schema": {
-              "maximum": 2100,
-              "minimum": 2025,
-              "title": "Year",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "month",
-            "required": true,
-            "schema": {
-              "maximum": 12,
-              "minimum": 1,
-              "title": "Month",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Delete Driver History",
-        "tags": [
-          "driver-history"
-        ]
-      },
       "get": {
-        "description": "Get driver history with optional year and month.\nRules:\n- No year, no month: return all histories\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
+        "description": "Get monthly km totals, derived from the driver's frozen routes\n(bucketed by drive_date month).\nRules:\n- No year, no month: return all months with activity\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
         "operationId": "get_driver_history",
         "parameters": [
           {
@@ -4959,142 +4846,6 @@
           }
         ],
         "summary": "Get Driver History",
-        "tags": [
-          "driver-history"
-        ]
-      },
-      "patch": {
-        "description": "Updates driver history\nRules:\n- Driver history must exist with (driver_id, year, month)",
-        "operationId": "update_driver_history",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "year",
-            "required": true,
-            "schema": {
-              "maximum": 2100,
-              "minimum": 2025,
-              "title": "Year",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "month",
-            "required": true,
-            "schema": {
-              "maximum": 12,
-              "minimum": 1,
-              "title": "Month",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DriverHistoryUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverHistoryRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Update Driver History",
-        "tags": [
-          "driver-history"
-        ]
-      },
-      "post": {
-        "description": "Creates new driver history\nRules:\n- Driver must exist with driver_id\n- Must be unique: (driver_id, year, month)",
-        "operationId": "create_driver_history",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "driver_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Driver Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DriverHistoryCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverHistoryRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Create Driver History",
         "tags": [
           "driver-history"
         ]
