@@ -196,13 +196,18 @@ resized and nothing can reflow:
 | From | To | Nodes |
 |---|---|---|
 | `Mobile/Paragraph/P2` 16 Regular lh24 | `Desktop/Paragraph/P1` 16 Medium lh24 | 35 |
-| `Mobile/Paragraph/P3` 14 Regular lh18 | `Desktop/Paragraph/P2` 14 SemiBold lh18 | 2 |
+| `Mobile/Paragraph/P3` 14 Regular lh18 | `Desktop/Paragraph/P2` 14 SemiBold lh18 | 0 — skipped |
 
 Confidence came from the sections contradicting themselves rather than from the
 ramp alone: the *same string in the same role* is bound both ways within one
 section — `eric.baker@gmail.com`, `519 349 5094`, `Oct 18`, `8:00AM`, `Edit`,
 `Delete`, `Starts in 15h 30m` each appear as `Desktop/Paragraph/P1` in one
 frame and `Mobile/Paragraph/P2` in another. That is copy-paste drift.
+
+The two `Mobile/Paragraph/P3` dates (`3560:24152`, `3560:24328`) were skipped
+as not worth the churn. Note they are *not* flagged hidden — `visible=true`,
+no hidden ancestor — so they do render, 14px Regular where the ramp says
+SemiBold.
 
 Verified after: 35/35 bound to `Desktop/Paragraph/P1` at 16px lh24, **0 height
 changes** (nothing rewrapped), 14 boxes 1px wider from Medium glyphs and 4
