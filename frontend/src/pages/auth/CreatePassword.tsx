@@ -75,11 +75,17 @@ const AccountCreationConfirmation = () => {
   return (
     <>
       <div className="flex flex-col">
+        {/*
+         * Desktop leaves 48 between the body copy and the button where mobile
+         * and tablet leave 16. The wrapper's own gap-4 supplies 16 of it, so
+         * this makes up the other 32 — the same shape as the form step, which
+         * also spends more on the run-up to the button at desktop.
+         */}
         <Button
           type="button"
           variant="primary"
           shape="default"
-          className="desktop:mt-4 w-full py-3"
+          className="desktop:mt-8 w-full py-3"
           onClick={() => navigate('/')}
         >
           Continue

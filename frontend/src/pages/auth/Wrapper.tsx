@@ -4,6 +4,27 @@ import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
 import logoImgMobile from '@/assets/logos/logo_mobile_one_line.svg';
 import { cn } from '@/lib/utils';
 
+/**
+ * Shared shell for every pre-sign-in screen.
+ *
+ * The designs use two coherent layout systems, not one, and this component
+ * implements both — a screen picks one via `showMobileIllustration`. Measured
+ * against the finalized Figma frames at 375 / 834 / 1440:
+ *
+ *                          block top  illus→heading  heading→form  logo x
+ *   A  Login, Login|Error         64             24            32      20
+ *   B  Forgot Password,          124             40            16      20
+ *      link-sent, Account
+ *      Created
+ *   Create Password           centred              —           32      20
+ *
+ * The heading→subtitle gap is 0 in every system. Both put the logo at x=20.
+ *
+ * The trap in system B is below: the block is pinned to a fixed top through
+ * tablet and only centres at desktop. Centring at tablet lands within half a
+ * pixel on the login screens, so it can look right while being 11px out on
+ * every shorter screen.
+ */
 interface WrapperProps {
   children: React.ReactNode;
   headerTitle: string;
