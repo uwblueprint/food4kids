@@ -93,7 +93,28 @@ now normalised: `I4438:35163;2941:20669`, `I4438:35202;2941:20669` (mobile);
   option (so it would not be Nunito Sans anyway). The test node was deleted.
   Converting the frame's auto-layout off and back on would reorder by
   position but would drop its spacing and padding settings, which is a worse
-  outcome than a missing subheader. Needs a designer to add it by hand.
+  outcome than a missing subheader. Needs to be added by hand.
+
+  Text: "Create an account to access the app". Style, copied from desktop
+  node `4438:34895`: Nunito Sans Medium (500), 16px, line-height 24, `#1c1b1f`.
+  Insert as the second child of "Frame 241", directly after the heading:
+
+  | Viewport | Frame | Parent | After heading | Before |
+  |---|---|---|---|---|
+  | Mobile | `4438:35155` | `4438:35156` | `4438:35157` | `4438:35158` |
+  | Mobile | `4438:35194` | `4438:35195` | `4438:35196` | `4438:35197` |
+  | Mobile | `4438:35214` | `4438:35215` | `4438:35216` | `4438:35217` |
+  | Tablet | `4438:35352` | `4438:35353` | `4438:35354` | `4438:35355` |
+  | Tablet | `4438:35391` | `4438:35392` | `4438:35393` | `4438:35394` |
+  | Tablet | `4438:35411` | `4438:35412` | `4438:35413` | `4438:35414` |
+
+- **"Didn't get a link?" subheader wording** — a copy decision, not a
+  mismatch to mechanically resolve. Desktop (`4438:34882`) ends "We'll send a
+  new **login** link"; mobile (`4438:35312`) and tablet (`4438:35509`) end
+  "a new **setup** link". "Login link" matches the CTA on the login screen
+  that leads here; "setup link" better describes a first-time driver's invite.
+  Out of scope for #208 either way — that screen isn't implemented. Pick one
+  and it's a one-line change.
 
 ## Verified as matching the design notes
 
