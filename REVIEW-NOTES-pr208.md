@@ -8,6 +8,24 @@ Head at time of review: `cf8beabf`
 
 ## Findings
 
+### 0. Subheader added by hand — one weight fix left
+
+Colin added the six create-password subheaders (2026-07-26). Geometry checks
+out: heading→subheader gap 0px in all six, matching desktop; wrapper→form gap
+24px on all three mobile frames and 32px on all three tablet frames; x aligned
+to the heading; 16px/24 line-height, `#1c1b1f` throughout.
+
+One inconsistency: all six are **Nunito Sans Regular (400)**. Per
+`Wrapper.tsx` (`text-m-p2 tablet:font-medium`) and the ramp note in
+`index.css`, the subtitle is Regular on mobile but **Medium (500) from tablet
+up** — and desktop's subheader is Medium. So the three mobile ones are right;
+the three tablet ones should be Medium: `7601:30613`, `7601:30618`,
+`7601:30622`. No font-weight setter exists in the plugin, so this needs doing
+by hand.
+
+Not cross-checked: desktop's wrapper is the last child of its parent, so
+there is no desktop wrapper→form gap to compare the 24/32px against.
+
 ### 1. Resend cooldown is 60s; the design says 10s
 
 `frontend/src/pages/auth/ForgotPassword.tsx` — `ResetLinkConfirmation` starts
@@ -20,8 +38,22 @@ node `4438:35103`) says:
 > After 10 seconds, the button will tick down from a 10 second timer until
 > they can resend the link.
 
-Confirm which is intended before commenting — 60s may be a deliberate
-anti-abuse choice, but it does not match the spec as written.
+**Recommendation: keep 60s in code, change the design note.** 30–60s is the
+usual convention for email resend cooldowns. 10s is short enough that the
+first email often hasn't arrived yet, so it invites a second click that
+produces nothing new for the user and doubles the send volume — which matters
+here, given the project's cost constraints.
+
+Good news on one related worry: `PasswordResetTokenService.create` deletes any
+existing token for the user before inserting, so resending doesn't leave
+multiple live reset tokens.
+
+**The real gap is server-side.** The countdown is client state only
+(`useState(60)` in the component), so it does nothing against direct calls to
+`POST /forgot-password`. There is no rate limiting anywhere in
+`backend/python/app/` — no slowapi, no limiter, no throttling. With a known
+address, that endpoint can be used to mail-bomb a volunteer and to burn email
+quota. Worth raising as its own review point, independent of the timer value.
 
 ### 2. Password-criteria copy — FIXED (code + Figma)
 
