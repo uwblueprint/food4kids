@@ -637,3 +637,18 @@ The only desktop designs for it are four frames literally named "Could do sum
 like", and they disagree with each other — one puts the heading at 438, another
 at 448. The code's copy came from `4438:35055`. Nothing to measure against
 until one is promoted, so the harness leaves them unrouted.
+
+### f. Create-password error state: the criteria block sits ~3px high
+
+Only when an error row is showing. With no error, the gap between the confirm
+field and "Password must include:" is 8 in both. With one, the design leaves 12
+and the code still leaves 8, so the criteria list and the button below it are
+~3px high (mobile: design 490 / code 487, carried down to 644 / 641).
+
+Not chased yet — it needs deciding whether the extra 4 belongs to the error row
+or to the criteria block, which is a question about the Field component rather
+than about this screen.
+
+Separately, the frame repeats "Please make sure all password criteria is met"
+under *both* fields. The code says "Please make sure both passwords match"
+under the confirm field, which is what that field's failure actually is.
