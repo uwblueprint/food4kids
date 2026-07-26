@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type {
@@ -7,7 +7,6 @@ import type {
   RouteGroupRead,
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
-import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import type { Column } from '@/common/components';
 import {
@@ -22,10 +21,9 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  SearchBar,
+  TableToolbar,
 } from '@/common/components';
-import { useTableSort } from '@/common/hooks';
-import { cn } from '@/lib/utils';
+import { useRowHighlight, useTableSort } from '@/common/hooks';
 
 import type { GroupsTabState } from '../hooks';
 import { AddRouteGroupModal } from './AddRouteGroupModal';
@@ -104,9 +102,6 @@ const COLUMNS: Column<RouteGroupRead>[] = [
 
 type RouteGroupsTabProps = GroupsTabState;
 
-/** How long a newly added group's row stays highlighted. */
-const HIGHLIGHT_MS = 3000;
-
 export function RouteGroupsTab({
   rows,
   deliveryTypes,
@@ -123,25 +118,9 @@ export function RouteGroupsTab({
   handleApply,
 }: RouteGroupsTabProps) {
   const [addOpen, setAddOpen] = useState(false);
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const { sort, toggleSort } = useTableSort();
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  );
-  const tableWrapRef = useRef<HTMLDivElement>(null);
-  const scrolledIdRef = useRef<string | null>(null);
-
-  // Highlight + scroll for a newly added row — used by both the Add modal
-  // and each row's Duplicate action.
-  const handleCreated = useCallback((routeGroupId: string) => {
-    clearTimeout(highlightTimer.current);
-    scrolledIdRef.current = null;
-    setHighlightedId(routeGroupId);
-    highlightTimer.current = setTimeout(
-      () => setHighlightedId(null),
-      HIGHLIGHT_MS
-    );
-  }, []);
+  // Highlight + scroll for a row that was just added, duplicated, or re-dated.
+  const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
 
   // The kebab lives inside the Status cell (the last column) rather than in
   // its own column: an extra column would compete for the table's leftover
@@ -173,7 +152,7 @@ export function RouteGroupsTab({
               <DriveDateCell
                 routeGroupId={row.route_group_id}
                 driveDate={row.drive_date}
-                onUpdated={() => handleCreated(row.route_group_id)}
+                onUpdated={() => highlightRow(row.route_group_id)}
               />
             ),
           };
@@ -184,72 +163,48 @@ export function RouteGroupsTab({
             render: (row: RouteGroupRead) => (
               <div className="flex items-center justify-between gap-10">
                 <span>{row.status}</span>
-                <RouteGroupActionsCell row={row} onDuplicated={handleCreated} />
+                <RouteGroupActionsCell row={row} onDuplicated={highlightRow} />
               </div>
             ),
           };
         }
         return col;
       }),
-    [handleCreated, searchTerm]
+    [highlightRow, searchTerm]
   );
-
-  // Scroll the just-added group into view once the refetched rows contain it.
-  // Runs again as `rows` updates because the row doesn't exist in the DOM
-  // until the list refetch lands; scrolledIdRef keeps it to one scroll per add.
-  useEffect(() => {
-    if (!highlightedId || scrolledIdRef.current === highlightedId) return;
-    const row = tableWrapRef.current?.querySelector(
-      `[data-row-key="${highlightedId}"]`
-    );
-    if (row) {
-      scrolledIdRef.current = highlightedId;
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [highlightedId, rows]);
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-5">
-          <SearchBar placeholder="Search anything" {...search} />
-          <Button
-            variant="tertiary"
-            shape="circular"
-            className={hasActiveFilters ? 'bg-blue-50' : 'bg-white'}
-            onClick={openFilters}
-          >
-            <FilterLinesIcon className="size-4" />
-          </Button>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button variant="primary" asChild>
-            <Link to="/admin/routes/generation">Generate Routes</Link>
-          </Button>
-          <Button
-            variant="primary"
-            shape="circular"
-            aria-label="Add route group"
-            onClick={() => setAddOpen(true)}
-          >
-            <PlusIcon className="size-5" />
-          </Button>
-        </div>
-      </div>
+      <TableToolbar
+        search={search}
+        showFilter
+        onFilterClick={openFilters}
+        hasActiveFilters={hasActiveFilters}
+        actions={
+          <>
+            <Button variant="primary" asChild>
+              <Link to="/admin/routes/generation">Generate Routes</Link>
+            </Button>
+            <Button
+              variant="primary"
+              shape="circular"
+              aria-label="Add route group"
+              onClick={() => setAddOpen(true)}
+            >
+              <PlusIcon className="size-5" />
+            </Button>
+          </>
+        }
+      />
 
-      <div ref={tableWrapRef}>
+      <div ref={containerRef}>
         <DataTable
           columns={columns}
           rows={rows}
           getRowKey={(r) => r.route_group_id}
           sort={sort}
           onSortChange={toggleSort}
-          getRowClassName={(r) =>
-            cn(
-              'transition-colors duration-500',
-              r.route_group_id === highlightedId && 'bg-blue-50'
-            )
-          }
+          getRowClassName={(r) => getRowClassName(r.route_group_id)}
           emptyState={
             <EmptyState
               title="No routes found"
@@ -263,7 +218,7 @@ export function RouteGroupsTab({
         open={addOpen}
         onOpenChange={setAddOpen}
         deliveryTypes={deliveryTypes}
-        onCreated={handleCreated}
+        onCreated={highlightRow}
       />
 
       <Modal open={filterOpen} onOpenChange={setFilterOpen}>

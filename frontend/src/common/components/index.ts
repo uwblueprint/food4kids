@@ -68,6 +68,7 @@ export {
 export { Spinner } from './Spinner';
 export type { Character, StatisticsCardColor } from './StatisticsCard';
 export { StatisticsCard } from './StatisticsCard';
+export { TableToolbar } from './TableToolbar';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
 export { Textarea } from './Textarea';

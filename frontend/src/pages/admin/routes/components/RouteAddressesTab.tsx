@@ -4,7 +4,6 @@ import type {
   LocationRead,
   LocationStatusEnum,
 } from '@/api/generated/types.gen';
-import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
@@ -19,7 +18,7 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  SearchBar,
+  TableToolbar,
 } from '@/common/components';
 import { useTableSort } from '@/common/hooks';
 import { formatShortDate } from '@/common/utils';
@@ -162,25 +161,20 @@ export function RouteAddressesTab({
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-5">
-          <SearchBar placeholder="Search anything" {...search} />
-          <Button
-            variant="tertiary"
-            shape="circular"
-            className={hasActiveFilters ? 'bg-blue-50' : 'bg-white'}
-            onClick={openFilters}
-          >
-            <FilterLinesIcon className="size-4" />
-          </Button>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button variant="primary">Mark Inactive</Button>
-          <Button variant="primary" shape="circular">
-            <ShareIcon className="size-5" />
-          </Button>
-        </div>
-      </div>
+      <TableToolbar
+        search={search}
+        showFilter
+        onFilterClick={openFilters}
+        hasActiveFilters={hasActiveFilters}
+        actions={
+          <>
+            <Button variant="primary">Mark Inactive</Button>
+            <Button variant="primary" shape="circular">
+              <ShareIcon className="size-5" />
+            </Button>
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

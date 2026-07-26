@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
 import AlertCircleIcon from '@/assets/icons/alert-circle.svg?react';
-import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
 import ShareIcon from '@/assets/icons/share.svg?react';
 import type { Column } from '@/common/components';
 import {
@@ -12,10 +11,14 @@ import {
   Button,
   DataTable,
   HighlightText,
-  SearchBar,
+  TableToolbar,
 } from '@/common/components';
-import { useDebouncedValue, useSearch, useTableSort } from '@/common/hooks';
-import { cn } from '@/lib/utils';
+import {
+  useDebouncedValue,
+  useRowHighlight,
+  useSearch,
+  useTableSort,
+} from '@/common/hooks';
 
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
@@ -68,9 +71,6 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   },
 ];
 
-/** How long a re-dated route's row stays highlighted. */
-const HIGHLIGHT_MS = 3000;
-
 export function RouteRoutesTab() {
   const search = useSearch();
   // Debounced so the driver-name search hits the server once typing pauses.
@@ -79,24 +79,13 @@ export function RouteRoutesTab() {
   const rows = useMemo(() => data?.items ?? [], [data]);
   const { sort, toggleSort } = useTableSort();
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
+  // Highlight + scroll a row after a date edit (re-sorts it) or a driver
+  // reassignment (updates it in place).
+  const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
+  const handleRowChanged = useCallback(
+    (routeId: string) => highlightRow(routeId),
+    [highlightRow]
   );
-  const tableWrapRef = useRef<HTMLDivElement>(null);
-  const scrolledIdRef = useRef<string | null>(null);
-
-  // Highlight and scroll to a row after it changes (date edits re-sort it,
-  // driver reassignments update it in place) — same treatment as Groups.
-  const handleRowChanged = useCallback((routeId: string) => {
-    clearTimeout(highlightTimer.current);
-    scrolledIdRef.current = null;
-    setHighlightedId(routeId);
-    highlightTimer.current = setTimeout(
-      () => setHighlightedId(null),
-      HIGHLIGHT_MS
-    );
-  }, []);
 
   const columns = useMemo<Column<RouteWithDateRead>[]>(
     () => [
@@ -155,20 +144,6 @@ export function RouteRoutesTab() {
     [rows]
   );
 
-  // Scroll the re-dated route into view once the refetched rows place it.
-  // Runs again as `rows` updates because the row may re-sort after the list
-  // refetch lands; scrolledIdRef keeps it to one scroll per change.
-  useEffect(() => {
-    if (!highlightedId || scrolledIdRef.current === highlightedId) return;
-    const row = tableWrapRef.current?.querySelector(
-      `[data-row-key="${highlightedId}"]`
-    );
-    if (row) {
-      scrolledIdRef.current = highlightedId;
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [highlightedId, rows]);
-
   return (
     <>
       {unassignedCount > 0 && !bannerDismissed && (
@@ -183,36 +158,29 @@ export function RouteRoutesTab() {
         </Banner>
       )}
 
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-5">
-          <SearchBar placeholder="Search anything" {...search} />
-          <Button variant="tertiary" shape="circular">
-            <FilterLinesIcon className="size-4" />
-          </Button>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button variant="primary" asChild>
-            <Link to="/admin/routes/generation">Generate Routes</Link>
-          </Button>
-          <Button variant="primary" shape="circular">
-            <ShareIcon className="size-5" />
-          </Button>
-        </div>
-      </div>
+      <TableToolbar
+        search={search}
+        showFilter
+        actions={
+          <>
+            <Button variant="primary" asChild>
+              <Link to="/admin/routes/generation">Generate Routes</Link>
+            </Button>
+            <Button variant="primary" shape="circular">
+              <ShareIcon className="size-5" />
+            </Button>
+          </>
+        }
+      />
 
-      <div ref={tableWrapRef}>
+      <div ref={containerRef}>
         <DataTable
           columns={columns}
           rows={rows}
           getRowKey={(r) => r.route_id}
           sort={sort}
           onSortChange={toggleSort}
-          getRowClassName={(r) =>
-            cn(
-              'transition-colors duration-500',
-              r.route_id === highlightedId && 'bg-blue-50'
-            )
-          }
+          getRowClassName={(r) => getRowClassName(r.route_id)}
           emptyState={
             <EmptyState
               title="No routes found"
