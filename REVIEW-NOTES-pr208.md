@@ -15,10 +15,11 @@ out: heading→subheader gap 0px in all six, matching desktop; wrapper→form ga
 24px on all three mobile frames and 32px on all three tablet frames; x aligned
 to the heading; 16px/24 line-height, `#1c1b1f` throughout.
 
-One inconsistency: all six use `Mobile/Paragraph/P2` (16 Regular). Correct on
-mobile; on tablet it should be `Desktop/Paragraph/P1` (16 Medium) —
-`7601:30613`, `7601:30618`, `7601:30622`. No font-weight setter exists in the
-plugin, so this needs doing by hand.
+One inconsistency, now **FIXED** by hand (see the type-scale sweep below): all
+six used `Mobile/Paragraph/P2` (16 Regular). Correct on mobile; on tablet it
+should be `Desktop/Paragraph/P1` (16 Medium) — `7601:30613`, `7601:30618`,
+`7601:30622`. The plugin has no font-weight or text-style setter, so this could
+not be scripted.
 
 Why: the file has no tablet text styles, and the tablet frames use `Desktop/*`
 styles for *every* text node — heading `Desktop/Heading/H1`, labels
@@ -144,18 +145,48 @@ supporting evidence is that "Return to Log in" on those same frames is already
 the identical class (`text-m-p2 tablet:font-medium`) — so the design treats
 them differently where the implementation does not.
 
-**Do not bulk-fix Tablet - Drivers Screen.** It has 123 nodes on `Mobile/*`
-styles (12 H3, 54 P1, 45 P2, 12 P3) — the whole section is built on the mobile
-scale, which looks deliberate: those frames are widened single-column mobile
-layouts, and their section ids (`3337`/`3551`/`3560`) predate the login ones
-(`4438`) and so predate the June 2026 tablet-uses-desktop-scale decision. Many
-are inside instances, where applying a style just sprays overrides. Needs the
-designer.
+Applied by Colin 2026-07-26 and verified via the REST API: all ten are
+`fontWeight` 500 and *bound* to the shared `Desktop/Paragraph/P1` style rather
+than carrying a hand-typed weight, so later edits to the style will propagate.
+Fills still `#1c1b1f`, widths unchanged. **Tablet - Log In is now clean: 125
+text nodes, zero on `Mobile/*`.**
 
-Consequence worth raising separately: if the drivers tablet screens are
-intentional, the rule as written in `index.css` ("tablet uses the DESKTOP type
-scale") is wrong, and the frontend will render those screens heavier than
-designed once they are built.
+Fehin (2026-06-10) confirms the intent: "the tablet login screens should
+definitely use desktop heading sizes and not the mobile ones."
+
+### The drivers screens have the same drift — and it is not deliberate
+
+I first read the drivers sections' mobile styling as intentional. That was
+wrong. Counting bound styles per section:
+
+| Section | `Mobile/*` text nodes | of total |
+|---|---|---|
+| Mobile - Drivers | 505 | 778 |
+| Tablet - Drivers | 123 | 360 |
+| **Desktop - Drivers** | **139** | 509 |
+
+Desktop is contaminated just as badly as tablet. A deliberate "tablet uses the
+mobile scale" decision would have left desktop clean, so this is drift of the
+same kind Fehin apologised for, not a choice. Grouped by what contains them:
+
+| Group | Tablet | Desktop | Fix |
+|---|---|---|---|
+| Loose nodes, not in any instance | 67 | 80 | direct style application |
+| Inside the **"Address Mobile"** component | 56 | 50 | needs a non-mobile variant |
+| Inside "Announcement Board" | — | 9 | component fix |
+
+The instance halves are the real work: a component *named* `Address Mobile` is
+being placed on tablet and desktop frames. Overriding text styles on those
+instances only sprays overrides that the next component update will fight, so
+it wants a desktop variant. Designer's call, and out of scope for #208.
+
+Also noted while counting: 50 tablet / 81 desktop / 187 mobile text nodes are
+bound to no style at all. Unrelated to this issue, but it means the drivers
+designs are not a reliable source for type until it is cleaned up.
+
+Consequently `index.css` is **correct** as written — tablet does use the
+desktop scale, and the drivers designs are the thing that disagrees. No code
+change; `Wrapper.tsx`'s `text-m-p2 tablet:font-medium` stands.
 
 Clean, no action needed: both Mobile sections (their subtitles are correctly
 `Mobile/P2`; the 14px criteria use `Desktop/Paragraph/P2` only because the
