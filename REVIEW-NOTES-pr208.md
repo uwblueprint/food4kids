@@ -232,10 +232,17 @@ right-aligned countdowns shifted 1px.
   is `Desktop/Paragraph/P2` (14px). If dates are meant to be 14px that is a
   resize, so it was left alone.
 
-Clean, no action needed: both Mobile sections (their subtitles are correctly
-`Mobile/P2`; the 14px criteria use `Desktop/Paragraph/P2` only because the
-mobile scale has no 14px SemiBold), Error Pages and Route Generation
-(desktop-only), Email Templates (different medium).
+Clean, no action needed: Error Pages and Route Generation (desktop-only),
+Email Templates (different medium).
+
+**Correction (2026-07-26):** I originally recorded the Mobile sections as clean,
+excusing their `Desktop/Paragraph/P2` nodes on the grounds that the mobile scale
+has no 14px SemiBold. That is an explanation of the symptom, not evidence of
+intent, and it was wrong to dismiss. The reverse drift is real — 43 nodes on
+**Mobile - Log In** and 9 on **Mobile - Drivers Screens** use `Desktop/*`
+styles. See finding 9: almost all of it comes from shared components authored on
+the desktop scale, so it is a component-library problem rather than 52 stray
+nodes.
 
 ## Hazard: stale duplicates on the Hi-fi page
 
@@ -327,18 +334,37 @@ compute to ~300 (64 top padding + 212 illustration + 24 margin), which matches
 the design's login frames but is 76px short of the 376 the forgot-password
 family uses. Not verified against the running app yet — design side only.
 
-### 9. Password criteria are 16px on mobile, 14px in the design
+### 9. Password criteria: 16px in code, 14px in the design — but the design is not authoritative here
 
 `text-p2` is responsive in `index.css`: `--text-m-p2` (16px) below the tablet
-breakpoint, `--text-p2` (14px) from tablet up. The design specifies 14px
-SemiBold on mobile *and* tablet — it uses `Desktop/Paragraph/P2` on the mobile
-frames because the mobile ramp has no 14px SemiBold. So tablet and desktop
-match and mobile is 2px too large.
+breakpoint, `--text-p2` (14px) from tablet up. So mobile renders 16px where the
+mobile design frames show 14px SemiBold.
 
-Weight is right (600 vs SemiBold); only size differs. Note this is the
-mobile ramp disagreeing with the design, not a stray class — worth deciding
-whether the criteria should opt out of `text-p2` or whether the mobile ramp
-needs a 14px SemiBold entry.
+**Do not "fix" the code to 14px on that basis.** I first read the design's 14px
+as a mobile spec. It isn't — it is inherited. The mobile frames get it from
+shared components authored on the desktop scale, and 40 of the 43
+desktop-styled text nodes on **Mobile - Log In** are inside instances:
+
+| Component | Nodes | Desktop styles it carries onto mobile |
+|---|---|---|
+| `Password` | 18 | Heading/H3, Paragraph/P2 |
+| `Text Field` | 10 | Heading/H3, Paragraph/P2 |
+| `Status Message` | 12 | Paragraph/P2 |
+| loose on the frame | 3 | Paragraph/P2 — the "Password must include:" headings (`4438:35165`, `4438:35204`, `4438:35223`) |
+
+Which means neither side is grounded in a mobile decision:
+
+- the mobile ramp has **no 14px SemiBold** at all (P3 is 14 Regular, P2 is
+  16 Regular), so nothing in it matches what the frames display;
+- the code renders 16px SemiBold, which is also not any mobile style.
+
+So the criteria's mobile type is genuinely unspecified, and picking either
+number would be inventing a spec. Needs the designer.
+
+This is the same failure as `Address Mobile` on the drivers screens, inverted:
+a component authored for one breakpoint instantiated at another. Here it hits
+the shared form components, so it reaches every screen that uses a text field —
+not just this flow.
 
 ### 10. Nits found while measuring
 
