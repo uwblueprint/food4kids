@@ -175,7 +175,7 @@ export function AnnouncementsPanel({
                   className="flex-1"
                   onClick={onEditBoardClick}
                 >
-                  Edit Board
+                  Edit board
                 </Button>
                 <Button
                   type="button"

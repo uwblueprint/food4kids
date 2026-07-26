@@ -38,7 +38,7 @@ export default function ViewUpcomingRouteEmail() {
                 href="Upcoming_Route_URL" 
                 className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[56px] py-[11px] font-nunito text-grey-100 text-[16px] tracking-wide"
                 >
-                    View Route
+                    View route
                 </Button>
             </Section>
 

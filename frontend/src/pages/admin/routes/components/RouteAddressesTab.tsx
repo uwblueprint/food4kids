@@ -65,7 +65,7 @@ export function RouteAddressesTab({
           </Button>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="primary">Mark Inactive</Button>
+          <Button variant="primary">Mark inactive</Button>
           <Button variant="primary" shape="circular">
             <ShareIcon className="size-5" />
           </Button>

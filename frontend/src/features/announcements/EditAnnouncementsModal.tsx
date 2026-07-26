@@ -93,7 +93,7 @@ export function EditAnnouncementsModal({
               {isSaving ? 'Saving…' : 'Save'}
             </Button>
             <Button type="button" onClick={onAddNew} disabled={isSaving}>
-              Add New
+              Add new
             </Button>
           </div>
         </ModalFooter>

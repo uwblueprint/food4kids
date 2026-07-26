@@ -305,10 +305,10 @@ export function ReviewStep() {
       {/* Actions */}
       <div className="flex items-center justify-between">
         <Button variant="tertiary" asChild>
-          <Link to="/admin/routes/generation/validate">Back to Validation</Link>
+          <Link to="/admin/routes/generation/validate">Back to validation</Link>
         </Button>
         <Button variant="primary" onClick={() => setConfirmOpen(true)}>
-          Continue to Configure Routes
+          Continue to configure routes
         </Button>
       </div>
 
@@ -327,7 +327,7 @@ export function ReviewStep() {
               Cancel
             </Button>
             <Button variant="primary" onClick={handleConfirm}>
-              Apply Changes
+              Apply changes
             </Button>
           </ModalFooter>
         </ModalContent>

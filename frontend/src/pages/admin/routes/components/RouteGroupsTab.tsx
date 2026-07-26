@@ -86,7 +86,7 @@ export function RouteGroupsTab({
         </div>
         <div className="flex items-center gap-4">
           <Button variant="primary" asChild>
-            <Link to="/admin/routes/generation">Generate Routes</Link>
+            <Link to="/admin/routes/generation">Generate routes</Link>
           </Button>
           <Button variant="primary" shape="circular">
             <ShareIcon className="size-5" />
