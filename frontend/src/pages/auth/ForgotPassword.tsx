@@ -151,7 +151,10 @@ const ResetLinkConfirmation = ({
           className="desktop:mt-2 w-full py-3"
           onClick={() => navigate('/login')}
         >
-          Back to log in
+          {/* Same destination as the form step's link, so the same words.
+              "login" is the noun — the screen you land on; "log in" is the verb
+              and belongs on the button that performs it. */}
+          Return to login
         </Button>
         <p className="desktop:mt-2 text-m-p2 tablet:font-medium mt-3 py-3 text-center">
           <button

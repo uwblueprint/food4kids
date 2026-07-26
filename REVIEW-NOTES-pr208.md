@@ -736,10 +736,17 @@ survive without appealing to authorship:
 - "Log in" on a primary button reads like it signs you in, on a screen whose
   whole point is that you cannot yet.
 
-Worth settling separately: this flow words the same idea three ways — the form
-says "Return to login" (a text link, and design and code agree), the
-confirmation says "Back to log in" (a button). Link against button is a
-defensible reason to differ, so it is a question rather than a defect.
+**Settled: "Return to login" everywhere.** The flow had worded one idea two
+ways — "Return to login" on the form (a text link) and "Back to log in" on the
+confirmation (a button).
+
+"Back to log in" is the weaker of the two, not the safer one. `log in` is the
+phrasal verb and `login` is the noun, so "return to login" is "return to" plus
+a destination, while "back to log in" puts a verb where the destination goes.
+It only parses as "go back *in order to* log in", which is not how a button
+label is read. Link against button is not a reason to reword the same
+destination, so the code's button and the two frames now both say "Return to
+login".
 
 That screen now matches on every row: 376 / 408 / 508 / 564 on mobile with the
 button at x=138 and the resend link at x=132, and 376 / 420 / 496 / 552 on
@@ -748,3 +755,22 @@ tablet.
 There is also no mobile or tablet frame for the reset flow's *countdown* state.
 The code shows "Send again in 60 seconds" for 60s after sending; the only frame
 with a countdown is "Creation Link Sent", which belongs to the other journey.
+
+
+### Button casing on the mobile and tablet frames
+
+Same generation gap as the headings, on the buttons of the same screens:
+
+| was | is | agrees with |
+|---|---|---|
+| "Log In" ×2 | "Log in" | the 12 other instances, and the code |
+| "Create Account" ×6 | "Create account" | every desktop frame, and the code |
+
+Scoped to the auth screens on purpose. The drivers screens use Title Case for
+their action buttons ("Add Note", "Change Password") and that is their own
+convention, not drift.
+
+The four "Could do sum like" desktop drafts still read "Back to log in" and
+"Back to login". They are explorations, excluded from the export, and left
+alone — but they are the only desktop reference for the reset confirmation, so
+whichever is promoted should be corrected then.
