@@ -202,6 +202,12 @@ export function DesignOverlayHarness() {
   const selectFrame = useCallback(
     (next: ManifestFrame | null | undefined) => {
       if (!next) return;
+      /*
+       * Whatever the notice was about, you have now picked a frame yourself, so
+       * it no longer describes what is on screen. `switchViewport` sets it
+       * again after this call when its own switch had to substitute a screen.
+       */
+      setViewportFallback(null);
       updateWith((prev) => ({
         frameId: next.id,
         manualSrc: null,
@@ -359,7 +365,17 @@ export function DesignOverlayHarness() {
           boxShadow: '0 0 0 1px #3f3f46',
         }}
       >
+        {/*
+         * Keyed on the frame so picking a different one remounts the app.
+         * Several frames share a route — the login screen and its error state,
+         * every create-password state — and without this React keeps the
+         * iframe mounted, so whatever you last drove the app into survives the
+         * switch. You then get one screen's state under another's design,
+         * which reads as a layout bug: the leftover error rows push
+         * everything below them down.
+         */}
         <iframe
+          key={frame?.id ?? state.appPath}
           title="app"
           src={state.appPath}
           style={{
