@@ -30,33 +30,46 @@ export const WrapperWithLogo = ({
       {/* Left Column: Form Section */}
       <div
         className={cn(
-          'tablet:flex desktop:w-1/2 tablet:items-center tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full',
-          /*
-           * Without the illustration the designs centre the content vertically
-           * rather than pin it below a fixed offset: the taller "filled" frames
-           * start higher by exactly the height they gain (522 tall at y=150,
-           * 578 tall at y=122, in an 821 frame). A fixed padding would only be
-           * right at one viewport height.
-           */
-          !showMobileIllustration && 'flex items-center justify-center'
+          'tablet:flex desktop:w-1/2 tablet:justify-center desktop:justify-start desktop:pl-[8.5vw] w-full',
+          showMobileIllustration
+            ? /*
+               * With the illustration the designs pin the block to a fixed top
+               * — 64 on the login screens, 124 on the rest — and they use the
+               * same number at mobile and at tablet. Only desktop centres.
+               * Centring at tablet happened to land within half a pixel on
+               * login (692 tall in 821 centres at 64.5) which is why it looked
+               * right, but on the shorter screens it was 11px out.
+               */
+              'tablet:items-start desktop:items-center'
+            : /*
+               * Without the illustration the designs centre vertically at every
+               * width instead: the taller "filled" frames start higher by
+               * exactly the height they gain (522 tall at y=150, 578 tall at
+               * y=122, in an 821 frame). A fixed padding would only be right at
+               * one viewport height.
+               */
+              'flex items-center justify-center'
         )}
       >
         <div
           className={cn(
             /*
-             * The heading→form gap does not vary by breakpoint in the designs:
-             * login and the password screens are 32 at every width, the
-             * confirmation screens 16 at every width. So it is one value per
-             * screen, overridden via `className`, and never a `tablet:` variant.
+             * `pt-16` is the login screens' fixed top and carries through
+             * tablet; the other screens override it via `className`. Desktop
+             * centres instead, so it zeroes the padding — an asymmetric offset
+             * would bias the centring by half its size.
+             *
+             * `gap-8` is the heading→form gap. 32 on login and the password
+             * screens at every width; the confirmation screens are 16 below
+             * desktop, which they override for themselves.
              */
-            'tablet:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
+            'desktop:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
             /*
-             * Centred by the parent instead (see above), so replace `pt-16`'s
-             * one-sided offset with symmetric padding — anything asymmetric
-             * biases the centring by half its size — and keep the content off
-             * the edges on short viewports. Mobile only: from `tablet` up the
-             * base classes already zero the padding, and leaving the bottom
-             * half of `py-8` behind there pushed the content 16px high.
+             * Centred by the parent at every width (see above), so replace
+             * `pt-16`'s one-sided offset with symmetric padding and keep the
+             * content off the edges on short viewports. Mobile only: from
+             * `tablet` up the design has room for neither, and leaving the
+             * bottom half of `py-8` behind there pushed the content 16px high.
              */
             !showMobileIllustration && 'tablet:py-0 py-8',
             className
