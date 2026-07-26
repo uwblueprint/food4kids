@@ -24,3 +24,5 @@ dist-ssr
 
 # Dev-only Figma exports pulled by scripts/fetch-design-exports.mjs
 public/design-exports/
+public/design-exports.staging/
+public/design-exports.previous/
