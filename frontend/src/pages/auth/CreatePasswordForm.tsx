@@ -27,7 +27,7 @@ export const CreatePasswordForm = ({
 
   const requirements = [
     {
-      label: '8+ characters (12 or more is better)',
+      label: '8+ characters (12 or more is recommended)',
       isSatisfied: password.length >= 8,
     },
     {
