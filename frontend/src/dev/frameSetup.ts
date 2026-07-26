@@ -13,9 +13,14 @@
  * mobile says "Login | Error" where desktop says "Default Log In - Error
  * States".
  *
- * Some states are deliberately absent: they need a password-reset token that
- * exists in the database, which the harness cannot mint. Those are listed in
- * UNREACHABLE so the harness can say so rather than show a silent mismatch.
+ * Where the state is behind a server call the harness answers that one request
+ * itself, rather than asking you to seed a database row and clean it up after.
+ * The panel says when it has, because a stubbed response is a weaker claim than
+ * a real one — good enough to compare layout, not evidence the call works.
+ *
+ * UNREACHABLE is for frames with no screen behind them at all. Nothing to
+ * drive, so the harness says that instead of letting the fallback route look
+ * like a bug.
  */
 
 interface Recipe {
@@ -51,6 +56,104 @@ const until = async (test: () => boolean, timeoutMs = 4000) => {
     await wait(100);
   }
   return false;
+};
+
+/**
+ * Leave the route and come back, so a screen that checks something on mount
+ * checks it again. Needed when the check has already failed by the time the
+ * harness gets the load event: React Query caches the rejection, and only a
+ * remount asks a second time — by which point the stub is in place.
+ */
+const reenterRoute = async (doc: Document) => {
+  const win = doc.defaultView;
+  if (!win) return;
+  const target = win.location.pathname + win.location.search;
+  const leave = (to: string) => {
+    win.history.pushState({}, '', to);
+    win.dispatchEvent(new win.PopStateEvent('popstate'));
+  };
+  leave('/login');
+  await wait(300);
+  leave(target);
+};
+
+/**
+ * Answer one request inside the iframe without touching the server.
+ *
+ * A few frames show a screen that only exists after a write succeeds, and the
+ * write needs a row in the database. Faking the response puts the screen up
+ * with no fixture to create and nothing to clean up afterwards — and since the
+ * harness compares layout, a field value the design never shows is not what is
+ * under test.
+ *
+ * This patches XMLHttpRequest, not fetch: the generated client runs on axios,
+ * which uses XHR in the browser. Only the matching request is answered; every
+ * other one goes to the real implementation through `super`.
+ *
+ * It is a stub, and the panel says so — you are looking at the app's own
+ * rendering of a response it believes, not a round trip.
+ */
+const stubResponse = (
+  doc: Document,
+  matches: (url: string, method: string) => boolean,
+  status: number,
+  payload: unknown
+) => {
+  const win = doc.defaultView;
+  if (!win) return;
+  const Real = win.XMLHttpRequest;
+  const body = JSON.stringify(payload);
+  win.XMLHttpRequest = class extends Real {
+    private stubbed = false;
+
+    override open(method: string, url: string | URL): void {
+      this.stubbed = matches(String(url), method.toUpperCase());
+      super.open(method, url, true);
+    }
+
+    override send(payload?: Document | XMLHttpRequestBodyInit | null): void {
+      if (!this.stubbed) {
+        super.send(payload);
+        return;
+      }
+      // The instance shadows the prototype's readonly getters.
+      const fields = {
+        readyState: 4,
+        status,
+        statusText: 'OK',
+        response: body,
+        responseText: body,
+      };
+      for (const [key, value] of Object.entries(fields)) {
+        Object.defineProperty(this, key, { value, configurable: true });
+      }
+      // Asynchronously, so the caller has finished wiring its handlers up.
+      setTimeout(() => {
+        this.dispatchEvent(new win.Event('readystatechange'));
+        this.dispatchEvent(new win.ProgressEvent('load'));
+        this.dispatchEvent(new win.ProgressEvent('loadend'));
+      }, 0);
+    }
+
+    override getAllResponseHeaders(): string {
+      return this.stubbed
+        ? 'content-type: application/json\r\n'
+        : super.getAllResponseHeaders();
+    }
+  };
+};
+
+/** Enough of a registration response for the auth store to accept it. */
+const REGISTERED = {
+  auth: {
+    access_token: 'design-overlay-stub',
+    id: '00000000-0000-4000-8000-000000000001',
+    first_name: 'Sam',
+    last_name: 'Driver',
+    full_name: 'Sam Driver',
+    email: 'driver@example.com',
+  },
+  driver: { role: 'Driver' },
 };
 
 const RECIPES: Recipe[] = [
@@ -113,6 +216,42 @@ const RECIPES: Recipe[] = [
     },
   },
   {
+    labels: ['Account Created', 'Redo Log in Driver'],
+    describe: 'created an account (registration response stubbed)',
+    run: async (doc) => {
+      stubResponse(
+        doc,
+        (url, method) => method === 'POST' && url.includes('/drivers/register'),
+        201,
+        REGISTERED
+      );
+      const fields = doc.querySelectorAll<HTMLInputElement>(
+        'input[type=password]'
+      );
+      if (fields.length < 2) return;
+      // Has to satisfy every criterion, or the form stops at its own validation.
+      setValue(fields[0], 'Securepassword123!');
+      setValue(fields[1], 'Securepassword123!');
+      doc.querySelector('form')?.requestSubmit();
+      await until(() => /Account created/.test(doc.body.innerText));
+    },
+  },
+  {
+    labels: ['Forgot Password | Driver Create Password Section'],
+    describe: 'accepted the reset token (validation stubbed)',
+    run: async (doc) => {
+      stubResponse(
+        doc,
+        (url) => url.includes('/auth/validate-reset-token'),
+        200,
+        {}
+      );
+      // The check runs as the screen mounts, so it has already failed by now.
+      await reenterRoute(doc);
+      await until(() => /Enter new password/.test(doc.body.innerText));
+    },
+  },
+  {
     labels: ['First Time Login - Empty State'],
     describe: 'submitted the form empty',
     run: async (doc) => {
@@ -123,17 +262,15 @@ const RECIPES: Recipe[] = [
 ];
 
 /**
- * States that need a password-reset token row in the database. The app checks
- * the token before it will render them, so no amount of clicking gets there
- * from a placeholder UUID — mint a real one and put it in the Page field.
+ * Frames with no screen behind them at all, as opposed to a screen in a state
+ * the harness has to reach. Nothing to drive; the design is simply ahead of the
+ * build, and saying so beats letting the fallback route look like a bug.
  */
 const UNREACHABLE: Record<string, string> = {
-  'Account Created':
-    'needs a real reset token — the confirmation only appears after the password POST succeeds',
-  'Redo Log in Driver':
-    'needs a real reset token — the confirmation only appears after the password POST succeeds',
-  'Forgot Password | Driver Create Password Section':
-    'needs a real reset token — the form is behind a token-validity check',
+  'No Account Yet | Get Link':
+    'the "Didn\u2019t get a link?" screen is not built yet — the route falls back to /login',
+  'No Account Yet - Get Login Link':
+    'the "Didn\u2019t get a link?" screen is not built yet — the route falls back to /login',
 };
 
 export const setupFor = (label: string | undefined) =>
