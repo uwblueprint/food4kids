@@ -62,8 +62,11 @@ const ROUTES = {
   'No Account Yet | Get Link': '/login',
   'Forgot Password': '/forgot-password',
   'Forgot Password Link Sent': '/forgot-password',
-  'Resend Link': '/forgot-password',
-  'Creation Link Sent': '/forgot-password',
+  // "Resend Link" and "Creation Link Sent" are NOT this screen, despite the
+  // shared heading: their bodies say "a link to create your account" where this
+  // one says "a password reset link". They belong to the account-creation link
+  // flow, which is not built, so they stay unrouted rather than being compared
+  // against the reset confirmation.
   'Driver | Create Password': `/create-password/${DEMO_TOKEN}`,
   'Driver | Create Password Filled': `/create-password/${DEMO_TOKEN}`,
   'Account Created': `/create-password/${DEMO_TOKEN}`,

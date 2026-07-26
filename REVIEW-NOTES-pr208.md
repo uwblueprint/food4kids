@@ -699,16 +699,27 @@ One inconsistency that came out of that survey and is **not** this PR's to fix:
 sitting next to `Page not found` and `Something went wrong` — same surface,
 same component, two rules.
 
-### Still open on the link-sent frames
+### The link-sent frames: one stale heading, two different screens
 
-Their copy was deliberately left alone. All three mobile/tablet frames read
-"Creation link sent", but their names say they are two different things —
-"Creation Link Sent" (an account-creation link) and "Forgot Password Link Sent"
-/ "Resend Link" (a reset link). The code implements only the reset one, as
-"Reset link sent". Changing all three to match the code would erase a
-distinction the frame names claim exists, so it needs the product answer first:
-is there a separate account-creation link screen, or is one set of frames
-redundant?
+Reading the bodies rather than the names settles it. Two of the three are a
+different screen, not a mislabelled copy of this one:
 
-The same applies to "Log in" vs the code's "Back to log in" and "Resend link"
-vs "Send link again" on those frames.
+| frame | body |
+|---|---|
+| Forgot Password Link Sent | "…we've sent a **password reset link**…" |
+| Creation Link Sent | "…we've sent a **link to create your account**…" |
+| Resend Link | "…we've sent a **link to create your account**…" |
+
+So only "Forgot Password Link Sent" belongs to the flow this PR implements, and
+its heading had been left at "Creation link sent" while its body was updated to
+the reset wording. Fixed on mobile and tablet.
+
+The other two are the account-creation link journey — the same one behind "No
+Account Yet | Get Link", which is designed but not built. They were routed at
+`/forgot-password` and driven into the reset confirmation, so the harness was
+comparing a creation-link design against reset-flow code. They are now unrouted
+and named as unbuilt, alongside the other frames in that journey.
+
+Their "Log in" / "Resend link" labels are therefore not drift against the code:
+they belong to a screen the code does not have. The desktop drafts for that
+journey are "Login link sent" and "Login link resent".

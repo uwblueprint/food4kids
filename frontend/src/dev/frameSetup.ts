@@ -200,12 +200,7 @@ const RECIPES: Recipe[] = [
     },
   },
   {
-    labels: [
-      'Forgot Password Link Sent',
-      'Creation Link Sent',
-      'Resend Link',
-      'Could do sum like',
-    ],
+    labels: ['Forgot Password Link Sent'],
     describe: 'requested a reset link',
     run: async (doc) => {
       const email = doc.querySelector<HTMLInputElement>('input[type=email]');
@@ -261,16 +256,22 @@ const RECIPES: Recipe[] = [
   },
 ];
 
+const NOT_BUILT =
+  'the account-creation link flow is designed but not built — nothing to compare against';
+
 /**
  * Frames with no screen behind them at all, as opposed to a screen in a state
  * the harness has to reach. Nothing to drive; the design is simply ahead of the
  * build, and saying so beats letting the fallback route look like a bug.
  */
 const UNREACHABLE: Record<string, string> = {
-  'No Account Yet | Get Link':
-    'the "Didn\u2019t get a link?" screen is not built yet — the route falls back to /login',
-  'No Account Yet - Get Login Link':
-    'the "Didn\u2019t get a link?" screen is not built yet — the route falls back to /login',
+  'No Account Yet | Get Link': NOT_BUILT,
+  'No Account Yet - Get Login Link': NOT_BUILT,
+  // Their bodies say "a link to create your account", not "a password reset
+  // link" — same journey as the screen above, and equally unbuilt. Only
+  // "Forgot Password Link Sent" belongs to the reset flow the code implements.
+  'Creation Link Sent': NOT_BUILT,
+  'Resend Link': NOT_BUILT,
 };
 
 export const setupFor = (label: string | undefined) =>
