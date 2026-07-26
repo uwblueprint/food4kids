@@ -182,12 +182,12 @@ export function AnnouncementsPanel({
                   className="flex-1"
                   onClick={onCreateClick}
                 >
-                  Create Announcement
+                  Create announcement
                 </Button>
               </div>
             ) : (
               <Button type="button" className="w-full" onClick={onCreateClick}>
-                Create Announcement
+                Create announcement
               </Button>
             )}
           </footer>
