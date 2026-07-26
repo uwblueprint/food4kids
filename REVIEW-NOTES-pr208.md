@@ -66,17 +66,24 @@ the Account Created confirmation all keep it). Added
 `showMobileIllustration` (default true); `CreatePassword` passes
 `step === 'CONFIRMATION'` and `ResetPassword` passes `false`.
 
-## Still divergent — not yet decided
+### 6. Screen headings — FIXED (Figma)
 
-Same shape as the ones already resolved (desktop agrees with the code, mobile
-and tablet don't), so the same "make Figma match desktop" call would settle
-them — but they're titles, so worth confirming rather than assuming:
+- Create-password heading: mobile/tablet "Create Password" → "Create a
+  password", matching desktop and the code. Six frames: `4438:35157`,
+  `35196`, `35216` (mobile); `35354`, `35393`, `35413` (tablet).
+- Forgot-password heading: here *desktop* was the outlier, so `4438:35025`
+  "Forgot password" → "Forgot password?", matching mobile/tablet and the code.
 
-- Create-password heading: desktop "Create a password" + subheader "Create an
-  account to access the app"; mobile/tablet just "Create Password" with no
-  subheader. The code follows desktop.
-- Forgot-password heading: desktop "Forgot password"; mobile/tablet and the
-  code have "Forgot password?" — here it's *desktop* that's the odd one out.
+## Still open in Figma
+
+- **Create-password subheader.** Desktop and the code have "Create an account
+  to access the app" under the heading; mobile and tablet have no subheader at
+  all. Not added: the frames are auto-layout, and the plugin's `create_text`
+  appends as the last child with no way to reorder, so a new node lands at the
+  bottom of the form rather than under the heading. `clone_node` can't
+  reparent either. Needs a designer to add it by hand.
+- Nit, not raised: mobile/tablet label reads "Confirm Password"; desktop and
+  the code use "Confirm password".
 
 ## Verified as matching the design notes
 
