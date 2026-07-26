@@ -293,6 +293,62 @@ have landed on the wrong page.)
   ("If an account exists for that email…") — matches the *Creation Link Sent*
   note.
 
+## Measured against the design: mobile create-password (2026-07-26)
+
+Overlay harness + Figma node geometry, both in design pixels. Frame
+`4438:35155` (375×821) vs the running app.
+
+| Element | Design y | Code y | Design type | Code type |
+|---|---|---|---|---|
+| logo | 20 (111×28) | 20 | — | — |
+| `h1` "Create a password" | **154** | **64** | 24 Bold | 24 700 ✓ |
+| subheader | 186 | 96 | 16 Regular | 16 400 ✓ |
+| label "Enter new password" | 234 | 152 | 18 Bold | 18 700 ✓ |
+| "Password must include:" | 434 | 344 | **14 SemiBold** | **16 600** ✗ |
+| first criterion | 454 | 371 | **14 SemiBold** | **16 600** ✗ |
+| submit button | 588 | 524 | 16 Medium | 16 500 ✓ |
+
+Left edge is 20px in both, and every font size matches except the criteria.
+
+### 8. Mobile create-password sits ~90px too high — caused by finding 3
+
+The design keeps the space where the illustration would be: nothing but the
+logo occupies its top 154px (verified — the only node above the heading is
+`image 58`, the 111×28 logo at y=20). Removing the graphic in code collapsed
+that space entirely, so the heading rides up to y=64.
+
+So finding 3 was right that the graphic goes, but incomplete: it dropped the
+spacing too. The design's mobile heading positions are 154 (create-password,
+no illustration), 300 (login), 376 (forgot password and the confirmations) —
+three distinct values, so this is per-screen spacing rather than one rule.
+
+Worth checking as part of the walkthrough: the code's illustration screens
+compute to ~300 (64 top padding + 212 illustration + 24 margin), which matches
+the design's login frames but is 76px short of the 376 the forgot-password
+family uses. Not verified against the running app yet — design side only.
+
+### 9. Password criteria are 16px on mobile, 14px in the design
+
+`text-p2` is responsive in `index.css`: `--text-m-p2` (16px) below the tablet
+breakpoint, `--text-p2` (14px) from tablet up. The design specifies 14px
+SemiBold on mobile *and* tablet — it uses `Desktop/Paragraph/P2` on the mobile
+frames because the mobile ramp has no 14px SemiBold. So tablet and desktop
+match and mobile is 2px too large.
+
+Weight is right (600 vs SemiBold); only size differs. Note this is the
+mobile ramp disagreeing with the design, not a stray class — worth deciding
+whether the criteria should opt out of `text-p2` or whether the mobile ramp
+needs a 14px SemiBold entry.
+
+### 10. Nits found while measuring
+
+- The two "Driver | Create Password Filled" mobile frames disagree with each
+  other: heading at 154 in one, 126 in the other.
+- The design's button reads "Create Account"; the code says "Create account".
+  The flow is sentence case throughout (see finding 7), so the code is right
+  and the Figma button wants changing — but it is inside a `UI/Button`
+  component instance, so it needs care.
+
 ## Screens still to walk
 
 Four routes, checked at mobile (375) / tablet (834) / desktop (1440):
