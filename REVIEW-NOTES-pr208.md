@@ -723,21 +723,27 @@ and named as unbuilt, alongside the other frames in that journey.
 The desktop drafts for that journey are "Login link sent" and "Login link
 resent" — unrouted, so nothing compares against them either.
 
-That does leave two labels on the *reset* frame genuinely differing from the
-code, which I have not changed because they are a copy choice rather than a
-contradiction:
+Two labels on the *reset* frame were stale in the same way, and are now the
+code's strings: "Log in" → "Back to log in", "Resend link" → "Send link again".
 
-| | mobile + tablet frame | code | desktop draft |
-|---|---|---|---|
-| primary button | "Log in" | "Back to log in" | "Back to log in" |
-| resend link | "Resend link" | "Send link again" | "Send link again" |
+"Match the desktop frame" was the wrong test for these — there is no finalized
+desktop version, only the "Could do sum like" explorations, and those disagree
+with each other ("Back to log in" against "Back to login"). The reasons that
+survive without appealing to authorship:
 
-The code agrees with the desktop draft on both, and the heading on these frames
-was stale in exactly the same way, so they are probably the same generation gap
-— but "Log in" is a defensible label, so it wants a yes rather than a guess.
+- "Send link again" pairs with the same control's other state, which reads
+  "Send again in 60 seconds". "Resend link" breaks that pairing.
+- "Log in" on a primary button reads like it signs you in, on a screen whose
+  whole point is that you cannot yet.
 
-Positions on that screen already match exactly (376 / 408 / 508 / 564 on mobile,
-376 / 420 / 496 / 552 on tablet); only the strings differ.
+Worth settling separately: this flow words the same idea three ways — the form
+says "Return to login" (a text link, and design and code agree), the
+confirmation says "Back to log in" (a button). Link against button is a
+defensible reason to differ, so it is a question rather than a defect.
+
+That screen now matches on every row: 376 / 408 / 508 / 564 on mobile with the
+button at x=138 and the resend link at x=132, and 376 / 420 / 496 / 552 on
+tablet.
 
 There is also no mobile or tablet frame for the reset flow's *countdown* state.
 The code shows "Send again in 60 seconds" for 60s after sending; the only frame

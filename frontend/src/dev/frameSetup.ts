@@ -201,7 +201,13 @@ const RECIPES: Recipe[] = [
   },
   {
     labels: ['Forgot Password Link Sent'],
-    describe: 'requested a reset link',
+    /*
+     * The frame shows the resend control idle, but sending starts a 60s
+     * cooldown, so for the first minute the app reads "Send again in N
+     * seconds" where the design reads "Send link again". Same row, same
+     * position — only the string differs, and only until it expires.
+     */
+    describe: 'requested a reset link (resend is in its 60s cooldown)',
     run: async (doc) => {
       const email = doc.querySelector<HTMLInputElement>('input[type=email]');
       if (!email) return;
