@@ -50,11 +50,15 @@ export const WrapperWithLogo = ({
              * screen, overridden via `className`, and never a `tablet:` variant.
              */
             'tablet:pt-0 tablet:px-0 tablet:max-w-126 desktop:max-w-100 flex w-full flex-col gap-8 px-5 pt-16',
-            // Centred by the parent instead (see above), so replace `pt-16`'s
-            // one-sided offset with symmetric padding — anything asymmetric
-            // would bias the centring — and keep the content off the edges on
-            // short viewports.
-            !showMobileIllustration && 'py-8',
+            /*
+             * Centred by the parent instead (see above), so replace `pt-16`'s
+             * one-sided offset with symmetric padding — anything asymmetric
+             * biases the centring by half its size — and keep the content off
+             * the edges on short viewports. Mobile only: from `tablet` up the
+             * base classes already zero the padding, and leaving the bottom
+             * half of `py-8` behind there pushed the content 16px high.
+             */
+            !showMobileIllustration && 'tablet:py-0 py-8',
             className
           )}
         >
