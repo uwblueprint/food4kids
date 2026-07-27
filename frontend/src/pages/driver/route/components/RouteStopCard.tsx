@@ -31,21 +31,21 @@ export function RouteStopCard({ stop }: RouteStopCardProps) {
   const subLine = [city, boxLabel].filter(Boolean).join(' · ');
 
   return (
-    <details className="group border-grey-300 rounded-xl border bg-white p-4">
-      <summary className="flex cursor-pointer list-none items-start gap-3 [&::-webkit-details-marker]:hidden">
+    <details className="group border-grey-300 rounded-xl border bg-white p-3">
+      <summary className="flex cursor-pointer list-none items-start gap-4 [&::-webkit-details-marker]:hidden">
         {/* Stop number badge */}
         <span className="bg-grey-200 text-p2 text-grey-500 flex size-7 shrink-0 items-center justify-center rounded-full font-bold">
           {stop.stop_number}
         </span>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="text-p1 text-grey-500 font-semibold break-words">
-            {street}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <p className="text-p1 text-grey-500 break-words">{street}</p>
+          <p className="text-p2 tablet:font-semibold text-grey-500">
+            {subLine}
           </p>
-          <p className="text-p2 text-grey-400">{subLine}</p>
         </div>
 
-        <ChevronDown className="text-grey-400 size-5 shrink-0 transition-transform group-open:rotate-180" />
+        <ChevronDown className="text-grey-500 size-6 shrink-0 transition-transform group-open:rotate-180" />
       </summary>
 
       {/* Expanded content */}

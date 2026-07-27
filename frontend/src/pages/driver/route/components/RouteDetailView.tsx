@@ -109,10 +109,10 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
       {/* Back link */}
       <Link
         to="/driver/home"
-        className="text-h2 flex w-fit items-center gap-1 font-bold text-blue-300"
+        className="text-h2 font-nunito tablet:font-bold flex w-fit items-center gap-1 font-semibold text-blue-400"
       >
-        <ChevronLeft className="size-5" />
-        Back to Home
+        <ChevronLeft className="size-6" />
+        Back to home
       </Link>
 
       {/* Header */}
@@ -120,11 +120,15 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         <h1 className="text-h1 text-grey-500 font-bold">
           {route.name || 'Route'}
         </h1>
-        {subtitle && <p className="text-p2 text-grey-400">{subtitle}</p>}
+        {subtitle && (
+          <p className="text-m-p2 tablet:font-medium text-grey-400">
+            {subtitle}
+          </p>
+        )}
       </div>
 
       {/* Meta: 2-column grid on mobile, single inline row from tablet up. */}
-      <div className="text-p2 text-grey-500 [&_svg]:text-grey-400 tablet:flex tablet:flex-wrap tablet:items-center tablet:gap-x-5 grid grid-cols-2 gap-x-4 gap-y-1">
+      <div className="text-p1 text-grey-500 [&_svg]:text-grey-400 tablet:flex tablet:flex-wrap tablet:items-center tablet:gap-x-6 grid grid-cols-2 gap-x-4 gap-y-1">
         {route.delivery_type && (
           <span className="flex items-center gap-1.5">
             <Users className="size-4" />
@@ -152,10 +156,12 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
 
       {/* Map */}
       <div className="flex flex-col gap-3">
-        <h2 className="text-h3 text-grey-500 font-bold">Map View</h2>
+        <h2 className="text-h3 font-nunito-sans text-grey-500 font-bold">
+          Map View
+        </h2>
         <RouteMap
           encodedPolyline={route.encoded_polyline}
-          className="tablet:h-[360px] h-[45vh]"
+          className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
         />
         <div className="grid grid-cols-2 gap-3">
           <Button asChild variant="secondary" className="tablet:w-full">
@@ -175,7 +181,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
             Couldn&apos;t open Google Maps directions. Please try again.
           </p>
         )}
-        <p className="text-p2 text-grey-500">
+        <p className="text-m-p2 tablet:font-medium text-grey-500">
           If you have any issues with deliveries or reaching families, please
           contact Food4Kids.
         </p>
@@ -183,7 +189,9 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
 
       {/* Stops */}
       <div className="flex flex-col gap-3">
-        <h2 className="text-h3 text-grey-500 font-bold">All Stops</h2>
+        <h2 className="text-h3 font-nunito-sans text-grey-500 font-bold">
+          All Stops
+        </h2>
         {stops.length === 0 ? (
           <p className="text-p2 text-grey-500">This route has no stops.</p>
         ) : (
