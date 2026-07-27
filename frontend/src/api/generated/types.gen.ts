@@ -1844,6 +1844,14 @@ export type RouteStopDetailRead = {
    */
   contact_name: string;
   /**
+   * Latitude
+   */
+  latitude?: number | null;
+  /**
+   * Longitude
+   */
+  longitude?: number | null;
+  /**
    * Note Chain Id
    */
   note_chain_id?: string | null;

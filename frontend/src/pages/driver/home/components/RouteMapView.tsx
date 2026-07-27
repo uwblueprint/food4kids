@@ -26,6 +26,10 @@ export function RouteMapView({ routeId, className }: RouteMapViewProps) {
   // TODO: Add loading state once design has drawn up the loading screen
 
   return (
-    <RouteMap encodedPolyline={route.encoded_polyline} className={className} />
+    <RouteMap
+      encodedPolyline={route.encoded_polyline}
+      stops={route.stops}
+      className={className}
+    />
   );
 }

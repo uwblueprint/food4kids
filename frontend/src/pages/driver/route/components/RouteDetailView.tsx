@@ -174,6 +174,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         </h2>
         <RouteMap
           encodedPolyline={route.encoded_polyline}
+          stops={stops}
           className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
         />
         <div className="grid grid-cols-2 gap-3">

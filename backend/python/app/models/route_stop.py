@@ -92,3 +92,8 @@ class RouteStopDetailRead(SQLModel):
     phone_secondary: str | None = None
     boxes: int
     note_chain_id: UUID | None = None
+    # Where to draw the stop on the route map. Nullable because a Location is
+    # only geocoded once it has been through import; a snapshot always has
+    # coordinates, so frozen routes are never missing them.
+    latitude: float | None = None
+    longitude: float | None = None

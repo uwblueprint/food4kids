@@ -364,6 +364,8 @@ class RouteService:
                     children_per_box,
                 ),
                 note_chain_id=location.note_chain_id,
+                latitude=(snapshot.latitude if snapshot else location.latitude),
+                longitude=(snapshot.longitude if snapshot else location.longitude),
             )
             for stop, location, snapshot in rows
         ]

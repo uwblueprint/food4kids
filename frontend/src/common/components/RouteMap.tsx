@@ -2,7 +2,13 @@ import 'leaflet/dist/leaflet.css';
 
 import polyline from '@mapbox/polyline';
 import { useEffect, useMemo } from 'react';
-import { MapContainer, Polyline, TileLayer, useMap } from 'react-leaflet';
+import {
+  CircleMarker,
+  MapContainer,
+  Polyline,
+  TileLayer,
+  useMap,
+} from 'react-leaflet';
 
 import { cn } from '@/lib/utils';
 
@@ -13,10 +19,28 @@ const DEFAULT_ZOOM = 12;
 // caps. No white casing — the frames draw the line bare over the map.
 const POLYLINE_COLOR = '#195586'; // --color-blue-400
 const POLYLINE_WEIGHT = 5;
+/*
+ * Stop dots: a 14px blue-400 disc inside a 5px white ring, per the frames.
+ * Leaflet centres a stroke on the path, so the radius is the 7px disc plus
+ * half the ring — that puts the white between 7px and 12px out, and the fill
+ * shows through as a 7px disc underneath it.
+ */
+const STOP_RADIUS = 9.5;
+const STOP_RING_WEIGHT = 5;
+const STOP_RING_COLOR = '#ffffff'; // --color-grey-100
+
+/** A stop to mark on the line. Coordinates are nullable upstream — a location
+ *  that has not been geocoded yet simply isn't drawn. */
+export interface RouteMapStop {
+  stop_number: number;
+  latitude?: number | null;
+  longitude?: number | null;
+}
 
 export interface RouteMapProps {
   /** Google-encoded polyline string (precision 5, [lat, lng] order). */
   encodedPolyline: string | null | undefined;
+  stops?: RouteMapStop[];
   className?: string;
 }
 
@@ -31,7 +55,7 @@ function FitToPolyline({ coords }: { coords: [number, number][] }) {
   return null;
 }
 
-export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
+export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
   const coords = useMemo<[number, number][]>(() => {
     if (!encodedPolyline) return [];
     try {
@@ -41,7 +65,22 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
     }
   }, [encodedPolyline]);
 
-  const center = coords[0] ?? DEFAULT_CENTER;
+  const stopPoints = useMemo(
+    () =>
+      (stops ?? []).flatMap((stop) =>
+        stop.latitude == null || stop.longitude == null
+          ? []
+          : [
+              {
+                key: stop.stop_number,
+                position: [stop.latitude, stop.longitude] as [number, number],
+              },
+            ]
+      ),
+    [stops]
+  );
+
+  const center = coords[0] ?? stopPoints[0]?.position ?? DEFAULT_CENTER;
 
   return (
     <div
@@ -75,6 +114,20 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
             <FitToPolyline coords={coords} />
           </>
         )}
+        {stopPoints.map(({ key, position }) => (
+          <CircleMarker
+            key={key}
+            center={position}
+            radius={STOP_RADIUS}
+            pathOptions={{
+              color: STOP_RING_COLOR,
+              weight: STOP_RING_WEIGHT,
+              fillColor: POLYLINE_COLOR,
+              fillOpacity: 1,
+              opacity: 1,
+            }}
+          />
+        ))}
       </MapContainer>
     </div>
   );
