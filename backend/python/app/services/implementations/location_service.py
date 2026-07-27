@@ -89,6 +89,18 @@ class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
 
 
+# How many referencing routes to name in a LocationInUseError message.
+IN_USE_SAMPLE_SIZE = 5
+
+
+class LocationInUseError(Exception):
+    """Raised when deleting a location that route stops still reference.
+
+    Deliberately not a ValueError: the router maps ValueError to 404 and
+    this to 409. Deleting would otherwise fail at the FK
+    (route_stops.location_id has no ON DELETE action) with a raw 500."""
+
+
 class LocationService:
     """Service for managing delivery locations with geocoding support"""
 
@@ -472,7 +484,14 @@ class LocationService:
     async def delete_location_by_id(
         self, session: AsyncSession, location_id: UUID
     ) -> None:
-        """Delete location by ID"""
+        """Delete location by ID.
+
+        A location referenced by any route stop (past or future) cannot be
+        hard-deleted — the FK would reject it anyway; this surfaces a clean
+        LocationInUseError (409) with the referencing routes instead of a
+        raw IntegrityError 500. Use in_roster=False to retire a location
+        that has delivery history.
+        """
         try:
             statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
@@ -481,8 +500,43 @@ class LocationService:
             if not location:
                 raise ValueError(f"Location with id {location_id} not found")
 
+            total = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(RouteStop)
+                    .where(RouteStop.location_id == location_id)
+                )
+            ).scalar_one()
+
+            if total:
+                sample = (
+                    await session.execute(
+                        select(Route.name, RouteGroup.drive_date)
+                        .select_from(RouteStop)
+                        .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                        .join(
+                            RouteGroup,
+                            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                        )
+                        .where(RouteStop.location_id == location_id)
+                        .order_by(col(RouteGroup.drive_date))
+                        .limit(IN_USE_SAMPLE_SIZE)
+                    )
+                ).all()
+                routes_desc = ", ".join(
+                    f"'{name}' ({drive_date.date()})" for name, drive_date in sample
+                )
+                more = f" and {total - len(sample)} more" if total > len(sample) else ""
+                raise LocationInUseError(
+                    f"Location is used by {total} route(s): {routes_desc}{more}. "
+                    f"Set in_roster to false to retire it instead of deleting."
+                )
+
             await session.delete(location)
             await session.commit()
+        except LocationInUseError:
+            # Expected outcome, not a failure — don't log it as one.
+            raise
         except Exception as e:
             self.logger.error(f"Failed to delete location by id: {e!s}")
             await session.rollback()

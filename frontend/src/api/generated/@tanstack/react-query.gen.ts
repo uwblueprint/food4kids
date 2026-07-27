@@ -14,7 +14,6 @@ import {
   cancelJob,
   completeDriverRegistration,
   createAnnouncement,
-  createDriverHistory,
   createLocation,
   createLocationGroup,
   createNote,
@@ -22,7 +21,6 @@ import {
   deleteAllLocations,
   deleteAnnouncement,
   deleteDriver,
-  deleteDriverHistory,
   deleteImage,
   deleteLocation,
   deleteLocationGroup,
@@ -32,6 +30,7 @@ import {
   deleteRouteGroup,
   duplicateRouteGroup,
   exportAllDriversHistory,
+  forgotPassword,
   generateJob,
   getAnnouncement,
   getAnnouncements,
@@ -66,20 +65,20 @@ import {
   patchSystemSettings,
   refresh,
   renameDeliveryType,
-  resetPassword,
   reviewLocations,
   sendAnnouncementEmail,
   test,
   testEventEmail,
   updateAnnouncement,
   updateDriver,
-  updateDriverHistory,
   updateLocation,
   updateLocationGroup,
   updateNote,
+  updatePassword,
   updateRoute,
   updateRouteGroup,
   uploadImage,
+  validateResetToken,
 } from '../sdk.gen';
 import type {
   CancelJobData,
@@ -91,9 +90,6 @@ import type {
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
-  CreateDriverHistoryData,
-  CreateDriverHistoryError,
-  CreateDriverHistoryResponse,
   CreateLocationData,
   CreateLocationError,
   CreateLocationGroupData,
@@ -113,9 +109,6 @@ import type {
   DeleteAnnouncementResponse,
   DeleteDriverData,
   DeleteDriverError,
-  DeleteDriverHistoryData,
-  DeleteDriverHistoryError,
-  DeleteDriverHistoryResponse,
   DeleteDriverResponse,
   DeleteImageData,
   DeleteImageError,
@@ -143,6 +136,9 @@ import type {
   DuplicateRouteGroupResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
+  ForgotPasswordData,
+  ForgotPasswordError,
+  ForgotPasswordResponse,
   GenerateJobData,
   GenerateJobError,
   GenerateJobResponse,
@@ -237,9 +233,6 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
-  ResetPasswordData,
-  ResetPasswordError,
-  ResetPasswordResponse,
   ReviewLocationsData,
   ReviewLocationsError,
   ReviewLocationsResponse,
@@ -256,9 +249,6 @@ import type {
   UpdateAnnouncementResponse,
   UpdateDriverData,
   UpdateDriverError,
-  UpdateDriverHistoryData,
-  UpdateDriverHistoryError,
-  UpdateDriverHistoryResponse,
   UpdateDriverResponse,
   UpdateLocationData,
   UpdateLocationError,
@@ -269,6 +259,9 @@ import type {
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
+  UpdatePasswordData,
+  UpdatePasswordError,
+  UpdatePasswordResponse,
   UpdateRouteData,
   UpdateRouteError,
   UpdateRouteGroupData,
@@ -278,6 +271,9 @@ import type {
   UploadImageData,
   UploadImageError,
   UploadImageResponse,
+  ValidateResetTokenData,
+  ValidateResetTokenError,
+  ValidateResetTokenResponse,
 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
@@ -551,6 +547,36 @@ export const sendAnnouncementEmailMutation = (
 };
 
 /**
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPasswordMutation = (
+  options?: Partial<Options<ForgotPasswordData>>
+): UseMutationOptions<
+  ForgotPasswordResponse,
+  AxiosError<ForgotPasswordError>,
+  Options<ForgotPasswordData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ForgotPasswordResponse,
+    AxiosError<ForgotPasswordError>,
+    Options<ForgotPasswordData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await forgotPassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Login
  *
  * Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -638,24 +664,53 @@ export const refreshMutation = (
 };
 
 /**
- * Reset Password
+ * Update Password
  *
- * Triggers password reset for user with specified email (reset link will be emailed)
+ * Update an existing user's password if provided a valid password reset token
  */
-export const resetPasswordMutation = (
-  options?: Partial<Options<ResetPasswordData>>
+export const updatePasswordMutation = (
+  options?: Partial<Options<UpdatePasswordData>>
 ): UseMutationOptions<
-  ResetPasswordResponse,
-  AxiosError<ResetPasswordError>,
-  Options<ResetPasswordData>
+  UpdatePasswordResponse,
+  AxiosError<UpdatePasswordError>,
+  Options<UpdatePasswordData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ResetPasswordResponse,
-    AxiosError<ResetPasswordError>,
-    Options<ResetPasswordData>
+    UpdatePasswordResponse,
+    AxiosError<UpdatePasswordError>,
+    Options<UpdatePasswordData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await resetPassword({
+      const { data } = await updatePassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Validate Reset Token
+ *
+ * Validate that a password reset token exists, isn't used, and hasn't expired.
+ */
+export const validateResetTokenMutation = (
+  options?: Partial<Options<ValidateResetTokenData>>
+): UseMutationOptions<
+  ValidateResetTokenResponse,
+  AxiosError<ValidateResetTokenError>,
+  Options<ValidateResetTokenData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ValidateResetTokenResponse,
+    AxiosError<ValidateResetTokenError>,
+    Options<ValidateResetTokenData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await validateResetToken({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -786,7 +841,10 @@ export const testEventEmailMutation = (
 /**
  * Delete Driver
  *
- * Delete a driver by ID
+ * Delete a driver by ID.
+ *
+ * Their routes are detached (driver_id SET NULL), so the driver's km stop
+ * counting toward anyone.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -868,35 +926,6 @@ export const updateDriverMutation = (
   return mutationOptions;
 };
 
-/**
- * Delete Driver History
- *
- * Delete a monthly driver history entry.
- */
-export const deleteDriverHistoryMutation = (
-  options?: Partial<Options<DeleteDriverHistoryData>>
-): UseMutationOptions<
-  DeleteDriverHistoryResponse,
-  AxiosError<DeleteDriverHistoryError>,
-  Options<DeleteDriverHistoryData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    DeleteDriverHistoryResponse,
-    AxiosError<DeleteDriverHistoryError>,
-    Options<DeleteDriverHistoryData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await deleteDriverHistory({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
 export const getDriverHistoryQueryKey = (
   options: Options<GetDriverHistoryData>
 ) => createQueryKey('getDriverHistory', options);
@@ -904,9 +933,10 @@ export const getDriverHistoryQueryKey = (
 /**
  * Get Driver History
  *
- * Get driver history with optional year and month.
+ * Get monthly km totals, derived from the driver's frozen routes
+ * (bucketed by drive_date month).
  * Rules:
- * - No year, no month: return all histories
+ * - No year, no month: return all months with activity
  * - Year only: return all months for that year
  * - Year + month: return specific month
  * - Month without year: 400 error
@@ -931,69 +961,6 @@ export const getDriverHistoryOptions = (
     },
     queryKey: getDriverHistoryQueryKey(options),
   });
-
-/**
- * Update Driver History
- *
- * Updates driver history
- * Rules:
- * - Driver history must exist with (driver_id, year, month)
- */
-export const updateDriverHistoryMutation = (
-  options?: Partial<Options<UpdateDriverHistoryData>>
-): UseMutationOptions<
-  UpdateDriverHistoryResponse,
-  AxiosError<UpdateDriverHistoryError>,
-  Options<UpdateDriverHistoryData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateDriverHistoryResponse,
-    AxiosError<UpdateDriverHistoryError>,
-    Options<UpdateDriverHistoryData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateDriverHistory({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Create Driver History
- *
- * Creates new driver history
- * Rules:
- * - Driver must exist with driver_id
- * - Must be unique: (driver_id, year, month)
- */
-export const createDriverHistoryMutation = (
-  options?: Partial<Options<CreateDriverHistoryData>>
-): UseMutationOptions<
-  CreateDriverHistoryResponse,
-  AxiosError<CreateDriverHistoryError>,
-  Options<CreateDriverHistoryData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CreateDriverHistoryResponse,
-    AxiosError<CreateDriverHistoryError>,
-    Options<CreateDriverHistoryData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await createDriverHistory({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 export const getDriverHistorySummaryQueryKey = (
   options: Options<GetDriverHistorySummaryData>

@@ -334,35 +334,16 @@ export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
 export type DriverAssignmentStatusEnum = 'Assigned' | 'Unassigned';
 
 /**
- * DriverHistoryCreate
- *
- * Create request model
- */
-export type DriverHistoryCreate = {
-  /**
-   * Km
-   */
-  km: number;
-  /**
-   * Month
-   */
-  month: number;
-  /**
-   * Year
-   */
-  year: number;
-};
-
-/**
  * DriverHistoryRead
  *
- * Read response model
+ * One month's km for a driver.
+ *
+ * Computed, never stored: the sum of `Route.length` over the driver's
+ * frozen routes (those with a RouteSnapshot) in that month. Reassigning a
+ * route or correcting its stops updates history automatically, so there is
+ * no stored total to drift out of sync.
  */
 export type DriverHistoryRead = {
-  /**
-   * Driver History Id
-   */
-  driver_history_id: number;
   /**
    * Driver Id
    */
@@ -395,18 +376,6 @@ export type DriverHistorySummary = {
    * Lifetime Km
    */
   lifetime_km: number;
-};
-
-/**
- * DriverHistoryUpdate
- *
- * Update request model, all fields are required for now since we are only updating km
- */
-export type DriverHistoryUpdate = {
-  /**
-   * Km
-   */
-  km: number;
 };
 
 /**
@@ -634,6 +603,16 @@ export type EmailReminder = {
    * Time
    */
   time: string;
+};
+
+/**
+ * ForgotPasswordRequest
+ */
+export type ForgotPasswordRequest = {
+  /**
+   * Email
+   */
+  email: string;
 };
 
 /**
@@ -2117,6 +2096,20 @@ export type SystemSettingsUpdate = {
 };
 
 /**
+ * UpdatePasswordRequest
+ */
+export type UpdatePasswordRequest = {
+  /**
+   * New Password
+   */
+  new_password: string;
+  /**
+   * Password Reset Token
+   */
+  password_reset_token: string;
+};
+
+/**
  * UserFinalize
  */
 export type UserFinalize = {
@@ -2128,6 +2121,16 @@ export type UserFinalize = {
    * User Invite Id
    */
   user_invite_id: string;
+};
+
+/**
+ * ValidateResetTokenRequest
+ */
+export type ValidateResetTokenRequest = {
+  /**
+   * Password Reset Token
+   */
+  password_reset_token: string;
 };
 
 /**
@@ -2655,6 +2658,33 @@ export type SendAnnouncementEmailResponses = {
 export type SendAnnouncementEmailResponse =
   SendAnnouncementEmailResponses[keyof SendAnnouncementEmailResponses];
 
+export type ForgotPasswordData = {
+  body: ForgotPasswordRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/forgot-password';
+};
+
+export type ForgotPasswordErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ForgotPasswordError =
+  ForgotPasswordErrors[keyof ForgotPasswordErrors];
+
+export type ForgotPasswordResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ForgotPasswordResponse =
+  ForgotPasswordResponses[keyof ForgotPasswordResponses];
+
 export type LoginData = {
   body: LoginRequest;
   path?: never;
@@ -2726,36 +2756,59 @@ export type RefreshResponses = {
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
 
-export type ResetPasswordData = {
-  body?: never;
-  path: {
-    /**
-     * Email
-     */
-    email: string;
-  };
+export type UpdatePasswordData = {
+  body: UpdatePasswordRequest;
+  path?: never;
   query?: never;
-  url: '/auth/resetPassword/{email}';
+  url: '/auth/update-password';
 };
 
-export type ResetPasswordErrors = {
+export type UpdatePasswordErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type ResetPasswordError = ResetPasswordErrors[keyof ResetPasswordErrors];
+export type UpdatePasswordError =
+  UpdatePasswordErrors[keyof UpdatePasswordErrors];
 
-export type ResetPasswordResponses = {
+export type UpdatePasswordResponses = {
   /**
    * Successful Response
    */
   204: void;
 };
 
-export type ResetPasswordResponse =
-  ResetPasswordResponses[keyof ResetPasswordResponses];
+export type UpdatePasswordResponse =
+  UpdatePasswordResponses[keyof UpdatePasswordResponses];
+
+export type ValidateResetTokenData = {
+  body: ValidateResetTokenRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/validate-reset-token';
+};
+
+export type ValidateResetTokenErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ValidateResetTokenError =
+  ValidateResetTokenErrors[keyof ValidateResetTokenErrors];
+
+export type ValidateResetTokenResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ValidateResetTokenResponse =
+  ValidateResetTokenResponses[keyof ValidateResetTokenResponses];
 
 export type GetDriversData = {
   body?: never;
@@ -2979,47 +3032,6 @@ export type UpdateDriverResponses = {
 export type UpdateDriverResponse =
   UpdateDriverResponses[keyof UpdateDriverResponses];
 
-export type DeleteDriverHistoryData = {
-  body?: never;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type DeleteDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type DeleteDriverHistoryError =
-  DeleteDriverHistoryErrors[keyof DeleteDriverHistoryErrors];
-
-export type DeleteDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  204: void;
-};
-
-export type DeleteDriverHistoryResponse =
-  DeleteDriverHistoryResponses[keyof DeleteDriverHistoryResponses];
-
 export type GetDriverHistoryData = {
   body?: never;
   path: {
@@ -3062,79 +3074,6 @@ export type GetDriverHistoryResponses = {
 
 export type GetDriverHistoryResponse =
   GetDriverHistoryResponses[keyof GetDriverHistoryResponses];
-
-export type UpdateDriverHistoryData = {
-  body: DriverHistoryUpdate;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type UpdateDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateDriverHistoryError =
-  UpdateDriverHistoryErrors[keyof UpdateDriverHistoryErrors];
-
-export type UpdateDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  200: DriverHistoryRead;
-};
-
-export type UpdateDriverHistoryResponse =
-  UpdateDriverHistoryResponses[keyof UpdateDriverHistoryResponses];
-
-export type CreateDriverHistoryData = {
-  body: DriverHistoryCreate;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query?: never;
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type CreateDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CreateDriverHistoryError =
-  CreateDriverHistoryErrors[keyof CreateDriverHistoryErrors];
-
-export type CreateDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  201: DriverHistoryRead;
-};
-
-export type CreateDriverHistoryResponse =
-  CreateDriverHistoryResponses[keyof CreateDriverHistoryResponses];
 
 export type GetDriverHistorySummaryData = {
   body?: never;

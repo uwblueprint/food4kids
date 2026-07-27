@@ -102,17 +102,16 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # --- auth infrastructure (public by design) ---
     ("POST", "/auth/login"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,
+    ("POST", "/auth/validate-reset-token"): Policy.PUBLIC,
     ("POST", "/auth/logout/{user_id}"): Policy.PUBLIC,
-    ("POST", "/auth/resetPassword/{email}"): Policy.PUBLIC,
+    ("POST", "/auth/forgot-password"): Policy.PUBLIC,
+    ("POST", "/auth/update-password"): Policy.PUBLIC,
     # --- drivers ---
     ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("POST", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("PATCH", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("DELETE", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/summary"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/{year}/export"): Policy.ADMIN_ONLY,
     # Two-step registration (#117): an admin creates the invite/initial user;

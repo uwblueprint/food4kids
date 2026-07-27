@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
 from app.models.driver import Driver
@@ -221,14 +222,11 @@ class RouteService:
                     )
                 )
             ).scalar_one()
-        except HTTPException:
-            raise
-        except Exception as error:
-            self.logger.exception("Failed to get route " + str(route_id))
+        except Exception:
+            # Roll back so the caller's session is usable, then let the error
+            # through: UnhandledExceptionMiddleware logs it and answers 500.
             await session.rollback()
-            raise HTTPException(
-                status_code=500, detail="Failed to retrieve route."
-            ) from error
+            raise
 
         stops = [
             RouteStopDetailRead(
@@ -301,6 +299,13 @@ class RouteService:
         Metadata fields (name, notes, driver_id, start_time) are updated
         independently if provided.
 
+        FROZEN routes (those with a RouteSnapshot) may be edited too — it's
+        a "correct the record" operation. Driver mileage is derived from
+        routes, so a reassignment or length change updates history
+        automatically; the only extra work is rebuilding the per-stop
+        snapshots when stops change, since the old ones are cascade-deleted
+        with the old stops.
+
         Args:
             session: Database session
             route_id: ID of the route to update
@@ -311,9 +316,11 @@ class RouteService:
         """
 
         try:
-            # Fetch the route
+            # Fetch the route (+ snapshot so we can tell if it's frozen)
             result = await session.execute(
-                select(Route).where(Route.route_id == route_id)
+                select(Route)
+                .where(Route.route_id == route_id)
+                .options(selectinload(Route.snapshot))  # type: ignore[arg-type]
             )
             route = result.scalars().first()
 
@@ -402,6 +409,7 @@ class RouteService:
                 await session.flush()
 
                 # Create new route stops in the given order
+                new_stops: list[RouteStop] = []
                 for stop_number, location in enumerate(ordered_locations, start=1):
                     new_stop = RouteStop(
                         route_id=route_id,
@@ -409,11 +417,53 @@ class RouteService:
                         stop_number=stop_number,
                     )
                     session.add(new_stop)
+                    new_stops.append(new_stop)
 
-                # Update route polyline and mileage
+                # Update route polyline and mileage. On a frozen route this
+                # "corrects the record": derived mileage picks up the new
+                # length automatically.
                 route.encoded_polyline = encoded_polyline
                 route.polyline_updated_at = datetime.now(timezone.utc)
                 route.length = distance_km
+
+                # Amending a FROZEN route: rebuild the per-stop snapshots
+                # from the corrected stops (the old ones were cascade-deleted
+                # with the old stops) so the frozen delivery record reflects
+                # what actually happened instead of silently vanishing.
+                if route.snapshot is not None:
+                    # Reject rather than snapshot a subset: the route is
+                    # already frozen, so a stop skipped here would keep no
+                    # address or contact details and nothing would ever
+                    # revisit it (unlike the freeze job, which can defer).
+                    ungeocoded = [
+                        location
+                        for location in ordered_locations
+                        if location.latitude is None or location.longitude is None
+                    ]
+                    if ungeocoded:
+                        raise ValueError(
+                            "Cannot amend a frozen route with un-geocoded "
+                            "location(s): "
+                            f"{', '.join(str(loc.location_id) for loc in ungeocoded)}. "
+                            "Geocode them first so the frozen delivery record "
+                            "stays complete."
+                        )
+                    await session.flush()  # assign route_stop_ids
+                    for new_stop, location in zip(
+                        new_stops, ordered_locations, strict=True
+                    ):
+                        session.add(
+                            RouteStopSnapshot(
+                                route_stop_id=new_stop.route_stop_id,
+                                address=location.address,
+                                contact_name=location.contact_name,
+                                phone_primary=location.phone_primary,
+                                phone_secondary=location.phone_secondary,
+                                num_children=location.num_children,
+                                latitude=location.latitude,
+                                longitude=location.longitude,
+                            )
+                        )
 
             # Persist
             session.add(route)

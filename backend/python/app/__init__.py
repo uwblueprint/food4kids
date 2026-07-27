@@ -15,6 +15,7 @@ from app.dependencies.services import (
 from app.services.jobs import init_jobs
 
 from .config import settings
+from .middleware import UnhandledExceptionMiddleware
 from .models import init_app as init_models
 from .routers import init_app as init_routers
 
@@ -203,6 +204,10 @@ def create_app() -> FastAPI:
 
     # Add regex pattern for preview deployments
     cors_origins.append("https://uw-blueprint-starter-code--pr.*\\.web\\.app")
+
+    # Added before CORS so it ends up *inside* it: the last middleware added is
+    # the outermost, and a 500 without CORS headers is unreadable to a browser.
+    app.add_middleware(UnhandledExceptionMiddleware)
 
     app.add_middleware(
         CORSMiddleware,
