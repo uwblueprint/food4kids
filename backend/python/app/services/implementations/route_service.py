@@ -4,13 +4,17 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
 from app.models.driver import Driver
-from app.models.enum import RouteStatusEnum
+from app.models.enum import (
+    DriveDaysOfWeekEnum,
+    DriverAssignmentStatusEnum,
+    RouteStatusEnum,
+)
 from app.models.location import Location
 from app.models.route import (
     Route,
@@ -64,6 +68,10 @@ class RouteService:
         driver_id: UUID | None = None,
         order: Literal["asc", "desc"] = "asc",
         search: str | None = None,
+        weekday: list[DriveDaysOfWeekEnum] | None = None,
+        delivery_type: list[str] | None = None,
+        route_status: list[RouteStatusEnum] | None = None,
+        driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
@@ -75,6 +83,12 @@ class RouteService:
         search filters (case-insensitive substring) on the assigned driver's
         full name, applied before pagination so the paged results are drawn
         from the matches.
+
+        The Routes-tab filters mirror the Groups tab, applied per route:
+        weekday (of the group's drive_date), delivery_type (the route has a
+        stop of that type), route_status (Upcoming = today or later, Completed
+        = earlier), and driver_assignment_status (Assigned = has a driver,
+        Unassigned = none).
 
         order controls the drive_date ordering: "asc" (default) for the
         upcoming feed (oldest-first), "desc" for the past feed
@@ -191,6 +205,53 @@ class RouteService:
                     f"%{search.strip()}%"
                 )
             )
+
+        # --- Routes-tab filters (mirror the Groups tab, per route) -----------
+        if weekday:
+            dow_map = {
+                DriveDaysOfWeekEnum.MON: 1,
+                DriveDaysOfWeekEnum.TUE: 2,
+                DriveDaysOfWeekEnum.WED: 3,
+                DriveDaysOfWeekEnum.THU: 4,
+                DriveDaysOfWeekEnum.FRI: 5,
+            }
+            statement = statement.where(
+                func.extract("dow", RouteGroup.drive_date).in_(  # type: ignore[arg-type]
+                    [dow_map[w] for w in weekday]
+                )
+            )
+
+        # A route matches a delivery type if any of its stops' locations has it.
+        # (Built as select(...).exists() because Exists has no .join().)
+        if delivery_type:
+            statement = statement.where(
+                select(1)
+                .select_from(RouteStop)
+                .join(Location, Location.location_id == RouteStop.location_id)  # type: ignore[arg-type]
+                .where(RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+                .where(col(Location.delivery_type).in_(delivery_type))
+                .exists()
+            )
+
+        if route_status:
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            status_conditions = []
+            if RouteStatusEnum.UPCOMING in route_status:
+                status_conditions.append(RouteGroup.drive_date >= today_start)
+            if RouteStatusEnum.COMPLETED in route_status:
+                status_conditions.append(RouteGroup.drive_date < today_start)
+            if status_conditions:
+                statement = statement.where(or_(*status_conditions))
+
+        if driver_assignment_status:
+            assignment_conditions = []
+            if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
+                assignment_conditions.append(col(Route.driver_id).isnot(None))
+            if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
+                assignment_conditions.append(col(Route.driver_id).is_(None))
+            if assignment_conditions:
+                statement = statement.where(or_(*assignment_conditions))
 
         drive_date_order = (
             col(RouteGroup.drive_date).desc()

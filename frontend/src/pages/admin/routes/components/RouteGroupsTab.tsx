@@ -1,25 +1,12 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
-import type {
-  DriveDaysOfWeekEnum,
-  DriverAssignmentStatusEnum,
-  RouteGroupRead,
-  RouteStatusEnum,
-} from '@/api/generated/types.gen';
+import type { RouteGroupRead } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import {
   Button,
   DataTable,
-  FilterChip,
-  FilterChipGroup,
   HighlightText,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
   TableToolbar,
 } from '@/common/components';
 import { useRowHighlight, useTableSort } from '@/common/hooks';
@@ -27,17 +14,9 @@ import { useRowHighlight, useTableSort } from '@/common/hooks';
 import type { GroupsTabState } from '../hooks';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
+import { RouteFilterModal } from './RouteFilterModal';
 import { RouteGroupActionsCell } from './RouteGroupActionsCell';
 import { StatusHeader } from './StatusHeader';
-
-const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-// Archived is in the enum but group status is only ever computed as
-// Upcoming/Completed, so the dialog doesn't offer it (matches the Figma).
-const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed'];
-const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = [
-  'Assigned',
-  'Unassigned',
-];
 
 const COLUMNS: Column<RouteGroupRead>[] = [
   { key: 'name', header: 'Name', render: (row) => row.name },
@@ -201,82 +180,17 @@ export function RouteGroupsTab({
         />
       </div>
 
-      <Modal open={filterOpen} onOpenChange={setFilterOpen}>
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle>Filters</ModalTitle>
-            <ModalDescription>Groups</ModalDescription>
-          </ModalHeader>
-
-          <div className="flex flex-col gap-4">
-            <FilterChipGroup label="Day">
-              {WEEKDAYS.map((day) => (
-                <FilterChip
-                  key={day}
-                  selected={draftFilters.weekdays.has(day)}
-                  onClick={() => toggleDraft('weekdays', day)}
-                >
-                  {day}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-
-            <FilterChipGroup label="Delivery Type">
-              {deliveryTypes.map((type) => (
-                <FilterChip
-                  key={type}
-                  selected={draftFilters.deliveryTypes.has(type)}
-                  onClick={() => toggleDraft('deliveryTypes', type)}
-                >
-                  {type}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-
-            <FilterChipGroup label="Route Status">
-              {ROUTE_STATUSES.map((status) => (
-                <FilterChip
-                  key={status}
-                  selected={draftFilters.routeStatuses.has(status)}
-                  onClick={() => toggleDraft('routeStatuses', status)}
-                >
-                  {status}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-
-            <FilterChipGroup label="Driver Status">
-              {DRIVER_STATUSES.map((status) => (
-                <FilterChip
-                  key={status}
-                  selected={draftFilters.driverStatuses.has(status)}
-                  onClick={() => toggleDraft('driverStatuses', status)}
-                >
-                  {status}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-          </div>
-
-          <ModalFooter className="mt-4">
-            {/* Clear All only empties the dialog's chips; Apply persists them,
-                which is also how an applied filter gets cleared. */}
-            <Button
-              variant="secondary"
-              disabled={!draftHasSelections}
-              // The base button disables pointer events entirely; re-enable
-              // them so the not-allowed cursor can show over the button.
-              className="disabled:pointer-events-auto disabled:cursor-not-allowed"
-              onClick={clearDraft}
-            >
-              Clear All
-            </Button>
-            <Button variant="primary" onClick={handleApply}>
-              Apply
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <RouteFilterModal
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        subtitle="Groups"
+        deliveryTypes={deliveryTypes}
+        draftFilters={draftFilters}
+        toggleDraft={toggleDraft}
+        draftHasSelections={draftHasSelections}
+        clearDraft={clearDraft}
+        handleApply={handleApply}
+      />
     </>
   );
 }

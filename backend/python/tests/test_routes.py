@@ -2595,6 +2595,128 @@ class TestRouteRoutes:
         assert empty.json()["items"] == []
 
     @pytest.mark.asyncio
+    async def test_get_routes_filters_by_driver_assignment_status(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_driver: Any,
+    ) -> None:
+        """Routes driver-status filter is per route: Assigned = has a driver."""
+        assigned = Route(
+            name="Assigned",
+            length=1.0,
+            route_group_id=test_route_group.route_group_id,
+            driver_id=test_driver.driver_id,
+        )
+        unassigned = Route(
+            name="Unassigned",
+            length=1.0,
+            route_group_id=test_route_group.route_group_id,
+        )
+        test_session.add_all([assigned, unassigned])
+        await test_session.commit()
+        await test_session.refresh(assigned)
+        await test_session.refresh(unassigned)
+
+        a = await async_client.get(
+            "/routes", params={"driver_assignment_status": "Assigned"}
+        )
+        assert {r["route_id"] for r in a.json()["items"]} == {str(assigned.route_id)}
+
+        u = await async_client.get(
+            "/routes", params={"driver_assignment_status": "Unassigned"}
+        )
+        assert {r["route_id"] for r in u.json()["items"]} == {
+            str(unassigned.route_id)
+        }
+
+    @pytest.mark.asyncio
+    async def test_get_routes_filters_by_status(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+    ) -> None:
+        """Routes status filter: Upcoming = today or later, Completed = earlier."""
+        future_group = RouteGroup(name="Future", drive_date=datetime(2099, 1, 1))
+        past_group = RouteGroup(name="Past", drive_date=datetime(2020, 1, 1))
+        test_session.add_all([future_group, past_group])
+        await test_session.flush()
+        upcoming = Route(
+            name="Upcoming", length=1.0, route_group_id=future_group.route_group_id
+        )
+        completed = Route(
+            name="Completed", length=1.0, route_group_id=past_group.route_group_id
+        )
+        test_session.add_all([upcoming, completed])
+        await test_session.commit()
+        await test_session.refresh(upcoming)
+        await test_session.refresh(completed)
+
+        up = await async_client.get("/routes", params={"route_status": "Upcoming"})
+        up_ids = {r["route_id"] for r in up.json()["items"]}
+        assert str(upcoming.route_id) in up_ids
+        assert str(completed.route_id) not in up_ids
+
+        done = await async_client.get("/routes", params={"route_status": "Completed"})
+        done_ids = {r["route_id"] for r in done.json()["items"]}
+        assert str(completed.route_id) in done_ids
+        assert str(upcoming.route_id) not in done_ids
+
+    @pytest.mark.asyncio
+    async def test_get_routes_filters_by_delivery_type(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_location_group: Any,
+    ) -> None:
+        """A route matches a delivery type when a stop's location has it."""
+        fam_loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Fam",
+            contact_name="Fam",
+            address="1 Fam St",
+            phone_primary="5550000001",
+            delivery_type="Family",
+            num_children=2,
+        )
+        sch_loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Sch",
+            contact_name="Sch",
+            address="2 Sch St",
+            phone_primary="5550000002",
+            delivery_type="School",
+            num_children=2,
+        )
+        test_session.add_all([fam_loc, sch_loc])
+        await test_session.flush()
+        fam_route = Route(
+            name="FamRoute", length=1.0, route_group_id=test_route_group.route_group_id
+        )
+        sch_route = Route(
+            name="SchRoute", length=1.0, route_group_id=test_route_group.route_group_id
+        )
+        test_session.add_all([fam_route, sch_route])
+        await test_session.flush()
+        test_session.add_all(
+            [
+                RouteStop(route_id=fam_route.route_id, location_id=fam_loc.location_id, stop_number=1),
+                RouteStop(route_id=sch_route.route_id, location_id=sch_loc.location_id, stop_number=1),
+            ]
+        )
+        await test_session.commit()
+        await test_session.refresh(fam_route)
+        await test_session.refresh(sch_route)
+
+        fam = await async_client.get("/routes", params={"delivery_type": "Family"})
+        assert fam.status_code == 200
+        fam_ids = {r["route_id"] for r in fam.json()["items"]}
+        assert str(fam_route.route_id) in fam_ids
+        assert str(sch_route.route_id) not in fam_ids
+
+    @pytest.mark.asyncio
     async def test_get_routes_uses_snapshotted_box_totals_for_frozen_routes(
         self,
         async_client: AsyncClient,
@@ -3889,6 +4011,113 @@ class TestRouteGroupRoutes:
         assert {rg["route_group_id"] for rg in resp.json()} == {
             str(cambridge.route_group_id)
         }
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_filters_by_driver_assignment_status(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_driver: Any,
+    ) -> None:
+        """Assigned = fully staffed; Unassigned = any gap or no routes.
+
+        The key case: a partially-staffed group counts as Unassigned, not
+        Assigned.
+        """
+        drive_date = datetime(2026, 8, 4, 9, 0)
+        full = RouteGroup(name="Full Staff", drive_date=drive_date)
+        partial = RouteGroup(name="Partial Staff", drive_date=drive_date)
+        none_assigned = RouteGroup(name="No Staff", drive_date=drive_date)
+        empty = RouteGroup(name="Empty Group", drive_date=drive_date)
+        test_session.add_all([full, partial, none_assigned, empty])
+        await test_session.flush()
+
+        did = test_driver.driver_id
+        test_session.add_all(
+            [
+                Route(name="F1", length=1.0, route_group_id=full.route_group_id, driver_id=did),
+                Route(name="F2", length=1.0, route_group_id=full.route_group_id, driver_id=did),
+                # partial: one staffed, one not
+                Route(name="P1", length=1.0, route_group_id=partial.route_group_id, driver_id=did),
+                Route(name="P2", length=1.0, route_group_id=partial.route_group_id),
+                Route(name="N1", length=1.0, route_group_id=none_assigned.route_group_id),
+            ]
+        )
+        await test_session.commit()
+
+        assigned = await async_client.get(
+            "/route-groups", params={"driver_assignment_status": "Assigned"}
+        )
+        assert assigned.status_code == 200
+        assigned_ids = {rg["route_group_id"] for rg in assigned.json()}
+        assert str(full.route_group_id) in assigned_ids
+        # Partial, all-unassigned, and empty groups are NOT "Assigned".
+        assert str(partial.route_group_id) not in assigned_ids
+        assert str(none_assigned.route_group_id) not in assigned_ids
+        assert str(empty.route_group_id) not in assigned_ids
+
+        unassigned = await async_client.get(
+            "/route-groups", params={"driver_assignment_status": "Unassigned"}
+        )
+        assert unassigned.status_code == 200
+        unassigned_ids = {rg["route_group_id"] for rg in unassigned.json()}
+        assert str(partial.route_group_id) in unassigned_ids
+        assert str(none_assigned.route_group_id) in unassigned_ids
+        assert str(empty.route_group_id) in unassigned_ids
+        assert str(full.route_group_id) not in unassigned_ids
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_filters_by_delivery_type(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A group matches a delivery type when a stop's location has it."""
+        fam_loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Fam",
+            contact_name="Fam",
+            address="1 Fam St",
+            phone_primary="5550000001",
+            delivery_type="Family",
+            num_children=2,
+        )
+        sch_loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Sch",
+            contact_name="Sch",
+            address="2 Sch St",
+            phone_primary="5550000002",
+            delivery_type="School",
+            num_children=2,
+        )
+        test_session.add_all([fam_loc, sch_loc])
+        await test_session.flush()
+        drive_date = datetime(2026, 8, 5, 9, 0)
+        fam_group = RouteGroup(name="Fam Group", drive_date=drive_date)
+        sch_group = RouteGroup(name="Sch Group", drive_date=drive_date)
+        test_session.add_all([fam_group, sch_group])
+        await test_session.flush()
+        fam_route = Route(name="FR", length=1.0, route_group_id=fam_group.route_group_id)
+        sch_route = Route(name="SR", length=1.0, route_group_id=sch_group.route_group_id)
+        test_session.add_all([fam_route, sch_route])
+        await test_session.flush()
+        test_session.add_all(
+            [
+                RouteStop(route_id=fam_route.route_id, location_id=fam_loc.location_id, stop_number=1),
+                RouteStop(route_id=sch_route.route_id, location_id=sch_loc.location_id, stop_number=1),
+            ]
+        )
+        await test_session.commit()
+
+        resp = await async_client.get(
+            "/route-groups", params={"delivery_type": "Family"}
+        )
+        assert resp.status_code == 200
+        ids = {rg["route_group_id"] for rg in resp.json()}
+        assert str(fam_group.route_group_id) in ids
+        assert str(sch_group.route_group_id) not in ids
 
     @pytest.mark.asyncio
     async def test_get_route_groups_include_routes(

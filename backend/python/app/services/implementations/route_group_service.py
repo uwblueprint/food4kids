@@ -323,20 +323,18 @@ class RouteGroupService:
             )
 
         # Delivery type filter: a group matches if any of its stops' locations
-        # has one of the requested delivery types.
+        # has one of the requested delivery types. (Built as select(...).exists()
+        # because Exists has no .join().)
         if delivery_type:
-            delivery_conditions: list[Any] = []
-            for dt in delivery_type:
-                delivery_conditions.append(
-                    exists()
-                    .select_from(Route)
-                    .join(RouteStop, RouteStop.route_id == Route.route_id)
-                    .join(Location, Location.location_id == RouteStop.location_id)
-                    .where(Route.route_group_id == RouteGroup.route_group_id)
-                    .where(Location.delivery_type == dt)
-                )
-            if delivery_conditions:
-                statement = statement.where(or_(*delivery_conditions))
+            statement = statement.where(
+                select(1)
+                .select_from(Route)
+                .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+                .join(Location, Location.location_id == RouteStop.location_id)  # type: ignore[arg-type]
+                .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+                .where(col(Location.delivery_type).in_(delivery_type))
+                .exists()
+            )
 
         if route_status:
             now = datetime.now(self.timezone).replace(tzinfo=None)
@@ -360,21 +358,29 @@ class RouteGroupService:
             if status_conditions:
                 statement = statement.where(or_(*status_conditions))
 
-        # Driver assignment status filter: "Assigned" means at least one route
-        # in this group has a driver_id; "Unassigned" means none do.
+        # Driver assignment status filter. "Assigned" means the group is fully
+        # staffed: it has routes and every one has a driver. "Unassigned" is the
+        # exact complement — at least one route still has no driver, or the
+        # group has no routes yet (so a partially-staffed group is Unassigned).
         if driver_assignment_status:
-            assigned_exists = (
+            route_exists = (
                 exists()
                 .select_from(Route)
                 .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
-                .where(col(Route.driver_id).isnot(None))
             )
+            unassigned_route_exists = (
+                exists()
+                .select_from(Route)
+                .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+                .where(col(Route.driver_id).is_(None))
+            )
+            fully_assigned = and_(route_exists, ~unassigned_route_exists)
 
             assignment_conditions: list[Any] = []
             if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
-                assignment_conditions.append(assigned_exists)
+                assignment_conditions.append(fully_assigned)
             if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
-                assignment_conditions.append(~assigned_exists)
+                assignment_conditions.append(~fully_assigned)
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 

@@ -19,9 +19,11 @@ import {
   useTableSort,
 } from '@/common/hooks';
 
+import { routeFiltersToQuery, useRouteFilters } from '../hooks';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
+import { RouteFilterModal } from './RouteFilterModal';
 import { StatusHeader } from './StatusHeader';
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
@@ -74,7 +76,11 @@ export function RouteRoutesTab() {
   const search = useSearch();
   // Debounced so the driver-name search hits the server once typing pauses.
   const searchTerm = useDebouncedValue(search.value).trim();
-  const { data } = useRoutes({ search: searchTerm || undefined });
+  const filters = useRouteFilters();
+  const { data } = useRoutes({
+    search: searchTerm || undefined,
+    ...routeFiltersToQuery(filters.appliedFilters),
+  });
   const rows = useMemo(() => data?.items ?? [], [data]);
   const { sort, toggleSort } = useTableSort();
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -160,6 +166,8 @@ export function RouteRoutesTab() {
       <TableToolbar
         search={search}
         showFilter
+        onFilterClick={filters.openFilters}
+        hasActiveFilters={filters.hasActiveFilters}
         actions={
           <Button variant="primary" asChild>
             <Link to="/admin/routes/generation">Generate Routes</Link>
@@ -183,6 +191,18 @@ export function RouteRoutesTab() {
           }
         />
       </div>
+
+      <RouteFilterModal
+        open={filters.filterOpen}
+        onOpenChange={filters.setFilterOpen}
+        subtitle="Routes"
+        deliveryTypes={filters.deliveryTypes}
+        draftFilters={filters.draftFilters}
+        toggleDraft={filters.toggleDraft}
+        draftHasSelections={filters.draftHasSelections}
+        clearDraft={filters.clearDraft}
+        handleApply={filters.handleApply}
+      />
     </>
   );
 }

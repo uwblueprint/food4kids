@@ -4206,6 +4206,30 @@ export type GetRoutesData = {
      */
     search?: string | null;
     /**
+     * Weekday
+     *
+     * Filter by one or more weekdays of the drive date
+     */
+    weekday?: Array<DriveDaysOfWeekEnum> | null;
+    /**
+     * Delivery Type
+     *
+     * Filter by one or more delivery types
+     */
+    delivery_type?: Array<string> | null;
+    /**
+     * Route Status
+     *
+     * Filter by one or more route statuses
+     */
+    route_status?: Array<RouteStatusEnum> | null;
+    /**
+     * Driver Assignment Status
+     *
+     * Filter by one or more driver assignment statuses
+     */
+    driver_assignment_status?: Array<DriverAssignmentStatusEnum> | null;
+    /**
      * Page
      *
      * Page number (1-indexed)
