@@ -11,6 +11,11 @@ from uuid import uuid4
 import pytest
 
 from app.models.location import Location
+
+# Register the snapshot models so SQLAlchemy can resolve the RouteStop.snapshot
+# / Route.snapshot relationship strings when it configures all mappers.
+from app.models.route_snapshot import RouteSnapshot  # noqa: F401
+from app.models.route_stop_snapshot import RouteStopSnapshot  # noqa: F401
 from app.utilities.routes_utils import fetch_route_polyline
 
 
@@ -21,28 +26,30 @@ async def test_fetch_route_polyline_with_return() -> None:
     # Create mock locations
     loc1 = Location(
         location_group_id=uuid4(),
+        name="Test 1 Loc 1",
         contact_name="Test 1 Loc 1",
+        delivery_type="Family",
         address="123 Test St",
-        phone_number="123-456-7890",
+        phone_primary="123-456-7890",
         longitude=-80.50,
         latitude=43.45,
         halal=True,
         dietary_restrictions="",
-        num_boxes=5,
-        notes="",
+        num_children=10,
     )
 
     loc2 = Location(
         location_group_id=uuid4(),
+        name="Test 1 Loc 2",
         contact_name="Test 1 Loc 2",
+        delivery_type="Family",
         address="124 Test St",
-        phone_number="124-456-7890",
+        phone_primary="124-456-7890",
         longitude=-80.51,
         latitude=43.46,
         halal=True,
         dietary_restrictions="",
-        num_boxes=5,
-        notes="",
+        num_children=10,
     )
 
     polyline, distance_km = await fetch_route_polyline(

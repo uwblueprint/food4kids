@@ -1,9 +1,13 @@
 import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
+import type { LocationRead } from '@/api/generated/types.gen';
+import {
+  getConfiguredDeliveryTypes,
+  useSystemSettings,
+} from '@/api/system-settings';
 import type { UseSearchReturn } from '@/common/hooks';
 import { useSearch } from '@/common/hooks';
-import type { AddressRow } from '@/types/address';
 
 export interface AddressesFilterState {
   routeStatuses: Set<string>;
@@ -21,8 +25,9 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
 });
 
 export interface AddressesTabState {
-  rows: AddressRow[];
+  rows: LocationRead[];
   isLoading: boolean;
+  deliveryTypes: string[];
   search: UseSearchReturn;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
@@ -41,22 +46,21 @@ export function useAddressesTabState(): AddressesTabState {
     useState<AddressesFilterState>(emptyFilters());
   const [draftFilters, setDraftFilters] =
     useState<AddressesFilterState>(emptyFilters());
+  const { data: systemSettings } = useSystemSettings();
+  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0
   );
 
-  const { data: rows = [], isLoading } = useAddresses({
-    search: search.value || undefined,
-    routeStatuses:
-      appliedFilters.routeStatuses.size > 0
-        ? [...appliedFilters.routeStatuses]
-        : undefined,
-    deliveryTypes:
-      appliedFilters.deliveryTypes.size > 0
-        ? [...appliedFilters.deliveryTypes]
-        : undefined,
-  });
+  // NOTE: GET /locations has no search/filter params yet, so search and the
+  // filter chips below are local-only UI for now (they don't reach the
+  // backend). Wiring server-side search/filtering is tracked as future work.
+  const { data, isLoading } = useAddresses();
+  // GET /locations is paginated; we currently surface only the first page.
+  // The tab is a WIP shell, so pagination controls (and a total count) are
+  // future work alongside the server-side search/filtering above.
+  const rows = data?.items ?? [];
 
   const openFilters = () => {
     setDraftFilters(copyFilters(appliedFilters));
@@ -80,6 +84,7 @@ export function useAddressesTabState(): AddressesTabState {
   return {
     rows,
     isLoading,
+    deliveryTypes,
     search,
     filterOpen,
     setFilterOpen,

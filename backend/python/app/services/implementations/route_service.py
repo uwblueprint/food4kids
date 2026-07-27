@@ -1,33 +1,53 @@
 import logging
 from datetime import datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, exists
-from sqlalchemy import select as sql_select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.models.driver_assignment import DriverAssignment
+from app.models.driver import Driver
 from app.models.location import Location
-from app.models.route import Route, RoutePatchRequest, RouteWithDateRead
+from app.models.route import (
+    Route,
+    RouteDetailRead,
+    RoutePatchRequest,
+    RouteWithDateRead,
+    SuggestedDriverResponse,
+)
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
-from app.models.route_stop import RouteStop
+from app.models.route_snapshot import RouteSnapshot
+from app.models.route_stop import RouteStop, RouteStopDetailRead
+from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
+from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.utilities.google_maps_link import build_google_maps_directions_url
+from app.utilities.boxes import (
+    box_count_expr,
+    compute_boxes,
+    resolve_children_per_box,
+)
+from app.utilities.google_maps_link import (
+    MapWaypoint,
+    build_google_maps_directions_url,
+)
 from app.utilities.pagination import paginate_query
 from app.utilities.routes_utils import fetch_route_polyline
+
+
+class RoutingConfigurationError(Exception):
+    """Raised when routing can't run because the server isn't configured
+    (e.g. missing system settings / warehouse coordinates). Distinct from
+    bad client input so the API can map it to 503 rather than 400.
+    """
 
 
 class RouteService:
     """
     Service class for handling route-related operations.
-
-    This class provides methods to manage Route entities, such as deleting routes by their ID.
-    While currently only the delete operation is implemented, this class is intended to be extended
-    with additional route-related operations in the future.
     """
 
     def __init__(self, logger: logging.Logger):
@@ -40,27 +60,63 @@ class RouteService:
         start_date: str | None = None,
         end_date: str | None = None,
         pagination: PaginationParams | None = None,
+        driver_id: UUID | None = None,
+        order: Literal["asc", "desc"] = "asc",
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
-        Returns routes with their drive dates - routes can appear multiple times for different dates.
-        When unassigned_only is False, returns all routes (no assignment filter).
-        When unassigned_only is True, returns only routes that are unassigned for the given route group.
+
+        unassigned_only filters to routes with no driver_id. driver_id filters
+        to routes assigned to that specific driver (powers the driver homepage
+        feed). The date range filters on the route's RouteGroup.drive_date.
+
+        order controls the drive_date ordering: "asc" (default) for the
+        upcoming feed (oldest-first), "desc" for the past feed
+        (most-recent-first).
         """
-        statement = (
-            select(
-                Route,
-                RouteGroup.route_group_id,
-                RouteGroup.drive_date,
-            )
-            .join(RouteGroupMembership, Route.route_id == RouteGroupMembership.route_id)  # type: ignore[arg-type]
-            .join(
-                RouteGroup,
-                RouteGroupMembership.route_group_id == RouteGroup.route_group_id,  # type: ignore[arg-type]
-            )
+        children_per_box = await resolve_children_per_box(session)
+
+        # Box count is derived from num_children; a frozen stop snapshot (if
+        # present) carries the children count delivered at the time, so prefer it.
+        live_box_count = box_count_expr(col(Location.num_children), children_per_box)
+        snapshot_box_count = box_count_expr(
+            col(RouteStopSnapshot.num_children), children_per_box
         )
 
-        # Parse and filter by date range
+        route_totals = (
+            select(
+                col(RouteStop.route_id).label("route_id"),
+                func.count(col(RouteStop.route_stop_id)).label("num_stops"),
+                func.coalesce(
+                    func.sum(func.coalesce(snapshot_box_count, live_box_count)),
+                    0,
+                ).label("box_total"),
+            )
+            .select_from(RouteStop)
+            .outerjoin(
+                RouteStopSnapshot,
+                RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id,  # type: ignore[arg-type]
+            )
+            .outerjoin(
+                Location, col(Location.location_id) == col(RouteStop.location_id)
+            )
+            .group_by(col(RouteStop.route_id))
+            .subquery()
+        )
+
+        statement = select(
+            Route,
+            RouteGroup.drive_date,
+            func.coalesce(route_totals.c.num_stops, 0).label("num_stops"),
+            func.coalesce(route_totals.c.box_total, 0).label("box_total"),
+        ).join(
+            RouteGroup,
+            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+        )
+        statement = statement.outerjoin(
+            route_totals, route_totals.c.route_id == Route.route_id
+        )
+
         if start_date:
             start_dt = datetime.fromisoformat(start_date)
             statement = statement.where(RouteGroup.drive_date >= start_dt)
@@ -68,23 +124,18 @@ class RouteService:
             end_dt = datetime.fromisoformat(end_date)
             statement = statement.where(RouteGroup.drive_date <= end_dt)
 
-        # Filter for unassigned routes only
         if unassigned_only:
-            statement = statement.where(
-                ~exists(
-                    sql_select(1)
-                    .select_from(DriverAssignment)
-                    .where(
-                        and_(
-                            DriverAssignment.route_id == Route.route_id,  # type: ignore[arg-type]
-                            DriverAssignment.route_group_id
-                            == RouteGroup.route_group_id,  # type: ignore[arg-type]
-                        )
-                    )
-                )
-            )
+            statement = statement.where(col(Route.driver_id).is_(None))
 
-        statement = statement.order_by(RouteGroup.drive_date, Route.name)  # type: ignore[arg-type]
+        if driver_id is not None:
+            statement = statement.where(Route.driver_id == driver_id)
+
+        drive_date_order = (
+            col(RouteGroup.drive_date).desc()
+            if order == "desc"
+            else col(RouteGroup.drive_date).asc()
+        )
+        statement = statement.order_by(drive_date_order, col(Route.name))
 
         if pagination is None:
             pagination = PaginationParams()
@@ -99,6 +150,9 @@ class RouteService:
                 notes=row.Route.notes,
                 length=row.Route.length,
                 drive_date=row.drive_date,
+                start_time=row.Route.start_time,
+                num_stops=row.num_stops,
+                box_total=row.box_total,
             )
             for row in rows
         ]
@@ -110,26 +164,86 @@ class RouteService:
             page_size=pagination.page_size,
         )
 
-    async def get_route(self, session: AsyncSession, route_id: UUID) -> Route:
-        """Get route by ID"""
+    async def _fetch_ordered_stops(
+        self, session: AsyncSession, route_id: UUID
+    ) -> list[tuple[RouteStop, Location, RouteStopSnapshot | None]]:
+        """Fetch a route's stops in sequence order, each joined to its live
+        Location and its frozen RouteStopSnapshot (if any).
+
+        Live FK to Location feeds upcoming routes; once a route is completed,
+        a per-stop snapshot is frozen and callers should COALESCE the snapshot
+        over the live location. The snapshot is an outer join, so unfrozen
+        (upcoming) stops simply have it as None.
+
+        Shared by get_route (detail view) and get_google_maps_link.
+        """
+        statement = (
+            select(RouteStop, Location, RouteStopSnapshot)
+            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
+            .outerjoin(
+                RouteStopSnapshot,
+                RouteStopSnapshot.route_stop_id == RouteStop.route_stop_id,  # type: ignore[arg-type]
+            )
+            .where(RouteStop.route_id == route_id)
+            .order_by(RouteStop.stop_number)  # type: ignore[arg-type]
+        )
+        result = await session.execute(statement)
+        return [
+            (row.RouteStop, row.Location, row.RouteStopSnapshot) for row in result.all()
+        ]
+
+    async def get_route(self, session: AsyncSession, route_id: UUID) -> RouteDetailRead:
+        """Get a route by ID with its ordered stops embedded.
+
+        Each stop carries sequence #, address, contact, phone (+ secondary),
+        box count, and a note_chain_id reference (notes themselves stay a
+        separate chain). Stop fields COALESCE the frozen snapshot over the live
+        location, so past routes read what was actually delivered.
+        """
         try:
             statement = select(Route).where(Route.route_id == route_id)
             result = await session.execute(statement)
             route = result.scalars().first()
 
-        except Exception as error:
-            self.logger.exception("Failed to get route " + str(route_id))
+            if not route:
+                raise HTTPException(
+                    status_code=404, detail=f"Route with id {route_id} not found"
+                )
+
+            children_per_box = await resolve_children_per_box(session)
+            rows = await self._fetch_ordered_stops(session, route_id)
+        except Exception:
+            # Roll back so the caller's session is usable, then let the error
+            # through: UnhandledExceptionMiddleware logs it and answers 500.
             await session.rollback()
-            raise HTTPException(
-                status_code=500, detail="Failed to retrieve route."
-            ) from error
+            raise
 
-        if not route:
-            raise HTTPException(
-                status_code=404, detail=f"Route with id {route_id} not found"
+        stops = [
+            RouteStopDetailRead(
+                stop_number=stop.stop_number,
+                # Snapshot wins for frozen (past) stops; live Location otherwise.
+                address=snapshot.address if snapshot else location.address,
+                contact_name=(
+                    snapshot.contact_name if snapshot else location.contact_name
+                ),
+                phone_primary=(
+                    snapshot.phone_primary if snapshot else location.phone_primary
+                ),
+                phone_secondary=(
+                    snapshot.phone_secondary if snapshot else location.phone_secondary
+                ),
+                boxes=compute_boxes(
+                    snapshot.num_children if snapshot else location.num_children,
+                    children_per_box,
+                ),
+                note_chain_id=location.note_chain_id,
             )
+            for stop, location, snapshot in rows
+        ]
 
-        return route
+        detail = RouteDetailRead.model_validate(route, from_attributes=True)
+        detail.stops = stops
+        return detail
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""
@@ -164,10 +278,15 @@ class RouteService:
         - fetch_route_polyline is called to get the new encoded polyline + distance.
         - Route.length and Route.encoded_polyline are updated accordingly.
 
-        Metadata fields (name, notes) are updated independently if provided.
+        Metadata fields (name, notes, driver_id, start_time) are updated
+        independently if provided.
 
-        Since routes can be shared across multiple route groups, all route groups
-        that reference this route will automatically see the updated version.
+        FROZEN routes (those with a RouteSnapshot) may be edited too — it's
+        a "correct the record" operation. Driver mileage is derived from
+        routes, so a reassignment or length change updates history
+        automatically; the only extra work is rebuilding the per-stop
+        snapshots when stops change, since the old ones are cascade-deleted
+        with the old stops.
 
         Args:
             session: Database session
@@ -179,9 +298,11 @@ class RouteService:
         """
 
         try:
-            # Fetch the route
+            # Fetch the route (+ snapshot so we can tell if it's frozen)
             result = await session.execute(
-                select(Route).where(Route.route_id == route_id)
+                select(Route)
+                .where(Route.route_id == route_id)
+                .options(selectinload(Route.snapshot))  # type: ignore[arg-type]
             )
             route = result.scalars().first()
 
@@ -194,6 +315,14 @@ class RouteService:
                 route.name = patch.name
             if patch.notes is not None:
                 route.notes = patch.notes
+            # driver_id and start_time are nullable, so an explicit null means
+            # "clear it" (unassign / unschedule) — they typically travel
+            # together. Use model_fields_set to tell an explicit null apart
+            # from an omitted field (both are None on the model).
+            if "driver_id" in patch.model_fields_set:
+                route.driver_id = patch.driver_id
+            if "start_time" in patch.model_fields_set:
+                route.start_time = patch.start_time
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:
@@ -225,14 +354,14 @@ class RouteService:
                 system_settings = settings_result.scalars().first()
 
                 if not system_settings:
-                    raise ValueError(
+                    raise RoutingConfigurationError(
                         "System settings not found - cannot fetch warehouse coordinates for routing"
                     )
                 if (
                     system_settings.warehouse_latitude is None
                     or system_settings.warehouse_longitude is None
                 ):
-                    raise ValueError(
+                    raise RoutingConfigurationError(
                         "Warehouse coordinates not set in system settings - cannot perform routing"
                     )
 
@@ -254,7 +383,15 @@ class RouteService:
                 for stop in existing_stops_result.scalars().all():
                     await session.delete(stop)
 
+                # Flush the deletes before inserting replacements: route_stops
+                # has UNIQUE(route_id, stop_number) and UNIQUE(route_id,
+                # location_id), and SQLAlchemy's unit of work may otherwise
+                # emit the INSERTs before the DELETEs, transiently violating
+                # the constraints even though the end state is valid.
+                await session.flush()
+
                 # Create new route stops in the given order
+                new_stops: list[RouteStop] = []
                 for stop_number, location in enumerate(ordered_locations, start=1):
                     new_stop = RouteStop(
                         route_id=route_id,
@@ -262,11 +399,53 @@ class RouteService:
                         stop_number=stop_number,
                     )
                     session.add(new_stop)
+                    new_stops.append(new_stop)
 
-                # Update route polyline and mileage
+                # Update route polyline and mileage. On a frozen route this
+                # "corrects the record": derived mileage picks up the new
+                # length automatically.
                 route.encoded_polyline = encoded_polyline
                 route.polyline_updated_at = datetime.now(timezone.utc)
                 route.length = distance_km
+
+                # Amending a FROZEN route: rebuild the per-stop snapshots
+                # from the corrected stops (the old ones were cascade-deleted
+                # with the old stops) so the frozen delivery record reflects
+                # what actually happened instead of silently vanishing.
+                if route.snapshot is not None:
+                    # Reject rather than snapshot a subset: the route is
+                    # already frozen, so a stop skipped here would keep no
+                    # address or contact details and nothing would ever
+                    # revisit it (unlike the freeze job, which can defer).
+                    ungeocoded = [
+                        location
+                        for location in ordered_locations
+                        if location.latitude is None or location.longitude is None
+                    ]
+                    if ungeocoded:
+                        raise ValueError(
+                            "Cannot amend a frozen route with un-geocoded "
+                            "location(s): "
+                            f"{', '.join(str(loc.location_id) for loc in ungeocoded)}. "
+                            "Geocode them first so the frozen delivery record "
+                            "stays complete."
+                        )
+                    await session.flush()  # assign route_stop_ids
+                    for new_stop, location in zip(
+                        new_stops, ordered_locations, strict=True
+                    ):
+                        session.add(
+                            RouteStopSnapshot(
+                                route_stop_id=new_stop.route_stop_id,
+                                address=location.address,
+                                contact_name=location.contact_name,
+                                phone_primary=location.phone_primary,
+                                phone_secondary=location.phone_secondary,
+                                num_children=location.num_children,
+                                latitude=location.latitude,
+                                longitude=location.longitude,
+                            )
+                        )
 
             # Persist
             session.add(route)
@@ -293,54 +472,132 @@ class RouteService:
             HTTPException 404: If the route or system settings are not found.
             HTTPException 422: If a stop is missing both address and coordinates.
         """
-        # 1. Fetch route stops with their locations, ordered by stop_number
-        statement = (
-            select(RouteStop, Location)
-            .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
-            .where(RouteStop.route_id == route_id)
-            .order_by(RouteStop.stop_number)  # type: ignore[arg-type]
-        )
-        result = await session.execute(statement)
-        rows = result.all()
+        # 1. Fetch route stops with their live location and (if frozen) snapshot,
+        #    ordered by stop_number.
+        rows = await self._fetch_ordered_stops(session, route_id)
 
         if not rows:
             # Verify the route exists (raises 404 if not found)
-            await self.get_route(session, route_id)
+            route = (
+                (await session.execute(select(Route).where(Route.route_id == route_id)))
+                .scalars()
+                .first()
+            )
+            if not route:
+                raise HTTPException(
+                    status_code=404, detail=f"Route with id {route_id} not found"
+                )
             # Route exists but has no stops
             raise HTTPException(
                 status_code=422,
                 detail=f"Route {route_id} has no stops.",
             )
 
-        # 2. Fetch warehouse coordinates from SystemSettings
-        settings_result = await session.execute(select(SystemSettings).limit(1))
-        system_settings = settings_result.scalars().first()
-
-        if not system_settings:
-            raise HTTPException(
-                status_code=404,
-                detail="System settings not found.",
+        # 2. Resolve the origin. A frozen route carries its own start
+        #    coordinates; an unfrozen one uses the live warehouse.
+        route_snapshot = (
+            await session.execute(
+                select(RouteSnapshot).where(RouteSnapshot.route_id == route_id)
             )
-        if (
-            system_settings.warehouse_latitude is None
-            or system_settings.warehouse_longitude is None
-        ):
-            raise HTTPException(
-                status_code=422,
-                detail="Warehouse coordinates are not configured in system settings.",
-            )
+        ).scalar_one_or_none()
 
-        # 3. Extract the ordered list of Location objects
-        locations: list[Location] = [location for _, location in rows]
+        if route_snapshot is not None:
+            origin_lat = route_snapshot.start_latitude
+            origin_lon = route_snapshot.start_longitude
+        else:
+            settings_result = await session.execute(select(SystemSettings).limit(1))
+            system_settings = settings_result.scalars().first()
+
+            if not system_settings:
+                raise HTTPException(
+                    status_code=404,
+                    detail="System settings not found.",
+                )
+            if (
+                system_settings.warehouse_latitude is None
+                or system_settings.warehouse_longitude is None
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "Warehouse coordinates are not configured in system settings."
+                    ),
+                )
+            origin_lat = system_settings.warehouse_latitude
+            origin_lon = system_settings.warehouse_longitude
+
+        # 3. Resolve each stop, preferring the frozen snapshot over the live
+        #    location (present = use snapshot).
+        waypoints = [
+            MapWaypoint(
+                address=snapshot.address if snapshot else location.address,
+                latitude=snapshot.latitude if snapshot else location.latitude,
+                longitude=snapshot.longitude if snapshot else location.longitude,
+            )
+            for _, location, snapshot in rows
+        ]
 
         # 4. Generate the URL
         try:
             url = build_google_maps_directions_url(
-                locations=locations,
-                warehouse_lat=system_settings.warehouse_latitude,
-                warehouse_lon=system_settings.warehouse_longitude,
+                stops=waypoints,
+                warehouse_lat=origin_lat,
+                warehouse_lon=origin_lon,
             )
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
         return url
+
+    async def get_suggested_driver(
+        self,
+        session: AsyncSession,
+        route_id: UUID,
+        route_group_id: UUID,
+    ) -> SuggestedDriverResponse | None:
+        """Suggest the single best driver to assign to a route: the active
+        driver most familiar with its locations (by count of past completed,
+        frozen deliveries there), excluding drivers already assigned to a
+        route in this route_group (a driver can't run two routes the same
+        day). Returns None if there's no candidate.
+        """
+        # Location IDs that make up the target route.
+        target_locations = (
+            select(RouteStop.location_id)
+            .where(RouteStop.route_id == route_id)
+            .subquery()
+        )
+
+        # Drivers already assigned within this route group — exclude them so
+        # we don't double-book a driver on the same day.
+        already_assigned = (
+            select(Route.driver_id)
+            .where(Route.route_group_id == route_group_id)
+            .where(col(Route.driver_id).isnot(None))
+        )
+
+        statement = (
+            select(Route.driver_id, User.first_name, User.last_name)
+            .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
+            .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
+            .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
+            .where(
+                col(RouteStop.location_id).in_(select(target_locations.c.location_id))
+            )
+            .where(col(Route.driver_id).isnot(None))
+            .where(Route.route_id != route_id)
+            .where(col(Driver.active).is_(True))
+            .where(col(Route.driver_id).not_in(already_assigned))
+            .group_by(col(Route.driver_id), User.first_name, User.last_name)
+            .order_by(func.count().desc())
+            .limit(1)
+        )
+
+        row = (await session.execute(statement)).first()
+        if row is None:
+            return None
+        return SuggestedDriverResponse(
+            driver_id=row.driver_id,
+            driver_name=f"{row.first_name} {row.last_name}",
+        )

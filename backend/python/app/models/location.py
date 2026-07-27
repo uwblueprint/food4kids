@@ -1,44 +1,57 @@
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from pydantic import computed_field
 from sqlmodel import Field, Relationship, SQLModel, String
 
 from .base import BaseModel
+from .enum import LocationStatusEnum
 
 if TYPE_CHECKING:
     from .location_group import LocationGroup
     from .note_chain import NoteChain
 
 
-class LocationState(str, Enum):
-    """State of a location"""
-
-    ACTIVE = "ACTIVE"
-    ARCHIVED = "ARCHIVED"
-
-
 class LocationBase(SQLModel):
     """Shared fields between table and API models"""
 
-    location_group_id: UUID | None = Field(
-        default=None, foreign_key="location_groups.location_group_id", nullable=True
+    location_group_id: UUID = Field(
+        foreign_key="location_groups.location_group_id", nullable=False
     )
-    school_name: str | None = None
+    name: str
     contact_name: str
     address: str
-    phone_number: str
+    phone_primary: str
+    phone_secondary: str | None = None
     longitude: float | None = None
     latitude: float | None = None
     halal: bool = Field(default=False)
     dietary_restrictions: str = Field(default="")
     place_id: str | None = None
-    num_children: int | None = None
-    num_boxes: int = Field(default=0)
-    state: LocationState = Field(default=LocationState.ACTIVE, sa_type=String)
-    notes: str = Field(default="")
+    # Number of children served at this location. Required: the box count is
+    # derived from this (ceil(num_children / children_per_box)); there is no
+    # stored num_boxes. See app.utilities.boxes.compute_boxes.
+    num_children: int = Field(default=0, ge=0)
+    # Kind of recipient (School/Family). Required — no default — per main's
+    # rename/persist migration; enforced uniform within a RouteGroup at
+    # generation time.
+    delivery_type: str = Field(min_length=1, max_length=100, sa_type=String)
+    # Stored bit: was this location in the most recent relevant spreadsheet
+    # upload? The user-facing three-state status (Active/Unscheduled/Inactive)
+    # is derived from this plus whether the location appears in a present/
+    # future route — see LocationRead.status.
+    in_roster: bool = Field(default=True)
+    # One-to-one: a note chain belongs to at most one location, enforced by a
+    # DB-level unique constraint (NULLs are distinct in Postgres, so locations
+    # without a chain are unconstrained).
     note_chain_id: UUID | None = Field(
-        default=None, foreign_key="note_chains.note_chain_id", nullable=True
+        default=None,
+        foreign_key="note_chains.note_chain_id",
+        nullable=True,
+        ondelete="SET NULL",
+        unique=True,
     )
 
 
@@ -53,15 +66,36 @@ class Location(LocationBase, BaseModel, table=True):
     location_group: "LocationGroup" = Relationship(back_populates="locations")
     note_chain: "NoteChain" = Relationship()
 
+    @property
+    def location_group_name(self) -> str:
+        """Name of the location's (required) delivery group.
+
+        Surfaced on LocationRead so list views can show the group name without
+        a second lookup. Requires location_group to be eager-loaded (see the
+        selectinload calls in LocationService) to avoid an async lazy load.
+        """
+        return self.location_group.name
+
 
 class AlertCode(str, Enum):
     """Machine-readable reason code for an import alert."""
 
-    MISSING_FIELDS = "MISSING_FIELDS"
-    INVALID_FORMAT = "INVALID_FORMAT"
-    LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
+    MISSING_ADDRESS = "MISSING_ADDRESS"
+    INVALID_ADDRESS = "INVALID_ADDRESS"
+    MISSING_PHONE_NUMBER = "MISSING_PHONE_NUMBER"
+    INVALID_PHONE_NUMBER = "INVALID_PHONE_NUMBER"
+    MISSING_NAME = "MISSING_NAME"
+    INVALID_NAME = "INVALID_NAME"
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
-    PARTIAL_DUPLICATE = "PARTIAL_DUPLICATE"
+    LOCAL_DUPLICATE = "LOCAL_DUPLICATE"
+
+
+class DuplicateMatchField(str, Enum):
+    """Import fields that can participate in the 2-of-3 duplicate rule."""
+
+    NAME = "contact_name"
+    ADDRESS = "address"
+    PHONE = "phone_primary"
 
 
 class LocationImportEntry(SQLModel):
@@ -70,8 +104,9 @@ class LocationImportEntry(SQLModel):
     contact_name: str | None = None
     address: str | None = None
     delivery_group: str | None = None
-    phone_number: str | None = None
-    num_boxes: int | None = None
+    phone_primary: str | None = None
+    phone_secondary: str | None = None
+    num_children: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
 
@@ -81,9 +116,12 @@ class ValidatedLocationImportEntry(LocationImportEntry):
 
     contact_name: str
     address: str
-    phone_number: str
-    delivery_group: str | None = None
-    num_boxes: int | None = None
+    phone_primary: str
+    phone_secondary: str | None = None
+    # Required: every location must belong to a delivery group (the import
+    # flags MISSING_DELIVERY_GROUP, and location_group_id is non-nullable).
+    delivery_group: str
+    num_children: int | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
 
@@ -94,6 +132,13 @@ class LocationImportRow(SQLModel):
     alerts: list[AlertCode]
 
 
+class DuplicateGroup(SQLModel):
+    """Rows that refer to the same imported location under the 2-of-3 rule."""
+
+    rows: list[int]
+    matching_fields: list[DuplicateMatchField]
+
+
 class NetNewEntry(SQLModel):
     """A row in the import that has no matching existing location."""
 
@@ -101,18 +146,21 @@ class NetNewEntry(SQLModel):
     contact_name: str
     address: str
     delivery_group: str | None = None
-    phone_number: str
-    num_boxes: int | None = None
+    phone_primary: str
+    phone_secondary: str | None = None
+    num_children: int | None = None
 
 
 class StaleEntry(SQLModel):
-    """An existing location not present in the import; would be archived on ingest."""
+    """An existing location not present in the import; would be set
+    in_roster=False on ingest."""
 
     location_id: UUID
     contact_name: str
     address: str
     delivery_group: str | None = None
-    phone_number: str
+    phone_primary: str
+    phone_secondary: str | None = None
 
 
 class ChangedFieldStr(SQLModel):
@@ -137,24 +185,28 @@ class ChangedEntry(SQLModel):
     carrying both new and old values.
     """
 
+    row: int
+    location_id: UUID
     contact_name: str
     address: str | ChangedFieldStr
-    delivery_group: str | None | ChangedFieldOptStr = None
-    phone_number: str | ChangedFieldStr
-    num_children: int | None | ChangedFieldOptInt = None
+    delivery_group: str | ChangedFieldOptStr | None = None
+    phone_primary: str | ChangedFieldStr
+    phone_secondary: str | ChangedFieldOptStr | None = None
+    num_children: int | ChangedFieldOptInt | None = None
 
 
 class LocationImportResponse(SQLModel):
     """Combined validate + review-changes payload.
 
-    success=False when any row has alerts. net_new/stale/changed describe how the
-    import would affect the existing locations table; these are placeholders until
-    the matching logic is implemented.
+    success=False when any row has alerts. duplicate_groups lists row numbers and
+    matching fields for each within-file duplicate cluster. net_new/stale/changed
+    describe how the import would affect the existing locations table.
     """
 
     success: bool
     total_rows: int
     rows: list[LocationImportRow]
+    duplicate_groups: list[DuplicateGroup] = []
     net_new: list[NetNewEntry] = []
     stale: list[StaleEntry] = []
     changed: list[ChangedEntry] = []
@@ -167,33 +219,60 @@ class LocationCreate(LocationBase):
 
 
 class LocationRead(LocationBase):
-    """Read response model"""
+    """Read response model.
+
+    `has_future_route` is populated by the service layer (one batched query
+    against route_stops + route_groups), and `status` is derived from it +
+    in_roster. See LocationStatusEnum for the precedence rule.
+    """
 
     location_id: UUID
+    location_group_name: str
+    # Populated by the service; defaulted to False so single-row construction
+    # without a service round-trip still works (will report UNSCHEDULED/INACTIVE).
+    has_future_route: bool = False
+    assigned_route: str | None = None
+    last_delivery_date: datetime | None = None
+    total_deliveries: int = 0
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> LocationStatusEnum:
+        if self.has_future_route:
+            return LocationStatusEnum.ACTIVE
+        if self.in_roster:
+            return LocationStatusEnum.UNSCHEDULED
+        return LocationStatusEnum.INACTIVE
 
 
 class LocationUpdate(SQLModel):
     """Update request model with all fields optional"""
 
     location_group_id: UUID | None = None
-    school_name: str | None = None
+    name: str | None = None
     contact_name: str | None = None
     address: str | None = None
-    phone_number: str | None = None
+    phone_primary: str | None = None
+    phone_secondary: str | None = None
     longitude: float | None = None
     latitude: float | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
     place_id: str | None = None
     num_children: int | None = None
-    num_boxes: int | None = None
-    notes: str | None = None
+    delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
+    in_roster: bool | None = None
     note_chain_id: UUID | None = None
 
 
 class LocationIngestRequest(SQLModel):
+    """Ingest request — `delivery_type` applies to every net-new row in this
+    import (one Apricot sheet = one delivery type)."""
+
+    delivery_type: str = Field(min_length=1, max_length=100)
     net_new: list[ValidatedLocationImportEntry]
-    stale: list[LocationRead]
+    stale: list[StaleEntry]
+    changed: list[ChangedEntry] = []
 
 
 class LocationIngestResponse(SQLModel):

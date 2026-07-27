@@ -13,7 +13,8 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-blue-300 text-grey-100 hover:bg-blue-400',
+        primary:
+          'bg-blue-300 text-grey-100 border border-blue-400 hover:bg-blue-400',
         secondary:
           'bg-grey-200 text-grey-500 border border-grey-300 hover:bg-grey-300',
         tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
@@ -23,11 +24,13 @@ export const buttonVariants = cva(
       },
       shape: {
         default: [
-          'font-nunito text-h3',
+          'font-nunito text-button', // UI/Button: Nunito 16/20, constant
+
           'h-[44px] min-w-[104px] px-6 py-2 rounded-[40px]',
-          'w-full md:w-auto',
+          'w-full tablet:w-auto',
         ],
-        circular: 'size-[44px] rounded-full',
+        /* 40px on mobile, 44px from tablet up (per CTA design frame) */
+        circular: 'size-[40px] tablet:size-[44px] rounded-full',
       },
     },
     compoundVariants: [

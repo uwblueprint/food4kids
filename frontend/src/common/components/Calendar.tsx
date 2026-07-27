@@ -44,7 +44,7 @@ function Calendar({
       classNames={{
         root: cn('w-fit', defaultClassNames.root),
         months: cn(
-          'relative flex flex-col gap-4 md:flex-row',
+          'relative flex flex-col gap-4 tablet:flex-row',
           defaultClassNames.months
         ),
         month: cn('flex w-full flex-col gap-4', defaultClassNames.month),
@@ -117,10 +117,7 @@ function Calendar({
         range_end: cn('rounded-r-md bg-blue-50', defaultClassNames.range_end),
         today: defaultClassNames.today,
         outside: defaultClassNames.outside,
-        disabled: cn(
-          'text-grey-400 opacity-50',
-          defaultClassNames.disabled
-        ),
+        disabled: cn('text-grey-400 opacity-50', defaultClassNames.disabled),
         hidden: cn('invisible', defaultClassNames.hidden),
         ...classNames,
       }}

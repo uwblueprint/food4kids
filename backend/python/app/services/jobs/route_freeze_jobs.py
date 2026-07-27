@@ -1,0 +1,251 @@
+"""Route freeze scheduled job.
+
+Runs nightly at 23:59. For every route that is DUE (its group's drive_date
+is today or earlier) and not yet frozen, create the RouteSnapshot +
+RouteStopSnapshot rows that lock in what was delivered. The presence of the
+snapshot is the freeze signal — there is no separate flag column.
+
+The job writes no mileage: driver history is derived at read time from
+frozen routes (see DriverHistoryService). Freezing a route is what makes
+it count.
+
+Because the scan is "due and un-frozen" rather than "dated today", a missed
+run, a crash mid-run, a night with unconfigured warehouse coordinates, or a
+route whose stops aren't geocoded yet all self-heal on the next successful
+run. Each route is processed in its own session/transaction, so one failing
+route can't poison the rest of the run.
+
+Freezing a route is all-or-nothing. The route snapshot is what stops the
+scan from revisiting it, so a partial freeze would strand un-snapshotted
+stops with no preserved address or contact details, permanently.
+"""
+
+from __future__ import annotations
+
+from collections import Counter
+from datetime import date, datetime
+from enum import StrEnum
+from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from sqlalchemy.orm import selectinload
+from sqlmodel import col, select
+
+from app.config import settings
+from app.dependencies.services import get_logger
+from app.models import async_session_maker_instance
+from app.models.route import Route
+from app.models.route_group import RouteGroup
+from app.models.route_snapshot import RouteSnapshot
+from app.models.route_stop import RouteStop
+from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.models.system_settings import SystemSettings
+
+
+class FreezeOutcome(StrEnum):
+    """What happened to one route in a freeze run."""
+
+    FROZEN = "frozen"
+    # Already frozen, or deleted between the scan and the write.
+    NOTHING_TO_DO = "nothing_to_do"
+    # A stop's location isn't geocoded yet. The route stays due.
+    DEFERRED = "deferred"
+
+
+async def _freeze_route(
+    maker: async_sessionmaker[AsyncSession],
+    route_id: UUID,
+    warehouse_address: str,
+    warehouse_latitude: float,
+    warehouse_longitude: float,
+) -> FreezeOutcome:
+    """Freeze one route atomically in a fresh session.
+
+    Raises on failure (nothing is committed in that case — the route stays
+    due for the next run)."""
+    logger = get_logger()
+    async with maker() as session:
+        result = await session.execute(
+            select(Route)
+            .where(Route.route_id == route_id)
+            .options(
+                selectinload(Route.snapshot),  # type: ignore[arg-type]
+                selectinload(Route.route_stops).selectinload(  # type: ignore[arg-type]
+                    RouteStop.location  # type: ignore[arg-type]
+                ),
+                selectinload(Route.route_stops).selectinload(  # type: ignore[arg-type]
+                    RouteStop.snapshot  # type: ignore[arg-type]
+                ),
+            )
+        )
+        route = result.scalars().first()
+        if route is None or route.snapshot is not None:
+            return FreezeOutcome.NOTHING_TO_DO
+
+        # All-or-nothing: freezing is what makes a route's record permanent,
+        # and the route snapshot is the signal that stops the scan from ever
+        # revisiting it. Snapshotting only the geocoded stops would strand
+        # the rest with no address or contact details, unrecoverably. Bail
+        # instead and let the route stay due until geocoding lands.
+        ungeocoded = [
+            stop
+            for stop in route.route_stops
+            if stop.snapshot is None
+            and (stop.location.latitude is None or stop.location.longitude is None)
+        ]
+        if ungeocoded:
+            logger.warning(
+                f"Route {route.route_id} has {len(ungeocoded)} stop(s) whose "
+                f"location isn't geocoded "
+                f"({', '.join(str(s.location.location_id) for s in ungeocoded)}); "
+                f"not freezing. It stays due and will freeze on the next run "
+                f"once the coordinates are set."
+            )
+            return FreezeOutcome.DEFERRED
+
+        session.add(
+            RouteSnapshot(
+                route_id=route.route_id,
+                start_address=warehouse_address,
+                start_latitude=warehouse_latitude,
+                start_longitude=warehouse_longitude,
+            )
+        )
+
+        for stop in route.route_stops:
+            if stop.snapshot is not None:
+                continue
+            loc = stop.location
+            session.add(
+                RouteStopSnapshot(
+                    route_stop_id=stop.route_stop_id,
+                    address=loc.address,
+                    contact_name=loc.contact_name,
+                    phone_primary=loc.phone_primary,
+                    phone_secondary=loc.phone_secondary,
+                    num_children=loc.num_children,
+                    latitude=loc.latitude,
+                    longitude=loc.longitude,
+                )
+            )
+
+        # One commit: the route snapshot and its stop snapshots land
+        # together or not at all.
+        await session.commit()
+        return FreezeOutcome.FROZEN
+
+
+async def process_daily_driver_history() -> None:
+    """Freeze all due, un-frozen routes.
+
+    Runs at 11:59 PM every day; safe to re-run at any time (idempotent)."""
+    logger = get_logger()
+
+    if async_session_maker_instance is None:
+        logger.error("Database session maker not initialized")
+        return
+
+    # Resolve "today" in the scheduler's timezone, not the process's. The
+    # container runs UTC, so date.today() at 23:59 local is already
+    # tomorrow — which would freeze tomorrow's routes a day early.
+    today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
+    end_of_today = datetime.combine(today, datetime.max.time())
+
+    try:
+        # --------------------------------------------------------------
+        # 1. Scan for due, un-frozen routes — plain IDs only, since each
+        #    route is processed in its own session. Includes past dates,
+        #    not just today: routes missed by a downed or crashed run
+        #    stay due until a run succeeds.
+        # --------------------------------------------------------------
+        async with async_session_maker_instance() as session:
+            scan = await session.execute(
+                select(Route.route_id, RouteGroup.drive_date)
+                .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+                .outerjoin(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
+                .where(RouteGroup.drive_date <= end_of_today)
+                .where(col(RouteSnapshot.route_id).is_(None))
+                .order_by(col(RouteGroup.drive_date))
+            )
+            due: list[tuple[UUID, date]] = [
+                (route_id, drive_date.date()) for route_id, drive_date in scan.all()
+            ]
+
+            if not due:
+                logger.info("No due un-frozen routes; nothing to do.")
+                return
+
+            backlog = sum(1 for _, dd in due if dd < today)
+            if backlog:
+                logger.warning(
+                    f"Catch-up: {backlog} of {len(due)} due routes are from "
+                    f"past dates (missed or previously-skipped runs)."
+                )
+
+            # ----------------------------------------------------------
+            # 2. Warehouse coordinates are required to freeze. If they're
+            #    missing, freeze nothing — loudly. The routes stay due,
+            #    so this self-heals on the first run after they're set.
+            # ----------------------------------------------------------
+            settings_result = await session.execute(select(SystemSettings).limit(1))
+            system_settings = settings_result.scalars().first()
+
+            if (
+                system_settings is None
+                or not system_settings.warehouse_location
+                or system_settings.warehouse_latitude is None
+                or system_settings.warehouse_longitude is None
+            ):
+                logger.error(
+                    f"Warehouse coordinates not configured — cannot freeze "
+                    f"{len(due)} due routes (their mileage won't count until "
+                    f"frozen). They remain due and will be processed on the "
+                    f"next run after coordinates are set."
+                )
+                return
+
+            warehouse_address = system_settings.warehouse_location
+            warehouse_latitude = system_settings.warehouse_latitude
+            warehouse_longitude = system_settings.warehouse_longitude
+
+        # --------------------------------------------------------------
+        # 3. Freeze, one fresh session/transaction per route. A failing
+        #    route is logged and skipped without poisoning the run.
+        # --------------------------------------------------------------
+        tally = Counter[FreezeOutcome]()
+        failed_count = 0
+        for route_id, drive_date in due:
+            try:
+                tally[
+                    await _freeze_route(
+                        async_session_maker_instance,
+                        route_id,
+                        warehouse_address,
+                        warehouse_latitude,
+                        warehouse_longitude,
+                    )
+                ] += 1
+            except Exception:
+                failed_count += 1
+                logger.exception(
+                    f"Failed to freeze route {route_id} (drive_date "
+                    f"{drive_date}); it remains due and will be retried on "
+                    f"the next run."
+                )
+
+        logger.info(
+            f"Froze {tally[FreezeOutcome.FROZEN]} routes "
+            f"({tally[FreezeOutcome.DEFERRED]} deferred for missing "
+            f"geocoding, {failed_count} failures)."
+        )
+
+    except Exception as error:
+        logger.error(
+            f"Failed to process daily driver history: {error!s}", exc_info=True
+        )
+        raise error

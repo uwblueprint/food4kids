@@ -1,4 +1,3 @@
-import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,11 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import get_note_chain_service
 from app.models import get_session
-from app.models.note import NoteCreate, NoteListResponse, NoteRead, NoteUpdate
+from app.models.note import NoteCreate, NoteRead, NoteUpdate
 from app.models.note_chain import NoteChainRead
 from app.services.implementations.note_chain_service import NoteChainService
 
-logger = logging.getLogger(__name__)
 note_chain_service: NoteChainService = get_note_chain_service()
 
 router = APIRouter(prefix="/note-chains", tags=["note-chains"])
@@ -42,11 +40,6 @@ async def get_note_chain(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.delete("/{note_chain_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -70,44 +63,26 @@ async def delete_note_chain(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 # --- Notes endpoints ---
 
 
-@router.get("/{note_chain_id}/notes", response_model=NoteListResponse)
+@router.get("/{note_chain_id}/notes", response_model=list[NoteRead])
 async def get_notes(
     note_chain_id: UUID,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
     current_user_id: UUID = Depends(get_current_database_user_id),
-) -> NoteListResponse:
-    """Get notes for a chain with pagination. Returns unread count and auto-marks as read."""
+) -> list[NoteRead]:
+    """Get notes for a chain with pagination."""
     try:
-        # Get unread count before marking as read
-        unread_count = await note_chain_service.get_unread_count(
-            session, note_chain_id, current_user_id
-        )
-
         notes = await note_chain_service.get_notes_by_chain_id(
             session, note_chain_id, current_user_id, limit, offset
         )
 
-        # Auto-mark as read
-        await note_chain_service.mark_chain_as_read(
-            session, note_chain_id, current_user_id
-        )
-
-        return NoteListResponse(
-            notes=[NoteRead.model_validate(note) for note in notes],
-            unread_count=unread_count,
-        )
+        return [NoteRead.model_validate(note) for note in notes]
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -118,11 +93,6 @@ async def get_notes(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post(
@@ -152,11 +122,6 @@ async def create_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.patch("/{note_chain_id}/notes/{note_id}", response_model=NoteRead)
@@ -183,11 +148,6 @@ async def update_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.delete(
@@ -214,8 +174,3 @@ async def delete_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e

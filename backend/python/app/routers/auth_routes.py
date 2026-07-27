@@ -1,5 +1,4 @@
 import logging
-from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -11,9 +10,9 @@ from app.dependencies.services import (
     get_auth_service,
 )
 from app.models import get_session
-from app.schemas.auth import AuthResponse, LoginRequest, RefreshResponse
-from app.services.implementations.auth_service import AuthService
-from app.utilities.cookies import get_cookie_options
+from app.schemas.auth import AuthResponse, LoginRequest
+from app.services.implementations.auth_service import AuthService, SessionExpiredError
+from app.utilities.cookies import set_refresh_token_cookie
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -31,28 +30,14 @@ async def login(
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
     """
-    logger.info(f"Login request: {login_request}")
+    # Never log login_request itself — its repr contains the plaintext password.
+    logger.info(f"Login request for {login_request.email}")
     try:
-        if not login_request.email or not login_request.password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email and password are required",
-            )
         auth_dto, refresh_token = await auth_service.generate_token(
             session, login_request.email, login_request.password
         )
 
-        # Set refresh token as httpOnly cookie
-        cookie_options = get_cookie_options()
-        response.set_cookie(
-            "refreshToken",
-            value=refresh_token,
-            httponly=bool(cookie_options["httponly"]),
-            samesite=cast(
-                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
-            ),
-            secure=bool(cookie_options["secure"]),
-        )
+        set_refresh_token_cookie(response, refresh_token)
 
         return auth_dto
     except ValueError as e:
@@ -62,52 +47,36 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         ) from e
-    except Exception as e:
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
 
 
-@router.post("/refresh", response_model=RefreshResponse)
+@router.post("/refresh", response_model=AuthResponse)
 async def refresh(
     request: Request,
     response: Response,
-    _session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
-) -> RefreshResponse:
+) -> AuthResponse:
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
     """
-    try:
-        refresh_token = request.cookies.get("refreshToken")
-        if not refresh_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token not found",
-            )
-
-        token = auth_service.renew_token(refresh_token)
-
-        # Set new refresh token as httpOnly cookie
-        cookie_options = get_cookie_options()
-        response.set_cookie(
-            "refreshToken",
-            value=token.refresh_token,
-            httponly=bool(cookie_options["httponly"]),
-            samesite=cast(
-                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
-            ),
-            secure=bool(cookie_options["secure"]),
+    refresh_token = request.cookies.get("refreshToken")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found",
         )
 
-        return RefreshResponse(access_token=token.access_token)
-    except Exception as e:
-        error_message = getattr(e, "message", None)
+    try:
+        auth_data, new_refresh_token = await auth_service.renew_token(
+            session, refresh_token
+        )
+
+        set_refresh_token_cookie(response, new_refresh_token)
+
+        return auth_data
+    except SessionExpiredError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
         ) from e
 
 
@@ -128,14 +97,7 @@ async def logout(
             detail="You are not authorized to logout this driver",
         )
 
-    try:
-        await auth_service.revoke_tokens(session, user_id)
-    except Exception as e:
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+    await auth_service.revoke_tokens(session, user_id)
 
 
 @router.post("/resetPassword/{email}", status_code=status.HTTP_204_NO_CONTENT)
@@ -155,11 +117,4 @@ async def reset_password(
             detail="You are not authorized to reset this email's password",
         )
 
-    try:
-        auth_service.reset_password(email)
-    except Exception as e:
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+    auth_service.reset_password(email)

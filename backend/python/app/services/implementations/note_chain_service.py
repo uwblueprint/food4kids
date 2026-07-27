@@ -1,18 +1,19 @@
 import logging
-from datetime import datetime
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import col, func, select, update
+from sqlmodel import case, col, func, select, update
 
+from app.models.driver import Driver
 from app.models.enum import NotePermission
 from app.models.location import Location
-from app.models.note import Note, NoteCreate, NoteUpdate
+from app.models.location_group import LocationGroup
+from app.models.note import Note, NoteCreate, NoteFeedItem, NoteUpdate
 from app.models.note_chain import NoteChain, NoteChainCreate
-from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.user import User
+from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.utilities.pagination import paginate_query
 
 
 class NoteChainService:
@@ -103,7 +104,7 @@ class NoteChainService:
 
             note_chain = await self.get_note_chain_by_id(session, note_chain_id)
 
-            # Null out FK references on locations and routes
+            # Null out FK references on locations, routes, and drivers
             await session.execute(
                 update(Location)
                 .where(col(Location.note_chain_id) == note_chain_id)
@@ -114,14 +115,11 @@ class NoteChainService:
                 .where(col(Route.note_chain_id) == note_chain_id)
                 .values(note_chain_id=None)
             )
-
-            # Delete associated read tracking entries
-            read_statement = select(NoteChainReadModel).where(
-                NoteChainReadModel.note_chain_id == note_chain_id
+            await session.execute(
+                update(Driver)
+                .where(col(Driver.note_chain_id) == note_chain_id)
+                .values(note_chain_id=None)
             )
-            read_result = await session.execute(read_statement)
-            for read_entry in read_result.scalars().all():
-                await session.delete(read_entry)
 
             await session.delete(note_chain)
             await session.commit()
@@ -162,6 +160,86 @@ class NoteChainService:
             return list(result.scalars().all())
         except Exception as e:
             self.logger.error(f"Failed to get notes by chain id: {e!s}")
+            raise e
+
+    async def get_location_notes_feed(
+        self,
+        session: AsyncSession,
+        pagination: PaginationParams,
+        sort: str = "recent",
+    ) -> PaginatedResponse[NoteFeedItem]:
+        """Get location notes across all location note chains."""
+        try:
+            # Postgres concat() treats NULL args as empty strings, so an
+            # authorless (system) note would yield " " rather than NULL. Guard
+            # with a CASE so author_name is None when there is no author.
+            author_name_expr = case(
+                (col(User.user_id).is_(None), None),
+                else_=func.concat(User.first_name, " ", User.last_name),
+            )
+            statement = (
+                select(  # type: ignore[call-overload]
+                    Note,
+                    col(Location.location_id).label("location_id"),
+                    col(Location.name).label("location_name"),
+                    col(Location.address).label("location_address"),
+                    col(LocationGroup.name).label("location_group_name"),
+                    author_name_expr.label("author_name"),
+                    col(User.role).label("author_role"),
+                )
+                .join(Location, Location.note_chain_id == Note.note_chain_id)
+                .join(
+                    LocationGroup,
+                    LocationGroup.location_group_id == Location.location_group_id,
+                )
+                .outerjoin(User, User.user_id == Note.user_id)
+            )
+
+            if sort == "oldest":
+                statement = statement.order_by(col(Note.created_at).asc())
+            elif sort == "driver":
+                statement = statement.order_by(
+                    col(User.last_name).asc().nullslast(),
+                    col(User.first_name).asc().nullslast(),
+                    col(Note.created_at).desc(),
+                )
+            elif sort == "location":
+                statement = statement.order_by(
+                    col(Location.name).asc(),
+                    col(Note.created_at).desc(),
+                )
+            else:
+                statement = statement.order_by(col(Note.created_at).desc())
+
+            result, total = await paginate_query(session, statement, pagination)
+            items = [
+                NoteFeedItem(
+                    **note.model_dump(),
+                    location_id=location_id,
+                    location_name=location_name,
+                    location_address=location_address,
+                    location_group_name=location_group_name,
+                    author_name=author_name,
+                    author_role=author_role,
+                )
+                for (
+                    note,
+                    location_id,
+                    location_name,
+                    location_address,
+                    location_group_name,
+                    author_name,
+                    author_role,
+                ) in result.all()
+            ]
+            return PaginatedResponse.create(
+                items=items,
+                total=total,
+                page=pagination.page,
+                page_size=pagination.page_size,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to get location notes feed: {e!s}")
             raise e
 
     async def create_note(
@@ -272,74 +350,4 @@ class NoteChainService:
         except Exception as e:
             self.logger.error(f"Failed to delete note: {e!s}")
             await session.rollback()
-            raise e
-
-    # --- Read Tracking ---
-
-    async def mark_chain_as_read(
-        self, session: AsyncSession, note_chain_id: UUID, user_id: UUID
-    ) -> NoteChainReadModel:
-        """Mark a note chain as read by upserting last_read_at to now"""
-        try:
-            # Verify chain exists
-            await self.get_note_chain_by_id(session, note_chain_id)
-
-            # Check if a read entry already exists
-            statement = select(NoteChainReadModel).where(
-                NoteChainReadModel.note_chain_id == note_chain_id,
-                NoteChainReadModel.user_id == user_id,
-            )
-            result = await session.execute(statement)
-            read_entry = result.scalars().first()
-
-            now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
-
-            if read_entry:
-                read_entry.last_read_at = now
-                read_entry.updated_at = now
-            else:
-                read_entry = NoteChainReadModel(
-                    note_chain_id=note_chain_id,
-                    user_id=user_id,
-                    last_read_at=now,
-                )
-                session.add(read_entry)
-
-            await session.commit()
-            await session.refresh(read_entry)
-            return read_entry
-        except Exception as e:
-            self.logger.error(f"Failed to mark chain as read: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def get_unread_count(
-        self, session: AsyncSession, note_chain_id: UUID, user_id: UUID
-    ) -> int:
-        """Get the count of unread notes in a chain for a user"""
-        try:
-            # Verify chain exists
-            await self.get_note_chain_by_id(session, note_chain_id)
-
-            # Get last read time
-            read_statement = select(NoteChainReadModel.last_read_at).where(
-                NoteChainReadModel.note_chain_id == note_chain_id,
-                NoteChainReadModel.user_id == user_id,
-            )
-            read_result = await session.execute(read_statement)
-            last_read_at = read_result.scalar_one_or_none()
-
-            # Count notes after last_read_at (or all notes if never read)
-            count_statement = select(func.count(col(Note.note_id))).where(
-                Note.note_chain_id == note_chain_id
-            )
-            if last_read_at is not None:
-                count_statement = count_statement.where(
-                    col(Note.created_at) > last_read_at
-                )
-
-            count_result = await session.execute(count_statement)
-            return count_result.scalar_one()
-        except Exception as e:
-            self.logger.error(f"Failed to get unread count: {e!s}")
             raise e

@@ -116,7 +116,9 @@ export function CardSection() {
             <Card>
               <CardContent>
                 <div className="bg-grey-150 rounded-lg py-8 text-center">
-                  <p className="text-p2 text-grey-400">Content without a header</p>
+                  <p className="text-p2 text-grey-400">
+                    Content without a header
+                  </p>
                 </div>
               </CardContent>
             </Card>

@@ -1,10 +1,9 @@
 from typing import Any
+from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.driver import DriverRead
-from app.services.implementations.driver_history_service import DriverHistory
 
 
 class DriverHistoryCSVGenerator:
@@ -12,34 +11,24 @@ class DriverHistoryCSVGenerator:
 
     def __init__(
         self,
-        session: AsyncSession,
-        driver_history_current_year: list[DriverHistory],
-        driver_history_past_year: list[DriverHistory],
+        current_year_totals: dict[UUID, float],
+        past_year_totals: dict[UUID, float],
         driver_data: list[DriverRead],
     ):
-        self.session = session
-        self.driver_history_current_year = driver_history_current_year
-        self.driver_history_past_year = driver_history_past_year
+        self.current_year_totals = current_year_totals
+        self.past_year_totals = past_year_totals
         self.driver_data = driver_data
 
-    async def generate_all_drivers_csv(
-        self, year: int
-    ) -> tuple[list[dict[str, Any]], str]:
+    def generate_all_drivers_csv(self, year: int) -> tuple[list[dict[str, Any]], str]:
         """Generate CSV data for all drivers for a given year.
 
-        Drivers with history in the current year appear first, sorted alphabetically.
-        Drivers with only previous year history appear after, also sorted alphabetically.
+        Totals are per-driver yearly sums over their frozen routes. Drivers
+        with km in the requested year appear first, sorted by last name then
+        first name; drivers with only previous-year km follow, sorted the
+        same way.
         """
 
-        current_year_lookup = {
-            history.driver_id: history.km
-            for history in self.driver_history_current_year
-        }
-        past_year_lookup = {
-            history.driver_id: history.km for history in self.driver_history_past_year
-        }
-
-        all_driver_ids = set(current_year_lookup.keys()) | set(past_year_lookup.keys())
+        all_driver_ids = set(self.current_year_totals) | set(self.past_year_totals)
 
         driver_lookup = {driver.driver_id: driver for driver in self.driver_data}
 
@@ -49,17 +38,17 @@ class DriverHistoryCSVGenerator:
                 continue
 
             driver = driver_lookup[driver_id]
-            name_parts = driver.name.split(" ", 1)  # Split on first space only
-            first_name = name_parts[0]
-            last_name = name_parts[1] if len(name_parts) > 1 else ""
-
             csv_data.append(
                 {
-                    "first": first_name,
-                    "last": last_name,
+                    "first": driver.first_name,
+                    "last": driver.last_name,
                     "email": driver.email,
-                    f"distance (km) in {year}": current_year_lookup.get(driver_id, 0),
-                    f"distance (km) in {year - 1}": past_year_lookup.get(driver_id, 0),
+                    f"distance (km) in {year}": self.current_year_totals.get(
+                        driver_id, 0
+                    ),
+                    f"distance (km) in {year - 1}": self.past_year_totals.get(
+                        driver_id, 0
+                    ),
                 }
             )
 
@@ -69,14 +58,14 @@ class DriverHistoryCSVGenerator:
                 detail=f"No valid driver data found for years {year} and {year - 1}",
             )
 
-        # Sort: current year drivers first (descending), then by last name, then first name
+        # Sort: current year drivers first, then last name, then first name.
         csv_data.sort(
             key=lambda x: (
                 not x[
                     f"distance (km) in {year}"
                 ],  # current year drivers first, no people with 0 km
-                str(x["first"]).lower(),
                 str(x["last"]).lower(),
+                str(x["first"]).lower(),
             )
         )
 

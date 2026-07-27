@@ -39,7 +39,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         type={type}
         maxLength={maxCharacters}
         className={cn(
-          'text-p2 text-grey-500 placeholder:text-p1 placeholder:text-grey-400',
+          /* Text Field spec (Figma): input text is 16px at every width —
+           * Mobile/P2 (16/24 Regular) on mobile, Desktop/P1 (16/24 Medium)
+           * from tablet up. Size is constant (text-m-p2); only the weight
+           * steps up. Placeholder shares it (color only differs). */
+          'text-m-p2 tablet:font-medium text-grey-500 placeholder:text-grey-400 font-normal',
           'w-full rounded-lg px-3 py-3',
           'transition-colors',
           'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',

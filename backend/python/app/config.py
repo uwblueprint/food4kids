@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     # Preview deploy
     preview_deploy: bool = Field(default=False)
 
+    # Frontend URL
+    frontend_base_url: str = Field(default="http://localhost:3000")
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"
@@ -94,6 +97,10 @@ class Settings(BaseSettings):
     @property
     def is_testing(self) -> bool:
         return self.environment == "testing"
+
+    @property
+    def FRONTEND_BASE_URL(self) -> str:
+        return self.frontend_base_url
 
 
 class DevelopmentSettings(Settings):

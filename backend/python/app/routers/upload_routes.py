@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
+from app.dependencies.auth import require_driver_or_admin
 from app.dependencies.services import get_gcp_storage_client
 from app.utilities.gcp_client import GCPStorageClient, GCSStorageError
 
@@ -13,6 +14,7 @@ MAX_SIZE_MB = 5
 async def upload_image(
     file: UploadFile = File(...),
     gcp_client: GCPStorageClient = Depends(get_gcp_storage_client),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> dict[str, str]:
     """
     Create a file upload
@@ -39,6 +41,7 @@ async def upload_image(
 async def delete_image(
     filename: str,
     gcp_client: GCPStorageClient = Depends(get_gcp_storage_client),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> dict[str, str]:
     """
     Delete a file given the filename

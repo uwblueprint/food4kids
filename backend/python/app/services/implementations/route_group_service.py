@@ -4,22 +4,31 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, exists, func, or_
+from sqlalchemy import and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlalchemy.orm import selectinload
+from sqlmodel import col, select
 
 from app.config import settings
-from app.models.driver_assignment import DriverAssignment
 from app.models.enum import (
-    DeliveryTypeEnum,
     DriveDaysOfWeekEnum,
     DriverAssignmentStatusEnum,
     RouteStatusEnum,
 )
 from app.models.location import Location
-from app.models.route_group import RouteGroup, RouteGroupCreate, RouteGroupUpdate
-from app.models.route_group_membership import RouteGroupMembership
+from app.models.route import Route
+from app.models.route_group import (
+    RouteGroup,
+    RouteGroupCreate,
+    RouteGroupRead,
+    RouteGroupUpdate,
+    RouteReadSummary,
+)
 from app.models.route_stop import RouteStop
+from app.utilities.boxes import box_count_expr, resolve_children_per_box
+
+ROUTE_GROUP_COPY_PREFIX = "Copy of "
+ROUTE_GROUP_NAME_MAX_LENGTH = 255
 
 
 class RouteGroupService:
@@ -31,20 +40,19 @@ class RouteGroupService:
 
     async def create_route_group(
         self, session: AsyncSession, route_group_data: RouteGroupCreate
-    ) -> RouteGroup:
+    ) -> RouteGroupRead:
         """Create new route group"""
         route_group = RouteGroup.model_validate(route_group_data)
         session.add(route_group)
         await session.commit()
-        await session.refresh(route_group, ["route_group_memberships"])
-        return route_group
+        return await self._read_back(session, route_group.route_group_id)
 
     async def update_route_group(
         self,
         session: AsyncSession,
         route_group_id: UUID,
         route_group_data: RouteGroupUpdate,
-    ) -> RouteGroup | None:
+    ) -> RouteGroupRead | None:
         """Update existing route group"""
         statement = select(RouteGroup).where(
             RouteGroup.route_group_id == route_group_id
@@ -61,9 +69,198 @@ class RouteGroupService:
             setattr(route_group, field, value)
 
         await session.commit()
-        await session.refresh(route_group, ["route_group_memberships"])
+        return await self._read_back(session, route_group_id)
 
-        return route_group
+    async def duplicate_route_group(
+        self, session: AsyncSession, route_group_id: UUID
+    ) -> RouteGroupRead | None:
+        """Duplicate a route group with fresh route/stop rows.
+
+        Route snapshots and note chains are intentionally not copied: they are
+        historical records attached to the original route. New routes point
+        back to their source through cloned_from_route_id.
+        """
+        statement = (
+            select(RouteGroup)
+            .options(selectinload(RouteGroup.routes).selectinload(Route.route_stops))  # type: ignore[arg-type]
+            .where(RouteGroup.route_group_id == route_group_id)
+        )
+        result = await session.execute(statement)
+        route_group = result.scalars().first()
+
+        if not route_group:
+            self.logger.error(f"RouteGroup with id {route_group_id} not found")
+            return None
+
+        duplicated_group = RouteGroup(
+            name=f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
+                :ROUTE_GROUP_NAME_MAX_LENGTH
+            ],
+            notes=route_group.notes,
+            drive_date=route_group.drive_date,
+        )
+        session.add(duplicated_group)
+
+        for route in sorted(route_group.routes, key=lambda item: item.name):
+            duplicated_route = Route(
+                name=route.name,
+                notes=route.notes,
+                length=route.length,
+                encoded_polyline=route.encoded_polyline,
+                polyline_updated_at=route.polyline_updated_at,
+                ends_at_warehouse=route.ends_at_warehouse,
+                start_time=route.start_time,
+                route_group_id=duplicated_group.route_group_id,
+                driver_id=route.driver_id,
+                cloned_from_route_id=route.route_id,
+            )
+            duplicated_group.routes.append(duplicated_route)
+
+            for stop in sorted(route.route_stops, key=lambda item: item.stop_number):
+                duplicated_route.route_stops.append(
+                    RouteStop(
+                        route_id=duplicated_route.route_id,
+                        location_id=stop.location_id,
+                        stop_number=stop.stop_number,
+                    )
+                )
+
+        await session.commit()
+        return await self._read_back(session, duplicated_group.route_group_id)
+
+    async def _read_back(
+        self, session: AsyncSession, route_group_id: UUID
+    ) -> RouteGroupRead:
+        """Fetch the read model for a group that was just written.
+
+        The group is known to exist (we just committed it), so a missing row is
+        an internal error rather than a caller-facing 404.
+        """
+        read = await self.get_route_group_read(session, route_group_id)
+        if read is None:
+            raise RuntimeError(
+                f"RouteGroup {route_group_id} not found immediately after write"
+            )
+        return read
+
+    async def get_route_group_read(
+        self, session: AsyncSession, route_group_id: UUID
+    ) -> RouteGroupRead | None:
+        """Get a single route group as a read model with aggregate stats."""
+        children_per_box = await resolve_children_per_box(session)
+        statement = (
+            self._read_statement(children_per_box)
+            .where(RouteGroup.route_group_id == route_group_id)
+            .options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
+        )
+        result = await session.execute(statement)
+        row = result.first()
+        if row is None:
+            return None
+        return self._row_to_read(row, include_routes=False)
+
+    def _read_statement(self, children_per_box: int) -> Any:
+        """Base SELECT producing RouteGroupRead rows: the group entity plus
+        aggregate stats (location/box/driver counts, delivery type, status)."""
+
+        group_location_ids: Any = (
+            select(distinct(RouteStop.location_id))  # type: ignore[arg-type]
+            .select_from(Route)
+            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+        )
+
+        num_locations_subq = (
+            select(func.count(distinct(RouteStop.location_id)))  # type: ignore[arg-type]
+            .select_from(Route)
+            .join(RouteStop, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_locations")
+        )
+
+        num_boxes_subq = (
+            select(
+                func.coalesce(
+                    func.sum(box_count_expr(Location.num_children, children_per_box)),
+                    0,
+                )
+            )
+            .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_boxes")
+        )
+
+        num_drivers_subq = (
+            select(func.count(distinct(Route.driver_id)))  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .where(col(Route.driver_id).isnot(None))
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("num_drivers_assigned")
+        )
+
+        delivery_type_expr = (
+            select(Location.delivery_type)
+            .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
+            .limit(1)
+            .correlate(RouteGroup)
+            .scalar_subquery()
+            .label("delivery_type")
+        )
+
+        now = datetime.now(self.timezone).replace(tzinfo=None)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        status_expr = case(
+            (RouteGroup.drive_date >= today_start, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
+            else_=RouteStatusEnum.COMPLETED.value,
+        ).label("status")
+
+        return select(  # type: ignore[call-overload]
+            RouteGroup,
+            num_locations_subq,
+            num_boxes_subq,
+            num_drivers_subq,
+            delivery_type_expr,
+            status_expr,
+        )
+
+    @staticmethod
+    def _row_to_read(row: Any, include_routes: bool) -> RouteGroupRead:
+        """Convert a _read_statement result row into a RouteGroupRead."""
+        rg: RouteGroup = row.RouteGroup
+
+        routes: list[RouteReadSummary] = []
+        if include_routes:
+            for route in rg.routes:
+                routes.append(
+                    RouteReadSummary(
+                        route_id=route.route_id,
+                        name=route.name,
+                        notes=route.notes,
+                        length=route.length,
+                    )
+                )
+
+        return RouteGroupRead(
+            route_group_id=rg.route_group_id,
+            name=rg.name,
+            notes=rg.notes,
+            drive_date=rg.drive_date,
+            created_at=rg.created_at,
+            updated_at=rg.updated_at,
+            num_routes=rg.num_routes,
+            num_locations=row.num_locations,
+            num_boxes=row.num_boxes,
+            num_drivers_assigned=row.num_drivers_assigned,
+            delivery_type=row.delivery_type,
+            status=row.status,
+            routes=routes,
+        )
 
     async def get_route_groups(
         self,
@@ -71,13 +268,15 @@ class RouteGroupService:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         weekday: list[DriveDaysOfWeekEnum] | None = None,
-        delivery_type: list[DeliveryTypeEnum] | None = None,
+        delivery_type: list[str] | None = None,
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
-    ) -> list[RouteGroup]:
-        """Get route groups with optional date filtering"""
-        statement = select(RouteGroup)
+    ) -> list[RouteGroupRead]:
+        """Get route groups with optional date filtering and aggregate stats."""
+
+        children_per_box = await resolve_children_per_box(session)
+        statement = self._read_statement(children_per_box)
 
         if start_date:
             statement = statement.where(RouteGroup.drive_date >= start_date)
@@ -98,50 +297,30 @@ class RouteGroupService:
                 func.extract("dow", RouteGroup.drive_date).in_(dow_values)  # type: ignore[arg-type]
             )
 
-        # Delivery type filter
+        # Delivery type filter: a group matches if any of its stops' locations
+        # has one of the requested delivery types.
         if delivery_type:
-            # Subquery to traverse memberships -> stops -> locations to check for a school name
-            has_school_query = (
-                select(1)
-                .select_from(RouteGroupMembership)
-                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                .join(Location, RouteStop.location_id == Location.location_id)  # type: ignore[arg-type]
-                .where(
-                    RouteGroupMembership.route_group_id == RouteGroup.route_group_id,
-                    Location.school_name.isnot(None),  # type: ignore[union-attr]
-                    Location.school_name != "",
-                )
-            )
-
-            # Subquery to check if the route group has any locations at all (make sure we dont default empty routes to summer)
-            has_locations_query = (
-                select(1)
-                .select_from(RouteGroupMembership)
-                .join(RouteStop, RouteGroupMembership.route_id == RouteStop.route_id)  # type: ignore[arg-type]
-                .where(RouteGroupMembership.route_group_id == RouteGroup.route_group_id)
-            )
-
             delivery_conditions: list[Any] = []
-            if DeliveryTypeEnum.SCHOOL_YEAR in delivery_type:
-                delivery_conditions.append(has_school_query.exists())
-            if DeliveryTypeEnum.SUMMER in delivery_type:
+            for dt in delivery_type:
                 delivery_conditions.append(
-                    and_(has_locations_query.exists(), ~has_school_query.exists())
+                    exists()
+                    .select_from(Route)
+                    .join(RouteStop, RouteStop.route_id == Route.route_id)
+                    .join(Location, Location.location_id == RouteStop.location_id)
+                    .where(Route.route_group_id == RouteGroup.route_group_id)
+                    .where(Location.delivery_type == dt)
                 )
             if delivery_conditions:
                 statement = statement.where(or_(*delivery_conditions))
 
         if route_status:
-            # Get the current date and time in the local timezone
             now = datetime.now(self.timezone).replace(tzinfo=None)
-            # Get start of current day (midnight) to properly determine which routes are upcoming
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            # Calculate the cutoff date for archiving (exactly 30 days ago from right now)
             thirty_days_ago = now - timedelta(days=30)
 
             status_conditions: list[Any] = []
             if RouteStatusEnum.UPCOMING in route_status:
-                status_conditions.append(RouteGroup.drive_date > today_start)
+                status_conditions.append(RouteGroup.drive_date >= today_start)
 
             if RouteStatusEnum.COMPLETED in route_status:
                 status_conditions.append(
@@ -156,39 +335,37 @@ class RouteGroupService:
             if status_conditions:
                 statement = statement.where(or_(*status_conditions))
 
-        # Driver assignment status filter
+        # Driver assignment status filter: "Assigned" means at least one route
+        # in this group has a driver_id; "Unassigned" means none do.
         if driver_assignment_status:
-            # Create subquery that checks for existing assignment
-            assignment_exists = exists().where(
-                DriverAssignment.route_group_id == RouteGroup.route_group_id  # type: ignore[arg-type]
+            assigned_exists = (
+                exists()
+                .select_from(Route)
+                .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+                .where(col(Route.driver_id).isnot(None))
             )
 
             assignment_conditions: list[Any] = []
             if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
-                assignment_conditions.append(assignment_exists)
+                assignment_conditions.append(assigned_exists)
             if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
-                assignment_conditions.append(~assignment_exists)
+                assignment_conditions.append(~assigned_exists)
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 
-        statement = statement.order_by(RouteGroup.drive_date)  # type: ignore[arg-type]
+        statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
+        statement = statement.order_by(RouteGroup.drive_date)
 
         result = await session.execute(statement)
-        route_groups = result.scalars().all()
+        rows = result.all()
 
-        # Load relationships for all route groups to avoid lazy loading issues
-        for route_group in route_groups:
-            await session.refresh(route_group, ["route_group_memberships"])
-            if include_routes:
-                for membership in route_group.route_group_memberships:
-                    await session.refresh(membership, ["route"])
-
-        return list(route_groups)
+        return [self._row_to_read(row, include_routes) for row in rows]
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID
     ) -> bool:
-        """Delete a route group and all its route group memberships"""
+        """Delete a route group. Cascades to its routes (and their stops +
+        snapshots via further cascades)."""
         statement = select(RouteGroup).where(
             RouteGroup.route_group_id == route_group_id
         )

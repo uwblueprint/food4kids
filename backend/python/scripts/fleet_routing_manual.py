@@ -23,18 +23,22 @@ from app.services.implementations.google_maps_routing_service import (
 class FakeLocation:
     latitude: float
     longitude: float
-    address: str = ""
+    address: str
+    num_children: int
     location_id: UUID = field(default_factory=uuid4)
 
 
 # Sample locations around Kitchener-Waterloo
 LOCATIONS = [
-    FakeLocation(43.4516, -80.4925, "Kitchener City Hall"),
-    FakeLocation(43.4643, -80.5204, "Waterloo Town Square"),
-    FakeLocation(43.4506, -80.4983, "Victoria Park"),
-    FakeLocation(43.4738, -80.5280, "Uptown Waterloo"),
-    FakeLocation(43.4455, -80.4862, "Fairview Park Mall"),
-    FakeLocation(43.4380, -80.5050, "Homer Watson Park"),
+    FakeLocation(
+        43.6072, -80.5786, "Elmira Golf Club", 2
+    ),  # Far location from warehouse
+    FakeLocation(43.4516, -80.4925, "Kitchener City Hall", 10),
+    FakeLocation(43.4643, -80.5204, "Waterloo Town Square", 2),
+    FakeLocation(43.4506, -80.4983, "Victoria Park", 3),
+    FakeLocation(43.4738, -80.5280, "Uptown Waterloo", 2),
+    FakeLocation(43.4455, -80.4862, "Fairview Park Mall", 2),
+    FakeLocation(43.4380, -80.5050, "Homer Watson Park", 4),
 ]
 
 WAREHOUSE_LAT = 43.4500
@@ -51,7 +55,6 @@ async def test_fleet_routing_live() -> None:
 
     settings = RouteGenerationSettings(
         num_routes=2,
-        max_stops_per_route=4,
         route_start_time=datetime(2025, 6, 1, 9, 0),
         return_to_warehouse=True,
     )

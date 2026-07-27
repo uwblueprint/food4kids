@@ -19,22 +19,19 @@ from alembic import context
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.driver import Driver
-from app.models.driver_assignment import DriverAssignment
-from app.models.driver_history import DriverHistory
-from app.models.entity import Entity
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note import Note
 from app.models.note_chain import NoteChain
-from app.models.note_chain_read import NoteChainReadModel
 from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
-from app.models.simple_entity import SimpleEntity
+from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
+from app.models.user_invite import UserInvite
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

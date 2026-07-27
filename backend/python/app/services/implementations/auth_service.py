@@ -3,10 +3,12 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import firebase_admin.auth
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.auth import AuthResponse, TokenResponse
-from app.utilities.firebase_rest_client import FirebaseRestClient
+from app.config import settings
+from app.schemas.auth import AuthResponse
+from app.utilities.firebase_rest_client import FirebaseRestClient, FirebaseRestError
 
 if TYPE_CHECKING:
     from firebase_admin.auth import UserRecord
@@ -14,6 +16,28 @@ if TYPE_CHECKING:
     from app.services.implementations.driver_service import DriverService
     from app.services.implementations.email_service import EmailService
     from app.services.implementations.user_service import UserService
+
+
+class SessionExpiredError(Exception):
+    """The refresh token can no longer produce a session; re-login is required.
+
+    The one signal ``/auth/refresh`` maps to a 401. Raising this is how
+    ``renew_token`` says "this is the client's problem, not ours" — everything
+    else it lets out is an unexpected failure and becomes a 500.
+    """
+
+
+# Firebase error codes that mean the refresh token itself is finished. Any
+# other code is a fault on our side or Firebase's, not an expired session.
+REAUTH_REQUIRED_FIREBASE_CODES = frozenset(
+    {
+        "TOKEN_EXPIRED",
+        "INVALID_REFRESH_TOKEN",
+        "INVALID_GRANT",
+        "USER_DISABLED",
+        "USER_NOT_FOUND",
+    }
+)
 
 
 class AuthService:
@@ -64,8 +88,10 @@ class AuthService:
             auth_response = AuthResponse(
                 access_token=token.access_token,
                 id=user.user_id,
-                name=user.name,
+                first_name=user.first_name,
+                last_name=user.last_name,
                 email=user.email,
+                role=user.role,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -88,13 +114,47 @@ class AuthService:
             self.logger.error(" ".join(error_message))
             raise e
 
-    def renew_token(self, refresh_token: str) -> TokenResponse:
+    async def renew_token(
+        self, session: AsyncSession, refresh_token: str
+    ) -> tuple[AuthResponse, str]:
+        """Exchange a refresh token for a fresh session.
+
+        :raises SessionExpiredError: if the token can no longer produce a
+            session — Firebase rejected it, or it is valid but its user is no
+            longer in our database. Both mean the client must log in again.
+        """
         try:
             token_response = self.firebase_rest_client.refresh_token(refresh_token)
-            return token_response
-        except Exception as e:
-            self.logger.error("Failed to refresh token")
-            raise e
+        except FirebaseRestError as e:
+            if e.code in REAUTH_REQUIRED_FIREBASE_CODES:
+                raise SessionExpiredError(
+                    f"Firebase rejected the refresh token: {e.code}"
+                ) from e
+            raise
+
+        new_access_token = token_response.access_token
+        payload = jwt.decode(
+            new_access_token,
+            options={"verify_signature": False},
+            algorithms=["RS256"],
+        )
+        auth_id = payload.get("sub", "")
+        user = await self.user_service.get_user_by_auth_id(session, auth_id)
+
+        if user is None:
+            raise SessionExpiredError(
+                f"No user in the database for Firebase auth_id {auth_id}"
+            )
+
+        auth_response = AuthResponse(
+            access_token=new_access_token,
+            id=user.user_id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            role=user.role,
+        )
+        return auth_response, token_response.refresh_token
 
     def reset_password(self, email: str) -> None:
         if not self.email_service:
@@ -124,26 +184,24 @@ class AuthService:
             )
             raise e
 
-    def send_email_verification_link(self, email: str) -> None:
+    def send_create_password_email(self, email: str, user_invite_id: UUID) -> None:
         if not self.email_service:
             error_message = """
-                Attempted to call send_email_verification_link but this instance of AuthService 
+                Attempted to call send_create_password_email but this instance of AuthService 
                 does not have an EmailService instance
                 """
             self.logger.error(error_message)
             raise Exception(error_message)
 
         try:
-            verification_link = firebase_admin.auth.generate_email_verification_link(
-                email
-            )
+            driver_signup_link = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite_id}"
             email_body = f"""
                 Hello,
                 <br><br>
                 Please click the following link to verify your email and activate your account.
-                <strong>This link is only valid for 1 hour.</strong>
+                <strong>This link is only valid for 2 days.</strong>
                 <br><br>
-                <a href={verification_link}>Verify email</a>
+                <a href={driver_signup_link}>Verify email</a>
                 """
             self.email_service.send_email(email, "Verify your email", email_body)
         except Exception as e:
@@ -157,7 +215,7 @@ class AuthService:
     ) -> bool:
         try:
             decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True
+                access_token, check_revoked=True, clock_skew_seconds=5
             )
             user_role = decoded_id_token.get("role")
             if not user_role:
@@ -169,28 +227,6 @@ class AuthService:
             return user_role in roles
         except Exception as e:
             self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
-            return False
-
-    async def is_authorized_by_driver_id(
-        self, session: AsyncSession, access_token: str, requested_driver_id: UUID
-    ) -> bool:
-        try:
-            decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True
-            )
-            token_driver_id = await self.driver_service.get_driver_id_by_auth_id(
-                session, decoded_id_token["uid"]
-            )
-            firebase_user: UserRecord = firebase_admin.auth.get_user(
-                decoded_id_token["uid"]
-            )
-            return bool(
-                firebase_user.email_verified and token_driver_id == requested_driver_id
-            )
-        except Exception as e:
-            self.logger.error(
-                f"Authorization by driver ID failed: {type(e).__name__}: {e!s}"
-            )
             return False
 
     def is_authorized_by_email(self, access_token: str, requested_email: str) -> bool:

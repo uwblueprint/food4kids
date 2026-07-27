@@ -163,14 +163,18 @@ class LocationGroupService:
                 )
                 return False
 
+            # Locations require a group, so we can't orphan them on delete.
+            # Refuse to delete a group that still has locations; callers must
+            # reassign them first.
             locations_statement = select(Location).where(
                 Location.location_group_id == location_group_id
             )
             locations_result = await session.execute(locations_statement)
-            locations = locations_result.scalars().all()
-
-            for location in locations:
-                location.location_group_id = None
+            if locations_result.scalars().first() is not None:
+                raise ValueError(
+                    f"Cannot delete location group {location_group_id}: it still "
+                    "has locations. Reassign them to another group first."
+                )
 
             await session.delete(location_group)
             await session.commit()

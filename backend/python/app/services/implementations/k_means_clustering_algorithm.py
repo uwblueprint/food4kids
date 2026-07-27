@@ -11,6 +11,7 @@ from sklearn.cluster import KMeans  # type: ignore[import-untyped]
 from app.services.protocols.clustering_algorithm import (
     ClusteringAlgorithmProtocol,
 )
+from app.utilities.boxes import compute_boxes
 
 if TYPE_CHECKING:
     from app.models.location import Location
@@ -21,6 +22,9 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
     Includes max locations per cluster handling via "greedy-esque algorithm"
     """
+
+    def __init__(self, children_per_box: int) -> None:
+        self._children_per_box = children_per_box
 
     async def cluster_locations(
         self,
@@ -81,7 +85,10 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 )
         if max_boxes_per_cluster is not None:
             # Check if it is mathematically possible to meet the constraints on num of clusters + max boxes per cluster
-            total_boxes = sum(loc.num_boxes for loc in locations)
+            total_boxes = sum(
+                compute_boxes(loc.num_children, self._children_per_box)
+                for loc in locations
+            )
 
             max_possible = num_clusters * max_boxes_per_cluster
 
@@ -221,7 +228,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             # Otherwise boxes constraint must be active (by assert)
             if max_boxes_per_cluster is not None:
                 # Count boxes at location
-                need = getattr(loc, "num_boxes", 0)
+                need = compute_boxes(loc.num_children, self._children_per_box)
                 if cluster_counts[cluster_id] + need <= max_boxes_per_cluster:
                     assignments[location_index] = cluster_id
                     cluster_counts[cluster_id] += need

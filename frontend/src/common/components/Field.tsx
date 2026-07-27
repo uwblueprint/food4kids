@@ -21,7 +21,9 @@ function FieldLabel({
 }: FieldLabelProps) {
   return (
     <label
-      className={cn('text-p1 text-grey-500 font-bold', className)}
+      /* Text Field spec: labels are Mobile/H3 (18 Bold) on mobile → Desktop/H3
+       * (16 Bold) from tablet up. text-h3 is responsive, so no variant needed. */
+      className={cn('text-h3 text-grey-500 font-bold', className)}
       {...props}
     >
       {children}

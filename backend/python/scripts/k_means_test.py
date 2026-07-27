@@ -27,14 +27,19 @@ from app.models.location import Location
 from app.models.location_group import LocationGroup  # noqa: F401
 from app.models.route import Route  # noqa: F401
 from app.models.route_group import RouteGroup  # noqa: F401
-from app.models.route_group_membership import RouteGroupMembership  # noqa: F401
+from app.models.route_snapshot import RouteSnapshot  # noqa: F401
 from app.models.route_stop import RouteStop  # noqa: F401
+from app.models.route_stop_snapshot import RouteStopSnapshot  # noqa: F401
 from app.services.implementations.k_means_clustering_algorithm import (
     KMeansClusteringAlgorithm,
 )
+from app.utilities.boxes import compute_boxes
 
 # Use the same connection string as seed_database.py
 DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
+
+# Children-per-box divisor for box estimates in this dev script.
+CHILDREN_PER_BOX = 2
 
 # Configure number of locations pulled from csv for testing
 LOCATIONS_COUNT = 18
@@ -72,19 +77,21 @@ async def main() -> None:
         print("Locations to cluster:")
         print("-" * 60)
         for loc in locations:
-            name = loc.school_name or loc.contact_name
+            name = loc.name
             print(f"  {name}")
             print(f"    Address: {loc.address}")
             print(f"    Coords: ({loc.latitude}, {loc.longitude})")
-            print(f"    Boxes: {loc.num_boxes}")
+            print(f"    Boxes: {compute_boxes(loc.num_children, CHILDREN_PER_BOX)}")
             print()
-            total_boxes = sum(loc.num_boxes for loc in locations)
+            total_boxes = sum(
+                compute_boxes(loc.num_children, CHILDREN_PER_BOX) for loc in locations
+            )
 
         print("Total number of boxes: ", total_boxes)
         print("Total locations: ", len(locations))
 
         # Run clustering
-        clustering_algo = KMeansClusteringAlgorithm()
+        clustering_algo = KMeansClusteringAlgorithm(CHILDREN_PER_BOX)
 
         print("Running K-Means clustering:")
         print(f"  - Number of clusters: {NUM_CLUSTERS}")
@@ -116,12 +123,13 @@ async def main() -> None:
 
                 total_boxes = 0
                 for loc in cluster:
-                    name = loc.school_name or loc.contact_name
+                    name = loc.name
                     print(f"  • {name}")
                     print(f"    {loc.address}")
                     print(f"    Coords: ({loc.latitude}, {loc.longitude})")
-                    print(f"    Boxes: {loc.num_boxes}")
-                    total_boxes += loc.num_boxes
+                    box_count = compute_boxes(loc.num_children, CHILDREN_PER_BOX)
+                    print(f"    Boxes: {box_count}")
+                    total_boxes += box_count
                     new_row = {
                         "name": name,
                         "long": loc.longitude,

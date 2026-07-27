@@ -32,11 +32,12 @@ export interface DataTableProps<T> {
 
 interface AlertCellProps {
   type: 'error' | 'warning';
-  label: string;
+  label: string | readonly string[];
 }
 
 function AlertCell({ type, label }: AlertCellProps) {
   const isError = type === 'error';
+  const labels = typeof label === 'string' ? [label] : [...label];
   return (
     <span
       className={cn(
@@ -49,7 +50,14 @@ function AlertCell({ type, label }: AlertCellProps) {
       ) : (
         <AlertTriangle className="h-4 w-4 shrink-0" />
       )}
-      <span className="text-p2 font-medium">{label}</span>
+      <span className="text-p2 flex flex-col font-medium">
+        {labels.map((text, index) => (
+          <span key={`${text}-${index}`}>
+            {text}
+            {index < labels.length - 1 ? ',' : ''}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }

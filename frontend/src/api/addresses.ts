@@ -1,25 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 
-import axiosClient from '@/lib/axiosClient';
-import type { AddressRow } from '@/types/address';
+import { getLocationsOptions } from './generated/@tanstack/react-query.gen';
 
-export interface AddressesParams {
-  search?: string;
-  routeStatuses?: string[];
-  deliveryTypes?: string[];
-}
-
-async function fetchAddresses(params: AddressesParams): Promise<AddressRow[]> {
-  const response = await axiosClient.get<AddressRow[]>('/addresses', {
-    params,
-  });
-  return response.data;
-}
-
-export function useAddresses(params: AddressesParams) {
-  return useQuery({
-    queryKey: ['addresses', params],
-    queryFn: () => fetchAddresses(params),
-    placeholderData: [],
-  });
+/**
+ * Fetch the (paginated) list of locations for the admin routes "Addresses" tab.
+ *
+ * GET /locations has no search/filter params yet, so the tab's search box and
+ * filter chips are local-only UI for now (see useAddressesTabState). Wiring
+ * server-side search/filtering is tracked as future work.
+ */
+export function useAddresses() {
+  return useQuery(getLocationsOptions());
 }

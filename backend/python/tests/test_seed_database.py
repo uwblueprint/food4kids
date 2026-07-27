@@ -13,13 +13,14 @@ marked ``slow`` because each one pays a full seed cycle.
 """
 
 import os
+import random
 import re
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import phonenumbers
 import pytest
+from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -28,15 +29,13 @@ if TYPE_CHECKING:
 
 import app.seed_database as seed_module
 from app.models.admin import Admin
+from app.models.announcement import Announcement
 from app.models.driver import Driver
-from app.models.driver_assignment import DriverAssignment
-from app.models.driver_history import DriverHistory
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
 from app.models.user import User
@@ -45,18 +44,11 @@ EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "test_locations.csv")
 
-# Driver history spans current_year-HISTORY_YEARS_BACK..current_year,
-# clamped to >= 2025 by the seed itself (seed_database.py:764).
-_CURRENT_YEAR = datetime.now().year
-_MIN_HISTORY_YEAR = max(2025, _CURRENT_YEAR - seed_module.HISTORY_YEARS_BACK)
-_MAX_HISTORY_YEAR = _CURRENT_YEAR
-
 
 def _run_seed_script() -> None:
     """Run the synchronous seed script against the test database.
 
-    ``ADMIN_AUTH_ID`` is captured at module import time, so patching the env
-    var after import is too late — patch the module attribute directly.
+    Firebase calls are mocked so tests don't need real credentials.
     ``LOCATIONS_CSV_PATH`` is read at runtime inside ``main()``, so an env
     patch is fine for it.
     """
@@ -66,10 +58,17 @@ def _run_seed_script() -> None:
     )
     sync_db_url = async_db_url.replace("postgresql+asyncpg://", "postgresql://")
 
+    # The seed script uses unseeded `random`/Faker, so its output (e.g. how many
+    # driver assignments get created) varies run to run — occasionally producing
+    # zero and failing assertions. Seed deterministically for reproducible runs.
+    random.seed(20250526)
+    Faker.seed(20250526)
+
     with (
-        patch.object(seed_module, "DATABASE_URL", sync_db_url),
-        patch.object(seed_module, "ADMIN_AUTH_ID", "test-admin-auth-id"),
+        patch.object(seed_module, "get_database_url", return_value=sync_db_url),
         patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
+        patch("app.seed_database.initialize_firebase"),
+        patch("app.seed_database.ensure_firebase_user"),
     ):
         seed_module.main()
 
@@ -91,30 +90,51 @@ _ENTITY_FIELDS: list[tuple[type, list[str]]] = [
         [
             "contact_name",
             "address",
-            "phone_number",
+            "phone_primary",
             "latitude",
             "longitude",
             "halal",
-            "num_boxes",
+            "num_children",
         ],
     ),
     (Route, ["name", "length"]),
     (RouteStop, ["route_id", "location_id", "stop_number"]),
-    (User, ["name", "email", "auth_id"]),
+    (User, ["first_name", "last_name", "email", "auth_id"]),
     (
         Driver,
-        ["user_id", "phone", "address", "license_plate", "car_make_model"],
+        [
+            "user_id",
+            "phone",
+            "availability",
+            "address",
+            "license_plate",
+            "car_make_model",
+        ],
     ),
     (RouteGroup, ["name", "drive_date"]),
-    (RouteGroupMembership, ["route_group_id", "route_id"]),
-    (DriverAssignment, ["driver_id", "route_id", "route_group_id"]),
-    (DriverHistory, ["driver_id", "year", "month", "km"]),
     (Job, ["route_group_id", "progress", "started_at"]),
     (
         SystemSettings,
-        ["warehouse_location", "warehouse_latitude", "warehouse_longitude"],
+        [
+            "warehouse_location",
+            "warehouse_latitude",
+            "warehouse_longitude",
+            "boxes_per_car",
+            "dropoff_minutes",
+            "children_per_box",
+            "delivery_types",
+            "contact_name",
+            "contact_phone",
+            "f4k_wr_instagram",
+            "f4k_wr_facebook",
+            "f4k_wr_email",
+            "f4k_wr_website",
+            "f4k_wr_address",
+            "email_reminders",
+        ],
     ),
     (Admin, ["user_id", "admin_phone"]),
+    (Announcement, ["subject", "message", "user_id"]),
 ]
 
 
@@ -181,18 +201,19 @@ class TestDataValidation:
             assert driver.phone.startswith("+"), (
                 f"Driver phone {driver.phone} should be E.164"
             )
+            assert len(driver.availability) == 7
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(driver.phone, None)
             ), f"Driver phone {driver.phone} should parse as valid"
 
         locations = (await test_session.execute(select(Location))).scalars().all()
         for location in locations:
-            assert location.phone_number.startswith("+"), (
-                f"Location phone {location.phone_number} should be E.164"
+            assert location.phone_primary.startswith("+"), (
+                f"Location phone {location.phone_primary} should be E.164"
             )
             assert phonenumbers.is_valid_number(
-                phonenumbers.parse(location.phone_number, None)
-            ), f"Location phone {location.phone_number} should parse as valid"
+                phonenumbers.parse(location.phone_primary, None)
+            ), f"Location phone {location.phone_primary} should parse as valid"
 
         admins = (await test_session.execute(select(Admin))).scalars().all()
         for admin in admins:
@@ -220,18 +241,6 @@ class TestDataValidation:
         for route in routes:
             assert route.length >= 0, (
                 f"Route {route.route_id} length {route.length} should be non-negative"
-            )
-
-    @pytest.mark.asyncio
-    async def test_driver_history_years_in_range(
-        self, test_session: AsyncSession
-    ) -> None:
-        history = (await test_session.execute(select(DriverHistory))).scalars().all()
-        assert history, "No driver history seeded"
-        for entry in history:
-            assert _MIN_HISTORY_YEAR <= entry.year <= _MAX_HISTORY_YEAR, (
-                f"DriverHistory year {entry.year} should be in "
-                f"[{_MIN_HISTORY_YEAR}, {_MAX_HISTORY_YEAR}]"
             )
 
     @pytest.mark.asyncio
@@ -276,3 +285,91 @@ class TestRouteStopSequence:
                 f"Route {route.route_id} stops should be 1..{len(stops)}, "
                 f"got {stop_numbers}"
             )
+
+
+@pytest.mark.slow
+class TestAnnouncements:
+    """The seeded announcement feed is rich and authored by several people —
+    a mix of admins and drivers, matching each entry's declared author role."""
+
+    @pytest.mark.asyncio
+    async def test_count_matches_constant(self, test_session: AsyncSession) -> None:
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        assert len(announcements) == len(seed_module.SAMPLE_ANNOUNCEMENTS), (
+            "Seeded announcement count should match SAMPLE_ANNOUNCEMENTS"
+        )
+
+    @pytest.mark.asyncio
+    async def test_authored_by_multiple_people(
+        self, test_session: AsyncSession
+    ) -> None:
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        author_ids = {a.user_id for a in announcements}
+        assert len(author_ids) >= 2, (
+            "Announcements should be authored by more than one person, "
+            f"got {len(author_ids)} distinct author(s)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_feed_includes_admin_and_driver_authors(
+        self, test_session: AsyncSession
+    ) -> None:
+        role_by_user_id = await self._role_by_user_id(test_session)
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        author_roles = {role_by_user_id[a.user_id] for a in announcements}
+        assert "admin" in author_roles, (
+            "Expected at least one admin-authored announcement"
+        )
+        assert "driver" in author_roles, (
+            "Expected at least one driver-authored announcement"
+        )
+
+    @pytest.mark.asyncio
+    async def test_author_role_matches_declared_role(
+        self, test_session: AsyncSession
+    ) -> None:
+        # Each seeded announcement should actually be authored by a user whose
+        # role matches the role declared for it in SAMPLE_ANNOUNCEMENTS — this
+        # exercises the per-role authorship routing in the seed script.
+        role_by_user_id = await self._role_by_user_id(test_session)
+        expected_role_by_subject = {
+            subject: author_role
+            for subject, _message, _days_ago, author_role in (
+                seed_module.SAMPLE_ANNOUNCEMENTS
+            )
+        }
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        for ann in announcements:
+            expected_role = expected_role_by_subject[ann.subject]
+            actual_role = role_by_user_id[ann.user_id]
+            assert actual_role == expected_role, (
+                f"Announcement '{ann.subject}' should be authored by a "
+                f"{expected_role}, but author has role {actual_role}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_announcements_are_back_dated(
+        self, test_session: AsyncSession
+    ) -> None:
+        # The feed is spread across multiple days rather than all stamped at the
+        # same instant, so it reads like a real noticeboard.
+        announcements = (
+            (await test_session.execute(select(Announcement))).scalars().all()
+        )
+        created_dates = {a.created_at for a in announcements}
+        assert len(created_dates) > 1, (
+            "Announcements should be spread across multiple timestamps"
+        )
+
+    @staticmethod
+    async def _role_by_user_id(session: AsyncSession) -> dict[Any, str]:
+        users = (await session.execute(select(User))).scalars().all()
+        return {user.user_id: user.role for user in users}

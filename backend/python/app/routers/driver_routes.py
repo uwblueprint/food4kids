@@ -1,14 +1,20 @@
 import logging
-import traceback
-from typing import Literal, cast
+from datetime import datetime, timezone
 from uuid import UUID
 
-import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import (
+    DriverAccess,
+    require_admin,
+    require_driver_or_admin,
+    require_self_driver_or_admin,
+)
 from app.dependencies.services import (
     get_auth_service,
+    get_email_dispatcher_depends,
+    get_user_invite_service,
     get_user_service,
 )
 from app.models import get_session
@@ -18,12 +24,15 @@ from app.models.driver import (
     DriverRegister,
     DriverUpdate,
 )
-from app.models.user import UserCreate
+from app.models.user import UserBase, UserFinalize
+from app.models.user_invite import UserInviteCreate
 from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
+from app.services.implementations.email_dispatcher import EmailDispatcher
+from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
-from app.utilities.cookies import get_cookie_options
+from app.utilities.cookies import set_refresh_token_cookie
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -37,6 +46,7 @@ async def get_drivers(
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Query(None, description="Filter by driver ID"),
     email: str | None = Query(None, description="Filter by email"),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> list[DriverRead]:
     """
     Get all drivers, optionally filter by driver_id or email
@@ -47,41 +57,34 @@ async def get_drivers(
             detail="Cannot query by both driver_id and email",
         )
 
-    try:
-        if driver_id:
-            driver = await driver_service.get_driver_by_id(session, driver_id)
-            if not driver:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Driver with id {driver_id} not found",
-                )
-            return [DriverRead.model_validate(driver)]
+    if driver_id:
+        driver = await driver_service.get_driver_by_id(session, driver_id)
+        if not driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver with id {driver_id} not found",
+            )
+        return [DriverRead.model_validate(driver)]
 
-        elif email:
-            driver = await driver_service.get_driver_by_email(session, email)
-            if not driver:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Driver with email {email} not found",
-                )
-            return [DriverRead.model_validate(driver)]
+    elif email:
+        driver = await driver_service.get_driver_by_email(session, email)
+        if not driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Driver with email {email} not found",
+            )
+        return [DriverRead.model_validate(driver)]
 
-        else:
-            drivers = await driver_service.get_drivers(session)
-            return [DriverRead.model_validate(driver) for driver in drivers]
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    else:
+        drivers = await driver_service.get_drivers(session)
+        return [DriverRead.model_validate(driver) for driver in drivers]
 
 
 @router.get("/{driver_id}", response_model=DriverRead)
 async def get_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> DriverRead:
     """
     Get a single driver by ID
@@ -96,32 +99,28 @@ async def get_driver(
 
 
 @router.post(
-    "/", response_model=DriverRegisterResponse, status_code=status.HTTP_201_CREATED
+    "/initialize", response_model=DriverRead, status_code=status.HTTP_201_CREATED
 )
-async def register_driver(
+async def initialize_driver(
     register_request: DriverRegister,
-    response: Response,
     session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
-) -> DriverRegisterResponse:
+    user_invite_service: UserInviteService = Depends(get_user_invite_service),
+    _: bool = Depends(require_admin),
+) -> DriverRead:
     """
-    Register a new driver, creates a User and Driver object, returns Driver and AuthResponse
+    Register a new driver in our backend, creates a User and Driver object, returns DriverRead
+    NOTE: This does not create a firebase user, ie the User is in a hanging state
+    We need to do this so that we can implement our invite only system
     """
-    user = None
-    firebase_auth_id = None
-
-    try:
+    async with session.begin_nested():
         # Create user first
         user_data = register_request.model_dump(
-            include=set(UserCreate.model_fields.keys())
+            include=set(UserBase.model_fields.keys())
         )
-        user_create = UserCreate(**user_data)
-        user = await user_service.create_user(session, user_create)
-        firebase_auth_id = user.auth_id
-
-        # Set custom claims on Firebase user
-        firebase_admin.auth.set_custom_user_claims(user.auth_id, {"role": user.role})
+        user_base = UserBase(**user_data)
+        user = await user_service.create_user(session, user_base)
 
         # Create driver after
         driver_data = register_request.model_dump(
@@ -131,65 +130,77 @@ async def register_driver(
         driver = DriverCreate(**driver_data)
         created_driver = await driver_service.create_driver(session, driver)
 
-        # Generate authentication tokens
-        auth_dto, refresh_token = await auth_service.generate_token(
-            session, register_request.email, register_request.password
+        # Create User Invite Record
+        user_invite_create = UserInviteCreate(user_id=user.user_id)
+        user_invite = await user_invite_service.create_user_invite(
+            session, user_invite_create
         )
 
-        # Send email verification link
-        auth_service.send_email_verification_link(register_request.email)
+    await session.commit()
+    await session.refresh(created_driver)
 
-        # Set refresh token as httpOnly cookie
-        cookie_options = get_cookie_options()
-        response.set_cookie(
-            "refreshToken",
-            value=refresh_token,
-            httponly=bool(cookie_options["httponly"]),
-            samesite=cast(
-                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
-            ),
-            secure=bool(cookie_options["secure"]),
+    # Send invitation email
+    auth_service.send_create_password_email(
+        register_request.email, user_invite.user_invite_id
+    )
+
+    return DriverRead.model_validate(created_driver)
+
+
+@router.post(
+    "/register",
+    response_model=DriverRegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def complete_driver_registration(
+    registration_data: UserFinalize,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service),
+    user_invite_service: UserInviteService = Depends(get_user_invite_service),
+) -> DriverRegisterResponse:
+    """
+    Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
+    """
+    async with session.begin_nested():
+        # Validate invite token and lock the row to prevent race conditions
+        user_invite_id = registration_data.user_invite_id
+        user_invite = await user_invite_service.get_user_invite_by_id(
+            session, user_invite_id, for_update=True
         )
 
-        return DriverRegisterResponse(
-            driver=DriverRead.model_validate(created_driver), auth=auth_dto
+        if (
+            not user_invite
+            or user_invite.is_used
+            or user_invite.expires_at < datetime.now(timezone.utc)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid or expired registration link.",
+            )
+
+        # Create Firebase account for user
+        user = user_invite.user
+        await user_service.link_firebase_to_user(
+            session, user, registration_data.password
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Compensating transaction: rollback all changes
-        logger.error(f"Error registering driver: {e}")
-        logger.error(traceback.format_exc())
 
-        # Attempt to clean up database user (which also attempts Firebase cleanup)
-        db_cleanup_failed = False
-        if user:
-            try:
-                await user_service.delete_user_by_id(
-                    session=session, user_id=user.user_id
-                )
-            except Exception as db_error:
-                logger.error(f"Failed to rollback database user: {db_error}")
-                db_cleanup_failed = True
+        user_invite.is_used = True
 
-        # If database cleanup failed and we have a Firebase auth_id, attempt direct Firebase cleanup
-        # This ensures Firebase user is deleted even if database cleanup failed
-        if db_cleanup_failed and firebase_auth_id:
-            try:
-                firebase_admin.auth.delete_user(firebase_auth_id)
-                logger.info(
-                    f"Successfully deleted Firebase user {firebase_auth_id} via direct cleanup"
-                )
-            except Exception as firebase_error:
-                logger.error(
-                    f"Failed to rollback Firebase user via direct cleanup: {firebase_error}"
-                )
+    await session.commit()
 
-        error_message = getattr(e, "message", None)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_message if error_message else str(e),
-        ) from e
+    # Generate authentication tokens
+    auth_dto, refresh_token = await auth_service.generate_token(
+        session, user.email, registration_data.password
+    )
+
+    # Set refresh token as httpOnly cookie
+    set_refresh_token_cookie(response, refresh_token)
+
+    return DriverRegisterResponse(
+        driver=DriverRead.model_validate(user.driver), auth=auth_dto
+    )
 
 
 @router.put("/{driver_id}", response_model=DriverRead)
@@ -197,10 +208,21 @@ async def update_driver(
     driver_id: UUID,
     driver: DriverUpdate,
     session: AsyncSession = Depends(get_session),
+    access: DriverAccess = Depends(require_self_driver_or_admin),
 ) -> DriverRead:
     """
     Update an existing driver
     """
+    if access is not DriverAccess.ADMIN:
+        self_editable_fields = {"first_name", "last_name", "phone"}
+        requested_fields = set(driver.model_fields_set)
+        admin_only_fields = requested_fields - self_editable_fields
+        if admin_only_fields:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can update these driver fields.",
+            )
+
     updated_driver = await driver_service.update_driver_by_id(
         session, driver_id, driver
     )
@@ -216,8 +238,52 @@ async def update_driver(
 async def delete_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
-    Delete a driver by ID
+    Delete a driver by ID.
+
+    Their routes are detached (driver_id SET NULL), so the driver's km stop
+    counting toward anyone.
     """
-    await driver_service.delete_driver_by_id(session, driver_id)
+    try:
+        await driver_service.delete_driver_by_id(session, driver_id)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve),
+        ) from ve
+
+
+@router.post("/test-event-email")
+async def test_event_email(
+    test_email: str, dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends)
+) -> dict[str, str]:
+    """
+    Temporary endpoint to test event-driven emails.
+    Delete this after testing!
+    """
+    simulated_db_info = {
+        "first_name": "Test-Driver-Bob",
+        "url": "https://food4kids.ca/fake-link-123",
+    }
+
+    # Test email sending (feel free to change with provided params, etc. as needed!)
+    """
+     Testable options: 
+     - account-creation (context params that need to be filled in: Driver_Name_To_Replace, Sign_Up_URL, Hours_Till_Expiry), 
+     - check-latest-announcement (context params that need to be filled in: Driver_Name_To_Replace, Announcement_Name, Announcement_Body, Announcement_URL), 
+     - reset-password (context params that need to be filled in: Driver_Name_To_Replace, Reset_Password_URL, Days_Till_Expiry), 
+     - view-upcoming-route (context params that need to be filled in: Driver_Name_To_Replace, Date_To_Replace, Time_To_Replace, Route_Duration_To_Replace,Upcoming_Route_URL)
+    """
+    await dispatcher.dispatch(
+        email_type="reset-password",
+        to=test_email,
+        context={
+            "Driver_Name_To_Replace": simulated_db_info["first_name"],
+            "Reset_Password_URL": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "Days_Till_Expiry": 10000,
+        },
+    )
+
+    return {"message": f"Test email dispatched to {test_email}!"}

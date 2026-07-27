@@ -12,13 +12,34 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, select
 
 from app import create_app
+from app.dependencies.auth import (
+    DriverAccess,
+    get_access_token,
+    require_admin,
+    require_announcement_owner_or_admin,
+    require_driver,
+    require_driver_or_admin,
+    require_route_assigned_or_admin,
+    require_self_driver_or_admin,
+    resolve_route_list_driver_filter,
+)
 from app.models import get_session
 
 # Set test environment
 os.environ["APP_ENV"] = "testing"
+
+
+async def _ensure_system_settings(test_session: AsyncSession) -> None:
+    """Mirror app startup: API tests run with a settings row available."""
+    from app.models.system_settings import SystemSettings
+
+    result = await test_session.execute(select(SystemSettings).limit(1))
+    if result.scalars().first() is None:
+        test_session.add(SystemSettings())
+        await test_session.commit()
 
 
 @pytest.fixture(scope="session")
@@ -50,24 +71,18 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         # Import in dependency order to avoid relationship resolution issues
         from app.models.admin import Admin  # noqa: F401
         from app.models.announcement import Announcement  # noqa: F401
+        from app.models.announcement_last_read import AnnouncementLastRead  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
-
-        # Import driver assignment model
-        from app.models.driver_assignment import DriverAssignment  # noqa: F401
-        from app.models.driver_history import DriverHistory  # noqa: F401
         from app.models.job import Job  # noqa: F401
         from app.models.location import Location  # noqa: F401
         from app.models.location_group import LocationGroup  # noqa: F401
         from app.models.note import Note  # noqa: F401
         from app.models.note_chain import NoteChain  # noqa: F401
-        from app.models.note_chain_read import NoteChainReadModel  # noqa: F401
         from app.models.route import Route  # noqa: F401
-
-        # Import relationship models after their dependencies
-        # RouteGroup must be imported before RouteGroupMembership to avoid circular dependency
         from app.models.route_group import RouteGroup  # noqa: F401
-        from app.models.route_group_membership import RouteGroupMembership  # noqa: F401
+        from app.models.route_snapshot import RouteSnapshot  # noqa: F401
         from app.models.route_stop import RouteStop  # noqa: F401
+        from app.models.route_stop_snapshot import RouteStopSnapshot  # noqa: F401
         from app.models.system_settings import SystemSettings  # noqa: F401
         from app.models.user import User  # noqa: F401
 
@@ -108,6 +123,21 @@ async def test_session(test_db_engine: Any) -> AsyncGenerator[AsyncSession, None
                 await transaction.rollback()
 
 
+def _apply_auth_overrides(app: Any) -> None:
+    """Override auth dependencies to bypass authentication in tests."""
+    app.dependency_overrides[get_access_token] = lambda: "test-token"
+    app.dependency_overrides[require_admin] = lambda: True
+    app.dependency_overrides[require_driver] = lambda: True
+    app.dependency_overrides[require_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_self_driver_or_admin] = lambda: DriverAccess.ADMIN
+    app.dependency_overrides[require_route_assigned_or_admin] = lambda: True
+    app.dependency_overrides[require_announcement_owner_or_admin] = lambda: True
+    # GET /routes' sole auth dependency also resolves the driver_id filter;
+    # bypass it to the "all routes" scope (driver_id=None), matching the admin
+    # view, so router tests that hit GET /routes aren't gated by token checks.
+    app.dependency_overrides[resolve_route_list_driver_filter] = lambda: None
+
+
 @pytest.fixture(scope="function")
 def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
     """Create a test client with database session override."""
@@ -118,6 +148,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
         yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
+    _apply_auth_overrides(app)
 
     with TestClient(app) as test_client:
         yield test_client
@@ -128,6 +159,8 @@ async def async_client(
     test_session: AsyncSession,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client with database session override."""
+    await _ensure_system_settings(test_session)
+
     app = create_app()
 
     # Override the database session dependency
@@ -135,12 +168,49 @@ async def async_client(
         yield test_session
 
     app.dependency_overrides[get_session] = override_get_session
+    _apply_auth_overrides(app)
 
     from httpx import ASGITransport
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client_with_overrides(
+    test_session: AsyncSession,
+) -> AsyncGenerator[Any, None]:
+    """Factory for an AsyncClient whose app has extra dependency overrides
+    applied (on top of the test-session override) — e.g. to swap in a fake
+    GCP/auth/routing dependency. Built clients are cleaned up automatically.
+    """
+    import contextlib
+
+    from httpx import ASGITransport
+
+    async with contextlib.AsyncExitStack() as stack:
+
+        async def _make(overrides: dict[Any, Any] | None = None) -> AsyncClient:
+            await _ensure_system_settings(test_session)
+
+            app = create_app()
+
+            async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+                yield test_session
+
+            app.dependency_overrides[get_session] = override_get_session
+            # Bypass auth like the other client fixtures; explicit overrides
+            # below can still replace individual auth dependencies.
+            _apply_auth_overrides(app)
+            for dep, override in (overrides or {}).items():
+                app.dependency_overrides[dep] = override
+
+            return await stack.enter_async_context(
+                AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+            )
+
+        yield _make
 
 
 # Authentication fixtures
@@ -201,7 +271,8 @@ def auth_headers() -> dict[str, str]:
 def sample_driver_data() -> dict[str, Any]:
     """Sample driver data for testing."""
     return {
-        "name": "John Doe",
+        "first_name": "John",
+        "last_name": "Doe",
         "email": "john.doe@example.com",
         "phone": "+12125551234",  # Valid international format
         "address": "123 Main St, City, State 12345",
@@ -221,21 +292,38 @@ def sample_location_group_data() -> dict[str, Any]:
     }
 
 
+@pytest_asyncio.fixture
+async def test_location_group(test_session: AsyncSession) -> Any:
+    """Create a location group for tests.
+
+    Locations require a group (location_group_id is non-nullable), and the
+    POST /location-groups endpoint only regroups *existing* locations, so tests
+    bootstrap an initial group directly through the session (as seed/ingest do).
+    """
+    from app.models.location_group import LocationGroup
+
+    group = LocationGroup(name="Test Delivery Group", color="#FF5733", notes="")
+    test_session.add(group)
+    await test_session.commit()
+    await test_session.refresh(group)
+    return group
+
+
 @pytest.fixture
 def sample_location_data() -> dict[str, Any]:
-    """Sample location data for testing."""
+    """Sample location data for testing. Callers must add a valid
+    ``location_group_id`` (e.g. from the ``test_location_group`` fixture)."""
     return {
-        "school_name": "Central Elementary",
+        "name": "Central Elementary",
         "contact_name": "Jane Smith",
+        "delivery_type": "School",
         "address": "123 Main St, City, State 12345",
-        "phone_number": "(555) 123-4567",
+        "phone_primary": "(555) 123-4567",
         "longitude": -122.4194,
         "latitude": 37.7749,
         "halal": False,
         "dietary_restrictions": "No nuts",
         "num_children": 150,
-        "num_boxes": 25,
-        "notes": "Main entrance on Main St",
     }
 
 
@@ -258,7 +346,8 @@ async def test_driver(
     from app.models.user import User
 
     user = User(
-        name=sample_driver_data["name"],
+        first_name=sample_driver_data["first_name"],
+        last_name=sample_driver_data["last_name"],
         email=sample_driver_data["email"],
         auth_id=sample_driver_data["auth_id"],
     )
@@ -304,7 +393,8 @@ async def test_admin_user(test_session: AsyncSession) -> Any:
     from app.models.user import User
 
     user = User(
-        name="Admin User",
+        first_name="Admin",
+        last_name="User",
         email="admin@food4kids.org",
         auth_id="admin-auth-001",
         role="admin",
@@ -335,24 +425,11 @@ async def authed_async_client(
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_database_user_id] = override_auth
+    _apply_auth_overrides(app)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-
-
-@pytest_asyncio.fixture
-async def test_route(
-    test_session: AsyncSession, sample_route_data: dict[str, Any]
-) -> Any:
-    """Create a test route in the database."""
-    from app.models.route import Route
-
-    route = Route(**sample_route_data)
-    test_session.add(route)
-    await test_session.commit()
-    await test_session.refresh(route)
-    return route
 
 
 @pytest_asyncio.fixture
@@ -367,3 +444,26 @@ async def test_route_group(
     await test_session.commit()
     await test_session.refresh(route_group)
     return route_group
+
+
+@pytest_asyncio.fixture
+async def test_route(
+    test_session: AsyncSession,
+    sample_route_data: dict[str, Any],
+    test_route_group: Any,
+) -> Any:
+    """Create a test route in the database.
+
+    Depends on test_route_group because Route.route_group_id is now a
+    mandatory FK (the M2M via RouteGroupMembership was dropped).
+    """
+    from app.models.route import Route
+
+    route = Route(
+        **sample_route_data,
+        route_group_id=test_route_group.route_group_id,
+    )
+    test_session.add(route)
+    await test_session.commit()
+    await test_session.refresh(route)
+    return route

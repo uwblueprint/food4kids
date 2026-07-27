@@ -3,6 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
+from datetime import time
 from uuid import uuid4
 
 import pytest
@@ -19,24 +20,13 @@ from app.models.announcement import (
 from app.models.driver import (
     Driver,
     DriverCreate,
-    DriverRegister,
     DriverUpdate,
 )
-from app.models.driver_assignment import (
-    DriverAssignment,
-    DriverAssignmentUpdate,
-)
-from app.models.driver_history import (
-    DriverHistory,
-    DriverHistoryRead,
-    DriverHistoryUpdate,
-)
+from app.models.driver_mileage import DriverHistoryRead
 from app.models.enum import (
-    EntityEnum,
     NotePermission,
     ProgressEnum,
     RoleEnum,
-    SimpleEntityEnum,
 )
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
@@ -45,7 +35,6 @@ from app.models.note import (
     Attachment,
     Note,
     NoteCreate,
-    NoteListResponse,
     NoteRead,
     NoteUpdate,
 )
@@ -54,16 +43,14 @@ from app.models.note_chain import (
     NoteChainCreate,
     NoteChainRead,
 )
-from app.models.note_chain_read import NoteChainReadModel, NoteChainReadResponse
 from app.models.route import Route, RouteUpdate
 from app.models.route_group import (
     RouteGroup,
     RouteGroupRead,
 )
-from app.models.route_group_membership import RouteGroupMembership
 from app.models.route_stop import RouteStop
-from app.models.system_settings import SystemSettings
-from app.models.user import User, UserCreate
+from app.models.system_settings import EmailReminder, SystemSettings
+from app.models.user import User, UserFinalize
 
 init_app()
 
@@ -78,7 +65,8 @@ class TestCoreBusinessValidation:
 
         # Test Driver phone validation
         driver_user = User(
-            name="Test Driver",
+            first_name="Test",
+            last_name="Driver",
             email="test@example.com",
             auth_id="test-123",
         )
@@ -94,7 +82,8 @@ class TestCoreBusinessValidation:
 
         # Test Admin phone validation
         admin_user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin@example.com",
             auth_id="test-1234",
         )
@@ -110,7 +99,8 @@ class TestCoreBusinessValidation:
         for phone in invalid_phones:
             with pytest.raises(ValidationError) as exc_info:
                 user = User(
-                    name="Test Driver",
+                    first_name="Test",
+                    last_name="Driver",
                     email="test@example.com",
                     auth_id="test-123",
                 )
@@ -134,7 +124,8 @@ class TestCoreBusinessValidation:
 
         for email in valid_emails:
             driver_user = User(
-                name="Test Driver",
+                first_name="Test",
+                last_name="Driver",
                 email=email,
                 auth_id="test-123",
             )
@@ -146,7 +137,8 @@ class TestCoreBusinessValidation:
         for email in invalid_emails:
             with pytest.raises(ValidationError) as exc_info:
                 User(
-                    name="Test Driver",
+                    first_name="Test",
+                    last_name="Driver",
                     email=email,
                     auth_id="test-123",
                 )
@@ -155,70 +147,24 @@ class TestCoreBusinessValidation:
     def test_password_validation(self) -> None:
         """Test password validation for driver registration."""
         # Test valid password
-        driver_register = DriverRegister(
-            name="Test Driver",
-            email="test@example.com",
-            phone="+12125551234",
-            address="123 Main St",
-            license_plate="ABC123",
-            car_make_model="Toyota Camry",
+        user_finalize = UserFinalize(
+            user_invite_id=uuid4(),
             password="securepassword123",
         )
-        assert driver_register.password == "securepassword123"
+        assert user_finalize.password == "securepassword123"
 
         # Test invalid password (too short)
         with pytest.raises(ValidationError) as exc_info:
-            DriverRegister(
-                name="Test Driver",
-                email="test@example.com",
-                phone="+12125551234",
-                address="123 Main St",
-                license_plate="ABC123",
-                car_make_model="Toyota Camry",
+            UserFinalize(
+                user_invite_id=uuid4(),
                 password="123",  # Too short
             )
         assert "password" in str(exc_info.value)
 
-    def test_year_validation_business_rule(self) -> None:
-        """Test year (2025-2100) and month (1-12) validation for DriverHistory."""
-        # Test valid years and months (boundaries)
-        valid_years = [2025, 2030, 2100]
-        valid_months = [1, 6, 12]
-
-        for year in valid_years:
-            for month in valid_months:
-                history = DriverHistory(
-                    driver_id=uuid4(), year=year, month=month, km=1000.0
-                )
-                assert history.year == year
-                assert history.month == month
-
-        # Test invalid years
-        invalid_years = [2024, 2101, 2000]
-        for year in invalid_years:
-            with pytest.raises(ValidationError) as exc_info:
-                DriverHistory(
-                    driver_id=uuid4(),
-                    year=year,
-                    month=1,
-                    km=1000.0,
-                )
-            assert "year" in str(exc_info.value)
-
-        # Test invalid months
-        invalid_months = [0, 13, -1]
-        for month in invalid_months:
-            with pytest.raises(ValidationError) as exc_info:
-                DriverHistory(
-                    driver_id=uuid4(),
-                    year=2025,
-                    month=month,
-                    km=1000.0,
-                )
-            assert "month" in str(exc_info.value)
-
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
+        from uuid import uuid4
+
         # Test valid lengths
         valid_lengths = [0.0, 10.5, 100.0]
 
@@ -226,6 +172,7 @@ class TestCoreBusinessValidation:
             route = Route(
                 name="Test Route",
                 length=length,
+                route_group_id=uuid4(),
             )
             assert route.length == length
 
@@ -234,6 +181,7 @@ class TestCoreBusinessValidation:
             Route(
                 name="Test Route",
                 length=-5.0,  # Negative length should fail
+                route_group_id=uuid4(),
             )
         assert "length" in str(exc_info.value)
 
@@ -267,18 +215,18 @@ class TestCoreBusinessValidation:
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
                 contact_name="Jane Smith",
-                # Missing: address, phone_number, longitude, latitude, halal, num_boxes
+                # Missing: address, phone_primary, longitude, latitude, halal
             )
         error_str = str(exc_info.value)
         assert any(
             field in error_str
             for field in [
                 "address",
-                "phone_number",
+                "delivery_type",
+                "phone_primary",
                 "longitude",
                 "latitude",
                 "halal",
-                "num_boxes",
             ]
         )
 
@@ -301,13 +249,15 @@ class TestCoreBusinessValidation:
         # Test Location rejects extra fields
         with pytest.raises(ValidationError) as exc_info:
             Location(  # type: ignore[call-arg]
+                location_group_id=uuid4(),
+                name="Jane Smith",
                 contact_name="Jane Smith",
+                delivery_type="Family",
                 address="123 Main St",
-                phone_number="(555) 123-4567",
+                phone_primary="(555) 123-4567",
                 longitude=-122.4194,
                 latitude=37.7749,
                 halal=False,
-                num_boxes=25,
                 invalid_field="This should cause an error",  # Extra field
             )
         assert "invalid_field" in str(exc_info.value)
@@ -329,7 +279,8 @@ class TestCoreModels:
         """Test Driver model core operations."""
         # Create
         driver_user = User(
-            name="John Doe",
+            first_name="John",
+            last_name="Doe",
             email="john.doe@example.com",
             auth_id="auth-123",
         )
@@ -340,16 +291,11 @@ class TestCoreModels:
             license_plate="ABC123",
             car_make_model="Toyota Camry",
         )
-        assert driver_user.name == "John Doe"
+        assert driver_user.full_name == "John Doe"
         assert driver.active is True  # Default value
         assert driver.created_at is not None
 
         # Create model
-        user_create = UserCreate(
-            name="Jane Doe",
-            email="jane.doe@example.com",
-            password="securepassword123",
-        )
         driver_create = DriverCreate(
             user_id=uuid4(),
             phone="+12125551234",
@@ -357,7 +303,6 @@ class TestCoreModels:
             license_plate="XYZ789",
             car_make_model="Honda Civic",
         )
-        assert user_create.name == "Jane Doe"
         assert driver_create.license_plate == "XYZ789"
 
         # Update model
@@ -365,58 +310,101 @@ class TestCoreModels:
         assert driver_update.address == "456 Oak Ave, City, State 12345"
         assert driver_update.license_plate is None
 
+    def test_driver_update_rejects_explicit_null_for_non_nullable_fields(
+        self,
+    ) -> None:
+        """Explicit null is a 422 for fields backed by non-nullable columns.
+
+        None as a *default* means "not provided" and stays valid; only a null
+        that the client actually sent is rejected. partner_driver_name is the
+        one nullable column, where explicit null legitimately clears the value.
+        """
+        non_nullable_fields = [
+            "first_name",
+            "last_name",
+            "phone",
+            "availability",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "active",
+        ]
+        for field in non_nullable_fields:
+            with pytest.raises(ValidationError, match="cannot be null"):
+                DriverUpdate.model_validate({field: None})
+
+        # Omitting every field is still a valid (no-op) update
+        empty_update = DriverUpdate.model_validate({})
+        assert empty_update.model_fields_set == set()
+
+        # Explicit null still clears the nullable partner_driver_name
+        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
+        assert cleared.partner_driver_name is None
+        assert "partner_driver_name" in cleared.model_fields_set
+
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
         # Create with all fields
         location = Location(
-            school_name="Central Elementary",
+            location_group_id=uuid4(),
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type="School",
             address="123 Main St, City, State 12345",
-            phone_number="(555) 123-4567",
+            phone_primary="(555) 123-4567",
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
             dietary_restrictions="No nuts",
             num_children=150,
-            num_boxes=25,
-            notes="Main entrance on Main St",
         )
-        assert location.school_name == "Central Elementary"
+        assert location.name == "Central Elementary"
+        assert location.delivery_type == "School"
         assert location.created_at is not None
 
         # Create with minimal fields
         location_minimal = Location(
+            location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
+            delivery_type="Family",
             address="456 Oak Ave, City, State 12345",
-            phone_number="(555) 987-6543",
+            phone_primary="(555) 987-6543",
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
-            num_boxes=10,
+            num_children=10,
         )
-        assert location_minimal.school_name is None
-        assert location_minimal.notes == ""  # Default value
+        assert location_minimal.name == "John Doe"
+        assert location_minimal.delivery_type == "Family"
 
         # Read model
         location_read = LocationRead(
             location_id=uuid4(),
+            location_group_id=uuid4(),
+            location_group_name="Central Elementary",
+            name="Central Elementary",
             contact_name="Jane Smith",
+            delivery_type="School",
             address="123 Main St, City, State 12345",
-            phone_number="(555) 123-4567",
+            phone_primary="(555) 123-4567",
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
-            num_boxes=25,
+            num_children=25,
         )
         assert location_read.location_id is not None
 
     def test_route_core_operations(self) -> None:
         """Test Route model core operations."""
+        from uuid import uuid4
+
         # Create
         route = Route(
             name="Downtown Route",
             notes="Route through downtown area",
             length=15.5,
+            route_group_id=uuid4(),
         )
         assert route.name == "Downtown Route"
         assert route.length == 15.5
@@ -426,6 +414,7 @@ class TestCoreModels:
         route_minimal = Route(
             name="Basic Route",
             length=10.0,
+            route_group_id=uuid4(),
         )
         assert route_minimal.notes == ""  # Default value
 
@@ -464,53 +453,22 @@ class TestCoreModels:
             notes="Test notes",
             drive_date=datetime(2024, 1, 15, 8, 0),
             num_routes=3,
+            status="Completed",
         )
         assert route_group_read.route_group_id is not None
 
-    def test_driver_assignment_core_operations(self) -> None:
-        """Test DriverAssignment model core operations."""
-        from datetime import datetime
+    def test_driver_history_read_model(self) -> None:
+        """The monthly read model is computed at read time, never stored."""
         from uuid import uuid4
 
-        # Create
-        assignment = DriverAssignment(
-            driver_id=uuid4(),
-            route_id=uuid4(),
-            route_group_id=uuid4(),
-            time=datetime(2024, 1, 15, 8, 0),
-        )
-        assert assignment.created_at is not None
-
-        # Update
-        assignment_update = DriverAssignmentUpdate(
-            time=datetime(2024, 1, 15, 9, 0),
-        )
-        assert assignment_update.time == datetime(2024, 1, 15, 9, 0)
-
-    def test_driver_history_core_operations(self) -> None:
-        """Test DriverHistory model core operations."""
-        from uuid import uuid4
-
-        # Create
-        history = DriverHistory(driver_id=uuid4(), year=2025, km=1500.5, month=12)
-        assert history.year == 2025
-        assert history.km == 1500.5
-        assert history.month == 12
-        assert history.created_at is not None
-
-        # Read
         history_read = DriverHistoryRead(
-            driver_history_id=1,
             driver_id=uuid4(),
             year=2027,
             month=1,
             km=2200.0,
         )
-        assert history_read.driver_history_id == 1
-
-        # Update
-        history_update = DriverHistoryUpdate(km=2500.0)
-        assert history_update.km == 2500.0
+        assert history_read.km == 2200.0
+        assert history_read.month == 1
 
     def test_job_core_operations(self) -> None:
         """Test Job model core operations."""
@@ -540,6 +498,7 @@ class TestCoreModels:
             finished_at=datetime(2024, 1, 15, 10, 0),
         )
         assert job_update.progress == ProgressEnum.COMPLETED
+        assert ProgressEnum.CANCELLED.value == "Cancelled"
 
     def test_note_chain_core_operations(self) -> None:
         """Test NoteChain and Note model core operations."""
@@ -632,35 +591,8 @@ class TestCoreModels:
         note_update = NoteUpdate(message="Updated")
         assert note_update.message == "Updated"
 
-        # NoteChainReadModel
-        from datetime import datetime, timezone
-
-        read_model = NoteChainReadModel(
-            note_chain_id=uuid4(),
-            user_id=uuid4(),
-            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
-        )
-        assert read_model.note_chain_read_id is not None
-
-        # NoteChainReadResponse
-        read_response = NoteChainReadResponse(
-            note_chain_read_id=uuid4(),
-            note_chain_id=uuid4(),
-            user_id=uuid4(),
-            last_read_at=datetime.now(timezone.utc).replace(tzinfo=None),
-        )
-        assert read_response.note_chain_read_id is not None
-
-        # NoteListResponse
-        list_response = NoteListResponse(
-            notes=[note_read],
-            unread_count=1,
-        )
-        assert len(list_response.notes) == 1
-        assert list_response.unread_count == 1
-
     def test_relationship_models_core_operations(self) -> None:
-        """Test relationship models (RouteStop, RouteGroupMembership) core operations."""
+        """Test RouteStop creation."""
         from uuid import uuid4
 
         # RouteStop
@@ -671,15 +603,6 @@ class TestCoreModels:
         )
         assert route_stop.stop_number == 1
         assert route_stop.created_at is not None
-
-        # RouteGroupMembership
-        membership = RouteGroupMembership(
-            route_group_id=uuid4(),
-            route_id=uuid4(),
-        )
-        assert membership.route_group_id is not None
-        assert membership.route_id is not None
-        assert membership.created_at is not None
 
 
 class TestEnumsAndSerialization:
@@ -697,18 +620,6 @@ class TestEnumsAndSerialization:
         assert ProgressEnum.COMPLETED.value == "Completed"
         assert ProgressEnum.FAILED.value == "Failed"
 
-        # Test EntityEnum
-        assert EntityEnum.A.value == "A"
-        assert EntityEnum.B.value == "B"
-        assert EntityEnum.C.value == "C"
-        assert EntityEnum.D.value == "D"
-
-        # Test SimpleEntityEnum
-        assert SimpleEntityEnum.A.value == "A"
-        assert SimpleEntityEnum.B.value == "B"
-        assert SimpleEntityEnum.C.value == "C"
-        assert SimpleEntityEnum.D.value == "D"
-
         # Test NotePermission
         assert NotePermission.ADMIN.value == "Admin"
         assert NotePermission.ALL.value == "All"
@@ -725,7 +636,8 @@ class TestEnumsAndSerialization:
 
         # Test RoleEnum serialization (if used in models)
         user = User(
-            name="Test Driver",
+            first_name="Test",
+            last_name="Driver",
             email="test@example.com",
             auth_id="test-123",
         )
@@ -738,7 +650,9 @@ class TestEnumsAndSerialization:
         )
         user_dict = user.model_dump()
         driver_dict = driver.model_dump()
-        assert user_dict["name"] == "Test Driver"
+        assert user_dict["first_name"] == "Test"
+        assert user_dict["last_name"] == "Driver"
+        assert user_dict["full_name"] == "Test Driver"
         assert user_dict["email"] == "test@example.com"
         assert driver_dict["phone"] == "+12125551234"
         assert driver_dict["license_plate"] == "ABC123"
@@ -747,7 +661,8 @@ class TestEnumsAndSerialization:
         """Test model serialization and default value handling."""
         # Test that model_dump works correctly
         user = User(
-            name="Test Driver",
+            first_name="Test",
+            last_name="Driver",
             email="test@example.com",
             auth_id="test-123",
         )
@@ -761,26 +676,30 @@ class TestEnumsAndSerialization:
 
         user_dict = user.model_dump()
         driver_dict = driver.model_dump()
-        assert "name" in user_dict
+        assert "first_name" in user_dict
+        assert "last_name" in user_dict
+        assert "full_name" in user_dict
         assert "created_at" in driver_dict
-        # updated_at should be None and might be excluded
+        # updated_at is stamped on insert (equal to created_at within microseconds)
+        assert driver_dict["updated_at"] is not None
         assert driver_dict["active"] is True  # Default value
         assert user_dict["role"] == "driver"
 
         # Test default values across models
         location = Location(
+            location_group_id=uuid4(),
+            name="John Doe",
             contact_name="John Doe",
+            delivery_type="Family",
             address="456 Oak Ave",
-            phone_number="(555) 987-6543",
+            phone_primary="(555) 987-6543",
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
-            num_boxes=10,
         )
-        assert location.notes == ""  # Default value
-        assert location.school_name is None  # Default value
+        assert location.delivery_type == "Family"
         assert location.dietary_restrictions == ""  # Default value
-        assert location.num_children is None  # Default value
+        assert location.num_children == 0  # Default value
 
 
 class TestModelValidation:
@@ -791,7 +710,8 @@ class TestModelValidation:
         # Test empty string validation
         with pytest.raises(ValidationError) as exc_info:
             user = User(
-                name="",  # Empty name should fail
+                first_name="",  # Empty first name should fail
+                last_name="Driver",
                 email="test@example.com",
                 auth_id="test-123",
             )
@@ -802,11 +722,12 @@ class TestModelValidation:
                 license_plate="ABC123",
                 car_make_model="Toyota Camry",
             )
-        assert "name" in str(exc_info.value)
+        assert "first_name" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
             user = User(
-                name="test-admin",
+                first_name="Test",
+                last_name="Admin",
                 email="admin@example.com",
                 auth_id="test-123",
             )
@@ -815,6 +736,17 @@ class TestModelValidation:
                 admin_phone="",  # Empty phone fails
             )
         assert "admin_phone" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            Driver(
+                user_id=uuid4(),
+                phone="+12125551234",
+                availability=[True, False],
+                address="123 Main St",
+                license_plate="ABC123",
+                car_make_model="Toyota Camry",
+            )
+        assert "availability" in str(exc_info.value)
 
     def test_note_message_validation(self) -> None:
         """Test note message validation (empty and too long)."""
@@ -844,6 +776,7 @@ class TestModelValidation:
             Route(
                 name="Test Route",
                 length=-5.0,  # Negative length should fail
+                route_group_id=uuid4(),
             )
         assert "length" in str(exc_info.value)
 
@@ -851,7 +784,8 @@ class TestModelValidation:
         """Test that optional fields work correctly."""
         # Test Admin with only required fields
         user = User(
-            name="Jane Admin",
+            first_name="Jane",
+            last_name="Admin",
             email="jane@example.com",
             auth_id="test-123",
             role="admin",
@@ -865,6 +799,13 @@ class TestModelValidation:
         assert system_settings.default_cap is None
         assert system_settings.route_start_time is None
         assert system_settings.warehouse_location is None
+        assert system_settings.boxes_per_car == 10
+        assert system_settings.dropoff_minutes == 3
+        assert system_settings.children_per_box == 2
+        assert system_settings.delivery_types == ["School", "Family"]
+        assert system_settings.email_reminders == [
+            EmailReminder(days_before=1, time=time(9, 0))
+        ]
 
         # Test Job without route_group_id
         job = Job(
@@ -880,7 +821,8 @@ class TestAnnouncementModel:
     def test_announcement_creation(self) -> None:
         """Test creating a valid announcement."""
         user = User(
-            name="Test Admin",
+            first_name="Test",
+            last_name="Admin",
             email="admin@example.com",
             auth_id="test-admin-123",
             role="admin",

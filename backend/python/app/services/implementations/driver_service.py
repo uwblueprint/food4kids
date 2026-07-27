@@ -1,16 +1,22 @@
 import logging
+from typing import Any, ClassVar
 from uuid import UUID
 
+import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.driver import Driver, DriverCreate, DriverUpdate
+from app.models.enum import NotePermission
+from app.models.note_chain import NoteChain
 from app.models.user import User
 
 
 class DriverService:
     """Service for managing drivers with Firebase authentication integration"""
+
+    USER_UPDATE_FIELDS: ClassVar[set[str]] = {"first_name", "last_name"}
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
@@ -100,34 +106,37 @@ class DriverService:
         driver_data: DriverCreate,
     ) -> Driver:
         """Create new driver with Firebase integration"""
-        try:
-            driver = Driver(
-                user_id=driver_data.user_id,
-                address=driver_data.address,
-                phone=driver_data.phone,
-                license_plate=driver_data.license_plate,
-                car_make_model=driver_data.car_make_model,
-                active=driver_data.active,
-                notes=driver_data.notes,
-            )
+        # Auto-create an admin-only note chain so admins can leave notes about
+        # the driver that the driver themselves cannot read or write.
+        note_chain = NoteChain(
+            read_permission=NotePermission.ADMIN,
+            write_permission=NotePermission.ADMIN,
+        )
+        session.add(note_chain)
+        await session.flush()
 
-            try:
-                session.add(driver)
-                await session.commit()
-                await session.refresh(driver, attribute_names=["user"])
-                return driver
+        driver = Driver(
+            user_id=driver_data.user_id,
+            address=driver_data.address,
+            phone=driver_data.phone,
+            partner_driver_name=driver_data.partner_driver_name,
+            availability=driver_data.availability,
+            license_plate=driver_data.license_plate,
+            car_make_model=driver_data.car_make_model,
+            active=driver_data.active,
+            note_chain_id=note_chain.note_chain_id,
+        )
 
-            except Exception as db_error:
-                raise db_error
-
-        except Exception as e:
-            self.logger.error(f"Failed to create driver: {e!s}")
-            raise e
+        session.add(driver)
+        await session.flush()
+        return driver
 
     async def update_driver_by_id(
         self, session: AsyncSession, driver_id: UUID, driver_data: DriverUpdate
     ) -> Driver | None:
         """Update driver by ID"""
+        driver: Driver | None = None
+        old_values: dict[str, Any] = {}
         try:
             statement = (
                 select(Driver)
@@ -141,61 +150,71 @@ class DriverService:
                 self.logger.error(f"Driver with id {driver_id} not found")
                 return None
 
-            # Store old values for rollback
-            old_phone = driver.phone
-            old_address = driver.address
-            old_license_plate = driver.license_plate
-            old_car_make_model = driver.car_make_model
-            old_active = driver.active
-            old_notes = driver.notes
+            update_data = driver_data.model_dump(exclude_unset=True)
+            old_values = {
+                field: getattr(
+                    driver.user if field in self.USER_UPDATE_FIELDS else driver, field
+                )
+                for field in update_data
+            }
 
-            # Update driver fields
-            if driver_data.phone is not None:
-                driver.phone = driver_data.phone
-            if driver_data.address is not None:
-                driver.address = driver_data.address
-            if driver_data.license_plate is not None:
-                driver.license_plate = driver_data.license_plate
-            if driver_data.car_make_model is not None:
-                driver.car_make_model = driver_data.car_make_model
-            if driver_data.active is not None:
-                driver.active = driver_data.active
-            if driver_data.notes is not None:
-                driver.notes = driver_data.notes
+            for field, value in update_data.items():
+                target = driver.user if field in self.USER_UPDATE_FIELDS else driver
+                setattr(target, field, value)
 
             await session.commit()
+
+            if (
+                self.USER_UPDATE_FIELDS.intersection(update_data)
+                and driver.user.auth_id is not None
+            ):
+                firebase_admin.auth.update_user(
+                    driver.user.auth_id,
+                    display_name=driver.user.full_name,
+                )
+                firebase_admin.auth.set_custom_user_claims(
+                    driver.user.auth_id,
+                    {
+                        "role": driver.user.role,
+                        "given_name": driver.user.first_name,
+                        "family_name": driver.user.last_name,
+                    },
+                )
+
             await session.refresh(driver, attribute_names=["user"])
             return driver
 
         except Exception as e:
             # Rollback database changes
             assert driver is not None
-            driver.phone = old_phone
-            driver.address = old_address
-            driver.license_plate = old_license_plate
-            driver.car_make_model = old_car_make_model
-            driver.active = old_active
-            driver.notes = old_notes
+            for field, value in old_values.items():
+                target = driver.user if field in self.USER_UPDATE_FIELDS else driver
+                setattr(target, field, value)
             await session.commit()
             self.logger.error(f"Failed to update driver: {e!s}")
             raise e
 
     async def delete_driver_by_id(self, session: AsyncSession, driver_id: UUID) -> None:
-        """Delete driver by ID"""
+        """Delete a driver.
+
+        Their routes are detached (driver_id SET NULL), so the driver's km
+        stop counting toward anyone — deleting a driver means their history
+        is no longer needed.
+        """
         try:
             statement = select(Driver).where(Driver.driver_id == driver_id)
             result = await session.execute(statement)
             driver = result.scalars().first()
 
             if not driver:
-                self.logger.error(f"Driver with id {driver_id} not found")
-                return
+                raise ValueError(f"Driver with id {driver_id} not found")
 
             await session.delete(driver)
             await session.commit()
 
         except Exception as e:
             self.logger.error(f"Failed to delete driver: {e!s}")
+            await session.rollback()
             raise e
 
     async def get_auth_id_by_driver_id(

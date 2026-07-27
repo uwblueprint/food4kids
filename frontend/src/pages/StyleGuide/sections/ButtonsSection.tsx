@@ -126,7 +126,7 @@ export function ButtonsSection() {
       {/* States (hover reference) */}
       <SectionLabel className="mt-8">States</SectionLabel>
       <div className="border-grey-300 bg-grey-150 overflow-hidden rounded-xl border">
-        <div className="divide-grey-300 grid grid-cols-2 divide-y md:grid-cols-7 md:divide-x md:divide-y-0">
+        <div className="divide-grey-300 tablet:grid-cols-7 tablet:divide-x tablet:divide-y-0 grid grid-cols-2 divide-y">
           <ButtonColumn title="Primary">
             <ButtonDemo label="Default">
               <Button variant="primary">Save</Button>

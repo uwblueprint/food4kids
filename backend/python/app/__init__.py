@@ -5,11 +5,17 @@ from logging.config import dictConfig
 import firebase_admin
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 
-from app.dependencies.services import get_scheduler_service
+import app.models as models
+from app.dependencies.services import (
+    get_scheduler_service,
+    get_system_settings_service,
+)
 from app.services.jobs import init_jobs
 
 from .config import settings
+from .middleware import UnhandledExceptionMiddleware
 from .models import init_app as init_models
 from .routers import init_app as init_routers
 
@@ -125,12 +131,52 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize scheduler
     scheduler_service = get_scheduler_service()
     scheduler_service.start()
-    init_jobs(scheduler_service)
+    if models.async_session_maker_instance is None:
+        raise RuntimeError("Database not initialized. Call init_app() first.")
+    async with models.async_session_maker_instance() as session:
+        # Guarantee the singleton settings row exists before anything reads it,
+        # so configurable settings (e.g. delivery_types) have a single source
+        # of truth and callers don't need a None-fallback.
+        await get_system_settings_service().ensure_settings(session)
+        await session.commit()
+        await init_jobs(scheduler_service, session)
 
     yield
 
     # Cleanup: stop the scheduler service during application shutdown
     scheduler_service.stop()
+
+
+def _use_route_name_as_operation_id(route: APIRoute) -> str:
+    """Use the route's function name as the OpenAPI operation ID.
+
+    Why: FastAPI's default operation IDs include the full path and method
+    (e.g. ``read_announcements_announcements__get``), which produces ugly
+    function names in generated TypeScript clients. Using the route name
+    yields clean names like ``get_announcements``.
+    """
+    return route.name
+
+
+def _assert_unique_operation_ids(app: FastAPI) -> None:
+    """Fail fast if two routes resolve to the same OpenAPI operation ID.
+
+    Operation IDs come from the route's function name (see
+    ``_use_route_name_as_operation_id``). FastAPI does not enforce uniqueness,
+    but duplicates silently produce colliding function names in the generated
+    TypeScript client. Catch the collision at startup instead of debugging a
+    confusing client later — if this fires, rename one of the route handlers.
+    """
+    seen: dict[str, str] = {}
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            if route.name in seen:
+                raise ValueError(
+                    f"Duplicate OpenAPI operation ID '{route.name}': used by "
+                    f"both {seen[route.name]} and {route.path}. Route handler "
+                    "function names must be unique across routers."
+                )
+            seen[route.name] = route.path
 
 
 def create_app() -> FastAPI:
@@ -143,6 +189,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         docs_url="/docs" if settings.is_development else None,
         redoc_url="/redoc" if settings.is_development else None,
+        generate_unique_id_function=_use_route_name_as_operation_id,
     )
 
     # Configure CORS
@@ -158,6 +205,10 @@ def create_app() -> FastAPI:
     # Add regex pattern for preview deployments
     cors_origins.append("https://uw-blueprint-starter-code--pr.*\\.web\\.app")
 
+    # Added before CORS so it ends up *inside* it: the last middleware added is
+    # the outermost, and a 500 without CORS headers is unreadable to a browser.
+    app.add_middleware(UnhandledExceptionMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
@@ -168,5 +219,6 @@ def create_app() -> FastAPI:
 
     # Initialize routers
     init_routers(app)
+    _assert_unique_operation_ids(app)
 
     return app

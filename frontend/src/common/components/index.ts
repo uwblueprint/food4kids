@@ -4,7 +4,13 @@
 export { Account } from './Account';
 export { Banner } from './Banner';
 export { Button } from './Button';
-export { Card, CardContent, CardDescription, CardHeader, CardTitle } from './Card';
+export {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from './Card';
 export type { Column, DataTableProps } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
 export { DatePicker } from './DatePicker';
@@ -56,4 +62,5 @@ export type { Character, StatisticsCardColor } from './StatisticsCard';
 export { StatisticsCard } from './StatisticsCard';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
+export { Textarea } from './Textarea';
 export { TimePicker } from './TimePicker';

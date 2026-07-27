@@ -11,6 +11,20 @@ FIREBASE_SIGN_IN_URL = (
 FIREBASE_REFRESH_TOKEN_URL = "https://securetoken.googleapis.com/v1/token"
 
 
+class FirebaseRestError(Exception):
+    """A non-200 from the Firebase REST API.
+
+    Carries Firebase's own error code (``TOKEN_EXPIRED``, ``USER_DISABLED``,
+    …) as an attribute. Callers that care which failure it was read ``.code``
+    — never ``str(exc)``, which is what made the code a load-bearing string
+    and cost us the bug in #216.
+    """
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 class FirebaseRestClient:
     def __init__(self, logger: logging.Logger) -> None:
         """
@@ -32,7 +46,7 @@ class FirebaseRestClient:
         :type password: str
         :return: access and refresh tokens
         :rtype: TokenResponse
-        :raises Exception: if Firebase API call fails
+        :raises FirebaseRestError: if Firebase API call fails
         """
         headers = {"Content-Type": "application/json"}
         data = {"email": email, "password": password, "returnSecureToken": "true"}
@@ -50,15 +64,16 @@ class FirebaseRestClient:
         response_json = response.json()
 
         if response.status_code != 200:
+            firebase_code = response_json["error"]["message"]
             error_message = [
                 "Failed to sign-in via Firebase REST API, status code =",
                 str(response.status_code),
                 "error message =",
-                response_json["error"]["message"],
+                firebase_code,
             ]
             self.logger.error(" ".join(error_message))
 
-            raise Exception("Failed to sign-in via Firebase REST API")
+            raise FirebaseRestError(firebase_code)
 
         return TokenResponse(
             access_token=response_json["idToken"],
@@ -74,7 +89,7 @@ class FirebaseRestClient:
         :type ref_token: str
         :return: access and refresh tokens
         :rtype: TokenResponse
-        :raises Exception: if Firebase API call fails
+        :raises FirebaseRestError: if Firebase API call fails
         """
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = f"grant_type=refresh_token&refresh_token={ref_token}"
@@ -91,15 +106,16 @@ class FirebaseRestClient:
         response_json = response.json()
 
         if response.status_code != 200:
+            firebase_code = response_json["error"]["message"]
             error_message = [
                 "Failed to refresh token via Firebase REST API, status code =",
                 str(response.status_code),
                 "error message =",
-                response_json["error"]["message"],
+                firebase_code,
             ]
             self.logger.error(" ".join(error_message))
 
-            raise Exception("Failed to refresh token via Firebase REST API")
+            raise FirebaseRestError(firebase_code)
 
         return TokenResponse(
             access_token=response_json["id_token"],

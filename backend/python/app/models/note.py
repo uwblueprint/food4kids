@@ -57,14 +57,18 @@ class NoteRead(NoteBase):
     updated_at: datetime | None = None
 
 
+class NoteFeedItem(NoteRead):
+    """A location note with enough context for cross-location feeds."""
+
+    location_id: UUID
+    location_name: str
+    location_address: str
+    location_group_name: str
+    author_name: str | None = None
+    author_role: str | None = None
+
+
 class NoteUpdate(SQLModel):
     """Update request model - only message can be edited"""
 
     message: str = Field(min_length=1, max_length=2000)
-
-
-class NoteListResponse(SQLModel):
-    """Response for GET notes - includes unread count"""
-
-    notes: list[NoteRead]
-    unread_count: int

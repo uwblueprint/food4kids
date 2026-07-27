@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies.auth import require_driver_or_admin
 from app.dependencies.services import get_location_group_service
 from app.models import get_session
 from app.models.location_group import (
@@ -19,18 +20,13 @@ router = APIRouter(prefix="/location-groups", tags=["location-groups"])
 async def get_location_groups(
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> list[LocationGroupRead]:
     """
     Get all location groups
     """
-    try:
-        location_groups = await location_group_service.get_location_groups(session)
-        return [LocationGroupRead.model_validate(lg) for lg in location_groups]
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        ) from e
+    location_groups = await location_group_service.get_location_groups(session)
+    return [LocationGroupRead.model_validate(lg) for lg in location_groups]
 
 
 @router.get("/{location_group_id}", response_model=LocationGroupRead)
@@ -38,6 +34,7 @@ async def get_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> LocationGroupRead:
     """
     Get a single location group by ID
@@ -58,20 +55,15 @@ async def create_location_group(
     location_group: LocationGroupCreate,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> LocationGroupRead:
     """
     Create a new location group
     """
-    try:
-        new_location_group = await location_group_service.create_location_group(
-            session, location_group
-        )
-        return LocationGroupRead.model_validate(new_location_group)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        ) from e
+    new_location_group = await location_group_service.create_location_group(
+        session, location_group
+    )
+    return LocationGroupRead.model_validate(new_location_group)
 
 
 @router.patch("/{location_group_id}", response_model=LocationGroupRead)
@@ -80,6 +72,7 @@ async def update_location_group(
     location_group: LocationGroupUpdate,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> LocationGroupRead:
     """
     Update an existing location group
@@ -100,13 +93,18 @@ async def delete_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
+    _auth: bool = Depends(require_driver_or_admin),
 ) -> None:
     """
     Delete a location group by ID
     """
-    success = await location_group_service.delete_location_group(
-        session, location_group_id
-    )
+    try:
+        success = await location_group_service.delete_location_group(
+            session, location_group_id
+        )
+    except ValueError as e:
+        # Group still has locations (they require a group, so can't be orphaned)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
