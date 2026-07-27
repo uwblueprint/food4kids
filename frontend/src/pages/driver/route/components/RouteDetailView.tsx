@@ -136,7 +136,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         </div>
 
         {/* Meta: 2-column grid on mobile, single inline row from tablet up. */}
-        <div className="text-p1 text-grey-500 [&_svg]:text-grey-400 tablet:flex tablet:flex-wrap tablet:items-center tablet:gap-x-6 grid grid-cols-2 gap-x-4 gap-y-1">
+        <div className="text-p1 text-grey-500 [&_svg]:text-grey-400 tablet:flex tablet:flex-wrap tablet:items-center tablet:gap-x-6 grid grid-cols-[repeat(2,minmax(0,138px))] gap-x-8 gap-y-1">
           {route.delivery_type && (
             <span className="flex items-center gap-2">
               <Users className="size-4" />
