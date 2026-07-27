@@ -62,6 +62,7 @@ function App() {
         <Route index element={<Navigate to="/driver/home" replace />} />
         <Route path="home" element={<DriverHomePage />} />
         <Route path="route" element={<IndividualRoutePage />} />
+        <Route path="route/:routeId" element={<IndividualRoutePage />} />
       </Route>
 
       {/* Dev-only: test image upload route */}
