@@ -9,8 +9,10 @@ import { cn } from '@/lib/utils';
 // Waterloo, ON — fallback when no polyline is available.
 const DEFAULT_CENTER: [number, number] = [43.4643, -80.5204];
 const DEFAULT_ZOOM = 12;
-const POLYLINE_COLOR = '#226ca7'; // --color-blue-300
-const POLYLINE_CASING_COLOR = '#ffffff'; // --color-grey-100
+// Per the route frames: a single blue-400 stroke, 5px, rounded joins and
+// caps. No white casing — the frames draw the line bare over the map.
+const POLYLINE_COLOR = '#195586'; // --color-blue-400
+const POLYLINE_WEIGHT = 5;
 
 export interface RouteMapProps {
   /** Google-encoded polyline string (precision 5, [lat, lng] order). */
@@ -60,19 +62,15 @@ export function RouteMap({ encodedPolyline, className }: RouteMapProps) {
         />
         {coords.length > 0 && (
           <>
-            {/* White casing underneath for contrast against busy tiles */}
             <Polyline
               positions={coords}
               pathOptions={{
-                color: POLYLINE_CASING_COLOR,
-                weight: 9,
-                opacity: 0.9,
+                color: POLYLINE_COLOR,
+                weight: POLYLINE_WEIGHT,
+                opacity: 1,
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
-            />
-            {/* Main route line on top */}
-            <Polyline
-              positions={coords}
-              pathOptions={{ color: POLYLINE_COLOR, weight: 5, opacity: 1 }}
             />
             <FitToPolyline coords={coords} />
           </>

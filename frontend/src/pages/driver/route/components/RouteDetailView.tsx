@@ -31,7 +31,11 @@ function formatDriveDate(value: string): string {
   });
 }
 
-/** Format a time-of-day string ("08:00:00") as "8:00AM". */
+/** Format a time-of-day string ("08:00:00") as "8:00 AM".
+ *
+ *  The mobile frame spaces it; the tablet and desktop frames run it together
+ *  as "8:00AM". Spaced wins — it is the conventional form, and the two frames
+ *  that omit it are the ones that also disagree with each other elsewhere. */
 function formatStartTime(value: string | null | undefined): string | null {
   if (!value) return null;
   const [h, m] = value.split(':');
@@ -40,7 +44,7 @@ function formatStartTime(value: string | null | undefined): string | null {
   if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
   const period = hour < 12 ? 'AM' : 'PM';
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${hour12}:${String(minute).padStart(2, '0')}${period}`;
+  return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
 export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
