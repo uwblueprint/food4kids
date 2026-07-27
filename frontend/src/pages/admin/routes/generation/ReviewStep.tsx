@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import {
   Link,
   Navigate,
@@ -87,31 +87,6 @@ function ChangedCell({
   );
 }
 
-function DecisionButton({
-  active,
-  variant,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  variant: 'primary' | 'secondary';
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Button
-      variant={variant}
-      aria-label={label}
-      onClick={onClick}
-      className={active ? 'opacity-100' : 'opacity-45'}
-    >
-      {children}
-    </Button>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Column definitions
 // ---------------------------------------------------------------------------
@@ -177,6 +152,8 @@ function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
     phone_primary: entry.phone_primary,
     phone_secondary: entry.phone_secondary,
     num_children: entry.num_children,
+    halal: entry.halal,
+    dietary_restrictions: entry.dietary_restrictions,
   };
 }
 
@@ -190,6 +167,8 @@ function changedEntryToNetNew(
     phone_primary: newValue(entry.phone_primary),
     phone_secondary: newValue(entry.phone_secondary),
     num_children: newValue(entry.num_children),
+    halal: entry.halal,
+    dietary_restrictions: entry.dietary_restrictions,
   };
 }
 
@@ -211,13 +190,9 @@ export function ReviewStep() {
   const { mutateAsync: ingestLocations, isPending: isIngesting } =
     useIngestLocations();
 
-  const [excludedNetNewRows, setExcludedNetNewRows] = useState<Set<number>>(
-    new Set()
-  );
-  const [keptStaleIds, setKeptStaleIds] = useState<Set<string>>(new Set());
-  const [separateChangedRows, setSeparateChangedRows] = useState<Set<number>>(
-    new Set()
-  );
+  const [changedDecisions, setChangedDecisions] = useState<
+    Map<number, 'apply' | 'separate'>
+  >(new Map());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
 
@@ -230,29 +205,13 @@ export function ReviewStep() {
   const staleRows = data.stale ?? [];
   const changedEntries = data.changed ?? [];
 
-  const setNetNewIncluded = (row: number, included: boolean) => {
-    setExcludedNetNewRows((prev) => {
-      const next = new Set(prev);
-      if (included) next.delete(row);
-      else next.add(row);
-      return next;
-    });
-  };
-
-  const setStaleIncluded = (locationId: string, included: boolean) => {
-    setKeptStaleIds((prev) => {
-      const next = new Set(prev);
-      if (included) next.delete(locationId);
-      else next.add(locationId);
-      return next;
-    });
-  };
-
-  const setChangedSeparate = (index: number, separate: boolean) => {
-    setSeparateChangedRows((prev) => {
-      const next = new Set(prev);
-      if (separate) next.add(index);
-      else next.delete(index);
+  const setChangedDecision = (
+    index: number,
+    decision: 'apply' | 'separate'
+  ) => {
+    setChangedDecisions((prev) => {
+      const next = new Map(prev);
+      next.set(index, decision);
       return next;
     });
   };
@@ -260,25 +219,20 @@ export function ReviewStep() {
   const handleConfirm = async () => {
     setIngestError(null);
     const approvedChanged = changedEntries.filter(
-      (_, index) => !separateChangedRows.has(index)
+      (_, index) => changedDecisions.get(index) === 'apply'
     );
-    const separateChanged = changedEntries.filter((_, index) =>
-      separateChangedRows.has(index)
+    const separateChanged = changedEntries.filter(
+      (_, index) => changedDecisions.get(index) === 'separate'
     );
 
     try {
       await ingestLocations({
         delivery_type: selectedDeliveryType,
         net_new: [
-          ...netNewRows
-            .filter((entry) => !excludedNetNewRows.has(entry.row))
-            .map(toIngestNetNew),
+          ...netNewRows.map(toIngestNetNew),
           ...separateChanged.map(changedEntryToNetNew),
         ],
-        stale: [
-          ...staleRows.filter((entry) => !keptStaleIds.has(entry.location_id)),
-          ...separateChanged.map(changedEntryToStale),
-        ],
+        stale: [...staleRows, ...separateChanged.map(changedEntryToStale)],
         changed: approvedChanged,
       });
       setConfirmOpen(false);
@@ -287,68 +241,6 @@ export function ReviewStep() {
       setIngestError('Could not apply the import changes — please try again.');
     }
   };
-
-  const netNewReviewColumns: Column<NetNewEntry>[] = [
-    ...netNewColumns,
-    {
-      key: 'decision',
-      header: 'Decision',
-      render: (r) => {
-        const included = !excludedNetNewRows.has(r.row);
-        return (
-          <div className="flex items-center gap-2">
-            <DecisionButton
-              active={included}
-              variant="primary"
-              label="Add this row"
-              onClick={() => setNetNewIncluded(r.row, true)}
-            >
-              Add
-            </DecisionButton>
-            <DecisionButton
-              active={!included}
-              variant="secondary"
-              label="Skip this row"
-              onClick={() => setNetNewIncluded(r.row, false)}
-            >
-              Skip
-            </DecisionButton>
-          </div>
-        );
-      },
-    },
-  ];
-
-  const staleReviewColumns: Column<StaleEntry>[] = [
-    ...staleColumns,
-    {
-      key: 'decision',
-      header: 'Decision',
-      render: (r) => {
-        const included = !keptStaleIds.has(r.location_id);
-        return (
-          <div className="flex items-center gap-2">
-            <DecisionButton
-              active={included}
-              variant="primary"
-              label="Deactivate this location"
-              onClick={() => setStaleIncluded(r.location_id, true)}
-            >
-              Deactivate
-            </DecisionButton>
-            <DecisionButton
-              active={!included}
-              variant="secondary"
-              label="Keep this location active"
-              onClick={() => setStaleIncluded(r.location_id, false)}
-            >
-              Keep
-            </DecisionButton>
-          </div>
-        );
-      },
-    },
-  ];
 
   const changedColumns: Column<ChangedRow>[] = [
     {
@@ -385,26 +277,30 @@ export function ReviewStep() {
       key: 'actions',
       header: 'Decision',
       render: (r) => {
-        const isSeparate = separateChangedRows.has(r._index);
+        const decision = changedDecisions.get(r._index);
         return (
           <div className="flex items-center gap-2">
             <Button
               variant="primary"
+              shape="circular"
               aria-label="Apply this change"
-              onClick={() => setChangedSeparate(r._index, false)}
-              className={!isSeparate ? 'opacity-100' : 'opacity-45'}
+              title="Apply change"
+              aria-pressed={decision === 'apply'}
+              onClick={() => setChangedDecision(r._index, 'apply')}
+              className={decision === 'apply' ? 'opacity-100' : 'opacity-40'}
             >
               <CheckIcon className="size-4" />
-              Apply
             </Button>
             <Button
               variant="secondary"
+              shape="circular"
               aria-label="Treat as separate rows"
-              onClick={() => setChangedSeparate(r._index, true)}
-              className={isSeparate ? 'opacity-100' : 'opacity-45'}
+              title="Treat as separate rows"
+              aria-pressed={decision === 'separate'}
+              onClick={() => setChangedDecision(r._index, 'separate')}
+              className={decision === 'separate' ? 'opacity-100' : 'opacity-40'}
             >
               <XIcon className="size-4" />
-              Separate
             </Button>
           </div>
         );
@@ -416,10 +312,13 @@ export function ReviewStep() {
     ...entry,
     _index: i,
   }));
-  const appliedNetNewCount = netNewRows.length - excludedNetNewRows.size;
-  const appliedStaleCount = staleRows.length - keptStaleIds.size;
-  const appliedChangedCount = changedEntries.length - separateChangedRows.size;
-  const separateChangedCount = separateChangedRows.size;
+  const appliedChangedCount = [...changedDecisions.values()].filter(
+    (decision) => decision === 'apply'
+  ).length;
+  const separateChangedCount = [...changedDecisions.values()].filter(
+    (decision) => decision === 'separate'
+  ).length;
+  const allChangesDecided = changedDecisions.size === changedEntries.length;
 
   return (
     <>
@@ -434,11 +333,11 @@ export function ReviewStep() {
         <div>
           <h2 className="text-grey-500">New in Spreadsheet</h2>
           <p className="text-p1 text-grey-400">
-            New rows can be added to the system or skipped for now.
+            New entries to be added to the system.
           </p>
         </div>
         <DataTable
-          columns={netNewReviewColumns}
+          columns={netNewColumns}
           rows={netNewRows}
           getRowKey={(r) => r.row}
           emptyState={
@@ -455,16 +354,16 @@ export function ReviewStep() {
         <div>
           <h2 className="text-grey-500">Removed in Spreadsheet</h2>
           <p className="text-p1 text-grey-400">
-            Removed locations can be marked inactive or kept as-is.
+            Entries to be marked inactive in the system.
           </p>
         </div>
         <DataTable
-          columns={staleReviewColumns}
+          columns={staleColumns}
           rows={staleRows}
           getRowKey={(r) => r.location_id}
           emptyState={
             <EmptyState
-              title="No new entries found in the spreadsheet"
+              title="No removed entries found in the spreadsheet"
               description="It's feeling quite empty here"
             />
           }
@@ -477,7 +376,7 @@ export function ReviewStep() {
           <div>
             <h2 className="text-grey-500">Data that has Changed</h2>
             <p className="text-p1 text-grey-400">
-              Apply a matched change, or treat the spreadsheet row as a separate
+              Select whether each matched row is a change or a separate
               location.
             </p>
           </div>
@@ -504,7 +403,11 @@ export function ReviewStep() {
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes/generation/validate">Back to Validation</Link>
         </Button>
-        <Button variant="primary" onClick={() => setConfirmOpen(true)}>
+        <Button
+          variant="primary"
+          disabled={!allChangesDecided}
+          onClick={() => setConfirmOpen(true)}
+        >
           Continue to Configure Routes
         </Button>
       </div>
@@ -515,12 +418,12 @@ export function ReviewStep() {
           <ModalHeader>
             <ModalTitle>Confirm Changes</ModalTitle>
             <ModalDescription>
-              This will add {appliedNetNewCount + separateChangedCount} new{' '}
-              {appliedNetNewCount + separateChangedCount === 1
+              This will add {netNewRows.length + separateChangedCount} new{' '}
+              {netNewRows.length + separateChangedCount === 1
                 ? 'location'
                 : 'locations'}
-              , mark {appliedStaleCount + separateChangedCount}{' '}
-              {appliedStaleCount + separateChangedCount === 1
+              , mark {staleRows.length + separateChangedCount}{' '}
+              {staleRows.length + separateChangedCount === 1
                 ? 'location'
                 : 'locations'}{' '}
               inactive, and apply {appliedChangedCount}{' '}

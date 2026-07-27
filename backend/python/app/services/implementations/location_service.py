@@ -789,6 +789,8 @@ class LocationService:
             phone_primary=entry.phone_primary,
             phone_secondary=entry.phone_secondary,
             num_children=entry.num_children,
+            halal=entry.halal,
+            dietary_restrictions=entry.dietary_restrictions,
         )
 
     @staticmethod
@@ -865,6 +867,12 @@ class LocationService:
             )
             if num_children_changed
             else location.num_children,
+            halal=entry.halal if entry.halal is not None else location.halal,
+            dietary_restrictions=(
+                entry.dietary_restrictions
+                if entry.dietary_restrictions is not None
+                else location.dietary_restrictions
+            ),
         )
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:

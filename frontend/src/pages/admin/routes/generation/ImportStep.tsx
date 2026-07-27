@@ -235,6 +235,8 @@ export function ImportStep() {
               onFileSelect={handleFileSelect}
               selectedFile={file}
               onClearFile={handleClearFile}
+              accept=".xlsx,.csv"
+              acceptedFileTypesLabel="Excel (.xlsx) or CSV files"
             />
           )}
         </CardContent>

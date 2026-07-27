@@ -1680,6 +1680,8 @@ class TestLocationImportRoutes:
                     address="Formatted Old Address",
                     phone_primary="+14164164169",
                     num_children=2,
+                    halal=True,
+                    dietary_restrictions="Vegetarian",
                     delivery_type="Family",
                 ),
                 Location(
@@ -1755,6 +1757,11 @@ class TestLocationImportRoutes:
             "new_value": "Formatted New Address",
             "old_value": "Formatted Old Address",
         }
+        assert changed_by_name["Address Change Family"]["halal"] is True
+        assert (
+            changed_by_name["Address Change Family"]["dietary_restrictions"]
+            == "Vegetarian"
+        )
         assert changed_by_name["Phone Change Family"]["phone_primary"] == {
             "new_value": "+15195550123",
             "old_value": "+14164164170",

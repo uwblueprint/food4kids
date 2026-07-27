@@ -225,6 +225,10 @@ export type ChangedEntry = {
    */
   contact_name: string;
   /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | null;
+  /**
    * Delivery Group
    */
   delivery_group?: string | ChangedFieldOptStr | null;
@@ -232,6 +236,10 @@ export type ChangedEntry = {
    * Location Id
    */
   location_id: string;
+  /**
+   * Halal
+   */
+  halal?: boolean | null;
   /**
    * Num Children
    */
@@ -1213,9 +1221,17 @@ export type NetNewEntry = {
    */
   contact_name: string;
   /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | null;
+  /**
    * Delivery Group
    */
   delivery_group?: string | null;
+  /**
+   * Halal
+   */
+  halal?: boolean | null;
   /**
    * Num Children
    */
