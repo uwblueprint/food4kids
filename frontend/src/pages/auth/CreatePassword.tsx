@@ -49,8 +49,6 @@ export const CreatePassword = () => {
       subheaderTitle={subheaderTitle}
       className={cn(
         'desktop:max-w-[362px]',
-        // Account Created sits lower and tighter than the form: the design puts
-        // its heading at y=376 with a 16px gap to the button.
         step === 'CONFIRMATION' && 'gap-4 pt-35'
       )}
       // The form is too tall for the graphic on mobile; the confirmation isn't.
@@ -75,12 +73,7 @@ const AccountCreationConfirmation = () => {
   return (
     <>
       <div className="flex flex-col">
-        {/*
-         * Desktop leaves 48 between the body copy and the button where mobile
-         * and tablet leave 16. The wrapper's own gap-4 supplies 16 of it, so
-         * this makes up the other 32 — the same shape as the form step, which
-         * also spends more on the run-up to the button at desktop.
-         */}
+        {/* 16 above the button below desktop, 48 at desktop; gap-4 supplies 16. */}
         <Button
           type="button"
           variant="primary"

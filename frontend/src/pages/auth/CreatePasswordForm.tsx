@@ -71,13 +71,7 @@ export const CreatePasswordForm = ({
     <>
       <div>
         {/* Form */}
-        {/*
-         * Desktop tightens the gap between the two password fields and spends
-         * what it saves on the run-up to the button — 24/48 against 32/40 below
-         * it. The two swap exactly, so the block is the same height either way;
-         * getting one of them wrong moves everything between them without
-         * moving the heading or the button, which is why it reads as correct.
-         */}
+        {/* Field gap / button gap: 32/40 below desktop, 24/48 at desktop. */}
         <form
           id="register-form"
           className="desktop:gap-6 flex flex-col gap-8"
