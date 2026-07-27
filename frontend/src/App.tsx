@@ -25,7 +25,7 @@ import {
   LoginPage,
   ResetPassword,
 } from './pages/auth';
-import { DriverHomePage } from './pages/driver';
+import { DriverHomePage, IndividualRoutePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { TestImageUpload } from './pages/TestImageUpload';
 
@@ -61,6 +61,7 @@ function App() {
       <Route path="/driver" element={<DriverLayout />}>
         <Route index element={<Navigate to="/driver/home" replace />} />
         <Route path="home" element={<DriverHomePage />} />
+        <Route path="route" element={<IndividualRoutePage />} />
       </Route>
 
       {/* Dev-only: test image upload route */}
