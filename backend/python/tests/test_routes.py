@@ -100,7 +100,9 @@ class TestDriverRoutes:
         # We don't want to actually to send an email so we mock the call
         with (
             patch(
-                "app.services.implementations.auth_service.AuthService.send_create_password_email"
+                "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+                new_callable=AsyncMock,
+                return_value=None,
             ),
             patch(
                 "app.dependencies.auth.auth_service.is_authorized_by_role",
@@ -199,7 +201,7 @@ class TestDriverRoutes:
         ):
             user_finalize_data = {
                 "user_invite_id": str(fake_user_invite.user_invite_id),
-                "password": "testing123",
+                "password": "Testing123!",
             }
             response = await async_client.post(
                 "/drivers/register", json=user_finalize_data
