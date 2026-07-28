@@ -10,11 +10,23 @@ type Step = 'FORM' | 'CONFIRMATION';
 export const GetLoginLink = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
+  const [hasTimerFinished, setHasTimerFinished] = useState(false);
+
   const headerTitle = step === 'FORM' ? 'Didn’t get a link?' : 'Login link sent';
-  const subheaderTitle =
-    step === 'FORM'
-      ? "Enter the email address your admin used to invite you. We'll send a new login link."
-      : "We've emailed your setup link. It may take a few minutes to land in your inbox.";
+
+  const getSubheaderTitle = (currentStep: Step, timerFinished: boolean) => {
+    if (currentStep === 'FORM') {
+      return "Enter the email address your admin used to invite you. We'll send a new login link.";
+    }
+
+    if (timerFinished) {
+      return "We've emailed you another setup link. It may take a few minutes to land in your inbox.\n\nIf nothing arrives after 15 minutes, please ask your admin.";
+    }
+
+    return "We've emailed your setup link. It may take a few minutes to land in your inbox.";
+  };
+
+  const subheaderTitle = getSubheaderTitle(step, hasTimerFinished);
 
   const resendOnboardingEmailMutation = useResendOnboardingEmail();
 
@@ -51,6 +63,7 @@ export const GetLoginLink = () => {
           email={email}
           onResend={handleResendLink}
           isPending={resendOnboardingEmailMutation.isPending}
+          onTimerComplete={() => setHasTimerFinished(true)}
         />
       )}
     </WrapperWithLogo>

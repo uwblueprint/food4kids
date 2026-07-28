@@ -66,25 +66,30 @@ interface SendLinkConfirmationProps {
   email: string;
   onResend: (email: string) => void;
   isPending: boolean;
+  onTimerComplete?: () => void;
 }
 
 export const SendLinkConfirmation = ({
   email,
   onResend,
   isPending,
+  onTimerComplete,
 }: SendLinkConfirmationProps) => {
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(60);
 
   useEffect(() => {
-    if (countdown === 0) return;
+    if (countdown === 0) {
+      onTimerComplete?.();
+      return;
+    }
 
     const timer = setInterval(() => {
       setCountdown((prev) => prev - 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [countdown]);
+  }, [countdown, onTimerComplete]);
 
   const handleResendClick = () => {
     onResend(email);
