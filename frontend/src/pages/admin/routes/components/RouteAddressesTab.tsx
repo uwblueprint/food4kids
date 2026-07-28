@@ -21,7 +21,7 @@ import {
   TableToolbar,
 } from '@/common/components';
 import { useTableSort } from '@/common/hooks';
-import { formatShortDate } from '@/common/utils';
+import { formatShortDate, orDash } from '@/common/utils';
 
 import type { AddressesTabState } from '../hooks';
 import { AddressActionsCell } from './AddressActionsCell';
@@ -29,10 +29,6 @@ import { EmptyState } from './EmptyState';
 import { StatusHeader } from './StatusHeader';
 
 const STATUSES: LocationStatusEnum[] = ['Active', 'Unscheduled', 'Inactive'];
-
-/** Renders a nullable/empty cell value as an em dash. */
-const orDash = (value: string | null | undefined) =>
-  value && value.length > 0 ? value : '—';
 
 const COLUMNS: Column<LocationRead>[] = [
   {
@@ -64,7 +60,7 @@ const COLUMNS: Column<LocationRead>[] = [
     sortValue: (row) =>
       row.last_delivery_date ? new Date(row.last_delivery_date) : null,
     render: (row) =>
-      row.last_delivery_date ? formatShortDate(row.last_delivery_date) : '—',
+      row.last_delivery_date ? formatShortDate(row.last_delivery_date) : '-',
   },
   {
     key: 'total_deliveries',

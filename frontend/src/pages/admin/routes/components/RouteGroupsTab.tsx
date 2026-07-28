@@ -11,6 +11,7 @@ import {
   TableToolbar,
 } from '@/common/components';
 import { useRowHighlight, useTableSort } from '@/common/hooks';
+import { orDash } from '@/common/utils';
 
 import type { GroupsTabState } from '../hooks';
 import { DriveDateCell } from './DriveDateCell';
@@ -38,25 +39,26 @@ const COLUMNS: Column<RouteGroupRead>[] = [
     header: 'Delivery Type',
     sortable: true,
     sortValue: (row) => row.delivery_type,
-    render: (row) => row.delivery_type,
+    // Null until the group has stops — its delivery type is whatever they are.
+    render: (row) => orDash(row.delivery_type),
   },
   // Aggregate counts read '-' for groups with no routes yet (just created,
   // ahead of route generation)
   {
     key: 'num_routes',
     header: 'Routes',
-    render: (row) => row.num_routes || '-',
+    render: (row) => orDash(row.num_routes),
   },
   {
     key: 'num_locations',
     header: 'Locations',
-    render: (row) => row.num_locations || '-',
+    render: (row) => orDash(row.num_locations),
   },
-  { key: 'num_boxes', header: 'Boxes', render: (row) => row.num_boxes || '-' },
+  { key: 'num_boxes', header: 'Boxes', render: (row) => orDash(row.num_boxes) },
   {
     key: 'num_drivers_assigned',
     header: 'Drivers',
-    render: (row) => row.num_drivers_assigned || '-',
+    render: (row) => orDash(row.num_drivers_assigned),
   },
   {
     key: 'status',

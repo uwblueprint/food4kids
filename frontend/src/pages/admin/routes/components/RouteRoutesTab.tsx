@@ -20,6 +20,7 @@ import {
   useSearch,
   useTableSort,
 } from '@/common/hooks';
+import { orDash } from '@/common/utils';
 
 import { routeFiltersToQuery, useRouteFilters } from '../hooks';
 import { AssignDriverCell } from './AssignDriverCell';
@@ -35,7 +36,7 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
     header: 'Delivery Type',
     sortable: true,
     sortValue: (row) => row.delivery_type,
-    render: (row) => row.delivery_type ?? '—',
+    render: (row) => orDash(row.delivery_type),
   },
   { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
   { key: 'box_total', header: 'Boxes', render: (row) => row.box_total },

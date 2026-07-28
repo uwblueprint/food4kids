@@ -41,6 +41,7 @@ export function TableToolbar({
           <Button
             variant="tertiary"
             shape="circular"
+            aria-label="Filters"
             className={hasActiveFilters ? 'bg-blue-50' : 'bg-white'}
             onClick={onFilterClick}
           >
