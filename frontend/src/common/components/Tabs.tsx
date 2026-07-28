@@ -12,7 +12,8 @@ function TabsList({
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
-    <div className="flex flex-col gap-0">
+    // 40px between the divider and whatever the tab reveals, per the design.
+    <div className="mb-10 flex flex-col gap-0">
       <TabsPrimitive.List
         data-slot="tabs-list"
         // gap-13 (52px) is the 53px the design leaves between labels, to the

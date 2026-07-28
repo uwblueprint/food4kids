@@ -42,12 +42,11 @@ export const AdminRoutesPage = () => {
   };
 
   return (
-    <Tabs
-      value={tab}
-      onValueChange={handleTabChange}
-      className="flex flex-col gap-8"
-    >
-      <div className="flex items-start justify-between">
+    // The design's two vertical gaps differ — 32px under the title row, 40
+    // under the tab divider — so they are set here rather than by one gap on
+    // the column. The title row is 48 tall, not the h1's own 44.
+    <Tabs value={tab} onValueChange={handleTabChange} className="flex flex-col">
+      <div className="mb-8 flex h-12 items-start justify-between">
         <h1>Routes</h1>
         <div className="flex items-center gap-6">
           <AnnouncementsBoard />
