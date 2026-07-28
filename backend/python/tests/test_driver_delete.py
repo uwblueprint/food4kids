@@ -7,6 +7,7 @@ reset. See the `delete_driver` docstring for what the endpoint removes, what it
 deliberately keeps, and why the Firebase delete happens before the DB commit.
 """
 
+from datetime import time
 from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
@@ -449,6 +450,9 @@ async def test_routes_are_detached_not_deleted(
     route survives unassigned (`driver_id SET NULL`)."""
     driver_json = await _initialize_driver(async_client)
     test_route.driver_id = UUID(driver_json["driver_id"])
+    # Assigning a driver means the route is scheduled (ck_routes_assigned_
+    # route_has_start_time), so the start time has to travel with it.
+    test_route.start_time = time(8, 0)
     await test_session.commit()
 
     with patch("firebase_admin.auth.delete_user"):

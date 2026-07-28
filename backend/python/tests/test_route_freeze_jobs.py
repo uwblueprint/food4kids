@@ -7,7 +7,7 @@ global at the test engine (monkeypatch) and seed committed rows the job's
 separate sessions can see.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -114,6 +114,7 @@ async def _seed(
             length=ROUTE_KM,
             route_group_id=rg.route_group_id,
             driver_id=driver.driver_id if assign_driver else None,
+            start_time=time(8, 0),
         )
         s.add(route)
         await s.commit()

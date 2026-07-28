@@ -8,7 +8,7 @@ history automatically and can never drift.
 """
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 from unittest.mock import patch
 from uuid import UUID, uuid4
@@ -70,6 +70,7 @@ async def _add_frozen_route(
         length=km,
         route_group_id=rg.route_group_id,
         driver_id=driver_id,
+        start_time=time(8, 0),
     )
     session.add(route)
     await session.commit()
@@ -201,12 +202,14 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
         length=FROZEN_KM,
         route_group_id=rg.route_group_id,
         driver_id=driver_a.driver_id,
+        start_time=time(8, 0),
     )
     future_route = Route(
         name="R-future",
         length=99.0,
         route_group_id=future_rg.route_group_id,
         driver_id=driver_a.driver_id,
+        start_time=time(8, 0),
     )
     test_session.add_all([route, future_route])
     await test_session.commit()
