@@ -13,7 +13,7 @@ from sqlmodel import col, select
 
 from app.dependencies.services import get_email_dispatcher, get_logger
 from app.models.driver import Driver
-from app.models.route import Route
+from app.models.route import ASSIGNED_ROUTE_HAS_START_TIME_CONSTRAINT, Route
 from app.models.route_group import RouteGroup
 from app.models.user import User
 
@@ -91,27 +91,32 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
             failed_count = 0
 
             for route, user, route_group in upcoming_routes:
-                # drive_date is a datetime but carries no meaningful time of day
-                # (it is always constructed at midnight); the route's start_time
-                # is the only real clock time, and it is optional.
-                date_only = route_group.drive_date.date().strftime("%A, %B %d, %Y")
-                time_only = (
-                    route.start_time.strftime("%I:%M %p") if route.start_time else "TBD"
-                )
-
-                context = {
-                    "Driver_Name_To_Replace": user.full_name,
-                    "Date_To_Replace": date_only,
-                    "Time_To_Replace": time_only,
-                    "Route_Duration_To_Replace": str(round(route.length)),
-                    "Upcoming_Route_URL": UPCOMING_ROUTE_URL,
-                }
-
                 try:
+                    # drive_date is a datetime but carries no meaningful time of
+                    # day (it is always built at midnight), so start_time is the
+                    # only real clock time. Every route here is assigned, and an
+                    # assigned route is guaranteed a start_time by a CHECK
+                    # constraint -- so a null one means the database drifted from
+                    # its own schema, and inventing a time would hide that.
+                    if route.start_time is None:
+                        raise ValueError(
+                            f"Route {route.route_id} is assigned to a driver but "
+                            f"has no start_time, violating "
+                            f"{ASSIGNED_ROUTE_HAS_START_TIME_CONSTRAINT}"
+                        )
+
                     await dispatcher.dispatch(
                         email_type="view-upcoming-route",
                         to=user.email,
-                        context=context,
+                        context={
+                            "Driver_Name_To_Replace": user.full_name,
+                            "Date_To_Replace": route_group.drive_date.date().strftime(
+                                "%A, %B %d, %Y"
+                            ),
+                            "Time_To_Replace": route.start_time.strftime("%I:%M %p"),
+                            "Route_Duration_To_Replace": str(round(route.length)),
+                            "Upcoming_Route_URL": UPCOMING_ROUTE_URL,
+                        },
                     )
                     sent_count += 1
                 except Exception as e:

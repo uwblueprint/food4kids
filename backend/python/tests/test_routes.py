@@ -10,7 +10,7 @@ Tests cover:
 """
 
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
@@ -2578,6 +2578,7 @@ class TestRouteRoutes:
             length=1.0,
             route_group_id=test_route_group.route_group_id,
             driver_id=test_driver.driver_id,
+            start_time=time(8, 0),
         )
         unassigned = Route(
             name="Unassigned Route",
@@ -2615,6 +2616,7 @@ class TestRouteRoutes:
             length=1.0,
             route_group_id=test_route_group.route_group_id,
             driver_id=test_driver.driver_id,
+            start_time=time(8, 0),
         )
         unassigned = Route(
             name="Unassigned",
@@ -3463,6 +3465,7 @@ class TestRouteRoutes:
             length=5.0,
             route_group_id=past_group.route_group_id,
             driver_id=driver.driver_id,
+            start_time=time(8, 0),
         )
         test_session.add(past)
         await test_session.commit()
@@ -3753,6 +3756,7 @@ class TestRouteGroupRoutes:
             ends_at_warehouse=True,
             route_group_id=route_group.route_group_id,
             driver_id=test_driver.driver_id,
+            start_time=time(8, 0),
         )
         route_b = Route(
             name="Route B",
@@ -4077,12 +4081,14 @@ class TestRouteGroupRoutes:
                     length=1.0,
                     route_group_id=full.route_group_id,
                     driver_id=did,
+                    start_time=time(8, 0),
                 ),
                 Route(
                     name="F2",
                     length=1.0,
                     route_group_id=full.route_group_id,
                     driver_id=did,
+                    start_time=time(8, 0),
                 ),
                 # partial: one staffed, one not
                 Route(
@@ -4090,6 +4096,7 @@ class TestRouteGroupRoutes:
                     length=1.0,
                     route_group_id=partial.route_group_id,
                     driver_id=did,
+                    start_time=time(8, 0),
                 ),
                 Route(name="P2", length=1.0, route_group_id=partial.route_group_id),
                 Route(

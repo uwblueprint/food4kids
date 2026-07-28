@@ -2,11 +2,15 @@ from datetime import datetime, time
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, Text
+from sqlalchemy import CheckConstraint, Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
 from .route_stop import RouteStopDetailRead
+
+# Named so the migration, the model, and the error-handling paths all refer to
+# the same constraint rather than repeating the string.
+ASSIGNED_ROUTE_HAS_START_TIME_CONSTRAINT = "ck_routes_assigned_route_has_start_time"
 
 if TYPE_CHECKING:
     from .driver import Driver
@@ -75,6 +79,17 @@ class Route(RouteBase, BaseModel, table=True):
     """Database table model for Routes"""
 
     __tablename__ = "routes"
+    __table_args__ = (
+        # An assigned route is a scheduled route: the driver has to be told
+        # when to show up. Unassigned routes may still be unscheduled, so the
+        # constraint only bites once driver_id is set. Declared on the model
+        # (not just in the migration) so metadata-created test databases carry
+        # it too.
+        CheckConstraint(
+            "driver_id IS NULL OR start_time IS NOT NULL",
+            name=ASSIGNED_ROUTE_HAS_START_TIME_CONSTRAINT,
+        ),
+    )
 
     route_id: UUID = Field(default_factory=uuid4, primary_key=True, nullable=False)
 
