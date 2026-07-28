@@ -169,19 +169,19 @@ export function AnnouncementsPanel({
                   className="flex-1"
                   onClick={onEditBoardClick}
                 >
-                  Edit Board
+                  Edit board
                 </Button>
                 <Button
                   type="button"
                   className="flex-1"
                   onClick={onCreateClick}
                 >
-                  Create Announcement
+                  Create announcement
                 </Button>
               </div>
             ) : (
               <Button type="button" className="w-full" onClick={onCreateClick}>
-                Create Announcement
+                Create announcement
               </Button>
             )}
           </footer>

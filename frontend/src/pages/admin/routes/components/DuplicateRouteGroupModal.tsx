@@ -175,7 +175,7 @@ export function DuplicateRouteGroupModal({
             disabled={!isValid || isPending}
             onClick={handleSubmit}
           >
-            Duplicate Group
+            Duplicate group
           </Button>
         </div>
       </ModalContent>

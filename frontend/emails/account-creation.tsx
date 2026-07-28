@@ -26,7 +26,7 @@ export default function AccountCreationEmail() {
             href="Sign_Up_URL" 
             className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[44px] py-[12px] font-nunito text-grey-100 text-[16px] tracking-wide"
           >
-            Verify Account
+            Verify account
           </Button>
         </Section>
 
