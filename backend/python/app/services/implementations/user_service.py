@@ -4,6 +4,7 @@ from uuid import UUID
 
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.user import User, UserBase, UserUpdate
@@ -201,9 +202,22 @@ class UserService:
             raise e
 
     async def delete_user_by_id(self, session: AsyncSession, user_id: UUID) -> None:
-        """Delete user by ID"""
+        """Delete user by ID.
+
+        Everything hanging off the user goes with it: `drivers` (via the
+        relationship's delete cascade) and, at the DB level, `user_invites`,
+        `announcements`, and `announcement_last_reads`. Notes the user authored
+        survive with `user_id SET NULL`.
+        """
         try:
-            statement = select(User).where(User.user_id == user_id)
+            # `User.driver` cascades the delete, and SQLAlchemy has to have the
+            # related row in hand to do that. Eager-load it: lazy-loading during
+            # an async flush raises MissingGreenlet.
+            statement = (
+                select(User)
+                .options(selectinload(User.driver))  # type: ignore[arg-type]
+                .where(User.user_id == user_id)
+            )
             result = await session.execute(statement)
             user = result.scalars().first()
 

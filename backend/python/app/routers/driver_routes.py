@@ -15,6 +15,7 @@ from app.dependencies.auth import (
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
+    get_note_chain_service,
     get_user_invite_service,
     get_user_service,
 )
@@ -31,6 +32,7 @@ from app.schemas.auth import DriverRegisterResponse
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
+from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import set_refresh_token_cookie
@@ -248,21 +250,55 @@ async def update_driver(
 async def delete_driver(
     driver_id: UUID,
     session: AsyncSession = Depends(get_session),
+    user_service: UserService = Depends(get_user_service),
+    note_chain_service: NoteChainService = Depends(get_note_chain_service),
     _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete a driver by ID.
 
-    Their routes are detached (driver_id SET NULL), so the driver's km stop
-    counting toward anyone.
+    A hard delete of the person: the user account and their Firebase login go
+    with the driver record, so a deleted driver can no longer sign in. Their
+    routes are detached (driver_id SET NULL) rather than deleted, so the
+    driver's km stop counting toward anyone.
     """
-    try:
-        await driver_service.delete_driver_by_id(session, driver_id)
-    except ValueError as ve:
+    # The inverse of initialize_driver, and it must leave nothing behind that
+    # can still authenticate — the bug this replaced deleted only the `drivers`
+    # row, so the user, their invite and their Firebase account all survived and
+    # they could still log in.
+    #
+    # What goes: the `users` row, and by DB cascade `drivers`, `user_invites`,
+    # `announcement_last_reads` and `announcements`; plus the Firebase account
+    # (delete_user_by_id skips it for a driver who never finished signup and so
+    # has auth_id IS NULL).
+    #
+    # What stays: routes, detached; and notes the driver wrote on route or
+    # location chains, which survive with user_id SET NULL. Those are
+    # operational records the org still needs — the person is deleted, the
+    # deliveries they logged are not. Driver history is derived from routes, so
+    # detaching them takes it to zero with no stored total to clean up.
+    #
+    # Ordering is Firebase-then-commit, in one DB transaction: if the Firebase
+    # delete fails, the DB work rolls back and the whole thing is a retryable
+    # no-op. The other order would leave a live credential for a driver the
+    # admin has been told is gone, which is the failure that actually matters.
+    # initialize_driver makes the same trade in the other direction — DB rows
+    # commit first, then the invite email is dispatched, so a send failure never
+    # leaves a half-built driver.
+    driver = await driver_service.get_driver_by_id(session, driver_id)
+    if not driver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(ve),
-        ) from ve
+            detail=f"Driver with id {driver_id} not found",
+        )
+
+    # The admin-only chain create_driver made for this driver. Once the driver
+    # row is gone nothing references it, so it would sit there permanently
+    # unreachable, holding notes about someone who has been deleted.
+    if driver.note_chain_id is not None:
+        await note_chain_service.delete_note_chain_rows(session, driver.note_chain_id)
+
+    await user_service.delete_user_by_id(session, driver.user_id)
 
 
 @router.post("/test-event-email")
