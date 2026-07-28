@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { useForgotPassword } from '@/api';
+import { useResendOnboardingEmail } from '@/api';
 
 import { RequestLinkForm, SendLinkConfirmation } from './RequestLinkForm';
 import { WrapperWithLogo } from './Wrapper';
@@ -16,10 +16,10 @@ export const GetLoginLink = () => {
       ? "Enter the email address your admin used to invite you. We'll send a new login link."
       : "We've emailed your setup link. It may take a few minutes to land in your inbox.";
 
-  const forgotPasswordMutation = useForgotPassword();
+  const resendOnboardingEmailMutation = useResendOnboardingEmail();
 
   const handleSendLink = (submittedEmail: string) => {
-    forgotPasswordMutation.mutate(
+    resendOnboardingEmailMutation.mutate(
       { email: submittedEmail },
       {
         onSuccess: () => {
@@ -30,7 +30,7 @@ export const GetLoginLink = () => {
   };
 
   const handleResendLink = (submittedEmail: string) => {
-    forgotPasswordMutation.mutate({ email: submittedEmail });
+    resendOnboardingEmailMutation.mutate({ email: submittedEmail });
   };
 
   return (
@@ -44,13 +44,13 @@ export const GetLoginLink = () => {
           email={email}
           setEmail={setEmail}
           onSubmit={handleSendLink}
-          isPending={forgotPasswordMutation.isPending}
+          isPending={resendOnboardingEmailMutation.isPending}
         />
       ) : (
         <SendLinkConfirmation
           email={email}
           onResend={handleResendLink}
-          isPending={forgotPasswordMutation.isPending}
+          isPending={resendOnboardingEmailMutation.isPending}
         />
       )}
     </WrapperWithLogo>
