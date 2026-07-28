@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from datetime import datetime
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import google.auth.transport.requests
 import requests
@@ -87,6 +89,14 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         # endLocation controls whether drivers return to the warehouse.
         # During school term drivers return; during summer they end at their
         # last delivery to save time.
+        # Convert route_start_time to EST and format for Google Maps API
+        est_tz = ZoneInfo(app_settings.scheduler_timezone)
+        if settings.route_start_time.tzinfo is None:
+            route_start_est = settings.route_start_time.replace(tzinfo=est_tz)
+        else:
+            route_start_est = settings.route_start_time.astimezone(est_tz)
+        global_start_time = route_start_est.strftime("%Y-%m-%dT%H:%M:%S%z")
+
         vehicles = [
             {
                 "displayName": f"driver_{i}",
@@ -94,6 +104,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 **({"endLocation": warehouse} if settings.return_to_warehouse else {}),
                 "loadLimits": {"load": {"maxLoad": str(max_load)}},
                 "costPerHour": VEHICLE_COST_PER_HOUR,
+                "startTime": global_start_time,
             }
             for i in range(settings.num_routes)
         ]
