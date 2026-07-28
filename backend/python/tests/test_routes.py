@@ -447,8 +447,13 @@ class TestDriverRoutes:
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
         """DELETE /drivers/{driver_id} removes the driver; their routes are
-        detached (driver_id SET NULL) rather than deleted."""
-        response = await async_client.delete(f"/drivers/{test_driver.driver_id}")
+        detached (driver_id SET NULL) rather than deleted.
+
+        The delete also removes the user row and the Firebase account — see
+        tests/test_driver_delete.py for that half of the contract.
+        """
+        with patch("firebase_admin.auth.delete_user"):
+            response = await async_client.delete(f"/drivers/{test_driver.driver_id}")
         assert response.status_code == 204
 
         get_response = await async_client.get(f"/drivers/{test_driver.driver_id}")

@@ -579,8 +579,10 @@ export const testEventEmail = <ThrowOnError extends boolean = false>(
  *
  * Delete a driver by ID.
  *
- * Their routes are detached (driver_id SET NULL), so the driver's km stop
- * counting toward anyone.
+ * A hard delete of the person: the user account and their Firebase login go
+ * with the driver record, so a deleted driver can no longer sign in. Their
+ * routes are detached (driver_id SET NULL) rather than deleted, so the
+ * driver's km stop counting toward anyone.
  */
 export const deleteDriver = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDriverData, ThrowOnError>

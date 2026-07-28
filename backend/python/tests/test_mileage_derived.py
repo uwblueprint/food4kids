@@ -10,6 +10,7 @@ history automatically and can never drift.
 import logging
 from datetime import date, datetime, timedelta
 from typing import Any
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -495,7 +496,9 @@ async def test_driver_delete_endpoint_detaches_routes_and_km(
     a = frozen_world["driver_a"]
     frozen_route = frozen_world["route"]
 
-    resp = await async_client.delete(f"/drivers/{a.driver_id}")
+    # The delete also removes the Firebase account (see test_driver_delete.py).
+    with patch("firebase_admin.auth.delete_user"):
+        resp = await async_client.delete(f"/drivers/{a.driver_id}")
     assert resp.status_code == 204
 
     gone = (
