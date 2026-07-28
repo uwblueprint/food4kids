@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
+from app.models.driver import Driver
 from app.models.user import User, UserBase, UserUpdate
 
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ class UserService:
             raise e
 
     async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
-        """Get user by email using Firebase"""
+        """Get user by email, if they are still a driver or an admin"""
         try:
             statement = select(User).where(User.email == email)
             result = await session.execute(statement)
@@ -44,6 +45,12 @@ class UserService:
 
             if not user:
                 self.logger.error(f"User with email {email} not found")
+                return None
+
+            if user.role.lower() != "admin" and not await session.scalar(
+                select(Driver.driver_id).where(Driver.user_id == user.user_id)
+            ):
+                self.logger.error(f"User with email {email} has no driver record")
                 return None
 
             return user
