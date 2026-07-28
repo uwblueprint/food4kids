@@ -331,7 +331,7 @@ class RouteGroupService:
                 .select_from(Route)
                 .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
                 .join(Location, Location.location_id == RouteStop.location_id)  # type: ignore[arg-type]
-                .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+                .where(Route.route_group_id == RouteGroup.route_group_id)
                 .where(col(Location.delivery_type).in_(delivery_type))
                 .exists()
             )

@@ -2629,9 +2629,7 @@ class TestRouteRoutes:
         u = await async_client.get(
             "/routes", params={"driver_assignment_status": "Unassigned"}
         )
-        assert {r["route_id"] for r in u.json()["items"]} == {
-            str(unassigned.route_id)
-        }
+        assert {r["route_id"] for r in u.json()["items"]} == {str(unassigned.route_id)}
 
     @pytest.mark.asyncio
     async def test_get_routes_filters_by_status(
@@ -2704,8 +2702,16 @@ class TestRouteRoutes:
         await test_session.flush()
         test_session.add_all(
             [
-                RouteStop(route_id=fam_route.route_id, location_id=fam_loc.location_id, stop_number=1),
-                RouteStop(route_id=sch_route.route_id, location_id=sch_loc.location_id, stop_number=1),
+                RouteStop(
+                    route_id=fam_route.route_id,
+                    location_id=fam_loc.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=sch_route.route_id,
+                    location_id=sch_loc.location_id,
+                    stop_number=1,
+                ),
             ]
         )
         await test_session.commit()
@@ -4046,12 +4052,29 @@ class TestRouteGroupRoutes:
         did = test_driver.driver_id
         test_session.add_all(
             [
-                Route(name="F1", length=1.0, route_group_id=full.route_group_id, driver_id=did),
-                Route(name="F2", length=1.0, route_group_id=full.route_group_id, driver_id=did),
+                Route(
+                    name="F1",
+                    length=1.0,
+                    route_group_id=full.route_group_id,
+                    driver_id=did,
+                ),
+                Route(
+                    name="F2",
+                    length=1.0,
+                    route_group_id=full.route_group_id,
+                    driver_id=did,
+                ),
                 # partial: one staffed, one not
-                Route(name="P1", length=1.0, route_group_id=partial.route_group_id, driver_id=did),
+                Route(
+                    name="P1",
+                    length=1.0,
+                    route_group_id=partial.route_group_id,
+                    driver_id=did,
+                ),
                 Route(name="P2", length=1.0, route_group_id=partial.route_group_id),
-                Route(name="N1", length=1.0, route_group_id=none_assigned.route_group_id),
+                Route(
+                    name="N1", length=1.0, route_group_id=none_assigned.route_group_id
+                ),
             ]
         )
         await test_session.commit()
@@ -4110,14 +4133,26 @@ class TestRouteGroupRoutes:
         sch_group = RouteGroup(name="Sch Group", drive_date=drive_date)
         test_session.add_all([fam_group, sch_group])
         await test_session.flush()
-        fam_route = Route(name="FR", length=1.0, route_group_id=fam_group.route_group_id)
-        sch_route = Route(name="SR", length=1.0, route_group_id=sch_group.route_group_id)
+        fam_route = Route(
+            name="FR", length=1.0, route_group_id=fam_group.route_group_id
+        )
+        sch_route = Route(
+            name="SR", length=1.0, route_group_id=sch_group.route_group_id
+        )
         test_session.add_all([fam_route, sch_route])
         await test_session.flush()
         test_session.add_all(
             [
-                RouteStop(route_id=fam_route.route_id, location_id=fam_loc.location_id, stop_number=1),
-                RouteStop(route_id=sch_route.route_id, location_id=sch_loc.location_id, stop_number=1),
+                RouteStop(
+                    route_id=fam_route.route_id,
+                    location_id=fam_loc.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=sch_route.route_id,
+                    location_id=sch_loc.location_id,
+                    stop_number=1,
+                ),
             ]
         )
         await test_session.commit()

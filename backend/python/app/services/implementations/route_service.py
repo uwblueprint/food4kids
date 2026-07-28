@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -218,7 +218,7 @@ class RouteService:
                 select(1)
                 .select_from(RouteStop)
                 .join(Location, Location.location_id == RouteStop.location_id)  # type: ignore[arg-type]
-                .where(RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+                .where(RouteStop.route_id == Route.route_id)
                 .where(col(Location.delivery_type).in_(delivery_type))
                 .exists()
             )
@@ -226,7 +226,7 @@ class RouteService:
         if route_status:
             now = datetime.now(timezone.utc).replace(tzinfo=None)
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            status_conditions = []
+            status_conditions: list[Any] = []
             if RouteStatusEnum.UPCOMING in route_status:
                 status_conditions.append(RouteGroup.drive_date >= today_start)
             if RouteStatusEnum.COMPLETED in route_status:
@@ -235,7 +235,7 @@ class RouteService:
                 statement = statement.where(or_(*status_conditions))
 
         if driver_assignment_status:
-            assignment_conditions = []
+            assignment_conditions: list[Any] = []
             if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
                 assignment_conditions.append(col(Route.driver_id).isnot(None))
             if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
