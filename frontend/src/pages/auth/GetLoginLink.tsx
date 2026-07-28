@@ -10,11 +10,11 @@ type Step = 'FORM' | 'CONFIRMATION';
 export const GetLoginLink = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
-  const headerTitle = step === 'FORM' ? 'Forgot password?' : 'Reset link sent';
+  const headerTitle = step === 'FORM' ? 'Didn’t get a link?' : 'Login link sent';
   const subheaderTitle =
     step === 'FORM'
-      ? 'What email did your admin use to sign you up?'
-      : 'If an account exists for that email, we’ve sent a link to reset your password. It may take a few minutes to arrive.';
+      ? "Enter the email address your admin used to invite you. We'll send a new login link."
+      : "We've emailed your setup link. It may take a few minutes to land in your inbox.";
 
   const forgotPasswordMutation = useForgotPassword();
 
