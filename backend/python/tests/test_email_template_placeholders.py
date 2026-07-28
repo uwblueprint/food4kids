@@ -67,8 +67,8 @@ def test_template_has_no_bare_placeholder_identifiers(email_type: str) -> None:
     assert not bare, (
         f"{email_type}: placeholder name(s) {bare} appear outside a "
         f"{{{{ ... }}}} expression, so Jinja2 will not substitute them and "
-        f"recipients would see the raw identifier. Re-export from "
-        f"frontend/emails/ and copy the result into app/templates/."
+        f"recipients would see the raw identifier. Fix the React Email source "
+        f"in frontend/emails/, then run ./scripts/sync-email-templates.sh."
     )
 
 
