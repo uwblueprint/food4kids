@@ -17,7 +17,10 @@ export const Account = () => {
         </span>
       </div>
       <div className="inline-flex flex-col items-start">
-        <p className="text-m-p2 font-nunito leading-[22px]">{user?.fullName}</p>
+        {/* The design sets this one line in Nunito and the role beneath it in
+            Nunito Sans; mixing the two in a two-line block reads as a slip, so
+            the name follows the role (and the rest of the body copy). */}
+        <p className="text-m-p2 leading-[22px]">{user?.fullName}</p>
         <p className="text-m-p2 text-grey-400 leading-[22px] font-light capitalize">
           {user?.role}
         </p>
