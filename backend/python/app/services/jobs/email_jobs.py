@@ -7,131 +7,117 @@ Jobs use the unified EmailDispatcher to render and send emails.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import and_
 from sqlmodel import col, select
-
-from app.config import settings
-
-if TYPE_CHECKING:
-    from sqlalchemy.sql.schema import Table
 
 from app.dependencies.services import get_email_dispatcher, get_logger
 from app.models.driver import Driver
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.user import User
-from app.services.implementations.email_service import EmailService
+
+# Placeholder until there is a deployment to link at. The template still needs
+# some value for Upcoming_Route_URL, and dispatch would raise without it.
+UPCOMING_ROUTE_URL = "https://app.example.com/routes"
 
 
-async def send_route_reminders() -> None:
-    """Scheduled job: Send route reminders to drivers for tomorrow's routes.
+async def send_route_reminders(reminder_days: list[int]) -> None:
+    """Scheduled job: email drivers about routes ``reminder_days`` days out.
 
-    Runs daily (typically at 7:00 AM) and sends reminder emails to all drivers
-    assigned to routes the next day.
+    The scheduler registers one instance of this job per distinct reminder time
+    (see ``refresh_daily_reminder_email_schedule``), passing the lead days
+    configured for that time. A lead day of 0 means routes driving today.
 
-    This job:
-    - Queries all driver assignments for tomorrow
-    - For each driver, renders and sends a route reminder email
-    - Logs successes and failures individually
-    - Continues sending even if one email fails
+    Renders through the EmailDispatcher, which substitutes the template's
+    Jinja2 placeholders. Sends are attempted for every driver; a failure is
+    logged and the remaining drivers are still emailed.
     """
 
     from app.models import async_session_maker_instance
 
     logger = get_logger()
-    dispatcher = get_email_dispatcher()
+
+    if not reminder_days:
+        logger.info("No reminder lead days configured, skipping emails")
+        return
 
     if async_session_maker_instance is None:
         logger.error("Database session maker not initialized")
         return
 
-    tomorrow = date.today() + timedelta(days=1)
-    start_of_day = datetime.combine(tomorrow, datetime.min.time())
-    end_of_day = datetime.combine(tomorrow, datetime.max.time())
+    dispatcher = get_email_dispatcher()
 
     try:
         async with async_session_maker_instance() as session:
-            # Get all drivers assigned to routes tomorrow
-            # Cast model tables to SQLAlchemy Table objects so mypy can reason
-            # about column expressions.
-            # Cast the model classes to Any before accessing `__table__` so
-            # mypy does not complain about missing attributes on the class
-            # objects.
-            Route_table = cast("Table", cast("Any", Route).__table__)
-            Driver_table = cast("Table", cast("Any", Driver).__table__)
-            User_table = cast("Table", cast("Any", User).__table__)
-            RouteGroup_table = cast("Table", cast("Any", RouteGroup).__table__)
+            target_dates = {date.today() + timedelta(days=day) for day in reminder_days}
 
-            # Select full models so typing is recognized by mypy; use table
-            # columns for SQL expressions.
+            # Narrow in SQL to the span the lead days cover, then match the exact
+            # dates below. The span is only a prefilter: non-contiguous lead days
+            # (say 1 and 3) cover a range that also contains days nobody asked for.
+            start_of_span = datetime.combine(min(target_dates), datetime.min.time())
+            end_of_span = datetime.combine(max(target_dates), datetime.max.time())
+
             statement = (
                 select(Route, User, RouteGroup)
-                .join(Driver, Route_table.c.driver_id == Driver_table.c.driver_id)
-                .join(User, Driver_table.c.user_id == User_table.c.user_id)
-                .join(
-                    RouteGroup,
-                    Route_table.c.route_group_id == RouteGroup_table.c.route_group_id,
-                )
+                .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+                .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
+                .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        RouteGroup_table.c.drive_date >= start_of_day,
-                        RouteGroup_table.c.drive_date <= end_of_day,
-                        Route_table.c.driver_id.isnot(None),
+                        RouteGroup.drive_date >= start_of_span,  # type: ignore[arg-type]
+                        RouteGroup.drive_date <= end_of_span,  # type: ignore[arg-type]
+                        col(Route.driver_id).isnot(None),
                     )
                 )
-                .order_by(User_table.c.email)
+                .order_by(User.email)
             )
 
             result = await session.execute(statement)
-            upcoming_routes = result.all()
+            upcoming_routes = [
+                row
+                for row in result.all()
+                if row.RouteGroup.drive_date.date() in target_dates
+            ]
 
             if not upcoming_routes:
-                logger.info("No upcoming routes found for tomorrow, skipping reminders")
+                logger.info(
+                    "No upcoming routes found for configured reminder days, "
+                    "skipping emails"
+                )
                 return
 
             sent_count = 0
             failed_count = 0
 
-            # Send reminder email to each driver
             for route, user, route_group in upcoming_routes:
-                recipient_email = user.email
-                driver_name = user.full_name
-                # Combine drive_date (date) with route start_time (time) if present
-                if route.start_time:
-                    route_date = datetime.combine(
-                        route_group.drive_date.date(), route.start_time
-                    )
-                else:
-                    route_date = route_group.drive_date
-                route_distance = route.length
+                # drive_date is a datetime but carries no meaningful time of day
+                # (it is always constructed at midnight); the route's start_time
+                # is the only real clock time, and it is optional.
+                date_only = route_group.drive_date.date().strftime("%A, %B %d, %Y")
+                time_only = (
+                    route.start_time.strftime("%I:%M %p") if route.start_time else "TBD"
+                )
 
-                # Format date, time, and distance for email
-                date_only = route_date.date().strftime("%A, %B %d, %Y")
-                time_only = route_date.time().strftime("%I:%M %p")
-                rounded_distance = str(round(route_distance))
-
-                # Prepare context matching `view-upcoming-route` template placeholders
                 context = {
-                    "Driver_Name_To_Replace": driver_name,
+                    "Driver_Name_To_Replace": user.full_name,
                     "Date_To_Replace": date_only,
                     "Time_To_Replace": time_only,
-                    "Route_Duration_To_Replace": rounded_distance,
-                    "Upcoming_Route_URL": "https://app.example.com/routes",  # Note: update to actual route URL!
+                    "Route_Duration_To_Replace": str(round(route.length)),
+                    "Upcoming_Route_URL": UPCOMING_ROUTE_URL,
                 }
 
                 try:
                     await dispatcher.dispatch(
                         email_type="view-upcoming-route",
-                        to=recipient_email,
+                        to=user.email,
                         context=context,
                     )
                     sent_count += 1
                 except Exception as e:
                     failed_count += 1
                     logger.error(
-                        f"Failed to send route reminder to {recipient_email}: {e!s}",
+                        f"Failed to send route reminder to {user.email}: {e!s}",
                         exc_info=True,
                     )
                     # Continue sending to other drivers even if one fails
@@ -144,109 +130,5 @@ async def send_route_reminders() -> None:
         logger.error(
             f"Failed to process route reminder emails: {error!s}",
             exc_info=True,
-        )
-        raise error
-
-
-async def process_daily_reminder_emails(reminder_days: list[int]) -> None:
-    """Send reminder emails for routes whose drive date falls on ``reminder_days``.
-
-    Emails each driver assigned (via Route.driver_id) to a route whose
-    RouteGroup.drive_date is one of the given lead days ahead of today. The
-    scheduler registers one instance of this job per distinct reminder time (see
-    ``refresh_daily_reminder_email_schedule``), passing the lead days for that time.
-    """
-
-    from app.models import (
-        async_session_maker_instance,  # Placed here to ensure testing file functions as normal
-    )
-
-    logger = get_logger()
-
-    if not reminder_days:
-        logger.info("No reminder lead days configured, skipping emails")
-        return
-
-    if async_session_maker_instance is None:
-        logger.error("Database session maker not initialized")
-        return
-
-    try:
-        async with async_session_maker_instance() as session:
-            target_dates = {date.today() + timedelta(days=day) for day in reminder_days}
-            start_of_day = datetime.combine(min(target_dates), datetime.min.time())
-            end_of_day = datetime.combine(max(target_dates), datetime.max.time())
-            statement = (
-                select(
-                    User.email,
-                    RouteGroup.drive_date,
-                    col(Route.start_time),
-                    Route.length,
-                )
-                .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
-                .join(Driver, Driver.driver_id == Route.driver_id)  # type: ignore[arg-type]
-                .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
-                .where(
-                    and_(
-                        RouteGroup.drive_date >= start_of_day,  # type: ignore[arg-type]
-                        RouteGroup.drive_date <= end_of_day,  # type: ignore[arg-type]
-                        col(Route.driver_id).isnot(None),
-                    )
-                )
-                .order_by(User.email)
-            )
-
-            result = await session.execute(statement)
-            upcoming_routes = result.all()
-
-            if not upcoming_routes:
-                logger.info(
-                    "No Upcoming Routes found for configured reminder days, skipping emails"
-                )
-                return
-
-            email_service = EmailService(
-                logger,
-                {
-                    "refresh_token": settings.mailer_refresh_token,
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "client_id": settings.mailer_client_id,
-                    "client_secret": settings.mailer_client_secret,
-                },
-                settings.mailer_user,
-                "Food4Kids",
-            )
-
-            with open("./app/templates/view-upcoming-route.html") as file:
-                template_html = file.read()
-
-            for row in upcoming_routes:
-                recipient_email = row.email
-                drive_date: datetime = row.drive_date
-                route_distance = row.length
-
-                date_only = drive_date.date().strftime("%A, %B %d, %Y")
-                # Per-route start time if set, else fall back to a sensible default.
-                start_time = row.start_time
-                time_only = start_time.strftime("%I:%M %p") if start_time else "TBD"
-                rounded_distance = str(round(route_distance))
-
-                formatted_email = template_html.replace("Date_To_Replace", date_only)
-                formatted_email = formatted_email.replace("Time_To_Replace", time_only)
-                formatted_email = formatted_email.replace(
-                    "Route_Duration_To_Replace", rounded_distance
-                )
-                logger.info(f"Sending Email to {recipient_email}")
-                email_service.send_email(
-                    to=recipient_email,
-                    subject="Upcoming Route Reminder",
-                    body=formatted_email,
-                )
-
-            logger.info("Successfully sent reminder emails")
-
-    except Exception as error:
-        logger.error(
-            f"Failed to process daily reminder emails: {error!s}", exc_info=True
         )
         raise error
