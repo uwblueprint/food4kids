@@ -170,11 +170,11 @@ export function AnnouncementsBoard() {
       <Button
         type="button"
         variant="tertiary"
-        shape="circular"
+        shape="circularLarge"
         aria-label="Open announcements"
         onClick={() => setPanelOpen(true)}
       >
-        <MegaphoneIcon className="size-5 text-blue-300" />
+        <MegaphoneIcon className="size-[22px] text-blue-300" />
       </Button>
 
       <AnnouncementsPanel

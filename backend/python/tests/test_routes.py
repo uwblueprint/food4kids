@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
-from app.models.enum import ProgressEnum
+from app.models.enum import ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -2603,6 +2603,87 @@ class TestRouteRoutes:
         assert empty.json()["items"] == []
 
     @pytest.mark.asyncio
+    async def test_get_routes_returns_derived_row_values(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_location_group: Any,
+        test_driver: Any,
+    ) -> None:
+        """The list rows carry the values the Routes tab renders.
+
+        delivery_type, driver_name and status are computed in the query rather
+        than stored, so nothing else catches them going wrong: the filters can
+        all pass while the displayed row is derived some other way. This pins
+        the values themselves, including the empty route that has no stop to
+        read a delivery type from.
+        """
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Derived",
+            contact_name="Derived",
+            address="1 Derived St",
+            phone_primary="5550000009",
+            delivery_type="School",
+            num_children=3,
+        )
+        test_session.add(location)
+        await test_session.flush()
+
+        served = Route(
+            name="Served",
+            length=4.2,
+            route_group_id=test_route_group.route_group_id,
+            driver_id=test_driver.driver_id,
+            # An assigned route must carry a start time (see the
+            # ck_routes_assigned_route_has_start_time constraint).
+            start_time=time(8, 0),
+        )
+        empty = Route(
+            name="Empty", length=0.0, route_group_id=test_route_group.route_group_id
+        )
+        test_session.add_all([served, empty])
+        await test_session.flush()
+        test_session.add(
+            RouteStop(
+                route_id=served.route_id,
+                location_id=location.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+        await test_session.refresh(served)
+        await test_session.refresh(empty)
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        rows = {item["route_id"]: item for item in response.json()["items"]}
+
+        served_row = rows[str(served.route_id)]
+        # Read off the stop's location, not off the group.
+        assert served_row["delivery_type"] == "School"
+        assert served_row["driver_name"] == "John Doe"
+        assert served_row["group_name"] == test_route_group.name
+        assert served_row["route_group_id"] == str(test_route_group.route_group_id)
+        assert served_row["num_stops"] == 1
+
+        empty_row = rows[str(empty.route_id)]
+        # No stops -> no location -> no delivery type, and no driver assigned.
+        assert empty_row["delivery_type"] is None
+        assert empty_row["driver_name"] is None
+        assert empty_row["num_stops"] == 0
+
+        # Both routes share a group, so they share its drive_date and status.
+        expected_status = (
+            RouteStatusEnum.UPCOMING
+            if test_route_group.drive_date.date() >= date.today()
+            else RouteStatusEnum.COMPLETED
+        )
+        assert served_row["status"] == expected_status.value
+        assert empty_row["status"] == expected_status.value
+
+    @pytest.mark.asyncio
     async def test_get_routes_filters_by_driver_assignment_status(
         self,
         async_client: AsyncClient,
@@ -3615,7 +3696,7 @@ class TestRouteGroupRoutes:
         """Test GET /route-groups returns empty list when no route groups exist."""
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json()["items"] == []
 
     @pytest.mark.asyncio
     async def test_create_route_group(
@@ -3633,12 +3714,15 @@ class TestRouteGroupRoutes:
         assert "route_group_id" in result
 
     @pytest.mark.asyncio
-    async def test_create_route_group_with_delivery_type(
+    async def test_create_route_group_has_no_delivery_type_until_it_has_stops(
         self, async_client: AsyncClient, sample_route_group_data: dict[str, Any]
     ) -> None:
-        """A group created with a delivery type keeps it while it has no
-        routes: it comes back on the create response and on GET /route-groups
-        (where groups with routes derive it from their stops instead)."""
+        """Delivery type is derived from the group's stops, never stored.
+
+        A freshly created group has no stops, so it reports None — and a
+        delivery_type in the request body is not a field on the create model,
+        so it cannot set one.
+        """
         data = sample_route_group_data.copy()
         data["drive_date"] = data["drive_date"].isoformat()
         data["delivery_type"] = "School"
@@ -3646,28 +3730,16 @@ class TestRouteGroupRoutes:
         response = await async_client.post("/route-groups", json=data)
         assert response.status_code == 201
         result = response.json()
-        assert result["delivery_type"] == "School"
+        assert result["delivery_type"] is None
 
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
         created = next(
             rg
-            for rg in response.json()
+            for rg in response.json()["items"]
             if str(rg["route_group_id"]) == str(result["route_group_id"])
         )
-        assert created["delivery_type"] == "School"
-
-    @pytest.mark.asyncio
-    async def test_create_route_group_invalid_delivery_type(
-        self, async_client: AsyncClient, sample_route_group_data: dict[str, Any]
-    ) -> None:
-        """POST /route-groups rejects delivery types that aren't configured."""
-        data = sample_route_group_data.copy()
-        data["drive_date"] = data["drive_date"].isoformat()
-        data["delivery_type"] = "Not A Real Type"
-
-        response = await async_client.post("/route-groups", json=data)
-        assert response.status_code == 422
+        assert created["delivery_type"] is None
 
     @pytest.mark.asyncio
     async def test_get_route_groups_with_data(
@@ -3676,7 +3748,7 @@ class TestRouteGroupRoutes:
         """Test GET /route-groups returns list of route groups."""
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["items"]
         assert len(data) >= 1
         assert any(
             str(rg["route_group_id"]) == str(test_route_group.route_group_id)
@@ -3895,12 +3967,11 @@ class TestRouteGroupRoutes:
     async def test_duplicate_route_group_with_overrides(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
-        """The optional body overrides the copy's name/drive_date; delivery_type carries over."""
+        """The optional body overrides the copy's name and drive_date."""
         route_group = RouteGroup(
             name="Tuesday A - Cambridge North",
             notes="",
             drive_date=datetime(2026, 7, 9, 9, 0),
-            delivery_type="Family",
         )
         test_session.add(route_group)
         await test_session.commit()
@@ -3918,7 +3989,8 @@ class TestRouteGroupRoutes:
         assert body["route_group_id"] != str(route_group.route_group_id)
         assert body["name"] == "Tuesday A - Cambridge North (Copy)"
         assert body["drive_date"] == "2026-07-16T00:00:00"
-        assert body["delivery_type"] == "Family"
+        # The copy has no stops yet, so it has no delivery type to report.
+        assert body["delivery_type"] is None
 
     @pytest.mark.asyncio
     async def test_duplicate_route_group_not_found(
@@ -4000,7 +4072,7 @@ class TestRouteGroupRoutes:
         # Verify deletion by trying to get all route groups
         get_response = await async_client.get("/route-groups")
         assert response.status_code == 204
-        data = get_response.json()
+        data = get_response.json()["items"]
         assert not any(
             str(rg["route_group_id"]) == str(test_route_group.route_group_id)
             for rg in data
@@ -4026,7 +4098,7 @@ class TestRouteGroupRoutes:
             f"/route-groups?start_date={start_date}&end_date={end_date}"
         )
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["items"]
         assert isinstance(data, list)
 
     @pytest.mark.asyncio
@@ -4048,10 +4120,84 @@ class TestRouteGroupRoutes:
 
         resp = await async_client.get("/route-groups", params={"search": "cambridge"})
         assert resp.status_code == 200
-        # The list endpoint returns a plain list (not paginated).
-        assert {rg["route_group_id"] for rg in resp.json()} == {
+        assert {rg["route_group_id"] for rg in resp.json()["items"]} == {
             str(cambridge.route_group_id)
         }
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_paginates_after_filtering(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Pages are drawn from the matches, not filtered after slicing.
+
+        The ordering is by drive_date, so page 2 of a page_size=2 run over five
+        groups holds the third and fourth oldest — and `total` counts every
+        match rather than the page.
+        """
+        groups = [
+            RouteGroup(name=f"Page Test {i}", drive_date=datetime(2026, 7, i, 9, 0))
+            for i in range(1, 6)
+        ]
+        # A group the search excludes, to prove `total` reflects the filter.
+        other = RouteGroup(name="Excluded", drive_date=datetime(2026, 7, 6, 9, 0))
+        test_session.add_all([*groups, other])
+        await test_session.commit()
+
+        first = await async_client.get(
+            "/route-groups", params={"search": "Page Test", "page": 1, "page_size": 2}
+        )
+        assert first.status_code == 200
+        body = first.json()
+        assert body["total"] == 5
+        assert body["total_pages"] == 3
+        assert [g["name"] for g in body["items"]] == ["Page Test 1", "Page Test 2"]
+
+        second = await async_client.get(
+            "/route-groups", params={"search": "Page Test", "page": 2, "page_size": 2}
+        )
+        assert second.status_code == 200
+        assert [g["name"] for g in second.json()["items"]] == [
+            "Page Test 3",
+            "Page Test 4",
+        ]
+
+        last = await async_client.get(
+            "/route-groups", params={"search": "Page Test", "page": 3, "page_size": 2}
+        )
+        assert [g["name"] for g in last.json()["items"]] == ["Page Test 5"]
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_pages_do_not_overlap_on_a_shared_date(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Groups sharing a drive date still page without gaps or repeats.
+
+        Ordering by drive_date alone leaves ties for the database to break, and
+        it does not have to break them the same way twice — so a row could be
+        served on two pages while another is served on none. Every group here
+        shares one date, which is the normal case (a day's worth of routes), so
+        the tie-break is the only thing deciding the order.
+        """
+        shared_date = datetime(2026, 8, 3, 9, 0)
+        test_session.add_all(
+            [
+                RouteGroup(name=f"Tied {i:02d}", drive_date=shared_date)
+                for i in range(1, 8)
+            ]
+        )
+        await test_session.commit()
+
+        seen: list[str] = []
+        for page in (1, 2, 3):
+            response = await async_client.get(
+                "/route-groups",
+                params={"search": "Tied", "page": page, "page_size": 3},
+            )
+            assert response.status_code == 200
+            seen.extend(g["name"] for g in response.json()["items"])
+
+        # Every group exactly once, and in the total order the tie-break defines.
+        assert seen == [f"Tied {i:02d}" for i in range(1, 8)]
 
     @pytest.mark.asyncio
     async def test_get_route_groups_filters_by_driver_assignment_status(
@@ -4110,7 +4256,7 @@ class TestRouteGroupRoutes:
             "/route-groups", params={"driver_assignment_status": "Assigned"}
         )
         assert assigned.status_code == 200
-        assigned_ids = {rg["route_group_id"] for rg in assigned.json()}
+        assigned_ids = {rg["route_group_id"] for rg in assigned.json()["items"]}
         assert str(full.route_group_id) in assigned_ids
         # Partial, all-unassigned, and empty groups are NOT "Assigned".
         assert str(partial.route_group_id) not in assigned_ids
@@ -4121,7 +4267,7 @@ class TestRouteGroupRoutes:
             "/route-groups", params={"driver_assignment_status": "Unassigned"}
         )
         assert unassigned.status_code == 200
-        unassigned_ids = {rg["route_group_id"] for rg in unassigned.json()}
+        unassigned_ids = {rg["route_group_id"] for rg in unassigned.json()["items"]}
         assert str(partial.route_group_id) in unassigned_ids
         assert str(none_assigned.route_group_id) in unassigned_ids
         assert str(empty.route_group_id) in unassigned_ids
@@ -4188,7 +4334,7 @@ class TestRouteGroupRoutes:
             "/route-groups", params={"delivery_type": "Family"}
         )
         assert resp.status_code == 200
-        ids = {rg["route_group_id"] for rg in resp.json()}
+        ids = {rg["route_group_id"] for rg in resp.json()["items"]}
         assert str(fam_group.route_group_id) in ids
         assert str(sch_group.route_group_id) not in ids
 
@@ -4215,7 +4361,9 @@ class TestRouteGroupRoutes:
         response = await async_client.get("/route-groups?include_routes=true")
         assert response.status_code == 200
         group = next(
-            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
         )
         assert group["num_routes"] == 1
         assert [r["route_id"] for r in group["routes"]] == [str(route.route_id)]
@@ -4233,7 +4381,9 @@ class TestRouteGroupRoutes:
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
         group = next(
-            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
         )
         assert group["num_locations"] == 0
         assert group["num_boxes"] == 0
@@ -4279,7 +4429,9 @@ class TestRouteGroupRoutes:
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
         group = next(
-            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
         )
         assert group["delivery_type"] == "School"
         assert group["num_locations"] == 1
@@ -4324,7 +4476,9 @@ class TestRouteGroupRoutes:
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
         group = next(
-            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
         )
         assert group["delivery_type"] == "Pantry"
 
@@ -4393,7 +4547,9 @@ class TestRouteGroupRoutes:
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
         group = next(
-            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
         )
         # ceil(3/2) + ceil(5/2) = 2 + 3 = 5
         assert group["num_boxes"] == 5
@@ -4428,7 +4584,9 @@ class TestRouteGroupRoutes:
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
         group = next(
-            g for g in response.json() if g["route_group_id"] == str(rg.route_group_id)
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
         )
         assert group["status"] == "Upcoming"
 

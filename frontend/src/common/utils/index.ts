@@ -4,3 +4,4 @@ export {
   parseDateOnly,
   toNaiveDateString,
 } from './dateUtils';
+export { orDash } from './tableUtils';

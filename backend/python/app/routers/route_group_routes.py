@@ -18,6 +18,7 @@ from app.models.route_group import (
     RouteGroupRead,
     RouteGroupUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
     LocationService,
@@ -51,11 +52,12 @@ async def get_route_groups(
     search: str | None = Query(
         None, description="Case-insensitive filter on the route group name"
     ),
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
-) -> list[RouteGroupRead]:
+) -> PaginatedResponse[RouteGroupRead]:
     """
     Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
     Can include associated routes in the response.
@@ -73,6 +75,7 @@ async def get_route_groups(
             driver_assignment_status,
             include_routes,
             search,
+            pagination,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
@@ -85,22 +88,12 @@ async def create_route_group(
     route_group: RouteGroupCreate,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
-    location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Create a new route group
     """
-    try:
-        if route_group.delivery_type:
-            await location_service.validate_delivery_types(
-                session, [route_group.delivery_type]
-            )
-        return await route_group_service.create_route_group(session, route_group)
-    except InvalidDeliveryTypeError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(ve)
-        ) from ve
+    return await route_group_service.create_route_group(session, route_group)
 
 
 @router.patch("/{route_group_id}", response_model=RouteGroupRead)

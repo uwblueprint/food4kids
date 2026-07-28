@@ -19,14 +19,15 @@ import type { GetRouteGroupsData } from './generated/types.gen';
  * returned on RouteGroupRead (F4KRP-196). Consumers should import that
  * generated type rather than a hand-written row shape.
  *
- * The `search` query filters (case-insensitive) on the group name server-side;
- * the filter chips narrow by weekday/delivery type/status. `placeholderData`
- * keeps the previous list visible while a new search/filter refetches.
+ * The `search` query filters (case-insensitive) on the group name server-side,
+ * before pagination; the filter chips narrow by weekday/delivery type/status.
+ * `placeholderData` keeps the previous page visible while a new
+ * search/filter/page refetches so the table doesn't flash empty.
  */
 export function useRouteGroups(query: GetRouteGroupsData['query']) {
   return useQuery({
     ...getRouteGroupsOptions({ query }),
-    placeholderData: (prev) => prev ?? [],
+    placeholderData: (prev) => prev,
   });
 }
 

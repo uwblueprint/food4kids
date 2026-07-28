@@ -6,6 +6,7 @@ from sqlalchemy import CheckConstraint, Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
+from .enum import RouteStatusEnum
 from .route_stop import RouteStopDetailRead
 
 # Named so the migration, the model, and the error-handling paths all refer to
@@ -185,7 +186,10 @@ class RouteWithDateRead(SQLModel):
     box_total: int
     delivery_type: str | None = None
     driver_name: str | None = None
-    status: str
+    # Same Upcoming/Completed vocabulary as RouteGroupRead.status, so clients
+    # get one union rather than a bare string on one endpoint and an enum on
+    # the other.
+    status: RouteStatusEnum
 
 
 class SuggestedDriverResponse(SQLModel):

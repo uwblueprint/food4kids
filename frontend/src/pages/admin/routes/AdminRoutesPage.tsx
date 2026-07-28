@@ -1,3 +1,5 @@
+import { useSearchParams } from 'react-router-dom';
+
 import {
   Account,
   Tabs,
@@ -14,13 +16,37 @@ import {
 } from './components';
 import { useAddressesTabState, useGroupsTabState } from './hooks';
 
+const TABS = ['groups', 'routes', 'addresses'] as const;
+type RoutesTab = (typeof TABS)[number];
+
+const isTab = (value: string | null): value is RoutesTab =>
+  TABS.includes(value as RoutesTab);
+
 export const AdminRoutesPage = () => {
   const groupsState = useGroupsTabState();
   const addressesState = useAddressesTabState();
 
+  // The tab lives in the URL so a refresh, a bookmark, or a link keeps the
+  // reader where they were. An absent or unrecognised ?tab= falls back to
+  // Groups rather than erroring: the query string is reader input, and the
+  // page has a sensible default. Replaced rather than pushed — Back should
+  // leave the page, not walk back through the tabs you looked at.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const param = searchParams.get('tab');
+  const tab: RoutesTab = isTab(param) ? param : 'groups';
+
+  const handleTabChange = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', value);
+    setSearchParams(next, { replace: true });
+  };
+
   return (
-    <Tabs defaultValue="groups" className="flex flex-col gap-8">
-      <div className="flex items-start justify-between">
+    // The design's two vertical gaps differ — 32px under the title row, 40
+    // under the tab divider — so they are set here rather than by one gap on
+    // the column. The title row is 48 tall, not the h1's own 44.
+    <Tabs value={tab} onValueChange={handleTabChange} className="flex flex-col">
+      <div className="mb-8 flex h-12 items-center justify-between">
         <h1>Routes</h1>
         <div className="flex items-center gap-6">
           <AnnouncementsBoard />

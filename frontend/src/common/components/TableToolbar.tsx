@@ -34,17 +34,18 @@ export function TableToolbar({
   actions,
 }: TableToolbarProps) {
   return (
-    <div className="mb-8 flex items-center justify-between">
+    <div className="mb-7 flex items-center justify-between">
       <div className="flex items-center gap-5">
         <SearchBar placeholder={searchPlaceholder} {...search} />
         {showFilter && (
           <Button
             variant="tertiary"
             shape="circular"
+            aria-label="Filters"
             className={hasActiveFilters ? 'bg-blue-50' : 'bg-white'}
             onClick={onFilterClick}
           >
-            <FilterLinesIcon className="size-4" />
+            <FilterLinesIcon className="size-5" />
           </Button>
         )}
       </div>

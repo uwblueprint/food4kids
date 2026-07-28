@@ -969,7 +969,6 @@ def main() -> None:
                 name="TEST - Empty Group (no routes)",
                 notes="Seeded fixture: empty group, safe to delete.",
                 drive_date=fixture_date,
-                delivery_type="Family",
             )
             set_timestamps(empty_group)
             session.add(empty_group)
@@ -981,7 +980,6 @@ def main() -> None:
                 name="TEST - Fixture Routes",
                 notes="Seeded fixture: unassigned routes for banner/delete tests.",
                 drive_date=fixture_date,
-                delivery_type="Family",
             )
             set_timestamps(fixture_group)
             session.add(fixture_group)

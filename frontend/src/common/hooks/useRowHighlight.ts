@@ -46,6 +46,10 @@ export function useRowHighlight(
     [durationMs]
   );
 
+  // Drop a pending un-highlight when the table goes away, so it can't fire a
+  // setState into an unmounted component.
+  useEffect(() => () => clearTimeout(timer.current), []);
+
   // Runs again as `rows` updates because the row may not exist in the DOM (or
   // may re-sort) until the list refetch lands; scrolledRef keeps it to one
   // scroll per highlight.

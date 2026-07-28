@@ -248,7 +248,12 @@ class RouteService:
             if order == "desc"
             else col(RouteGroup.drive_date).asc()
         )
-        statement = statement.order_by(drive_date_order, col(Route.name))
+        # route_id last so the order is total: two routes on the same date can
+        # share a name, and paginate_query's count and page are separate
+        # statements, so any remaining tie can shuffle a row between pages.
+        statement = statement.order_by(
+            drive_date_order, col(Route.name), col(Route.route_id)
+        )
 
         if pagination is None:
             pagination = PaginationParams()

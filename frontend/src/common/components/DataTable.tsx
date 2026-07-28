@@ -140,7 +140,15 @@ function DataTable<T>({
                         : undefined
                     }
                     className={cn(
-                      'text-p1 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
+                      // 54px per the design, header and body alike. A height
+                      // rather than padding so a taller cell (a date button, a
+                      // pill) sets the row height instead of a stack of
+                      // padding rules fighting over it.
+                      // Headers are the H3 style — Nunito Sans Bold 16/20.
+                      // The design runs its columns edge to edge inside the
+                      // card's 24px padding, so the last one has no trailing
+                      // gap of its own — that is what puts the kebab flush.
+                      'text-h3 h-[54px] px-4 py-2.5 text-left font-bold whitespace-nowrap last:pr-0',
                       col.headerClassName
                     )}
                   >
@@ -183,7 +191,8 @@ function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'text-p2 text-grey-500 px-4 py-2.5 whitespace-nowrap',
+                        // Every body string in the design is 14/18 SemiBold.
+                        'text-p2 text-grey-500 h-[54px] px-4 py-2.5 font-semibold whitespace-nowrap last:pr-0',
                         col.getCellClassName?.(row)
                       )}
                     >

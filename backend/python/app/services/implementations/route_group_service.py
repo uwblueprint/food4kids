@@ -26,7 +26,9 @@ from app.models.route_group import (
     RouteReadSummary,
 )
 from app.models.route_stop import RouteStop
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
+from app.utilities.pagination import paginate_query
 
 ROUTE_GROUP_COPY_PREFIX = "Copy of "
 ROUTE_GROUP_NAME_MAX_LENGTH = 255
@@ -110,7 +112,6 @@ class RouteGroupService:
                 if overrides and overrides.drive_date
                 else route_group.drive_date
             ),
-            delivery_type=route_group.delivery_type,
         )
         session.add(duplicated_group)
 
@@ -216,17 +217,22 @@ class RouteGroupService:
             .label("num_drivers_assigned")
         )
 
-        # Prefer the delivery type derived from the group's stops; fall back to
-        # the type chosen when the group was created (used by empty groups made
-        # ahead of route generation via the Add Route Group dialog).
-        delivery_type_expr = func.coalesce(
+        # A group's delivery type is a property of the stops it serves, not of
+        # the group: it is whatever its locations are. A group with no stops
+        # yet has no delivery type to report, and reads NULL.
+        # A group whose stops span more than one delivery type has no single
+        # right answer here, and nothing yet enforces that they cannot. Ordering
+        # makes the arbitrary pick at least a stable one, so the same group does
+        # not report different types on consecutive loads.
+        delivery_type_expr = (
             select(Location.delivery_type)
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
+            .order_by(Location.delivery_type)
             .limit(1)
             .correlate(RouteGroup)
-            .scalar_subquery(),
-            RouteGroup.delivery_type,
-        ).label("delivery_type")
+            .scalar_subquery()
+            .label("delivery_type")
+        )
 
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -289,10 +295,15 @@ class RouteGroupService:
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
         search: str | None = None,
-    ) -> list[RouteGroupRead]:
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[RouteGroupRead]:
         """Get route groups with optional date filtering and aggregate stats.
 
         ``search`` filters (case-insensitive substring) on the group name.
+
+        Paginated like the routes and locations lists: filters and search are
+        applied first, so a page is drawn from the matches rather than being
+        filtered after slicing.
         """
 
         children_per_box = await resolve_children_per_box(session)
@@ -385,12 +396,27 @@ class RouteGroupService:
                 statement = statement.where(or_(*assignment_conditions))
 
         statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
-        statement = statement.order_by(RouteGroup.drive_date)
+        # Groups routinely share a drive date, and paginate_query runs the count
+        # and the page as separate statements — so ordering by the date alone
+        # lets the database break ties differently between them and a row can be
+        # skipped or repeated across page boundaries. Name then id makes the
+        # order total, so every page is cut from the same sequence.
+        statement = statement.order_by(
+            RouteGroup.drive_date, RouteGroup.name, RouteGroup.route_group_id
+        )
 
-        result = await session.execute(statement)
+        if pagination is None:
+            pagination = PaginationParams()
+
+        result, total = await paginate_query(session, statement, pagination)
         rows = result.all()
 
-        return [self._row_to_read(row, include_routes) for row in rows]
+        return PaginatedResponse.create(
+            items=[self._row_to_read(row, include_routes) for row in rows],
+            total=total,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID

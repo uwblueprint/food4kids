@@ -9,8 +9,14 @@ import {
   getConfiguredDeliveryTypes,
   useSystemSettings,
 } from '@/api/system-settings';
-import type { UseSearchReturn } from '@/common/hooks';
-import { useDebouncedValue, useSearch } from '@/common/hooks';
+import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
+import {
+  clampPage,
+  TABLE_PAGE_SIZE,
+  useDebouncedValue,
+  usePagination,
+  useSearch,
+} from '@/common/hooks';
 
 export interface AddressesFilterState {
   statuses: Set<LocationStatusEnum>;
@@ -29,9 +35,10 @@ const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
   deliveryTypes: new Set(f.deliveryTypes),
 });
 
-export interface AddressesTabState {
+export interface AddressesTabState extends UsePaginationReturn {
   rows: LocationRead[];
   isLoading: boolean;
+  totalPages: number;
   deliveryTypes: string[];
   search: UseSearchReturn;
   /** Debounced search term the rows were filtered by, for highlighting. */
@@ -72,7 +79,7 @@ export function useAddressesTabState(): AddressesTabState {
   // the query fires once typing pauses.
   const debouncedSearch = useDebouncedValue(search.value);
 
-  const { data, isLoading } = useAddresses({
+  const query = {
     search: debouncedSearch.trim() || undefined,
     status:
       appliedFilters.statuses.size > 0
@@ -82,10 +89,14 @@ export function useAddressesTabState(): AddressesTabState {
       appliedFilters.deliveryTypes.size > 0
         ? [...appliedFilters.deliveryTypes]
         : undefined,
+  };
+  const { page, setPage } = usePagination(JSON.stringify(query));
+
+  const { data, isLoading } = useAddresses({
+    ...query,
+    page,
+    page_size: TABLE_PAGE_SIZE,
   });
-  // GET /locations is paginated; we currently surface only the first page.
-  // Pagination controls (and a total count) are future work.
-  const rows = data?.items ?? [];
 
   const openFilters = () => {
     setDraftFilters(copyFilters(appliedFilters));
@@ -115,9 +126,14 @@ export function useAddressesTabState(): AddressesTabState {
     setFilterOpen(false);
   };
 
+  const totalPages = data?.total_pages ?? 0;
+
   return {
-    rows,
+    rows: data?.items ?? [],
     isLoading,
+    page: clampPage(page, totalPages, setPage),
+    setPage,
+    totalPages,
     deliveryTypes,
     search,
     searchTerm: debouncedSearch.trim(),

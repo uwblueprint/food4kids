@@ -3,23 +3,28 @@ import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
-import AlertCircleIcon from '@/assets/icons/alert-circle.svg?react';
 import type { Column } from '@/common/components';
 import {
   Banner,
   Button,
   DataTable,
   HighlightText,
+  Pagination,
   TableToolbar,
 } from '@/common/components';
 import {
+  clampPage,
+  TABLE_PAGE_SIZE,
   useDebouncedValue,
+  usePagination,
   useRowHighlight,
   useSearch,
   useTableSort,
 } from '@/common/hooks';
+import { orDash } from '@/common/utils';
 
 import { routeFiltersToQuery, useRouteFilters } from '../hooks';
+import { AssignDriverCell } from './AssignDriverCell';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
@@ -32,25 +37,21 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
     header: 'Delivery Type',
     sortable: true,
     sortValue: (row) => row.delivery_type,
-    render: (row) => row.delivery_type ?? '—',
+    render: (row) => orDash(row.delivery_type),
   },
   { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
   { key: 'box_total', header: 'Boxes', render: (row) => row.box_total },
   {
     key: 'length',
     header: 'Distance (km)',
-    render: (row) => row.length,
+    // One decimal on every row, as the design shows — a bare integer next to
+    // "23.4" reads as a different quantity rather than a rounder one.
+    render: (row) => row.length.toFixed(1),
   },
   {
     key: 'driver_name',
     header: 'Driver',
-    render: (row) =>
-      row.driver_name ?? (
-        <span className="flex items-center gap-2">
-          <AlertCircleIcon className="text-red size-4 shrink-0" />
-          Unassigned
-        </span>
-      ),
+    render: (row) => row.driver_name ?? <AssignDriverCell row={row} />,
   },
   {
     key: 'status',
@@ -77,11 +78,19 @@ export function RouteRoutesTab() {
   // Debounced so the driver-name search hits the server once typing pauses.
   const searchTerm = useDebouncedValue(search.value).trim();
   const filters = useRouteFilters();
-  const { data } = useRoutes({
+  const query = {
     search: searchTerm || undefined,
     ...routeFiltersToQuery(filters.appliedFilters),
+  };
+  const { page: requestedPage, setPage } = usePagination(JSON.stringify(query));
+  const { data } = useRoutes({
+    ...query,
+    page: requestedPage,
+    page_size: TABLE_PAGE_SIZE,
   });
   const rows = useMemo(() => data?.items ?? [], [data]);
+  const totalPages = data?.total_pages ?? 0;
+  const page = clampPage(requestedPage, totalPages, setPage);
   const { sort, toggleSort } = useTableSort();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   // Highlight + scroll a row after a date edit (re-sorts it) or a driver
@@ -115,10 +124,10 @@ export function RouteRoutesTab() {
               row.driver_name ? (
                 <HighlightText text={row.driver_name} query={searchTerm} />
               ) : (
-                <span className="flex items-center gap-2">
-                  <AlertCircleIcon className="text-red size-4 shrink-0" />
-                  Unassigned
-                </span>
+                <AssignDriverCell
+                  row={row}
+                  onUpdated={() => handleRowChanged(row.route_id)}
+                />
               ),
           };
         }
@@ -144,10 +153,18 @@ export function RouteRoutesTab() {
     [handleRowChanged, searchTerm]
   );
 
-  const unassignedCount = useMemo(
-    () => rows.filter((r) => !r.driver_name).length,
-    [rows]
-  );
+  // Counted server-side rather than from `rows`: the banner is about the whole
+  // filtered result set and `rows` is one page of it. page_size 1 because only
+  // the total is wanted — the item itself is thrown away. The driver-assignment
+  // chip is deliberately overridden: the banner answers "how many routes still
+  // need a driver", which is the same question whichever side of that filter
+  // you are currently looking at.
+  const { data: unassigned } = useRoutes({
+    ...query,
+    driver_assignment_status: ['Unassigned'],
+    page_size: 1,
+  });
+  const unassignedCount = unassigned?.total ?? 0;
 
   return (
     <>
@@ -191,6 +208,8 @@ export function RouteRoutesTab() {
           }
         />
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <RouteFilterModal
         open={filters.filterOpen}
