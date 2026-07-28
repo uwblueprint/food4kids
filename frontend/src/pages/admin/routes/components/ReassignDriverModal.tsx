@@ -71,11 +71,19 @@ export function ReassignDriverModal({
     );
   };
 
+  // The same dialog serves the kebab's "Reassign Driver" and the Driver
+  // column's "Assign" pill. Reached from the pill there is nobody to reassign
+  // from, so it says Assign — the design's own word for that action — and
+  // drops the "Currently Assigned: Unassigned" line that only restates it.
+  const isReassign = Boolean(route.driver_name);
+
   return (
     <Modal open={open} onOpenChange={handleOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>Reassign Driver</ModalTitle>
+          <ModalTitle>
+            {isReassign ? 'Reassign Driver' : 'Assign Driver'}
+          </ModalTitle>
           <ModalDescription>
             {route.name} • {route.group_name} •{' '}
             {formatContextDate(route.drive_date)}
@@ -83,14 +91,16 @@ export function ReassignDriverModal({
         </ModalHeader>
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <p className="text-p1 text-grey-500 font-semibold">
-              Currently Assigned
-            </p>
-            <p className="border-grey-300 text-p2 text-grey-400 border-l-2 pl-4">
-              {route.driver_name ?? 'Unassigned'}
-            </p>
-          </div>
+          {isReassign && (
+            <div className="flex flex-col gap-2">
+              <p className="text-p1 text-grey-500 font-semibold">
+                Currently Assigned
+              </p>
+              <p className="border-grey-300 text-p2 text-grey-400 border-l-2 pl-4">
+                {route.driver_name}
+              </p>
+            </div>
+          )}
 
           <Field>
             <FieldLabel>New Driver</FieldLabel>
@@ -111,7 +121,8 @@ export function ReassignDriverModal({
 
         {isError && (
           <FieldDescription error>
-            Something went wrong reassigning the driver. Please try again.
+            Something went wrong {isReassign ? 'reassigning' : 'assigning'} the
+            driver. Please try again.
           </FieldDescription>
         )}
         <ModalFooter>
@@ -127,7 +138,7 @@ export function ReassignDriverModal({
             disabled={!driverId || isPending}
             onClick={handleSubmit}
           >
-            Reassign
+            {isReassign ? 'Reassign' : 'Assign'}
           </Button>
         </ModalFooter>
       </ModalContent>

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
-import AlertCircleIcon from '@/assets/icons/alert-circle.svg?react';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -23,6 +22,7 @@ import {
 } from '@/common/hooks';
 
 import { routeFiltersToQuery, useRouteFilters } from '../hooks';
+import { AssignDriverCell } from './AssignDriverCell';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
@@ -42,18 +42,14 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   {
     key: 'length',
     header: 'Distance (km)',
-    render: (row) => row.length,
+    // One decimal on every row, as the design shows — a bare integer next to
+    // "23.4" reads as a different quantity rather than a rounder one.
+    render: (row) => row.length.toFixed(1),
   },
   {
     key: 'driver_name',
     header: 'Driver',
-    render: (row) =>
-      row.driver_name ?? (
-        <span className="flex items-center gap-2">
-          <AlertCircleIcon className="text-red size-4 shrink-0" />
-          Unassigned
-        </span>
-      ),
+    render: (row) => row.driver_name ?? <AssignDriverCell row={row} />,
   },
   {
     key: 'status',
@@ -121,10 +117,10 @@ export function RouteRoutesTab() {
               row.driver_name ? (
                 <HighlightText text={row.driver_name} query={searchTerm} />
               ) : (
-                <span className="flex items-center gap-2">
-                  <AlertCircleIcon className="text-red size-4 shrink-0" />
-                  Unassigned
-                </span>
+                <AssignDriverCell
+                  row={row}
+                  onUpdated={() => handleRowChanged(row.route_id)}
+                />
               ),
           };
         }
