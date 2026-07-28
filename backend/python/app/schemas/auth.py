@@ -17,6 +17,10 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class ResendOnboardingEmailRequest(BaseModel):
+    email: EmailStr
+
+
 class ValidateResetTokenRequest(BaseModel):
     password_reset_token: str
 

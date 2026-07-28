@@ -11,14 +11,17 @@ from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
     get_password_reset_token_service,
+    get_user_invite_service,
     get_user_service,
 )
 from app.models import get_session
 from app.models.password_reset_token import PASSWORD_RESET_TOKEN_EXPIRY_DAYS
+from app.models.user_invite import UserInviteCreate
 from app.schemas.auth import (
     AuthResponse,
     ForgotPasswordRequest,
     LoginRequest,
+    ResendOnboardingEmailRequest,
     UpdatePasswordRequest,
     ValidateResetTokenRequest,
 )
@@ -27,6 +30,7 @@ from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
 )
+from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import set_refresh_token_cookie
 
@@ -114,6 +118,58 @@ async def logout(
         )
 
     await auth_service.revoke_tokens(session, user_id)
+
+
+@router.post("/resend-onboarding", status_code=status.HTTP_204_NO_CONTENT)
+async def resend_onboarding_email(
+    request: ResendOnboardingEmailRequest,
+    session: AsyncSession = Depends(get_session),
+    user_service: UserService = Depends(get_user_service),
+    user_invite_service: UserInviteService = Depends(get_user_invite_service),
+    email_dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends),
+) -> None:
+    """
+    Resends the onboarding/invite email to a pending user.
+    Returns 204 regardless of input/status to prevent user enumeration attacks.
+    """
+    email = request.email
+
+    try:
+        user = await user_service.get_user_by_email(session, email)
+        if not user:
+            logger.info(f"Onboarding email resend attempted for non-existent email: {email}")
+            return
+
+        if user.auth_id is not None:
+            logger.info(f"Onboarding email resend attempted for already registered email: {email}")
+            return
+
+        async with session.begin_nested():
+            await user_invite_service.delete_user_invite_by_user_id(session, user.user_id)
+            
+            user_invite_create = UserInviteCreate(user_id=user.user_id)
+            user_invite = await user_invite_service.create_user_invite(
+                session, user_invite_create
+            )
+
+        await session.commit()
+
+        signup_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite.user_invite_id}"
+        user_name = f"{user.first_name} {user.last_name}".strip()
+
+        await email_dispatcher.dispatch(
+            email_type="account-creation",
+            to=email,
+            context={
+                "Driver_Name_To_Replace": user_name,
+                "Sign_Up_URL": signup_url,
+                "Hours_Till_Expiry": 48,
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"Internal error processing resend-onboarding for {email}: {e}")
+        return
 
 
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
