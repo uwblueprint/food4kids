@@ -268,9 +268,11 @@ async def delete_driver(
     # they could still log in.
     #
     # What goes: the `users` row, and by DB cascade `drivers`, `user_invites`,
-    # `announcement_last_reads` and `announcements`; plus the Firebase account
-    # (delete_user_by_id skips it for a driver who never finished signup and so
-    # has auth_id IS NULL).
+    # `password_reset_tokens`, `announcement_last_reads` and `announcements`;
+    # plus the Firebase account (delete_user_by_id skips it for a driver who
+    # never finished signup and so has auth_id IS NULL). Dropping the reset
+    # tokens matters as much as the credential: a live token is a password
+    # reset link already sitting in the deleted driver's inbox.
     #
     # What stays: routes, detached; and notes the driver wrote on route or
     # location chains, which survive with user_id SET NULL. Those are

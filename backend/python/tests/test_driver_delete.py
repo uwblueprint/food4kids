@@ -8,7 +8,7 @@ deliberately keeps, and why the Firebase delete happens before the DB commit.
 """
 
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -19,6 +19,7 @@ from sqlmodel import select
 from app.models.driver import Driver
 from app.models.note import Note
 from app.models.note_chain import NoteChain
+from app.models.password_reset_token import PasswordResetToken
 from app.models.user import User
 from app.models.user_invite import UserInvite
 
@@ -45,7 +46,8 @@ async def _initialize_driver(
     `auth_id IS NULL`, with an unused `user_invites` row.
     """
     with patch(
-        "app.services.implementations.auth_service.AuthService.send_create_password_email"
+        "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+        new_callable=AsyncMock,
     ):
         response = await async_client.post(
             "/drivers/initialize", json={**DRIVER_PAYLOAD, **overrides}
@@ -90,10 +92,20 @@ async def _row_counts(session: AsyncSession, user_id: UUID) -> dict[str, int]:
         .scalars()
         .all()
     )
+    reset_tokens = (
+        (
+            await session.execute(
+                select(PasswordResetToken).where(PasswordResetToken.user_id == user_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {
         "users": len(users),
         "drivers": len(drivers),
         "user_invites": len(invites),
+        "password_reset_tokens": len(reset_tokens),
     }
 
 
@@ -115,6 +127,7 @@ async def test_delete_removes_user_invite_and_firebase_account(
         "users": 1,
         "drivers": 1,
         "user_invites": 1,
+        "password_reset_tokens": 0,
     }
 
     with patch("firebase_admin.auth.delete_user") as delete_firebase_user:
@@ -125,6 +138,7 @@ async def test_delete_removes_user_invite_and_firebase_account(
         "users": 0,
         "drivers": 0,
         "user_invites": 0,
+        "password_reset_tokens": 0,
     }
     delete_firebase_user.assert_called_once_with("firebase-uid-dana")
 
@@ -164,14 +178,16 @@ async def test_deleted_driver_cannot_log_in(
     assert response.status_code == 401
 
 
-async def test_deleted_driver_cannot_be_resolved_for_a_password_reset(
+async def test_deleted_driver_cannot_obtain_a_password_reset_token(
     async_client: AsyncClient, test_session: AsyncSession
 ) -> None:
-    """No `users` row survives to hang a reset token off.
+    """/auth/forgot-password mints nothing for a deleted driver.
 
-    Password reset resolves the account by email in `users` (that is how a
-    deleted driver could still mint a reset token). Assert the lookup finds
-    nothing — by email, which is the key those flows use, not by id.
+    That endpoint resolves the account by email in `users`, which is exactly
+    how a "deleted" driver could still get a fresh reset token. It answers 204
+    either way — deliberately, so the response can't be used to enumerate
+    addresses — so the assertion that matters is that no token row exists and
+    no email was sent.
     """
     driver = await _initialize_driver(async_client)
     await _complete_signup(test_session, UUID(driver["user_id"]))
@@ -180,6 +196,26 @@ async def test_deleted_driver_cannot_be_resolved_for_a_password_reset(
         assert (
             await async_client.delete(f"/drivers/{driver['driver_id']}")
         ).status_code == 204
+
+    with (
+        patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch,
+        patch("firebase_admin.auth.get_user_by_email") as get_by_email,
+    ):
+        # Pretend the Firebase account outlived the delete: the DB lookup is
+        # then the only thing standing between a deleted driver and a token.
+        get_by_email.return_value.uid = "firebase-uid-dana"
+        response = await async_client.post(
+            "/auth/forgot-password", json={"email": DRIVER_PAYLOAD["email"]}
+        )
+
+    assert response.status_code == 204
+    dispatch.assert_not_called()
+
+    tokens = (await test_session.execute(select(PasswordResetToken))).scalars().all()
+    assert tokens == []
 
     by_email = (
         (
@@ -191,6 +227,27 @@ async def test_deleted_driver_cannot_be_resolved_for_a_password_reset(
         .all()
     )
     assert by_email == []
+
+
+async def test_reset_tokens_are_deleted_with_the_driver(
+    async_client: AsyncClient, test_session: AsyncSession
+) -> None:
+    """A reset token issued before the delete must not outlive the account —
+    otherwise the link in the driver's inbox still works."""
+    driver = await _initialize_driver(async_client)
+    user_id = UUID(driver["user_id"])
+    await _complete_signup(test_session, user_id)
+
+    test_session.add(PasswordResetToken(user_id=user_id, token_hash="a" * 64))
+    await test_session.commit()
+    assert (await _row_counts(test_session, user_id))["password_reset_tokens"] == 1
+
+    with patch("firebase_admin.auth.delete_user"):
+        assert (
+            await async_client.delete(f"/drivers/{driver['driver_id']}")
+        ).status_code == 204
+
+    assert (await _row_counts(test_session, user_id))["password_reset_tokens"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +273,7 @@ async def test_delete_driver_who_never_completed_signup(
         "users": 0,
         "drivers": 0,
         "user_invites": 0,
+        "password_reset_tokens": 0,
     }
 
 
@@ -267,6 +325,7 @@ async def test_firebase_failure_rolls_back_the_whole_delete(
         "users": 1,
         "drivers": 1,
         "user_invites": 1,
+        "password_reset_tokens": 0,
     }
 
 
@@ -294,6 +353,7 @@ async def test_delete_retries_cleanly_after_a_firebase_failure(
         "users": 0,
         "drivers": 0,
         "user_invites": 0,
+        "password_reset_tokens": 0,
     }
 
 

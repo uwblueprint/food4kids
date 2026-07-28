@@ -206,8 +206,8 @@ class UserService:
 
         Everything hanging off the user goes with it: `drivers` (via the
         relationship's delete cascade) and, at the DB level, `user_invites`,
-        `announcements`, and `announcement_last_reads`. Notes the user authored
-        survive with `user_id SET NULL`.
+        `password_reset_tokens`, `announcements`, and `announcement_last_reads`.
+        Notes the user authored survive with `user_id SET NULL`.
         """
         try:
             # `User.driver` cascades the delete, and SQLAlchemy has to have the

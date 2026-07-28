@@ -1,7 +1,7 @@
 """notes.user_id: SET NULL when the author is deleted
 
 Revision ID: c9a1e5f30b74
-Revises: b3d4a1c2e5f6
+Revises: bc7876e56dd1
 Create Date: 2026-07-27 00:00:00.000000
 
 `notes.user_id` was created with no ON DELETE action, so it defaulted to
@@ -21,7 +21,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "c9a1e5f30b74"
-down_revision = "b3d4a1c2e5f6"
+down_revision = "bc7876e56dd1"
 branch_labels = None
 depends_on = None
 
