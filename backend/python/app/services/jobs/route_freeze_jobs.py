@@ -154,7 +154,6 @@ async def process_daily_driver_history() -> None:
     # container runs UTC, so date.today() at 23:59 local is already
     # tomorrow — which would freeze tomorrow's routes a day early.
     today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
-    end_of_today = datetime.combine(today, datetime.max.time())
 
     try:
         # --------------------------------------------------------------
@@ -168,12 +167,12 @@ async def process_daily_driver_history() -> None:
                 select(Route.route_id, RouteGroup.drive_date)
                 .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
                 .outerjoin(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
-                .where(RouteGroup.drive_date <= end_of_today)
+                .where(RouteGroup.drive_date <= today)
                 .where(col(RouteSnapshot.route_id).is_(None))
                 .order_by(col(RouteGroup.drive_date))
             )
             due: list[tuple[UUID, date]] = [
-                (route_id, drive_date.date()) for route_id, drive_date in scan.all()
+                (route_id, drive_date) for route_id, drive_date in scan.all()
             ]
 
             if not due:

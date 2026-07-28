@@ -78,12 +78,14 @@ class DriverReportService:
         start_dt and end_dt should be timezone-aware datetimes.
         """
         try:
-            # Normalise datetimes to naive local (scheduler) time to match DB storage
-            # Convert incoming tz-aware datetimes to scheduler timezone then drop tzinfo
+            # Convert incoming tz-aware datetimes to scheduler timezone, then extract date
             if start_dt.tzinfo is not None:
-                start_dt = start_dt.astimezone(self.timezone).replace(tzinfo=None)
+                start_dt = start_dt.astimezone(self.timezone)
             if end_dt.tzinfo is not None:
-                end_dt = end_dt.astimezone(self.timezone).replace(tzinfo=None)
+                end_dt = end_dt.astimezone(self.timezone)
+
+            start_d = start_dt.date()
+            end_d = end_dt.date()
 
             # Join route_stop_snapshots -> route_stops -> routes -> route_groups
             from app.models.route import Route
@@ -97,7 +99,7 @@ class DriverReportService:
                 .join(Route)
                 .join(RouteGroup)
                 .where(
-                    RouteGroup.drive_date >= start_dt, RouteGroup.drive_date <= end_dt
+                    RouteGroup.drive_date >= start_d, RouteGroup.drive_date <= end_d
                 )
             )
 

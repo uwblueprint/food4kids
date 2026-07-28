@@ -101,7 +101,7 @@ async def _seed(
         )
         rg = RouteGroup(
             name=f"Group {the_date.isoformat()}",
-            drive_date=datetime.combine(the_date, datetime.min.time()),
+            drive_date=the_date,
         )
         s.add_all([driver, loc, rg])
         await s.commit()

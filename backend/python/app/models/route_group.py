@@ -1,10 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-from zoneinfo import ZoneInfo
 
-from pydantic import validator
-from sqlalchemy import Column, DateTime
+from pydantic import field_validator
+from sqlalchemy import Column, Date
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -19,18 +18,19 @@ class RouteGroupBase(SQLModel):
 
     name: str = Field(min_length=1, max_length=255, nullable=False)
     notes: str = Field(default="")
-    drive_date: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False)
-    )
+    drive_date: date = Field(sa_column=Column(Date(), nullable=False))
 
-    @validator("drive_date")
-    def enforce_est(self, v: datetime) -> datetime:
-        est_tz = ZoneInfo("America/Toronto")
-        if v.tzinfo is None:
-            # Assumes naive datetimes (like from the seed script) are already EST
-            return v.replace(tzinfo=est_tz)
-        # Converts other timezone-aware datetimes to EST
-        return v.astimezone(est_tz)
+    @field_validator("drive_date", mode="before")
+    @classmethod
+    def coerce_drive_date(cls, v: object) -> date | None:
+        """Coerce various date inputs to a date object."""
+        if v is None:
+            return None
+        if isinstance(v, date) and not isinstance(v, datetime):
+            return v
+        if isinstance(v, datetime):
+            return v.date()
+        return v
 
 
 class RouteGroup(RouteGroupBase, BaseModel, table=True):
@@ -88,6 +88,7 @@ class RouteGroupRead(RouteGroupBase):
     delivery_type: str | None = None
     status: RouteStatusEnum
     routes: list[RouteReadSummary] = []
+    drive_date: date
 
 
 class RouteGroupUpdate(SQLModel):
@@ -95,15 +96,16 @@ class RouteGroupUpdate(SQLModel):
 
     name: str | None = None
     notes: str | None = None
-    drive_date: datetime | None = None
+    drive_date: date | None = None
 
-    @validator("drive_date")
-    def enforce_est(self, v: datetime | None) -> datetime | None:
+    @field_validator("drive_date", mode="before")
+    @classmethod
+    def coerce_drive_date(cls, v: object) -> date | None:
+        """Coerce various date inputs to a date object."""
         if v is None:
+            return None
+        if isinstance(v, date) and not isinstance(v, datetime):
             return v
-        est_tz = ZoneInfo("America/Toronto")
-        if v.tzinfo is None:
-            # Assumes naive datetimes (like from the seed script) are already EST
-            return v.replace(tzinfo=est_tz)
-        # Converts other timezone-aware datetimes to EST
-        return v.astimezone(est_tz)
+        if isinstance(v, datetime):
+            return v.date()
+        return v

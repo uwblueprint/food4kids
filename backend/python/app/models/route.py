@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
@@ -151,7 +151,7 @@ class RouteWithDateRead(SQLModel):
     name: str
     notes: str
     length: float
-    drive_date: datetime
+    drive_date: date
     start_time: time | None
     num_stops: int
     box_total: int

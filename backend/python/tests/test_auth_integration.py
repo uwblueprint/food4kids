@@ -26,7 +26,7 @@ registry. ``path`` matches FastAPI's templated path exactly (e.g.
 
 import re
 from collections.abc import AsyncGenerator, Iterator
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from types import SimpleNamespace
 from typing import Any
@@ -308,7 +308,7 @@ async def seed(test_session: AsyncSession) -> Seed:
     test_session.add(admin_user)
     test_session.add(location_group)
 
-    route_group = RouteGroup(name="Test Group", drive_date=datetime(2025, 3, 1, 8, 0))
+    route_group = RouteGroup(name="Test Group", drive_date=date(2025, 3, 1))
     test_session.add(route_group)
 
     await test_session.commit()

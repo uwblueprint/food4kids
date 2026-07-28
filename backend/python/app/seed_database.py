@@ -483,12 +483,11 @@ def plan_clusters_for_group(
     return plans
 
 
-def pick_assignment_ratio(drive_date: datetime, today: date) -> float:
+def pick_assignment_ratio(drive_date: date, today: date) -> float:
     """Date-bucketed driver-assignment density (mirrors old DriverAssignment seed)."""
-    drive_date_only = drive_date.date()
-    if drive_date_only < today:
+    if drive_date < today:
         return ASSIGNMENT_RATIO_PAST_ROUTES
-    if drive_date_only <= today + timedelta(days=NEXT_WEEK_DAYS):
+    if drive_date <= today + timedelta(days=NEXT_WEEK_DAYS):
         return ASSIGNMENT_RATIO_NEXT_WEEK
     return ASSIGNMENT_RATIO_FUTURE_ROUTES
 
@@ -498,7 +497,7 @@ def materialize_route_for_group(
     route_group: RouteGroup,
     plan: ClusterPlan,
     *,
-    drive_date: datetime,
+    drive_date: date,
     today: date,
     driver_ids: list[uuid.UUID],
 ) -> Route:
@@ -538,7 +537,7 @@ def materialize_route_for_group(
     session.flush()  # need route_stop_ids for snapshots
 
     # Freeze past routes so historical reads work without first running the cron.
-    if drive_date.date() < today:
+    if drive_date < today:
         route_snap = RouteSnapshot(
             route_id=route.route_id,
             start_address=WAREHOUSE_ADDRESS,
@@ -889,11 +888,10 @@ def main() -> None:
                     if not plans:
                         continue
 
-                    drive_date = datetime.combine(current_date, datetime.min.time())
                     route_group = RouteGroup(
                         name=f"{group_name} - {current_date.strftime('%Y-%m-%d')}",
                         notes=f"Route group for {group_name} on {current_date}",
-                        drive_date=drive_date,
+                        drive_date=current_date,
                     )
                     set_timestamps(route_group)
                     session.add(route_group)
@@ -904,7 +902,7 @@ def main() -> None:
                             session,
                             route_group,
                             plan,
-                            drive_date=drive_date,
+                            drive_date=current_date,
                             today=today,
                             driver_ids=active_driver_ids,
                         )
@@ -1006,7 +1004,7 @@ def main() -> None:
                     """
                     SELECT route_group_id, drive_date
                     FROM route_groups
-                    WHERE drive_date < NOW()
+                    WHERE drive_date < CURRENT_DATE
                     ORDER BY drive_date DESC
                     LIMIT :limit
                     """
@@ -1024,8 +1022,11 @@ def main() -> None:
                 jobs_created = len(selected_groups)
 
                 for route_group_id, drive_date in selected_groups:
-                    started_at = drive_date + timedelta(
-                        hours=random.randint(JOB_START_HOUR_MIN, JOB_START_HOUR_MAX)
+                    started_at = datetime.combine(
+                        drive_date,
+                        time(
+                            hour=random.randint(JOB_START_HOUR_MIN, JOB_START_HOUR_MAX)
+                        ),
                     )
                     updated_at = started_at + timedelta(
                         hours=random.randint(JOB_UPDATE_HOUR_MIN, JOB_UPDATE_HOUR_MAX)

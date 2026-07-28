@@ -51,9 +51,7 @@ async def _seed_driver_with_routes(
         for offset in offsets:
             group = RouteGroup(
                 name=f"Route {offset}",
-                drive_date=datetime.combine(
-                    date.today() + timedelta(days=offset), datetime.min.time()
-                ),
+                drive_date=date.today() + timedelta(days=offset),
             )
             session.add(group)
             await session.commit()

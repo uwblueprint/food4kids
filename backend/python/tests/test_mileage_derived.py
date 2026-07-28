@@ -58,7 +58,7 @@ async def _add_frozen_route(
     thing that produces km, so this is how a test creates mileage."""
     rg = RouteGroup(
         name=f"G {drive_date.isoformat()}",
-        drive_date=datetime.combine(drive_date, datetime.min.time()),
+        drive_date=drive_date,
     )
     session.add(rg)
     await session.commit()
@@ -182,13 +182,11 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
     yesterday = date.today() - timedelta(days=1)
     rg = RouteGroup(
         name="Frozen group",
-        drive_date=datetime.combine(yesterday, datetime.min.time()),
+        drive_date=yesterday,
     )
     future_rg = RouteGroup(
         name="Future group",
-        drive_date=datetime.combine(
-            date.today() + timedelta(days=7), datetime.min.time()
-        ),
+        drive_date=date.today() + timedelta(days=7),
     )
     test_session.add_all([rg, future_rg])
     await test_session.commit()

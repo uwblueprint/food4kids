@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -118,11 +118,11 @@ class RouteService:
         )
 
         if start_date:
-            start_dt = datetime.fromisoformat(start_date)
-            statement = statement.where(RouteGroup.drive_date >= start_dt)
+            start_d = date.fromisoformat(start_date)
+            statement = statement.where(RouteGroup.drive_date >= start_d)
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-            statement = statement.where(RouteGroup.drive_date <= end_dt)
+            end_d = date.fromisoformat(end_date)
+            statement = statement.where(RouteGroup.drive_date <= end_d)
 
         if unassigned_only:
             statement = statement.where(col(Route.driver_id).is_(None))

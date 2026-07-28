@@ -48,8 +48,6 @@ async def send_route_reminders() -> None:
         return
 
     tomorrow = date.today() + timedelta(days=1)
-    start_of_day = datetime.combine(tomorrow, datetime.min.time())
-    end_of_day = datetime.combine(tomorrow, datetime.max.time())
 
     try:
         async with async_session_maker_instance() as session:
@@ -76,8 +74,7 @@ async def send_route_reminders() -> None:
                 )
                 .where(
                     and_(
-                        RouteGroup_table.c.drive_date >= start_of_day,
-                        RouteGroup_table.c.drive_date <= end_of_day,
+                        RouteGroup_table.c.drive_date == tomorrow,
                         Route_table.c.driver_id.isnot(None),
                     )
                 )
@@ -98,17 +95,17 @@ async def send_route_reminders() -> None:
             for route, user, route_group in upcoming_routes:
                 recipient_email = user.email
                 driver_name = user.full_name
-                # Combine drive_date (date) with route start_time (time) if present
+                # Combine drive_date with route start_time (time) if present
                 if route.start_time:
                     route_date = datetime.combine(
-                        route_group.drive_date.date(), route.start_time
+                        route_group.drive_date, route.start_time
                     )
                 else:
-                    route_date = route_group.drive_date
+                    route_date = datetime.combine(route_group.drive_date, datetime.min.time())
                 route_distance = route.length
 
                 # Format date, time, and distance for email
-                date_only = route_date.date().strftime("%A, %B %d, %Y")
+                date_only = route_group.drive_date.strftime("%A, %B %d, %Y")
                 time_only = route_date.time().strftime("%I:%M %p")
                 rounded_distance = str(round(route_distance))
 
@@ -174,8 +171,8 @@ async def process_daily_reminder_emails(reminder_days: list[int]) -> None:
     try:
         async with async_session_maker_instance() as session:
             target_dates = {date.today() + timedelta(days=day) for day in reminder_days}
-            start_of_day = datetime.combine(min(target_dates), datetime.min.time())
-            end_of_day = datetime.combine(max(target_dates), datetime.max.time())
+            min_date = min(target_dates)
+            max_date = max(target_dates)
             statement = (
                 select(
                     User.email,
@@ -188,8 +185,8 @@ async def process_daily_reminder_emails(reminder_days: list[int]) -> None:
                 .join(User, User.user_id == Driver.user_id)  # type: ignore[arg-type]
                 .where(
                     and_(
-                        RouteGroup.drive_date >= start_of_day,  # type: ignore[arg-type]
-                        RouteGroup.drive_date <= end_of_day,  # type: ignore[arg-type]
+                        RouteGroup.drive_date >= min_date,
+                        RouteGroup.drive_date <= max_date,
                         col(Route.driver_id).isnot(None),
                     )
                 )
@@ -222,10 +219,10 @@ async def process_daily_reminder_emails(reminder_days: list[int]) -> None:
 
             for row in upcoming_routes:
                 recipient_email = row.email
-                drive_date: datetime = row.drive_date
+                drive_date: date = row.drive_date
                 route_distance = row.length
 
-                date_only = drive_date.date().strftime("%A, %B %d, %Y")
+                date_only = drive_date.strftime("%A, %B %d, %Y")
                 # Per-route start time if set, else fall back to a sensible default.
                 start_time = row.start_time
                 time_only = start_time.strftime("%I:%M %p") if start_time else "TBD"

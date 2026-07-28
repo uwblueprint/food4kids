@@ -5,6 +5,7 @@ Global test configuration and fixtures for the Food4Kids application.
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
+from datetime import date
 from typing import Any
 
 import pytest
@@ -378,12 +379,10 @@ def sample_announcement_data() -> dict[str, Any]:
 @pytest.fixture
 def sample_route_group_data() -> dict[str, Any]:
     """Sample route group data for testing."""
-    from datetime import datetime
-
     return {
         "name": "Test Route Group",
         "notes": "Test route group for testing",
-        "drive_date": datetime(2024, 1, 15, 8, 0),
+        "drive_date": date(2024, 1, 15),
     }
 
 

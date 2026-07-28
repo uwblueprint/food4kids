@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -28,10 +28,10 @@ router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
 @router.get("")
 async def get_route_groups(
-    start_date: datetime | None = Query(
+    start_date: date | None = Query(
         None, description="Filter route groups from this date"
     ),
-    end_date: datetime | None = Query(
+    end_date: date | None = Query(
         None, description="Filter route groups until this date"
     ),
     weekday: list[DriveDaysOfWeekEnum] | None = Query(
