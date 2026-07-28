@@ -26,7 +26,9 @@ from app.models.route_group import (
     RouteReadSummary,
 )
 from app.models.route_stop import RouteStop
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
+from app.utilities.pagination import paginate_query
 
 ROUTE_GROUP_COPY_PREFIX = "Copy of "
 ROUTE_GROUP_NAME_MAX_LENGTH = 255
@@ -288,10 +290,15 @@ class RouteGroupService:
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
         search: str | None = None,
-    ) -> list[RouteGroupRead]:
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[RouteGroupRead]:
         """Get route groups with optional date filtering and aggregate stats.
 
         ``search`` filters (case-insensitive substring) on the group name.
+
+        Paginated like the routes and locations lists: filters and search are
+        applied first, so a page is drawn from the matches rather than being
+        filtered after slicing.
         """
 
         children_per_box = await resolve_children_per_box(session)
@@ -386,10 +393,18 @@ class RouteGroupService:
         statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
         statement = statement.order_by(RouteGroup.drive_date)
 
-        result = await session.execute(statement)
+        if pagination is None:
+            pagination = PaginationParams()
+
+        result, total = await paginate_query(session, statement, pagination)
         rows = result.all()
 
-        return [self._row_to_read(row, include_routes) for row in rows]
+        return PaginatedResponse.create(
+            items=[self._row_to_read(row, include_routes) for row in rows],
+            total=total,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
 
     async def delete_route_group(
         self, session: AsyncSession, route_group_id: UUID

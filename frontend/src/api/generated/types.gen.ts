@@ -1424,6 +1424,32 @@ export type PaginatedResponseNoteFeedItem = {
 };
 
 /**
+ * PaginatedResponse[RouteGroupRead]
+ */
+export type PaginatedResponseRouteGroupRead = {
+  /**
+   * Items
+   */
+  items: Array<RouteGroupRead>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
+};
+
+/**
  * PaginatedResponse[RouteWithDateRead]
  */
 export type PaginatedResponseRouteWithDateRead = {
@@ -4117,6 +4143,18 @@ export type GetRouteGroupsData = {
      * Case-insensitive filter on the route group name
      */
     search?: string | null;
+    /**
+     * Page
+     *
+     * Page number (1-indexed)
+     */
+    page?: number;
+    /**
+     * Page Size
+     *
+     * Number of items per page
+     */
+    page_size?: number;
   };
   url: '/route-groups';
 };
@@ -4133,11 +4171,9 @@ export type GetRouteGroupsError =
 
 export type GetRouteGroupsResponses = {
   /**
-   * Response Get Route Groups
-   *
    * Successful Response
    */
-  200: Array<RouteGroupRead>;
+  200: PaginatedResponseRouteGroupRead;
 };
 
 export type GetRouteGroupsResponse =

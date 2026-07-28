@@ -1,14 +1,21 @@
 import type { RouteGroupRead } from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
-import type { UseSearchReturn } from '@/common/hooks';
-import { useDebouncedValue, useSearch } from '@/common/hooks';
+import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
+import {
+  TABLE_PAGE_SIZE,
+  useDebouncedValue,
+  usePagination,
+  useSearch,
+} from '@/common/hooks';
 
 import type { UseRouteFiltersReturn } from './useRouteFilters';
 import { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
 
-export interface GroupsTabState extends UseRouteFiltersReturn {
+export interface GroupsTabState
+  extends UseRouteFiltersReturn, UsePaginationReturn {
   rows: RouteGroupRead[];
   isLoading: boolean;
+  totalPages: number;
   search: UseSearchReturn;
   /** Debounced search term the rows were filtered by, for highlighting. */
   searchTerm: string;
@@ -22,15 +29,25 @@ export function useGroupsTabState(): GroupsTabState {
   // group name (GET /route-groups?search); the chips narrow server-side too.
   const debouncedSearch = useDebouncedValue(search.value);
 
-  const { data: rows = [], isLoading } = useRouteGroups({
+  const query = {
     search: debouncedSearch.trim() || undefined,
     ...routeFiltersToQuery(filters.appliedFilters),
+  };
+  const { page, setPage } = usePagination(JSON.stringify(query));
+
+  const { data, isLoading } = useRouteGroups({
+    ...query,
+    page,
+    page_size: TABLE_PAGE_SIZE,
   });
 
   return {
     ...filters,
-    rows,
+    rows: data?.items ?? [],
     isLoading,
+    page,
+    setPage,
+    totalPages: data?.total_pages ?? 0,
     search,
     searchTerm: debouncedSearch.trim(),
   };

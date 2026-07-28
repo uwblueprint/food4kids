@@ -2071,6 +2071,59 @@ export const getRouteGroupsOptions = (options?: Options<GetRouteGroupsData>) =>
     queryKey: getRouteGroupsQueryKey(options),
   });
 
+export const getRouteGroupsInfiniteQueryKey = (
+  options?: Options<GetRouteGroupsData>
+): QueryKey<Options<GetRouteGroupsData>> =>
+  createQueryKey('getRouteGroups', options, true);
+
+/**
+ * Get Route Groups
+ *
+ * Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
+ * Can include associated routes in the response.
+ */
+export const getRouteGroupsInfiniteOptions = (
+  options?: Options<GetRouteGroupsData>
+) =>
+  infiniteQueryOptions<
+    GetRouteGroupsResponse,
+    AxiosError<GetRouteGroupsError>,
+    InfiniteData<GetRouteGroupsResponse>,
+    QueryKey<Options<GetRouteGroupsData>>,
+    | number
+    | Pick<
+        QueryKey<Options<GetRouteGroupsData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetRouteGroupsData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getRouteGroups({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getRouteGroupsInfiniteQueryKey(options),
+    }
+  );
+
 /**
  * Create Route Group
  *

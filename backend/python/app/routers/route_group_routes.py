@@ -18,6 +18,7 @@ from app.models.route_group import (
     RouteGroupRead,
     RouteGroupUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
     LocationService,
@@ -51,11 +52,12 @@ async def get_route_groups(
     search: str | None = Query(
         None, description="Case-insensitive filter on the route group name"
     ),
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
-) -> list[RouteGroupRead]:
+) -> PaginatedResponse[RouteGroupRead]:
     """
     Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
     Can include associated routes in the response.
@@ -73,6 +75,7 @@ async def get_route_groups(
             driver_assignment_status,
             include_routes,
             search,
+            pagination,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(

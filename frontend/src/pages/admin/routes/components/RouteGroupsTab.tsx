@@ -7,6 +7,7 @@ import {
   Button,
   DataTable,
   HighlightText,
+  Pagination,
   TableToolbar,
 } from '@/common/components';
 import { useRowHighlight, useTableSort } from '@/common/hooks';
@@ -81,6 +82,9 @@ type RouteGroupsTabProps = GroupsTabState;
 
 export function RouteGroupsTab({
   rows,
+  page,
+  setPage,
+  totalPages,
   deliveryTypes,
   search,
   searchTerm,
@@ -179,6 +183,8 @@ export function RouteGroupsTab({
           }
         />
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <RouteFilterModal
         open={filterOpen}

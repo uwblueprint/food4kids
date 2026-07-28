@@ -17,6 +17,7 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
+  Pagination,
   TableToolbar,
 } from '@/common/components';
 import { useTableSort } from '@/common/hooks';
@@ -114,6 +115,9 @@ type RouteAddressesTabProps = AddressesTabState;
 
 export function RouteAddressesTab({
   rows,
+  page,
+  setPage,
+  totalPages,
   deliveryTypes,
   search,
   searchTerm,
@@ -181,6 +185,8 @@ export function RouteAddressesTab({
           />
         }
       />
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Modal open={filterOpen} onOpenChange={setFilterOpen}>
         <ModalContent>

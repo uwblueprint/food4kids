@@ -373,6 +373,7 @@ export type {
   PaginatedResponseLocationRead,
   PaginatedResponseLocationReadWritable,
   PaginatedResponseNoteFeedItem,
+  PaginatedResponseRouteGroupRead,
   PaginatedResponseRouteWithDateRead,
   PatchSystemSettingsData,
   PatchSystemSettingsError,

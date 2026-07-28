@@ -2428,6 +2428,42 @@
         "title": "PaginatedResponse[NoteFeedItem]",
         "type": "object"
       },
+      "PaginatedResponse_RouteGroupRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RouteGroupRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[RouteGroupRead]",
+        "type": "object"
+      },
       "PaginatedResponse_RouteWithDateRead_": {
         "properties": {
           "items": {
@@ -6697,6 +6733,33 @@
               "description": "Case-insensitive filter on the route group name",
               "title": "Search"
             }
+          },
+          {
+            "description": "Page number (1-indexed)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number (1-indexed)",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items per page",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Number of items per page",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -6704,11 +6767,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RouteGroupRead"
-                  },
-                  "title": "Response Get Route Groups",
-                  "type": "array"
+                  "$ref": "#/components/schemas/PaginatedResponse_RouteGroupRead_"
                 }
               }
             },

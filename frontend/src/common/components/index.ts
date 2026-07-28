@@ -46,6 +46,7 @@ export {
   ModalTitle,
   ModalTrigger,
 } from './Modal';
+export { Pagination } from './Pagination';
 export {
   Popover,
   PopoverAnchor,

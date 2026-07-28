@@ -10,10 +10,13 @@ import {
   Button,
   DataTable,
   HighlightText,
+  Pagination,
   TableToolbar,
 } from '@/common/components';
 import {
+  TABLE_PAGE_SIZE,
   useDebouncedValue,
+  usePagination,
   useRowHighlight,
   useSearch,
   useTableSort,
@@ -77,11 +80,14 @@ export function RouteRoutesTab() {
   // Debounced so the driver-name search hits the server once typing pauses.
   const searchTerm = useDebouncedValue(search.value).trim();
   const filters = useRouteFilters();
-  const { data } = useRoutes({
+  const query = {
     search: searchTerm || undefined,
     ...routeFiltersToQuery(filters.appliedFilters),
-  });
+  };
+  const { page, setPage } = usePagination(JSON.stringify(query));
+  const { data } = useRoutes({ ...query, page, page_size: TABLE_PAGE_SIZE });
   const rows = useMemo(() => data?.items ?? [], [data]);
+  const totalPages = data?.total_pages ?? 0;
   const { sort, toggleSort } = useTableSort();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   // Highlight + scroll a row after a date edit (re-sorts it) or a driver
@@ -144,10 +150,18 @@ export function RouteRoutesTab() {
     [handleRowChanged, searchTerm]
   );
 
-  const unassignedCount = useMemo(
-    () => rows.filter((r) => !r.driver_name).length,
-    [rows]
-  );
+  // Counted server-side rather than from `rows`: the banner is about the whole
+  // filtered result set and `rows` is one page of it. page_size 1 because only
+  // the total is wanted — the item itself is thrown away. The driver-assignment
+  // chip is deliberately overridden: the banner answers "how many routes still
+  // need a driver", which is the same question whichever side of that filter
+  // you are currently looking at.
+  const { data: unassigned } = useRoutes({
+    ...query,
+    driver_assignment_status: ['Unassigned'],
+    page_size: 1,
+  });
+  const unassignedCount = unassigned?.total ?? 0;
 
   return (
     <>
@@ -191,6 +205,8 @@ export function RouteRoutesTab() {
           }
         />
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <RouteFilterModal
         open={filters.filterOpen}
