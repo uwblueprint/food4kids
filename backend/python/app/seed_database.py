@@ -198,6 +198,10 @@ DEFAULT_CAP_MAX = 20
 # Time constants
 # Default route start time (HH:MM:SS format)
 ROUTE_START_TIME = "08:00:00"
+ROUTE_START_TIME_OF_DAY = time(8, 0, 0)
+# Drivers are released in waves rather than all at once, so each route in a
+# group starts this many minutes after the previous one.
+ROUTE_START_STAGGER_MINUTES = 15
 
 # Location group schedule: group name -> (weekday, alternating slot).
 # weekday is Monday=0 .. Sunday=6. Groups sharing a weekday are suffixed
@@ -514,12 +518,23 @@ def materialize_route_for_group(
         else None
     )
 
+    # An assigned route must carry a start time (enforced by a CHECK
+    # constraint). Drivers leave in waves, so stagger each route in the group
+    # off the standard start; an unassigned route stays unscheduled.
+    start_time: time | None = None
+    if driver_id is not None:
+        start_time = (
+            datetime.combine(date.min, ROUTE_START_TIME_OF_DAY)
+            + timedelta(minutes=ROUTE_START_STAGGER_MINUTES * plan.cluster_idx)
+        ).time()
+
     route = Route(
         name=f"Route {plan.cluster_idx + 1}",
         notes=fake.sentence() if random.random() < PROBABILITY_ROUTE_NOTES else "",
         length=plan.length_km,
         route_group_id=route_group.route_group_id,
         driver_id=driver_id,
+        start_time=start_time,
     )
     set_timestamps(route)
     session.add(route)

@@ -453,13 +453,25 @@ class RouteService:
             if patch.notes is not None:
                 route.notes = patch.notes
             # driver_id and start_time are nullable, so an explicit null means
-            # "clear it" (unassign / unschedule) — they typically travel
-            # together. Use model_fields_set to tell an explicit null apart
-            # from an omitted field (both are None on the model).
+            # "clear it" (unassign / unschedule) — they travel together. Use
+            # model_fields_set to tell an explicit null apart from an omitted
+            # field (both are None on the model).
             if "driver_id" in patch.model_fields_set:
                 route.driver_id = patch.driver_id
             if "start_time" in patch.model_fields_set:
                 route.start_time = patch.start_time
+
+            # Enforce the assigned-route invariant here rather than letting the
+            # DB CHECK constraint surface as a 500. Evaluated on the merged
+            # state, so it catches assigning a driver to a route that has no
+            # start time just as well as clearing the start time of a route
+            # that already has one.
+            if route.driver_id is not None and route.start_time is None:
+                raise ValueError(
+                    "An assigned route must have a start_time; "
+                    "set start_time in the same request, or clear driver_id "
+                    "to leave the route unassigned."
+                )
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:

@@ -6,10 +6,11 @@ from functools import partial
 from typing import Any, ClassVar
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.driver import Driver
-from app.models.route import Route
+from app.models.route import ASSIGNED_ROUTE_HAS_START_TIME_CONSTRAINT, Route
 from app.models.route_group import RouteGroup
 from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User
@@ -61,7 +62,7 @@ def captured_emails(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, str]]:
 async def _seed_driver_with_routes(
     maker: async_sessionmaker[AsyncSession],
     offsets: tuple[int, ...],
-    start_time: time | None = time(9, 30),
+    start_time: time = time(9, 30),
 ) -> None:
     """Create one driver assigned to a route on each of the given day offsets."""
     async with maker() as session:
@@ -270,27 +271,36 @@ async def test_rendered_body_has_no_leftover_placeholders(
 
 
 @pytest.mark.asyncio
-async def test_missing_start_time_renders_tbd(
+async def test_assigned_route_without_start_time_is_not_emailed(
     test_db_engine: Any,
     monkeypatch: pytest.MonkeyPatch,
     captured_emails: list[dict[str, str]],
 ) -> None:
-    """A route with no start time says TBD rather than inventing a clock time.
+    """An assigned route with no start time fails loudly instead of guessing.
 
-    RouteGroup.drive_date is a datetime but is always built at midnight, so
-    falling back to its time component would tell the driver 12:00 AM.
+    The CHECK constraint makes this state unreachable through the app, so
+    reaching it means the database drifted from its schema. Inventing a time
+    (RouteGroup.drive_date is always midnight, so the obvious fallback renders
+    "12:00 AM") would quietly tell a driver the wrong thing.
     """
     maker = _maker(test_db_engine)
     monkeypatch.setattr("app.models.async_session_maker_instance", maker)
 
-    await _seed_driver_with_routes(maker, offsets=(1,), start_time=None)
+    # Insert past the ORM's constraint so we can exercise the guard at all.
+    await _seed_driver_with_routes(maker, offsets=(1,))
+    async with maker() as session:
+        await session.execute(
+            text(
+                "ALTER TABLE routes DROP CONSTRAINT "
+                f"{ASSIGNED_ROUTE_HAS_START_TIME_CONSTRAINT}"
+            )
+        )
+        await session.execute(text("UPDATE routes SET start_time = NULL"))
+        await session.commit()
 
     await email_jobs.send_route_reminders([1])
 
-    assert len(captured_emails) == 1
-    body = captured_emails[0]["body"]
-    assert "TBD" in body
-    assert "12:00 AM" not in body
+    assert captured_emails == []
 
 
 @pytest.mark.asyncio
