@@ -4,6 +4,7 @@ import {
   useAnnouncements,
   useCreateAnnouncement,
   useDeleteAnnouncement,
+  useMarkAnnouncementsAsRead,
   useSendAnnouncementEmail,
   useUpdateAnnouncement,
 } from '@/api/announcements';
@@ -16,7 +17,6 @@ import { AnnouncementConfirmModal } from './AnnouncementConfirmModal';
 import { AnnouncementFormModal } from './AnnouncementFormModal';
 import { AnnouncementsPanel } from './AnnouncementsPanel';
 import { EditAnnouncementsModal } from './EditAnnouncementsModal';
-import { useAnnouncementReads } from './useAnnouncementReads';
 import { roleFromStoredToken } from './utils';
 
 type ConfirmState =
@@ -40,7 +40,7 @@ export function AnnouncementsBoard() {
   );
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
-  const { markBoardAsRead } = useAnnouncementReads();
+  const { mutate: markBoardAsRead } = useMarkAnnouncementsAsRead();
   const { data: announcements = [], isLoading } = useAnnouncements();
   const createMutation = useCreateAnnouncement();
   const updateMutation = useUpdateAnnouncement();
@@ -51,7 +51,7 @@ export function AnnouncementsBoard() {
 
   const closePanel = () => {
     setPanelOpen(false);
-    markBoardAsRead();
+    markBoardAsRead({});
   };
 
   const resetEditBoardState = () => {
