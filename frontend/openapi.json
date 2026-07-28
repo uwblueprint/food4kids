@@ -998,6 +998,20 @@
         "title": "EmailReminder",
         "type": "object"
       },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2462,7 +2476,7 @@
         "type": "string"
       },
       "RouteDetailRead": {
-        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.",
+        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
           "cloned_from_route_id": {
             "anyOf": [
@@ -2475,6 +2489,22 @@
               }
             ],
             "title": "Cloned From Route Id"
+          },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
+          "drive_date": {
+            "format": "date-time",
+            "title": "Drive Date",
+            "type": "string"
           },
           "driver_id": {
             "anyOf": [
@@ -2579,7 +2609,8 @@
         "required": [
           "length",
           "route_group_id",
-          "route_id"
+          "route_id",
+          "drive_date"
         ],
         "title": "RouteDetailRead",
         "type": "object"
@@ -3757,6 +3788,26 @@
         "title": "SystemSettingsUpdate",
         "type": "object"
       },
+      "UpdatePasswordRequest": {
+        "properties": {
+          "new_password": {
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          },
+          "password_reset_token": {
+            "title": "Password Reset Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password_reset_token",
+          "new_password"
+        ],
+        "title": "UpdatePasswordRequest",
+        "type": "object"
+      },
       "UserFinalize": {
         "properties": {
           "password": {
@@ -3776,6 +3827,19 @@
           "password"
         ],
         "title": "UserFinalize",
+        "type": "object"
+      },
+      "ValidateResetTokenRequest": {
+        "properties": {
+          "password_reset_token": {
+            "title": "Password Reset Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password_reset_token"
+        ],
+        "title": "ValidateResetTokenRequest",
         "type": "object"
       },
       "ValidatedLocationImportEntry": {
@@ -4236,6 +4300,41 @@
         ]
       }
     },
+    "/auth/forgot-password": {
+      "post": {
+        "description": "Triggers password reset for user with specified email (reset link will be emailed)\nReturns 204 regardless to avoid enumeration attacks",
+        "operationId": "forgot_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forgot Password",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
     "/auth/login": {
       "post": {
         "description": "Returns access token in response body and sets refreshToken as an httpOnly cookie",
@@ -4342,22 +4441,20 @@
         ]
       }
     },
-    "/auth/resetPassword/{email}": {
+    "/auth/update-password": {
       "post": {
-        "description": "Triggers password reset for user with specified email (reset link will be emailed)",
-        "operationId": "reset_password",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "email",
-            "required": true,
-            "schema": {
-              "format": "email",
-              "title": "Email",
-              "type": "string"
+        "description": "Update an existing user's password if provided a valid password reset token",
+        "operationId": "update_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePasswordRequest"
+              }
             }
-          }
-        ],
+          },
+          "required": true
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -4373,12 +4470,42 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
+        "summary": "Update Password",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/validate-reset-token": {
+      "post": {
+        "description": "Validate that a password reset token exists, isn't used, and hasn't expired.",
+        "operationId": "validate_reset_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateResetTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
-        ],
-        "summary": "Reset Password",
+        },
+        "summary": "Validate Reset Token",
         "tags": [
           "authentication"
         ]

@@ -11,6 +11,7 @@ expired/unknown sessions.
 """
 
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -21,8 +22,12 @@ import pytest
 from fastapi import HTTPException
 from httpx import AsyncClient, Response
 
-from app.dependencies.auth import get_current_database_user_id, get_current_user_email
-from app.dependencies.services import get_auth_service
+from app.dependencies.auth import get_current_database_user_id
+from app.dependencies.services import (
+    get_auth_service,
+    get_password_reset_token_service,
+    get_user_service,
+)
 from app.schemas.auth import TokenResponse
 from app.services.implementations.auth_service import (
     REAUTH_REQUIRED_FIREBASE_CODES,
@@ -54,7 +59,32 @@ class StubAuthService:
     async def revoke_tokens(self, *_args: Any, **_kwargs: Any) -> None:
         raise self.error
 
-    def reset_password(self, *_args: Any, **_kwargs: Any) -> None:
+
+class StubTokenService:
+    """Returns a valid, unused, unexpired reset token so the handler's guards
+    pass and execution reaches the ``try`` body."""
+
+    async def read(self, *_args: Any, **_kwargs: Any) -> Any:
+        user = MagicMock()
+        user.user_id = USER_ID
+        user.auth_id = "firebase-uid"
+        token = MagicMock()
+        token.is_used = False
+        token.expires_at = datetime.now(timezone.utc) + timedelta(days=1)
+        token.user = user
+        return token
+
+    async def mark_as_used(self, *_args: Any, **_kwargs: Any) -> None:
+        return None
+
+
+class StubUserService:
+    """``update_password`` is what the handler awaits inside its ``try``."""
+
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    async def update_password(self, *_args: Any, **_kwargs: Any) -> None:
         raise self.error
 
 
@@ -65,39 +95,57 @@ Requester = Callable[[AsyncClient], Awaitable[Response]]
 # overridden separately by each test so the stub can raise a per-test error.
 AUTH_ENDPOINTS: list[Any] = [
     pytest.param(
-        {},
+        lambda _error: {},
         lambda client: client.post(
             "/auth/login", json={"email": EMAIL, "password": "correct horse"}
         ),
         id="login",
     ),
     pytest.param(
-        {},
+        lambda _error: {},
         lambda client: client.post(
             "/auth/refresh", headers={"Cookie": "refreshToken=stub-refresh-token"}
         ),
         id="refresh",
     ),
     pytest.param(
-        {get_current_database_user_id: lambda: USER_ID},
+        lambda _error: {get_current_database_user_id: lambda: USER_ID},
         lambda client: client.post(f"/auth/logout/{USER_ID}"),
         id="logout",
     ),
     pytest.param(
-        {get_current_user_email: lambda: EMAIL},
-        lambda client: client.post(f"/auth/resetPassword/{EMAIL}"),
-        id="reset_password",
+        lambda error: {
+            get_password_reset_token_service: lambda: StubTokenService(),
+            get_user_service: lambda: StubUserService(error),
+        },
+        lambda client: client.post(
+            "/auth/update-password",
+            json={
+                "password_reset_token": str(uuid4()),
+                "new_password": "Securepassword123!",
+            },
+        ),
+        id="update_password",
     ),
 ]
 
 
 async def _client_raising(
-    client_with_overrides: Any, error: Exception, overrides: dict[Any, Any]
+    client_with_overrides: Any,
+    error: Exception,
+    overrides: Callable[[Exception], dict[Any, Any]] = lambda _error: {},
 ) -> AsyncClient:
-    """Build a client whose auth service raises ``error`` from every method."""
+    """Build a client whose service layer raises ``error``.
+
+    ``overrides`` is a factory rather than a dict because handlers differ in
+    which service they fail through: most reach ``AuthService``, while
+    ``/auth/update-password`` fails through ``UserService``. It defaults to
+    "nothing extra" so the callers that only need ``AuthService`` — most of
+    them — do not have to spell an empty factory.
+    """
     stub = StubAuthService(error)
     client: AsyncClient = await client_with_overrides(
-        {get_auth_service: lambda: stub, **overrides}
+        {get_auth_service: lambda: stub, **overrides(error)}
     )
     return client
 
@@ -110,7 +158,7 @@ class TestHandlerExceptionMapping:
     async def test_http_exception_in_body_keeps_its_status(
         self,
         client_with_overrides: Any,
-        overrides: dict[Any, Any],
+        overrides: Any,
         request_fn: Requester,
     ) -> None:
         """A 4xx raised inside the handler body reaches the client unchanged."""
@@ -127,7 +175,7 @@ class TestHandlerExceptionMapping:
     async def test_unexpected_error_in_body_is_still_a_500(
         self,
         client_with_overrides: Any,
-        overrides: dict[Any, Any],
+        overrides: Any,
         request_fn: Requester,
     ) -> None:
         """Genuinely unexpected failures keep mapping to 500."""
@@ -170,7 +218,7 @@ class TestLoginValidation:
         expected_status: int,
     ) -> None:
         client = await _client_raising(
-            client_with_overrides, ValueError("Invalid email or password"), {}
+            client_with_overrides, ValueError("Invalid email or password")
         )
 
         response = await client.post("/auth/login", json=payload)
@@ -183,7 +231,7 @@ class TestLoginValidation:
     ) -> None:
         """Authentication failures return one generic 401 (no user enumeration)."""
         client = await _client_raising(
-            client_with_overrides, ValueError("Invalid email or password"), {}
+            client_with_overrides, ValueError("Invalid email or password")
         )
 
         response = await client.post(
@@ -198,7 +246,7 @@ class TestRefresh:
     @pytest.mark.asyncio
     async def test_missing_cookie_is_401(self, client_with_overrides: Any) -> None:
         client = await _client_raising(
-            client_with_overrides, AssertionError("service must not be reached"), {}
+            client_with_overrides, AssertionError("service must not be reached")
         )
 
         response = await client.post("/auth/refresh")
@@ -210,7 +258,7 @@ class TestRefresh:
     async def test_session_expired_is_401(self, client_with_overrides: Any) -> None:
         """``SessionExpiredError`` is the one signal that means "log in again"."""
         client = await _client_raising(
-            client_with_overrides, SessionExpiredError("token is finished"), {}
+            client_with_overrides, SessionExpiredError("token is finished")
         )
 
         response = await client.post(
@@ -236,7 +284,7 @@ class TestRefresh:
     async def test_anything_else_is_500(
         self, client_with_overrides: Any, error: Exception
     ) -> None:
-        client = await _client_raising(client_with_overrides, error, {})
+        client = await _client_raising(client_with_overrides, error)
 
         response = await client.post(
             "/auth/refresh", headers={"Cookie": "refreshToken=stub-refresh-token"}

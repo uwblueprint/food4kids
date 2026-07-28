@@ -19,8 +19,13 @@ import {
   ReviewStep,
   ValidateStep,
 } from './pages/admin';
-import { CreatePassword, LoginPage } from './pages/auth';
-import { DriverHomePage } from './pages/driver';
+import {
+  CreatePassword,
+  ForgotPassword,
+  LoginPage,
+  ResetPassword,
+} from './pages/auth';
+import { DriverHomePage, IndividualRoutePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { TestImageUpload } from './pages/TestImageUpload';
 
@@ -56,14 +61,17 @@ function App() {
       <Route path="/driver" element={<DriverLayout />}>
         <Route index element={<Navigate to="/driver/home" replace />} />
         <Route path="home" element={<DriverHomePage />} />
+        <Route path="route" element={<IndividualRoutePage />} />
       </Route>
 
       {/* Dev-only: test image upload route */}
       <Route path="/test-image-upload" element={<TestImageUpload />} />
 
-      {/* Login Routes */}
+      {/* Auth Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/create-password/:token" element={<CreatePassword />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/forgot-password/:token" element={<ResetPassword />} />
 
       {/* Dev-only: style guide is not accessible in production */}
       {import.meta.env.DEV && (
