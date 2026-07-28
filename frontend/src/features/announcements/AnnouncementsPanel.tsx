@@ -27,11 +27,9 @@ interface AnnouncementsPanelProps {
   announcements: Announcement[];
   isLoading: boolean;
   currentUserId: string;
-  readIds: Set<string>;
   role: 'admin' | 'driver';
   onCreateClick: () => void;
   onEditBoardClick: () => void;
-  onAnnouncementOpen: (announcement: Announcement) => void;
   onEdit: (announcement: Announcement) => void;
   onDelete: (announcement: Announcement) => void;
 }
@@ -42,11 +40,9 @@ export function AnnouncementsPanel({
   announcements,
   isLoading,
   currentUserId,
-  readIds,
   role,
   onCreateClick,
   onEditBoardClick,
-  onAnnouncementOpen,
   onEdit,
   onDelete,
 }: AnnouncementsPanelProps) {
@@ -141,13 +137,11 @@ export function AnnouncementsPanel({
                     <AnnouncementCard
                       announcement={announcement}
                       currentUserId={currentUserId}
-                      readIds={readIds}
                       canManage={canManageAnnouncement(
                         announcement,
                         currentUserId,
                         role
                       )}
-                      onOpen={onAnnouncementOpen}
                       onEdit={onEdit}
                       onDelete={onDelete}
                     />
