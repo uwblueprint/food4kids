@@ -6,14 +6,21 @@ export const Account = () => {
   const initials =
     `${user?.firstName?.charAt(0) || ''}${user?.lastName?.charAt(0) || ''}`.toUpperCase();
 
+  // Sizes and styles are the admin frames' top bar: a 48px pink disc with
+  // 16/22 Nunito Medium initials, then the name and role both at 16/22. The
+  // design gives every avatar the same pink, so this is not per-user colour.
   return (
     <div className="flex items-center gap-4">
-      <div className="flex size-10 items-center justify-center rounded-full bg-blue-300">
-        <span className="text-p2 text-grey-100">{initials}</span>
+      <div className="bg-brand-pink flex size-12 items-center justify-center rounded-full">
+        <span className="text-m-p2 font-nunito text-grey-100 leading-[22px] font-medium">
+          {initials}
+        </span>
       </div>
       <div className="inline-flex flex-col items-start">
-        <p className="text-p1 font-medium">{user?.fullName}</p>
-        <p className="text-p2 text-grey-400 capitalize">{user?.role}</p>
+        <p className="text-m-p2 font-nunito leading-[22px]">{user?.fullName}</p>
+        <p className="text-m-p2 text-grey-400 leading-[22px] font-light capitalize">
+          {user?.role}
+        </p>
       </div>
     </div>
   );
