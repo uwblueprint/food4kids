@@ -2636,6 +2636,9 @@ class TestRouteRoutes:
             length=4.2,
             route_group_id=test_route_group.route_group_id,
             driver_id=test_driver.driver_id,
+            # An assigned route must carry a start time (see the
+            # ck_routes_assigned_route_has_start_time constraint).
+            start_time=time(8, 0),
         )
         empty = Route(
             name="Empty", length=0.0, route_group_id=test_route_group.route_group_id
