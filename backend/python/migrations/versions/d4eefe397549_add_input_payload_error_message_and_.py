@@ -1,7 +1,11 @@
 """add input payload, error message and summary columns to jobs
 
 Revision ID: d4eefe397549
+<<<<<<< HEAD
 Revises: a1c2e3f4b5d6
+=======
+Revises: bc7876e56dd1
+>>>>>>> 6ed58b7 (add changes to the jobs table)
 Create Date: 2026-07-28 02:26:20.612153
 
 """
@@ -11,7 +15,11 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'd4eefe397549'
+<<<<<<< HEAD
 down_revision = 'a1c2e3f4b5d6'
+=======
+down_revision = 'bc7876e56dd1'
+>>>>>>> 6ed58b7 (add changes to the jobs table)
 branch_labels = None
 depends_on = None
 
