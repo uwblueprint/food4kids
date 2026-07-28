@@ -209,9 +209,14 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         {stops.length === 0 ? (
           <p className="text-p2 text-grey-500">This route has no stops.</p>
         ) : (
-          stops.map((stop) => (
-            <RouteStopCard key={stop.stop_number} stop={stop} />
-          ))
+          /* The cards sit 20px apart, not the 12px that separates the heading
+             from the list. The mobile frame draws 24 here; tablet and desktop
+             both say 20, and the designer has been asked which is intended. */
+          <div className="flex flex-col gap-5">
+            {stops.map((stop) => (
+              <RouteStopCard key={stop.stop_number} stop={stop} />
+            ))}
+          </div>
         )}
       </div>
     </div>
