@@ -10,7 +10,6 @@ import {
   sendAnnouncementEmailMutation,
   updateAnnouncementMutation,
 } from './generated/@tanstack/react-query.gen';
-import type { AnnouncementRead } from './generated/types.gen';
 
 export function useAnnouncements() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -62,21 +61,7 @@ export function useMarkAnnouncementsAsRead() {
   const queryClient = useQueryClient();
   return useMutation({
     ...markAnnouncementsAsReadMutation(),
-    onMutate: async () => {
-      const queryKey = getAnnouncementsQueryKey();
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<AnnouncementRead[]>(queryKey);
-      queryClient.setQueryData<AnnouncementRead[]>(queryKey, (current) =>
-        current?.map((announcement) => ({ ...announcement, is_read: true }))
-      );
-      return { previous };
-    },
-    onError: (_error, _variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(getAnnouncementsQueryKey(), context.previous);
-      }
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getAnnouncementsQueryKey() });
     },
   });
