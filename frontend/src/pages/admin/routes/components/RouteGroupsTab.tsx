@@ -1,59 +1,80 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
-import type {
-  DriveDaysOfWeekEnum,
-  DriverAssignmentStatusEnum,
-  RouteGroupRead,
-  RouteStatusEnum,
-} from '@/api/generated/types.gen';
-import FilterLinesIcon from '@/assets/icons/filter-lines.svg?react';
-import ShareIcon from '@/assets/icons/share.svg?react';
+import type { RouteGroupRead } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import {
   Button,
   DataTable,
-  FilterChip,
-  FilterChipGroup,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
-  SearchBar,
+  HighlightText,
+  TableToolbar,
 } from '@/common/components';
+import { useRowHighlight, useTableSort } from '@/common/hooks';
 
 import type { GroupsTabState } from '../hooks';
+import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
-
-const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed', 'Archived'];
-const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = [
-  'Assigned',
-  'Unassigned',
-];
+import { RouteFilterModal } from './RouteFilterModal';
+import { RouteGroupActionsCell } from './RouteGroupActionsCell';
+import { StatusHeader } from './StatusHeader';
 
 const COLUMNS: Column<RouteGroupRead>[] = [
   { key: 'name', header: 'Name', render: (row) => row.name },
-  { key: 'drive_date', header: 'Date', render: (row) => row.drive_date },
+  {
+    key: 'drive_date',
+    header: 'Date',
+    sortable: true,
+    sortValue: (row) => new Date(row.drive_date),
+    render: (row) => (
+      <DriveDateCell
+        routeGroupId={row.route_group_id}
+        driveDate={row.drive_date}
+      />
+    ),
+  },
   {
     key: 'delivery_type',
     header: 'Delivery Type',
+    sortable: true,
+    sortValue: (row) => row.delivery_type,
     render: (row) => row.delivery_type,
   },
-  { key: 'num_routes', header: '# of Routes', render: (row) => row.num_routes },
+  // Aggregate counts read '-' for groups with no routes yet (just created,
+  // ahead of route generation)
+  {
+    key: 'num_routes',
+    header: 'Routes',
+    render: (row) => row.num_routes || '-',
+  },
   {
     key: 'num_locations',
     header: 'Locations',
-    render: (row) => row.num_locations,
+    render: (row) => row.num_locations || '-',
   },
-  { key: 'num_boxes', header: 'Boxes', render: (row) => row.num_boxes },
+  { key: 'num_boxes', header: 'Boxes', render: (row) => row.num_boxes || '-' },
   {
     key: 'num_drivers_assigned',
-    header: 'Drivers Assigned',
-    render: (row) => row.num_drivers_assigned,
+    header: 'Drivers',
+    render: (row) => row.num_drivers_assigned || '-',
   },
-  { key: 'status', header: 'Status', render: (row) => row.status },
+  {
+    key: 'status',
+    sortable: true,
+    sortValue: (row) => row.status,
+    header: (
+      <StatusHeader>
+        <p>
+          <span className="font-semibold">Upcoming:</span> Route is scheduled
+          for the future
+        </p>
+        <p>
+          <span className="font-semibold">Completed:</span> Route has been
+          delivered
+        </p>
+      </StatusHeader>
+    ),
+    render: (row) => row.status,
+  },
 ];
 
 type RouteGroupsTabProps = GroupsTabState;
@@ -62,114 +83,114 @@ export function RouteGroupsTab({
   rows,
   deliveryTypes,
   search,
+  searchTerm,
   filterOpen,
   setFilterOpen,
   draftFilters,
   hasActiveFilters,
   openFilters,
   toggleDraft,
+  draftHasSelections,
+  clearDraft,
   handleApply,
 }: RouteGroupsTabProps) {
+  const { sort, toggleSort } = useTableSort();
+  // Highlight + scroll for a row that was just added, duplicated, or re-dated.
+  const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
+
+  // The kebab lives inside the Status cell (the last column) rather than in
+  // its own column: an extra column would compete for the table's leftover
+  // width and either hoard it or squeeze the data columns. Status stretches
+  // to the table edge already, so justify-between pins the kebab there while
+  // the data columns keep their natural spread.
+  const columns = useMemo<Column<RouteGroupRead>[]>(
+    () =>
+      COLUMNS.map((col) => {
+        if (col.key === 'name') {
+          return {
+            ...col,
+            // Placeholder link to the (not-yet-built) individual group page;
+            // underlines on hover.
+            render: (row: RouteGroupRead) => (
+              <Link
+                to={`/admin/routes/groups/${row.route_group_id}`}
+                className="decoration-blue-300 hover:underline"
+              >
+                <HighlightText text={row.name} query={searchTerm} />
+              </Link>
+            ),
+          };
+        }
+        if (col.key === 'drive_date') {
+          return {
+            ...col,
+            render: (row: RouteGroupRead) => (
+              <DriveDateCell
+                routeGroupId={row.route_group_id}
+                driveDate={row.drive_date}
+                onUpdated={() => highlightRow(row.route_group_id)}
+              />
+            ),
+          };
+        }
+        if (col.key === 'status') {
+          return {
+            ...col,
+            render: (row: RouteGroupRead) => (
+              <div className="flex items-center justify-between gap-10">
+                <span>{row.status}</span>
+                <RouteGroupActionsCell row={row} onDuplicated={highlightRow} />
+              </div>
+            ),
+          };
+        }
+        return col;
+      }),
+    [highlightRow, searchTerm]
+  );
+
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-5">
-          <SearchBar placeholder="Search anything" {...search} />
-          <Button
-            variant="tertiary"
-            shape="circular"
-            className={hasActiveFilters ? 'bg-blue-50' : 'bg-white'}
-            onClick={openFilters}
-          >
-            <FilterLinesIcon className="size-4" />
-          </Button>
-        </div>
-        <div className="flex items-center gap-4">
+      <TableToolbar
+        search={search}
+        showFilter
+        onFilterClick={openFilters}
+        hasActiveFilters={hasActiveFilters}
+        actions={
           <Button variant="primary" asChild>
             <Link to="/admin/routes/generation">Generate routes</Link>
           </Button>
-          <Button variant="primary" shape="circular">
-            <ShareIcon className="size-5" />
-          </Button>
-        </div>
-      </div>
-
-      <DataTable
-        columns={COLUMNS}
-        rows={rows}
-        getRowKey={(r) => r.route_group_id}
-        emptyState={
-          <EmptyState
-            title="No routes yet"
-            description="Try adjusting your filters or generating new routes"
-          />
         }
       />
 
-      <Modal open={filterOpen} onOpenChange={setFilterOpen}>
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle>Filters</ModalTitle>
-            <ModalDescription>Routes</ModalDescription>
-          </ModalHeader>
+      <div ref={containerRef}>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.route_group_id}
+          sort={sort}
+          onSortChange={toggleSort}
+          getRowClassName={(r) => getRowClassName(r.route_group_id)}
+          emptyState={
+            <EmptyState
+              title="No route groups found"
+              description="Try adjusting or clearing your filters"
+            />
+          }
+        />
+      </div>
 
-          <div className="flex flex-col gap-4">
-            <FilterChipGroup label="Weekday">
-              {WEEKDAYS.map((day) => (
-                <FilterChip
-                  key={day}
-                  selected={draftFilters.weekdays.has(day)}
-                  onClick={() => toggleDraft('weekdays', day)}
-                >
-                  {day}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-
-            <FilterChipGroup label="Delivery Type" showDelimiter>
-              {deliveryTypes.map((type) => (
-                <FilterChip
-                  key={type}
-                  selected={draftFilters.deliveryTypes.has(type)}
-                  onClick={() => toggleDraft('deliveryTypes', type)}
-                >
-                  {type}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-
-            <FilterChipGroup label="Route Status" showDelimiter>
-              {ROUTE_STATUSES.map((status) => (
-                <FilterChip
-                  key={status}
-                  selected={draftFilters.routeStatuses.has(status)}
-                  onClick={() => toggleDraft('routeStatuses', status)}
-                >
-                  {status}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-
-            <FilterChipGroup label="Driver Status" showDelimiter>
-              {DRIVER_STATUSES.map((status) => (
-                <FilterChip
-                  key={status}
-                  selected={draftFilters.driverStatuses.has(status)}
-                  onClick={() => toggleDraft('driverStatuses', status)}
-                >
-                  {status}
-                </FilterChip>
-              ))}
-            </FilterChipGroup>
-          </div>
-
-          <ModalFooter>
-            <Button variant="primary" onClick={handleApply}>
-              Apply
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <RouteFilterModal
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        subtitle="Groups"
+        deliveryTypes={deliveryTypes}
+        draftFilters={draftFilters}
+        toggleDraft={toggleDraft}
+        draftHasSelections={draftHasSelections}
+        clearDraft={clearDraft}
+        handleApply={handleApply}
+      />
     </>
   );
 }

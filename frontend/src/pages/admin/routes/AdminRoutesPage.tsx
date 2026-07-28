@@ -7,7 +7,11 @@ import {
 } from '@/common/components';
 import { AnnouncementsBoard } from '@/features/announcements';
 
-import { RouteAddressesTab, RouteGroupsTab } from './components';
+import {
+  RouteAddressesTab,
+  RouteGroupsTab,
+  RouteRoutesTab,
+} from './components';
 import { useAddressesTabState, useGroupsTabState } from './hooks';
 
 export const AdminRoutesPage = () => {
@@ -26,11 +30,15 @@ export const AdminRoutesPage = () => {
 
       <TabsList>
         <TabsTrigger value="groups">Groups</TabsTrigger>
+        <TabsTrigger value="routes">Routes</TabsTrigger>
         <TabsTrigger value="addresses">Addresses</TabsTrigger>
       </TabsList>
 
       <TabsContent value="groups">
         <RouteGroupsTab {...groupsState} />
+      </TabsContent>
+      <TabsContent value="routes">
+        <RouteRoutesTab />
       </TabsContent>
       <TabsContent value="addresses">
         <RouteAddressesTab {...addressesState} />

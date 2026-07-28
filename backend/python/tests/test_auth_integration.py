@@ -102,8 +102,10 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # --- auth infrastructure (public by design) ---
     ("POST", "/auth/login"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,
+    ("POST", "/auth/validate-reset-token"): Policy.PUBLIC,
     ("POST", "/auth/logout/{user_id}"): Policy.PUBLIC,
-    ("POST", "/auth/resetPassword/{email}"): Policy.PUBLIC,
+    ("POST", "/auth/forgot-password"): Policy.PUBLIC,
+    ("POST", "/auth/update-password"): Policy.PUBLIC,
     # --- drivers ---
     ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,

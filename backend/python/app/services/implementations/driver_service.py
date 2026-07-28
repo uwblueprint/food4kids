@@ -194,29 +194,6 @@ class DriverService:
             self.logger.error(f"Failed to update driver: {e!s}")
             raise e
 
-    async def delete_driver_by_id(self, session: AsyncSession, driver_id: UUID) -> None:
-        """Delete a driver.
-
-        Their routes are detached (driver_id SET NULL), so the driver's km
-        stop counting toward anyone — deleting a driver means their history
-        is no longer needed.
-        """
-        try:
-            statement = select(Driver).where(Driver.driver_id == driver_id)
-            result = await session.execute(statement)
-            driver = result.scalars().first()
-
-            if not driver:
-                raise ValueError(f"Driver with id {driver_id} not found")
-
-            await session.delete(driver)
-            await session.commit()
-
-        except Exception as e:
-            self.logger.error(f"Failed to delete driver: {e!s}")
-            await session.rollback()
-            raise e
-
     async def get_auth_id_by_driver_id(
         self, session: AsyncSession, driver_id: UUID
     ) -> str | None:
@@ -260,22 +237,4 @@ class DriverService:
             return driver.driver_id
         except Exception as e:
             self.logger.error(f"Failed to get driver_id by auth_id: {e!s}")
-            raise e
-
-    async def delete_driver_by_email(self, session: AsyncSession, email: str) -> None:
-        """Delete driver by email"""
-        try:
-            statement = select(Driver).join(Driver.user).where(User.email == email)  # type: ignore[arg-type]
-            result = await session.execute(statement)
-            driver = result.scalars().first()
-
-            if not driver:
-                self.logger.error(f"Driver with email {email} not found")
-                return
-
-            await session.delete(driver)
-            await session.commit()
-
-        except Exception as e:
-            self.logger.error(f"Failed to delete driver by email: {e!s}")
             raise e
