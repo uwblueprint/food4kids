@@ -20,6 +20,7 @@ from app.models.route import Route
 from app.models.route_group import (
     RouteGroup,
     RouteGroupCreate,
+    RouteGroupDuplicate,
     RouteGroupRead,
     RouteGroupUpdate,
     RouteReadSummary,
@@ -72,9 +73,15 @@ class RouteGroupService:
         return await self._read_back(session, route_group_id)
 
     async def duplicate_route_group(
-        self, session: AsyncSession, route_group_id: UUID
+        self,
+        session: AsyncSession,
+        route_group_id: UUID,
+        overrides: RouteGroupDuplicate | None = None,
     ) -> RouteGroupRead | None:
         """Duplicate a route group with fresh route/stop rows.
+
+        `overrides` supplies the new group's name and drive_date; either falls
+        back to the original ("Copy of {name}" / same date) when omitted.
 
         Route snapshots and note chains are intentionally not copied: they are
         historical records attached to the original route. New routes point
@@ -92,12 +99,18 @@ class RouteGroupService:
             self.logger.error(f"RouteGroup with id {route_group_id} not found")
             return None
 
+        default_name = f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
+            :ROUTE_GROUP_NAME_MAX_LENGTH
+        ]
         duplicated_group = RouteGroup(
-            name=f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
-                :ROUTE_GROUP_NAME_MAX_LENGTH
-            ],
+            name=(overrides.name if overrides and overrides.name else default_name),
             notes=route_group.notes,
-            drive_date=route_group.drive_date,
+            drive_date=(
+                overrides.drive_date
+                if overrides and overrides.drive_date
+                else route_group.drive_date
+            ),
+            delivery_type=route_group.delivery_type,
         )
         session.add(duplicated_group)
 
@@ -203,14 +216,17 @@ class RouteGroupService:
             .label("num_drivers_assigned")
         )
 
-        delivery_type_expr = (
+        # Prefer the delivery type derived from the group's stops; fall back to
+        # the type chosen when the group was created (used by empty groups made
+        # ahead of route generation via the Add Route Group dialog).
+        delivery_type_expr = func.coalesce(
             select(Location.delivery_type)
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
             .limit(1)
             .correlate(RouteGroup)
-            .scalar_subquery()
-            .label("delivery_type")
-        )
+            .scalar_subquery(),
+            RouteGroup.delivery_type,
+        ).label("delivery_type")
 
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -272,11 +288,20 @@ class RouteGroupService:
         route_status: list[RouteStatusEnum] | None = None,
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
         include_routes: bool = False,
+        search: str | None = None,
     ) -> list[RouteGroupRead]:
-        """Get route groups with optional date filtering and aggregate stats."""
+        """Get route groups with optional date filtering and aggregate stats.
+
+        ``search`` filters (case-insensitive substring) on the group name.
+        """
 
         children_per_box = await resolve_children_per_box(session)
         statement = self._read_statement(children_per_box)
+
+        if search and search.strip():
+            statement = statement.where(
+                col(RouteGroup.name).ilike(f"%{search.strip()}%")
+            )
 
         if start_date:
             statement = statement.where(RouteGroup.drive_date >= start_date)
@@ -298,20 +323,18 @@ class RouteGroupService:
             )
 
         # Delivery type filter: a group matches if any of its stops' locations
-        # has one of the requested delivery types.
+        # has one of the requested delivery types. (Built as select(...).exists()
+        # because Exists has no .join().)
         if delivery_type:
-            delivery_conditions: list[Any] = []
-            for dt in delivery_type:
-                delivery_conditions.append(
-                    exists()
-                    .select_from(Route)
-                    .join(RouteStop, RouteStop.route_id == Route.route_id)
-                    .join(Location, Location.location_id == RouteStop.location_id)
-                    .where(Route.route_group_id == RouteGroup.route_group_id)
-                    .where(Location.delivery_type == dt)
-                )
-            if delivery_conditions:
-                statement = statement.where(or_(*delivery_conditions))
+            statement = statement.where(
+                select(1)
+                .select_from(Route)
+                .join(RouteStop, RouteStop.route_id == Route.route_id)  # type: ignore[arg-type]
+                .join(Location, Location.location_id == RouteStop.location_id)  # type: ignore[arg-type]
+                .where(Route.route_group_id == RouteGroup.route_group_id)
+                .where(col(Location.delivery_type).in_(delivery_type))
+                .exists()
+            )
 
         if route_status:
             now = datetime.now(self.timezone).replace(tzinfo=None)
@@ -335,21 +358,29 @@ class RouteGroupService:
             if status_conditions:
                 statement = statement.where(or_(*status_conditions))
 
-        # Driver assignment status filter: "Assigned" means at least one route
-        # in this group has a driver_id; "Unassigned" means none do.
+        # Driver assignment status filter. "Assigned" means the group is fully
+        # staffed: it has routes and every one has a driver. "Unassigned" is the
+        # exact complement — at least one route still has no driver, or the
+        # group has no routes yet (so a partially-staffed group is Unassigned).
         if driver_assignment_status:
-            assigned_exists = (
+            route_exists = (
                 exists()
                 .select_from(Route)
                 .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
-                .where(col(Route.driver_id).isnot(None))
             )
+            unassigned_route_exists = (
+                exists()
+                .select_from(Route)
+                .where(Route.route_group_id == RouteGroup.route_group_id)  # type: ignore[arg-type]
+                .where(col(Route.driver_id).is_(None))
+            )
+            fully_assigned = and_(route_exists, ~unassigned_route_exists)
 
             assignment_conditions: list[Any] = []
             if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
-                assignment_conditions.append(assigned_exists)
+                assignment_conditions.append(fully_assigned)
             if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
-                assignment_conditions.append(~assigned_exists)
+                assignment_conditions.append(~fully_assigned)
             if assignment_conditions:
                 statement = statement.where(or_(*assignment_conditions))
 

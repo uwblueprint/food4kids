@@ -36,9 +36,6 @@ export const AdminHomePage = () => {
           </Card>
         </div>
         <Card>
-          <CardContent>TODO: Upcoming Routes</CardContent>
-        </Card>
-        <Card>
           <CardContent>TODO: Unassigned Routes</CardContent>
         </Card>
         <Card>

@@ -998,6 +998,20 @@
         "title": "EmailReminder",
         "type": "object"
       },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1647,6 +1661,17 @@
               }
             ],
             "title": "Last Delivery Date"
+          },
+          "latest_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Note"
           },
           "latitude": {
             "anyOf": [
@@ -2451,7 +2476,7 @@
         "type": "string"
       },
       "RouteDetailRead": {
-        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.",
+        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
           "cloned_from_route_id": {
             "anyOf": [
@@ -2464,6 +2489,22 @@
               }
             ],
             "title": "Cloned From Route Id"
+          },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
+          "drive_date": {
+            "format": "date-time",
+            "title": "Drive Date",
+            "type": "string"
           },
           "driver_id": {
             "anyOf": [
@@ -2568,7 +2609,8 @@
         "required": [
           "length",
           "route_group_id",
-          "route_id"
+          "route_id",
+          "drive_date"
         ],
         "title": "RouteDetailRead",
         "type": "object"
@@ -2647,6 +2689,18 @@
       "RouteGroupCreate": {
         "description": "Create request model",
         "properties": {
+          "delivery_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2671,6 +2725,38 @@
         "title": "RouteGroupCreate",
         "type": "object"
       },
+      "RouteGroupDuplicate": {
+        "description": "Duplicate request model - overrides for the copied group.\n\nBoth optional so the endpoint also works with no body: name falls back to\n\"Copy of {original}\" and drive_date to the original's date.",
+        "properties": {
+          "drive_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drive Date"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "RouteGroupDuplicate",
+        "type": "object"
+      },
       "RouteGroupRead": {
         "description": "Read response model",
         "properties": {
@@ -2689,6 +2775,7 @@
           "delivery_type": {
             "anyOf": [
               {
+                "maxLength": 100,
                 "type": "string"
               },
               {
@@ -3099,9 +3186,35 @@
             "title": "Box Total",
             "type": "integer"
           },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
+            "type": "string"
+          },
+          "driver_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Name"
+          },
+          "group_name": {
+            "title": "Group Name",
             "type": "string"
           },
           "length": {
@@ -3120,6 +3233,11 @@
             "title": "Num Stops",
             "type": "integer"
           },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
           "route_id": {
             "format": "uuid",
             "title": "Route Id",
@@ -3136,17 +3254,24 @@
               }
             ],
             "title": "Start Time"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
           "route_id",
+          "route_group_id",
           "name",
           "notes",
           "length",
           "drive_date",
+          "group_name",
           "start_time",
           "num_stops",
-          "box_total"
+          "box_total",
+          "status"
         ],
         "title": "RouteWithDateRead",
         "type": "object"
@@ -3663,6 +3788,26 @@
         "title": "SystemSettingsUpdate",
         "type": "object"
       },
+      "UpdatePasswordRequest": {
+        "properties": {
+          "new_password": {
+            "maxLength": 100,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          },
+          "password_reset_token": {
+            "title": "Password Reset Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password_reset_token",
+          "new_password"
+        ],
+        "title": "UpdatePasswordRequest",
+        "type": "object"
+      },
       "UserFinalize": {
         "properties": {
           "password": {
@@ -3682,6 +3827,19 @@
           "password"
         ],
         "title": "UserFinalize",
+        "type": "object"
+      },
+      "ValidateResetTokenRequest": {
+        "properties": {
+          "password_reset_token": {
+            "title": "Password Reset Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password_reset_token"
+        ],
+        "title": "ValidateResetTokenRequest",
         "type": "object"
       },
       "ValidatedLocationImportEntry": {
@@ -4142,6 +4300,41 @@
         ]
       }
     },
+    "/auth/forgot-password": {
+      "post": {
+        "description": "Triggers password reset for user with specified email (reset link will be emailed)\nReturns 204 regardless to avoid enumeration attacks",
+        "operationId": "forgot_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forgot Password",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
     "/auth/login": {
       "post": {
         "description": "Returns access token in response body and sets refreshToken as an httpOnly cookie",
@@ -4248,22 +4441,20 @@
         ]
       }
     },
-    "/auth/resetPassword/{email}": {
+    "/auth/update-password": {
       "post": {
-        "description": "Triggers password reset for user with specified email (reset link will be emailed)",
-        "operationId": "reset_password",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "email",
-            "required": true,
-            "schema": {
-              "format": "email",
-              "title": "Email",
-              "type": "string"
+        "description": "Update an existing user's password if provided a valid password reset token",
+        "operationId": "update_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePasswordRequest"
+              }
             }
-          }
-        ],
+          },
+          "required": true
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -4279,12 +4470,42 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
+        "summary": "Update Password",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/validate-reset-token": {
+      "post": {
+        "description": "Validate that a password reset token exists, isn't used, and hasn't expired.",
+        "operationId": "validate_reset_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateResetTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
-        ],
-        "summary": "Reset Password",
+        },
+        "summary": "Validate Reset Token",
         "tags": [
           "authentication"
         ]
@@ -4508,7 +4729,7 @@
     },
     "/drivers/{driver_id}": {
       "delete": {
-        "description": "Delete a driver by ID.\n\nTheir routes are detached (driver_id SET NULL), so the driver's km stop\ncounting toward anyone.",
+        "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted, so the\ndriver's km stop counting toward anyone.",
         "operationId": "delete_driver",
         "parameters": [
           {
@@ -5351,6 +5572,24 @@
               ],
               "description": "Filter by one or more location groups",
               "title": "Location Group Id"
+            }
+          },
+          {
+            "description": "Case-insensitive filter on the delivery address/postal code",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the delivery address/postal code",
+              "title": "Search"
             }
           },
           {
@@ -6432,6 +6671,24 @@
               "title": "Include Routes",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Case-insensitive filter on the route group name",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the route group name",
+              "title": "Search"
+            }
           }
         ],
         "responses": {
@@ -6617,7 +6874,7 @@
     },
     "/route-groups/{route_group_id}/duplicate": {
       "post": {
-        "description": "Duplicate a route group and its routes/stops for a new planning cycle.",
+        "description": "Duplicate a route group and its routes/stops for a new planning cycle.\nOptional body overrides the copy's name and drive date.",
         "operationId": "duplicate_route_group",
         "parameters": [
           {
@@ -6631,6 +6888,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RouteGroupDuplicate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Overrides"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
@@ -6717,6 +6991,108 @@
               ],
               "title": "Order",
               "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive filter on the assigned driver's name",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the assigned driver's name",
+              "title": "Search"
+            }
+          },
+          {
+            "description": "Filter by one or more weekdays of the drive date",
+            "in": "query",
+            "name": "weekday",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DriveDaysOfWeekEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more weekdays of the drive date",
+              "title": "Weekday"
+            }
+          },
+          {
+            "description": "Filter by one or more delivery types",
+            "in": "query",
+            "name": "delivery_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more delivery types",
+              "title": "Delivery Type"
+            }
+          },
+          {
+            "description": "Filter by one or more route statuses",
+            "in": "query",
+            "name": "route_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/RouteStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more route statuses",
+              "title": "Route Status"
+            }
+          },
+          {
+            "description": "Filter by one or more driver assignment statuses",
+            "in": "query",
+            "name": "driver_assignment_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DriverAssignmentStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more driver assignment statuses",
+              "title": "Driver Assignment Status"
             }
           },
           {

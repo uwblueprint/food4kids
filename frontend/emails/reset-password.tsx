@@ -24,7 +24,7 @@ export default function ResetPasswordEmail() {
             href="{{ Reset_Password_URL }}"
             className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[42px] py-[10px] font-nunito text-grey-100 text-[16px] tracking-wide"
           >
-            Reset Password
+            Reset password
           </Button>
         </Section>
 

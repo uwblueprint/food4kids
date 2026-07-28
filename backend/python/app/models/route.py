@@ -116,8 +116,15 @@ class RouteDetailRead(RouteRead):
 
     Stops are assembled with snapshot-over-live precedence. See
     RouteStopDetailRead.
+
+    drive_date is sourced from the route's RouteGroup (mirrors
+    RouteWithDateRead). delivery_type is uniform across a route's locations, so
+    it's read from the first stop's Location and is None when the route has no
+    stops.
     """
 
+    drive_date: datetime
+    delivery_type: str | None = None
     stops: list[RouteStopDetailRead] = Field(default_factory=list)
 
 
@@ -148,13 +155,22 @@ class RouteWithDateRead(SQLModel):
     """
 
     route_id: UUID
+    # The group's id rides along so clients can edit the shared drive_date
+    # (it lives on the RouteGroup, not the route)
+    route_group_id: UUID
     name: str
     notes: str
     length: float
     drive_date: datetime
+    # The group's name, for contexts that identify the route by its group
+    # (e.g. the reassign-driver dialog's "{route} • {group} • {date}" line)
+    group_name: str
     start_time: time | None
     num_stops: int
     box_total: int
+    delivery_type: str | None = None
+    driver_name: str | None = None
+    status: str
 
 
 class SuggestedDriverResponse(SQLModel):

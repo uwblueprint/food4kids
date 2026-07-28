@@ -225,14 +225,14 @@ export function ValidateStep() {
       {/* Actions */}
       <div className="flex items-center justify-between">
         <Button variant="tertiary" asChild>
-          <Link to="/admin/routes/generation/import">Back to Import</Link>
+          <Link to="/admin/routes/generation/import">Back to import</Link>
         </Button>
         <Button
           variant="primary"
           disabled={!canContinue}
           onClick={handleContinue}
         >
-          Continue to Review
+          Continue to review
         </Button>
       </div>
     </>

@@ -36,7 +36,7 @@ export default function CheckLatestAnnouncementsEmail() {
           href="{{ Announcement_URL }}"
           className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[24px] py-[11px] font-nunito text-grey-100 text-[16px] tracking-wide"
           >
-              View Announcement
+              View announcement
           </Button>
         </Section>
       </Section>
