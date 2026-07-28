@@ -140,7 +140,11 @@ function DataTable<T>({
                         : undefined
                     }
                     className={cn(
-                      'text-p1 px-4 py-2.5 text-left font-semibold whitespace-nowrap',
+                      // 54px per the design, header and body alike. A height
+                      // rather than padding so a taller cell (a date button, a
+                      // pill) sets the row height instead of a stack of
+                      // padding rules fighting over it.
+                      'text-p1 h-[54px] px-4 py-2.5 text-left font-semibold whitespace-nowrap',
                       col.headerClassName
                     )}
                   >
@@ -183,7 +187,7 @@ function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'text-p2 text-grey-500 px-4 py-2.5 whitespace-nowrap',
+                        'text-p2 text-grey-500 h-[54px] px-4 py-2.5 whitespace-nowrap',
                         col.getCellClassName?.(row)
                       )}
                     >
