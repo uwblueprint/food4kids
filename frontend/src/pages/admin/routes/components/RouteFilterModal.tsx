@@ -24,7 +24,10 @@ const WEEKDAYS: DriveDaysOfWeekEnum[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 // Group/route status is only ever Upcoming or Completed here (Archived is in
 // the enum but not surfaced), matching the Figma.
 const ROUTE_STATUSES: RouteStatusEnum[] = ['Upcoming', 'Completed'];
-const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = ['Assigned', 'Unassigned'];
+const DRIVER_STATUSES: DriverAssignmentStatusEnum[] = [
+  'Assigned',
+  'Unassigned',
+];
 
 interface RouteFilterModalProps {
   open: boolean;
@@ -124,7 +127,7 @@ export function RouteFilterModal({
             className="disabled:pointer-events-auto disabled:cursor-not-allowed"
             onClick={clearDraft}
           >
-            Clear All
+            Clear all
           </Button>
           <Button variant="primary" onClick={handleApply}>
             Apply

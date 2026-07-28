@@ -170,7 +170,7 @@ export function RouteRoutesTab() {
         hasActiveFilters={filters.hasActiveFilters}
         actions={
           <Button variant="primary" asChild>
-            <Link to="/admin/routes/generation">Generate Routes</Link>
+            <Link to="/admin/routes/generation">Generate routes</Link>
           </Button>
         }
       />
@@ -186,7 +186,7 @@ export function RouteRoutesTab() {
           emptyState={
             <EmptyState
               title="No routes found"
-              description="Try adjusting your filters or generating new routes"
+              description="Try adjusting or clearing your filters"
             />
           }
         />

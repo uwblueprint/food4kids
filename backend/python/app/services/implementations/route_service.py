@@ -125,30 +125,19 @@ class RouteService:
             .subquery()
         )
 
-        # delivery_type: check if any stop on this route has a School location
-        has_school_subq = (
-            select(1)
+        # delivery_type is uniform across a route's locations, so read it off
+        # any of the route's stops (NULL when the route has no stops). No
+        # hardcoded type names — any configured delivery type flows through.
+        delivery_type_expr = (
+            select(Location.delivery_type)
             .select_from(RouteStop)
             .join(Location, col(Location.location_id) == col(RouteStop.location_id))
-            .where(
-                col(RouteStop.route_id) == col(Route.route_id),
-                Location.delivery_type == "School",
-            )
-            .correlate(Route)
-        )
-        has_stops_subq = (
-            select(1)
-            .select_from(RouteStop)
             .where(col(RouteStop.route_id) == col(Route.route_id))
+            .limit(1)
             .correlate(Route)
+            .scalar_subquery()
+            .label("delivery_type")
         )
-        # NOTE: delivery types are configurable (SystemSettings.delivery_types)
-        # since #181; "School"/"Family" here match the seeded defaults only.
-        delivery_type_expr = case(
-            (has_school_subq.exists(), "School"),
-            (has_stops_subq.exists(), "Family"),
-            else_=None,
-        ).label("delivery_type")
 
         # status: upcoming if drive_date is today or future, else completed
         now = datetime.now(timezone.utc).replace(tzinfo=None)

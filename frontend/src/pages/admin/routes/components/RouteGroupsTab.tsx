@@ -158,7 +158,7 @@ export function RouteGroupsTab({
         hasActiveFilters={hasActiveFilters}
         actions={
           <Button variant="primary" asChild>
-            <Link to="/admin/routes/generation">Generate Routes</Link>
+            <Link to="/admin/routes/generation">Generate routes</Link>
           </Button>
         }
       />
@@ -173,8 +173,8 @@ export function RouteGroupsTab({
           getRowClassName={(r) => getRowClassName(r.route_group_id)}
           emptyState={
             <EmptyState
-              title="No routes found"
-              description="Try adjusting your filters or generating new routes"
+              title="No route groups found"
+              description="Try adjusting or clearing your filters"
             />
           }
         />

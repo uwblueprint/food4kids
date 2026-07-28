@@ -42,7 +42,7 @@ const COLUMNS: Column<LocationRead>[] = [
   { key: 'address', header: 'Address', render: (row) => row.address },
   {
     key: 'phone_primary',
-    header: 'Phone Number',
+    header: 'Phone number',
     render: (row) => orDash(row.phone_primary),
   },
   {
@@ -77,7 +77,7 @@ const COLUMNS: Column<LocationRead>[] = [
   },
   {
     key: 'dietary_restrictions',
-    header: 'Food Restrictions',
+    header: 'Food restrictions',
     render: (row) => orDash(row.dietary_restrictions),
   },
   { key: 'halal', header: 'Halal', render: (row) => (row.halal ? 'Y' : 'N') },
@@ -175,8 +175,8 @@ export function RouteAddressesTab({
         onSortChange={toggleSort}
         emptyState={
           <EmptyState
-            title="No addresses found"
-            description="Try adjusting your filters or generating new routes"
+            title="No addresses yet"
+            description="Try adjusting or clearing your filters"
             image="boy-edge-case-with-questions"
           />
         }
@@ -224,7 +224,7 @@ export function RouteAddressesTab({
               className="disabled:pointer-events-auto disabled:cursor-not-allowed"
               onClick={clearDraft}
             >
-              Clear All
+              Clear all
             </Button>
             <Button variant="primary" onClick={handleApply}>
               Apply
