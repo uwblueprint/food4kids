@@ -12,7 +12,9 @@ export interface UseTableSortReturn {
  * Column-sort state for a DataTable. Clicking a new column sorts it ascending;
  * clicking the active column flips between ascending and descending.
  */
-export function useTableSort(initial: SortState | null = null): UseTableSortReturn {
+export function useTableSort(
+  initial: SortState | null = null
+): UseTableSortReturn {
   const [sort, setSort] = useState<SortState | null>(initial);
 
   const toggleSort = (key: string) =>

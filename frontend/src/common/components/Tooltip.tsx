@@ -43,7 +43,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          'bg-white text-grey-500 shadow-admin-bento animate-in fade-in-0 zoom-in-95 z-50 rounded-lg px-4 py-3 text-sm',
+          'text-grey-500 shadow-admin-bento animate-in fade-in-0 zoom-in-95 z-50 rounded-lg bg-white px-4 py-3 text-sm',
           className
         )}
         {...props}

@@ -82,8 +82,12 @@ export function useRouteFilters(): UseRouteFiltersReturn {
   const { data: systemSettings } = useSystemSettings();
   const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
 
-  const hasActiveFilters = Object.values(appliedFilters).some((s) => s.size > 0);
-  const draftHasSelections = Object.values(draftFilters).some((s) => s.size > 0);
+  const hasActiveFilters = Object.values(appliedFilters).some(
+    (s) => s.size > 0
+  );
+  const draftHasSelections = Object.values(draftFilters).some(
+    (s) => s.size > 0
+  );
 
   const openFilters = () => {
     setDraftFilters(copyFilters(appliedFilters));

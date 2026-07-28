@@ -7,7 +7,11 @@ import {
 } from '@/common/components';
 import { AnnouncementsBoard } from '@/features/announcements';
 
-import { RouteAddressesTab, RouteGroupsTab, RouteRoutesTab } from './components';
+import {
+  RouteAddressesTab,
+  RouteGroupsTab,
+  RouteRoutesTab,
+} from './components';
 import { useAddressesTabState, useGroupsTabState } from './hooks';
 
 export const AdminRoutesPage = () => {

@@ -36,8 +36,8 @@ export function DeleteRouteModal({
       title="Delete Route"
       description={
         <>
-          This will permanently delete route {route.name}. This action cannot
-          be undone.
+          This will permanently delete route {route.name}. This action cannot be
+          undone.
         </>
       }
       isPending={isPending}
