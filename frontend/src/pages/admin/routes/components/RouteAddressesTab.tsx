@@ -60,7 +60,7 @@ const COLUMNS: Column<LocationRead>[] = [
     sortValue: (row) =>
       row.last_delivery_date ? new Date(row.last_delivery_date) : null,
     render: (row) =>
-      row.last_delivery_date ? formatShortDate(row.last_delivery_date) : '-',
+      orDash(row.last_delivery_date && formatShortDate(row.last_delivery_date)),
   },
   {
     key: 'total_deliveries',

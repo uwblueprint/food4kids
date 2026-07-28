@@ -2,6 +2,7 @@ import type { RouteGroupRead } from '@/api/generated/types.gen';
 import { useRouteGroups } from '@/api/route-groups';
 import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
 import {
+  clampPage,
   TABLE_PAGE_SIZE,
   useDebouncedValue,
   usePagination,
@@ -41,13 +42,15 @@ export function useGroupsTabState(): GroupsTabState {
     page_size: TABLE_PAGE_SIZE,
   });
 
+  const totalPages = data?.total_pages ?? 0;
+
   return {
     ...filters,
     rows: data?.items ?? [],
     isLoading,
-    page,
+    page: clampPage(page, totalPages, setPage),
     setPage,
-    totalPages: data?.total_pages ?? 0,
+    totalPages,
     search,
     searchTerm: debouncedSearch.trim(),
   };

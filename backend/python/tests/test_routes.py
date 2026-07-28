@@ -4167,6 +4167,39 @@ class TestRouteGroupRoutes:
         assert [g["name"] for g in last.json()["items"]] == ["Page Test 5"]
 
     @pytest.mark.asyncio
+    async def test_get_route_groups_pages_do_not_overlap_on_a_shared_date(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Groups sharing a drive date still page without gaps or repeats.
+
+        Ordering by drive_date alone leaves ties for the database to break, and
+        it does not have to break them the same way twice — so a row could be
+        served on two pages while another is served on none. Every group here
+        shares one date, which is the normal case (a day's worth of routes), so
+        the tie-break is the only thing deciding the order.
+        """
+        shared_date = datetime(2026, 8, 3, 9, 0)
+        test_session.add_all(
+            [
+                RouteGroup(name=f"Tied {i:02d}", drive_date=shared_date)
+                for i in range(1, 8)
+            ]
+        )
+        await test_session.commit()
+
+        seen: list[str] = []
+        for page in (1, 2, 3):
+            response = await async_client.get(
+                "/route-groups",
+                params={"search": "Tied", "page": page, "page_size": 3},
+            )
+            assert response.status_code == 200
+            seen.extend(g["name"] for g in response.json()["items"])
+
+        # Every group exactly once, and in the total order the tie-break defines.
+        assert seen == [f"Tied {i:02d}" for i in range(1, 8)]
+
+    @pytest.mark.asyncio
     async def test_get_route_groups_filters_by_driver_assignment_status(
         self,
         async_client: AsyncClient,

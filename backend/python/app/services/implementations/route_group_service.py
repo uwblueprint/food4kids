@@ -220,9 +220,14 @@ class RouteGroupService:
         # A group's delivery type is a property of the stops it serves, not of
         # the group: it is whatever its locations are. A group with no stops
         # yet has no delivery type to report, and reads NULL.
+        # A group whose stops span more than one delivery type has no single
+        # right answer here, and nothing yet enforces that they cannot. Ordering
+        # makes the arbitrary pick at least a stable one, so the same group does
+        # not report different types on consecutive loads.
         delivery_type_expr = (
             select(Location.delivery_type)
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
+            .order_by(Location.delivery_type)
             .limit(1)
             .correlate(RouteGroup)
             .scalar_subquery()
@@ -391,7 +396,14 @@ class RouteGroupService:
                 statement = statement.where(or_(*assignment_conditions))
 
         statement = statement.options(selectinload(RouteGroup.routes))  # type: ignore[arg-type]
-        statement = statement.order_by(RouteGroup.drive_date)
+        # Groups routinely share a drive date, and paginate_query runs the count
+        # and the page as separate statements — so ordering by the date alone
+        # lets the database break ties differently between them and a row can be
+        # skipped or repeated across page boundaries. Name then id makes the
+        # order total, so every page is cut from the same sequence.
+        statement = statement.order_by(
+            RouteGroup.drive_date, RouteGroup.name, RouteGroup.route_group_id
+        )
 
         if pagination is None:
             pagination = PaginationParams()

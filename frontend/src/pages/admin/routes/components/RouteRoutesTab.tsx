@@ -13,6 +13,7 @@ import {
   TableToolbar,
 } from '@/common/components';
 import {
+  clampPage,
   TABLE_PAGE_SIZE,
   useDebouncedValue,
   usePagination,
@@ -81,10 +82,15 @@ export function RouteRoutesTab() {
     search: searchTerm || undefined,
     ...routeFiltersToQuery(filters.appliedFilters),
   };
-  const { page, setPage } = usePagination(JSON.stringify(query));
-  const { data } = useRoutes({ ...query, page, page_size: TABLE_PAGE_SIZE });
+  const { page: requestedPage, setPage } = usePagination(JSON.stringify(query));
+  const { data } = useRoutes({
+    ...query,
+    page: requestedPage,
+    page_size: TABLE_PAGE_SIZE,
+  });
   const rows = useMemo(() => data?.items ?? [], [data]);
   const totalPages = data?.total_pages ?? 0;
+  const page = clampPage(requestedPage, totalPages, setPage);
   const { sort, toggleSort } = useTableSort();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   // Highlight + scroll a row after a date edit (re-sorts it) or a driver

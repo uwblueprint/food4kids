@@ -11,6 +11,7 @@ import {
 } from '@/api/system-settings';
 import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
 import {
+  clampPage,
   TABLE_PAGE_SIZE,
   useDebouncedValue,
   usePagination,
@@ -125,12 +126,14 @@ export function useAddressesTabState(): AddressesTabState {
     setFilterOpen(false);
   };
 
+  const totalPages = data?.total_pages ?? 0;
+
   return {
     rows: data?.items ?? [],
     isLoading,
-    page,
+    page: clampPage(page, totalPages, setPage),
     setPage,
-    totalPages: data?.total_pages ?? 0,
+    totalPages,
     deliveryTypes,
     search,
     searchTerm: debouncedSearch.trim(),
