@@ -28,7 +28,7 @@ export function AddressActionsCell({ row }: AddressActionsCellProps) {
               'transition-colors hover:bg-blue-50 data-[state=open]:bg-blue-50'
             )}
           >
-            <MoreVerticalIcon className="text-grey-400 size-5" />
+            <MoreVerticalIcon className="text-grey-400 size-4" />
           </button>
         </PopoverTrigger>
         <PopoverContent

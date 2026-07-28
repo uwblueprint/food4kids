@@ -145,7 +145,10 @@ function DataTable<T>({
                       // pill) sets the row height instead of a stack of
                       // padding rules fighting over it.
                       // Headers are the H3 style — Nunito Sans Bold 16/20.
-                      'text-h3 h-[54px] px-4 py-2.5 text-left font-bold whitespace-nowrap',
+                      // The design runs its columns edge to edge inside the
+                      // card's 24px padding, so the last one has no trailing
+                      // gap of its own — that is what puts the kebab flush.
+                      'text-h3 h-[54px] px-4 py-2.5 text-left font-bold whitespace-nowrap last:pr-0',
                       col.headerClassName
                     )}
                   >
@@ -189,7 +192,7 @@ function DataTable<T>({
                       key={col.key}
                       className={cn(
                         // Every body string in the design is 14/18 SemiBold.
-                        'text-p2 text-grey-500 h-[54px] px-4 py-2.5 font-semibold whitespace-nowrap',
+                        'text-p2 text-grey-500 h-[54px] px-4 py-2.5 font-semibold whitespace-nowrap last:pr-0',
                         col.getCellClassName?.(row)
                       )}
                     >
