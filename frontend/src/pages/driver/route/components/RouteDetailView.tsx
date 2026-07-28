@@ -8,6 +8,7 @@ import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
 import { cn } from '@/lib/utils';
 
+import { DotSeparated } from './DotSeparated';
 import { RouteStopCard } from './RouteStopCard';
 
 // TODO: replace with the real Food4Kids office number
@@ -76,9 +77,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
   const subtitle = [
     formatDriveDate(route.drive_date),
     formatStartTime(route.start_time),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ].filter(Boolean);
 
   const handlePrint = () => window.print();
 
@@ -128,10 +127,11 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
           <h1 className="text-h1 text-grey-500 font-bold">
             {route.name || 'Route'}
           </h1>
-          {subtitle && (
-            <p className="text-m-p2 tablet:font-medium text-grey-400">
-              {subtitle}
-            </p>
+          {subtitle.length > 0 && (
+            <DotSeparated
+              items={subtitle}
+              className="text-m-p2 tablet:font-medium text-grey-400"
+            />
           )}
         </div>
 

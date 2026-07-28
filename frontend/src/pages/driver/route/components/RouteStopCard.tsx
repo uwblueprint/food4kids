@@ -2,6 +2,8 @@ import { ChevronDown } from 'lucide-react';
 
 import type { RouteStopDetailRead } from '@/api/generated/types.gen';
 
+import { DotSeparated } from './DotSeparated';
+
 export interface RouteStopCardProps {
   stop: RouteStopDetailRead;
 }
@@ -39,7 +41,7 @@ function splitAddress(address: string): {
 export function RouteStopCard({ stop }: RouteStopCardProps) {
   const { street, city } = splitAddress(stop.address);
   const boxLabel = `${stop.boxes} ${stop.boxes === 1 ? 'box' : 'boxes'}`;
-  const subLine = [city, boxLabel].filter(Boolean).join(' · ');
+  const subLine = [city, boxLabel].filter(Boolean);
 
   return (
     <details className="group border-grey-300 rounded-xl border bg-white p-3">
@@ -51,9 +53,10 @@ export function RouteStopCard({ stop }: RouteStopCardProps) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="text-p1 text-grey-500 break-words">{street}</p>
-          <p className="text-p2 tablet:font-semibold text-grey-500">
-            {subLine}
-          </p>
+          <DotSeparated
+            items={subLine}
+            className="text-p2 tablet:font-semibold text-grey-500"
+          />
         </div>
 
         <ChevronDown className="text-grey-500 size-6 shrink-0 transition-transform group-open:rotate-180" />
