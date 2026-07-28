@@ -2689,18 +2689,6 @@
       "RouteGroupCreate": {
         "description": "Create request model",
         "properties": {
-          "delivery_type": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Delivery Type"
-          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2775,7 +2763,6 @@
           "delivery_type": {
             "anyOf": [
               {
-                "maxLength": 100,
                 "type": "string"
               },
               {
@@ -3278,8 +3265,7 @@
             "title": "Start Time"
           },
           "status": {
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/RouteStatusEnum"
           }
         },
         "required": [

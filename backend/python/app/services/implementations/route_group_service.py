@@ -110,7 +110,6 @@ class RouteGroupService:
                 if overrides and overrides.drive_date
                 else route_group.drive_date
             ),
-            delivery_type=route_group.delivery_type,
         )
         session.add(duplicated_group)
 
@@ -216,17 +215,17 @@ class RouteGroupService:
             .label("num_drivers_assigned")
         )
 
-        # Prefer the delivery type derived from the group's stops; fall back to
-        # the type chosen when the group was created (used by empty groups made
-        # ahead of route generation via the Add Route Group dialog).
-        delivery_type_expr = func.coalesce(
+        # A group's delivery type is a property of the stops it serves, not of
+        # the group: it is whatever its locations are. A group with no stops
+        # yet has no delivery type to report, and reads NULL.
+        delivery_type_expr = (
             select(Location.delivery_type)
             .where(Location.location_id.in_(group_location_ids))  # type: ignore[attr-defined]
             .limit(1)
             .correlate(RouteGroup)
-            .scalar_subquery(),
-            RouteGroup.delivery_type,
-        ).label("delivery_type")
+            .scalar_subquery()
+            .label("delivery_type")
+        )
 
         now = datetime.now(self.timezone).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

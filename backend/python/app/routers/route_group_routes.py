@@ -85,22 +85,12 @@ async def create_route_group(
     route_group: RouteGroupCreate,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
-    location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Create a new route group
     """
-    try:
-        if route_group.delivery_type:
-            await location_service.validate_delivery_types(
-                session, [route_group.delivery_type]
-            )
-        return await route_group_service.create_route_group(session, route_group)
-    except InvalidDeliveryTypeError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(ve)
-        ) from ve
+    return await route_group_service.create_route_group(session, route_group)
 
 
 @router.patch("/{route_group_id}", response_model=RouteGroupRead)

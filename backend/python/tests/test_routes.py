@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
 from app.dependencies.services import get_google_maps_client
-from app.models.enum import ProgressEnum
+from app.models.enum import ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -2603,6 +2603,84 @@ class TestRouteRoutes:
         assert empty.json()["items"] == []
 
     @pytest.mark.asyncio
+    async def test_get_routes_returns_derived_row_values(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+        test_location_group: Any,
+        test_driver: Any,
+    ) -> None:
+        """The list rows carry the values the Routes tab renders.
+
+        delivery_type, driver_name and status are computed in the query rather
+        than stored, so nothing else catches them going wrong: the filters can
+        all pass while the displayed row is derived some other way. This pins
+        the values themselves, including the empty route that has no stop to
+        read a delivery type from.
+        """
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Derived",
+            contact_name="Derived",
+            address="1 Derived St",
+            phone_primary="5550000009",
+            delivery_type="School",
+            num_children=3,
+        )
+        test_session.add(location)
+        await test_session.flush()
+
+        served = Route(
+            name="Served",
+            length=4.2,
+            route_group_id=test_route_group.route_group_id,
+            driver_id=test_driver.driver_id,
+        )
+        empty = Route(
+            name="Empty", length=0.0, route_group_id=test_route_group.route_group_id
+        )
+        test_session.add_all([served, empty])
+        await test_session.flush()
+        test_session.add(
+            RouteStop(
+                route_id=served.route_id,
+                location_id=location.location_id,
+                stop_number=1,
+            )
+        )
+        await test_session.commit()
+        await test_session.refresh(served)
+        await test_session.refresh(empty)
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        rows = {item["route_id"]: item for item in response.json()["items"]}
+
+        served_row = rows[str(served.route_id)]
+        # Read off the stop's location, not off the group.
+        assert served_row["delivery_type"] == "School"
+        assert served_row["driver_name"] == "John Doe"
+        assert served_row["group_name"] == test_route_group.name
+        assert served_row["route_group_id"] == str(test_route_group.route_group_id)
+        assert served_row["num_stops"] == 1
+
+        empty_row = rows[str(empty.route_id)]
+        # No stops -> no location -> no delivery type, and no driver assigned.
+        assert empty_row["delivery_type"] is None
+        assert empty_row["driver_name"] is None
+        assert empty_row["num_stops"] == 0
+
+        # Both routes share a group, so they share its drive_date and status.
+        expected_status = (
+            RouteStatusEnum.UPCOMING
+            if test_route_group.drive_date.date() >= date.today()
+            else RouteStatusEnum.COMPLETED
+        )
+        assert served_row["status"] == expected_status.value
+        assert empty_row["status"] == expected_status.value
+
+    @pytest.mark.asyncio
     async def test_get_routes_filters_by_driver_assignment_status(
         self,
         async_client: AsyncClient,
@@ -3633,12 +3711,15 @@ class TestRouteGroupRoutes:
         assert "route_group_id" in result
 
     @pytest.mark.asyncio
-    async def test_create_route_group_with_delivery_type(
+    async def test_create_route_group_has_no_delivery_type_until_it_has_stops(
         self, async_client: AsyncClient, sample_route_group_data: dict[str, Any]
     ) -> None:
-        """A group created with a delivery type keeps it while it has no
-        routes: it comes back on the create response and on GET /route-groups
-        (where groups with routes derive it from their stops instead)."""
+        """Delivery type is derived from the group's stops, never stored.
+
+        A freshly created group has no stops, so it reports None — and a
+        delivery_type in the request body is not a field on the create model,
+        so it cannot set one.
+        """
         data = sample_route_group_data.copy()
         data["drive_date"] = data["drive_date"].isoformat()
         data["delivery_type"] = "School"
@@ -3646,7 +3727,7 @@ class TestRouteGroupRoutes:
         response = await async_client.post("/route-groups", json=data)
         assert response.status_code == 201
         result = response.json()
-        assert result["delivery_type"] == "School"
+        assert result["delivery_type"] is None
 
         response = await async_client.get("/route-groups")
         assert response.status_code == 200
@@ -3655,19 +3736,7 @@ class TestRouteGroupRoutes:
             for rg in response.json()
             if str(rg["route_group_id"]) == str(result["route_group_id"])
         )
-        assert created["delivery_type"] == "School"
-
-    @pytest.mark.asyncio
-    async def test_create_route_group_invalid_delivery_type(
-        self, async_client: AsyncClient, sample_route_group_data: dict[str, Any]
-    ) -> None:
-        """POST /route-groups rejects delivery types that aren't configured."""
-        data = sample_route_group_data.copy()
-        data["drive_date"] = data["drive_date"].isoformat()
-        data["delivery_type"] = "Not A Real Type"
-
-        response = await async_client.post("/route-groups", json=data)
-        assert response.status_code == 422
+        assert created["delivery_type"] is None
 
     @pytest.mark.asyncio
     async def test_get_route_groups_with_data(
@@ -3895,12 +3964,11 @@ class TestRouteGroupRoutes:
     async def test_duplicate_route_group_with_overrides(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
-        """The optional body overrides the copy's name/drive_date; delivery_type carries over."""
+        """The optional body overrides the copy's name and drive_date."""
         route_group = RouteGroup(
             name="Tuesday A - Cambridge North",
             notes="",
             drive_date=datetime(2026, 7, 9, 9, 0),
-            delivery_type="Family",
         )
         test_session.add(route_group)
         await test_session.commit()
@@ -3918,7 +3986,8 @@ class TestRouteGroupRoutes:
         assert body["route_group_id"] != str(route_group.route_group_id)
         assert body["name"] == "Tuesday A - Cambridge North (Copy)"
         assert body["drive_date"] == "2026-07-16T00:00:00"
-        assert body["delivery_type"] == "Family"
+        # The copy has no stops yet, so it has no delivery type to report.
+        assert body["delivery_type"] is None
 
     @pytest.mark.asyncio
     async def test_duplicate_route_group_not_found(

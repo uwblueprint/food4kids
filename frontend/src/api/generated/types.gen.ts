@@ -1590,10 +1590,6 @@ export type RouteGenerationSettings = {
  */
 export type RouteGroupCreate = {
   /**
-   * Delivery Type
-   */
-  delivery_type?: string | null;
-  /**
    * Drive Date
    */
   drive_date: string;
@@ -1926,10 +1922,7 @@ export type RouteWithDateRead = {
    * Start Time
    */
   start_time: string | null;
-  /**
-   * Status
-   */
-  status: string;
+  status: RouteStatusEnum;
 };
 
 /**

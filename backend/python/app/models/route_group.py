@@ -17,11 +17,6 @@ class RouteGroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255, nullable=False)
     notes: str = Field(default="")
     drive_date: datetime
-    # Delivery type chosen when the group is created ahead of route
-    # generation. Once the group has routes, reads derive the delivery type
-    # from its stops' locations instead and this is only a fallback (see
-    # RouteGroupService.get_route_groups).
-    delivery_type: str | None = Field(default=None, max_length=100)
 
 
 class RouteGroup(RouteGroupBase, BaseModel, table=True):
@@ -76,6 +71,9 @@ class RouteGroupRead(RouteGroupBase):
     num_locations: int = 0
     num_boxes: int = 0
     num_drivers_assigned: int = 0
+    # Derived from the group's stops' locations, not stored: a group's delivery
+    # type is whatever it delivers. None until the group has stops.
+    delivery_type: str | None = None
     status: RouteStatusEnum
     routes: list[RouteReadSummary] = []
 
