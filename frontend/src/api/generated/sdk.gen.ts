@@ -1333,6 +1333,7 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
+ * Optional body overrides the copy's name and drive date.
  */
 export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
   options: Options<DuplicateRouteGroupData, ThrowOnError>
@@ -1346,6 +1347,10 @@ export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/route-groups/{route_group_id}/duplicate',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

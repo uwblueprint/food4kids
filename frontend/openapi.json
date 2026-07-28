@@ -1662,6 +1662,17 @@
             ],
             "title": "Last Delivery Date"
           },
+          "latest_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Note"
+          },
           "latitude": {
             "anyOf": [
               {
@@ -2678,6 +2689,18 @@
       "RouteGroupCreate": {
         "description": "Create request model",
         "properties": {
+          "delivery_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
@@ -2702,6 +2725,38 @@
         "title": "RouteGroupCreate",
         "type": "object"
       },
+      "RouteGroupDuplicate": {
+        "description": "Duplicate request model - overrides for the copied group.\n\nBoth optional so the endpoint also works with no body: name falls back to\n\"Copy of {original}\" and drive_date to the original's date.",
+        "properties": {
+          "drive_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drive Date"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "RouteGroupDuplicate",
+        "type": "object"
+      },
       "RouteGroupRead": {
         "description": "Read response model",
         "properties": {
@@ -2720,6 +2775,7 @@
           "delivery_type": {
             "anyOf": [
               {
+                "maxLength": 100,
                 "type": "string"
               },
               {
@@ -3130,9 +3186,35 @@
             "title": "Box Total",
             "type": "integer"
           },
+          "delivery_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Type"
+          },
           "drive_date": {
             "format": "date-time",
             "title": "Drive Date",
+            "type": "string"
+          },
+          "driver_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Name"
+          },
+          "group_name": {
+            "title": "Group Name",
             "type": "string"
           },
           "length": {
@@ -3151,6 +3233,11 @@
             "title": "Num Stops",
             "type": "integer"
           },
+          "route_group_id": {
+            "format": "uuid",
+            "title": "Route Group Id",
+            "type": "string"
+          },
           "route_id": {
             "format": "uuid",
             "title": "Route Id",
@@ -3167,17 +3254,24 @@
               }
             ],
             "title": "Start Time"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
           "route_id",
+          "route_group_id",
           "name",
           "notes",
           "length",
           "drive_date",
+          "group_name",
           "start_time",
           "num_stops",
-          "box_total"
+          "box_total",
+          "status"
         ],
         "title": "RouteWithDateRead",
         "type": "object"
@@ -5481,6 +5575,24 @@
             }
           },
           {
+            "description": "Case-insensitive filter on the delivery address/postal code",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the delivery address/postal code",
+              "title": "Search"
+            }
+          },
+          {
             "description": "Page number (1-indexed)",
             "in": "query",
             "name": "page",
@@ -6559,6 +6671,24 @@
               "title": "Include Routes",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Case-insensitive filter on the route group name",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the route group name",
+              "title": "Search"
+            }
           }
         ],
         "responses": {
@@ -6744,7 +6874,7 @@
     },
     "/route-groups/{route_group_id}/duplicate": {
       "post": {
-        "description": "Duplicate a route group and its routes/stops for a new planning cycle.",
+        "description": "Duplicate a route group and its routes/stops for a new planning cycle.\nOptional body overrides the copy's name and drive date.",
         "operationId": "duplicate_route_group",
         "parameters": [
           {
@@ -6758,6 +6888,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RouteGroupDuplicate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Overrides"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
@@ -6844,6 +6991,108 @@
               ],
               "title": "Order",
               "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive filter on the assigned driver's name",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive filter on the assigned driver's name",
+              "title": "Search"
+            }
+          },
+          {
+            "description": "Filter by one or more weekdays of the drive date",
+            "in": "query",
+            "name": "weekday",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DriveDaysOfWeekEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more weekdays of the drive date",
+              "title": "Weekday"
+            }
+          },
+          {
+            "description": "Filter by one or more delivery types",
+            "in": "query",
+            "name": "delivery_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more delivery types",
+              "title": "Delivery Type"
+            }
+          },
+          {
+            "description": "Filter by one or more route statuses",
+            "in": "query",
+            "name": "route_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/RouteStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more route statuses",
+              "title": "Route Status"
+            }
+          },
+          {
+            "description": "Filter by one or more driver assignment statuses",
+            "in": "query",
+            "name": "driver_assignment_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/DriverAssignmentStatusEnum"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by one or more driver assignment statuses",
+              "title": "Driver Assignment Status"
             }
           },
           {

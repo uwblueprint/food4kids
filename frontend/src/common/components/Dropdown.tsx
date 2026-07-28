@@ -16,7 +16,9 @@ function DropdownTrigger({
     <SelectPrimitive.Trigger
       className={cn(
         'inline-flex w-full cursor-pointer items-center justify-between rounded-full px-6 py-3',
-        'text-p2 text-grey-500 transition-colors outline-none',
+        // No `outline-none` here: it would set --tw-outline-style to `none`,
+        // which the outline-1 below inherits, making the outline invisible
+        'text-p2 text-grey-500 transition-colors',
         'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
         'focus:outline-2 focus:outline-blue-300',
         'data-[state=open]:outline-2 data-[state=open]:outline-blue-300',

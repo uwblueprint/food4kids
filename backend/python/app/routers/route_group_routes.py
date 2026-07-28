@@ -14,6 +14,7 @@ from app.models.enum import (
 )
 from app.models.route_group import (
     RouteGroupCreate,
+    RouteGroupDuplicate,
     RouteGroupRead,
     RouteGroupUpdate,
 )
@@ -47,6 +48,9 @@ async def get_route_groups(
         None, description="Filter by one or more driver assignment statuses"
     ),
     include_routes: bool = Query(False, description="Include routes in the response"),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the route group name"
+    ),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     location_service: LocationService = Depends(get_location_service),
@@ -68,6 +72,7 @@ async def get_route_groups(
             route_status,
             driver_assignment_status,
             include_routes,
+            search,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
@@ -80,12 +85,22 @@ async def create_route_group(
     route_group: RouteGroupCreate,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
+    location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Create a new route group
     """
-    return await route_group_service.create_route_group(session, route_group)
+    try:
+        if route_group.delivery_type:
+            await location_service.validate_delivery_types(
+                session, [route_group.delivery_type]
+            )
+        return await route_group_service.create_route_group(session, route_group)
+    except InvalidDeliveryTypeError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(ve)
+        ) from ve
 
 
 @router.patch("/{route_group_id}", response_model=RouteGroupRead)
@@ -117,15 +132,17 @@ async def update_route_group(
 )
 async def duplicate_route_group(
     route_group_id: UUID,
+    overrides: RouteGroupDuplicate | None = None,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Duplicate a route group and its routes/stops for a new planning cycle.
+    Optional body overrides the copy's name and drive date.
     """
     duplicated_route_group = await route_group_service.duplicate_route_group(
-        session, route_group_id
+        session, route_group_id, overrides
     )
     if not duplicated_route_group:
         raise HTTPException(

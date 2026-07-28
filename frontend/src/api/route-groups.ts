@@ -1,6 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getRouteGroupsOptions } from './generated/@tanstack/react-query.gen';
+import {
+  createRouteGroupMutation,
+  deleteRouteGroupMutation,
+  duplicateRouteGroupMutation,
+  getRouteGroupsOptions,
+  getRouteGroupsQueryKey,
+  getRoutesQueryKey,
+  updateRouteGroupMutation,
+} from './generated/@tanstack/react-query.gen';
 import type { GetRouteGroupsData } from './generated/types.gen';
 
 /**
@@ -11,12 +19,79 @@ import type { GetRouteGroupsData } from './generated/types.gen';
  * returned on RouteGroupRead (F4KRP-196). Consumers should import that
  * generated type rather than a hand-written row shape.
  *
- * GET /route-groups has no full-text search param yet, so the tab's search box
- * is local-only UI for now — only the filter chips hit the server.
+ * The `search` query filters (case-insensitive) on the group name server-side;
+ * the filter chips narrow by weekday/delivery type/status. `placeholderData`
+ * keeps the previous list visible while a new search/filter refetches.
  */
 export function useRouteGroups(query: GetRouteGroupsData['query']) {
   return useQuery({
     ...getRouteGroupsOptions({ query }),
-    placeholderData: [],
+    placeholderData: (prev) => prev ?? [],
+  });
+}
+
+/**
+ * POST /route-groups. Invalidates every cached GET /route-groups variant so
+ * all filter combinations refetch.
+ */
+export function useCreateRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...createRouteGroupMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
+    },
+  });
+}
+
+/**
+ * PATCH /route-groups/{route_group_id}. Invalidates every cached
+ * GET /route-groups variant so all filter combinations refetch, plus
+ * GET /routes since each route's drive_date comes from its group.
+ *
+ * Returns the invalidation promise so per-call onSuccess callbacks run only
+ * after the refetched lists land — rows are already re-sorted by then, which
+ * the drive-date cell's highlight-and-scroll relies on.
+ */
+export function useUpdateRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...updateRouteGroupMutation(),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() }),
+      ]),
+  });
+}
+
+/**
+ * DELETE /route-groups/{route_group_id}. Invalidates GET /route-groups and
+ * GET /routes since the group's routes are cascade-deleted with it.
+ */
+export function useDeleteRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...deleteRouteGroupMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() });
+    },
+  });
+}
+
+/**
+ * POST /route-groups/{route_group_id}/duplicate. The optional body overrides
+ * the copy's name and drive_date. Invalidates GET /route-groups and
+ * GET /routes since the group's routes are copied with it.
+ */
+export function useDuplicateRouteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...duplicateRouteGroupMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() });
+    },
   });
 }

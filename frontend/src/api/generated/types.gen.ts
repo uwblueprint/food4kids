@@ -1007,6 +1007,10 @@ export type LocationRead = {
    */
   last_delivery_date?: string | null;
   /**
+   * Latest Note
+   */
+  latest_note?: string | null;
+  /**
    * Latitude
    */
   latitude?: number | null;
@@ -1586,6 +1590,10 @@ export type RouteGenerationSettings = {
  */
 export type RouteGroupCreate = {
   /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
+  /**
    * Drive Date
    */
   drive_date: string;
@@ -1597,6 +1605,25 @@ export type RouteGroupCreate = {
    * Notes
    */
   notes?: string;
+};
+
+/**
+ * RouteGroupDuplicate
+ *
+ * Duplicate request model - overrides for the copied group.
+ *
+ * Both optional so the endpoint also works with no body: name falls back to
+ * "Copy of {original}" and drive_date to the original's date.
+ */
+export type RouteGroupDuplicate = {
+  /**
+   * Drive Date
+   */
+  drive_date?: string | null;
+  /**
+   * Name
+   */
+  name?: string | null;
 };
 
 /**
@@ -1848,9 +1875,21 @@ export type RouteWithDateRead = {
    */
   box_total: number;
   /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
+  /**
    * Drive Date
    */
   drive_date: string;
+  /**
+   * Driver Name
+   */
+  driver_name?: string | null;
+  /**
+   * Group Name
+   */
+  group_name: string;
   /**
    * Length
    */
@@ -1868,6 +1907,10 @@ export type RouteWithDateRead = {
    */
   num_stops: number;
   /**
+   * Route Group Id
+   */
+  route_group_id: string;
+  /**
    * Route Id
    */
   route_id: string;
@@ -1875,6 +1918,10 @@ export type RouteWithDateRead = {
    * Start Time
    */
   start_time: string | null;
+  /**
+   * Status
+   */
+  status: string;
 };
 
 /**
@@ -2369,6 +2416,10 @@ export type LocationReadWritable = {
    * Last Delivery Date
    */
   last_delivery_date?: string | null;
+  /**
+   * Latest Note
+   */
+  latest_note?: string | null;
   /**
    * Latitude
    */
@@ -3442,6 +3493,12 @@ export type GetLocationsData = {
      */
     location_group_id?: Array<string> | null;
     /**
+     * Search
+     *
+     * Case-insensitive filter on the delivery address/postal code
+     */
+    search?: string | null;
+    /**
      * Page
      *
      * Page number (1-indexed)
@@ -4053,6 +4110,12 @@ export type GetRouteGroupsData = {
      * Include routes in the response
      */
     include_routes?: boolean;
+    /**
+     * Search
+     *
+     * Case-insensitive filter on the route group name
+     */
+    search?: string | null;
   };
   url: '/route-groups';
 };
@@ -4171,7 +4234,10 @@ export type UpdateRouteGroupResponse =
   UpdateRouteGroupResponses[keyof UpdateRouteGroupResponses];
 
 export type DuplicateRouteGroupData = {
-  body?: never;
+  /**
+   * Overrides
+   */
+  body?: RouteGroupDuplicate | null;
   path: {
     /**
      * Route Group Id
@@ -4230,6 +4296,36 @@ export type GetRoutesData = {
      * Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
      */
     order?: 'asc' | 'desc';
+    /**
+     * Search
+     *
+     * Case-insensitive filter on the assigned driver's name
+     */
+    search?: string | null;
+    /**
+     * Weekday
+     *
+     * Filter by one or more weekdays of the drive date
+     */
+    weekday?: Array<DriveDaysOfWeekEnum> | null;
+    /**
+     * Delivery Type
+     *
+     * Filter by one or more delivery types
+     */
+    delivery_type?: Array<string> | null;
+    /**
+     * Route Status
+     *
+     * Filter by one or more route statuses
+     */
+    route_status?: Array<RouteStatusEnum> | null;
+    /**
+     * Driver Assignment Status
+     *
+     * Filter by one or more driver assignment statuses
+     */
+    driver_assignment_status?: Array<DriverAssignmentStatusEnum> | null;
     /**
      * Page
      *

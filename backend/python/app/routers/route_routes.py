@@ -11,6 +11,11 @@ from app.dependencies.auth import (
     resolve_route_list_driver_filter,
 )
 from app.models import get_session
+from app.models.enum import (
+    DriveDaysOfWeekEnum,
+    DriverAssignmentStatusEnum,
+    RouteStatusEnum,
+)
 from app.models.route import (
     RouteDetailRead,
     RoutePatchRequest,
@@ -44,6 +49,21 @@ async def get_routes(
         description="Order by drive_date: 'asc' (default, oldest-first) for the "
         "upcoming feed, 'desc' (most-recent-first) for the past feed.",
     ),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the assigned driver's name"
+    ),
+    weekday: list[DriveDaysOfWeekEnum] | None = Query(
+        None, description="Filter by one or more weekdays of the drive date"
+    ),
+    delivery_type: list[str] | None = Query(
+        None, description="Filter by one or more delivery types"
+    ),
+    route_status: list[RouteStatusEnum] | None = Query(
+        None, description="Filter by one or more route statuses"
+    ),
+    driver_assignment_status: list[DriverAssignmentStatusEnum] | None = Query(
+        None, description="Filter by one or more driver assignment statuses"
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Depends(resolve_route_list_driver_filter),
@@ -67,7 +87,18 @@ async def get_routes(
             "themselves, so they cannot list unassigned routes.)",
         )
     return await route_service.get_routes(
-        session, unassigned_only, start_date, end_date, pagination, driver_id, order
+        session,
+        unassigned_only,
+        start_date,
+        end_date,
+        pagination,
+        driver_id,
+        order,
+        search,
+        weekday,
+        delivery_type,
+        route_status,
+        driver_assignment_status,
     )
 
 

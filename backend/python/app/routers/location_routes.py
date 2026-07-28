@@ -46,6 +46,9 @@ async def get_locations(
     location_group_id: list[UUID] | None = Query(
         None, description="Filter by one or more location groups"
     ),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the delivery address/postal code"
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
@@ -61,7 +64,12 @@ async def get_locations(
         # items with has_future_route populated (so the computed `status` is
         # correct). Re-validating each item here would reset has_future_route.
         return await location_service.get_locations(
-            session, pagination, delivery_type, status_filter, location_group_id
+            session,
+            pagination,
+            delivery_type,
+            status_filter,
+            location_group_id,
+            search,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
