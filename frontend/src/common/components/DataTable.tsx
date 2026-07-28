@@ -144,7 +144,8 @@ function DataTable<T>({
                       // rather than padding so a taller cell (a date button, a
                       // pill) sets the row height instead of a stack of
                       // padding rules fighting over it.
-                      'text-p1 h-[54px] px-4 py-2.5 text-left font-semibold whitespace-nowrap',
+                      // Headers are the H3 style — Nunito Sans Bold 16/20.
+                      'text-h3 h-[54px] px-4 py-2.5 text-left font-bold whitespace-nowrap',
                       col.headerClassName
                     )}
                   >
@@ -187,7 +188,8 @@ function DataTable<T>({
                     <td
                       key={col.key}
                       className={cn(
-                        'text-p2 text-grey-500 h-[54px] px-4 py-2.5 whitespace-nowrap',
+                        // Every body string in the design is 14/18 SemiBold.
+                        'text-p2 text-grey-500 h-[54px] px-4 py-2.5 font-semibold whitespace-nowrap',
                         col.getCellClassName?.(row)
                       )}
                     >
