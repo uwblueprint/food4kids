@@ -9,7 +9,7 @@ export const DriverHomePage = () => {
   const [routeId, setRouteId] = useState<string | null>(null);
 
   return (
-    <main className="page-margins flex flex-col gap-4">
+    <main className="flex flex-col gap-4">
       <div className="flex items-start justify-between">
         <h1>Driver Home</h1>
         <AnnouncementsBoard />

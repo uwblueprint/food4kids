@@ -263,23 +263,26 @@
 }
 
 @layer utilities {
-  /* Page-level margins from the F4K design system (admin spec).
-   * Apply to top-level page wrapper elements.
-   * Mobile: 20px · Tablet: 40px · Desktop: 80px left/right, 40px top */
-  .page-margins {
+  /* Page-level margins from the F4K design system, ADMIN platform only.
+   * Mobile: 20px · Tablet: 40px · Desktop: 80px left/right, 40px top.
+   *
+   * Driver pages must not use this: DriverLayout already applies the driver
+   * spec (20px / 32px) to the whole platform, so adding this on top of it
+   * doubles the padding rather than replacing it. */
+  .admin-page-margins {
     padding-left: 1.25rem; /* 20px */
     padding-right: 1.25rem;
     padding-top: 1.25rem;
     padding-bottom: 1.5rem;
   }
   @media (width >= theme(--breakpoint-tablet)) {
-    .page-margins {
+    .admin-page-margins {
       padding-left: 2.5rem; /* 40px */
       padding-right: 2.5rem;
     }
   }
   @media (width >= theme(--breakpoint-desktop)) {
-    .page-margins {
+    .admin-page-margins {
       padding-left: 5rem; /* 80px */
       padding-right: 5rem;
       padding-top: 2.5rem; /* 40px */
