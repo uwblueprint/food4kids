@@ -5622,6 +5622,49 @@ class TestJobRoutes:
         assert response.json()["job_id"] == str(job_id)
 
     @pytest.mark.asyncio
+    async def test_generate_job_persists_input_payload(
+        self, test_session: AsyncSession
+    ) -> None:
+        """JobService.generate_job stores the request so a worker can replay it later."""
+        from app.schemas.route_generation import (
+            RouteGenerationGroupInput,
+            RouteGenerationSettings,
+        )
+        from app.services.implementations.job_service import JobService
+
+        req = RouteGenerationGroupInput(
+            location_group=LocationGroup(name="Group", color="#FF5733"),
+            settings=RouteGenerationSettings(
+                route_start_time=datetime(2026, 6, 1, 8, 0), num_routes=2
+            ),
+        )
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job(req)
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is not None
+
+        rehydrated = RouteGenerationGroupInput.model_validate(job.input_payload)
+        assert rehydrated.location_group.name == "Group"
+        assert rehydrated.settings.num_routes == 2
+
+    @pytest.mark.asyncio
+    async def test_generate_job_with_no_request_leaves_payload_null(
+        self, test_session: AsyncSession
+    ) -> None:
+        """generate_job(None) is still valid and stores no payload."""
+        from app.services.implementations.job_service import JobService
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job()
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is None
+
+    @pytest.mark.asyncio
     async def test_cancel_pending_job(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
