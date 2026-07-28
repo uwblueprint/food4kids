@@ -2856,7 +2856,11 @@ class TestRouteRoutes:
             phone_secondary="5559999991",
             num_children=6,
             delivery_type="Family",
+            latitude=43.4643,
+            longitude=-80.5204,
         )
+        # Deliberately left ungeocoded, to prove the coordinates come back null
+        # rather than the endpoint failing.
         loc_b = Location(
             location_group_id=test_location_group.location_group_id,
             name="Stop B",
@@ -2916,6 +2920,12 @@ class TestRouteRoutes:
         assert second["phone_secondary"] == "5559999991"
         assert second["boxes"] == 3  # ceil(6 / 2)
         assert second["note_chain_id"] == str(chain_a.note_chain_id)
+        # Coordinates feed the route map; live Location for an upcoming route,
+        # and null for a location that hasn't been geocoded.
+        assert first["latitude"] is None
+        assert first["longitude"] is None
+        assert second["latitude"] == 43.4643
+        assert second["longitude"] == -80.5204
 
     @pytest.mark.asyncio
     async def test_get_route_by_id_uses_snapshot_for_frozen_stops(
@@ -2974,17 +2984,19 @@ class TestRouteRoutes:
                 phone_primary="5557778888",
                 phone_secondary="5557779999",
                 num_children=8,
-                latitude=0.0,
-                longitude=0.0,
+                latitude=43.4643,
+                longitude=-80.5204,
             )
         )
         await test_session.commit()
 
         # Mutate the live location after the freeze; the response must ignore it
-        # for snapshotted fields (including phone_secondary).
+        # for snapshotted fields (including phone_secondary and coordinates).
         loc.address = "Changed Addr"
         loc.num_children = 1
         loc.phone_secondary = "5550009999"
+        loc.latitude = 1.0
+        loc.longitude = 2.0
         await test_session.commit()
 
         response = await async_client.get(f"/routes/{route.route_id}")
@@ -2997,6 +3009,9 @@ class TestRouteRoutes:
         assert stop_body["phone_primary"] == "5557778888"
         # Secondary phone is snapshotted -> frozen value, not the mutated live one.
         assert stop_body["phone_secondary"] == "5557779999"
+        # Ditto the coordinates: a past route maps where it actually went.
+        assert stop_body["latitude"] == 43.4643
+        assert stop_body["longitude"] == -80.5204
         assert stop_body["boxes"] == 4  # ceil(8 / 2) from snapshot, not live 1
         # Note chains aren't snapshotted -> note_chain_id is read live.
         assert stop_body["note_chain_id"] == str(note_chain.note_chain_id)

@@ -8,13 +8,14 @@ import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
 import { cn } from '@/lib/utils';
 
+import { DotSeparated } from './DotSeparated';
 import { RouteStopCard } from './RouteStopCard';
 
 // TODO: replace with the real Food4Kids office number
 const F4K_PHONE = '+1-555-0100';
 
 const statusWrapper =
-  'flex w-full items-center justify-center rounded-2xl border border-grey-300 bg-grey-150 p-8';
+  'flex w-full items-center justify-center rounded-xl border border-grey-300 bg-grey-150 p-8';
 
 export interface RouteDetailViewProps {
   routeId: string;
@@ -31,7 +32,11 @@ function formatDriveDate(value: string): string {
   });
 }
 
-/** Format a time-of-day string ("08:00:00") as "8:00AM". */
+/** Format a time-of-day string ("08:00:00") as "8:00 AM".
+ *
+ *  The mobile frame spaces it; the tablet and desktop frames run it together
+ *  as "8:00AM". Spaced wins — it is the conventional form, and the two frames
+ *  that omit it are the ones that also disagree with each other elsewhere. */
 function formatStartTime(value: string | null | undefined): string | null {
   if (!value) return null;
   const [h, m] = value.split(':');
@@ -40,11 +45,11 @@ function formatStartTime(value: string | null | undefined): string | null {
   if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
   const period = hour < 12 ? 'AM' : 'PM';
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${hour12}:${String(minute).padStart(2, '0')}${period}`;
+  return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
 export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
-  const { data: route, isLoading, isError, error } = useRoute(routeId);
+  const { data: route, isLoading, isError } = useRoute(routeId);
   const [mapsLoading, setMapsLoading] = useState(false);
   const [mapsError, setMapsError] = useState(false);
 
@@ -61,7 +66,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
     return (
       <div className={cn(statusWrapper, 'text-p2 text-grey-500', className)}>
         {isError
-          ? `Failed to load route: ${error.message}`
+          ? 'Couldn\u2019t load this route. Check your connection and try again.'
           : 'Route not found.'}
       </div>
     );
@@ -72,9 +77,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
   const subtitle = [
     formatDriveDate(route.drive_date),
     formatStartTime(route.start_time),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ].filter(Boolean);
 
   const handlePrint = () => window.print();
 
@@ -115,44 +118,54 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         Back to home
       </Link>
 
-      {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-h1 text-grey-500 font-bold">
-          {route.name || 'Route'}
-        </h1>
-        {subtitle && (
-          <p className="text-m-p2 tablet:font-medium text-grey-400">
-            {subtitle}
-          </p>
-        )}
-      </div>
+      {/* Title, meta and PDF are one cluster in the frames (Frame 319), spaced
+          20px apart inside the page's 24px rhythm. Flattening them into the
+          outer stack puts everything below the header 8px low. */}
+      <div className="flex flex-col gap-5">
+        {/* Header */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-h1 text-grey-500 font-bold">
+            {route.name || 'Route'}
+          </h1>
+          {subtitle.length > 0 && (
+            <DotSeparated
+              items={subtitle}
+              className="text-m-p2 tablet:font-medium text-grey-400"
+            />
+          )}
+        </div>
 
-      {/* Meta: 2-column grid on mobile, single inline row from tablet up. */}
-      <div className="text-p1 text-grey-500 [&_svg]:text-grey-400 tablet:flex tablet:flex-wrap tablet:items-center tablet:gap-x-6 grid grid-cols-2 gap-x-4 gap-y-1">
-        {route.delivery_type && (
-          <span className="flex items-center gap-1.5">
-            <Users className="size-4" />
-            {route.delivery_type}
+        {/* Meta: 2-column grid on mobile, single inline row from tablet up. */}
+        <div className="text-p1 text-grey-500 [&_svg]:text-grey-400 tablet:flex tablet:flex-wrap tablet:items-center tablet:gap-x-6 grid grid-cols-[repeat(2,minmax(0,138px))] gap-x-8 gap-y-1">
+          {route.delivery_type && (
+            <span className="flex items-center gap-2">
+              <Users className="size-4" />
+              {route.delivery_type}
+            </span>
+          )}
+          <span className="flex items-center gap-2">
+            <MapPin className="size-4" />
+            {stops.length} {stops.length === 1 ? 'stop' : 'stops'}
           </span>
-        )}
-        <span className="flex items-center gap-1.5">
-          <MapPin className="size-4" />
-          {stops.length} {stops.length === 1 ? 'stop' : 'stops'}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Map className="size-4" />
-          {route.length.toFixed(1)} km
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Package className="size-4" />
-          {boxTotal} {boxTotal === 1 ? 'box' : 'boxes'}
-        </span>
-      </div>
+          <span className="flex items-center gap-2">
+            <Map className="size-4" />
+            {route.length.toFixed(1)} km
+          </span>
+          <span className="flex items-center gap-2">
+            <Package className="size-4" />
+            {boxTotal} {boxTotal === 1 ? 'box' : 'boxes'}
+          </span>
+        </div>
 
-      {/* PDF */}
-      <Button variant="primary" className="tablet:w-full" onClick={handlePrint}>
-        PDF
-      </Button>
+        {/* PDF */}
+        <Button
+          variant="primary"
+          className="tablet:w-full"
+          onClick={handlePrint}
+        >
+          PDF
+        </Button>
+      </div>
 
       {/* Map */}
       <div className="flex flex-col gap-3">
@@ -161,6 +174,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         </h2>
         <RouteMap
           encodedPolyline={route.encoded_polyline}
+          stops={stops}
           className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
         />
         <div className="grid grid-cols-2 gap-3">
@@ -195,9 +209,14 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         {stops.length === 0 ? (
           <p className="text-p2 text-grey-500">This route has no stops.</p>
         ) : (
-          stops.map((stop) => (
-            <RouteStopCard key={stop.stop_number} stop={stop} />
-          ))
+          /* The cards sit 20px apart, not the 12px that separates the heading
+             from the list. The mobile frame draws 24 here; tablet and desktop
+             both say 20, and the designer has been asked which is intended. */
+          <div className="flex flex-col gap-5">
+            {stops.map((stop) => (
+              <RouteStopCard key={stop.stop_number} stop={stop} />
+            ))}
+          </div>
         )}
       </div>
     </div>

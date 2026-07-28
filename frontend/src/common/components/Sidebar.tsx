@@ -90,7 +90,7 @@ function SidebarMenuItem({
       end={end}
       className={({ isActive }) =>
         cn(
-          'flex w-20 flex-col items-center justify-center gap-1 rounded-2xl px-4 py-3.5',
+          'flex w-20 flex-col items-center justify-center gap-1 rounded-xl px-4 py-3.5',
           'text-base transition-colors',
           isActive
             ? 'bg-blue-50 text-blue-400 shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] outline outline-1 outline-offset-[-1px] outline-blue-100'

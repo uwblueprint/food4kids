@@ -40,7 +40,7 @@ export const AdminLayout = () => {
       </Sidebar>
 
       <SidebarInset>
-        <div className="page-margins">
+        <div className="admin-page-margins">
           <Outlet />
         </div>
       </SidebarInset>
