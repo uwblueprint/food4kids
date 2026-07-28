@@ -23,9 +23,7 @@ import {
 interface AnnouncementCardProps {
   announcement: Announcement;
   currentUserId: string;
-  readIds: Set<string>;
   canManage: boolean;
-  onOpen: (announcement: Announcement) => void;
   onEdit: (announcement: Announcement) => void;
   onDelete: (announcement: Announcement) => void;
 }
@@ -33,14 +31,12 @@ interface AnnouncementCardProps {
 export function AnnouncementCard({
   announcement,
   currentUserId,
-  readIds,
   canManage,
-  onOpen,
   onEdit,
   onDelete,
 }: AnnouncementCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const isNew = isAnnouncementNew(announcement, readIds);
+  const isNew = isAnnouncementNew(announcement);
   const isEdited = isAnnouncementEdited(announcement);
 
   return (
@@ -52,11 +48,7 @@ export function AnnouncementCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <button
-          type="button"
-          className="flex min-w-0 flex-1 flex-col gap-1 text-left"
-          onClick={() => onOpen(announcement)}
-        >
+        <div className="flex min-w-0 flex-1 flex-col gap-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-h2 text-grey-500 font-bold">
               {announcement.subject}
@@ -86,7 +78,7 @@ export function AnnouncementCard({
               • {announcementDateLine(announcement)}
             </span>
           </p>
-        </button>
+        </div>
         {canManage && (
           <Popover open={menuOpen} onOpenChange={setMenuOpen}>
             <PopoverTrigger asChild>
@@ -127,13 +119,9 @@ export function AnnouncementCard({
           </Popover>
         )}
       </div>
-      <button
-        type="button"
-        className="text-p1 text-grey-500 line-clamp-4 w-full text-left whitespace-pre-wrap"
-        onClick={() => onOpen(announcement)}
-      >
+      <p className="text-p1 text-grey-500 line-clamp-4 w-full text-left whitespace-pre-wrap">
         {announcement.message}
-      </button>
+      </p>
     </article>
   );
 }
