@@ -44,9 +44,7 @@ export function RouteStopCard({ stop }: RouteStopCardProps) {
   const subLine = [city, boxLabel].filter(Boolean);
 
   return (
-    /* 16px, off the radius scale: --radius is shadcn's 0.625rem default, which
-       steps 14 → 18 and skips the radius every card in the designs uses. */
-    <details className="group border-grey-300 rounded-[16px] border bg-white p-3">
+    <details className="group border-grey-300 rounded-xl border bg-white p-3">
       <summary className="flex cursor-pointer list-none items-start gap-4 [&::-webkit-details-marker]:hidden">
         {/* Stop number badge */}
         <span className="bg-grey-200 text-button font-nunito text-grey-500 flex size-7 shrink-0 items-center justify-center rounded-full font-semibold">
@@ -65,7 +63,7 @@ export function RouteStopCard({ stop }: RouteStopCardProps) {
       </summary>
 
       {/* Expanded content */}
-      <div className="bg-grey-200 -mx-3 mt-3 -mb-3 rounded-b-[16px] px-3 py-5">
+      <div className="bg-grey-200 -mx-3 mt-3 -mb-3 rounded-b-xl px-3 py-5">
         {/* TODO: Add Notes Rendering */}
         <p className="text-p2 text-grey-400">TODO: Add Notes Rendering</p>
       </div>

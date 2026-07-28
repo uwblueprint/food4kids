@@ -57,7 +57,7 @@ export function EditAnnouncementsModal({
           <ModalTitle>Edit Announcements</ModalTitle>
         </ModalHeader>
 
-        <div className="border-grey-300 min-h-0 flex-1 overflow-y-auto rounded-2xl border p-4">
+        <div className="border-grey-300 min-h-0 flex-1 overflow-y-auto rounded-xl border p-4">
           <ul className="flex flex-col gap-6">
             {announcements.map((announcement) => (
               <li key={announcement.announcement_id}>

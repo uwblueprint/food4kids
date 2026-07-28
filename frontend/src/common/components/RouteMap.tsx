@@ -85,7 +85,8 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
   return (
     <div
       className={cn(
-        'border-grey-300 w-full overflow-hidden rounded-2xl border',
+        // 18px: the only radius in the designs that is off the 8/16 scale.
+        'border-grey-300 w-full overflow-hidden rounded-[18px] border',
         className
       )}
     >

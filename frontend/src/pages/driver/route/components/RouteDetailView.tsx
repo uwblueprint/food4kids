@@ -15,7 +15,7 @@ import { RouteStopCard } from './RouteStopCard';
 const F4K_PHONE = '+1-555-0100';
 
 const statusWrapper =
-  'flex w-full items-center justify-center rounded-2xl border border-grey-300 bg-grey-150 p-8';
+  'flex w-full items-center justify-center rounded-xl border border-grey-300 bg-grey-150 p-8';
 
 export interface RouteDetailViewProps {
   routeId: string;

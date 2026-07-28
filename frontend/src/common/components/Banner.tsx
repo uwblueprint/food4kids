@@ -7,7 +7,7 @@ import CheckCircleIcon from '@/assets/icons/check-circle.svg?react';
 import XIcon from '@/assets/icons/x.svg?react';
 import { cn } from '@/lib/utils';
 
-const bannerVariants = cva('flex items-start gap-4 rounded-2xl border p-6', {
+const bannerVariants = cva('flex items-start gap-4 rounded-xl border p-6', {
   variants: {
     variant: {
       success: 'border-success-stroke bg-success-fill',

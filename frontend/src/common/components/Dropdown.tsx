@@ -47,7 +47,7 @@ function DropdownContent({
         position="popper"
         sideOffset={4}
         className={cn(
-          'z-50 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg',
+          'z-50 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-sm',
           'border-grey-300 bg-grey-100 shadow-card border',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
@@ -71,7 +71,7 @@ function DropdownItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        'relative flex w-full cursor-pointer items-center rounded-md px-3 py-2 select-none',
+        'relative flex w-full cursor-pointer items-center rounded-sm px-3 py-2 select-none',
         'text-p1 text-grey-500 outline-none',
         'hover:bg-blue-50 focus:bg-blue-50',
         'data-[state=checked]:font-semibold data-[state=checked]:text-blue-300',

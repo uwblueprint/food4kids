@@ -291,6 +291,19 @@
 }
 
 @theme inline {
+  /* Corner radii. --radius below is 0.75rem, so the scale runs
+   *   sm 8 · md 10 · lg 12 · xl 16 · 2xl 20 · 3xl 24 · 4xl 28
+   *
+   * Set from the designs, not from shadcn's 0.625rem default: across every
+   * exported frame the radii that actually occur are 8 (form fields, menu
+   * items, dropdowns) and 16 (cards, tables, modals, nav buttons, toggles) —
+   * 16 alone accounts for ~518 nodes. The old default stepped 6/8/10/14/18
+   * and could not express 16 at all, so every card in the app was 2px round
+   * of the frames. `rounded-sm` and `rounded-xl` are now the two you want
+   * nearly all the time.
+   *
+   * The map is the one deliberate exception at 18px, written literally where
+   * it is used — a single off-scale value beats bending the scale for it. */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -332,7 +345,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem; /* 12px — see the radius scale note above */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

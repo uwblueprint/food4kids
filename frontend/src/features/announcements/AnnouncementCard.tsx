@@ -42,7 +42,7 @@ export function AnnouncementCard({
   return (
     <article
       className={cn(
-        'border-grey-300 bg-grey-100 relative flex flex-col gap-3 rounded-2xl border p-4',
+        'border-grey-300 bg-grey-100 relative flex flex-col gap-3 rounded-xl border p-4',
         'shadow-card w-full transition-colors',
         canManage && 'hover:bg-grey-150'
       )}
@@ -95,7 +95,7 @@ export function AnnouncementCard({
             <PopoverContent align="end" className="w-40 p-1">
               <button
                 type="button"
-                className="text-p2 text-grey-500 hover:bg-grey-200 flex w-full items-center gap-2 rounded-lg px-3 py-2"
+                className="text-p2 text-grey-500 hover:bg-grey-200 flex w-full items-center gap-2 rounded-sm px-3 py-2"
                 onClick={() => {
                   setMenuOpen(false);
                   onEdit(announcement);
@@ -106,7 +106,7 @@ export function AnnouncementCard({
               </button>
               <button
                 type="button"
-                className="text-p2 text-red hover:bg-light-red flex w-full items-center gap-2 rounded-lg px-3 py-2"
+                className="text-p2 text-red hover:bg-light-red flex w-full items-center gap-2 rounded-sm px-3 py-2"
                 onClick={() => {
                   setMenuOpen(false);
                   onDelete(announcement);
