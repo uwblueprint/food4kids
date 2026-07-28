@@ -11,7 +11,7 @@ Groups with no stops now report delivery_type: null rather than a value nobody
 could have entered.
 
 Revision ID: c1f4a80b7e35
-Revises: bc7876e56dd1
+Revises: c9a1e5f30b74
 Create Date: 2026-07-28 00:00:00.000000
 
 """
@@ -21,7 +21,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "c1f4a80b7e35"
-down_revision = "bc7876e56dd1"
+down_revision = "c9a1e5f30b74"
 branch_labels = None
 depends_on = None
 
