@@ -598,6 +598,7 @@ class LocationService:
         session: AsyncSession,
         file: UploadFile,
         column_map: dict[str, str],
+        delivery_type: str,
     ) -> LocationImportResponse:
         """Review a pending location import: validate rows and classify changes.
 
@@ -605,6 +606,7 @@ class LocationService:
         default mapping on the next import.
         """
         try:
+            await self.validate_delivery_type(session, delivery_type)
             await self.system_settings_service.set_import_column_map(
                 session, column_map
             )
@@ -741,7 +743,7 @@ class LocationService:
             success = not any(r.alerts for r in rows)
             if success:
                 net_new, stale, changed = await self._classify_import_rows(
-                    session, valid_rows
+                    session, valid_rows, delivery_type
                 )
 
             return LocationImportResponse(
@@ -790,9 +792,12 @@ class LocationService:
         self,
         session: AsyncSession,
         valid_rows: list[tuple[int, ValidatedLocationImportEntry]],
+        delivery_type: str,
     ) -> tuple[list[NetNewEntry], list[StaleEntry], list[ChangedEntry]]:
         result = await session.execute(
-            select(Location).options(selectinload(Location.location_group))  # type: ignore[arg-type]
+            select(Location)
+            .where(Location.delivery_type == delivery_type)
+            .options(selectinload(Location.location_group))  # type: ignore[arg-type]
         )
         existing_locations = list(result.scalars().all())
         matched_existing_ids: set[UUID] = set()
@@ -855,6 +860,8 @@ class LocationService:
             phone_primary=entry.phone_primary,
             phone_secondary=entry.phone_secondary,
             num_children=entry.num_children,
+            halal=entry.halal,
+            dietary_restrictions=entry.dietary_restrictions,
         )
 
     @staticmethod
@@ -1066,6 +1073,7 @@ class LocationService:
                 result = await session.execute(
                     select(Location)
                     .where(Location.location_id.in_(existing_ids))  # type: ignore[attr-defined]
+                    .where(Location.delivery_type == request.delivery_type)
                     .options(selectinload(Location.location_group))  # type: ignore[arg-type]
                 )
                 existing_by_id = {

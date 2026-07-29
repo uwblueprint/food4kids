@@ -188,6 +188,10 @@ export type BodyReviewLocations = {
    */
   column_map: string;
   /**
+   * Delivery Type
+   */
+  delivery_type: string;
+  /**
    * File
    */
   file: Blob | File;
@@ -1195,6 +1199,14 @@ export type NetNewEntry = {
    * Delivery Group
    */
   delivery_group?: string | null;
+  /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | null;
+  /**
+   * Halal
+   */
+  halal?: boolean | null;
   /**
    * Num Children
    */

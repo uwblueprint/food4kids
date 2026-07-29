@@ -28,6 +28,8 @@ export interface GenerationOutletContext {
   setFileHeaders: (h: string[]) => void;
   columnMap: Record<string, string>;
   setColumnMap: (m: Record<string, string>) => void;
+  selectedDeliveryType: string;
+  setSelectedDeliveryType: (deliveryType: string) => void;
   reviewResult: LocationImportResponse | null;
   setReviewResult: (r: LocationImportResponse | null) => void;
 }
@@ -42,6 +44,7 @@ export function AdminRoutesGenerationLayout() {
   const [file, setFile] = useState<File | null>(null);
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+  const [selectedDeliveryType, setSelectedDeliveryType] = useState('');
   const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
   const [reviewResult, setReviewResult] =
     useState<LocationImportResponse | null>(null);
@@ -58,6 +61,8 @@ export function AdminRoutesGenerationLayout() {
     setFileHeaders,
     columnMap,
     setColumnMap,
+    selectedDeliveryType,
+    setSelectedDeliveryType,
     reviewResult,
     setReviewResult,
   };
