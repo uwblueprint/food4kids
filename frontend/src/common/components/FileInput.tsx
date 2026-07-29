@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 
 import ShareIcon from '@/assets/icons/share.svg?react';
-import { Tag } from '@/common/components';
+import XIcon from '@/assets/icons/x.svg?react';
 import { cn } from '@/lib/utils';
 
 interface FileInputProps {
@@ -30,6 +30,41 @@ function FileInput({
     if (!files || files.length === 0) return;
     onFileSelect(files[0]);
   };
+
+  if (selectedFile) {
+    const sizeInKb = selectedFile.size / 1024;
+    const displaySize =
+      sizeInKb >= 1024
+        ? `${(sizeInKb / 1024).toFixed(2)} MB`
+        : `${sizeInKb.toFixed(2)} KB`;
+
+    return (
+      <div
+        className={cn(
+          'border-grey-300 flex h-16 items-center rounded-lg border bg-white px-7',
+          className
+        )}
+      >
+        <div className="mr-4 flex size-9 shrink-0 items-center justify-center rounded bg-[#107c41] text-xs font-bold text-white">
+          XLS
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-p1 truncate font-semibold">{selectedFile.name}</p>
+          <p className="text-p2 text-grey-400">{displaySize}</p>
+        </div>
+        {onClearFile && (
+          <button
+            type="button"
+            onClick={onClearFile}
+            aria-label="Remove uploaded file"
+            className="text-grey-500 hover:text-red ml-4 cursor-pointer"
+          >
+            <XIcon className="size-5" />
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -75,15 +110,6 @@ function FileInput({
           {acceptedFileTypesLabel}
         </p>
       </div>
-      {selectedFile && (
-        <Tag
-          variant="success"
-          onRemove={onClearFile}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {selectedFile.name}
-        </Tag>
-      )}
     </div>
   );
 }

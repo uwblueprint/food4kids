@@ -11,11 +11,6 @@ import type { Column } from '@/common/components';
 import {
   Banner,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   DataTable,
   Dropdown,
   DropdownContent,
@@ -27,7 +22,7 @@ import {
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
-const ACCEPTED_EXTENSIONS = new Set(['.xlsx', '.csv']);
+const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
 
 interface SystemField {
   key: string;
@@ -39,10 +34,10 @@ const SYSTEM_FIELDS: SystemField[] = [
   { key: 'contact_name', label: 'School Name / Last Name', required: true },
   { key: 'address', label: 'Address', required: true },
   { key: 'delivery_group', label: 'Delivery Group', required: true },
-  { key: 'phone_primary', label: 'Primary Phone', required: true },
-  { key: 'phone_secondary', label: 'Secondary Phone' },
+  { key: 'phone_primary', label: 'Phone Number', required: true },
   { key: 'num_children', label: 'Number of Children', required: true },
-  { key: 'dietary_restrictions', label: 'Food Restrictions' },
+  { key: 'dietary_restrictions', label: 'Food Restrictions', required: true },
+  { key: 'halal', label: 'Halal?', required: true },
 ];
 
 // Parses headers from uploaded Excel file
@@ -94,7 +89,7 @@ export function ImportStep() {
     const ext = '.' + selected.name.split('.').pop()?.toLowerCase();
     if (!ACCEPTED_EXTENSIONS.has(ext)) {
       setFormatError(
-        'Unsupported format — please upload an Excel (.xlsx) or CSV file'
+        'Unsupported format. Please upload an Excel (.xlsx) file.'
       );
       return;
     }
@@ -183,64 +178,73 @@ export function ImportStep() {
 
   return (
     <>
-      {/* Error banner */}
-      {formatError && (
-        <Banner variant="error" onDismiss={() => setFormatError(null)}>
-          {formatError}
-        </Banner>
-      )}
       {reviewError && (
         <Banner variant="error" onDismiss={() => setReviewError(null)}>
           {reviewError}
         </Banner>
       )}
 
-      {/* Import Data Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Import Data</CardTitle>
-          <CardDescription>
-            Select a delivery type, then upload an Excel (.xlsx) or CSV file
-            with delivery information
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 pt-4">
-          <div className="flex max-w-xs flex-col gap-2">
-            <span className="text-p2 text-grey-500 font-medium">
-              Delivery Type
-            </span>
-            <Dropdown
-              value={selectedDeliveryType}
-              onValueChange={(value) => {
-                setSelectedDeliveryType(value);
-                setFile(null);
-                setFileHeaders([]);
-                setReviewResult(null);
-              }}
+      <section className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-grey-500">Select Delivery Type</h2>
+          <p className="text-p1 text-grey-500">
+            Choose the type of spreadsheet you'll be uploading:
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          {deliveryTypes.map((deliveryType) => (
+            <label
+              key={deliveryType}
+              className="text-p1 flex cursor-pointer items-center gap-2"
             >
-              <DropdownTrigger>
-                <DropdownValue placeholder="Select Delivery Type" />
-              </DropdownTrigger>
-              <DropdownContent>
-                {deliveryTypes.map((deliveryType) => (
-                  <DropdownItem key={deliveryType} value={deliveryType}>
-                    {deliveryType}
-                  </DropdownItem>
-                ))}
-              </DropdownContent>
-            </Dropdown>
+              <input
+                type="radio"
+                name="delivery-type"
+                value={deliveryType}
+                checked={selectedDeliveryType === deliveryType}
+                onChange={() => {
+                  setSelectedDeliveryType(deliveryType);
+                  setFile(null);
+                  setFileHeaders([]);
+                  setReviewResult(null);
+                  setFormatError(null);
+                }}
+                className="size-4 cursor-pointer accent-blue-300"
+              />
+              {deliveryType}
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {selectedDeliveryType && (
+        <section className="flex max-w-[700px] flex-col gap-4">
+          <div>
+            <h2 className="text-grey-500">Import Data</h2>
+            <p className="text-p1 text-grey-500">
+              Upload an Excel file (.xlsx) with delivery information
+            </p>
           </div>
-          {selectedDeliveryType && (
+          <div className="flex flex-col gap-4">
             <FileInput
               onFileSelect={handleFileSelect}
               selectedFile={file}
               onClearFile={handleClearFile}
-              accept=".xlsx,.csv"
-              acceptedFileTypesLabel="Excel (.xlsx) or CSV files"
+              accept=".xlsx"
+              acceptedFileTypesLabel="Excel files (.xlsx) only"
             />
-          )}
-        </CardContent>
-      </Card>
+            {formatError && (
+              <Banner
+                variant="error"
+                className="items-center p-4"
+                onDismiss={() => setFormatError(null)}
+              >
+                {formatError}
+              </Banner>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Map Columns Table */}
       {file && (
@@ -248,7 +252,7 @@ export function ImportStep() {
           <div className="flex flex-col gap-1">
             <h2 className="text-grey-500">Map Columns</h2>
             <p className="text-p1 text-grey-500">
-              Match your file's columns to the required system fields
+              Match columns in your file to the fields in our database
             </p>
           </div>
           <DataTable
@@ -256,20 +260,27 @@ export function ImportStep() {
             rows={SYSTEM_FIELDS}
             getRowKey={(row) => row.key}
           />
+          <p className="text-p2 text-grey-400 text-right">
+            Columns can be customized from the{' '}
+            <Link to="/admin/settings" className="text-blue-300">
+              Settings
+            </Link>{' '}
+            page
+          </p>
         </div>
       )}
 
       {/* Actions */}
       <div className="flex items-center justify-between">
         <Button variant="tertiary" asChild>
-          <Link to="/admin/routes">Back to Routes</Link>
+          <Link to="/admin/routes">Back to routes</Link>
         </Button>
         <Button
           variant="primary"
           disabled={!canContinue || isReviewing}
           onClick={handleContinue}
         >
-          {isReviewing ? 'Validating…' : 'Continue to Validation'}
+          {isReviewing ? 'Validating…' : 'Continue to validate'}
         </Button>
       </div>
     </>
