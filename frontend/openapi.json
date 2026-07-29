@@ -326,17 +326,6 @@
             "title": "Contact Name",
             "type": "string"
           },
-          "dietary_restrictions": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dietary Restrictions"
-          },
           "delivery_group": {
             "anyOf": [
               {
@@ -355,17 +344,6 @@
             "format": "uuid",
             "title": "Location Id",
             "type": "string"
-          },
-          "halal": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Halal"
           },
           "num_children": {
             "anyOf": [

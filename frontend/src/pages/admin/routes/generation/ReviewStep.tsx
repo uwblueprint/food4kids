@@ -14,7 +14,6 @@ import type {
   ValidatedLocationImportEntry,
 } from '@/api/generated/types.gen';
 import CheckIcon from '@/assets/icons/check.svg?react';
-import XIcon from '@/assets/icons/x.svg?react';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -51,14 +50,6 @@ function isChanged<T>(v: T | ChangedField<T>): v is ChangedField<T> {
     'new_value' in (v as object) &&
     'old_value' in (v as object)
   );
-}
-
-function newValue<T>(value: T | ChangedField<T>): T {
-  return isChanged(value) ? value.new_value : value;
-}
-
-function oldValue<T>(value: T | ChangedField<T>): T {
-  return isChanged(value) ? value.old_value : value;
 }
 
 function ChangedCell({
@@ -157,32 +148,6 @@ function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
   };
 }
 
-function changedEntryToNetNew(
-  entry: ChangedEntry
-): ValidatedLocationImportEntry {
-  return {
-    contact_name: entry.contact_name,
-    address: newValue(entry.address),
-    delivery_group: newValue(entry.delivery_group) ?? '',
-    phone_primary: newValue(entry.phone_primary),
-    phone_secondary: newValue(entry.phone_secondary),
-    num_children: newValue(entry.num_children),
-    halal: entry.halal,
-    dietary_restrictions: entry.dietary_restrictions,
-  };
-}
-
-function changedEntryToStale(entry: ChangedEntry): StaleEntry {
-  return {
-    location_id: entry.location_id,
-    contact_name: entry.contact_name,
-    address: oldValue(entry.address),
-    delivery_group: oldValue(entry.delivery_group),
-    phone_primary: oldValue(entry.phone_primary),
-    phone_secondary: oldValue(entry.phone_secondary),
-  };
-}
-
 export function ReviewStep() {
   const navigate = useNavigate();
   const { file, reviewResult, selectedDeliveryType } =
@@ -190,9 +155,9 @@ export function ReviewStep() {
   const { mutateAsync: ingestLocations, isPending: isIngesting } =
     useIngestLocations();
 
-  const [changedDecisions, setChangedDecisions] = useState<
-    Map<number, 'apply' | 'separate'>
-  >(new Map());
+  const [confirmedChanges, setConfirmedChanges] = useState<Set<number>>(
+    new Set()
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
 
@@ -205,35 +170,27 @@ export function ReviewStep() {
   const staleRows = data.stale ?? [];
   const changedEntries = data.changed ?? [];
 
-  const setChangedDecision = (
-    index: number,
-    decision: 'apply' | 'separate'
-  ) => {
-    setChangedDecisions((prev) => {
-      const next = new Map(prev);
-      next.set(index, decision);
+  const toggleConfirmed = (index: number) => {
+    setConfirmedChanges((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
       return next;
     });
   };
 
   const handleConfirm = async () => {
     setIngestError(null);
-    const approvedChanged = changedEntries.filter(
-      (_, index) => changedDecisions.get(index) === 'apply'
-    );
-    const separateChanged = changedEntries.filter(
-      (_, index) => changedDecisions.get(index) === 'separate'
-    );
 
     try {
       await ingestLocations({
         delivery_type: selectedDeliveryType,
-        net_new: [
-          ...netNewRows.map(toIngestNetNew),
-          ...separateChanged.map(changedEntryToNetNew),
-        ],
-        stale: [...staleRows, ...separateChanged.map(changedEntryToStale)],
-        changed: approvedChanged,
+        net_new: netNewRows.map(toIngestNetNew),
+        stale: staleRows,
+        changed: changedEntries,
       });
       setConfirmOpen(false);
       navigate('/admin/routes/generation/configure');
@@ -275,34 +232,23 @@ export function ReviewStep() {
     },
     {
       key: 'actions',
-      header: 'Decision',
+      header: 'Confirmed',
       render: (r) => {
-        const decision = changedDecisions.get(r._index);
+        const isConfirmed = confirmedChanges.has(r._index);
         return (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              shape="circular"
-              aria-label="Apply this change"
-              title="Apply change"
-              aria-pressed={decision === 'apply'}
-              onClick={() => setChangedDecision(r._index, 'apply')}
-              className={decision === 'apply' ? 'opacity-100' : 'opacity-40'}
-            >
-              <CheckIcon className="size-4" />
-            </Button>
-            <Button
-              variant="secondary"
-              shape="circular"
-              aria-label="Treat as separate rows"
-              title="Treat as separate rows"
-              aria-pressed={decision === 'separate'}
-              onClick={() => setChangedDecision(r._index, 'separate')}
-              className={decision === 'separate' ? 'opacity-100' : 'opacity-40'}
-            >
-              <XIcon className="size-4" />
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            shape="circular"
+            aria-label={
+              isConfirmed ? 'Unconfirm this change' : 'Confirm this change'
+            }
+            title={isConfirmed ? 'Unconfirm change' : 'Confirm change'}
+            aria-pressed={isConfirmed}
+            onClick={() => toggleConfirmed(r._index)}
+            className={isConfirmed ? 'opacity-100' : 'opacity-40'}
+          >
+            <CheckIcon className="size-4" />
+          </Button>
         );
       },
     },
@@ -312,13 +258,7 @@ export function ReviewStep() {
     ...entry,
     _index: i,
   }));
-  const appliedChangedCount = [...changedDecisions.values()].filter(
-    (decision) => decision === 'apply'
-  ).length;
-  const separateChangedCount = [...changedDecisions.values()].filter(
-    (decision) => decision === 'separate'
-  ).length;
-  const allChangesDecided = changedDecisions.size === changedEntries.length;
+  const allChangesConfirmed = confirmedChanges.size === changedEntries.length;
 
   return (
     <>
@@ -376,8 +316,7 @@ export function ReviewStep() {
           <div>
             <h2 className="text-grey-500">Data that has Changed</h2>
             <p className="text-p1 text-grey-400">
-              Select whether each matched row is a change or a separate
-              location.
+              Review and confirm each change before continuing.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -405,7 +344,7 @@ export function ReviewStep() {
         </Button>
         <Button
           variant="primary"
-          disabled={!allChangesDecided}
+          disabled={!allChangesConfirmed}
           onClick={() => setConfirmOpen(true)}
         >
           Continue to Configure Routes
@@ -418,16 +357,14 @@ export function ReviewStep() {
           <ModalHeader>
             <ModalTitle>Confirm Changes</ModalTitle>
             <ModalDescription>
-              This will add {netNewRows.length + separateChangedCount} new{' '}
-              {netNewRows.length + separateChangedCount === 1
-                ? 'location'
-                : 'locations'}
-              , mark {staleRows.length + separateChangedCount}{' '}
-              {staleRows.length + separateChangedCount === 1
-                ? 'location'
-                : 'locations'}{' '}
-              inactive, and apply {appliedChangedCount}{' '}
-              {appliedChangedCount === 1 ? 'matched change' : 'matched changes'}
+              This will add {netNewRows.length} new{' '}
+              {netNewRows.length === 1 ? 'location' : 'locations'}, mark{' '}
+              {staleRows.length}{' '}
+              {staleRows.length === 1 ? 'location' : 'locations'} inactive, and
+              apply {changedEntries.length}{' '}
+              {changedEntries.length === 1
+                ? 'matched change'
+                : 'matched changes'}
               .
             </ModalDescription>
           </ModalHeader>
