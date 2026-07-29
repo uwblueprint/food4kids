@@ -9,6 +9,7 @@ interface FileInputProps {
   selectedFile?: File | null;
   onClearFile?: () => void;
   accept?: string;
+  acceptedFileTypesLabel?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -18,6 +19,7 @@ function FileInput({
   selectedFile,
   onClearFile,
   accept = '.xlsx',
+  acceptedFileTypesLabel = 'Excel files (.xlsx) only',
   disabled,
   className,
 }: FileInputProps) {
@@ -70,7 +72,7 @@ function FileInput({
         </p>
         <p className="text-p1 text-grey-500">
           <span className="text-red">* </span>
-          Excel files (.xlsx) only
+          {acceptedFileTypesLabel}
         </p>
       </div>
       {selectedFile && (

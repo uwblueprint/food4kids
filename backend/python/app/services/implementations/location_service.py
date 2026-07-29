@@ -789,6 +789,8 @@ class LocationService:
             phone_primary=entry.phone_primary,
             phone_secondary=entry.phone_secondary,
             num_children=entry.num_children,
+            halal=entry.halal,
+            dietary_restrictions=entry.dietary_restrictions,
         )
 
     @staticmethod

@@ -13,8 +13,6 @@ import type {
   StaleEntry,
   ValidatedLocationImportEntry,
 } from '@/api/generated/types.gen';
-import CheckIcon from '@/assets/icons/check.svg?react';
-import XIcon from '@/assets/icons/x.svg?react';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -26,29 +24,19 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  Tag,
 } from '@/common/components';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * A field that either holds a plain value or a before/after change pair.
- * The generated client emits concrete variants (ChangedFieldStr, etc.); this
- * generic mirrors their shape for the isChanged guard and ChangedCell below.
- */
 type ChangedField<T> = { new_value: T; old_value: T };
 
-function isChanged<T>(v: T | ChangedField<T>): v is ChangedField<T> {
+function isChanged<T>(value: T | ChangedField<T>): value is ChangedField<T> {
   return (
-    typeof v === 'object' &&
-    v !== null &&
-    'new_value' in (v as object) &&
-    'old_value' in (v as object)
+    typeof value === 'object' &&
+    value !== null &&
+    'new_value' in (value as object) &&
+    'old_value' in (value as object)
   );
 }
 
@@ -66,74 +54,20 @@ function ChangedCell({
   if (!isChanged(value)) {
     return <span>{value ?? '—'}</span>;
   }
+
   return (
-    <div className="flex flex-col gap-1">
-      <span className="bg-success-fill text-success-stroke inline-block rounded px-2 py-0.5 text-xs font-medium">
-        {value.new_value ?? '—'}
-      </span>
-      <span className="bg-light-red text-red border-red inline-block rounded-t border-b-2 px-2 py-0.5 text-xs font-medium">
+    <div className="-mx-4 -my-2.5 flex flex-col">
+      <span className="bg-grey-150 flex min-h-10 items-center gap-2 px-4 py-2.5">
+        <span className="text-grey-400 text-base">−</span>
         {value.old_value ?? '—'}
+      </span>
+      <span className="flex min-h-10 items-center gap-2 border-b-2 border-blue-100 bg-blue-50 px-4 py-2.5">
+        <span className="text-grey-400 text-base">+</span>
+        {value.new_value ?? '—'}
       </span>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Column definitions
-// ---------------------------------------------------------------------------
-
-const netNewColumns: Column<NetNewEntry>[] = [
-  { key: 'row', header: 'Row', render: (r) => String(r.row) },
-  {
-    key: 'contact_name',
-    header: 'School / Last Name',
-    render: (r) => r.contact_name,
-  },
-  { key: 'address', header: 'Address', render: (r) => r.address },
-  {
-    key: 'delivery_group',
-    header: 'Delivery Group',
-    render: (r) => r.delivery_group ?? '—',
-  },
-  {
-    key: 'phone_primary',
-    header: 'Primary Phone',
-    render: (r) => r.phone_primary,
-  },
-  {
-    key: 'phone_secondary',
-    header: 'Secondary Phone',
-    render: (r) => r.phone_secondary ?? '—',
-  },
-];
-
-const staleColumns: Column<StaleEntry>[] = [
-  {
-    key: 'contact_name',
-    header: 'School / Last Name',
-    render: (r) => r.contact_name,
-  },
-  { key: 'address', header: 'Address', render: (r) => r.address },
-  {
-    key: 'delivery_group',
-    header: 'Delivery Group',
-    render: (r) => r.delivery_group ?? '—',
-  },
-  {
-    key: 'phone_primary',
-    header: 'Primary Phone',
-    render: (r) => r.phone_primary,
-  },
-  {
-    key: 'phone_secondary',
-    header: 'Secondary Phone',
-    render: (r) => r.phone_secondary ?? '—',
-  },
-];
-
-// ---------------------------------------------------------------------------
-// ReviewStep
-// ---------------------------------------------------------------------------
 
 function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
   return {
@@ -143,7 +77,31 @@ function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
     phone_primary: entry.phone_primary,
     phone_secondary: entry.phone_secondary,
     num_children: entry.num_children,
+    halal: entry.halal,
+    dietary_restrictions: entry.dietary_restrictions,
   };
+}
+
+function ReviewStatus({
+  reviewed,
+  total,
+}: {
+  reviewed: number;
+  total: number;
+}) {
+  const complete = reviewed === total && total > 0;
+
+  return (
+    <span
+      className={
+        complete
+          ? 'bg-success-fill text-success-stroke rounded-full px-3 py-1 text-sm'
+          : 'bg-grey-300 rounded-full px-3 py-1 text-sm'
+      }
+    >
+      {reviewed} / {total} Reviewed
+    </span>
+  );
 }
 
 export function ReviewStep() {
@@ -153,7 +111,12 @@ export function ReviewStep() {
   const { mutateAsync: ingestLocations, isPending: isIngesting } =
     useIngestLocations();
 
-  const [accepted, setAccepted] = useState<Set<number>>(new Set());
+  const [reviewedChanged, setReviewedChanged] = useState<Set<number>>(
+    new Set()
+  );
+  const [reviewedRemoved, setReviewedRemoved] = useState<Set<string>>(
+    new Set()
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
 
@@ -161,14 +124,13 @@ export function ReviewStep() {
     return <Navigate to="/admin/routes/generation/import" replace />;
   }
 
-  const data = reviewResult;
-  const netNewRows = data.net_new ?? [];
-  const staleRows = data.stale ?? [];
-  const changedEntries = data.changed ?? [];
+  const netNewRows = reviewResult.net_new ?? [];
+  const staleRows = reviewResult.stale ?? [];
+  const changedEntries = reviewResult.changed ?? [];
 
-  const toggleAccepted = (index: number) => {
-    setAccepted((prev) => {
-      const next = new Set(prev);
+  const toggleChanged = (index: number) => {
+    setReviewedChanged((previous) => {
+      const next = new Set(previous);
       if (next.has(index)) {
         next.delete(index);
       } else {
@@ -178,6 +140,22 @@ export function ReviewStep() {
     });
   };
 
+  const toggleRemoved = (locationId: string) => {
+    setReviewedRemoved((previous) => {
+      const next = new Set(previous);
+      if (next.has(locationId)) {
+        next.delete(locationId);
+      } else {
+        next.add(locationId);
+      }
+      return next;
+    });
+  };
+
+  const allReviewed =
+    reviewedChanged.size === changedEntries.length &&
+    reviewedRemoved.size === staleRows.length;
+
   const handleConfirm = async () => {
     setIngestError(null);
     try {
@@ -185,7 +163,9 @@ export function ReviewStep() {
         delivery_type: selectedDeliveryType,
         net_new: netNewRows.map(toIngestNetNew),
         stale: staleRows,
-        changed: changedEntries,
+        changed: changedEntries.filter((_, index) =>
+          reviewedChanged.has(index)
+        ),
       });
       setConfirmOpen(false);
       navigate('/admin/routes/generation/configure');
@@ -196,69 +176,89 @@ export function ReviewStep() {
 
   const changedColumns: Column<ChangedEntry & { _index: number }>[] = [
     {
+      key: 'reviewed',
+      header: '',
+      headerClassName: 'w-8 px-2',
+      render: (row) => (
+        <input
+          type="checkbox"
+          checked={reviewedChanged.has(row._index)}
+          onChange={() => toggleChanged(row._index)}
+          aria-label={`Review changes for ${row.contact_name}`}
+          className="border-grey-300 size-4 cursor-pointer rounded accent-blue-300"
+        />
+      ),
+    },
+    {
       key: 'contact_name',
       header: 'School / Last Name',
-      render: (r) => r.contact_name,
+      render: (row) => row.contact_name,
     },
     {
       key: 'address',
       header: 'Address',
-      render: (r) => <ChangedCell value={r.address} />,
+      render: (row) => <ChangedCell value={row.address} />,
     },
     {
       key: 'delivery_group',
       header: 'Delivery Group',
-      render: (r) => <ChangedCell value={r.delivery_group} />,
+      render: (row) => <ChangedCell value={row.delivery_group} />,
     },
     {
       key: 'phone_primary',
-      header: 'Primary Phone',
-      render: (r) => <ChangedCell value={r.phone_primary} />,
-    },
-    {
-      key: 'phone_secondary',
-      header: 'Secondary Phone',
-      render: (r) => <ChangedCell value={r.phone_secondary} />,
+      header: 'Phone Number',
+      render: (row) => <ChangedCell value={row.phone_primary} />,
     },
     {
       key: 'num_children',
       header: 'Number of Children',
-      render: (r) => <ChangedCell value={r.num_children} />,
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      render: (r) => {
-        const isAccepted = accepted.has(r._index);
-        return (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              shape="circular"
-              aria-label="Accept new value"
-              onClick={() => !isAccepted && toggleAccepted(r._index)}
-              className={isAccepted ? 'opacity-100' : 'opacity-40'}
-            >
-              <CheckIcon className="size-4" />
-            </Button>
-            <Button
-              variant="secondary"
-              shape="circular"
-              aria-label="Keep old value"
-              onClick={() => isAccepted && toggleAccepted(r._index)}
-            >
-              <XIcon className="size-4" />
-            </Button>
-          </div>
-        );
-      },
+      render: (row) => <ChangedCell value={row.num_children} />,
     },
   ];
 
-  const changedRows = changedEntries.map((entry, i) => ({
+  const staleColumns: Column<StaleEntry>[] = [
+    {
+      key: 'reviewed',
+      header: '',
+      headerClassName: 'w-8 px-2',
+      render: (row) => (
+        <input
+          type="checkbox"
+          checked={reviewedRemoved.has(row.location_id)}
+          onChange={() => toggleRemoved(row.location_id)}
+          aria-label={`Review removal of ${row.contact_name}`}
+          className="border-grey-300 size-4 cursor-pointer rounded accent-blue-300"
+        />
+      ),
+    },
+    {
+      key: 'contact_name',
+      header: 'School / Last Name',
+      render: (row) => row.contact_name,
+    },
+    { key: 'address', header: 'Address', render: (row) => row.address },
+    {
+      key: 'delivery_group',
+      header: 'Delivery Group',
+      render: (row) => row.delivery_group ?? '—',
+    },
+    {
+      key: 'phone_primary',
+      header: 'Phone Number',
+      render: (row) => row.phone_primary,
+    },
+    {
+      key: 'num_children',
+      header: 'Number of Children',
+      render: () => '—',
+    },
+  ];
+
+  const changedRows = changedEntries.map((entry, index) => ({
     ...entry,
-    _index: i,
+    _index: index,
   }));
+  const compactEmptyState = '[&_td>div]:gap-1 [&_td>div]:py-8 [&_td_img]:h-28';
 
   return (
     <>
@@ -268,86 +268,85 @@ export function ReviewStep() {
         </Banner>
       )}
 
-      {/* New in Spreadsheet */}
       <section className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-grey-500">New in Spreadsheet</h2>
-          <p className="text-p1 text-grey-400">
-            New entries to be added to the system.
-          </p>
-        </div>
-        <DataTable
-          columns={netNewColumns}
-          rows={netNewRows}
-          getRowKey={(r) => r.row}
-          emptyState={
-            <EmptyState
-              title="No new entries found in the spreadsheet"
-              description="It's feeling quite empty here"
-            />
-          }
-        />
-      </section>
-
-      {/* Removed in Spreadsheet */}
-      <section className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-grey-500">Removed in Spreadsheet</h2>
-          <p className="text-p1 text-grey-400">
-            Entries to be archived in the system.
-          </p>
-        </div>
-        <DataTable
-          columns={staleColumns}
-          rows={staleRows}
-          getRowKey={(r) => r.location_id}
-          emptyState={
-            <EmptyState
-              title="No new entries found in the spreadsheet"
-              description="It's feeling quite empty here"
-            />
-          }
-        />
-      </section>
-
-      {/* Data that has Changed */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-end justify-between">
           <div>
-            <h2 className="text-grey-500">Data that has Changed</h2>
-            <p className="text-p1 text-grey-400">
-              Entries that have data that was changed from previous upload.
+            <div className="flex items-center gap-3">
+              <h2 className="text-grey-500">Changed Data</h2>
+              <ReviewStatus
+                reviewed={reviewedChanged.size}
+                total={changedEntries.length}
+              />
+            </div>
+            <p className="text-p1 text-grey-500">
+              Check off entries that have changed since the previous upload to
+              confirm you have reviewed them
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Tag variant="success">New</Tag>
-            <Tag variant="error">Old</Tag>
+            <span className="border-grey-300 rounded-full border bg-white px-4 py-1 text-sm">
+              Old
+            </span>
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-4 py-1 text-sm">
+              New
+            </span>
           </div>
         </div>
         <DataTable
           columns={changedColumns}
           rows={changedRows}
-          getRowKey={(r) => r._index}
+          getRowKey={(row) => row._index}
+          className={compactEmptyState}
           emptyState={
             <EmptyState
-              title="No new entries found in the spreadsheet"
-              description="It's feeling quite empty here"
+              title="No entries found"
+              description="No action required at this time"
             />
           }
         />
       </section>
 
-      {/* Actions */}
+      <section className="flex flex-col gap-3">
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-grey-500">Removed</h2>
+            <ReviewStatus
+              reviewed={reviewedRemoved.size}
+              total={staleRows.length}
+            />
+          </div>
+          <p className="text-p1 text-grey-500">
+            Check off entries that were removed since the previous upload to
+            confirm you have reviewed them
+          </p>
+        </div>
+        <DataTable
+          columns={staleColumns}
+          rows={staleRows}
+          getRowKey={(row) => row.location_id}
+          className={compactEmptyState}
+          emptyState={
+            <EmptyState
+              title="No entries found"
+              description="No action required at this time"
+            />
+          }
+        />
+      </section>
+
       <div className="flex items-center justify-between">
         <Button variant="tertiary" asChild>
-          <Link to="/admin/routes/generation/validate">Back to Validation</Link>
+          <Link to="/admin/routes/generation/validate">Back to validate</Link>
         </Button>
-        <Button variant="primary" onClick={() => setConfirmOpen(true)}>
-          Continue to Configure Routes
+        <Button
+          variant="primary"
+          disabled={!allReviewed}
+          onClick={() => setConfirmOpen(true)}
+        >
+          Continue to edit route groups
         </Button>
       </div>
 
-      {/* Confirmation Changes Modal */}
       <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
         <ModalContent>
           <ModalHeader>
@@ -366,7 +365,7 @@ export function ReviewStep() {
               disabled={isIngesting}
               onClick={handleConfirm}
             >
-              {isIngesting ? 'Applying…' : 'Apply Changes'}
+              {isIngesting ? 'Applying…' : 'Apply changes'}
             </Button>
           </ModalFooter>
         </ModalContent>

@@ -149,6 +149,8 @@ class NetNewEntry(SQLModel):
     phone_primary: str
     phone_secondary: str | None = None
     num_children: int | None = None
+    halal: bool | None = None
+    dietary_restrictions: str | None = None
 
 
 class StaleEntry(SQLModel):

@@ -1217,6 +1217,14 @@ export type NetNewEntry = {
    */
   delivery_group?: string | null;
   /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | null;
+  /**
+   * Halal
+   */
+  halal?: boolean | null;
+  /**
    * Num Children
    */
   num_children?: number | null;
