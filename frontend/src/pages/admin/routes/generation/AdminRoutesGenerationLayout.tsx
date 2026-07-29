@@ -84,7 +84,7 @@ export function AdminRoutesGenerationLayout() {
           </span>
         </div>
         <p className="text-p1 text-grey-500">
-          Import family data and generate delivery routes
+          Import data and generate delivery routes
         </p>
       </div>
 

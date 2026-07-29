@@ -215,13 +215,14 @@ export function ValidateStep() {
 
   return (
     <>
-      {/* Error banner */}
+      {/* Error banner — just the count. Each table below carries its own
+          instruction, so repeating "go back to Import" here said it three
+          times on the same screen. */}
       {!bannerDismissed && !data.success && (
         <Banner variant="error" onDismiss={() => setDismissedFor(data)}>
           Please correct these{' '}
           <span className="text-red font-bold">{errorCount}</span>{' '}
-          {errorCount === 1 ? 'error' : 'errors'} before continuing, then go
-          back to import to reupload the file.
+          {errorCount === 1 ? 'error' : 'errors'} before continuing.
         </Banner>
       )}
 
