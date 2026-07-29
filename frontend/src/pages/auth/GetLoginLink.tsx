@@ -1,9 +1,13 @@
 import { useState } from 'react';
 
-import { useResendOnboardingEmail } from '@/api';
+import { describeApiFailure, useResendOnboardingEmail } from '@/api';
 
 import { RequestLinkForm, SendLinkConfirmation } from './RequestLinkForm';
 import { WrapperWithLogo } from './Wrapper';
+
+const sendFailureMessage = (error: unknown) =>
+  describeApiFailure(error) ??
+  'We couldn’t send the login link. Please try again in a moment.';
 
 type Step = 'FORM' | 'CONFIRMATION';
 
@@ -11,6 +15,8 @@ export const GetLoginLink = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
   const [hasTimerFinished, setHasTimerFinished] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   const headerTitle = step === 'FORM' ? 'Didn’t get a link?' : 'Login link sent';
 
@@ -31,18 +37,34 @@ export const GetLoginLink = () => {
   const resendOnboardingEmailMutation = useResendOnboardingEmail();
 
   const handleSendLink = (submittedEmail: string) => {
+    setSendError(null);
     resendOnboardingEmailMutation.mutate(
       { email: submittedEmail },
       {
         onSuccess: () => {
           setStep('CONFIRMATION');
         },
+        onError: (error) => {
+          setSendError(sendFailureMessage(error));
+        },
       }
     );
   };
 
-  const handleResendLink = (submittedEmail: string) => {
-    resendOnboardingEmailMutation.mutate({ email: submittedEmail });
+  const handleResendLink = (
+    submittedEmail: string,
+    options?: { onError?: (error: unknown) => void }
+  ) => {
+    setResendError(null);
+    resendOnboardingEmailMutation.mutate(
+      { email: submittedEmail },
+      {
+        onError: (error) => {
+          setResendError(sendFailureMessage(error));
+          options?.onError?.(error);
+        },
+      }
+    );
   };
 
   return (
@@ -57,12 +79,16 @@ export const GetLoginLink = () => {
           setEmail={setEmail}
           onSubmit={handleSendLink}
           isPending={resendOnboardingEmailMutation.isPending}
+          sendError={sendError}
+          clearError={() => setSendError(null)}
         />
       ) : (
         <SendLinkConfirmation
           email={email}
           onResend={handleResendLink}
           isPending={resendOnboardingEmailMutation.isPending}
+          resendError={resendError}
+          clearError={() => setResendError(null)}
           onTimerComplete={() => setHasTimerFinished(true)}
         />
       )}
