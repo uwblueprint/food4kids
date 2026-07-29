@@ -1891,6 +1891,9 @@ class TestLocationImportRoutes:
             "Net New Family"
         ]
         assert [entry["contact_name"] for entry in body["stale"]] == ["Stale Family"]
+        # Carried off the existing Location, not the import — the review step
+        # shows what is being taken off the roster.
+        assert body["stale"][0]["num_children"] == 4
         changed_by_name = {entry["contact_name"]: entry for entry in body["changed"]}
         assert set(changed_by_name) == {
             "Address Change Family",

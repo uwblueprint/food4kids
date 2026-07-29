@@ -873,6 +873,7 @@ class LocationService:
             delivery_group=location.location_group.name,
             phone_primary=location.phone_primary,
             phone_secondary=location.phone_secondary,
+            num_children=location.num_children,
         )
 
     def _to_changed_entry(

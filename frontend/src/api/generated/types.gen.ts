@@ -1987,6 +1987,10 @@ export type StaleEntry = {
    */
   location_id: string;
   /**
+   * Num Children
+   */
+  num_children?: number;
+  /**
    * Phone Primary
    */
   phone_primary: string;

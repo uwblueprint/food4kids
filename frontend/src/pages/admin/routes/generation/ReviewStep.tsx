@@ -260,7 +260,7 @@ export function ReviewStep() {
     {
       key: 'num_children',
       header: 'Number of Children',
-      render: () => '—',
+      render: (row) => row.num_children ?? '—',
     },
   ];
 

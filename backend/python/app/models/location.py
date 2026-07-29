@@ -163,6 +163,10 @@ class StaleEntry(SQLModel):
     delivery_group: str | None = None
     phone_primary: str
     phone_secondary: str | None = None
+    # Carried so the review step can show what is being taken off the roster in
+    # the same columns as the changed rows. Always known — it is stored on the
+    # Location, not read from the import.
+    num_children: int = 0
 
 
 class ChangedFieldStr(SQLModel):

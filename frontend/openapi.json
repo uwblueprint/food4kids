@@ -3374,6 +3374,11 @@
             "title": "Location Id",
             "type": "string"
           },
+          "num_children": {
+            "default": 0,
+            "title": "Num Children",
+            "type": "integer"
+          },
           "phone_primary": {
             "title": "Phone Primary",
             "type": "string"
