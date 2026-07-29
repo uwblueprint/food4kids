@@ -124,7 +124,9 @@ export function ImportStep() {
       key: 'label',
       header: 'System Column',
       render: (row) => (
-        <span className="text-p2 text-grey-500">
+        // P1, not the table's usual P2 — these are field labels rather than
+        // imported data, and the frames set them 16/500.
+        <span className="text-p1 text-grey-500">
           {row.label}
           {row.required && <span className="text-red ml-0.5">*</span>}
         </span>
@@ -260,7 +262,7 @@ export function ImportStep() {
             rows={SYSTEM_FIELDS}
             getRowKey={(row) => row.key}
           />
-          <p className="text-p2 text-grey-400 text-right">
+          <p className="text-p2 text-grey-400 text-right font-semibold">
             Columns can be customized from the{' '}
             <Link to="/admin/settings" className="text-blue-300">
               Settings
