@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { useForgotPassword } from '@/api';
+import { describeApiFailure, useForgotPassword } from '@/api';
 
 import { RequestLinkForm, SendLinkConfirmation } from './RequestLinkForm';
 import { WrapperWithLogo } from './Wrapper';
@@ -19,6 +19,9 @@ type Step = 'FORM' | 'CONFIRMATION';
 export const ForgotPassword = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
+
   const headerTitle = step === 'FORM' ? 'Forgot password?' : 'Reset link sent';
   const subheaderTitle =
     step === 'FORM'
@@ -28,18 +31,34 @@ export const ForgotPassword = () => {
   const forgotPasswordMutation = useForgotPassword();
 
   const handleSendLink = (submittedEmail: string) => {
+    setSendError(null);
     forgotPasswordMutation.mutate(
       { email: submittedEmail },
       {
         onSuccess: () => {
           setStep('CONFIRMATION');
         },
+        onError: (error) => {
+          setSendError(sendFailureMessage(error));
+        },
       }
     );
   };
 
-  const handleResendLink = (submittedEmail: string) => {
-    forgotPasswordMutation.mutate({ email: submittedEmail });
+  const handleResendLink = (
+    submittedEmail: string,
+    options?: { onError?: (error: unknown) => void }
+  ) => {
+    setResendError(null);
+    forgotPasswordMutation.mutate(
+      { email: submittedEmail },
+      {
+        onError: (error) => {
+          setResendError(sendFailureMessage(error));
+          options?.onError?.(error);
+        },
+      }
+    );
   };
 
   return (
@@ -54,12 +73,16 @@ export const ForgotPassword = () => {
           setEmail={setEmail}
           onSubmit={handleSendLink}
           isPending={forgotPasswordMutation.isPending}
+          sendError={sendError}
+          clearError={() => setSendError(null)}
         />
       ) : (
         <SendLinkConfirmation
           email={email}
           onResend={handleResendLink}
           isPending={forgotPasswordMutation.isPending}
+          resendError={resendError}
+          clearError={() => setResendError(null)}
         />
       )}
     </WrapperWithLogo>

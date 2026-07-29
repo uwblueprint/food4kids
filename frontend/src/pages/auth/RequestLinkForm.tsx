@@ -3,11 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 
+import { ErrorNote } from './ErrorNote';
+
 interface RequestLinkFormProps {
   email: string;
   setEmail: (email: string) => void;
   onSubmit: (email: string) => void;
   isPending: boolean;
+  sendError: string | null;
+  clearError: () => void;
 }
 
 export const RequestLinkForm = ({
@@ -15,6 +19,8 @@ export const RequestLinkForm = ({
   setEmail,
   onSubmit,
   isPending,
+  sendError,
+  clearError,
 }: RequestLinkFormProps) => {
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,10 +41,15 @@ export const RequestLinkForm = ({
             autoComplete="email"
             placeholder="Enter your email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              clearError();
+            }}
             required
           />
         </Field>
+
+        {sendError && <ErrorNote className="-mb-2">{sendError}</ErrorNote>}
 
         {/* Send Link Button */}
         <Button
@@ -64,9 +75,14 @@ export const RequestLinkForm = ({
 
 interface SendLinkConfirmationProps {
   email: string;
-  onResend: (email: string) => void;
+  onResend: (
+    email: string,
+    options?: { onError?: (error: unknown) => void }
+  ) => void;
   isPending: boolean;
   onTimerComplete?: () => void;
+  resendError: string | null;
+  clearError: () => void;
 }
 
 export const SendLinkConfirmation = ({
@@ -74,6 +90,8 @@ export const SendLinkConfirmation = ({
   onResend,
   isPending,
   onTimerComplete,
+  resendError,
+  clearError,
 }: SendLinkConfirmationProps) => {
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(60);
@@ -92,7 +110,12 @@ export const SendLinkConfirmation = ({
   }, [countdown, onTimerComplete]);
 
   const handleResendClick = () => {
-    onResend(email);
+    clearError();
+    onResend(email, {
+      onError: () => {
+        setCountdown(0);
+      },
+    });
     setCountdown(60);
   };
 
@@ -122,6 +145,11 @@ export const SendLinkConfirmation = ({
             : 'Send link again'}
         </button>
       </p>
+      {resendError && (
+        <ErrorNote className="justify-center text-center">
+          {resendError}
+        </ErrorNote>
+      )}
     </div>
   );
 };
