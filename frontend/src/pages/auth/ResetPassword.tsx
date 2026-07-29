@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { useUpdatePassword, useValidateResetToken } from '@/api/auth';
-import { CatchAllErrorPage, NotFoundPage } from '@/common/components';
+import { describeApiFailure } from '@/api/errors';
+import {
+  CatchAllErrorPage,
+  NotFoundPage,
+  ServiceUnavailablePage,
+} from '@/common/components';
 
 import { CreatePasswordForm } from './CreatePasswordForm';
 import { WrapperWithLogo } from './Wrapper';
@@ -26,10 +31,17 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
   const subheaderTitle = 'Create a password to access the app';
 
   const navigate = useNavigate();
+  // A message means the reset never reached the server, so the form (and the
+  // password already typed into it) stays put and the user can retry. Only a
+  // refusal from the server itself is worth throwing the whole screen away.
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [hasSubmitError, setHasSubmitError] = useState(false);
 
-  const { isLoading: isValidatingToken, isError: isTokenInvalid } =
-    useValidateResetToken({ password_reset_token: token });
+  const {
+    isLoading: isValidatingToken,
+    isError: didValidationFail,
+    error: validationError,
+  } = useValidateResetToken({ password_reset_token: token });
 
   const { mutate, isPending } = useUpdatePassword();
 
@@ -47,8 +59,15 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
     );
   }
 
-  if (isTokenInvalid) {
-    return <NotFoundPage />;
+  if (didValidationFail) {
+    // A link we couldn't check is not a link we can call dead. The backend
+    // answers 400 for a token that's really expired, and nothing at all when
+    // it's the connection that's gone.
+    return describeApiFailure(validationError) ? (
+      <ServiceUnavailablePage />
+    ) : (
+      <NotFoundPage />
+    );
   }
 
   if (hasSubmitError) {
@@ -56,6 +75,7 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
   }
 
   const handleResetPassword = (password: string) => {
+    setConnectionError(null);
     mutate(
       {
         password_reset_token: token,
@@ -65,8 +85,13 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
         onSuccess: () => {
           navigate('/login', { replace: true });
         },
-        onError: () => {
-          setHasSubmitError(true);
+        onError: (error) => {
+          const message = describeApiFailure(error);
+          if (message) {
+            setConnectionError(message);
+          } else {
+            setHasSubmitError(true);
+          }
         },
       }
     );
@@ -83,6 +108,7 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
         onSubmit={handleResetPassword}
         isPending={isPending}
         submitButtonText="Create account"
+        submitError={connectionError}
       />
     </WrapperWithLogo>
   );

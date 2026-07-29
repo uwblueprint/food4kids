@@ -1,22 +1,26 @@
-import { AlertTriangleIcon, CheckIcon, EyeOffIcon } from 'lucide-react';
+import { CheckIcon, EyeOffIcon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
 
+import { ErrorNote } from './ErrorNote';
 import { fieldNote } from './styles';
 
 interface CreatePasswordFormProps {
   onSubmit: (password: string) => void;
   isPending: boolean;
   submitButtonText: string;
+  /** Why the last submission failed, if it did. Nothing to do with the fields. */
+  submitError?: string | null;
 }
 
 export const CreatePasswordForm = ({
   onSubmit,
   isPending,
   submitButtonText,
+  submitError,
 }: CreatePasswordFormProps) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -110,16 +114,11 @@ export const CreatePasswordForm = ({
               </button>
             </div>
             {passwordError && (
-              <div
-                className={cn(fieldNote, 'text-red flex items-center gap-1')}
-              >
-                <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                <span>
-                  {password
-                    ? 'Please make sure all criteria is met'
-                    : 'Please enter a password'}
-                </span>
-              </div>
+              <ErrorNote>
+                {password
+                  ? 'Please make sure all criteria is met'
+                  : 'Please enter a password'}
+              </ErrorNote>
             )}
           </Field>
 
@@ -161,16 +160,11 @@ export const CreatePasswordForm = ({
                 </button>
               </div>
               {confirmPasswordError && (
-                <div
-                  className={cn(fieldNote, 'text-red flex items-center gap-1')}
-                >
-                  <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                  <span>
-                    {confirmPassword
-                      ? 'Please make sure both passwords match'
-                      : 'Please enter a password'}
-                  </span>
-                </div>
+                <ErrorNote>
+                  {confirmPassword
+                    ? 'Please make sure both passwords match'
+                    : 'Please enter a password'}
+                </ErrorNote>
               )}
             </Field>
           </div>
@@ -192,12 +186,16 @@ export const CreatePasswordForm = ({
 
         {/* Create Account Button */}
         <div className="flex flex-col">
+          {submitError && <ErrorNote className="mt-6">{submitError}</ErrorNote>}
           <Button
             form="register-form"
             type="submit"
             variant="primary"
             shape="default"
-            className="desktop:mt-12 mt-10 w-full py-3"
+            className={cn(
+              'w-full py-3',
+              submitError ? 'mt-4' : 'desktop:mt-12 mt-10'
+            )}
             disabled={isPending}
           >
             {submitButtonText}

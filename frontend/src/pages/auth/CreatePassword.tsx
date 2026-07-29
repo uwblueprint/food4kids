@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { useRegisterDriver } from '@/api/auth';
+import { describeApiFailure } from '@/api/errors';
 import { Button, NotFoundPage } from '@/common/components';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +13,7 @@ type Step = 'FORM' | 'CONFIRMATION';
 
 export const CreatePassword = () => {
   const [step, setStep] = useState<Step>('FORM');
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const headerTitle = step === 'FORM' ? 'Create a password' : 'Account created';
   const subheaderTitle =
     step === 'FORM'
@@ -32,6 +34,7 @@ export const CreatePassword = () => {
   const handleRegister = (password: string) => {
     if (!token) return;
 
+    setSubmitError(null);
     mutate(
       {
         user_invite_id: token,
@@ -39,6 +42,14 @@ export const CreatePassword = () => {
       },
       {
         onSuccess: () => setStep('CONFIRMATION'),
+        onError: (error) => {
+          // A refusal here is the invite link, never the password: the backend
+          // answers 403 for a link that's already used or expired.
+          setSubmitError(
+            describeApiFailure(error) ??
+              'This registration link is no longer valid. Ask your admin for a new one.'
+          );
+        },
       }
     );
   };
@@ -59,6 +70,7 @@ export const CreatePassword = () => {
           onSubmit={handleRegister}
           isPending={isPending}
           submitButtonText="Create account"
+          submitError={submitError}
         />
       ) : (
         <AccountCreationConfirmation />
