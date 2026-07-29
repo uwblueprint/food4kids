@@ -22,6 +22,11 @@ class LocationBase(SQLModel):
     )
     name: str
     contact_name: str
+    # Guardian's name, for Family deliveries. Distinct from contact_name, which
+    # holds the school name or the family's last name — a Family row has both.
+    # Nullable: School rows have no guardian, and rows imported before this
+    # column existed have nothing to backfill from.
+    guardian_name: str | None = None
     address: str
     phone_primary: str
     phone_secondary: str | None = None
@@ -102,6 +107,7 @@ class LocationImportEntry(SQLModel):
     """Parsed row from import file; all fields optional until validated."""
 
     contact_name: str | None = None
+    guardian_name: str | None = None
     address: str | None = None
     delivery_group: str | None = None
     phone_primary: str | None = None
@@ -144,6 +150,7 @@ class NetNewEntry(SQLModel):
 
     row: int
     contact_name: str
+    guardian_name: str | None = None
     address: str
     delivery_group: str | None = None
     phone_primary: str
@@ -194,6 +201,10 @@ class ChangedEntry(SQLModel):
     row: int
     location_id: UUID
     contact_name: str
+    # Diffed like the rest. The frames' Changed table has no Guardian Name
+    # column, but leaving it undiffed would mean a row whose only edit is the
+    # guardian's name never surfaces and the edit is dropped on ingest.
+    guardian_name: str | ChangedFieldOptStr | None = None
     address: str | ChangedFieldStr
     delivery_group: str | ChangedFieldOptStr | None = None
     phone_primary: str | ChangedFieldStr
@@ -261,6 +272,7 @@ class LocationUpdate(SQLModel):
     location_group_id: UUID | None = None
     name: str | None = None
     contact_name: str | None = None
+    guardian_name: str | None = None
     address: str | None = None
     phone_primary: str | None = None
     phone_secondary: str | None = None

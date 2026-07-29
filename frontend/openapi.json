@@ -340,6 +340,20 @@
             ],
             "title": "Delivery Group"
           },
+          "guardian_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldOptStr"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Name"
+          },
           "location_id": {
             "format": "uuid",
             "title": "Location Id",
@@ -1098,6 +1112,17 @@
             "title": "Dietary Restrictions",
             "type": "string"
           },
+          "guardian_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Name"
+          },
           "halal": {
             "default": false,
             "title": "Halal",
@@ -1411,6 +1436,17 @@
             ],
             "title": "Dietary Restrictions"
           },
+          "guardian_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Name"
+          },
           "halal": {
             "anyOf": [
               {
@@ -1640,6 +1676,17 @@
             "title": "Dietary Restrictions",
             "type": "string"
           },
+          "guardian_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Name"
+          },
           "halal": {
             "default": false,
             "title": "Halal",
@@ -1844,6 +1891,17 @@
               }
             ],
             "title": "Dietary Restrictions"
+          },
+          "guardian_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Name"
           },
           "halal": {
             "anyOf": [
@@ -2052,6 +2110,17 @@
               }
             ],
             "title": "Dietary Restrictions"
+          },
+          "guardian_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Name"
           },
           "halal": {
             "anyOf": [
@@ -3943,6 +4012,17 @@
               }
             ],
             "title": "Dietary Restrictions"
+          },
+          "guardian_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Name"
           },
           "halal": {
             "anyOf": [

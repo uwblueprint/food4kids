@@ -75,6 +75,7 @@ function ChangedCell({
 function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
   return {
     contact_name: entry.contact_name,
+    guardian_name: entry.guardian_name,
     address: entry.address,
     delivery_group: entry.delivery_group ?? '',
     phone_primary: entry.phone_primary,
@@ -203,6 +204,14 @@ export function ReviewStep() {
       key: 'contact_name',
       header: 'School / Last Name',
       render: (row) => row.contact_name,
+    },
+    // Not in the frames' Changed table. Without it, a row whose only edit is
+    // the guardian's name shows no visible difference, and there is nothing
+    // for the admin to check off — flag to the designer.
+    {
+      key: 'guardian_name',
+      header: 'Guardian Name',
+      render: (row) => <ChangedCell value={row.guardian_name} />,
     },
     {
       key: 'address',

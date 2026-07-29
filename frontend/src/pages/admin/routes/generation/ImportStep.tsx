@@ -32,6 +32,7 @@ interface SystemField {
 
 const SYSTEM_FIELDS: SystemField[] = [
   { key: 'contact_name', label: 'School Name / Last Name', required: true },
+  { key: 'guardian_name', label: 'Guardian Name', required: true },
   { key: 'address', label: 'Address', required: true },
   { key: 'delivery_group', label: 'Delivery Group', required: true },
   { key: 'phone_primary', label: 'Phone Number', required: true },
