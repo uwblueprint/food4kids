@@ -60,7 +60,7 @@ const ResetPasswordContent = ({ token }: ResetPasswordContentProps) => {
   }
 
   if (didValidationFail) {
-    // A link we couldn't check is not a link we can call dead — the backend
+    // A link we couldn't check is not a link we can call dead. The backend
     // answers 400 for a token that's really expired, and nothing at all when
     // it's the connection that's gone.
     return describeApiFailure(validationError) ? (

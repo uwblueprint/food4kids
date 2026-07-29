@@ -11,8 +11,8 @@ interface ErrorNoteProps {
 }
 
 /**
- * The red note the auth screens put under a field — or under the form as a
- * whole, when the failure isn't any one field's fault.
+ * The red note the auth screens put under a field, or under the form as a
+ * whole when the failure isn't any one field's fault.
  */
 export const ErrorNote = ({ children, className }: ErrorNoteProps) => (
   <div className={cn(fieldNote, 'text-red flex items-center gap-1', className)}>

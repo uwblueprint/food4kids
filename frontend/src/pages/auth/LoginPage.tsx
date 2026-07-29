@@ -24,7 +24,7 @@ export const LoginPage = () => {
 /**
  * `credentials` is the only failure the fields are guilty of, so it is the only
  * one that reddens them. A login the server never answered gets a single
- * form-level note instead — the email and password may well be correct.
+ * form-level note instead, because the email and password may well be correct.
  */
 type LoginError = {
   scope: 'credentials' | 'form';

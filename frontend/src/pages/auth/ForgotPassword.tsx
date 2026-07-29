@@ -8,9 +8,9 @@ import { ErrorNote } from './ErrorNote';
 import { WrapperWithLogo } from './Wrapper';
 
 /**
- * The endpoint answers 204 whether or not the address exists — that's the
- * anti-enumeration design — so a failure here is never about the email the user
- * typed, and is never worth implying it was.
+ * The endpoint answers 204 whether or not the address exists, which is the
+ * anti-enumeration design. A failure here is therefore never about the email the
+ * user typed, and is never worth implying it was.
  */
 const sendFailureMessage = (error: unknown) =>
   describeApiFailure(error) ??

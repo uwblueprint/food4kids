@@ -11,15 +11,15 @@ import { isAxiosError } from 'axios';
  * password that was never wrong.
  */
 type ApiFailureKind =
-  /** 401 or 403 — the server rejected the credentials, token, or link. */
+  /** 401 or 403, meaning the server rejected the credentials, token, or link. */
   | 'unauthorized'
-  /** Another 4xx — the server understood the request and declined it. */
+  /** Another 4xx: the server understood the request and declined it. */
   | 'rejected'
-  /** 5xx — the request was fine; the server broke while handling it. */
+  /** 5xx. The request was fine; the server broke while handling it. */
   | 'server'
   /** No response at all: offline, DNS failure, reset connection, timeout, CORS. */
   | 'unreachable'
-  /** Not an HTTP failure — a bug in our own success/error handling. */
+  /** Not an HTTP failure, so a bug in our own success/error handling. */
   | 'unknown';
 
 function classifyApiFailure(error: unknown): ApiFailureKind {
@@ -45,8 +45,8 @@ function classifyApiFailure(error: unknown): ApiFailureKind {
 
 /**
  * The message to show for a failed request, or `null` when the server
- * explicitly refused what the user supplied — the caller words that case
- * itself, because only it knows what was being refused.
+ * explicitly refused what the user supplied. The caller words that case itself,
+ * because only it knows what was being refused.
  *
  * Never surfaces the underlying error: backend detail belongs in the console,
  * not in front of a driver.
@@ -59,7 +59,7 @@ export function describeApiFailure(error: unknown): string | null {
     case 'rejected':
       return null;
     case 'unreachable':
-      return "Can't reach the server — check your connection and try again.";
+      return "Can't reach the server. Check your connection and try again.";
     case 'server':
     case 'unknown':
       return 'Something went wrong on our end. Please try again in a moment.';
