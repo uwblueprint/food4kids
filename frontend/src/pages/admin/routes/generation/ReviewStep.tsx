@@ -25,6 +25,7 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
@@ -55,13 +56,15 @@ function ChangedCell({
     return <span>{value ?? '—'}</span>;
   }
 
+  // No vertical padding: `min-h-10` is border-box, so each half is exactly the
+  // 40px the frames call for and a changed row totals 80.
   return (
     <div className="-mx-4 -my-2.5 flex flex-col">
-      <span className="bg-grey-150 flex min-h-10 items-center gap-2 px-4 py-2.5">
+      <span className="bg-grey-150 flex min-h-10 items-center gap-2 px-4">
         <span className="text-grey-400 text-base">−</span>
         {value.old_value ?? '—'}
       </span>
-      <span className="flex min-h-10 items-center gap-2 border-b-2 border-blue-100 bg-blue-50 px-4 py-2.5">
+      <span className="flex min-h-10 items-center gap-2 border-b-2 border-blue-100 bg-blue-50 px-4">
         <span className="text-grey-400 text-base">+</span>
         {value.new_value ?? '—'}
       </span>
@@ -93,11 +96,14 @@ function ReviewStatus({
 
   return (
     <span
-      className={
+      className={cn(
+        // Tag: 127×26, r40, 16px side padding, 14/600. Neutral until every row
+        // in the section is checked off — 0 / 0 stays neutral.
+        'inline-flex h-[26px] items-center rounded-full px-4 text-sm font-semibold',
         complete
-          ? 'bg-success-fill text-success-stroke rounded-full px-3 py-1 text-sm'
-          : 'bg-grey-300 rounded-full px-3 py-1 text-sm'
-      }
+          ? 'bg-success-fill text-success-stroke'
+          : 'bg-grey-300 text-grey-500'
+      )}
     >
       {reviewed} / {total} Reviewed
     </span>
@@ -159,17 +165,21 @@ export function ReviewStep() {
   const handleConfirm = async () => {
     setIngestError(null);
     try {
+      // Every change is applied. The checkboxes only attest that an admin has
+      // looked at each row — they are not a per-row include/exclude.
       await ingestLocations({
         delivery_type: selectedDeliveryType,
         net_new: netNewRows.map(toIngestNetNew),
         stale: staleRows,
-        changed: changedEntries.filter((_, index) =>
-          reviewedChanged.has(index)
-        ),
+        changed: changedEntries,
       });
       setConfirmOpen(false);
       navigate('/admin/routes/generation/configure');
     } catch {
+      // Close first: Radix marks the rest of the page aria-hidden and locks
+      // body scroll while the modal is open, so a banner set behind it is
+      // unreachable both visually and to screen readers.
+      setConfirmOpen(false);
       setIngestError('Could not apply the import changes — please try again.');
     }
   };
@@ -258,7 +268,6 @@ export function ReviewStep() {
     ...entry,
     _index: index,
   }));
-  const compactEmptyState = '[&_td>div]:gap-1 [&_td>div]:py-8 [&_td_img]:h-28';
 
   return (
     <>
@@ -268,10 +277,10 @@ export function ReviewStep() {
         </Banner>
       )}
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         <div className="flex items-end justify-between">
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <h2 className="text-grey-500">Changed Data</h2>
               <ReviewStatus
                 reviewed={reviewedChanged.size}
@@ -284,10 +293,10 @@ export function ReviewStep() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="border-grey-300 rounded-full border bg-white px-4 py-1 text-sm">
+            <span className="border-grey-300 bg-grey-150 inline-flex h-[26px] items-center rounded-full border px-4 text-sm font-semibold">
               Old
             </span>
-            <span className="rounded-full border border-blue-100 bg-blue-50 px-4 py-1 text-sm">
+            <span className="inline-flex h-[26px] items-center rounded-full border border-blue-100 bg-blue-50 px-4 text-sm font-semibold">
               New
             </span>
           </div>
@@ -296,9 +305,9 @@ export function ReviewStep() {
           columns={changedColumns}
           rows={changedRows}
           getRowKey={(row) => row._index}
-          className={compactEmptyState}
           emptyState={
             <EmptyState
+              compact
               title="No entries found"
               description="No action required at this time"
             />
@@ -306,9 +315,9 @@ export function ReviewStep() {
         />
       </section>
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <h2 className="text-grey-500">Removed</h2>
             <ReviewStatus
               reviewed={reviewedRemoved.size}
@@ -324,9 +333,9 @@ export function ReviewStep() {
           columns={staleColumns}
           rows={staleRows}
           getRowKey={(row) => row.location_id}
-          className={compactEmptyState}
           emptyState={
             <EmptyState
+              compact
               title="No entries found"
               description="No action required at this time"
             />

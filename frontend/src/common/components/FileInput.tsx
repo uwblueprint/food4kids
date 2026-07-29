@@ -41,7 +41,7 @@ function FileInput({
     return (
       <div
         className={cn(
-          'border-grey-300 flex h-16 items-center rounded-lg border bg-white px-7',
+          'border-grey-300 flex h-16 items-center rounded-sm border bg-white px-7',
           className
         )}
       >

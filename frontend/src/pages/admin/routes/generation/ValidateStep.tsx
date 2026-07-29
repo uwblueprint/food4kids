@@ -119,7 +119,7 @@ export function ValidateStep() {
   const columns: Column<LocationImportRow>[] = [
     {
       key: 'alerts',
-      header: 'Alert',
+      header: 'Error',
       render: (row) => {
         if (row.alerts.length === 0) return null;
         return (
@@ -170,7 +170,7 @@ export function ValidateStep() {
     },
     {
       key: 'phone_primary',
-      header: 'Primary Phone',
+      header: 'Phone Number',
       render: (row) => row.location.phone_primary ?? '',
       getCellClassName: (row) =>
         getCellClass(
@@ -215,8 +215,9 @@ export function ValidateStep() {
           getRowKey={(row) => row.row}
           emptyState={
             <EmptyState
-              title="No new entries found in the spreadsheet"
-              description="It's feeling quite empty here"
+              compact
+              title="No entries found"
+              description="No action required at this time"
             />
           }
         />
@@ -232,7 +233,7 @@ export function ValidateStep() {
           disabled={!canContinue}
           onClick={handleContinue}
         >
-          Continue to review
+          Continue to review changes
         </Button>
       </div>
     </>

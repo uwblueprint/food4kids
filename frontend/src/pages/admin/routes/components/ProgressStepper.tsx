@@ -12,7 +12,7 @@ const STEPS: Step[] = [
   { label: 'Import', path: '/admin/routes/generation/import' },
   { label: 'Validate', path: '/admin/routes/generation/validate' },
   { label: 'Review Changes', path: '/admin/routes/generation/review' },
-  { label: 'Configure Routes', path: '/admin/routes/generation/configure' },
+  { label: 'Edit Route Groups', path: '/admin/routes/generation/configure' },
   { label: 'Generate Routes', path: '/admin/routes/generation/generate' },
 ];
 
