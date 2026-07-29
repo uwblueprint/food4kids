@@ -1,14 +1,13 @@
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { useLogin } from '@/api';
-import AlertTriangleIcon from '@/assets/icons/alert-triangle.svg?react';
+import { describeApiFailure, useLogin } from '@/api';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
 
-import { fieldNote } from './styles';
+import { ErrorNote } from './ErrorNote';
 import { WrapperWithLogo } from './Wrapper';
 
 export const LoginPage = () => {
@@ -22,27 +21,47 @@ export const LoginPage = () => {
   );
 };
 
+/**
+ * `credentials` is the only failure the fields are guilty of, so it is the only
+ * one that reddens them. A login the server never answered gets a single
+ * form-level note instead — the email and password may well be correct.
+ */
+type LoginError = {
+  scope: 'credentials' | 'form';
+  message: string;
+};
+
 const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [loginError, setLoginError] = useState(false);
+  const [error, setError] = useState<LoginError | null>(null);
+
+  const credentialsError = error?.scope === 'credentials';
 
   const loginMutation = useLogin();
   const navigate = useNavigate();
 
   const handleLogin = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoginError(false);
+    setError(null);
     loginMutation.mutate(
       { email, password },
       {
         onSuccess: () => {
           navigate('/'); // 3. Navigate to base route on success
         },
-        onError: () => {
-          setLoginError(true);
+        onError: (failure) => {
+          const connectionMessage = describeApiFailure(failure);
+          setError(
+            connectionMessage
+              ? { scope: 'form', message: connectionMessage }
+              : {
+                  scope: 'credentials',
+                  message: 'Incorrect email or password',
+                }
+          );
         },
       }
     );
@@ -60,7 +79,7 @@ const LoginForm = () => {
               id="email"
               className={cn(
                 'px-6',
-                loginError && 'outline-red focus:outline-red'
+                credentialsError && 'outline-red focus:outline-red'
               )}
               type="email"
               autoComplete="email"
@@ -68,18 +87,11 @@ const LoginForm = () => {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                setLoginError(false);
+                setError(null);
               }}
               required
             />
-            {loginError && (
-              <div
-                className={cn(fieldNote, 'text-red flex items-center gap-1')}
-              >
-                <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                <span>Incorrect email or password</span>
-              </div>
-            )}
+            {credentialsError && <ErrorNote>{error.message}</ErrorNote>}
           </Field>
 
           <div className="flex flex-col gap-4">
@@ -94,12 +106,12 @@ const LoginForm = () => {
                   placeholder="Enter your password"
                   className={cn(
                     'px-6',
-                    loginError && 'outline-red focus:outline-red'
+                    credentialsError && 'outline-red focus:outline-red'
                   )}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setLoginError(false);
+                    setError(null);
                   }}
                   required
                 />
@@ -116,14 +128,7 @@ const LoginForm = () => {
                   )}
                 </button>
               </div>
-              {loginError && (
-                <div
-                  className={cn(fieldNote, 'text-red flex items-center gap-1')}
-                >
-                  <AlertTriangleIcon className="h-4 w-4 shrink-0" />
-                  <span>Incorrect email or password</span>
-                </div>
-              )}
+              {credentialsError && <ErrorNote>{error.message}</ErrorNote>}
             </Field>
 
             {/* Remember Me & Forgot Password */}
@@ -145,6 +150,12 @@ const LoginForm = () => {
               </Link>
             </div>
           </div>
+
+          {/* Failures that aren't the credentials' fault get one note for the
+              whole form, not a red outline on fields that may be perfectly fine. */}
+          {error?.scope === 'form' && (
+            <ErrorNote className="-mb-4">{error.message}</ErrorNote>
+          )}
 
           {/* Log In Button */}
           <Button

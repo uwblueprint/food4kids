@@ -1,10 +1,20 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { useForgotPassword } from '@/api';
+import { describeApiFailure, useForgotPassword } from '@/api';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
 
+import { ErrorNote } from './ErrorNote';
 import { WrapperWithLogo } from './Wrapper';
+
+/**
+ * The endpoint answers 204 whether or not the address exists — that's the
+ * anti-enumeration design — so a failure here is never about the email the user
+ * typed, and is never worth implying it was.
+ */
+const sendFailureMessage = (error: unknown) =>
+  describeApiFailure(error) ??
+  'We couldn’t send the reset link. Please try again in a moment.';
 
 type Step = 'FORM' | 'CONFIRMATION';
 
@@ -55,14 +65,20 @@ const ForgotPasswordForm = ({
   mutation,
   onSuccess,
 }: ForgotPasswordFormProps) => {
+  const [sendError, setSendError] = useState<string | null>(null);
+
   const handleForgotPassword = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    setSendError(null);
     mutation.mutate(
       { email },
       {
         onSuccess: () => {
           onSuccess();
+        },
+        onError: (error) => {
+          setSendError(sendFailureMessage(error));
         },
       }
     );
@@ -85,10 +101,13 @@ const ForgotPasswordForm = ({
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
+                setSendError(null);
               }}
               required
             />
           </Field>
+
+          {sendError && <ErrorNote className="-mb-2">{sendError}</ErrorNote>}
 
           {/* Send Link Button */}
           <Button
@@ -124,6 +143,7 @@ const ResetLinkConfirmation = ({
 }: ResetLinkConfirmationProps) => {
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(60);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   useEffect(() => {
     if (countdown === 0) return;
@@ -136,7 +156,17 @@ const ResetLinkConfirmation = ({
   }, [countdown]);
 
   const handleResendClick = () => {
-    mutation.mutate({ email });
+    setResendError(null);
+    mutation.mutate(
+      { email },
+      {
+        onError: (error) => {
+          // Nothing was sent, so don't make them wait out a countdown for it.
+          setResendError(sendFailureMessage(error));
+          setCountdown(0);
+        },
+      }
+    );
     setCountdown(60);
   };
 
@@ -171,6 +201,11 @@ const ResetLinkConfirmation = ({
               : 'Send link again'}
           </button>
         </p>
+        {resendError && (
+          <ErrorNote className="justify-center text-center">
+            {resendError}
+          </ErrorNote>
+        )}
       </div>
     </>
   );
