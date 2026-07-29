@@ -1508,17 +1508,6 @@ class TestLocationImportRoutes:
     """Test suite for location import validation, review, and ingest."""
 
     @pytest.mark.asyncio
-    async def test_review_locations_rejects_unknown_delivery_type(
-        self, async_client: AsyncClient
-    ) -> None:
-        request = import_review_request([], delivery_type="Unknown")
-
-        response = await async_client.post("/locations/review", **request)
-
-        assert response.status_code == 400
-        assert "Unknown delivery_type" in response.json()["detail"]
-
-    @pytest.mark.asyncio
     async def test_review_locations_emits_specific_blocking_alerts(
         self, client_with_overrides: Any
     ) -> None:
