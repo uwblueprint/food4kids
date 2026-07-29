@@ -1,9 +1,14 @@
 import { useState } from 'react';
 
 /**
- * Rows per page for the admin tables. The Figma draws the table as a fixed box
- * of fourteen 54px cells — a header plus thirteen rows — with the page
- * switcher directly beneath it, so a full page fills the frame exactly.
+ * Rows per page for the admin tables. This came from a Figma frame that draws
+ * the table as a fixed box of fourteen 54px cells — a header plus thirteen
+ * rows — with the page switcher directly beneath it.
+ *
+ * The route-generation frames draw the same table at 40px, and DataTable now
+ * follows them, so thirteen rows no longer fill that box. The count is left
+ * alone until the designer resolves which height is right; whatever it lands
+ * on, this number is (boxHeight / rowHeight) - 1.
  */
 export const TABLE_PAGE_SIZE = 13;
 
