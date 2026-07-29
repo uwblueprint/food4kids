@@ -1213,13 +1213,13 @@ export type NetNewEntry = {
    */
   contact_name: string;
   /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string | null;
-  /**
    * Delivery Group
    */
   delivery_group?: string | null;
+  /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | null;
   /**
    * Halal
    */
