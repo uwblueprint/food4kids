@@ -27,7 +27,7 @@ export const AdminLayout = () => {
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader>
-          <img src={logoImg} alt="Food4Kids" className="w-20 object-contain" />
+          <img src={logoImg} alt="Food4Kids" className="w-22 object-contain" />
         </SidebarHeader>
 
         <SidebarContent>
@@ -40,7 +40,7 @@ export const AdminLayout = () => {
       </Sidebar>
 
       <SidebarInset>
-        <div className="page-margins">
+        <div className="admin-page-margins">
           <Outlet />
         </div>
       </SidebarInset>

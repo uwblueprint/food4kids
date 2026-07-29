@@ -73,7 +73,7 @@ function Calendar({
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          'relative rounded-md border border-grey-300 has-focus:border-blue-300 has-focus:ring-[3px] has-focus:ring-blue-300/50',
+          'relative rounded-sm border border-grey-300 has-focus:border-blue-300 has-focus:ring-[3px] has-focus:ring-blue-300/50',
           defaultClassNames.dropdown_root
         ),
         dropdown: cn(
@@ -84,13 +84,13 @@ function Calendar({
           'text-h2 text-grey-500 font-bold select-none',
           captionLayout === 'label'
             ? ''
-            : 'flex h-8 items-center gap-1 rounded-md pr-1 pl-2 [&>svg]:size-3.5 [&>svg]:text-grey-400',
+            : 'flex h-8 items-center gap-1 rounded-sm pr-1 pl-2 [&>svg]:size-3.5 [&>svg]:text-grey-400',
           defaultClassNames.caption_label
         ),
         table: 'w-full border-collapse',
         weekdays: cn('flex', defaultClassNames.weekdays),
         weekday: cn(
-          'text-p2 text-grey-400 flex-1 rounded-md font-normal select-none',
+          'text-p2 text-grey-400 flex-1 rounded-sm font-normal select-none',
           defaultClassNames.weekday
         ),
         week: cn('mt-2 flex w-full', defaultClassNames.week),
@@ -103,18 +103,18 @@ function Calendar({
           defaultClassNames.week_number
         ),
         day: cn(
-          'group/day relative aspect-square h-full w-full p-0 text-center select-none [&:last-child[data-selected=true]_button]:rounded-r-md',
+          'group/day relative aspect-square h-full w-full p-0 text-center select-none [&:last-child[data-selected=true]_button]:rounded-r-sm',
           props.showWeekNumber
-            ? '[&:nth-child(2)[data-selected=true]_button]:rounded-l-md'
-            : '[&:first-child[data-selected=true]_button]:rounded-l-md',
+            ? '[&:nth-child(2)[data-selected=true]_button]:rounded-l-sm'
+            : '[&:first-child[data-selected=true]_button]:rounded-l-sm',
           defaultClassNames.day
         ),
         range_start: cn(
-          'rounded-l-md bg-blue-50',
+          'rounded-l-sm bg-blue-50',
           defaultClassNames.range_start
         ),
         range_middle: cn('rounded-none', defaultClassNames.range_middle),
-        range_end: cn('rounded-r-md bg-blue-50', defaultClassNames.range_end),
+        range_end: cn('rounded-r-sm bg-blue-50', defaultClassNames.range_end),
         today: defaultClassNames.today,
         outside: defaultClassNames.outside,
         disabled: cn('text-grey-400 opacity-50', defaultClassNames.disabled),
@@ -196,14 +196,17 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        'flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center leading-none font-normal',
+        // size-auto / border-0 also neutralize the Button variant's fixed
+        // circular size and border so cells track --cell-size with no outline
+        'tablet:size-auto flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center border-0 leading-none font-normal',
         // Outside days: more faded
         modifiers.outside ? 'text-grey-300' : 'text-grey-500',
-        // Default + today (unselected): transparent, circle border on hover
+        // Default: transparent; hovering a day fills it dark blue
         !modifiers.selected &&
-          'hover:border-grey-400 bg-transparent hover:border hover:bg-transparent',
-        // Selected: filled blue circle
-        modifiers.selected && 'text-grey-100 bg-blue-300 hover:bg-blue-400',
+          'hover:text-grey-100 bg-transparent hover:bg-blue-300',
+        // Selected (the currently-set date): light blue circle with a dark
+        // blue number, kept even while hovered
+        modifiers.selected && 'bg-blue-50 text-blue-400 hover:bg-blue-50',
         className
       )}
       {...props}

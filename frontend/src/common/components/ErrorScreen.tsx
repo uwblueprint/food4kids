@@ -65,7 +65,7 @@ export function ForbiddenPage() {
       </p>
       {/* TODO: replace '/' with login route */}
       <Button variant="primary" onClick={() => navigate('/')}>
-        Log In
+        Log in
       </Button>
     </ErrorScreen>
   );

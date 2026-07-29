@@ -1,41 +1,62 @@
 import { useState } from 'react';
 
 import { useAddresses } from '@/api/addresses';
-import type { LocationRead } from '@/api/generated/types.gen';
+import type {
+  LocationRead,
+  LocationStatusEnum,
+} from '@/api/generated/types.gen';
 import {
   getConfiguredDeliveryTypes,
   useSystemSettings,
 } from '@/api/system-settings';
-import type { UseSearchReturn } from '@/common/hooks';
-import { useSearch } from '@/common/hooks';
+import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
+import {
+  clampPage,
+  TABLE_PAGE_SIZE,
+  useDebouncedValue,
+  usePagination,
+  useSearch,
+} from '@/common/hooks';
 
 export interface AddressesFilterState {
-  routeStatuses: Set<string>;
+  statuses: Set<LocationStatusEnum>;
   deliveryTypes: Set<string>;
 }
 
+type SetElement<S> = S extends Set<infer V> ? V : never;
+
 const emptyFilters = (): AddressesFilterState => ({
-  routeStatuses: new Set(),
+  statuses: new Set(),
   deliveryTypes: new Set(),
 });
 
 const copyFilters = (f: AddressesFilterState): AddressesFilterState => ({
-  routeStatuses: new Set(f.routeStatuses),
+  statuses: new Set(f.statuses),
   deliveryTypes: new Set(f.deliveryTypes),
 });
 
-export interface AddressesTabState {
+export interface AddressesTabState extends UsePaginationReturn {
   rows: LocationRead[];
   isLoading: boolean;
+  totalPages: number;
   deliveryTypes: string[];
   search: UseSearchReturn;
+  /** Debounced search term the rows were filtered by, for highlighting. */
+  searchTerm: string;
   filterOpen: boolean;
   setFilterOpen: (v: boolean) => void;
   appliedFilters: AddressesFilterState;
   draftFilters: AddressesFilterState;
   hasActiveFilters: boolean;
   openFilters: () => void;
-  toggleDraft: (key: keyof AddressesFilterState, value: string) => void;
+  toggleDraft: <K extends keyof AddressesFilterState>(
+    key: K,
+    value: SetElement<AddressesFilterState[K]>
+  ) => void;
+  /** True when the draft has at least one chip selected (Clear All enabled). */
+  draftHasSelections: boolean;
+  /** Unselect every chip in the dialog; takes effect on Apply. */
+  clearDraft: () => void;
   handleApply: () => void;
 }
 
@@ -53,21 +74,39 @@ export function useAddressesTabState(): AddressesTabState {
     (s) => s.size > 0
   );
 
-  // NOTE: GET /locations has no search/filter params yet, so search and the
-  // filter chips below are local-only UI for now (they don't reach the
-  // backend). Wiring server-side search/filtering is tracked as future work.
-  const { data, isLoading } = useAddresses();
-  // GET /locations is paginated; we currently surface only the first page.
-  // The tab is a WIP shell, so pagination controls (and a total count) are
-  // future work alongside the server-side search/filtering above.
-  const rows = data?.items ?? [];
+  // Filters and search all hit the server (GET /locations accepts status,
+  // delivery_type, and a case-insensitive address/postal search). Debounced so
+  // the query fires once typing pauses.
+  const debouncedSearch = useDebouncedValue(search.value);
+
+  const query = {
+    search: debouncedSearch.trim() || undefined,
+    status:
+      appliedFilters.statuses.size > 0
+        ? [...appliedFilters.statuses]
+        : undefined,
+    delivery_type:
+      appliedFilters.deliveryTypes.size > 0
+        ? [...appliedFilters.deliveryTypes]
+        : undefined,
+  };
+  const { page, setPage } = usePagination(JSON.stringify(query));
+
+  const { data, isLoading } = useAddresses({
+    ...query,
+    page,
+    page_size: TABLE_PAGE_SIZE,
+  });
 
   const openFilters = () => {
     setDraftFilters(copyFilters(appliedFilters));
     setFilterOpen(true);
   };
 
-  const toggleDraft = (key: keyof AddressesFilterState, value: string) => {
+  const toggleDraft = <K extends keyof AddressesFilterState>(
+    key: K,
+    value: SetElement<AddressesFilterState[K]>
+  ) => {
     setDraftFilters((prev) => {
       const next = new Set(prev[key]);
       if (next.has(value)) next.delete(value);
@@ -76,16 +115,28 @@ export function useAddressesTabState(): AddressesTabState {
     });
   };
 
+  const draftHasSelections = Object.values(draftFilters).some(
+    (s) => s.size > 0
+  );
+
+  const clearDraft = () => setDraftFilters(emptyFilters());
+
   const handleApply = () => {
     setAppliedFilters(copyFilters(draftFilters));
     setFilterOpen(false);
   };
 
+  const totalPages = data?.total_pages ?? 0;
+
   return {
-    rows,
+    rows: data?.items ?? [],
     isLoading,
+    page: clampPage(page, totalPages, setPage),
+    setPage,
+    totalPages,
     deliveryTypes,
     search,
+    searchTerm: debouncedSearch.trim(),
     filterOpen,
     setFilterOpen,
     appliedFilters,
@@ -93,6 +144,8 @@ export function useAddressesTabState(): AddressesTabState {
     hasActiveFilters,
     openFilters,
     toggleDraft,
+    draftHasSelections,
+    clearDraft,
     handleApply,
   };
 }

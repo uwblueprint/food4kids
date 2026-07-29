@@ -29,14 +29,8 @@ async def get_system_settings(
     _auth: bool = Depends(require_admin),
 ) -> SystemSettingsRead | None:
     """Return the singleton system settings row, or null if none has been created."""
-    try:
-        settings = await system_settings_service.get_settings(session)
-        return SystemSettingsRead.model_validate(settings) if settings else None
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        ) from e
+    settings = await system_settings_service.get_settings(session)
+    return SystemSettingsRead.model_validate(settings) if settings else None
 
 
 @router.patch("/", response_model=SystemSettingsRead)
@@ -69,11 +63,6 @@ async def patch_system_settings(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        ) from e
 
 
 @router.post("/delivery-types/rename", response_model=SystemSettingsRead)
@@ -97,9 +86,4 @@ async def rename_delivery_type(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
-        ) from e
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
         ) from e

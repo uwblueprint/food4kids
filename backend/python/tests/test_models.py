@@ -22,11 +22,7 @@ from app.models.driver import (
     DriverCreate,
     DriverUpdate,
 )
-from app.models.driver_history import (
-    DriverHistory,
-    DriverHistoryRead,
-    DriverHistoryUpdate,
-)
+from app.models.driver_mileage import DriverHistoryRead
 from app.models.enum import (
     NotePermission,
     ProgressEnum,
@@ -153,9 +149,9 @@ class TestCoreBusinessValidation:
         # Test valid password
         user_finalize = UserFinalize(
             user_invite_id=uuid4(),
-            password="securepassword123",
+            password="Securepassword123!",
         )
-        assert user_finalize.password == "securepassword123"
+        assert user_finalize.password == "Securepassword123!"
 
         # Test invalid password (too short)
         with pytest.raises(ValidationError) as exc_info:
@@ -165,43 +161,37 @@ class TestCoreBusinessValidation:
             )
         assert "password" in str(exc_info.value)
 
-    def test_year_validation_business_rule(self) -> None:
-        """Test year (2025-2100) and month (1-12) validation for DriverHistory."""
-        # Test valid years and months (boundaries)
-        valid_years = [2025, 2030, 2100]
-        valid_months = [1, 6, 12]
+        # Test invalid password (missing lowercase)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="AAAAA123!",
+            )
+        assert "lowercase letter" in str(exc_info.value)
 
-        for year in valid_years:
-            for month in valid_months:
-                history = DriverHistory(
-                    driver_id=uuid4(), year=year, month=month, km=1000.0
-                )
-                assert history.year == year
-                assert history.month == month
+        # Test invalid password (missing uppercase)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabc123!",
+            )
+        assert "uppercase letter" in str(exc_info.value)
 
-        # Test invalid years
-        invalid_years = [2024, 2101, 2000]
-        for year in invalid_years:
-            with pytest.raises(ValidationError) as exc_info:
-                DriverHistory(
-                    driver_id=uuid4(),
-                    year=year,
-                    month=1,
-                    km=1000.0,
-                )
-            assert "year" in str(exc_info.value)
+        # Test invalid password (missing number)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabcAAA!",
+            )
+        assert "number" in str(exc_info.value)
 
-        # Test invalid months
-        invalid_months = [0, 13, -1]
-        for month in invalid_months:
-            with pytest.raises(ValidationError) as exc_info:
-                DriverHistory(
-                    driver_id=uuid4(),
-                    year=2025,
-                    month=month,
-                    km=1000.0,
-                )
-            assert "month" in str(exc_info.value)
+        # Test invalid password (missing special character)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabcAAA111",
+            )
+        assert "special character" in str(exc_info.value)
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
@@ -352,6 +342,38 @@ class TestCoreModels:
         assert driver_update.address == "456 Oak Ave, City, State 12345"
         assert driver_update.license_plate is None
 
+    def test_driver_update_rejects_explicit_null_for_non_nullable_fields(
+        self,
+    ) -> None:
+        """Explicit null is a 422 for fields backed by non-nullable columns.
+
+        None as a *default* means "not provided" and stays valid; only a null
+        that the client actually sent is rejected. partner_driver_name is the
+        one nullable column, where explicit null legitimately clears the value.
+        """
+        non_nullable_fields = [
+            "first_name",
+            "last_name",
+            "phone",
+            "availability",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "active",
+        ]
+        for field in non_nullable_fields:
+            with pytest.raises(ValidationError, match="cannot be null"):
+                DriverUpdate.model_validate({field: None})
+
+        # Omitting every field is still a valid (no-op) update
+        empty_update = DriverUpdate.model_validate({})
+        assert empty_update.model_fields_set == set()
+
+        # Explicit null still clears the nullable partner_driver_name
+        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
+        assert cleared.partner_driver_name is None
+        assert "partner_driver_name" in cleared.model_fields_set
+
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
         # Create with all fields
@@ -467,30 +489,18 @@ class TestCoreModels:
         )
         assert route_group_read.route_group_id is not None
 
-    def test_driver_history_core_operations(self) -> None:
-        """Test DriverHistory model core operations."""
+    def test_driver_history_read_model(self) -> None:
+        """The monthly read model is computed at read time, never stored."""
         from uuid import uuid4
 
-        # Create
-        history = DriverHistory(driver_id=uuid4(), year=2025, km=1500.5, month=12)
-        assert history.year == 2025
-        assert history.km == 1500.5
-        assert history.month == 12
-        assert history.created_at is not None
-
-        # Read
         history_read = DriverHistoryRead(
-            driver_history_id=1,
             driver_id=uuid4(),
             year=2027,
             month=1,
             km=2200.0,
         )
-        assert history_read.driver_history_id == 1
-
-        # Update
-        history_update = DriverHistoryUpdate(km=2500.0)
-        assert history_update.km == 2500.0
+        assert history_read.km == 2200.0
+        assert history_read.month == 1
 
     def test_job_core_operations(self) -> None:
         """Test Job model core operations."""

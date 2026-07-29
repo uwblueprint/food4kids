@@ -338,35 +338,16 @@ export type DriveDaysOfWeekEnum = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
 export type DriverAssignmentStatusEnum = 'Assigned' | 'Unassigned';
 
 /**
- * DriverHistoryCreate
- *
- * Create request model
- */
-export type DriverHistoryCreate = {
-  /**
-   * Km
-   */
-  km: number;
-  /**
-   * Month
-   */
-  month: number;
-  /**
-   * Year
-   */
-  year: number;
-};
-
-/**
  * DriverHistoryRead
  *
- * Read response model
+ * One month's km for a driver.
+ *
+ * Computed, never stored: the sum of `Route.length` over the driver's
+ * frozen routes (those with a RouteSnapshot) in that month. Reassigning a
+ * route or correcting its stops updates history automatically, so there is
+ * no stored total to drift out of sync.
  */
 export type DriverHistoryRead = {
-  /**
-   * Driver History Id
-   */
-  driver_history_id: number;
   /**
    * Driver Id
    */
@@ -399,18 +380,6 @@ export type DriverHistorySummary = {
    * Lifetime Km
    */
   lifetime_km: number;
-};
-
-/**
- * DriverHistoryUpdate
- *
- * Update request model, all fields are required for now since we are only updating km
- */
-export type DriverHistoryUpdate = {
-  /**
-   * Km
-   */
-  km: number;
 };
 
 /**
@@ -638,6 +607,16 @@ export type EmailReminder = {
    * Time
    */
   time: string;
+};
+
+/**
+ * ForgotPasswordRequest
+ */
+export type ForgotPasswordRequest = {
+  /**
+   * Email
+   */
+  email: string;
 };
 
 /**
@@ -1031,6 +1010,10 @@ export type LocationRead = {
    * Last Delivery Date
    */
   last_delivery_date?: string | null;
+  /**
+   * Latest Note
+   */
+  latest_note?: string | null;
   /**
    * Latitude
    */
@@ -1453,6 +1436,32 @@ export type PaginatedResponseNoteFeedItem = {
 };
 
 /**
+ * PaginatedResponse[RouteGroupRead]
+ */
+export type PaginatedResponseRouteGroupRead = {
+  /**
+   * Items
+   */
+  items: Array<RouteGroupRead>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
+};
+
+/**
  * PaginatedResponse[RouteWithDateRead]
  */
 export type PaginatedResponseRouteWithDateRead = {
@@ -1495,12 +1504,25 @@ export type ProgressEnum =
  *
  * Stops are assembled with snapshot-over-live precedence. See
  * RouteStopDetailRead.
+ *
+ * drive_date is sourced from the route's RouteGroup (mirrors
+ * RouteWithDateRead). delivery_type is uniform across a route's locations, so
+ * it's read from the first stop's Location and is None when the route has no
+ * stops.
  */
 export type RouteDetailRead = {
   /**
    * Cloned From Route Id
    */
   cloned_from_route_id?: string | null;
+  /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
+  /**
+   * Drive Date
+   */
+  drive_date: string;
   /**
    * Driver Id
    */
@@ -1617,6 +1639,25 @@ export type RouteGroupCreate = {
    * Notes
    */
   notes?: string;
+};
+
+/**
+ * RouteGroupDuplicate
+ *
+ * Duplicate request model - overrides for the copied group.
+ *
+ * Both optional so the endpoint also works with no body: name falls back to
+ * "Copy of {original}" and drive_date to the original's date.
+ */
+export type RouteGroupDuplicate = {
+  /**
+   * Drive Date
+   */
+  drive_date?: string | null;
+  /**
+   * Name
+   */
+  name?: string | null;
 };
 
 /**
@@ -1837,6 +1878,14 @@ export type RouteStopDetailRead = {
    */
   contact_name: string;
   /**
+   * Latitude
+   */
+  latitude?: number | null;
+  /**
+   * Longitude
+   */
+  longitude?: number | null;
+  /**
    * Note Chain Id
    */
   note_chain_id?: string | null;
@@ -1868,9 +1917,21 @@ export type RouteWithDateRead = {
    */
   box_total: number;
   /**
+   * Delivery Type
+   */
+  delivery_type?: string | null;
+  /**
    * Drive Date
    */
   drive_date: string;
+  /**
+   * Driver Name
+   */
+  driver_name?: string | null;
+  /**
+   * Group Name
+   */
+  group_name: string;
   /**
    * Length
    */
@@ -1888,6 +1949,10 @@ export type RouteWithDateRead = {
    */
   num_stops: number;
   /**
+   * Route Group Id
+   */
+  route_group_id: string;
+  /**
    * Route Id
    */
   route_id: string;
@@ -1895,6 +1960,7 @@ export type RouteWithDateRead = {
    * Start Time
    */
   start_time: string | null;
+  status: RouteStatusEnum;
 };
 
 /**
@@ -2116,6 +2182,20 @@ export type SystemSettingsUpdate = {
 };
 
 /**
+ * UpdatePasswordRequest
+ */
+export type UpdatePasswordRequest = {
+  /**
+   * New Password
+   */
+  new_password: string;
+  /**
+   * Password Reset Token
+   */
+  password_reset_token: string;
+};
+
+/**
  * UserFinalize
  */
 export type UserFinalize = {
@@ -2127,6 +2207,16 @@ export type UserFinalize = {
    * User Invite Id
    */
   user_invite_id: string;
+};
+
+/**
+ * ValidateResetTokenRequest
+ */
+export type ValidateResetTokenRequest = {
+  /**
+   * Password Reset Token
+   */
+  password_reset_token: string;
 };
 
 /**
@@ -2365,6 +2455,10 @@ export type LocationReadWritable = {
    * Last Delivery Date
    */
   last_delivery_date?: string | null;
+  /**
+   * Latest Note
+   */
+  latest_note?: string | null;
   /**
    * Latitude
    */
@@ -2654,6 +2748,33 @@ export type SendAnnouncementEmailResponses = {
 export type SendAnnouncementEmailResponse =
   SendAnnouncementEmailResponses[keyof SendAnnouncementEmailResponses];
 
+export type ForgotPasswordData = {
+  body: ForgotPasswordRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/forgot-password';
+};
+
+export type ForgotPasswordErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ForgotPasswordError =
+  ForgotPasswordErrors[keyof ForgotPasswordErrors];
+
+export type ForgotPasswordResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ForgotPasswordResponse =
+  ForgotPasswordResponses[keyof ForgotPasswordResponses];
+
 export type LoginData = {
   body: LoginRequest;
   path?: never;
@@ -2725,36 +2846,59 @@ export type RefreshResponses = {
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
 
-export type ResetPasswordData = {
-  body?: never;
-  path: {
-    /**
-     * Email
-     */
-    email: string;
-  };
+export type UpdatePasswordData = {
+  body: UpdatePasswordRequest;
+  path?: never;
   query?: never;
-  url: '/auth/resetPassword/{email}';
+  url: '/auth/update-password';
 };
 
-export type ResetPasswordErrors = {
+export type UpdatePasswordErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type ResetPasswordError = ResetPasswordErrors[keyof ResetPasswordErrors];
+export type UpdatePasswordError =
+  UpdatePasswordErrors[keyof UpdatePasswordErrors];
 
-export type ResetPasswordResponses = {
+export type UpdatePasswordResponses = {
   /**
    * Successful Response
    */
   204: void;
 };
 
-export type ResetPasswordResponse =
-  ResetPasswordResponses[keyof ResetPasswordResponses];
+export type UpdatePasswordResponse =
+  UpdatePasswordResponses[keyof UpdatePasswordResponses];
+
+export type ValidateResetTokenData = {
+  body: ValidateResetTokenRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/validate-reset-token';
+};
+
+export type ValidateResetTokenErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ValidateResetTokenError =
+  ValidateResetTokenErrors[keyof ValidateResetTokenErrors];
+
+export type ValidateResetTokenResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ValidateResetTokenResponse =
+  ValidateResetTokenResponses[keyof ValidateResetTokenResponses];
 
 export type GetDriversData = {
   body?: never;
@@ -2978,47 +3122,6 @@ export type UpdateDriverResponses = {
 export type UpdateDriverResponse =
   UpdateDriverResponses[keyof UpdateDriverResponses];
 
-export type DeleteDriverHistoryData = {
-  body?: never;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type DeleteDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type DeleteDriverHistoryError =
-  DeleteDriverHistoryErrors[keyof DeleteDriverHistoryErrors];
-
-export type DeleteDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  204: void;
-};
-
-export type DeleteDriverHistoryResponse =
-  DeleteDriverHistoryResponses[keyof DeleteDriverHistoryResponses];
-
 export type GetDriverHistoryData = {
   body?: never;
   path: {
@@ -3061,79 +3164,6 @@ export type GetDriverHistoryResponses = {
 
 export type GetDriverHistoryResponse =
   GetDriverHistoryResponses[keyof GetDriverHistoryResponses];
-
-export type UpdateDriverHistoryData = {
-  body: DriverHistoryUpdate;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type UpdateDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateDriverHistoryError =
-  UpdateDriverHistoryErrors[keyof UpdateDriverHistoryErrors];
-
-export type UpdateDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  200: DriverHistoryRead;
-};
-
-export type UpdateDriverHistoryResponse =
-  UpdateDriverHistoryResponses[keyof UpdateDriverHistoryResponses];
-
-export type CreateDriverHistoryData = {
-  body: DriverHistoryCreate;
-  path: {
-    /**
-     * Driver Id
-     */
-    driver_id: string;
-  };
-  query?: never;
-  url: '/drivers/{driver_id}/history/';
-};
-
-export type CreateDriverHistoryErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CreateDriverHistoryError =
-  CreateDriverHistoryErrors[keyof CreateDriverHistoryErrors];
-
-export type CreateDriverHistoryResponses = {
-  /**
-   * Successful Response
-   */
-  201: DriverHistoryRead;
-};
-
-export type CreateDriverHistoryResponse =
-  CreateDriverHistoryResponses[keyof CreateDriverHistoryResponses];
 
 export type GetDriverHistorySummaryData = {
   body?: never;
@@ -3501,6 +3531,12 @@ export type GetLocationsData = {
      * Filter by one or more location groups
      */
     location_group_id?: Array<string> | null;
+    /**
+     * Search
+     *
+     * Case-insensitive filter on the delivery address/postal code
+     */
+    search?: string | null;
     /**
      * Page
      *
@@ -4113,6 +4149,24 @@ export type GetRouteGroupsData = {
      * Include routes in the response
      */
     include_routes?: boolean;
+    /**
+     * Search
+     *
+     * Case-insensitive filter on the route group name
+     */
+    search?: string | null;
+    /**
+     * Page
+     *
+     * Page number (1-indexed)
+     */
+    page?: number;
+    /**
+     * Page Size
+     *
+     * Number of items per page
+     */
+    page_size?: number;
   };
   url: '/route-groups';
 };
@@ -4129,11 +4183,9 @@ export type GetRouteGroupsError =
 
 export type GetRouteGroupsResponses = {
   /**
-   * Response Get Route Groups
-   *
    * Successful Response
    */
-  200: Array<RouteGroupRead>;
+  200: PaginatedResponseRouteGroupRead;
 };
 
 export type GetRouteGroupsResponse =
@@ -4231,7 +4283,10 @@ export type UpdateRouteGroupResponse =
   UpdateRouteGroupResponses[keyof UpdateRouteGroupResponses];
 
 export type DuplicateRouteGroupData = {
-  body?: never;
+  /**
+   * Overrides
+   */
+  body?: RouteGroupDuplicate | null;
   path: {
     /**
      * Route Group Id
@@ -4290,6 +4345,36 @@ export type GetRoutesData = {
      * Order by drive_date: 'asc' (default, oldest-first) for the upcoming feed, 'desc' (most-recent-first) for the past feed.
      */
     order?: 'asc' | 'desc';
+    /**
+     * Search
+     *
+     * Case-insensitive filter on the assigned driver's name
+     */
+    search?: string | null;
+    /**
+     * Weekday
+     *
+     * Filter by one or more weekdays of the drive date
+     */
+    weekday?: Array<DriveDaysOfWeekEnum> | null;
+    /**
+     * Delivery Type
+     *
+     * Filter by one or more delivery types
+     */
+    delivery_type?: Array<string> | null;
+    /**
+     * Route Status
+     *
+     * Filter by one or more route statuses
+     */
+    route_status?: Array<RouteStatusEnum> | null;
+    /**
+     * Driver Assignment Status
+     *
+     * Filter by one or more driver assignment statuses
+     */
+    driver_assignment_status?: Array<DriverAssignmentStatusEnum> | null;
     /**
      * Page
      *

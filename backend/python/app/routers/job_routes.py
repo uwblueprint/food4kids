@@ -28,13 +28,8 @@ async def get_jobs(
     _auth: bool = Depends(require_driver_or_admin),
 ) -> list[JobRead]:
     """Get all jobs"""
-    try:
-        jobs = await service.get_jobs(progress=progress)
-        return [JobRead.model_validate(job) for job in jobs]
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    jobs = await service.get_jobs(progress=progress)
+    return [JobRead.model_validate(job) for job in jobs]
 
 
 @router.post("/generate", response_model=JobEnqueueResponse, status_code=202)
@@ -43,15 +38,9 @@ async def generate_job(
     service: JobService = Depends(get_job_service),
     _auth: bool = Depends(require_driver_or_admin),
 ) -> JobEnqueueResponse:
-    try:
-        job_id = await service.generate_job(_req)
-        await service.enqueue(job_id)
-        return JobEnqueueResponse(job_id=job_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to enqueue job",
-        ) from e
+    job_id = await service.generate_job(_req)
+    await service.enqueue(job_id)
+    return JobEnqueueResponse(job_id=job_id)
 
 
 @router.get("/{job_id}", response_model=JobRead)
@@ -60,19 +49,11 @@ async def get_job(
     service: JobService = Depends(get_job_service),
     _auth: bool = Depends(require_driver_or_admin),
 ) -> JobRead:
-    try:
-        job = await service.get_job(job_id)
-        if not job:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
-            )
-    except HTTPException:
-        # Don't let the 404 get swallowed and rewrapped as a 500 below.
-        raise
-    except Exception as e:
+    job = await service.get_job(job_id)
+    if not job:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
     return JobRead.model_validate(job)
 
 
@@ -83,16 +64,9 @@ async def cancel_job(
     _auth: bool = Depends(require_admin),
 ) -> JobRead:
     """Cancel an in-flight route generation job."""
-    try:
-        job = await service.cancel_job(job_id)
-        if not job:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
+    job = await service.cancel_job(job_id)
+    if not job:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
     return JobRead.model_validate(job)

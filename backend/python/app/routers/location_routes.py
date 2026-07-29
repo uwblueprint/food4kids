@@ -28,6 +28,7 @@ from app.models.location import (
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
+    LocationInUseError,
     LocationService,
 )
 
@@ -45,6 +46,9 @@ async def get_locations(
     location_group_id: list[UUID] | None = Query(
         None, description="Filter by one or more location groups"
     ),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the delivery address/postal code"
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
@@ -60,18 +64,18 @@ async def get_locations(
         # items with has_future_route populated (so the computed `status` is
         # correct). Re-validating each item here would reset has_future_route.
         return await location_service.get_locations(
-            session, pagination, delivery_type, status_filter, location_group_id
+            session,
+            pagination,
+            delivery_type,
+            status_filter,
+            location_group_id,
+            search,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.get("/{location_id}", response_model=LocationRead)
@@ -91,11 +95,6 @@ async def get_location(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post("/", response_model=LocationRead, status_code=status.HTTP_201_CREATED)
@@ -116,11 +115,6 @@ async def create_location(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.patch(
@@ -152,11 +146,6 @@ async def update_location(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -168,13 +157,7 @@ async def delete_all_locations(
     """
     Delete all locations
     """
-    try:
-        await location_service.delete_all_locations(session)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
+    await location_service.delete_all_locations(session)
 
 
 @router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -189,16 +172,16 @@ async def delete_location(
     """
     try:
         await location_service.delete_location_by_id(session, location_id)
+    except LocationInUseError as le:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(le),
+        ) from le
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post(
@@ -241,11 +224,6 @@ async def review_locations(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post(
@@ -274,8 +252,3 @@ async def ingest_locations(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e

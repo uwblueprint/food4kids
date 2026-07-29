@@ -3,6 +3,7 @@ import type { Announcement } from '@/types/announcement';
 
 export const MESSAGE_MAX = 1500;
 export const SUBJECT_MAX = 100;
+// New badge is displayed for announcements posted within the last 7 days
 const NEW_BADGE_DAYS = 7;
 
 /** Figma: fixed 544px side panel width. */
@@ -19,19 +20,19 @@ export function sheetHeightStyle(): Record<string, string> {
 
 /** Bottom sheet layout for announcements panel (mobile + tablet). */
 export const SHEET_PANEL_LAYOUT =
-  'bg-grey-100 inset-x-0 top-auto right-auto bottom-0 h-[var(--announcements-sheet-height)] w-full max-w-none translate-none rounded-none rounded-t-2xl';
+  'bg-grey-100 inset-x-0 top-auto right-auto bottom-0 h-[var(--announcements-sheet-height)] w-full max-w-none translate-none rounded-none rounded-t-xl';
 
 /** Desktop: right side panel. */
 export const DESKTOP_PANEL_LAYOUT =
-  'desktop:inset-x-auto desktop:bottom-auto desktop:top-0 desktop:right-0 desktop:left-auto desktop:bg-grey-150 desktop:h-dvh desktop:w-[var(--announcements-panel-width)] desktop:max-w-[var(--announcements-panel-width)] desktop:rounded-none desktop:rounded-l-2xl';
+  'desktop:inset-x-auto desktop:bottom-auto desktop:top-0 desktop:right-0 desktop:left-auto desktop:bg-grey-150 desktop:h-dvh desktop:w-[var(--announcements-panel-width)] desktop:max-w-[var(--announcements-panel-width)] desktop:rounded-none desktop:rounded-l-xl';
 
 /** Bottom sheet layout for modal content (mobile + tablet). */
 export const SHEET_MODAL_LAYOUT =
-  'top-auto right-0 bottom-0 left-0 h-[var(--announcements-sheet-height)] max-h-[var(--announcements-sheet-height)] w-full max-w-none translate-x-0 translate-y-0 rounded-none rounded-t-2xl flex flex-col';
+  'top-auto right-0 bottom-0 left-0 h-[var(--announcements-sheet-height)] max-h-[var(--announcements-sheet-height)] w-full max-w-none translate-x-0 translate-y-0 rounded-none rounded-t-xl flex flex-col';
 
 /** Desktop: centered dialog (content height, capped so long lists don't fill the viewport). */
 export const DESKTOP_MODAL_LAYOUT =
-  'desktop:top-1/2 desktop:right-auto desktop:bottom-auto desktop:left-1/2 desktop:h-auto desktop:max-h-[min(640px,85vh)] desktop:w-full desktop:max-w-[560px] desktop:-translate-x-1/2 desktop:-translate-y-1/2 desktop:rounded-2xl';
+  'desktop:top-1/2 desktop:right-auto desktop:bottom-auto desktop:left-1/2 desktop:h-auto desktop:max-h-[min(640px,85vh)] desktop:w-full desktop:max-w-[560px] desktop:-translate-x-1/2 desktop:-translate-y-1/2 desktop:rounded-xl';
 
 export function roleFromStoredToken(): 'admin' | 'driver' {
   const role = useAuthStore.getState().user?.role;
@@ -94,13 +95,9 @@ export function isAnnouncementEdited(announcement: Announcement): boolean {
   return updated - created > 1000;
 }
 
-/** New = posted within 7 days and not yet opened by the current user. */
-export function isAnnouncementNew(
-  announcement: Announcement,
-  readIds: Set<string>
-): boolean {
+export function isAnnouncementNew(announcement: Announcement): boolean {
   if (!announcement.created_at) return false;
-  if (readIds.has(announcement.announcement_id)) return false;
+  if (announcement.is_read === true) return false;
   const created = new Date(announcement.created_at).getTime();
   const cutoff = Date.now() - NEW_BADGE_DAYS * 24 * 60 * 60 * 1000;
   return created >= cutoff;

@@ -4,6 +4,7 @@
 export { Account } from './Account';
 export { Banner } from './Banner';
 export { Button } from './Button';
+export { Calendar } from './Calendar';
 export {
   Card,
   CardContent,
@@ -11,7 +12,7 @@ export {
   CardHeader,
   CardTitle,
 } from './Card';
-export type { Column, DataTableProps } from './DataTable';
+export type { Column, DataTableProps, SortState } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
 export { DatePicker } from './DatePicker';
 export {
@@ -32,6 +33,7 @@ export {
 export { Field, FieldDescription, FieldLabel } from './Field';
 export { FileInput } from './FileInput';
 export { FilterChip, FilterChipGroup } from './FilterChip';
+export { HighlightText } from './HighlightText';
 export type { InputProps } from './Input';
 export { Input } from './Input';
 export {
@@ -44,6 +46,13 @@ export {
   ModalTitle,
   ModalTrigger,
 } from './Modal';
+export { Pagination } from './Pagination';
+export {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from './Popover';
 export { Progress } from './Progress';
 export { SearchBar } from './SearchBar';
 export {
@@ -60,7 +69,9 @@ export {
 export { Spinner } from './Spinner';
 export type { Character, StatisticsCardColor } from './StatisticsCard';
 export { StatisticsCard } from './StatisticsCard';
+export { TableToolbar } from './TableToolbar';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
 export { Textarea } from './Textarea';
 export { TimePicker } from './TimePicker';
+export { Tooltip, TooltipContent, TooltipTrigger } from './Tooltip';

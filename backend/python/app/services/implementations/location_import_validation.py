@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TypeGuard
+from typing import NamedTuple, TypeGuard
 
-from app.models.location import AlertCode, DuplicateMatchField, LocationImportEntry
+from app.models.location import (
+    AlertCode,
+    DuplicateMatchField,
+    Location,
+    LocationImportEntry,
+)
 from app.utilities.utils import validate_phone
 
 
@@ -72,16 +77,24 @@ def collect_field_alerts(
     return alerts
 
 
-def _name_match_key(name: str | None) -> str | None:
-    if not present_str(name):
-        return None
-    return name.strip().casefold()
+class MatchKey(NamedTuple):
+    """Normalized (name, address, phone) key for the 2-of-3 duplicate rule.
+
+    Blank fields normalize to None and never count as a match. Built from raw
+    fields via match_key so import rows and existing Locations compare through
+    the same normalization.
+    """
+
+    name: str | None
+    address: str | None
+    phone: str | None
 
 
-def _address_match_key(address: str | None) -> str | None:
-    if not present_str(address):
+def _text_match_key(value: str | None) -> str | None:
+    """Casefold and collapse whitespace so formatting differences don't block a match."""
+    if not present_str(value):
         return None
-    return address.strip().casefold()
+    return " ".join(value.casefold().split())
 
 
 def _phone_match_key(phone: str | None) -> str | None:
@@ -95,45 +108,47 @@ def _phone_match_key(phone: str | None) -> str | None:
     return phone.strip()
 
 
-def duplicate_matching_fields(
-    left: LocationImportEntry,
-    right: LocationImportEntry,
-) -> list[DuplicateMatchField]:
-    """Return fields that match between two rows for the 2-of-3 duplicate rule."""
-    matches: list[DuplicateMatchField] = []
-
-    left_name = _name_match_key(left.contact_name)
-    right_name = _name_match_key(right.contact_name)
-    if left_name and right_name and left_name == right_name:
-        matches.append(DuplicateMatchField.NAME)
-
-    left_address = _address_match_key(left.address)
-    right_address = _address_match_key(right.address)
-    if left_address and right_address and left_address == right_address:
-        matches.append(DuplicateMatchField.ADDRESS)
-
-    left_phone_key = _phone_match_key(left.phone_primary)
-    right_phone_key = _phone_match_key(right.phone_primary)
-    if left_phone_key and right_phone_key and left_phone_key == right_phone_key:
-        matches.append(DuplicateMatchField.PHONE)
-
-    return matches
+def match_key(
+    contact_name: str | None,
+    address: str | None,
+    phone_primary: str | None,
+) -> MatchKey:
+    return MatchKey(
+        name=_text_match_key(contact_name),
+        address=_text_match_key(address),
+        phone=_phone_match_key(phone_primary),
+    )
 
 
-def count_duplicate_field_matches(
-    left: LocationImportEntry,
-    right: LocationImportEntry,
-) -> int:
-    """Count how many of {name, address, phone} match between two rows."""
-    return len(duplicate_matching_fields(left, right))
+def entry_match_key(entry: LocationImportEntry) -> MatchKey:
+    return match_key(entry.contact_name, entry.address, entry.phone_primary)
 
 
-def rows_are_duplicates(
-    left: LocationImportEntry,
-    right: LocationImportEntry,
-) -> bool:
+def location_match_key(location: Location) -> MatchKey:
+    return match_key(location.contact_name, location.address, location.phone_primary)
+
+
+_MATCH_KEY_FIELDS = (
+    DuplicateMatchField.NAME,
+    DuplicateMatchField.ADDRESS,
+    DuplicateMatchField.PHONE,
+)
+
+
+def matching_fields(left: MatchKey, right: MatchKey) -> list[DuplicateMatchField]:
+    """Return the fields whose (non-blank) keys match between two rows."""
+    return [
+        field
+        for field, left_value, right_value in zip(
+            _MATCH_KEY_FIELDS, left, right, strict=True
+        )
+        if left_value is not None and left_value == right_value
+    ]
+
+
+def is_same_location(left: MatchKey, right: MatchKey) -> bool:
     """True when at least two of {name, address, phone} match (2-of-3 rule)."""
-    return count_duplicate_field_matches(left, right) >= 2
+    return len(matching_fields(left, right)) >= 2
 
 
 class _UnionFind:
@@ -154,15 +169,12 @@ class _UnionFind:
             self._parent[root_right] = root_left
 
 
-def find_duplicate_index_groups(
-    entries: list[LocationImportEntry],
-) -> list[list[int]]:
+def find_duplicate_index_groups(keys: list[MatchKey]) -> list[list[int]]:
     """Return duplicate clusters as lists of 0-based indices (size >= 2).
 
     Transitive duplicates are merged via union-find (A~B and B~C => one group).
-    Expects phone_primary to already be normalized when possible.
     """
-    size = len(entries)
+    size = len(keys)
     if size < 2:
         return []
 
@@ -170,7 +182,7 @@ def find_duplicate_index_groups(
     union_find = _UnionFind(size)
     for left in range(size):
         for right in range(left + 1, size):
-            if rows_are_duplicates(entries[left], entries[right]):
+            if is_same_location(keys[left], keys[right]):
                 union_find.union(left, right)
 
     clusters: dict[int, list[int]] = {}

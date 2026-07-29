@@ -41,6 +41,7 @@ from app.models.location import (
     ValidatedLocationImportEntry,
 )
 from app.models.location_group import LocationGroup
+from app.models.note import Note
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -50,9 +51,12 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.location_import_validation import (
     collect_field_alerts,
-    duplicate_matching_fields,
+    entry_match_key,
     find_duplicate_index_groups,
     is_blank,
+    is_same_location,
+    location_match_key,
+    matching_fields,
     present_str,
     try_normalize_phone,
 )
@@ -84,6 +88,18 @@ DEFAULT_COLUMN_MAP = {
 
 class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
+
+
+# How many referencing routes to name in a LocationInUseError message.
+IN_USE_SAMPLE_SIZE = 5
+
+
+class LocationInUseError(Exception):
+    """Raised when deleting a location that route stops still reference.
+
+    Deliberately not a ValueError: the router maps ValueError to 404 and
+    this to 409. Deleting would otherwise fail at the FK
+    (route_stops.location_id has no ON DELETE action) with a raw 500."""
 
 
 class LocationService:
@@ -149,6 +165,7 @@ class LocationService:
         future_set = await self.load_has_future_route_set(session, ids)
         assigned = await self.load_assigned_routes(session, ids)
         aggregates = await self.load_delivery_aggregates(session, ids)
+        latest_notes = await self.load_latest_notes(session, [location.note_chain_id])
         total, last_date = aggregates.get(location_id, (0, None))
         return self._to_read(
             location,
@@ -156,6 +173,11 @@ class LocationService:
             assigned_route=assigned.get(location_id),
             last_delivery_date=last_date,
             total_deliveries=total,
+            latest_note=(
+                latest_notes.get(location.note_chain_id)
+                if location.note_chain_id
+                else None
+            ),
         )
 
     async def get_locations(
@@ -165,6 +187,7 @@ class LocationService:
         delivery_type: list[str] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
         location_group_id: list[UUID] | None = None,
+        search: str | None = None,
     ) -> PaginatedResponse[LocationRead]:
         """Get paginated locations.
 
@@ -174,6 +197,9 @@ class LocationService:
         from in_roster + whether the location appears in a present/future
         route. Callers can narrow via the optional ``status_filter`` and
         ``delivery_type`` and ``location_group_id`` query params.
+
+        ``search`` filters (case-insensitive substring) on the delivery
+        address, which carries the postal code, applied before pagination.
         """
         try:
             statement = (
@@ -190,6 +216,11 @@ class LocationService:
             if location_group_id:
                 statement = statement.where(
                     col(Location.location_group_id).in_(location_group_id)
+                )
+
+            if search and search.strip():
+                statement = statement.where(
+                    col(Location.address).ilike(f"%{search.strip()}%")
                 )
 
             if status_filter:
@@ -233,6 +264,9 @@ class LocationService:
             future_set = await self.load_has_future_route_set(session, loc_ids)
             assigned = await self.load_assigned_routes(session, loc_ids)
             aggregates = await self.load_delivery_aggregates(session, loc_ids)
+            latest_notes = await self.load_latest_notes(
+                session, (loc.note_chain_id for loc in items)
+            )
             reads = [
                 self._to_read(
                     loc,
@@ -240,6 +274,11 @@ class LocationService:
                     assigned_route=assigned.get(loc.location_id),
                     last_delivery_date=aggregates.get(loc.location_id, (0, None))[1],
                     total_deliveries=aggregates.get(loc.location_id, (0, None))[0],
+                    latest_note=(
+                        latest_notes.get(loc.note_chain_id)
+                        if loc.note_chain_id
+                        else None
+                    ),
                 )
                 for loc in items
             ]
@@ -374,6 +413,31 @@ class LocationService:
         result = await session.execute(statement)
         return {row[0]: (row[1], row[2]) for row in result.all()}
 
+    async def load_latest_notes(
+        self, session: AsyncSession, note_chain_ids: Iterable[UUID | None]
+    ) -> dict[UUID, str]:
+        """Return a mapping of note_chain_id → most recent non-system note
+        message, for the notes preview column.
+
+        One query rather than per-location N+1. System notes (auto-generated
+        events) are excluded so the preview shows human-authored notes only.
+        """
+        ids = [cid for cid in note_chain_ids if cid is not None]
+        if not ids:
+            return {}
+        statement = (
+            select(Note.note_chain_id, Note.message)
+            .where(col(Note.note_chain_id).in_(ids))
+            .where(col(Note.is_system).is_(False))
+            .order_by(col(Note.created_at).desc())
+        )
+        result = await session.execute(statement)
+        latest: dict[UUID, str] = {}
+        for chain_id, message in result.all():
+            if chain_id not in latest:
+                latest[chain_id] = message
+        return latest
+
     def _to_read(
         self,
         loc: Location,
@@ -381,6 +445,7 @@ class LocationService:
         assigned_route: str | None = None,
         last_delivery_date: datetime | None = None,
         total_deliveries: int = 0,
+        latest_note: str | None = None,
     ) -> LocationRead:
         """Build a LocationRead with the derived has_future_route populated.
 
@@ -392,6 +457,7 @@ class LocationService:
         read.assigned_route = assigned_route
         read.last_delivery_date = last_delivery_date
         read.total_deliveries = total_deliveries
+        read.latest_note = latest_note
         return read
 
     async def create_location(
@@ -469,7 +535,14 @@ class LocationService:
     async def delete_location_by_id(
         self, session: AsyncSession, location_id: UUID
     ) -> None:
-        """Delete location by ID"""
+        """Delete location by ID.
+
+        A location referenced by any route stop (past or future) cannot be
+        hard-deleted — the FK would reject it anyway; this surfaces a clean
+        LocationInUseError (409) with the referencing routes instead of a
+        raw IntegrityError 500. Use in_roster=False to retire a location
+        that has delivery history.
+        """
         try:
             statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
@@ -478,8 +551,43 @@ class LocationService:
             if not location:
                 raise ValueError(f"Location with id {location_id} not found")
 
+            total = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(RouteStop)
+                    .where(RouteStop.location_id == location_id)
+                )
+            ).scalar_one()
+
+            if total:
+                sample = (
+                    await session.execute(
+                        select(Route.name, RouteGroup.drive_date)
+                        .select_from(RouteStop)
+                        .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                        .join(
+                            RouteGroup,
+                            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                        )
+                        .where(RouteStop.location_id == location_id)
+                        .order_by(col(RouteGroup.drive_date))
+                        .limit(IN_USE_SAMPLE_SIZE)
+                    )
+                ).all()
+                routes_desc = ", ".join(
+                    f"'{name}' ({drive_date.date()})" for name, drive_date in sample
+                )
+                more = f" and {total - len(sample)} more" if total > len(sample) else ""
+                raise LocationInUseError(
+                    f"Location is used by {total} route(s): {routes_desc}{more}. "
+                    f"Set in_roster to false to retire it instead of deleting."
+                )
+
             await session.delete(location)
             await session.commit()
+        except LocationInUseError:
+            # Expected outcome, not a failure — don't log it as one.
+            raise
         except Exception as e:
             self.logger.error(f"Failed to delete location by id: {e!s}")
             await session.rollback()
@@ -573,8 +681,8 @@ class LocationService:
                 phone_invalid_flags.append(phone_invalid)
                 phone_secondary_invalid_flags.append(secondary_invalid)
 
-            entries = [entry for _, entry in parsed_rows]
-            duplicate_index_groups = find_duplicate_index_groups(entries)
+            entry_keys = [entry_match_key(entry) for _, entry in parsed_rows]
+            duplicate_index_groups = find_duplicate_index_groups(entry_keys)
             duplicate_indices = {
                 index for group in duplicate_index_groups for index in group
             }
@@ -608,19 +716,19 @@ class LocationService:
 
             duplicate_groups = []
             for group in duplicate_index_groups:
-                matching_fields = {
+                group_fields = {
                     field
                     for left_position, left_index in enumerate(group)
                     for right_index in group[left_position + 1 :]
-                    for field in duplicate_matching_fields(
-                        entries[left_index], entries[right_index]
+                    for field in matching_fields(
+                        entry_keys[left_index], entry_keys[right_index]
                     )
                 }
                 duplicate_groups.append(
                     DuplicateGroup(
                         rows=[parsed_rows[i][0] for i in group],
                         matching_fields=sorted(
-                            matching_fields, key=lambda field: field.value
+                            group_fields, key=lambda field: field.value
                         ),
                     )
                 )
@@ -680,44 +788,6 @@ class LocationService:
             return None
         return await self.google_maps_service.geocode_address(address)
 
-    @staticmethod
-    def _normalize_import_value(value: str | None) -> str:
-        return " ".join((value or "").strip().casefold().split())
-
-    @classmethod
-    def _match_key(cls, name: str, address: str, phone: str) -> tuple[str, str, str]:
-        return (
-            cls._normalize_import_value(name),
-            cls._normalize_import_value(address),
-            cls._normalize_import_value(phone),
-        )
-
-    @classmethod
-    def _import_entry_match_key(
-        cls, entry: ValidatedLocationImportEntry
-    ) -> tuple[str, str, str]:
-        return cls._match_key(entry.contact_name, entry.address, entry.phone_primary)
-
-    @classmethod
-    def _location_match_key(cls, location: Location) -> tuple[str, str, str]:
-        return cls._match_key(
-            location.contact_name, location.address, location.phone_primary
-        )
-
-    @staticmethod
-    def _match_score(left: tuple[str, str, str], right: tuple[str, str, str]) -> int:
-        return sum(
-            1
-            for left_value, right_value in zip(left, right, strict=True)
-            if left_value == right_value
-        )
-
-    @classmethod
-    def _is_same_import_location(
-        cls, left: tuple[str, str, str], right: tuple[str, str, str]
-    ) -> bool:
-        return cls._match_score(left, right) >= 2
-
     async def _classify_import_rows(
         self,
         session: AsyncSession,
@@ -764,18 +834,19 @@ class LocationService:
         entry: ValidatedLocationImportEntry,
         existing_locations: list[Location],
     ) -> Location | None:
-        entry_key = self._import_entry_match_key(entry)
-        matches = [
-            (self._match_score(entry_key, self._location_match_key(location)), location)
-            for location in existing_locations
-            if self._is_same_import_location(
-                entry_key, self._location_match_key(location)
-            )
-        ]
-        if not matches:
-            return None
-        matches.sort(key=lambda item: item[0], reverse=True)
-        return matches[0][1]
+        """Best existing match by the 2-of-3 rule; ties keep table order."""
+        entry_key = entry_match_key(entry)
+        best_score = 0
+        best_match: Location | None = None
+        for location in existing_locations:
+            location_key = location_match_key(location)
+            if not is_same_location(entry_key, location_key):
+                continue
+            score = len(matching_fields(entry_key, location_key))
+            if score > best_score:
+                best_score = score
+                best_match = location
+        return best_match
 
     @staticmethod
     def _to_net_new_entry(
@@ -808,16 +879,12 @@ class LocationService:
         self, row_num: int, entry: ValidatedLocationImportEntry, location: Location
     ) -> ChangedEntry | None:
         old_delivery_group = location.location_group.name
-        contact_name_changed = self._normalize_import_value(
-            entry.contact_name
-        ) != self._normalize_import_value(location.contact_name)
-        address_changed = self._normalize_import_value(
-            entry.address
-        ) != self._normalize_import_value(location.address)
+        entry_key = entry_match_key(entry)
+        location_key = location_match_key(location)
+        contact_name_changed = entry_key.name != location_key.name
+        address_changed = entry_key.address != location_key.address
         delivery_group_changed = entry.delivery_group != old_delivery_group
-        phone_primary_changed = self._normalize_import_value(
-            entry.phone_primary
-        ) != self._normalize_import_value(location.phone_primary)
+        phone_primary_changed = entry_key.phone != location_key.phone
         phone_secondary_changed = (entry.phone_secondary or None) != (
             location.phone_secondary or None
         )

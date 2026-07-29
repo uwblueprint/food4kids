@@ -1,5 +1,6 @@
 export { useAddresses } from './addresses';
-export { useLogin } from './auth';
+export { useForgotPassword, useLogin } from './auth';
+export { describeApiFailure } from './errors';
 export { useIngestLocations, useReviewLocations } from './locations';
 export { useRouteGroups } from './route-groups';
 export {

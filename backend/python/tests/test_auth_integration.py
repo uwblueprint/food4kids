@@ -26,7 +26,7 @@ registry. ``path`` matches FastAPI's templated path exactly (e.g.
 
 import re
 from collections.abc import AsyncGenerator, Iterator
-from datetime import datetime
+from datetime import datetime, time
 from enum import Enum
 from types import SimpleNamespace
 from typing import Any
@@ -102,17 +102,16 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # --- auth infrastructure (public by design) ---
     ("POST", "/auth/login"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,
+    ("POST", "/auth/validate-reset-token"): Policy.PUBLIC,
     ("POST", "/auth/logout/{user_id}"): Policy.PUBLIC,
-    ("POST", "/auth/resetPassword/{email}"): Policy.PUBLIC,
+    ("POST", "/auth/forgot-password"): Policy.PUBLIC,
+    ("POST", "/auth/update-password"): Policy.PUBLIC,
     # --- drivers ---
     ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("POST", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("PATCH", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
-    ("DELETE", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/summary"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/{year}/export"): Policy.ADMIN_ONLY,
     # Two-step registration (#117): an admin creates the invite/initial user;
@@ -326,6 +325,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         length=10.0,
         route_group_id=route_group.route_group_id,
         driver_id=self_driver.driver_id,
+        start_time=time(8, 0),
     )
     location = Location(
         location_group_id=location_group.location_group_id,
@@ -529,6 +529,7 @@ async def scoping_routes(test_session: AsyncSession, seed: Seed) -> dict[str, An
         length=4.0,
         route_group_id=seed.route_group_id,
         driver_id=seed.other_driver_id,
+        start_time=time(8, 0),
     )
     unassigned_route = Route(
         name="Unassigned Route",

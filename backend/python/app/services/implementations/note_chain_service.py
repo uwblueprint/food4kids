@@ -93,6 +93,39 @@ class NoteChainService:
             self.logger.error(f"Failed to get note chain with permission: {e!s}")
             raise e
 
+    async def delete_note_chain_rows(
+        self, session: AsyncSession, note_chain_id: UUID
+    ) -> None:
+        """Remove a note chain and its notes. Neither commits nor authorizes.
+
+        Callers that expose this to a client must check permission themselves
+        (``delete_note_chain`` does) and must commit. Split out so the driver
+        hard delete can drop a driver's admin-only chain inside the same
+        transaction as the user delete — see ``delete_driver``.
+        """
+        note_chain = await self.get_note_chain_by_id(session, note_chain_id)
+
+        # Null out FK references on locations, routes, and drivers. The DB
+        # would do this itself (ON DELETE SET NULL), but issuing the UPDATEs
+        # keeps any already-loaded ORM instance from holding a stale id.
+        await session.execute(
+            update(Location)
+            .where(col(Location.note_chain_id) == note_chain_id)
+            .values(note_chain_id=None)
+        )
+        await session.execute(
+            update(Route)
+            .where(col(Route.note_chain_id) == note_chain_id)
+            .values(note_chain_id=None)
+        )
+        await session.execute(
+            update(Driver)
+            .where(col(Driver.note_chain_id) == note_chain_id)
+            .values(note_chain_id=None)
+        )
+
+        await session.delete(note_chain)
+
     async def delete_note_chain(
         self, session: AsyncSession, note_chain_id: UUID, user_id: UUID
     ) -> None:
@@ -102,26 +135,7 @@ class NoteChainService:
             if not user_role or user_role.lower() != "admin":
                 raise PermissionError("Only admins can delete note chains")
 
-            note_chain = await self.get_note_chain_by_id(session, note_chain_id)
-
-            # Null out FK references on locations, routes, and drivers
-            await session.execute(
-                update(Location)
-                .where(col(Location.note_chain_id) == note_chain_id)
-                .values(note_chain_id=None)
-            )
-            await session.execute(
-                update(Route)
-                .where(col(Route.note_chain_id) == note_chain_id)
-                .values(note_chain_id=None)
-            )
-            await session.execute(
-                update(Driver)
-                .where(col(Driver.note_chain_id) == note_chain_id)
-                .values(note_chain_id=None)
-            )
-
-            await session.delete(note_chain)
+            await self.delete_note_chain_rows(session, note_chain_id)
             await session.commit()
         except Exception as e:
             self.logger.error(f"Failed to delete note chain: {e!s}")

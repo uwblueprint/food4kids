@@ -112,7 +112,7 @@ export function ComponentPreview({
                 onClick={() => setOpen(true)}
                 className="border-grey-300 text-grey-500 shadow-card hover:bg-grey-150 rounded-full border bg-white px-4 py-1.5 text-sm font-medium transition-colors"
               >
-                View Code
+                View code
               </button>
             </div>
           </div>
