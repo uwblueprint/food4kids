@@ -303,7 +303,7 @@ export function ReviewStep() {
                 total={changedEntries.length}
               />
             </div>
-            <p className="text-p1 text-grey-500 font-normal">
+            <p className="text-p1 text-grey-500">
               Check off entries that have changed since the previous upload to
               confirm you have reviewed them
             </p>
@@ -341,7 +341,7 @@ export function ReviewStep() {
               total={staleRows.length}
             />
           </div>
-          <p className="text-p1 text-grey-500 font-normal">
+          <p className="text-p1 text-grey-500">
             Check off entries that were removed since the previous upload to
             confirm you have reviewed them
           </p>

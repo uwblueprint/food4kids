@@ -200,7 +200,7 @@ export function ImportStep() {
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Select Delivery Type</h2>
-          <p className="text-p1 text-grey-500 font-normal">
+          <p className="text-p1 text-grey-500">
             Choose the type of spreadsheet you'll be uploading:
           </p>
         </div>
@@ -235,7 +235,7 @@ export function ImportStep() {
         <section className="flex max-w-[700px] flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="text-grey-500">Import Data</h2>
-            <p className="text-p1 text-grey-500 font-normal">
+            <p className="text-p1 text-grey-500">
               Upload an Excel file (.xlsx) with delivery information
             </p>
           </div>
@@ -265,7 +265,7 @@ export function ImportStep() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="text-grey-500">Map Columns</h2>
-            <p className="text-p1 text-grey-500 font-normal">
+            <p className="text-p1 text-grey-500">
               Match columns in your file to the fields in our database
             </p>
           </div>

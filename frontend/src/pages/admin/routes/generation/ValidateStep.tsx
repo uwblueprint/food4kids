@@ -210,7 +210,7 @@ export function ValidateStep() {
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Invalid / Missing Entries</h2>
-          <p className="text-p1 text-grey-500 font-normal">
+          <p className="text-p1 text-grey-500">
             Resolve all errors, then go back to Import to upload a new file
           </p>
         </div>
@@ -232,7 +232,7 @@ export function ValidateStep() {
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Duplicate Entries</h2>
-          <p className="text-p1 text-grey-500 font-normal">
+          <p className="text-p1 text-grey-500">
             Correct all duplicate entries, then go back to Import to upload a
             new file
           </p>
