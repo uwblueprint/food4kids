@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 
 import {
   getConfiguredDeliveryTypes,
-  useReviewLocations,
+  usePreviewLocationImport,
   useSystemSettings,
 } from '@/api';
 import type { Column } from '@/common/components';
@@ -79,8 +79,8 @@ export function ImportStep() {
     setReviewResult,
   } = useOutletContext<GenerationOutletContext>();
 
-  const { mutateAsync: reviewLocations, isPending: isReviewing } =
-    useReviewLocations();
+  const { mutateAsync: previewImport, isPending: isReviewing } =
+    usePreviewLocationImport();
   const { data: systemSettings } = useSystemSettings();
   const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
 
@@ -177,7 +177,7 @@ export function ImportStep() {
     if (!file || !selectedDeliveryType) return;
     setReviewError(null);
     try {
-      const result = await reviewLocations({
+      const result = await previewImport({
         file,
         columnMap,
         deliveryType: selectedDeliveryType,

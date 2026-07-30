@@ -11,6 +11,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import {
+  applyLocationImport,
   cancelJob,
   completeDriverRegistration,
   createAnnouncement,
@@ -56,16 +57,15 @@ import {
   getSuggestedDriver,
   getSystemSettings,
   getTotalDeliveriesBetween,
-  ingestLocations,
   initializeDriver,
   login,
   logout,
   markAnnouncementsAsRead,
   type Options,
   patchSystemSettings,
+  previewLocationImport,
   refresh,
   renameDeliveryType,
-  reviewLocations,
   sendAnnouncementEmail,
   test,
   testEventEmail,
@@ -81,6 +81,9 @@ import {
   validateResetToken,
 } from '../sdk.gen';
 import type {
+  ApplyLocationImportData,
+  ApplyLocationImportError,
+  ApplyLocationImportResponse,
   CancelJobData,
   CancelJobError,
   CancelJobResponse,
@@ -211,9 +214,6 @@ import type {
   GetTotalDeliveriesBetweenData,
   GetTotalDeliveriesBetweenError,
   GetTotalDeliveriesBetweenResponse,
-  IngestLocationsData,
-  IngestLocationsError,
-  IngestLocationsResponse,
   InitializeDriverData,
   InitializeDriverError,
   InitializeDriverResponse,
@@ -228,14 +228,14 @@ import type {
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
+  PreviewLocationImportData,
+  PreviewLocationImportError,
+  PreviewLocationImportResponse,
   RefreshData,
   RefreshResponse,
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
-  ReviewLocationsData,
-  ReviewLocationsError,
-  ReviewLocationsResponse,
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
@@ -1454,24 +1454,30 @@ export const createLocationMutation = (
 };
 
 /**
- * Ingest Locations
+ * Apply Location Import
  *
- * Persist net-new locations and archive stale ones.
+ * Apply this import: create net-new locations, update the ones that changed,
+ * and take stale ones off the roster.
+ *
+ * Takes the same file and mapping as the preview rather than a diff posted
+ * back from it, so the plan is recomputed here by the same planner and the
+ * caller cannot choose which rows get rewritten. Rejected with a 400 while
+ * the file still has validation errors.
  */
-export const ingestLocationsMutation = (
-  options?: Partial<Options<IngestLocationsData>>
+export const applyLocationImportMutation = (
+  options?: Partial<Options<ApplyLocationImportData>>
 ): UseMutationOptions<
-  IngestLocationsResponse,
-  AxiosError<IngestLocationsError>,
-  Options<IngestLocationsData>
+  ApplyLocationImportResponse,
+  AxiosError<ApplyLocationImportError>,
+  Options<ApplyLocationImportData>
 > => {
   const mutationOptions: UseMutationOptions<
-    IngestLocationsResponse,
-    AxiosError<IngestLocationsError>,
-    Options<IngestLocationsData>
+    ApplyLocationImportResponse,
+    AxiosError<ApplyLocationImportError>,
+    Options<ApplyLocationImportData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await ingestLocations({
+      const { data } = await applyLocationImport({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1483,29 +1489,29 @@ export const ingestLocationsMutation = (
 };
 
 /**
- * Review Locations
+ * Preview Location Import
  *
- * Review a pending location import: validate rows and (eventually) describe how
- * the import would affect existing locations (net_new / stale / changed).
- * Requires a column_map JSON string mapping system field names to file headers.
+ * Describe what importing this file would do — row validation plus the
+ * net_new / stale / changed split — without writing anything. Requires a
+ * column_map JSON string mapping system field names to file headers.
  *
  * Side effect: the submitted column_map is persisted to system_settings so it
  * becomes the default mapping on the next import.
  */
-export const reviewLocationsMutation = (
-  options?: Partial<Options<ReviewLocationsData>>
+export const previewLocationImportMutation = (
+  options?: Partial<Options<PreviewLocationImportData>>
 ): UseMutationOptions<
-  ReviewLocationsResponse,
-  AxiosError<ReviewLocationsError>,
-  Options<ReviewLocationsData>
+  PreviewLocationImportResponse,
+  AxiosError<PreviewLocationImportError>,
+  Options<PreviewLocationImportData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ReviewLocationsResponse,
-    AxiosError<ReviewLocationsError>,
-    Options<ReviewLocationsData>
+    PreviewLocationImportResponse,
+    AxiosError<PreviewLocationImportError>,
+    Options<PreviewLocationImportData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await reviewLocations({
+      const { data } = await previewLocationImport({
         ...options,
         ...fnOptions,
         throwOnError: true,

@@ -6,13 +6,8 @@ import {
   useOutletContext,
 } from 'react-router-dom';
 
-import { useIngestLocations } from '@/api';
-import type {
-  ChangedEntry,
-  NetNewEntry,
-  StaleEntry,
-  ValidatedLocationImportEntry,
-} from '@/api/generated/types.gen';
+import { useApplyLocationImport } from '@/api';
+import type { ChangedEntry, StaleEntry } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -73,20 +68,6 @@ function ChangedCell({
   );
 }
 
-function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
-  return {
-    contact_name: entry.contact_name,
-    guardian_name: entry.guardian_name,
-    address: entry.address,
-    delivery_group: entry.delivery_group ?? '',
-    phone_primary: entry.phone_primary,
-    phone_secondary: entry.phone_secondary,
-    num_children: entry.num_children,
-    halal: entry.halal,
-    dietary_restrictions: entry.dietary_restrictions,
-  };
-}
-
 function ReviewStatus({
   reviewed,
   total,
@@ -114,10 +95,10 @@ function ReviewStatus({
 
 export function ReviewStep() {
   const navigate = useNavigate();
-  const { file, reviewResult, selectedDeliveryType } =
+  const { file, columnMap, reviewResult, selectedDeliveryType } =
     useOutletContext<GenerationOutletContext>();
-  const { mutateAsync: ingestLocations, isPending: isIngesting } =
-    useIngestLocations();
+  const { mutateAsync: applyImport, isPending: isIngesting } =
+    useApplyLocationImport();
 
   const [reviewedChanged, setReviewedChanged] = useState<Set<number>>(
     new Set()
@@ -132,7 +113,6 @@ export function ReviewStep() {
     return <Navigate to="/admin/routes/generation/import" replace />;
   }
 
-  const netNewRows = reviewResult.net_new ?? [];
   const staleRows = reviewResult.stale ?? [];
   const changedEntries = reviewResult.changed ?? [];
 
@@ -167,13 +147,13 @@ export function ReviewStep() {
   const handleConfirm = async () => {
     setIngestError(null);
     try {
-      // Every change is applied. The checkboxes only attest that an admin has
-      // looked at each row — they are not a per-row include/exclude.
-      await ingestLocations({
-        delivery_type: selectedDeliveryType,
-        net_new: netNewRows.map(toIngestNetNew),
-        stale: staleRows,
-        changed: changedEntries,
+      // The same file and mapping the preview ran on: the backend replans it
+      // and applies the result, so there is no diff to send back. The
+      // checkboxes only attest that an admin has looked at each row.
+      await applyImport({
+        file,
+        columnMap,
+        deliveryType: selectedDeliveryType,
       });
       setConfirmOpen(false);
       navigate('/admin/routes/generation/configure');

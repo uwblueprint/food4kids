@@ -180,9 +180,27 @@ export type AuthResponse = {
 };
 
 /**
- * Body_review_locations
+ * Body_apply_location_import
  */
-export type BodyReviewLocations = {
+export type BodyApplyLocationImport = {
+  /**
+   * Column Map
+   */
+  column_map: string;
+  /**
+   * Delivery Type
+   */
+  delivery_type: string;
+  /**
+   * File
+   */
+  file: Blob | File;
+};
+
+/**
+ * Body_preview_location_import
+ */
+export type BodyPreviewLocationImport = {
   /**
    * Column Map
    */
@@ -883,15 +901,18 @@ export type LocationImportEntry = {
 };
 
 /**
- * LocationImportResponse
+ * LocationImportPreview
  *
- * Combined validate + review-changes payload.
+ * What POST /locations/import/preview returns: what the file would do.
  *
  * success=False when any row has alerts. duplicate_groups lists row numbers and
  * matching fields for each within-file duplicate cluster. net_new/stale/changed
  * describe how the import would affect the existing locations table.
+ *
+ * The old/new pairs on `changed` are for rendering the diff only — applying
+ * replans from the file, so nothing here is read back.
  */
-export type LocationImportResponse = {
+export type LocationImportPreview = {
   /**
    * Changed
    */
@@ -923,6 +944,22 @@ export type LocationImportResponse = {
 };
 
 /**
+ * LocationImportResult
+ *
+ * What POST /locations/import returns: what it actually did.
+ */
+export type LocationImportResult = {
+  /**
+   * Archived
+   */
+  archived: Array<LocationRead>;
+  /**
+   * Created
+   */
+  created: Array<LocationRead>;
+};
+
+/**
  * LocationImportRow
  */
 export type LocationImportRow = {
@@ -935,45 +972,6 @@ export type LocationImportRow = {
    * Row
    */
   row: number;
-};
-
-/**
- * LocationIngestRequest
- *
- * Ingest request — `delivery_type` applies to every net-new row in this
- * import (one Apricot sheet = one delivery type).
- */
-export type LocationIngestRequest = {
-  /**
-   * Changed
-   */
-  changed?: Array<ChangedEntry>;
-  /**
-   * Delivery Type
-   */
-  delivery_type: string;
-  /**
-   * Net New
-   */
-  net_new: Array<ValidatedLocationImportEntry>;
-  /**
-   * Stale
-   */
-  stale: Array<StaleEntry>;
-};
-
-/**
- * LocationIngestResponse
- */
-export type LocationIngestResponse = {
-  /**
-   * Archived
-   */
-  archived: Array<LocationRead>;
-  /**
-   * Created
-   */
-  created: Array<LocationRead>;
 };
 
 /**
@@ -2248,50 +2246,6 @@ export type ValidateResetTokenRequest = {
 };
 
 /**
- * ValidatedLocationImportEntry
- *
- * LocationImportEntry with required fields guaranteed non-None after validation.
- */
-export type ValidatedLocationImportEntry = {
-  /**
-   * Address
-   */
-  address: string;
-  /**
-   * Contact Name
-   */
-  contact_name: string;
-  /**
-   * Delivery Group
-   */
-  delivery_group: string;
-  /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string | null;
-  /**
-   * Guardian Name
-   */
-  guardian_name?: string | null;
-  /**
-   * Halal
-   */
-  halal?: boolean | null;
-  /**
-   * Num Children
-   */
-  num_children?: number | null;
-  /**
-   * Phone Primary
-   */
-  phone_primary: string;
-  /**
-   * Phone Secondary
-   */
-  phone_secondary?: string | null;
-};
-
-/**
  * ValidationError
  */
 export type ValidationError = {
@@ -2428,9 +2382,11 @@ export type DriverRegisterResponseWritable = {
 };
 
 /**
- * LocationIngestResponse
+ * LocationImportResult
+ *
+ * What POST /locations/import returns: what it actually did.
  */
-export type LocationIngestResponseWritable = {
+export type LocationImportResultWritable = {
   /**
    * Archived
    */
@@ -3635,59 +3591,59 @@ export type CreateLocationResponses = {
 export type CreateLocationResponse =
   CreateLocationResponses[keyof CreateLocationResponses];
 
-export type IngestLocationsData = {
-  body: LocationIngestRequest;
+export type ApplyLocationImportData = {
+  body: BodyApplyLocationImport;
   path?: never;
   query?: never;
-  url: '/locations/ingest';
+  url: '/locations/import';
 };
 
-export type IngestLocationsErrors = {
+export type ApplyLocationImportErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type IngestLocationsError =
-  IngestLocationsErrors[keyof IngestLocationsErrors];
+export type ApplyLocationImportError =
+  ApplyLocationImportErrors[keyof ApplyLocationImportErrors];
 
-export type IngestLocationsResponses = {
+export type ApplyLocationImportResponses = {
   /**
    * Successful Response
    */
-  200: LocationIngestResponse;
+  200: LocationImportResult;
 };
 
-export type IngestLocationsResponse =
-  IngestLocationsResponses[keyof IngestLocationsResponses];
+export type ApplyLocationImportResponse =
+  ApplyLocationImportResponses[keyof ApplyLocationImportResponses];
 
-export type ReviewLocationsData = {
-  body: BodyReviewLocations;
+export type PreviewLocationImportData = {
+  body: BodyPreviewLocationImport;
   path?: never;
   query?: never;
-  url: '/locations/review';
+  url: '/locations/import/preview';
 };
 
-export type ReviewLocationsErrors = {
+export type PreviewLocationImportErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type ReviewLocationsError =
-  ReviewLocationsErrors[keyof ReviewLocationsErrors];
+export type PreviewLocationImportError =
+  PreviewLocationImportErrors[keyof PreviewLocationImportErrors];
 
-export type ReviewLocationsResponses = {
+export type PreviewLocationImportResponses = {
   /**
    * Successful Response
    */
-  200: LocationImportResponse;
+  200: LocationImportPreview;
 };
 
-export type ReviewLocationsResponse =
-  ReviewLocationsResponses[keyof ReviewLocationsResponses];
+export type PreviewLocationImportResponse =
+  PreviewLocationImportResponses[keyof PreviewLocationImportResponses];
 
 export type DeleteLocationData = {
   body?: never;

@@ -212,12 +212,15 @@ class ChangedEntry(SQLModel):
     num_children: int | ChangedFieldOptInt | None = None
 
 
-class LocationImportResponse(SQLModel):
-    """Combined validate + review-changes payload.
+class LocationImportPreview(SQLModel):
+    """What POST /locations/import/preview returns: what the file would do.
 
     success=False when any row has alerts. duplicate_groups lists row numbers and
     matching fields for each within-file duplicate cluster. net_new/stale/changed
     describe how the import would affect the existing locations table.
+
+    The old/new pairs on `changed` are for rendering the diff only — applying
+    replans from the file, so nothing here is read back.
     """
 
     success: bool
@@ -287,16 +290,8 @@ class LocationUpdate(SQLModel):
     note_chain_id: UUID | None = None
 
 
-class LocationIngestRequest(SQLModel):
-    """Ingest request — `delivery_type` applies to every net-new row in this
-    import (one Apricot sheet = one delivery type)."""
+class LocationImportResult(SQLModel):
+    """What POST /locations/import returns: what it actually did."""
 
-    delivery_type: str = Field(min_length=1, max_length=100)
-    net_new: list[ValidatedLocationImportEntry]
-    stale: list[StaleEntry]
-    changed: list[ChangedEntry] = []
-
-
-class LocationIngestResponse(SQLModel):
     created: list[LocationRead]
     archived: list[LocationRead]

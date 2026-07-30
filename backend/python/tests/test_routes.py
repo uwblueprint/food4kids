@@ -1236,13 +1236,13 @@ class TestLocationRoutes:
         assert "Unknown delivery_type" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_ingest_locations_rejects_unknown_delivery_type(
+    async def test_apply_import_rejects_unknown_delivery_type(
         self, async_client: AsyncClient
     ) -> None:
-        """POST /locations/ingest validates delivery_type against settings."""
+        """POST /locations/import validates delivery_type against settings."""
         response = await async_client.post(
-            "/locations/ingest",
-            json={"delivery_type": "Unknown", "net_new": [], "stale": []},
+            "/locations/import",
+            **import_review_request([], delivery_type="Unknown"),
         )
 
         assert response.status_code == 400
@@ -1649,7 +1649,7 @@ class TestLocationImportRoutes:
     ) -> None:
         request = import_review_request([], delivery_type="Unknown")
 
-        response = await async_client.post("/locations/review", **request)
+        response = await async_client.post("/locations/import/preview", **request)
 
         assert response.status_code == 400
         assert "Unknown delivery_type" in response.json()["detail"]
@@ -1686,7 +1686,7 @@ class TestLocationImportRoutes:
             ]
         )
 
-        response = await async_client.post("/locations/review", **request)
+        response = await async_client.post("/locations/import/preview", **request)
 
         assert response.status_code == 200
         body = response.json()
@@ -1775,7 +1775,7 @@ class TestLocationImportRoutes:
             ]
         )
 
-        response = await async_client.post("/locations/review", **request)
+        response = await async_client.post("/locations/import/preview", **request)
 
         assert response.status_code == 200
         body = response.json()
@@ -1884,7 +1884,7 @@ class TestLocationImportRoutes:
             ]
         )
 
-        response = await async_client.post("/locations/review", **request)
+        response = await async_client.post("/locations/import/preview", **request)
 
         assert response.status_code == 200
         body = response.json()
@@ -1975,7 +1975,9 @@ class TestLocationImportRoutes:
             delivery_type="Family",
         )
 
-        review_response = await async_client.post("/locations/review", **review_request)
+        review_response = await async_client.post(
+            "/locations/import/preview", **review_request
+        )
 
         assert review_response.status_code == 200
         review_body = review_response.json()
@@ -1988,15 +1990,7 @@ class TestLocationImportRoutes:
             str(family_match.location_id)
         ]
 
-        ingest_response = await async_client.post(
-            "/locations/ingest",
-            json={
-                "delivery_type": "Family",
-                "net_new": review_body["net_new"],
-                "stale": review_body["stale"],
-                "changed": review_body["changed"],
-            },
-        )
+        ingest_response = await async_client.post("/locations/import", **review_request)
 
         assert ingest_response.status_code == 200
         await test_session.refresh(family_match)
@@ -2079,7 +2073,7 @@ class TestLocationImportRoutes:
             ]
         )
 
-        review = await async_client.post("/locations/review", **request)
+        review = await async_client.post("/locations/import/preview", **request)
         assert review.status_code == 200
         review_body = review.json()
         assert review_body["success"] is True
@@ -2102,15 +2096,7 @@ class TestLocationImportRoutes:
             "old_value": "Stale Guardian",
         }
 
-        ingest = await async_client.post(
-            "/locations/ingest",
-            json={
-                "delivery_type": "Family",
-                "net_new": review_body["net_new"],
-                "stale": review_body["stale"],
-                "changed": review_body["changed"],
-            },
-        )
+        ingest = await async_client.post("/locations/import", **request)
         assert ingest.status_code == 200
         created = {row["contact_name"]: row for row in ingest.json()["created"]}
 
@@ -2161,7 +2147,7 @@ class TestLocationImportRoutes:
             ]
         )
 
-        response = await async_client.post("/locations/review", **request)
+        response = await async_client.post("/locations/import/preview", **request)
 
         assert response.status_code == 200
         body = response.json()
@@ -2213,7 +2199,7 @@ class TestLocationImportRoutes:
             ]
         )
 
-        response = await async_client.post("/locations/review", **request)
+        response = await async_client.post("/locations/import/preview", **request)
 
         assert response.status_code == 200
         body = response.json()
@@ -2257,7 +2243,7 @@ class TestLocationImportRoutes:
             ]
         )
 
-        response = await async_client.post("/locations/review", **request)
+        response = await async_client.post("/locations/import/preview", **request)
 
         assert response.status_code == 200
         body = response.json()
@@ -2347,37 +2333,25 @@ class TestLocationImportRoutes:
                 },
             ]
         )
-        review_response = await async_client.post("/locations/review", **review_request)
+        review_response = await async_client.post(
+            "/locations/import/preview", **review_request
+        )
         assert review_response.status_code == 200
-        review_body = review_response.json()
 
         ingest_maps = FakeGoogleMapsClient()
         ingest_client = await client_with_overrides(
             {get_google_maps_client: lambda: ingest_maps}
         )
-        ingest_payload = {
-            "delivery_type": "Family",
-            "net_new": [
-                {
-                    "contact_name": entry["contact_name"],
-                    "address": entry["address"],
-                    "delivery_group": entry["delivery_group"],
-                    "phone_primary": entry["phone_primary"],
-                    "phone_secondary": entry["phone_secondary"],
-                    "num_children": entry["num_children"],
-                }
-                for entry in review_body["net_new"]
-            ],
-            "stale": review_body["stale"],
-            "changed": review_body["changed"],
-        }
-
         ingest_response = await ingest_client.post(
-            "/locations/ingest", json=ingest_payload
+            "/locations/import", **review_request
         )
 
         assert ingest_response.status_code == 200
-        assert ingest_maps.calls == ["Formatted 4 Main St", "Formatted New Address"]
+        # Applying replans, so it geocodes what planning needs — the file's own
+        # addresses, in file order, each looked up once. None are skipped here
+        # because these fixtures were stored without coordinates; a roster row
+        # that has them is served from the database instead.
+        assert ingest_maps.calls == ["New Address", "3 Main St", "4 Main St"]
         body = ingest_response.json()
         assert len(body["created"]) == 2
         assert len(body["archived"]) == 2
@@ -2407,35 +2381,43 @@ class TestLocationImportRoutes:
         assert retained_note.note_chain_id == replacement.note_chain_id
 
     @pytest.mark.asyncio
-    async def test_ingest_locations_rejects_duplicate_changed_location_ids(
+    async def test_apply_import_refuses_a_file_with_validation_errors(
         self,
         async_client: AsyncClient,
+        test_session: AsyncSession,
         test_location_group: Any,
     ) -> None:
-        location_id = uuid4()
-        changed_entry = {
-            "row": 1,
-            "location_id": str(location_id),
-            "contact_name": "Duplicate Change",
-            "address": "Formatted 1 Main St",
-            "delivery_group": test_location_group.name,
-            "phone_primary": "+14164164168",
-            "phone_secondary": None,
-            "num_children": 1,
-        }
+        """Applying replans, so a file the preview rejected cannot be applied.
 
-        response = await async_client.post(
-            "/locations/ingest",
-            json={
-                "delivery_type": "Family",
-                "net_new": [],
-                "stale": [],
-                "changed": [changed_entry, changed_entry],
-            },
+        The Continue button already gates on this, but the button is not what
+        enforces it: the same planner runs on both calls, so a caller going
+        straight to apply is refused on the same grounds and writes nothing.
+        """
+        request = import_review_request(
+            [
+                {
+                    "Name": "No Address Family",
+                    "Address": "",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164168",
+                    "Children": "2",
+                },
+            ]
         )
 
+        preview = await async_client.post("/locations/import/preview", **request)
+        assert preview.status_code == 200
+        assert preview.json()["success"] is False
+
+        response = await async_client.post("/locations/import", **request)
+
         assert response.status_code == 400
-        assert "only be included once" in response.json()["detail"]
+        assert "validation errors" in response.json()["detail"]
+
+        from sqlmodel import select
+
+        remaining = await test_session.execute(select(Location))
+        assert remaining.scalars().all() == []
 
 
 class TestLocationGroupRoutes:
