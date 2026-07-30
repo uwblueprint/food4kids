@@ -834,7 +834,7 @@ class TestModelValidation:
         assert system_settings.boxes_per_car == 10
         assert system_settings.dropoff_minutes == 3
         assert system_settings.children_per_box == 2
-        assert system_settings.delivery_types == ["School", "Family"]
+        assert system_settings.delivery_types == ["Family", "School"]
         assert system_settings.email_reminders == [
             EmailReminder(days_before=1, time=time(9, 0))
         ]

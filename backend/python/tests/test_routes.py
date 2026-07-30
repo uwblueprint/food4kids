@@ -34,6 +34,7 @@ from app.utilities.google_maps_client import GeocodeResult
 
 IMPORT_COLUMN_MAP = {
     "contact_name": "Name",
+    "guardian_name": "Guardian",
     "address": "Address",
     "delivery_group": "Delivery Group",
     "phone_primary": "Phone",
@@ -66,6 +67,7 @@ def import_review_request(
 ) -> dict[str, Any]:
     headers = [
         "Name",
+        "Guardian",
         "Address",
         "Delivery Group",
         "Phone",
@@ -1891,6 +1893,9 @@ class TestLocationImportRoutes:
             "Net New Family"
         ]
         assert [entry["contact_name"] for entry in body["stale"]] == ["Stale Family"]
+        # Carried off the existing Location, not the import — the review step
+        # shows what is being taken off the roster.
+        assert body["stale"][0]["num_children"] == 4
         changed_by_name = {entry["contact_name"]: entry for entry in body["changed"]}
         assert set(changed_by_name) == {
             "Address Change Family",
@@ -2004,6 +2009,121 @@ class TestLocationImportRoutes:
         assert school_same_identity.phone_primary == "+14164164168"
         assert stale_family.in_roster is False
         assert untouched_school.in_roster is True
+
+    @pytest.mark.asyncio
+    async def test_guardian_name_round_trips_through_review_and_ingest(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A Family row carries a guardian distinct from its School / Last Name.
+
+        Covers all three write paths: a net-new row, a row whose guardian
+        changed in place, and a row whose address changed (which replaces the
+        Location rather than updating it).
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        renamed_guardian = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Nguyen",
+            contact_name="Nguyen",
+            guardian_name="Old Guardian",
+            address="Formatted 30 Main St",
+            phone_primary="+14164164180",
+            num_children=2,
+            delivery_type="Family",
+        )
+        moved_house = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Okafor",
+            contact_name="Okafor",
+            guardian_name="Stale Guardian",
+            address="Formatted 31 Main St",
+            phone_primary="+14164164181",
+            num_children=1,
+            delivery_type="Family",
+        )
+        test_session.add_all([renamed_guardian, moved_house])
+        await test_session.commit()
+
+        request = import_review_request(
+            [
+                {
+                    "Name": "Nguyen",
+                    "Guardian": "New Guardian",
+                    "Address": "30 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164180",
+                    "Children": "2",
+                },
+                {
+                    "Name": "Okafor",
+                    "Guardian": "Moved Guardian",
+                    "Address": "99 Elsewhere Rd",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164181",
+                    "Children": "1",
+                },
+                {
+                    "Name": "Brand New",
+                    "Guardian": "Fresh Guardian",
+                    "Address": "32 Main St",
+                    "Delivery Group": test_location_group.name,
+                    "Phone": "+14164164182",
+                    "Children": "3",
+                },
+            ]
+        )
+
+        review = await async_client.post("/locations/review", **request)
+        assert review.status_code == 200
+        review_body = review.json()
+        assert review_body["success"] is True
+
+        # Net-new carries the guardian straight through.
+        assert [entry["guardian_name"] for entry in review_body["net_new"]] == [
+            "Fresh Guardian"
+        ]
+
+        # A guardian-only edit is diffed, so the row surfaces for review at all.
+        changed_by_name = {
+            entry["contact_name"]: entry for entry in review_body["changed"]
+        }
+        assert changed_by_name["Nguyen"]["guardian_name"] == {
+            "new_value": "New Guardian",
+            "old_value": "Old Guardian",
+        }
+        assert changed_by_name["Okafor"]["guardian_name"] == {
+            "new_value": "Moved Guardian",
+            "old_value": "Stale Guardian",
+        }
+
+        ingest = await async_client.post(
+            "/locations/ingest",
+            json={
+                "delivery_type": "Family",
+                "net_new": review_body["net_new"],
+                "stale": review_body["stale"],
+                "changed": review_body["changed"],
+            },
+        )
+        assert ingest.status_code == 200
+        created = {row["contact_name"]: row for row in ingest.json()["created"]}
+
+        # Updated in place — the address did not move.
+        await test_session.refresh(renamed_guardian)
+        assert renamed_guardian.guardian_name == "New Guardian"
+
+        # Replaced — the address moved, so the guardian lands on the new row
+        # and the old one goes off the roster.
+        await test_session.refresh(moved_house)
+        assert moved_house.in_roster is False
+        assert created["Okafor"]["guardian_name"] == "Moved Guardian"
+        assert created["Brand New"]["guardian_name"] == "Fresh Guardian"
 
     @pytest.mark.asyncio
     async def test_review_locations_blank_children_does_not_mark_changed(

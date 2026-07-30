@@ -21,6 +21,7 @@ import {
 } from '@/common/components';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { GenerationFooter } from './GenerationFooter';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
 
@@ -32,6 +33,7 @@ interface SystemField {
 
 const SYSTEM_FIELDS: SystemField[] = [
   { key: 'contact_name', label: 'School Name / Last Name', required: true },
+  { key: 'guardian_name', label: 'Guardian Name', required: true },
   { key: 'address', label: 'Address', required: true },
   { key: 'delivery_group', label: 'Delivery Group', required: true },
   { key: 'phone_primary', label: 'Phone Number', required: true },
@@ -123,8 +125,17 @@ export function ImportStep() {
     {
       key: 'label',
       header: 'System Column',
+      // 56px rows — the frames give this table more air than the others
+      // because every row holds a control. The header is 48 and top-aligned:
+      // the frames draw it as a 40px box with 16px of air beneath, which a
+      // borderless table row can only approximate, and this is the split that
+      // lands both the header text and all eight rows on their frame y.
+      headerClassName: 'h-12 align-top',
+      getCellClassName: () => 'h-14',
       render: (row) => (
-        <span className="text-p2 text-grey-500">
+        // P1, not the table's usual P2 — these are field labels rather than
+        // imported data, and the frames set them 16/500.
+        <span className="text-p1 text-grey-500">
           {row.label}
           {row.required && <span className="text-red ml-0.5">*</span>}
         </span>
@@ -133,6 +144,8 @@ export function ImportStep() {
     {
       key: 'value',
       header: 'Your File Column',
+      headerClassName: 'h-12 align-top',
+      getCellClassName: () => 'h-14',
       render: (row) => (
         <Dropdown
           value={columnMap[row.key] ?? ''}
@@ -184,14 +197,15 @@ export function ImportStep() {
         </Banner>
       )}
 
-      <section className="flex flex-col gap-3">
-        <div>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Select Delivery Type</h2>
           <p className="text-p1 text-grey-500">
             Choose the type of spreadsheet you'll be uploading:
           </p>
         </div>
-        <div className="flex flex-col gap-2">
+        {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
+        <div className="flex flex-col gap-1">
           {deliveryTypes.map((deliveryType) => (
             <label
               key={deliveryType}
@@ -209,7 +223,7 @@ export function ImportStep() {
                   setReviewResult(null);
                   setFormatError(null);
                 }}
-                className="size-4 cursor-pointer accent-blue-300"
+                className="size-5 cursor-pointer accent-blue-300"
               />
               {deliveryType}
             </label>
@@ -219,7 +233,7 @@ export function ImportStep() {
 
       {selectedDeliveryType && (
         <section className="flex max-w-[700px] flex-col gap-4">
-          <div>
+          <div className="flex flex-col gap-1">
             <h2 className="text-grey-500">Import Data</h2>
             <p className="text-p1 text-grey-500">
               Upload an Excel file (.xlsx) with delivery information
@@ -260,7 +274,8 @@ export function ImportStep() {
             rows={SYSTEM_FIELDS}
             getRowKey={(row) => row.key}
           />
-          <p className="text-p2 text-grey-400 text-right">
+          {/* 8px under the card, not the section's 16. */}
+          <p className="text-p2 text-grey-400 -mt-2 text-right font-semibold">
             Columns can be customized from the{' '}
             <Link to="/admin/settings" className="text-blue-300">
               Settings
@@ -270,8 +285,7 @@ export function ImportStep() {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center justify-between">
+      <GenerationFooter>
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes">Back to routes</Link>
         </Button>
@@ -282,7 +296,7 @@ export function ImportStep() {
         >
           {isReviewing ? 'Validating…' : 'Continue to validate'}
         </Button>
-      </div>
+      </GenerationFooter>
     </>
   );
 }

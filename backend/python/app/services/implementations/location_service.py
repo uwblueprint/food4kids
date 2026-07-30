@@ -73,18 +73,6 @@ ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-# Default CSV column names
-DEFAULT_COLUMN_MAP = {
-    "contact_name": "Guardian Name",
-    "address": "Address",
-    "delivery_group": "Delivery Day",
-    "phone_primary": "Primary Phone",
-    "phone_secondary": "Secondary Phone",
-    "num_children": "Number of Children",
-    "halal": "Halal?",
-    "dietary_restrictions": "Specific Food Restrictions",
-}
-
 
 class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
@@ -855,6 +843,7 @@ class LocationService:
         return NetNewEntry(
             row=row_num,
             contact_name=entry.contact_name,
+            guardian_name=entry.guardian_name,
             address=entry.address,
             delivery_group=entry.delivery_group,
             phone_primary=entry.phone_primary,
@@ -873,6 +862,7 @@ class LocationService:
             delivery_group=location.location_group.name,
             phone_primary=location.phone_primary,
             phone_secondary=location.phone_secondary,
+            num_children=location.num_children,
         )
 
     def _to_changed_entry(
@@ -888,6 +878,9 @@ class LocationService:
         phone_secondary_changed = (entry.phone_secondary or None) != (
             location.phone_secondary or None
         )
+        guardian_name_changed = (entry.guardian_name or None) != (
+            location.guardian_name or None
+        )
         num_children_changed = (
             entry.num_children is not None
             and entry.num_children != location.num_children
@@ -897,6 +890,7 @@ class LocationService:
         if not any(
             [
                 contact_name_changed,
+                guardian_name_changed,
                 address_changed,
                 delivery_group_changed,
                 phone_primary_changed,
@@ -911,6 +905,11 @@ class LocationService:
             row=row_num,
             location_id=location.location_id,
             contact_name=entry.contact_name,
+            guardian_name=ChangedFieldOptStr(
+                new_value=entry.guardian_name, old_value=location.guardian_name
+            )
+            if guardian_name_changed
+            else entry.guardian_name,
             address=ChangedFieldStr(new_value=entry.address, old_value=location.address)
             if address_changed
             else entry.address,
@@ -995,6 +994,7 @@ class LocationService:
 
         return LocationImportEntry(
             contact_name=get_value("contact_name"),
+            guardian_name=get_value("guardian_name"),
             address=get_value("address"),
             delivery_group=get_value("delivery_group"),
             phone_primary=get_value("phone_primary"),
@@ -1035,6 +1035,7 @@ class LocationService:
             location_group_id=location_data.location_group_id,
             name=location_data.name,
             contact_name=location_data.contact_name,
+            guardian_name=location_data.guardian_name,
             address=location_data.address,
             phone_primary=location_data.phone_primary,
             phone_secondary=location_data.phone_secondary,
@@ -1113,6 +1114,7 @@ class LocationService:
                     Location(
                         name=entry.contact_name,
                         contact_name=entry.contact_name,
+                        guardian_name=entry.guardian_name,
                         address=geocode_result.formatted_address,
                         phone_primary=entry.phone_primary,
                         phone_secondary=entry.phone_secondary,
@@ -1179,6 +1181,9 @@ class LocationService:
                         Location(
                             name=changed_entry.contact_name,
                             contact_name=changed_entry.contact_name,
+                            guardian_name=self._changed_optional_str_value(
+                                changed_entry.guardian_name
+                            ),
                             address=geocode_result.formatted_address,
                             phone_primary=self._changed_str_value(
                                 changed_entry.phone_primary
@@ -1208,6 +1213,9 @@ class LocationService:
                 location.in_roster = True
                 location.name = changed_entry.contact_name
                 location.contact_name = changed_entry.contact_name
+                location.guardian_name = self._changed_optional_str_value(
+                    changed_entry.guardian_name
+                )
                 location.phone_primary = self._changed_str_value(
                     changed_entry.phone_primary
                 )

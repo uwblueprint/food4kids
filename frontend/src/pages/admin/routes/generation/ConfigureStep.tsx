@@ -23,6 +23,7 @@ import {
 } from '@/common/components';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { GenerationFooter } from './GenerationFooter';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -236,15 +237,14 @@ export function ConfigureStep() {
         />
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between">
+      <GenerationFooter>
         <Button variant="tertiary" onClick={() => setLeaveOpen(true)}>
           Back to review changes
         </Button>
         <Button variant="primary" onClick={() => setConfirmOpen(true)}>
           Continue to generate routes
         </Button>
-      </div>
+      </GenerationFooter>
 
       {/* Leave without saving dialog */}
       <Modal open={leaveOpen} onOpenChange={setLeaveOpen}>

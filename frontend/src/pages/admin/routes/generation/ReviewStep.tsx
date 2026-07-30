@@ -25,9 +25,11 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { GenerationFooter } from './GenerationFooter';
 
 type ChangedField<T> = { new_value: T; old_value: T };
 
@@ -55,13 +57,15 @@ function ChangedCell({
     return <span>{value ?? '—'}</span>;
   }
 
+  // No vertical padding: `min-h-10` is border-box, so each half is exactly the
+  // 40px the frames call for and a changed row totals 80.
   return (
     <div className="-mx-4 -my-2.5 flex flex-col">
-      <span className="bg-grey-150 flex min-h-10 items-center gap-2 px-4 py-2.5">
+      <span className="border-grey-300 bg-grey-150 flex min-h-10 items-center gap-2 border-b-2 px-4">
         <span className="text-grey-400 text-base">−</span>
         {value.old_value ?? '—'}
       </span>
-      <span className="flex min-h-10 items-center gap-2 border-b-2 border-blue-100 bg-blue-50 px-4 py-2.5">
+      <span className="flex min-h-10 items-center gap-2 border-b-2 border-blue-100 bg-blue-50 px-4">
         <span className="text-grey-400 text-base">+</span>
         {value.new_value ?? '—'}
       </span>
@@ -72,6 +76,7 @@ function ChangedCell({
 function toIngestNetNew(entry: NetNewEntry): ValidatedLocationImportEntry {
   return {
     contact_name: entry.contact_name,
+    guardian_name: entry.guardian_name,
     address: entry.address,
     delivery_group: entry.delivery_group ?? '',
     phone_primary: entry.phone_primary,
@@ -93,11 +98,14 @@ function ReviewStatus({
 
   return (
     <span
-      className={
+      className={cn(
+        // Tag: 127×26, r40, 16px side padding, 14/600. Neutral until every row
+        // in the section is checked off — 0 / 0 stays neutral.
+        'inline-flex h-[26px] items-center rounded-full px-4 text-sm font-semibold',
         complete
-          ? 'bg-success-fill text-success-stroke rounded-full px-3 py-1 text-sm'
-          : 'bg-grey-300 rounded-full px-3 py-1 text-sm'
-      }
+          ? 'bg-success-fill text-success-stroke'
+          : 'bg-grey-300 text-grey-500'
+      )}
     >
       {reviewed} / {total} Reviewed
     </span>
@@ -159,17 +167,21 @@ export function ReviewStep() {
   const handleConfirm = async () => {
     setIngestError(null);
     try {
+      // Every change is applied. The checkboxes only attest that an admin has
+      // looked at each row — they are not a per-row include/exclude.
       await ingestLocations({
         delivery_type: selectedDeliveryType,
         net_new: netNewRows.map(toIngestNetNew),
         stale: staleRows,
-        changed: changedEntries.filter((_, index) =>
-          reviewedChanged.has(index)
-        ),
+        changed: changedEntries,
       });
       setConfirmOpen(false);
       navigate('/admin/routes/generation/configure');
     } catch {
+      // Close first: Radix marks the rest of the page aria-hidden and locks
+      // body scroll while the modal is open, so a banner set behind it is
+      // unreachable both visually and to screen readers.
+      setConfirmOpen(false);
       setIngestError('Could not apply the import changes — please try again.');
     }
   };
@@ -178,14 +190,17 @@ export function ReviewStep() {
     {
       key: 'reviewed',
       header: '',
+      // 32px column: the frames give the checkbox 8px either side, not the
+      // 16px the data columns use.
       headerClassName: 'w-8 px-2',
+      cellClassName: 'w-8 px-2',
       render: (row) => (
         <input
           type="checkbox"
           checked={reviewedChanged.has(row._index)}
           onChange={() => toggleChanged(row._index)}
           aria-label={`Review changes for ${row.contact_name}`}
-          className="border-grey-300 size-4 cursor-pointer rounded accent-blue-300"
+          className="border-grey-300 size-4 cursor-pointer rounded-[4px] accent-blue-300"
         />
       ),
     },
@@ -193,6 +208,14 @@ export function ReviewStep() {
       key: 'contact_name',
       header: 'School / Last Name',
       render: (row) => row.contact_name,
+    },
+    // Not in the frames' Changed table. Without it, a row whose only edit is
+    // the guardian's name shows no visible difference, and there is nothing
+    // for the admin to check off — flag to the designer.
+    {
+      key: 'guardian_name',
+      header: 'Guardian Name',
+      render: (row) => <ChangedCell value={row.guardian_name} />,
     },
     {
       key: 'address',
@@ -220,14 +243,17 @@ export function ReviewStep() {
     {
       key: 'reviewed',
       header: '',
+      // 32px column: the frames give the checkbox 8px either side, not the
+      // 16px the data columns use.
       headerClassName: 'w-8 px-2',
+      cellClassName: 'w-8 px-2',
       render: (row) => (
         <input
           type="checkbox"
           checked={reviewedRemoved.has(row.location_id)}
           onChange={() => toggleRemoved(row.location_id)}
           aria-label={`Review removal of ${row.contact_name}`}
-          className="border-grey-300 size-4 cursor-pointer rounded accent-blue-300"
+          className="border-grey-300 size-4 cursor-pointer rounded-[4px] accent-blue-300"
         />
       ),
     },
@@ -250,7 +276,7 @@ export function ReviewStep() {
     {
       key: 'num_children',
       header: 'Number of Children',
-      render: () => '—',
+      render: (row) => row.num_children ?? '—',
     },
   ];
 
@@ -258,7 +284,6 @@ export function ReviewStep() {
     ...entry,
     _index: index,
   }));
-  const compactEmptyState = '[&_td>div]:gap-1 [&_td>div]:py-8 [&_td_img]:h-28';
 
   return (
     <>
@@ -268,10 +293,10 @@ export function ReviewStep() {
         </Banner>
       )}
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         <div className="flex items-end justify-between">
-          <div>
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
               <h2 className="text-grey-500">Changed Data</h2>
               <ReviewStatus
                 reviewed={reviewedChanged.size}
@@ -284,10 +309,10 @@ export function ReviewStep() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="border-grey-300 rounded-full border bg-white px-4 py-1 text-sm">
+            <span className="border-grey-300 bg-grey-150 inline-flex h-[26px] items-center rounded-full border px-4 text-sm font-semibold">
               Old
             </span>
-            <span className="rounded-full border border-blue-100 bg-blue-50 px-4 py-1 text-sm">
+            <span className="inline-flex h-[26px] items-center rounded-full border border-blue-100 bg-blue-50 px-4 text-sm font-semibold">
               New
             </span>
           </div>
@@ -296,9 +321,10 @@ export function ReviewStep() {
           columns={changedColumns}
           rows={changedRows}
           getRowKey={(row) => row._index}
-          className={compactEmptyState}
           emptyState={
             <EmptyState
+              compact
+              image="girl-searching"
               title="No entries found"
               description="No action required at this time"
             />
@@ -306,9 +332,9 @@ export function ReviewStep() {
         />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <div>
-          <div className="flex items-center gap-3">
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
             <h2 className="text-grey-500">Removed</h2>
             <ReviewStatus
               reviewed={reviewedRemoved.size}
@@ -324,9 +350,10 @@ export function ReviewStep() {
           columns={staleColumns}
           rows={staleRows}
           getRowKey={(row) => row.location_id}
-          className={compactEmptyState}
           emptyState={
             <EmptyState
+              compact
+              image="girl-searching"
               title="No entries found"
               description="No action required at this time"
             />
@@ -334,7 +361,7 @@ export function ReviewStep() {
         />
       </section>
 
-      <div className="flex items-center justify-between">
+      <GenerationFooter>
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes/generation/validate">Back to validate</Link>
         </Button>
@@ -345,7 +372,7 @@ export function ReviewStep() {
         >
           Continue to edit route groups
         </Button>
-      </div>
+      </GenerationFooter>
 
       <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
         <ModalContent>

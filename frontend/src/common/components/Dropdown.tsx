@@ -15,7 +15,10 @@ function DropdownTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        'inline-flex w-full cursor-pointer items-center justify-between rounded-full px-6 py-3',
+        // 34px tall, r16, 12px side padding — measured off the Map Columns
+        // frame. `rounded-full` on a 34px box reads the same as r16, but the
+        // token is what the design states.
+        'inline-flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2',
         // No `outline-none` here: it would set --tw-outline-style to `none`,
         // which the outline-1 below inherits, making the outline invisible
         'text-p2 text-grey-500 transition-colors',
