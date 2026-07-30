@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { GenerationFooter } from './GenerationFooter';
 
 type ChangedField<T> = { new_value: T; old_value: T };
 
@@ -60,7 +61,7 @@ function ChangedCell({
   // 40px the frames call for and a changed row totals 80.
   return (
     <div className="-mx-4 -my-2.5 flex flex-col">
-      <span className="bg-grey-150 flex min-h-10 items-center gap-2 px-4">
+      <span className="border-grey-300 bg-grey-150 flex min-h-10 items-center gap-2 border-b-2 px-4">
         <span className="text-grey-400 text-base">−</span>
         {value.old_value ?? '—'}
       </span>
@@ -189,14 +190,17 @@ export function ReviewStep() {
     {
       key: 'reviewed',
       header: '',
+      // 32px column: the frames give the checkbox 8px either side, not the
+      // 16px the data columns use.
       headerClassName: 'w-8 px-2',
+      cellClassName: 'w-8 px-2',
       render: (row) => (
         <input
           type="checkbox"
           checked={reviewedChanged.has(row._index)}
           onChange={() => toggleChanged(row._index)}
           aria-label={`Review changes for ${row.contact_name}`}
-          className="border-grey-300 size-4 cursor-pointer rounded accent-blue-300"
+          className="border-grey-300 size-4 cursor-pointer rounded-[4px] accent-blue-300"
         />
       ),
     },
@@ -239,14 +243,17 @@ export function ReviewStep() {
     {
       key: 'reviewed',
       header: '',
+      // 32px column: the frames give the checkbox 8px either side, not the
+      // 16px the data columns use.
       headerClassName: 'w-8 px-2',
+      cellClassName: 'w-8 px-2',
       render: (row) => (
         <input
           type="checkbox"
           checked={reviewedRemoved.has(row.location_id)}
           onChange={() => toggleRemoved(row.location_id)}
           aria-label={`Review removal of ${row.contact_name}`}
-          className="border-grey-300 size-4 cursor-pointer rounded accent-blue-300"
+          className="border-grey-300 size-4 cursor-pointer rounded-[4px] accent-blue-300"
         />
       ),
     },
@@ -296,7 +303,7 @@ export function ReviewStep() {
                 total={changedEntries.length}
               />
             </div>
-            <p className="text-p1 text-grey-500">
+            <p className="text-p1 text-grey-500 font-normal">
               Check off entries that have changed since the previous upload to
               confirm you have reviewed them
             </p>
@@ -317,6 +324,7 @@ export function ReviewStep() {
           emptyState={
             <EmptyState
               compact
+              image="girl-searching"
               title="No entries found"
               description="No action required at this time"
             />
@@ -333,7 +341,7 @@ export function ReviewStep() {
               total={staleRows.length}
             />
           </div>
-          <p className="text-p1 text-grey-500">
+          <p className="text-p1 text-grey-500 font-normal">
             Check off entries that were removed since the previous upload to
             confirm you have reviewed them
           </p>
@@ -345,6 +353,7 @@ export function ReviewStep() {
           emptyState={
             <EmptyState
               compact
+              image="girl-searching"
               title="No entries found"
               description="No action required at this time"
             />
@@ -352,7 +361,7 @@ export function ReviewStep() {
         />
       </section>
 
-      <div className="flex items-center justify-between">
+      <GenerationFooter>
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes/generation/validate">Back to validate</Link>
         </Button>
@@ -363,7 +372,7 @@ export function ReviewStep() {
         >
           Continue to edit route groups
         </Button>
-      </div>
+      </GenerationFooter>
 
       <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
         <ModalContent>

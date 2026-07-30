@@ -68,7 +68,10 @@ export function AdminRoutesGenerationLayout() {
   };
 
   return (
-    <div className="flex flex-col gap-10">
+    // Tall enough to fill the viewport minus the page margins, so the sticky
+    // footer's `mt-auto` still puts it at the bottom of the screen on a step
+    // whose content doesn't reach that far.
+    <div className="desktop:min-h-[calc(100dvh-4rem)] flex min-h-[calc(100dvh-2.75rem)] flex-col gap-10">
       {/* Breadcrumb + subtitle. 4px, not 8: the frames make this block 72 tall
           (44 + 4 + 24), and the extra 4 pushed every section below it down. */}
       <div className="flex flex-col gap-1">

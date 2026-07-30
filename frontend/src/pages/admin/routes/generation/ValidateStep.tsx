@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Link,
   Navigate,
@@ -9,17 +9,17 @@ import {
 import type {
   AlertCode,
   DuplicateMatchField,
-  LocationImportResponse,
   LocationImportRow,
 } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
-import { AlertCell, Banner, Button, DataTable } from '@/common/components';
+import { AlertCell, Button, DataTable } from '@/common/components';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { GenerationFooter } from './GenerationFooter';
 
 // Styling for error cells — all alerts are blocking and use the same red error.
-const ERROR_CELL_CLASS = 'border-b-2 border-red bg-light-red';
+const ERROR_CELL_CLASS = 'border-b border-red bg-light-red';
 
 // ---------------------------------------------------------------------------
 // Alert display helpers
@@ -98,21 +98,13 @@ export function ValidateStep() {
     return byRow;
   }, [reviewResult?.duplicate_groups]);
 
-  // Track which data the user dismissed the banner for. The banner is shown
-  // again automatically when a new response comes in (different reference).
-  const [dismissedFor, setDismissedFor] = useState<
-    LocationImportResponse | undefined
-  >(undefined);
-
   // Review runs on the Import step; without a result there's nothing to show.
   if (!file || !reviewResult) {
     return <Navigate to="/admin/routes/generation/import" replace />;
   }
 
   const data = reviewResult;
-  const bannerDismissed = dismissedFor === data;
   const errorRows = data.rows.filter((r) => r.alerts.length > 0);
-  const errorCount = errorRows.length;
   const canContinue = data.success === true;
 
   // The frames split validation into two tables because the two problems have
@@ -215,28 +207,10 @@ export function ValidateStep() {
 
   return (
     <>
-      {/* Error banner — just the count. Each table below carries its own
-          instruction, so repeating "go back to Import" here said it three
-          times on the same screen. */}
-      {!bannerDismissed && !data.success && (
-        <Banner variant="error" onDismiss={() => setDismissedFor(data)}>
-          Please correct these{' '}
-          <span className="text-red font-bold">{errorCount}</span>{' '}
-          {errorCount === 1 ? 'error' : 'errors'} before continuing.
-        </Banner>
-      )}
-
-      {/* Success banner */}
-      {!bannerDismissed && data.success && (
-        <Banner variant="success" onDismiss={() => setDismissedFor(data)}>
-          No errors. You may proceed to the next step.
-        </Banner>
-      )}
-
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Invalid / Missing Entries</h2>
-          <p className="text-p1 text-grey-500">
+          <p className="text-p1 text-grey-500 font-normal">
             Resolve all errors, then go back to Import to upload a new file
           </p>
         </div>
@@ -247,6 +221,7 @@ export function ValidateStep() {
           emptyState={
             <EmptyState
               compact
+              image="girl-searching"
               title="No entries found"
               description="No action required at this time"
             />
@@ -257,7 +232,7 @@ export function ValidateStep() {
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Duplicate Entries</h2>
-          <p className="text-p1 text-grey-500">
+          <p className="text-p1 text-grey-500 font-normal">
             Correct all duplicate entries, then go back to Import to upload a
             new file
           </p>
@@ -269,6 +244,7 @@ export function ValidateStep() {
           emptyState={
             <EmptyState
               compact
+              image="girl-searching"
               title="No entries found"
               description="No action required at this time"
             />
@@ -276,8 +252,7 @@ export function ValidateStep() {
         />
       </section>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between">
+      <GenerationFooter>
         <Button variant="tertiary" asChild>
           <Link to="/admin/routes/generation/import">Back to import</Link>
         </Button>
@@ -288,7 +263,7 @@ export function ValidateStep() {
         >
           Continue to review changes
         </Button>
-      </div>
+      </GenerationFooter>
     </>
   );
 }

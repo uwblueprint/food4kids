@@ -23,6 +23,8 @@ export interface Column<T> {
   getCellClassName?: (row: T) => string | undefined;
   /** Static className applied to the header <th> cell. */
   headerClassName?: string;
+  /** Static className applied to every body <td> in this column. */
+  cellClassName?: string;
   /** When set, the header is a sort toggle and rows sort by `sortValue`. */
   sortable?: boolean;
   /** Comparable value for sorting; required for the sort to do anything. */
@@ -67,18 +69,20 @@ function AlertCell({ type, label }: AlertCellProps) {
   const isError = type === 'error';
   const labels = typeof label === 'string' ? [label] : [...label];
   return (
+    // Only the icon carries the alert colour — the label is ordinary body
+    // text, same as every other cell in the row.
     <span
       className={cn(
-        'flex items-center gap-1.5',
-        isError ? 'text-red' : 'text-dark-yellow'
+        'text-grey-500 flex items-center gap-2',
+        isError ? '[&>svg]:text-red' : '[&>svg]:text-dark-yellow'
       )}
     >
       {isError ? (
-        <AlertCircle className="h-4 w-4 shrink-0" />
+        <AlertCircle className="size-[18px] shrink-0" />
       ) : (
-        <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertTriangle className="size-[18px] shrink-0" />
       )}
-      <span className="text-p2 flex flex-col font-medium">
+      <span className="text-p2 flex flex-col font-semibold">
         {labels.map((text, index) => (
           <span key={`${text}-${index}`}>
             {text}
@@ -175,7 +179,9 @@ function DataTable<T>({
             </tr>
           </thead>
 
-          <tbody className="divide-grey-300 divide-y">
+          {/* Row rules are the lighter grey-200; only the header's is
+              grey-300, so the head reads as separate from the body. */}
+          <tbody className="divide-grey-200 divide-y">
             {sortedRows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length}>{emptyState}</td>
@@ -193,6 +199,7 @@ function DataTable<T>({
                       className={cn(
                         // Every body string in the design is 14/18 SemiBold.
                         'text-p2 text-grey-500 h-10 px-4 py-2.5 font-semibold whitespace-nowrap last:pr-0',
+                        col.cellClassName,
                         col.getCellClassName?.(row)
                       )}
                     >

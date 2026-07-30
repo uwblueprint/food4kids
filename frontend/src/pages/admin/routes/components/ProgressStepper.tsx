@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 
 import CheckIcon from '@/assets/icons/check.svg?react';
 import { cn } from '@/lib/utils';
@@ -16,37 +16,74 @@ const STEPS: Step[] = [
   { label: 'Generate Routes', path: '/admin/routes/generation/generate' },
 ];
 
+const CIRCLE_SIZE = 24;
+
 interface ProgressStepperProps {
   currentStep: number;
   className?: string;
 }
 
+/**
+ * How far the first and last labels stick out past their own circle. The track
+ * is inset by exactly that much, so evenly-spaced circles can still carry
+ * centred labels without the two end ones spilling over the page margins.
+ * Measured rather than hardcoded because it depends on the rendered text —
+ * a ResizeObserver so a late-loading webfont re-runs it.
+ */
+function useEndLabelOverhang() {
+  const first = useRef<HTMLSpanElement>(null);
+  const last = useRef<HTMLSpanElement>(null);
+  const [overhang, setOverhang] = useState<[number, number]>([0, 0]);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (!first.current || !last.current) return;
+      setOverhang([
+        Math.max(0, (first.current.offsetWidth - CIRCLE_SIZE) / 2),
+        Math.max(0, (last.current.offsetWidth - CIRCLE_SIZE) / 2),
+      ]);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (first.current) observer.observe(first.current);
+    if (last.current) observer.observe(last.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return { first, last, overhang };
+}
+
 function ProgressStepper({ currentStep, className }: ProgressStepperProps) {
+  const { first, last, overhang } = useEndLabelOverhang();
+
   return (
-    // Each step is as wide as its own label, with the connectors sharing what
-    // is left over — so the labels sit centred on their circles and the track
-    // stops where the last label ends. Absolutely positioning the labels over
-    // fixed 24px columns instead spread the circles edge to edge, which pushed
-    // every label right of where the frames put it (up to 86px by the middle).
-    // 24px circle + 4px + 20px label is the frame's 48px stepper exactly, so
-    // no bottom padding: the 40px to the next section is the parent's gap.
-    <div className={cn('flex w-full items-start gap-8', className)}>
+    // Circles are spaced evenly along the track with the connectors running
+    // circle-edge to circle-edge between them, so the line is unbroken. Labels
+    // are absolutely positioned and centred on their circle — in the flow they
+    // would widen a step and push the circles around.
+    // 24px circle + 4px + 20px label is the frame's 48px stepper, so the 24px
+    // of bottom padding is what reserves room for the absolute labels.
+    <div
+      className={cn('flex w-full items-start pb-6', className)}
+      style={{ paddingLeft: overhang[0], paddingRight: overhang[1] }}
+    >
       {STEPS.map((step, i) => (
         <Fragment key={step.path}>
-          <div className="relative z-10 flex shrink-0 flex-col items-center gap-1">
+          <div className="relative shrink-0">
             <div
               className={cn(
-                'flex size-6 items-center justify-center rounded-full border-2 bg-white',
+                'flex size-6 items-center justify-center rounded-full border-2',
                 i < currentStep && 'border-blue-300 bg-blue-300',
-                i === currentStep && 'border-blue-300 bg-white',
-                i > currentStep && 'border-grey-300 bg-white'
+                i === currentStep && 'border-blue-300',
+                i > currentStep && 'border-grey-400'
               )}
             >
               {i < currentStep && <CheckIcon className="size-3.5 text-white" />}
             </div>
             <span
+              ref={i === 0 ? first : i === STEPS.length - 1 ? last : undefined}
               className={cn(
-                'text-h3 text-center font-bold whitespace-nowrap',
+                'text-h3 absolute top-full left-1/2 mt-1 -translate-x-1/2 font-bold whitespace-nowrap',
                 i <= currentStep ? 'text-blue-300' : 'text-grey-400'
               )}
             >
@@ -56,7 +93,8 @@ function ProgressStepper({ currentStep, className }: ProgressStepperProps) {
           {i + 1 < STEPS.length && (
             <div
               className={cn(
-                'mt-3 h-0.5 flex-1 -translate-y-1/2',
+                // 3px, centred on the 24px circle.
+                'mt-[10.5px] h-[3px] flex-1',
                 i < currentStep ? 'bg-blue-300' : 'bg-grey-300'
               )}
             />
