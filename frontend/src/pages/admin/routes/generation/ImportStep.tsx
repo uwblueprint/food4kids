@@ -124,9 +124,12 @@ export function ImportStep() {
     {
       key: 'label',
       header: 'System Column',
-      // 56px rows, header included — the frames give this table more air than
-      // the others because every row holds a control.
-      headerClassName: 'h-14',
+      // 56px rows — the frames give this table more air than the others
+      // because every row holds a control. The header is 48 and top-aligned:
+      // the frames draw it as a 40px box with 16px of air beneath, which a
+      // borderless table row can only approximate, and this is the split that
+      // lands both the header text and all eight rows on their frame y.
+      headerClassName: 'h-12 align-top',
       getCellClassName: () => 'h-14',
       render: (row) => (
         // P1, not the table's usual P2 — these are field labels rather than
@@ -140,7 +143,7 @@ export function ImportStep() {
     {
       key: 'value',
       header: 'Your File Column',
-      headerClassName: 'h-14',
+      headerClassName: 'h-12 align-top',
       getCellClassName: () => 'h-14',
       render: (row) => (
         <Dropdown
@@ -193,8 +196,8 @@ export function ImportStep() {
         </Banner>
       )}
 
-      <section className="flex flex-col gap-3">
-        <div>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
           <h2 className="text-grey-500">Select Delivery Type</h2>
           <p className="text-p1 text-grey-500">
             Choose the type of spreadsheet you'll be uploading:
@@ -229,7 +232,7 @@ export function ImportStep() {
 
       {selectedDeliveryType && (
         <section className="flex max-w-[700px] flex-col gap-4">
-          <div>
+          <div className="flex flex-col gap-1">
             <h2 className="text-grey-500">Import Data</h2>
             <p className="text-p1 text-grey-500">
               Upload an Excel file (.xlsx) with delivery information
@@ -270,7 +273,8 @@ export function ImportStep() {
             rows={SYSTEM_FIELDS}
             getRowKey={(row) => row.key}
           />
-          <p className="text-p2 text-grey-400 text-right font-semibold">
+          {/* 8px under the card, not the section's 16. */}
+          <p className="text-p2 text-grey-400 -mt-2 text-right font-semibold">
             Columns can be customized from the{' '}
             <Link to="/admin/settings" className="text-blue-300">
               Settings
