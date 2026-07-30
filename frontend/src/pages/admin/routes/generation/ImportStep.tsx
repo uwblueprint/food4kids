@@ -124,6 +124,10 @@ export function ImportStep() {
     {
       key: 'label',
       header: 'System Column',
+      // 56px rows, header included — the frames give this table more air than
+      // the others because every row holds a control.
+      headerClassName: 'h-14',
+      getCellClassName: () => 'h-14',
       render: (row) => (
         // P1, not the table's usual P2 — these are field labels rather than
         // imported data, and the frames set them 16/500.
@@ -136,6 +140,8 @@ export function ImportStep() {
     {
       key: 'value',
       header: 'Your File Column',
+      headerClassName: 'h-14',
+      getCellClassName: () => 'h-14',
       render: (row) => (
         <Dropdown
           value={columnMap[row.key] ?? ''}
@@ -194,7 +200,8 @@ export function ImportStep() {
             Choose the type of spreadsheet you'll be uploading:
           </p>
         </div>
-        <div className="flex flex-col gap-2">
+        {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
+        <div className="flex flex-col gap-1">
           {deliveryTypes.map((deliveryType) => (
             <label
               key={deliveryType}
@@ -212,7 +219,7 @@ export function ImportStep() {
                   setReviewResult(null);
                   setFormatError(null);
                 }}
-                className="size-4 cursor-pointer accent-blue-300"
+                className="size-5 cursor-pointer accent-blue-300"
               />
               {deliveryType}
             </label>

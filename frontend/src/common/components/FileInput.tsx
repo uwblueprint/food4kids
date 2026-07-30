@@ -41,7 +41,7 @@ function FileInput({
     return (
       <div
         className={cn(
-          'border-grey-300 flex h-16 items-center rounded-sm border bg-white px-7',
+          'border-grey-300 flex h-16 items-center rounded-sm border bg-white px-6',
           className
         )}
       >
@@ -49,8 +49,8 @@ function FileInput({
           XLS
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-p1 truncate font-semibold">{selectedFile.name}</p>
-          <p className="text-p2 text-grey-400">{displaySize}</p>
+          <p className="text-p1 truncate font-bold">{selectedFile.name}</p>
+          <p className="text-p2 text-grey-400 font-semibold">{displaySize}</p>
         </div>
         {onClearFile && (
           <button
