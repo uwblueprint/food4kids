@@ -1519,8 +1519,8 @@
         "title": "LocationImportEntry",
         "type": "object"
       },
-      "LocationImportResponse": {
-        "description": "Combined validate + review-changes payload.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers and\nmatching fields for each within-file duplicate cluster. net_new/stale/changed\ndescribe how the import would affect the existing locations table.",
+      "LocationImportPreview": {
+        "description": "What POST /locations/import/preview returns: what the file would do.\n\nsuccess=False when any row has alerts. duplicate_groups lists row numbers and\nmatching fields for each within-file duplicate cluster. net_new/stale/changed\ndescribe how the import would affect the existing locations table.\n\nThe old/new pairs on `changed` are for rendering the diff only — applying\nreplans from the file, so nothing here is read back.",
         "properties": {
           "changed": {
             "default": [],
@@ -1575,7 +1575,32 @@
           "total_rows",
           "rows"
         ],
-        "title": "LocationImportResponse",
+        "title": "LocationImportPreview",
+        "type": "object"
+      },
+      "LocationImportResult": {
+        "description": "What POST /locations/import returns: what it actually did.",
+        "properties": {
+          "archived": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Archived",
+            "type": "array"
+          },
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/LocationRead"
+            },
+            "title": "Created",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created",
+          "archived"
+        ],
+        "title": "LocationImportResult",
         "type": "object"
       },
       "LocationImportRow": {
@@ -1601,30 +1626,6 @@
           "alerts"
         ],
         "title": "LocationImportRow",
-        "type": "object"
-      },
-      "LocationIngestResponse": {
-        "properties": {
-          "archived": {
-            "items": {
-              "$ref": "#/components/schemas/LocationRead"
-            },
-            "title": "Archived",
-            "type": "array"
-          },
-          "created": {
-            "items": {
-              "$ref": "#/components/schemas/LocationRead"
-            },
-            "title": "Created",
-            "type": "array"
-          }
-        },
-        "required": [
-          "created",
-          "archived"
-        ],
-        "title": "LocationIngestResponse",
         "type": "object"
       },
       "LocationRead": {
@@ -5773,7 +5774,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationIngestResponse"
+                  "$ref": "#/components/schemas/LocationImportResult"
                 }
               }
             },
@@ -5820,7 +5821,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationImportResponse"
+                  "$ref": "#/components/schemas/LocationImportPreview"
                 }
               }
             },

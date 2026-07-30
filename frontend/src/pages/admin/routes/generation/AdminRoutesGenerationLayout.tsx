@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useSystemSettings } from '@/api';
-import type { LocationImportResponse } from '@/api/generated/types.gen';
+import type { LocationImportPreview } from '@/api/generated/types.gen';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
 import { ProgressStepper } from '../components';
@@ -30,8 +30,8 @@ export interface GenerationOutletContext {
   setColumnMap: (m: Record<string, string>) => void;
   selectedDeliveryType: string;
   setSelectedDeliveryType: (deliveryType: string) => void;
-  reviewResult: LocationImportResponse | null;
-  setReviewResult: (r: LocationImportResponse | null) => void;
+  reviewResult: LocationImportPreview | null;
+  setReviewResult: (r: LocationImportPreview | null) => void;
 }
 
 export function AdminRoutesGenerationLayout() {
@@ -47,7 +47,7 @@ export function AdminRoutesGenerationLayout() {
   const [selectedDeliveryType, setSelectedDeliveryType] = useState('');
   const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
   const [reviewResult, setReviewResult] =
-    useState<LocationImportResponse | null>(null);
+    useState<LocationImportPreview | null>(null);
 
   if (!hasSeededColumnMap && settingsLoaded) {
     setHasSeededColumnMap(true);

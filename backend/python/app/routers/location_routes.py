@@ -19,8 +19,8 @@ from app.models import get_session
 from app.models.enum import LocationStatusEnum
 from app.models.location import (
     LocationCreate,
-    LocationImportResponse,
-    LocationIngestResponse,
+    LocationImportPreview,
+    LocationImportResult,
     LocationRead,
     LocationUpdate,
 )
@@ -193,7 +193,7 @@ def _parse_column_map(column_map: str) -> dict[str, str]:
 
 @router.post(
     "/import/preview",
-    response_model=LocationImportResponse,
+    response_model=LocationImportPreview,
     status_code=status.HTTP_200_OK,
 )
 async def preview_location_import(
@@ -203,7 +203,7 @@ async def preview_location_import(
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
-) -> LocationImportResponse:
+) -> LocationImportPreview:
     """
     Describe what importing this file would do — row validation plus the
     net_new / stale / changed split — without writing anything. Requires a
@@ -230,7 +230,7 @@ async def preview_location_import(
 
 @router.post(
     "/import",
-    response_model=LocationIngestResponse,
+    response_model=LocationImportResult,
     status_code=status.HTTP_200_OK,
 )
 async def apply_location_import(
@@ -240,7 +240,7 @@ async def apply_location_import(
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
-) -> LocationIngestResponse:
+) -> LocationImportResult:
     """
     Apply this import: create net-new locations, update the ones that changed,
     and take stale ones off the roster.

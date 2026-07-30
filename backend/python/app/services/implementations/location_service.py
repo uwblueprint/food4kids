@@ -31,9 +31,9 @@ from app.models.location import (
     Location,
     LocationCreate,
     LocationImportEntry,
-    LocationImportResponse,
+    LocationImportPreview,
+    LocationImportResult,
     LocationImportRow,
-    LocationIngestResponse,
     LocationRead,
     LocationUpdate,
     NetNewEntry,
@@ -610,7 +610,7 @@ class LocationService:
         file: UploadFile,
         column_map: dict[str, str],
         delivery_type: str,
-    ) -> LocationImportResponse:
+    ) -> LocationImportPreview:
         """Describe what importing this file would do, without writing anything.
 
         A preview and an apply run the same planner, so what the admin sees on
@@ -619,7 +619,7 @@ class LocationService:
         works from the plan's Location objects directly.
         """
         plan = await self._plan_import(session, file, column_map, delivery_type)
-        return LocationImportResponse(
+        return LocationImportPreview(
             success=plan.success,
             total_rows=len(plan.rows),
             rows=plan.rows,
@@ -1153,7 +1153,7 @@ class LocationService:
         file: UploadFile,
         column_map: dict[str, str],
         delivery_type: str,
-    ) -> LocationIngestResponse:
+    ) -> LocationImportResult:
         """Plan this import and write it.
 
         Takes the file rather than a diff posted back from the client: the plan
@@ -1273,7 +1273,7 @@ class LocationService:
             stale_future_set = await self.load_has_future_route_set(
                 session, [loc.location_id for loc in stale_db_rows]
             )
-            return LocationIngestResponse(
+            return LocationImportResult(
                 created=[
                     self._to_read(loc, has_future_route=False) for loc in new_locations
                 ],

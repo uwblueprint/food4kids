@@ -901,15 +901,18 @@ export type LocationImportEntry = {
 };
 
 /**
- * LocationImportResponse
+ * LocationImportPreview
  *
- * Combined validate + review-changes payload.
+ * What POST /locations/import/preview returns: what the file would do.
  *
  * success=False when any row has alerts. duplicate_groups lists row numbers and
  * matching fields for each within-file duplicate cluster. net_new/stale/changed
  * describe how the import would affect the existing locations table.
+ *
+ * The old/new pairs on `changed` are for rendering the diff only — applying
+ * replans from the file, so nothing here is read back.
  */
-export type LocationImportResponse = {
+export type LocationImportPreview = {
   /**
    * Changed
    */
@@ -941,6 +944,22 @@ export type LocationImportResponse = {
 };
 
 /**
+ * LocationImportResult
+ *
+ * What POST /locations/import returns: what it actually did.
+ */
+export type LocationImportResult = {
+  /**
+   * Archived
+   */
+  archived: Array<LocationRead>;
+  /**
+   * Created
+   */
+  created: Array<LocationRead>;
+};
+
+/**
  * LocationImportRow
  */
 export type LocationImportRow = {
@@ -953,20 +972,6 @@ export type LocationImportRow = {
    * Row
    */
   row: number;
-};
-
-/**
- * LocationIngestResponse
- */
-export type LocationIngestResponse = {
-  /**
-   * Archived
-   */
-  archived: Array<LocationRead>;
-  /**
-   * Created
-   */
-  created: Array<LocationRead>;
 };
 
 /**
@@ -2377,9 +2382,11 @@ export type DriverRegisterResponseWritable = {
 };
 
 /**
- * LocationIngestResponse
+ * LocationImportResult
+ *
+ * What POST /locations/import returns: what it actually did.
  */
-export type LocationIngestResponseWritable = {
+export type LocationImportResultWritable = {
   /**
    * Archived
    */
@@ -3605,7 +3612,7 @@ export type ApplyLocationImportResponses = {
   /**
    * Successful Response
    */
-  200: LocationIngestResponse;
+  200: LocationImportResult;
 };
 
 export type ApplyLocationImportResponse =
@@ -3632,7 +3639,7 @@ export type PreviewLocationImportResponses = {
   /**
    * Successful Response
    */
-  200: LocationImportResponse;
+  200: LocationImportPreview;
 };
 
 export type PreviewLocationImportResponse =
