@@ -23,10 +23,17 @@ interface ProgressStepperProps {
 
 function ProgressStepper({ currentStep, className }: ProgressStepperProps) {
   return (
-    <div className={cn('flex w-full items-start pb-6', className)}>
+    // Each step is as wide as its own label, with the connectors sharing what
+    // is left over — so the labels sit centred on their circles and the track
+    // stops where the last label ends. Absolutely positioning the labels over
+    // fixed 24px columns instead spread the circles edge to edge, which pushed
+    // every label right of where the frames put it (up to 86px by the middle).
+    // 24px circle + 4px + 20px label is the frame's 48px stepper exactly, so
+    // no bottom padding: the 40px to the next section is the parent's gap.
+    <div className={cn('flex w-full items-start gap-8', className)}>
       {STEPS.map((step, i) => (
         <Fragment key={step.path}>
-          <div className="relative z-10 m-0 flex w-6 shrink-0 justify-center">
+          <div className="relative z-10 flex shrink-0 flex-col items-center gap-1">
             <div
               className={cn(
                 'flex size-6 items-center justify-center rounded-full border-2 bg-white',
@@ -39,7 +46,7 @@ function ProgressStepper({ currentStep, className }: ProgressStepperProps) {
             </div>
             <span
               className={cn(
-                'text-h3 absolute top-8 left-1/2 -translate-x-1/2 text-center font-bold whitespace-nowrap',
+                'text-h3 text-center font-bold whitespace-nowrap',
                 i <= currentStep ? 'text-blue-300' : 'text-grey-400'
               )}
             >

@@ -69,8 +69,9 @@ export function AdminRoutesGenerationLayout() {
 
   return (
     <div className="flex flex-col gap-10">
-      {/* Breadcrumb + subtitle */}
-      <div className="flex flex-col gap-2">
+      {/* Breadcrumb + subtitle. 4px, not 8: the frames make this block 72 tall
+          (44 + 4 + 24), and the extra 4 pushed every section below it down. */}
+      <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1">
           <Link
             to="/admin/routes"
