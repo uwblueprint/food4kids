@@ -20,7 +20,6 @@ from app.models.enum import LocationStatusEnum
 from app.models.location import (
     LocationCreate,
     LocationImportResponse,
-    LocationIngestRequest,
     LocationIngestResponse,
     LocationRead,
     LocationUpdate,
@@ -184,12 +183,20 @@ async def delete_location(
         ) from ve
 
 
+def _parse_column_map(column_map: str) -> dict[str, str]:
+    try:
+        parsed: dict[str, str] = json.loads(column_map)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid column_map JSON: {e}") from e
+    return parsed
+
+
 @router.post(
-    "/review",
+    "/import/preview",
     response_model=LocationImportResponse,
     status_code=status.HTTP_200_OK,
 )
-async def review_locations(
+async def preview_location_import(
     file: UploadFile = File(...),
     column_map: str = Form(...),
     delivery_type: str = Form(...),
@@ -198,22 +205,17 @@ async def review_locations(
     _auth: bool = Depends(require_admin),
 ) -> LocationImportResponse:
     """
-    Review a pending location import: validate rows and (eventually) describe how
-    the import would affect existing locations (net_new / stale / changed).
-    Requires a column_map JSON string mapping system field names to file headers.
+    Describe what importing this file would do — row validation plus the
+    net_new / stale / changed split — without writing anything. Requires a
+    column_map JSON string mapping system field names to file headers.
 
     Side effect: the submitted column_map is persisted to system_settings so it
     becomes the default mapping on the next import.
     """
     try:
-        try:
-            parsed_map: dict[str, str] = json.loads(column_map)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid column_map JSON: {e}") from e
-        result = await location_service.review_locations(
-            session, file, parsed_map, delivery_type
+        return await location_service.preview_import(
+            session, file, _parse_column_map(column_map), delivery_type
         )
-        return result
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -227,21 +229,31 @@ async def review_locations(
 
 
 @router.post(
-    "/ingest",
+    "/import",
     response_model=LocationIngestResponse,
     status_code=status.HTTP_200_OK,
 )
-async def ingest_locations(
-    request: LocationIngestRequest,
+async def apply_location_import(
+    file: UploadFile = File(...),
+    column_map: str = Form(...),
+    delivery_type: str = Form(...),
     session: AsyncSession = Depends(get_session),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
 ) -> LocationIngestResponse:
     """
-    Persist net-new locations and archive stale ones.
+    Apply this import: create net-new locations, update the ones that changed,
+    and take stale ones off the roster.
+
+    Takes the same file and mapping as the preview rather than a diff posted
+    back from it, so the plan is recomputed here by the same planner and the
+    caller cannot choose which rows get rewritten. Rejected with a 400 while
+    the file still has validation errors.
     """
     try:
-        return await location_service.ingest_locations(session, request)
+        return await location_service.apply_import(
+            session, file, _parse_column_map(column_map), delivery_type
+        )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

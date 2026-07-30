@@ -270,7 +270,7 @@
         "title": "AuthResponse",
         "type": "object"
       },
-      "Body_review_locations": {
+      "Body_apply_location_import": {
         "properties": {
           "column_map": {
             "title": "Column Map",
@@ -291,7 +291,31 @@
           "column_map",
           "delivery_type"
         ],
-        "title": "Body_review_locations",
+        "title": "Body_apply_location_import",
+        "type": "object"
+      },
+      "Body_preview_location_import": {
+        "properties": {
+          "column_map": {
+            "title": "Column Map",
+            "type": "string"
+          },
+          "delivery_type": {
+            "title": "Delivery Type",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "column_map",
+          "delivery_type"
+        ],
+        "title": "Body_preview_location_import",
         "type": "object"
       },
       "Body_upload_image": {
@@ -1577,46 +1601,6 @@
           "alerts"
         ],
         "title": "LocationImportRow",
-        "type": "object"
-      },
-      "LocationIngestRequest": {
-        "description": "Ingest request — `delivery_type` applies to every net-new row in this\nimport (one Apricot sheet = one delivery type).",
-        "properties": {
-          "changed": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/ChangedEntry"
-            },
-            "title": "Changed",
-            "type": "array"
-          },
-          "delivery_type": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Delivery Type",
-            "type": "string"
-          },
-          "net_new": {
-            "items": {
-              "$ref": "#/components/schemas/ValidatedLocationImportEntry"
-            },
-            "title": "Net New",
-            "type": "array"
-          },
-          "stale": {
-            "items": {
-              "$ref": "#/components/schemas/StaleEntry"
-            },
-            "title": "Stale",
-            "type": "array"
-          }
-        },
-        "required": [
-          "delivery_type",
-          "net_new",
-          "stale"
-        ],
-        "title": "LocationIngestRequest",
         "type": "object"
       },
       "LocationIngestResponse": {
@@ -3987,90 +3971,6 @@
         "title": "ValidateResetTokenRequest",
         "type": "object"
       },
-      "ValidatedLocationImportEntry": {
-        "description": "LocationImportEntry with required fields guaranteed non-None after validation.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "contact_name": {
-            "title": "Contact Name",
-            "type": "string"
-          },
-          "delivery_group": {
-            "title": "Delivery Group",
-            "type": "string"
-          },
-          "dietary_restrictions": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dietary Restrictions"
-          },
-          "guardian_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Guardian Name"
-          },
-          "halal": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Halal"
-          },
-          "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
-          },
-          "phone_primary": {
-            "title": "Phone Primary",
-            "type": "string"
-          },
-          "phone_secondary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Secondary"
-          }
-        },
-        "required": [
-          "contact_name",
-          "address",
-          "delivery_group",
-          "phone_primary"
-        ],
-        "title": "ValidatedLocationImportEntry",
-        "type": "object"
-      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -5854,15 +5754,15 @@
         ]
       }
     },
-    "/locations/ingest": {
+    "/locations/import": {
       "post": {
-        "description": "Persist net-new locations and archive stale ones.",
-        "operationId": "ingest_locations",
+        "description": "Apply this import: create net-new locations, update the ones that changed,\nand take stale ones off the roster.\n\nTakes the same file and mapping as the preview rather than a diff posted\nback from it, so the plan is recomputed here by the same planner and the\ncaller cannot choose which rows get rewritten. Rejected with a 400 while\nthe file still has validation errors.",
+        "operationId": "apply_location_import",
         "requestBody": {
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/LocationIngestRequest"
+                "$ref": "#/components/schemas/Body_apply_location_import"
               }
             }
           },
@@ -5895,21 +5795,21 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Ingest Locations",
+        "summary": "Apply Location Import",
         "tags": [
           "locations"
         ]
       }
     },
-    "/locations/review": {
+    "/locations/import/preview": {
       "post": {
-        "description": "Review a pending location import: validate rows and (eventually) describe how\nthe import would affect existing locations (net_new / stale / changed).\nRequires a column_map JSON string mapping system field names to file headers.\n\nSide effect: the submitted column_map is persisted to system_settings so it\nbecomes the default mapping on the next import.",
-        "operationId": "review_locations",
+        "description": "Describe what importing this file would do — row validation plus the\nnet_new / stale / changed split — without writing anything. Requires a\ncolumn_map JSON string mapping system field names to file headers.\n\nSide effect: the submitted column_map is persisted to system_settings so it\nbecomes the default mapping on the next import.",
+        "operationId": "preview_location_import",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_review_locations"
+                "$ref": "#/components/schemas/Body_preview_location_import"
               }
             }
           },
@@ -5942,7 +5842,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Review Locations",
+        "summary": "Preview Location Import",
         "tags": [
           "locations"
         ]

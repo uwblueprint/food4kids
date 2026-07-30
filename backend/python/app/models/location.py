@@ -287,16 +287,6 @@ class LocationUpdate(SQLModel):
     note_chain_id: UUID | None = None
 
 
-class LocationIngestRequest(SQLModel):
-    """Ingest request — `delivery_type` applies to every net-new row in this
-    import (one Apricot sheet = one delivery type)."""
-
-    delivery_type: str = Field(min_length=1, max_length=100)
-    net_new: list[ValidatedLocationImportEntry]
-    stale: list[StaleEntry]
-    changed: list[ChangedEntry] = []
-
-
 class LocationIngestResponse(SQLModel):
     created: list[LocationRead]
     archived: list[LocationRead]

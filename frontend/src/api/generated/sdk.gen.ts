@@ -8,6 +8,9 @@ import {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ApplyLocationImportData,
+  ApplyLocationImportErrors,
+  ApplyLocationImportResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
@@ -139,9 +142,6 @@ import type {
   GetTotalDeliveriesBetweenData,
   GetTotalDeliveriesBetweenErrors,
   GetTotalDeliveriesBetweenResponses,
-  IngestLocationsData,
-  IngestLocationsErrors,
-  IngestLocationsResponses,
   InitializeDriverData,
   InitializeDriverErrors,
   InitializeDriverResponses,
@@ -156,14 +156,14 @@ import type {
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
+  PreviewLocationImportData,
+  PreviewLocationImportErrors,
+  PreviewLocationImportResponses,
   RefreshData,
   RefreshResponses,
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
-  ReviewLocationsData,
-  ReviewLocationsErrors,
-  ReviewLocationsResponses,
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
@@ -939,50 +939,57 @@ export const createLocation = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Ingest Locations
+ * Apply Location Import
  *
- * Persist net-new locations and archive stale ones.
+ * Apply this import: create net-new locations, update the ones that changed,
+ * and take stale ones off the roster.
+ *
+ * Takes the same file and mapping as the preview rather than a diff posted
+ * back from it, so the plan is recomputed here by the same planner and the
+ * caller cannot choose which rows get rewritten. Rejected with a 400 while
+ * the file still has validation errors.
  */
-export const ingestLocations = <ThrowOnError extends boolean = false>(
-  options: Options<IngestLocationsData, ThrowOnError>
+export const applyLocationImport = <ThrowOnError extends boolean = false>(
+  options: Options<ApplyLocationImportData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    IngestLocationsResponses,
-    IngestLocationsErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/ingest',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Review Locations
- *
- * Review a pending location import: validate rows and (eventually) describe how
- * the import would affect existing locations (net_new / stale / changed).
- * Requires a column_map JSON string mapping system field names to file headers.
- *
- * Side effect: the submitted column_map is persisted to system_settings so it
- * becomes the default mapping on the next import.
- */
-export const reviewLocations = <ThrowOnError extends boolean = false>(
-  options: Options<ReviewLocationsData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    ReviewLocationsResponses,
-    ReviewLocationsErrors,
+    ApplyLocationImportResponses,
+    ApplyLocationImportErrors,
     ThrowOnError
   >({
     ...formDataBodySerializer,
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/review',
+    url: '/locations/import',
+    ...options,
+    headers: {
+      'Content-Type': null,
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Location Import
+ *
+ * Describe what importing this file would do — row validation plus the
+ * net_new / stale / changed split — without writing anything. Requires a
+ * column_map JSON string mapping system field names to file headers.
+ *
+ * Side effect: the submitted column_map is persisted to system_settings so it
+ * becomes the default mapping on the next import.
+ */
+export const previewLocationImport = <ThrowOnError extends boolean = false>(
+  options: Options<PreviewLocationImportData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    PreviewLocationImportResponses,
+    PreviewLocationImportErrors,
+    ThrowOnError
+  >({
+    ...formDataBodySerializer,
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/locations/import/preview',
     ...options,
     headers: {
       'Content-Type': null,
