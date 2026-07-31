@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useSystemSettings } from '@/api';
-import type { LocationImportPreview } from '@/api/generated/types.gen';
+import type {
+  LocationImportPreview,
+  RouteGenerationGroupInput,
+} from '@/api/generated/types.gen';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
 import { ProgressStepper } from '../components';
@@ -32,6 +35,8 @@ export interface GenerationOutletContext {
   setSelectedDeliveryType: (deliveryType: string) => void;
   reviewResult: LocationImportPreview | null;
   setReviewResult: (r: LocationImportPreview | null) => void;
+  routeGenerationInputs: RouteGenerationGroupInput[];
+  setRouteGenerationInputs: (inputs: RouteGenerationGroupInput[]) => void;
 }
 
 export function AdminRoutesGenerationLayout() {
@@ -48,6 +53,9 @@ export function AdminRoutesGenerationLayout() {
   const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
   const [reviewResult, setReviewResult] =
     useState<LocationImportPreview | null>(null);
+  const [routeGenerationInputs, setRouteGenerationInputs] = useState<
+    RouteGenerationGroupInput[]
+  >([]);
 
   if (!hasSeededColumnMap && settingsLoaded) {
     setHasSeededColumnMap(true);
@@ -65,6 +73,8 @@ export function AdminRoutesGenerationLayout() {
     setSelectedDeliveryType,
     reviewResult,
     setReviewResult,
+    routeGenerationInputs,
+    setRouteGenerationInputs,
   };
 
   return (
