@@ -21,73 +21,46 @@ interface ProgressStepperProps {
   className?: string;
 }
 
-/** A 3px segment of the track, sitting on the 24px circle's centre line. */
-function Track({ done, className }: { done: boolean; className?: string }) {
-  return (
-    <div
-      className={cn(
-        'absolute top-[10.5px] h-[3px]',
-        done ? 'bg-blue-300' : 'bg-grey-300',
-        className
-      )}
-    />
-  );
-}
-
 function ProgressStepper({ currentStep, className }: ProgressStepperProps) {
-  const last = STEPS.length - 1;
-
   return (
-    // Each step is as wide as its own label, and the spans between them share
-    // what is left over — which is what the frames do: the five labels sit at
-    // an even 180.25px pitch across the content column, with each circle
-    // centred on its own label.
-    //
-    // That leaves the circles unevenly spaced, so a span can't be one element:
-    // it runs from a circle's edge, across the rest of that label's box, over
-    // the gap, and into the next label's box. Hence three pieces — two drawn
-    // inside the step columns and one filling the gap — which join up into an
-    // unbroken line without anyone having to measure a label.
-    <div className={cn('flex w-full items-start', className)}>
+    // The circles are evenly spaced and the labels hang off them: each label is
+    // centred on its circle and taken out of the flow, so a label as wide as
+    // "Edit Route Groups" doesn't push its circle around. That leaves the row as
+    // fixed-size circles with the connectors splitting whatever is left over.
+    // `pb-6` reserves the 4px gap + 20px line the labels occupy, and `px-14`
+    // the half-label that the first and last circles' labels hang off the row —
+    // without it they escape the page's side padding and cause a horizontal
+    // scroll. 56px clears the widest end label ("Generate Routes", 50.5px of
+    // overhang); bump it if the end labels get longer.
+    <div className={cn('flex w-full items-center px-14 pb-6', className)}>
       {STEPS.map((step, i) => (
         <Fragment key={step.path}>
-          <div className="relative flex shrink-0 flex-col items-center gap-1">
-            {i > 0 && (
-              <Track
-                done={i - 1 < currentStep}
-                className="right-[calc(50%+12px)] left-0"
-              />
-            )}
-            {i < last && (
-              <Track
-                done={i < currentStep}
-                className="right-0 left-[calc(50%+12px)]"
-              />
-            )}
+          {i > 0 && (
             <div
               className={cn(
-                'relative flex size-6 items-center justify-center rounded-full border-2',
-                i < currentStep && 'border-blue-300 bg-blue-300',
-                i === currentStep && 'border-blue-300',
-                i > currentStep && 'border-grey-400'
+                'h-[3px] flex-1',
+                i <= currentStep ? 'bg-blue-300' : 'bg-grey-300'
               )}
-            >
-              {i < currentStep && <CheckIcon className="size-3.5 text-white" />}
-            </div>
+            />
+          )}
+          <div
+            className={cn(
+              'relative flex size-6 shrink-0 items-center justify-center rounded-full border-2',
+              i < currentStep && 'border-blue-300 bg-blue-300',
+              i === currentStep && 'border-blue-300',
+              i > currentStep && 'border-grey-400'
+            )}
+          >
+            {i < currentStep && <CheckIcon className="size-3.5 text-white" />}
             <span
               className={cn(
-                'text-h3 text-center font-bold whitespace-nowrap',
+                'text-h3 absolute top-full left-1/2 mt-1 -translate-x-1/2 font-bold whitespace-nowrap',
                 i <= currentStep ? 'text-blue-300' : 'text-grey-400'
               )}
             >
               {step.label}
             </span>
           </div>
-          {i < last && (
-            <div className="relative flex-1">
-              <Track done={i < currentStep} className="inset-x-0" />
-            </div>
-          )}
         </Fragment>
       ))}
     </div>
