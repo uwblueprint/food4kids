@@ -103,6 +103,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/auth/login"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,
     ("POST", "/auth/validate-reset-token"): Policy.PUBLIC,
+    ("POST", "/auth/resend-onboarding"): Policy.PUBLIC,
     ("POST", "/auth/logout/{user_id}"): Policy.PUBLIC,
     ("POST", "/auth/forgot-password"): Policy.PUBLIC,
     ("POST", "/auth/update-password"): Policy.PUBLIC,

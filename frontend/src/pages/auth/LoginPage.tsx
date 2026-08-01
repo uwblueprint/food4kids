@@ -172,10 +172,7 @@ const LoginForm = () => {
         {/* Footer */}
         <p className="desktop:mt-5 text-m-p2 tablet:font-medium tablet:mb-0 mt-6 mb-8 text-center">
           Don't have an account?{' '}
-          <Link
-            to="/get-login-link"
-            className="text-blue-300 hover:underline"
-          >
+          <Link to="/get-login-link" className="text-blue-300 hover:underline">
             Get your login link
           </Link>
         </p>

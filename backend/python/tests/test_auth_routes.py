@@ -14,13 +14,15 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import jwt
 import pytest
 from fastapi import HTTPException
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import (
@@ -28,6 +30,9 @@ from app.dependencies.services import (
     get_password_reset_token_service,
     get_user_service,
 )
+from app.models.driver import Driver
+from app.models.user import User
+from app.models.user_invite import UserInvite
 from app.schemas.auth import TokenResponse
 from app.services.implementations.auth_service import (
     REAUTH_REQUIRED_FIREBASE_CODES,
@@ -376,3 +381,127 @@ class TestRenewTokenSessionExpiry:
 
         assert response.status_code == 401
         assert response.json()["detail"] == "Session expired"
+
+
+class TestResendOnboardingEmail:
+    """Tests for POST /auth/resend-onboarding endpoint and UserInviteService deletion/creation."""
+
+    @pytest.mark.asyncio
+    async def test_non_existent_email_returns_204_and_touches_nothing(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Non-existent email returns 204 with no invite or email dispatched (enumeration safety)."""
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "ghost@example.com"}
+            )
+
+        assert response.status_code == 204
+        dispatch.assert_not_called()
+        invites = (await test_session.execute(select(UserInvite))).scalars().all()
+        assert invites == []
+
+    @pytest.mark.asyncio
+    async def test_already_registered_email_returns_204_and_touches_nothing(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Already registered email (auth_id not None) returns 204 with no invite or email touched."""
+        user = User(
+            first_name="Registered",
+            last_name="User",
+            email="registered@example.com",
+            role="driver",
+            auth_id="firebase-uid-abc",
+        )
+        test_session.add(user)
+        await test_session.commit()
+
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "registered@example.com"}
+            )
+
+        assert response.status_code == 204
+        dispatch.assert_not_called()
+        invites = (await test_session.execute(select(UserInvite))).scalars().all()
+        assert invites == []
+
+    @pytest.mark.asyncio
+    async def test_pending_user_deletes_old_invite_creates_new_and_dispatches_email(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Pending user gets old invite deleted, new invite created, and email dispatched with context."""
+        user = User(
+            first_name="Jane",
+            last_name="Doe",
+            email="pending@example.com",
+            role="driver",
+            auth_id=None,
+        )
+        test_session.add(user)
+        await test_session.flush()
+
+        test_session.add(
+            Driver(
+                user_id=user.user_id,
+                phone="+12125551234",
+                address="123 Main St",
+                license_plate="XYZ789",
+                car_make_model="Honda Civic",
+            )
+        )
+        old_invite = UserInvite(user_id=user.user_id)
+        test_session.add(old_invite)
+        await test_session.commit()
+        old_invite_id = old_invite.user_invite_id
+
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "pending@example.com"}
+            )
+
+        assert response.status_code == 204
+        dispatch.assert_called_once()
+        call_kwargs = dispatch.call_args.kwargs
+        assert call_kwargs["email_type"] == "account-creation"
+        assert call_kwargs["to"] == "pending@example.com"
+        context = call_kwargs["context"]
+        assert context["Driver_Name_To_Replace"] == "Jane Doe"
+        assert "Sign_Up_URL" in context
+        assert context["Hours_Till_Expiry"] == 48
+
+        invites = (
+            (
+                await test_session.execute(
+                    select(UserInvite).where(UserInvite.user_id == user.user_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(invites) == 1
+        assert invites[0].user_invite_id != old_invite_id
+
+    @pytest.mark.asyncio
+    async def test_exception_inside_try_block_returns_204_for_enumeration_safety(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Exception inside the try block still returns 204 (enumeration safety under failure)."""
+        with patch(
+            "app.services.implementations.user_service.UserService.get_user_by_email",
+            side_effect=RuntimeError("database on fire"),
+        ):
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "someone@example.com"}
+            )
+
+        assert response.status_code == 204
