@@ -18,7 +18,8 @@ export const GetLoginLink = () => {
   const [sendError, setSendError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
 
-  const headerTitle = step === 'FORM' ? 'Didn’t get a link?' : 'Login link sent';
+  const headerTitle =
+    step === 'FORM' ? 'Didn’t get a link?' : 'Login link sent';
 
   const getSubheaderTitle = (currentStep: Step, timerFinished: boolean) => {
     if (currentStep === 'FORM') {
