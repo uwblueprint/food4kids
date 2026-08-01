@@ -66,11 +66,7 @@ import {
   previewLocationImport,
   refresh,
   renameDeliveryType,
-<<<<<<< HEAD
-=======
   resendOnboardingEmail,
-  reviewLocations,
->>>>>>> ab1238b9 (regen openapi spec)
   sendAnnouncementEmail,
   test,
   testEventEmail,
@@ -240,15 +236,9 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
-<<<<<<< HEAD
-=======
   ResendOnboardingEmailData,
   ResendOnboardingEmailError,
   ResendOnboardingEmailResponse,
-  ReviewLocationsData,
-  ReviewLocationsError,
-  ReviewLocationsResponse,
->>>>>>> ab1238b9 (regen openapi spec)
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,

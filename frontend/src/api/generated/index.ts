@@ -56,11 +56,7 @@ export {
   previewLocationImport,
   refresh,
   renameDeliveryType,
-<<<<<<< HEAD
-=======
   resendOnboardingEmail,
-  reviewLocations,
->>>>>>> ab1238b9 (regen openapi spec)
   sendAnnouncementEmail,
   test,
   testEventEmail,
@@ -398,20 +394,12 @@ export type {
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponse,
   RenameDeliveryTypeResponses,
-<<<<<<< HEAD
-=======
   ResendOnboardingEmailData,
   ResendOnboardingEmailError,
   ResendOnboardingEmailErrors,
   ResendOnboardingEmailRequest,
   ResendOnboardingEmailResponse,
   ResendOnboardingEmailResponses,
-  ReviewLocationsData,
-  ReviewLocationsError,
-  ReviewLocationsErrors,
-  ReviewLocationsResponse,
-  ReviewLocationsResponses,
->>>>>>> ab1238b9 (regen openapi spec)
   RouteDetailRead,
   RouteGenerationGroupInput,
   RouteGenerationSettings,
