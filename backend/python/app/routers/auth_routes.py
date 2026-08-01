@@ -173,7 +173,7 @@ async def resend_onboarding_email(
             email_type="account-creation",
             to=email,
             context={
-                "Driver_Name_To_Replace": user_name,
+                "Driver_Name_To_Replace": user_name if user_name else "Driver",
                 "Sign_Up_URL": signup_url,
                 "Hours_Till_Expiry": 48,
             },
