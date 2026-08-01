@@ -140,18 +140,25 @@ async def resend_onboarding_email(
     email = request.email
 
     try:
-        user = await user_service.get_user_by_email(session, email)
-        if not user:
-            logger.info(f"Onboarding email resend attempted for non-existent email: {email}")
-            return
-
-        if user.auth_id is not None:
-            logger.info(f"Onboarding email resend attempted for already registered email: {email}")
-            return
-
         async with session.begin_nested():
-            await user_invite_service.delete_user_invite_by_user_id(session, user.user_id)
-            
+            # Retrieve and lock the user row to prevent race conditions during concurrent resends
+            user = await user_service.get_user_by_email(session, email, for_update=True)
+            if not user:
+                logger.info(
+                    f"Onboarding email resend attempted for non-existent email: {email}"
+                )
+                return
+
+            if user.auth_id is not None:
+                logger.info(
+                    f"Onboarding email resend attempted for already registered email: {email}"
+                )
+                return
+
+            await user_invite_service.delete_user_invite_by_user_id(
+                session, user.user_id
+            )
+
             user_invite_create = UserInviteCreate(user_id=user.user_id)
             user_invite = await user_invite_service.create_user_invite(
                 session, user_invite_create
@@ -173,7 +180,9 @@ async def resend_onboarding_email(
         )
 
     except Exception as e:
-        logger.exception(f"Internal error processing resend-onboarding for {email}: {e}")
+        logger.exception(
+            f"Internal error processing resend-onboarding for {email}: {e}"
+        )
         return
 
 
