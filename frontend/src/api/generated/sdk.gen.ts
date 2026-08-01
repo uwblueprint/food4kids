@@ -164,15 +164,9 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
-<<<<<<< HEAD
-=======
   ResendOnboardingEmailData,
   ResendOnboardingEmailErrors,
   ResendOnboardingEmailResponses,
-  ReviewLocationsData,
-  ReviewLocationsErrors,
-  ReviewLocationsResponses,
->>>>>>> ab1238b9 (regen openapi spec)
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
