@@ -59,14 +59,16 @@ const ROUTES = {
   // Mobile + Tablet sections
   'Login | Admin': '/login',
   'Login | Error': '/login',
-  'No Account Yet | Get Link': '/login',
+  'No Account Yet | Get Link': '/get-login-link',
   'Forgot Password': '/forgot-password',
   'Forgot Password Link Sent': '/forgot-password',
-  // "Resend Link" and "Creation Link Sent" are NOT this screen, despite the
-  // shared heading: their bodies say "a link to create your account" where this
-  // one says "a password reset link". They belong to the account-creation link
-  // flow, which is not built, so they stay unrouted rather than being compared
-  // against the reset confirmation.
+  // "Resend Link" and "Creation Link Sent" are NOT "Forgot Password Link
+  // Sent", despite the shared heading: their bodies say "a link to create your
+  // account" where that one says "a password reset link". They are the
+  // confirmation step of /get-login-link (built in PR #231); a recipe submits
+  // the form to reach it.
+  'Creation Link Sent': '/get-login-link',
+  'Resend Link': '/get-login-link',
   'Driver | Create Password': `/create-password/${DEMO_TOKEN}`,
   'Driver | Create Password Filled': `/create-password/${DEMO_TOKEN}`,
   'Account Created': `/create-password/${DEMO_TOKEN}`,
@@ -74,7 +76,7 @@ const ROUTES = {
   'Default Log In - All Users': '/login',
   'Default Login - All Users': '/login',
   'Default Log In - Error States': '/login',
-  'No Account Yet - Get Login Link': '/login',
+  'No Account Yet - Get Login Link': '/get-login-link',
   // Named for where you came from, not what they show: "Redo Log in Driver" is
   // the account-created confirmation ("You're in!" / Continue) and the "Forgot
   // Password" one is the reset form ("Reset your password").

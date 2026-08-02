@@ -260,25 +260,42 @@ const RECIPES: Recipe[] = [
       await until(() => /Please enter a password/.test(doc.body.innerText));
     },
   },
+  {
+    labels: ['Creation Link Sent', 'Resend Link'],
+    /*
+     * Same cooldown caveat as "Forgot Password Link Sent": for the first
+     * minute the resend row reads "Send again in N seconds" where the design
+     * reads "Send link again". "Resend Link" also shows the post-cooldown
+     * body copy ("If nothing arrives after 15 minutes…"), which only appears
+     * once the 60s timer expires.
+     */
+    describe: 'requested a login link (send response stubbed)',
+    run: async (doc) => {
+      stubResponse(
+        doc,
+        (url, method) =>
+          method === 'POST' && url.includes('/auth/resend-onboarding'),
+        200,
+        {}
+      );
+      const email = doc.querySelector<HTMLInputElement>('input[type=email]');
+      if (!email) return;
+      setValue(email, 'driver@example.com');
+      doc.querySelector('form')?.requestSubmit();
+      await until(() => /Login link sent/i.test(doc.body.innerText));
+    },
+  },
 ];
-
-const NOT_BUILT =
-  'the account-creation link flow is designed but not built — nothing to compare against';
 
 /**
  * Frames with no screen behind them at all, as opposed to a screen in a state
  * the harness has to reach. Nothing to drive; the design is simply ahead of the
  * build, and saying so beats letting the fallback route look like a bug.
+ *
+ * Empty since PR #231 built the get-login-link flow, but the mechanism stays:
+ * the next section fetched will have frames the code has not caught up to.
  */
-const UNREACHABLE: Record<string, string> = {
-  'No Account Yet | Get Link': NOT_BUILT,
-  'No Account Yet - Get Login Link': NOT_BUILT,
-  // Their bodies say "a link to create your account", not "a password reset
-  // link" — same journey as the screen above, and equally unbuilt. Only
-  // "Forgot Password Link Sent" belongs to the reset flow the code implements.
-  'Creation Link Sent': NOT_BUILT,
-  'Resend Link': NOT_BUILT,
-};
+const UNREACHABLE: Record<string, string> = {};
 
 export const setupFor = (label: string | undefined) =>
   label ? (RECIPES.find((r) => r.labels.includes(label)) ?? null) : null;
