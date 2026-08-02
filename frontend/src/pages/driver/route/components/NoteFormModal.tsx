@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import XIcon from '@/assets/icons/x.svg?react';
 import type { Attachment, NoteRead } from '@/api/generated/types.gen';
+import { describeApiFailure } from '@/api/errors';
 import { useUploadImage } from '@/api/notes';
 import {
   Button,
@@ -12,9 +13,8 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  Textarea,
 } from '@/common/components';
-import { describeApiFailure } from '@/api/errors';
+import { cn } from '@/lib/utils';
 
 import {
   isAllowedNoteImage,
@@ -44,6 +44,26 @@ interface NoteFormModalProps {
 function formKey(mode: 'create' | 'edit', note?: NoteRead): string {
   if (mode === 'edit' && note) return `edit-${note.note_id}`;
   return 'create';
+}
+
+function RemoveImageButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="bg-grey-400 text-grey-100 absolute -right-1.5 -bottom-1.5 flex size-5 items-center justify-center rounded-full transition-colors hover:bg-grey-500 disabled:opacity-60"
+      aria-label="Remove image"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <XIcon className="size-3" />
+    </button>
+  );
 }
 
 function NoteForm({
@@ -82,6 +102,7 @@ function NoteForm({
   const busy = isSubmitting || isSaving;
   const canSubmit =
     trimmed.length > 0 && trimmed.length <= NOTE_MESSAGE_MAX && !busy;
+  const isOverCharThreshold = message.length >= NOTE_MESSAGE_MAX * 0.8;
 
   const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -173,54 +194,67 @@ function NoteForm({
       </ModalHeader>
 
       <Field className="flex min-h-0 flex-1 flex-col">
-        <FieldLabel htmlFor="stop-note-message" required>
-          Note
-        </FieldLabel>
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
-          <Textarea
-            id="stop-note-message"
-            placeholder="Enter text here"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            maxCharacters={NOTE_MESSAGE_MAX}
-            characterCount={message.length}
-            className="min-h-[160px] resize-none"
-            wrapperClassName="flex-1"
-            disabled={busy}
-          />
+        <FieldLabel htmlFor="stop-note-message">Note</FieldLabel>
 
-          {mode === 'create' && (
-            <>
-              {images.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {images.map((image) => (
-                    <div
-                      key={image.previewUrl}
-                      className="border-grey-300 relative size-16 overflow-hidden rounded-lg border"
-                    >
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <div
+            className={cn(
+              'border-grey-300 flex min-h-0 flex-1 flex-col rounded-xl border bg-white',
+              'focus-within:border-blue-300 focus-within:ring-1 focus-within:ring-blue-300',
+              busy && 'bg-grey-150 cursor-not-allowed opacity-60',
+              error && 'border-red focus-within:border-red focus-within:ring-red'
+            )}
+          >
+            <textarea
+              id="stop-note-message"
+              placeholder="Enter text here"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              maxLength={NOTE_MESSAGE_MAX}
+              disabled={busy}
+              className={cn(
+                'text-p2 text-grey-500 placeholder:text-p1 placeholder:text-grey-400',
+                'box-border min-h-[160px] w-full flex-1 resize-none bg-transparent px-3 py-3 outline-none',
+                'disabled:text-grey-400 disabled:cursor-not-allowed'
+              )}
+            />
+
+            {mode === 'create' && images.length > 0 && (
+              <div className="flex flex-wrap gap-2 px-3 pt-1 pr-4 pb-4">
+                {images.map((image) => (
+                  <div
+                    key={image.previewUrl}
+                    className="relative size-16 shrink-0"
+                  >
+                    <div className="border-grey-300 size-full overflow-hidden rounded-lg border">
                       <img
                         src={image.previewUrl}
                         alt=""
                         className="size-full object-cover"
                       />
-                      <button
-                        type="button"
-                        className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/70 text-white"
-                        aria-label="Remove image"
-                        disabled={busy}
-                        onClick={() => removeImage(image.previewUrl)}
-                      >
-                        <XIcon className="size-3" />
-                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-              <p className="text-p3 text-grey-400 text-right">
+                    <RemoveImageButton
+                      disabled={busy}
+                      onClick={() => removeImage(image.previewUrl)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="text-p3 text-grey-400 flex flex-col items-end gap-0.5">
+            <p
+              className={cn(isOverCharThreshold ? 'text-red' : 'text-grey-400')}
+            >
+              {message.length}/{NOTE_MESSAGE_MAX} characters
+            </p>
+            {mode === 'create' && (
+              <p>
                 {images.length}/{NOTE_IMAGE_MAX} images
               </p>
-            </>
-          )}
+            )}
+          </div>
         </div>
       </Field>
 
