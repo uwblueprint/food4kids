@@ -14,9 +14,11 @@ from app.models.enum import (
 )
 from app.models.route_group import (
     RouteGroupCreate,
+    RouteGroupDuplicate,
     RouteGroupRead,
     RouteGroupUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
     LocationService,
@@ -47,11 +49,15 @@ async def get_route_groups(
         None, description="Filter by one or more driver assignment statuses"
     ),
     include_routes: bool = Query(False, description="Include routes in the response"),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the route group name"
+    ),
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
-) -> list[RouteGroupRead]:
+) -> PaginatedResponse[RouteGroupRead]:
     """
     Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
     Can include associated routes in the response.
@@ -68,15 +74,13 @@ async def get_route_groups(
             route_status,
             driver_assignment_status,
             include_routes,
+            search,
+            pagination,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(ve)
         ) from ve
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
 
 
 @router.post("", response_model=RouteGroupRead, status_code=status.HTTP_201_CREATED)
@@ -89,12 +93,7 @@ async def create_route_group(
     """
     Create a new route group
     """
-    try:
-        return await route_group_service.create_route_group(session, route_group)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    return await route_group_service.create_route_group(session, route_group)
 
 
 @router.patch("/{route_group_id}", response_model=RouteGroupRead)
@@ -108,22 +107,15 @@ async def update_route_group(
     """
     Update an existing route group
     """
-    try:
-        updated_route_group = await route_group_service.update_route_group(
-            session, route_group_id, route_group
-        )
-        if not updated_route_group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"RouteGroup with id {route_group_id} not found",
-            )
-        return updated_route_group
-    except HTTPException:
-        raise
-    except Exception as e:
+    updated_route_group = await route_group_service.update_route_group(
+        session, route_group_id, route_group
+    )
+    if not updated_route_group:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"RouteGroup with id {route_group_id} not found",
+        )
+    return updated_route_group
 
 
 @router.post(
@@ -133,29 +125,24 @@ async def update_route_group(
 )
 async def duplicate_route_group(
     route_group_id: UUID,
+    overrides: RouteGroupDuplicate | None = None,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Duplicate a route group and its routes/stops for a new planning cycle.
+    Optional body overrides the copy's name and drive date.
     """
-    try:
-        duplicated_route_group = await route_group_service.duplicate_route_group(
-            session, route_group_id
-        )
-        if not duplicated_route_group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"RouteGroup with id {route_group_id} not found",
-            )
-        return duplicated_route_group
-    except HTTPException:
-        raise
-    except Exception as e:
+    duplicated_route_group = await route_group_service.duplicate_route_group(
+        session, route_group_id, overrides
+    )
+    if not duplicated_route_group:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"RouteGroup with id {route_group_id} not found",
+        )
+    return duplicated_route_group
 
 
 @router.delete("/{route_group_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -168,16 +155,9 @@ async def delete_route_group(
     """
     Delete a route group and all its route group memberships
     """
-    try:
-        success = await route_group_service.delete_route_group(session, route_group_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"RouteGroup with id {route_group_id} not found",
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
+    success = await route_group_service.delete_route_group(session, route_group_id)
+    if not success:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"RouteGroup with id {route_group_id} not found",
+        )

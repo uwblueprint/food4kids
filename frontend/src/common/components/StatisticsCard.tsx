@@ -42,11 +42,11 @@ function StatisticsCard({
 }: StatisticsCardProps) {
   return (
     <div
-      className={cn('relative w-full overflow-hidden rounded-2xl', className)}
+      className={cn('relative w-full overflow-hidden rounded-xl', className)}
     >
       <div
         className={cn(
-          'shadow-card relative h-24 w-full overflow-hidden rounded-2xl p-4',
+          'shadow-card relative h-24 w-full overflow-hidden rounded-xl p-4',
           COLOR_MAP[color]
         )}
       >

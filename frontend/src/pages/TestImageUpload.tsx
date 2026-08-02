@@ -108,20 +108,20 @@ export const TestImageUpload = () => {
         <img
           src={preview}
           alt="Preview"
-          className="max-h-48 w-full rounded-lg object-cover"
+          className="max-h-48 w-full rounded-md object-cover"
         />
       )}
 
       <button
         onClick={handleUpload}
         disabled={status === 'uploading' || !preview}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
+        className="w-full rounded-md bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
       >
         {status === 'uploading' ? 'Uploading...' : 'Upload'}
       </button>
 
       {status === 'success' && result && (
-        <div className="space-y-2 rounded-lg bg-green-50 p-4">
+        <div className="space-y-2 rounded-md bg-green-50 p-4">
           <p className="text-sm font-medium text-green-700">
             ✓ Uploaded successfully
           </p>

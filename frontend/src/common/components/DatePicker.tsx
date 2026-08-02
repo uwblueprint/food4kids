@@ -77,7 +77,7 @@ export function DatePicker({
       <PopoverAnchor asChild>
         <div
           className={cn(
-            'inline-flex w-40 items-center justify-between rounded-lg px-3 py-2',
+            'inline-flex w-40 items-center justify-between rounded-sm px-3 py-2',
             'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
             'transition-colors',
             open

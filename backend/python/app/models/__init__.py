@@ -108,12 +108,12 @@ def init_app(_app: Any | None = None) -> None:
     from .announcement import Announcement  # noqa: F401
     from .announcement_last_read import AnnouncementLastRead  # noqa: F401
     from .driver import Driver  # noqa: F401
-    from .driver_history import DriverHistory  # noqa: F401
     from .job import Job  # noqa: F401
     from .location import Location  # noqa: F401
     from .location_group import LocationGroup  # noqa: F401
     from .note import Note  # noqa: F401
     from .note_chain import NoteChain  # noqa: F401
+    from .password_reset_token import PasswordResetToken  # noqa: F401
     from .route import Route  # noqa: F401
     from .route_group import RouteGroup  # noqa: F401
     from .route_snapshot import RouteSnapshot  # noqa: F401

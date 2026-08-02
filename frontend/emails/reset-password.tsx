@@ -13,24 +13,23 @@ export default function ResetPasswordEmail() {
         </Heading>
         
         <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
-            Hi Driver_Name_To_Replace,
+            Hi {"{{ Driver_Name_To_Replace }}"},
         </Text>
         <Text className="text-[16px] text-grey-500 leading-[24px]">
             We received a request to reset the password for your Food4Kids account. Click the button below to set a new password.
         </Text>
 
         <Section className="text-center mt-[33px] mb-[33px]">
-          <Button 
-            // REPLACE THIS WITH ACTUAL URL (unless we want to Rick Roll recipients...)
-            href="Reset_Password_URL" 
+          <Button
+            href="{{ Reset_Password_URL }}"
             className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[42px] py-[10px] font-nunito text-grey-100 text-[16px] tracking-wide"
           >
-            Reset Password
+            Reset password
           </Button>
         </Section>
 
         <Text className="text-[14px] text-grey-400 m-0 mb-[14px] leading-[18px]">
-          This link will expire in Days_Till_Expiry days. If you didn't request this, you can safely ignore this email.
+          This link will expire in {"{{ Days_Till_Expiry }}"} days. If you didn't request this, you can safely ignore this email.
         </Text>
       </Section>
       

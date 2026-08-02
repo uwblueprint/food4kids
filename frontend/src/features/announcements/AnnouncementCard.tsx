@@ -23,9 +23,7 @@ import {
 interface AnnouncementCardProps {
   announcement: Announcement;
   currentUserId: string;
-  readIds: Set<string>;
   canManage: boolean;
-  onOpen: (announcement: Announcement) => void;
   onEdit: (announcement: Announcement) => void;
   onDelete: (announcement: Announcement) => void;
 }
@@ -33,30 +31,24 @@ interface AnnouncementCardProps {
 export function AnnouncementCard({
   announcement,
   currentUserId,
-  readIds,
   canManage,
-  onOpen,
   onEdit,
   onDelete,
 }: AnnouncementCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const isNew = isAnnouncementNew(announcement, readIds);
+  const isNew = isAnnouncementNew(announcement);
   const isEdited = isAnnouncementEdited(announcement);
 
   return (
     <article
       className={cn(
-        'border-grey-300 bg-grey-100 relative flex flex-col gap-3 rounded-2xl border p-4',
+        'border-grey-300 bg-grey-100 relative flex flex-col gap-3 rounded-xl border p-4',
         'shadow-card w-full transition-colors',
         canManage && 'hover:bg-grey-150'
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <button
-          type="button"
-          className="flex min-w-0 flex-1 flex-col gap-1 text-left"
-          onClick={() => onOpen(announcement)}
-        >
+        <div className="flex min-w-0 flex-1 flex-col gap-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-h2 text-grey-500 font-bold">
               {announcement.subject}
@@ -86,7 +78,7 @@ export function AnnouncementCard({
               • {announcementDateLine(announcement)}
             </span>
           </p>
-        </button>
+        </div>
         {canManage && (
           <Popover open={menuOpen} onOpenChange={setMenuOpen}>
             <PopoverTrigger asChild>
@@ -103,7 +95,7 @@ export function AnnouncementCard({
             <PopoverContent align="end" className="w-40 p-1">
               <button
                 type="button"
-                className="text-p2 text-grey-500 hover:bg-grey-200 flex w-full items-center gap-2 rounded-lg px-3 py-2"
+                className="text-p2 text-grey-500 hover:bg-grey-200 flex w-full items-center gap-2 rounded-sm px-3 py-2"
                 onClick={() => {
                   setMenuOpen(false);
                   onEdit(announcement);
@@ -114,7 +106,7 @@ export function AnnouncementCard({
               </button>
               <button
                 type="button"
-                className="text-p2 text-red hover:bg-light-red flex w-full items-center gap-2 rounded-lg px-3 py-2"
+                className="text-p2 text-red hover:bg-light-red flex w-full items-center gap-2 rounded-sm px-3 py-2"
                 onClick={() => {
                   setMenuOpen(false);
                   onDelete(announcement);
@@ -127,13 +119,9 @@ export function AnnouncementCard({
           </Popover>
         )}
       </div>
-      <button
-        type="button"
-        className="text-p1 text-grey-500 line-clamp-4 w-full text-left whitespace-pre-wrap"
-        onClick={() => onOpen(announcement)}
-      >
+      <p className="text-p1 text-grey-500 line-clamp-4 w-full text-left whitespace-pre-wrap">
         {announcement.message}
-      </button>
+      </p>
     </article>
   );
 }

@@ -4,8 +4,10 @@ from uuid import UUID
 
 import firebase_admin.auth
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
+from app.models.driver import Driver
 from app.models.user import User, UserBase, UserUpdate
 
 if TYPE_CHECKING:
@@ -35,15 +37,20 @@ class UserService:
             raise e
 
     async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
-        """Get user by email using Firebase"""
+        """Get user by email, if they are still a driver or an admin"""
         try:
-            firebase_user: UserRecord = firebase_admin.auth.get_user_by_email(email)
-            statement = select(User).where(User.auth_id == firebase_user.uid)
+            statement = select(User).where(User.email == email)
             result = await session.execute(statement)
             user = result.scalars().first()
 
             if not user:
                 self.logger.error(f"User with email {email} not found")
+                return None
+
+            if user.role.lower() != "admin" and not await session.scalar(
+                select(Driver.driver_id).where(Driver.user_id == user.user_id)
+            ):
+                self.logger.error(f"User with email {email} has no driver record")
                 return None
 
             return user
@@ -202,9 +209,22 @@ class UserService:
             raise e
 
     async def delete_user_by_id(self, session: AsyncSession, user_id: UUID) -> None:
-        """Delete user by ID"""
+        """Delete user by ID.
+
+        Everything hanging off the user goes with it: `drivers` (via the
+        relationship's delete cascade) and, at the DB level, `user_invites`,
+        `password_reset_tokens`, `announcements`, and `announcement_last_reads`.
+        Notes the user authored survive with `user_id SET NULL`.
+        """
         try:
-            statement = select(User).where(User.user_id == user_id)
+            # `User.driver` cascades the delete, and SQLAlchemy has to have the
+            # related row in hand to do that. Eager-load it: lazy-loading during
+            # an async flush raises MissingGreenlet.
+            statement = (
+                select(User)
+                .options(selectinload(User.driver))  # type: ignore[arg-type]
+                .where(User.user_id == user_id)
+            )
             result = await session.execute(statement)
             user = result.scalars().first()
 
@@ -262,4 +282,16 @@ class UserService:
             return user.user_id
         except Exception as e:
             self.logger.error(f"Failed to get user_id by auth_id: {e!s}")
+            raise e
+
+    async def update_password(self, auth_id: str, new_password: str) -> None:
+        try:
+            firebase_admin.auth.update_user(auth_id, password=new_password)
+        except firebase_admin.auth.UserNotFoundError as e:
+            self.logger.error(f"Firebase user {auth_id} not found: {e!s}")
+            raise e
+        except firebase_admin.exceptions.FirebaseError as e:
+            self.logger.error(
+                f"Firebase failed to update password for {auth_id}: {e!s}"
+            )
             raise e

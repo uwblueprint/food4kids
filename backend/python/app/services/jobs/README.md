@@ -11,7 +11,7 @@ app/
       scheduler_service.py    # Central scheduler management
     jobs/
       __init__.py            # init_jobs() - registers all jobs
-      driver_history_jobs.py # Example job implementation
+      route_freeze_jobs.py # Example job implementation
       README.md              # This file
 ```
 
@@ -33,20 +33,20 @@ Create a new file in this directory (e.g., `email_jobs.py`, `cleanup_jobs.py`):
 
 ```python
 """Your job description"""
+
 import logging
 from app.dependencies.services import get_logger
 from app.models import async_session_maker_instance
 
 
 async def your_job_function() -> None:
-    """Description of what this job does
-    """
+    """Description of what this job does"""
     logger = get_logger()
-    
+
     if async_session_maker_instance is None:
         logger.error("Database session maker not initialized")
         return
-    
+
     try:
         async with async_session_maker_instance() as session:
             # Your job logic here
@@ -69,7 +69,7 @@ Add your job to `__init__.py`:
 
 ```python
 def init_jobs(scheduler_service) -> None:
-    from .driver_history_jobs import process_daily_driver_history
+    from .route_freeze_jobs import process_daily_driver_history
     from .email_jobs import your_job_function  # Import your new job
     
     # Existing jobs...
@@ -114,7 +114,6 @@ from app.models import init_app
 from app.services.jobs.email_reminder_jobs import your_job
 
 if __name__ == "__main__":
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -122,7 +121,6 @@ if __name__ == "__main__":
 
     init_app()
     asyncio.run(your_job())
-
 ```
 
 You can also create a test endpoint in development to trigger jobs manually.

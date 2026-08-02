@@ -15,7 +15,9 @@ function Sidebar({ className, children }: React.ComponentProps<'aside'>) {
   return (
     <aside
       className={cn(
-        'flex w-28 shrink-0 flex-col items-center gap-12 bg-white px-4 py-6',
+        // 120px rail, 24px above the logo and 48px below it — the Web-Nav-Bar
+        // component's own measurements.
+        'flex w-30 shrink-0 flex-col items-center gap-12 bg-white px-4 py-6',
         'shadow-[0px_0px_32px_0px_rgba(0,0,0,0.04)]',
         'z-10 h-full',
         className
@@ -65,7 +67,9 @@ function SidebarFooter({ className, children }: React.ComponentProps<'div'>) {
 
 function SidebarMenu({ className, children }: React.ComponentProps<'nav'>) {
   return (
-    <nav className={cn('flex flex-col items-center gap-2', className)}>
+    // 48px between items, per the design. They sit in a column from the top
+    // rather than spreading to fill the rail.
+    <nav className={cn('flex flex-col items-center gap-12', className)}>
       {children}
     </nav>
   );
@@ -90,8 +94,10 @@ function SidebarMenuItem({
       end={end}
       className={({ isActive }) =>
         cn(
-          'flex w-20 flex-col items-center justify-center gap-1 rounded-2xl px-4 py-3.5',
-          'text-base transition-colors',
+          // 80x80: 14px padding, a 24px icon, 4px, then a 16/24 label. The
+          // label carries its own size, so the box does not set one.
+          'flex w-20 flex-col items-center justify-center gap-1 rounded-xl px-4 py-3.5',
+          'transition-colors',
           isActive
             ? 'bg-blue-50 text-blue-400 shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] outline outline-1 outline-offset-[-1px] outline-blue-100'
             : 'text-grey-500 hover:bg-grey-150'
@@ -99,7 +105,7 @@ function SidebarMenuItem({
       }
     >
       <Icon className="size-6" />
-      <span className="text-center text-sm leading-tight">{label}</span>
+      <span className="text-m-p2 text-center">{label}</span>
     </NavLink>
   );
 }

@@ -5,7 +5,8 @@ Global test configuration and fixtures for the Food4Kids application.
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from typing import Any, NoReturn
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -16,6 +17,7 @@ from sqlmodel import SQLModel, select
 
 from app import create_app
 from app.dependencies.auth import (
+    DriverAccess,
     get_access_token,
     require_admin,
     require_announcement_owner_or_admin,
@@ -29,6 +31,29 @@ from app.models import get_session
 
 # Set test environment
 os.environ["APP_ENV"] = "testing"
+
+
+@pytest.fixture(autouse=True)
+def _block_real_email_sends() -> Generator[None, None, None]:
+    """Guard: no test may send through the real Gmail-backed EmailService.
+
+    Local and container runs load the root .env, whose MAILER_* credentials are
+    real — any endpoint a test drives into the real dispatcher (e.g. the auth
+    matrix hitting POST /announcements/{id}/email) would genuinely send Gmail
+    to the seeded @test.dev addresses and bounce. Tests that exercise email
+    flows must swap in their own fake transport (see _FakeEmailService in
+    test_email_reminder_jobs.py); anything reaching this method is a bug.
+    """
+    from app.services.implementations.email_service import EmailService
+
+    def _blocked(_self: EmailService, to: str, **_: str) -> NoReturn:
+        raise RuntimeError(
+            f"Blocked attempt to send a real email to {to!r} from a test - "
+            "override the email dispatcher with a fake transport"
+        )
+
+    with patch.object(EmailService, "send_email", _blocked):
+        yield
 
 
 async def _ensure_system_settings(test_session: AsyncSession) -> None:
@@ -72,7 +97,6 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.announcement import Announcement  # noqa: F401
         from app.models.announcement_last_read import AnnouncementLastRead  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
-        from app.models.driver_history import DriverHistory  # noqa: F401
         from app.models.job import Job  # noqa: F401
         from app.models.location import Location  # noqa: F401
         from app.models.location_group import LocationGroup  # noqa: F401
@@ -129,7 +153,7 @@ def _apply_auth_overrides(app: Any) -> None:
     app.dependency_overrides[require_admin] = lambda: True
     app.dependency_overrides[require_driver] = lambda: True
     app.dependency_overrides[require_driver_or_admin] = lambda: True
-    app.dependency_overrides[require_self_driver_or_admin] = lambda: True
+    app.dependency_overrides[require_self_driver_or_admin] = lambda: DriverAccess.ADMIN
     app.dependency_overrides[require_route_assigned_or_admin] = lambda: True
     app.dependency_overrides[require_announcement_owner_or_admin] = lambda: True
     # GET /routes' sole auth dependency also resolves the driver_id filter;

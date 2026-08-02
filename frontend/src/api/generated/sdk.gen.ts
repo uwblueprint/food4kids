@@ -8,6 +8,9 @@ import {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ApplyLocationImportData,
+  ApplyLocationImportErrors,
+  ApplyLocationImportResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
@@ -17,9 +20,6 @@ import type {
   CreateAnnouncementData,
   CreateAnnouncementErrors,
   CreateAnnouncementResponses,
-  CreateDriverHistoryData,
-  CreateDriverHistoryErrors,
-  CreateDriverHistoryResponses,
   CreateLocationData,
   CreateLocationErrors,
   CreateLocationGroupData,
@@ -39,9 +39,6 @@ import type {
   DeleteAnnouncementResponses,
   DeleteDriverData,
   DeleteDriverErrors,
-  DeleteDriverHistoryData,
-  DeleteDriverHistoryErrors,
-  DeleteDriverHistoryResponses,
   DeleteDriverResponses,
   DeleteImageData,
   DeleteImageErrors,
@@ -70,6 +67,9 @@ import type {
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryErrors,
   ExportAllDriversHistoryResponses,
+  ForgotPasswordData,
+  ForgotPasswordErrors,
+  ForgotPasswordResponses,
   GenerateJobData,
   GenerateJobErrors,
   GenerateJobResponses,
@@ -142,9 +142,6 @@ import type {
   GetTotalDeliveriesBetweenData,
   GetTotalDeliveriesBetweenErrors,
   GetTotalDeliveriesBetweenResponses,
-  IngestLocationsData,
-  IngestLocationsErrors,
-  IngestLocationsResponses,
   InitializeDriverData,
   InitializeDriverErrors,
   InitializeDriverResponses,
@@ -159,17 +156,14 @@ import type {
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
+  PreviewLocationImportData,
+  PreviewLocationImportErrors,
+  PreviewLocationImportResponses,
   RefreshData,
   RefreshResponses,
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
-  ResetPasswordData,
-  ResetPasswordErrors,
-  ResetPasswordResponses,
-  ReviewLocationsData,
-  ReviewLocationsErrors,
-  ReviewLocationsResponses,
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
@@ -183,9 +177,6 @@ import type {
   UpdateAnnouncementResponses,
   UpdateDriverData,
   UpdateDriverErrors,
-  UpdateDriverHistoryData,
-  UpdateDriverHistoryErrors,
-  UpdateDriverHistoryResponses,
   UpdateDriverResponses,
   UpdateLocationData,
   UpdateLocationErrors,
@@ -196,6 +187,9 @@ import type {
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
+  UpdatePasswordData,
+  UpdatePasswordErrors,
+  UpdatePasswordResponses,
   UpdateRouteData,
   UpdateRouteErrors,
   UpdateRouteGroupData,
@@ -205,6 +199,9 @@ import type {
   UploadImageData,
   UploadImageErrors,
   UploadImageResponses,
+  ValidateResetTokenData,
+  ValidateResetTokenErrors,
+  ValidateResetTokenResponses,
 } from './types.gen';
 
 export type Options<
@@ -381,6 +378,28 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPassword = <ThrowOnError extends boolean = false>(
+  options: Options<ForgotPasswordData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ForgotPasswordResponses,
+    ForgotPasswordErrors,
+    ThrowOnError
+  >({
+    url: '/auth/forgot-password',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Login
  *
  * Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -427,21 +446,45 @@ export const refresh = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Reset Password
+ * Update Password
  *
- * Triggers password reset for user with specified email (reset link will be emailed)
+ * Update an existing user's password if provided a valid password reset token
  */
-export const resetPassword = <ThrowOnError extends boolean = false>(
-  options: Options<ResetPasswordData, ThrowOnError>
+export const updatePassword = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePasswordData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    ResetPasswordResponses,
-    ResetPasswordErrors,
+    UpdatePasswordResponses,
+    UpdatePasswordErrors,
     ThrowOnError
   >({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/auth/resetPassword/{email}',
+    url: '/auth/update-password',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Validate Reset Token
+ *
+ * Validate that a password reset token exists, isn't used, and hasn't expired.
+ */
+export const validateResetToken = <ThrowOnError extends boolean = false>(
+  options: Options<ValidateResetTokenData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ValidateResetTokenResponses,
+    ValidateResetTokenErrors,
+    ThrowOnError
+  >({
+    url: '/auth/validate-reset-token',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -534,7 +577,12 @@ export const testEventEmail = <ThrowOnError extends boolean = false>(
 /**
  * Delete Driver
  *
- * Delete a driver by ID
+ * Delete a driver by ID.
+ *
+ * A hard delete of the person: the user account and their Firebase login go
+ * with the driver record, so a deleted driver can no longer sign in. Their
+ * routes are detached (driver_id SET NULL) rather than deleted, so the
+ * driver's km stop counting toward anyone.
  */
 export const deleteDriver = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDriverData, ThrowOnError>
@@ -592,29 +640,12 @@ export const updateDriver = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Delete Driver History
- *
- * Delete a monthly driver history entry.
- */
-export const deleteDriverHistory = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteDriverHistoryData, ThrowOnError>
-) =>
-  (options.client ?? client).delete<
-    DeleteDriverHistoryResponses,
-    DeleteDriverHistoryErrors,
-    ThrowOnError
-  >({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/',
-    ...options,
-  });
-
-/**
  * Get Driver History
  *
- * Get driver history with optional year and month.
+ * Get monthly km totals, derived from the driver's frozen routes
+ * (bucketed by drive_date month).
  * Rules:
- * - No year, no month: return all histories
+ * - No year, no month: return all months with activity
  * - Year only: return all months for that year
  * - Year + month: return specific month
  * - Month without year: 400 error
@@ -631,57 +662,6 @@ export const getDriverHistory = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/drivers/{driver_id}/history/',
     ...options,
-  });
-
-/**
- * Update Driver History
- *
- * Updates driver history
- * Rules:
- * - Driver history must exist with (driver_id, year, month)
- */
-export const updateDriverHistory = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateDriverHistoryData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateDriverHistoryResponses,
-    UpdateDriverHistoryErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Create Driver History
- *
- * Creates new driver history
- * Rules:
- * - Driver must exist with driver_id
- * - Must be unique: (driver_id, year, month)
- */
-export const createDriverHistory = <ThrowOnError extends boolean = false>(
-  options: Options<CreateDriverHistoryData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CreateDriverHistoryResponses,
-    CreateDriverHistoryErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**
@@ -959,50 +939,57 @@ export const createLocation = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Ingest Locations
+ * Apply Location Import
  *
- * Persist net-new locations and archive stale ones.
+ * Apply this import: create net-new locations, update the ones that changed,
+ * and take stale ones off the roster.
+ *
+ * Takes the same file and mapping as the preview rather than a diff posted
+ * back from it, so the plan is recomputed here by the same planner and the
+ * caller cannot choose which rows get rewritten. Rejected with a 400 while
+ * the file still has validation errors.
  */
-export const ingestLocations = <ThrowOnError extends boolean = false>(
-  options: Options<IngestLocationsData, ThrowOnError>
+export const applyLocationImport = <ThrowOnError extends boolean = false>(
+  options: Options<ApplyLocationImportData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    IngestLocationsResponses,
-    IngestLocationsErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/ingest',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Review Locations
- *
- * Review a pending location import: validate rows and (eventually) describe how
- * the import would affect existing locations (net_new / stale / changed).
- * Requires a column_map JSON string mapping system field names to file headers.
- *
- * Side effect: the submitted column_map is persisted to system_settings so it
- * becomes the default mapping on the next import.
- */
-export const reviewLocations = <ThrowOnError extends boolean = false>(
-  options: Options<ReviewLocationsData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    ReviewLocationsResponses,
-    ReviewLocationsErrors,
+    ApplyLocationImportResponses,
+    ApplyLocationImportErrors,
     ThrowOnError
   >({
     ...formDataBodySerializer,
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/review',
+    url: '/locations/import',
+    ...options,
+    headers: {
+      'Content-Type': null,
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Location Import
+ *
+ * Describe what importing this file would do — row validation plus the
+ * net_new / stale / changed split — without writing anything. Requires a
+ * column_map JSON string mapping system field names to file headers.
+ *
+ * Side effect: the submitted column_map is persisted to system_settings so it
+ * becomes the default mapping on the next import.
+ */
+export const previewLocationImport = <ThrowOnError extends boolean = false>(
+  options: Options<PreviewLocationImportData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    PreviewLocationImportResponses,
+    PreviewLocationImportErrors,
+    ThrowOnError
+  >({
+    ...formDataBodySerializer,
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/locations/import/preview',
     ...options,
     headers: {
       'Content-Type': null,
@@ -1355,6 +1342,7 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
+ * Optional body overrides the copy's name and drive date.
  */
 export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
   options: Options<DuplicateRouteGroupData, ThrowOnError>
@@ -1368,6 +1356,10 @@ export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/route-groups/{route_group_id}/duplicate',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

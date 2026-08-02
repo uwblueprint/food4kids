@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useSystemSettings } from '@/api';
-import type { LocationImportResponse } from '@/api/generated/types.gen';
+import type { LocationImportPreview } from '@/api/generated/types.gen';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
 import { ProgressStepper } from '../components';
@@ -28,8 +28,10 @@ export interface GenerationOutletContext {
   setFileHeaders: (h: string[]) => void;
   columnMap: Record<string, string>;
   setColumnMap: (m: Record<string, string>) => void;
-  reviewResult: LocationImportResponse | null;
-  setReviewResult: (r: LocationImportResponse | null) => void;
+  selectedDeliveryType: string;
+  setSelectedDeliveryType: (deliveryType: string) => void;
+  reviewResult: LocationImportPreview | null;
+  setReviewResult: (r: LocationImportPreview | null) => void;
 }
 
 export function AdminRoutesGenerationLayout() {
@@ -42,9 +44,10 @@ export function AdminRoutesGenerationLayout() {
   const [file, setFile] = useState<File | null>(null);
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+  const [selectedDeliveryType, setSelectedDeliveryType] = useState('');
   const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
   const [reviewResult, setReviewResult] =
-    useState<LocationImportResponse | null>(null);
+    useState<LocationImportPreview | null>(null);
 
   if (!hasSeededColumnMap && settingsLoaded) {
     setHasSeededColumnMap(true);
@@ -58,14 +61,20 @@ export function AdminRoutesGenerationLayout() {
     setFileHeaders,
     columnMap,
     setColumnMap,
+    selectedDeliveryType,
+    setSelectedDeliveryType,
     reviewResult,
     setReviewResult,
   };
 
   return (
-    <div className="flex flex-col gap-10">
-      {/* Breadcrumb + subtitle */}
-      <div className="flex flex-col gap-2">
+    // Tall enough to fill the viewport minus the page margins, so the sticky
+    // footer's `mt-auto` still puts it at the bottom of the screen on a step
+    // whose content doesn't reach that far.
+    <div className="desktop:min-h-[calc(100dvh-4rem)] flex min-h-[calc(100dvh-2.75rem)] flex-col gap-10">
+      {/* Breadcrumb + subtitle. 4px, not 8: the frames make this block 72 tall
+          (44 + 4 + 24), and the extra 4 pushed every section below it down. */}
+      <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1">
           <Link
             to="/admin/routes"
@@ -79,7 +88,7 @@ export function AdminRoutesGenerationLayout() {
           </span>
         </div>
         <p className="text-p1 text-grey-500">
-          Import family data and generate delivery routes
+          Import data and generate delivery routes
         </p>
       </div>
 

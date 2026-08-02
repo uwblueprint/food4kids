@@ -92,8 +92,11 @@ class SystemSettingsBase(SQLModel):
     # The default lives here and nowhere else: it applies only when a settings
     # row is created. Every other code path must read the configured list off
     # the (always-present) row rather than reaching for a fallback constant.
+    # Family first, per the import frames. This is display order everywhere the
+    # list is rendered, and it only applies to a settings row being created —
+    # an existing row keeps whatever order it was configured with.
     delivery_types: list[str] = Field(
-        default_factory=lambda: ["School", "Family"],
+        default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
     )
 
