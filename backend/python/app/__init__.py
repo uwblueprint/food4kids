@@ -13,6 +13,11 @@ from app.dependencies.services import (
     get_scheduler_service,
     get_system_settings_service,
 )
+from app.services.implementations.route_generation_worker import (
+    recover_route_generation_jobs,
+    start_route_generation_worker,
+    stop_route_generation_worker,
+)
 from app.services.jobs import init_jobs
 
 from .config import settings
@@ -142,9 +147,17 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         await session.commit()
         await init_jobs(scheduler_service, session)
 
+        # Start the worker before the startup sweep so a recover-time wake is
+        # not cleared by start_route_generation_worker().
+        start_route_generation_worker()
+        # Fail jobs left RUNNING across a reload/restart, and wake the worker
+        # if any PENDING work survived in the durable queue.
+        await recover_route_generation_jobs(session)
+
     yield
 
-    # Cleanup: stop the scheduler service during application shutdown
+    # Cleanup: stop background work before tearing down the scheduler.
+    await stop_route_generation_worker()
     scheduler_service.stop()
 
 
