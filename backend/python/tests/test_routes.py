@@ -5735,7 +5735,7 @@ class TestJobRoutes:
     async def test_enqueue_cancelled_job_does_not_run(
         self, test_session: AsyncSession
     ) -> None:
-        """Queued work checks job state before moving to Running."""
+        """enqueue is only a doorbell: cancelled jobs stay cancelled."""
         from app.models.job import Job
         from app.services.implementations.job_service import JobService
 
