@@ -4,15 +4,27 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import get_current_database_user_id
-from app.dependencies.services import get_note_chain_service
+from app.dependencies.services import get_gcp_storage_client, get_note_chain_service
 from app.models import get_session
-from app.models.note import NoteCreate, NoteRead, NoteUpdate
+from app.models.note import Note, NoteCreate, NoteRead, NoteUpdate
 from app.models.note_chain import NoteChainRead
 from app.services.implementations.note_chain_service import NoteChainService
+from app.utilities.gcp_client import GCPStorageClient, GCSStorageError
+from app.utilities.note_attachments import refresh_attachment_urls
 
 note_chain_service: NoteChainService = get_note_chain_service()
 
 router = APIRouter(prefix="/note-chains", tags=["note-chains"])
+
+
+def _to_note_read(note: Note, gcp_client: GCPStorageClient) -> NoteRead:
+    """Serialize a note with freshly signed attachment URLs."""
+    read = NoteRead.model_validate(note)
+    return read.model_copy(
+        update={
+            "attachments": refresh_attachment_urls(read.attachments, gcp_client),
+        }
+    )
 
 
 # --- Note Chain endpoints ---
@@ -75,6 +87,7 @@ async def get_notes(
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
     current_user_id: UUID = Depends(get_current_database_user_id),
+    gcp_client: GCPStorageClient = Depends(get_gcp_storage_client),
 ) -> list[NoteRead]:
     """Get notes for a chain with pagination."""
     try:
@@ -82,7 +95,7 @@ async def get_notes(
             session, note_chain_id, current_user_id, limit, offset
         )
 
-        return [NoteRead.model_validate(note) for note in notes]
+        return [_to_note_read(note, gcp_client) for note in notes]
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -93,6 +106,9 @@ async def get_notes(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
+    except GCSStorageError as e:
+        status_code = 403 if "permission denied" in str(e).lower() else 503
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
 @router.post(
@@ -105,13 +121,14 @@ async def create_note(
     data: NoteCreate,
     session: AsyncSession = Depends(get_session),
     current_user_id: UUID = Depends(get_current_database_user_id),
+    gcp_client: GCPStorageClient = Depends(get_gcp_storage_client),
 ) -> NoteRead:
     """Add a note to a chain"""
     try:
         note = await note_chain_service.create_note(
             session, note_chain_id, current_user_id, data
         )
-        return NoteRead.model_validate(note)
+        return _to_note_read(note, gcp_client)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -122,6 +139,9 @@ async def create_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
+    except GCSStorageError as e:
+        status_code = 403 if "permission denied" in str(e).lower() else 503
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
 @router.patch("/{note_chain_id}/notes/{note_id}", response_model=NoteRead)
@@ -131,13 +151,14 @@ async def update_note(
     data: NoteUpdate,
     session: AsyncSession = Depends(get_session),
     current_user_id: UUID = Depends(get_current_database_user_id),
+    gcp_client: GCPStorageClient = Depends(get_gcp_storage_client),
 ) -> NoteRead:
     """Edit a note's message (author or admin only)"""
     try:
         note = await note_chain_service.update_note(
             session, note_chain_id, note_id, current_user_id, data
         )
-        return NoteRead.model_validate(note)
+        return _to_note_read(note, gcp_client)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -148,6 +169,9 @@ async def update_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
+    except GCSStorageError as e:
+        status_code = 403 if "permission denied" in str(e).lower() else 503
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
 @router.delete(
