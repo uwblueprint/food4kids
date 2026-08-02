@@ -104,7 +104,7 @@ export function StopNotesSection({
         describeApiFailure(err) ??
           (err instanceof Error
             ? err.message
-            : 'Couldn\u2019t delete this note. Please try again.')
+            : 'Couldn’t delete this note. Please try again.')
       );
     }
   };
