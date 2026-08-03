@@ -1198,6 +1198,10 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+  /**
+   * Remember Me
+   */
+  remember_me: boolean;
 };
 
 /**

@@ -2069,11 +2069,16 @@
           "password": {
             "title": "Password",
             "type": "string"
+          },
+          "remember_me": {
+            "title": "Remember Me",
+            "type": "boolean"
           }
         },
         "required": [
           "email",
-          "password"
+          "password",
+          "remember_me"
         ],
         "title": "LoginRequest",
         "type": "object"
