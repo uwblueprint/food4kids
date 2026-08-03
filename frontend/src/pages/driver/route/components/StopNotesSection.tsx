@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useAuthStore } from '@/api/authStore';
+import { describeApiFailure } from '@/api/errors';
 import type { Attachment, NoteRead } from '@/api/generated/types.gen';
 import {
   useCreateNote,
@@ -42,6 +43,7 @@ export function StopNotesSection({
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [editingNote, setEditingNote] = useState<NoteRead | undefined>();
   const [noteToDelete, setNoteToDelete] = useState<NoteRead | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const openCreate = () => {
     setFormMode('create');
@@ -53,6 +55,11 @@ export function StopNotesSection({
     setFormMode('edit');
     setEditingNote(note);
     setFormOpen(true);
+  };
+
+  const openDelete = (note: NoteRead) => {
+    setDeleteError(null);
+    setNoteToDelete(note);
   };
 
   const handleSubmit = async ({
@@ -83,13 +90,23 @@ export function StopNotesSection({
 
   const handleDelete = async () => {
     if (!noteChainId || !noteToDelete) return;
-    await deleteNote.mutateAsync({
-      path: {
-        note_chain_id: noteChainId,
-        note_id: noteToDelete.note_id,
-      },
-    });
-    setNoteToDelete(null);
+    setDeleteError(null);
+    try {
+      await deleteNote.mutateAsync({
+        path: {
+          note_chain_id: noteChainId,
+          note_id: noteToDelete.note_id,
+        },
+      });
+      setNoteToDelete(null);
+    } catch (err) {
+      setDeleteError(
+        describeApiFailure(err) ??
+          (err instanceof Error
+            ? err.message
+            : 'Couldn\u2019t delete this note. Please try again.')
+      );
+    }
   };
 
   if (!noteChainId) {
@@ -137,7 +154,7 @@ export function StopNotesSection({
               currentUserName={currentUserName}
               canManage={canManageNote(note, currentUserId, role)}
               onEdit={openEdit}
-              onDelete={setNoteToDelete}
+              onDelete={openDelete}
             />
           ))}
         </div>
@@ -159,12 +176,16 @@ export function StopNotesSection({
       <NoteDeleteConfirmModal
         open={!!noteToDelete}
         onOpenChange={(open) => {
-          if (!open) setNoteToDelete(null);
+          if (!open) {
+            setNoteToDelete(null);
+            setDeleteError(null);
+          }
         }}
         onConfirm={() => {
           void handleDelete();
         }}
         isLoading={deleteNote.isPending}
+        error={deleteError}
       />
     </section>
   );
