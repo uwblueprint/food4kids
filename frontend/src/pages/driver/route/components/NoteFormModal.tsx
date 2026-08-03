@@ -14,14 +14,11 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/common/components';
-<<<<<<< HEAD
 import {
   DESKTOP_MODAL_LAYOUT,
   SHEET_MODAL_LAYOUT,
   sheetHeightStyle,
 } from '@/features/announcements/utils';
-=======
->>>>>>> aff1b15 (referesh stale url for gcp images)
 import { cn } from '@/lib/utils';
 
 import {
@@ -64,11 +61,7 @@ function RemoveImageButton({
   return (
     <button
       type="button"
-<<<<<<< HEAD
       className="bg-grey-400 text-grey-100 hover:bg-grey-500 absolute -right-1.5 -bottom-1.5 flex size-5 items-center justify-center rounded-full transition-colors disabled:opacity-60"
-=======
-      className="bg-grey-400 text-grey-100 absolute -right-1.5 -bottom-1.5 flex size-5 items-center justify-center rounded-full transition-colors hover:bg-grey-500 disabled:opacity-60"
->>>>>>> aff1b15 (referesh stale url for gcp images)
       aria-label="Remove image"
       disabled={disabled}
       onClick={onClick}
@@ -217,12 +210,8 @@ function NoteForm({
               'border-grey-300 flex min-h-0 flex-1 flex-col rounded-xl border bg-white',
               'focus-within:border-blue-300 focus-within:ring-1 focus-within:ring-blue-300',
               busy && 'bg-grey-150 cursor-not-allowed opacity-60',
-<<<<<<< HEAD
               error &&
                 'border-red focus-within:border-red focus-within:ring-red'
-=======
-              error && 'border-red focus-within:border-red focus-within:ring-red'
->>>>>>> aff1b15 (referesh stale url for gcp images)
             )}
           >
             <textarea
@@ -240,11 +229,7 @@ function NoteForm({
             />
 
             {mode === 'create' && images.length > 0 && (
-<<<<<<< HEAD
               <div className="flex flex-wrap gap-2 px-3 pt-2 pr-4 pb-3">
-=======
-              <div className="flex flex-wrap gap-2 px-3 pt-1 pr-4 pb-4">
->>>>>>> aff1b15 (referesh stale url for gcp images)
                 {images.map((image) => (
                   <div
                     key={image.previewUrl}
@@ -288,7 +273,7 @@ function NoteForm({
         </p>
       )}
 
-      <ModalFooter className="mt-auto shrink-0 [&_button]:flex-1">
+      <ModalFooter className="mt-auto shrink-0 justify-end">
         {mode === 'create' && (
           <>
             <input
@@ -302,6 +287,7 @@ function NoteForm({
             <Button
               type="button"
               variant="secondary"
+              className="w-auto"
               disabled={busy || images.length >= NOTE_IMAGE_MAX}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -309,7 +295,7 @@ function NoteForm({
             </Button>
           </>
         )}
-        <Button type="submit" disabled={!canSubmit}>
+        <Button type="submit" className="w-auto" disabled={!canSubmit}>
           {busy ? 'Saving…' : mode === 'edit' ? 'Save' : 'Add note'}
         </Button>
       </ModalFooter>
