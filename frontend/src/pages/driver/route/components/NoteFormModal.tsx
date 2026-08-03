@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 
 import { describeApiFailure } from '@/api/errors';
 import type { Attachment, NoteRead } from '@/api/generated/types.gen';
-import { describeApiFailure } from '@/api/errors';
 import { useUploadImage } from '@/api/notes';
 import XIcon from '@/assets/icons/x.svg?react';
 import {
@@ -289,7 +288,7 @@ function NoteForm({
         </p>
       )}
 
-      <ModalFooter className="mt-auto shrink-0 justify-end">
+      <ModalFooter className="mt-auto shrink-0 [&_button]:flex-1">
         {mode === 'create' && (
           <>
             <input
@@ -303,7 +302,6 @@ function NoteForm({
             <Button
               type="button"
               variant="secondary"
-              className="w-auto"
               disabled={busy || images.length >= NOTE_IMAGE_MAX}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -311,7 +309,7 @@ function NoteForm({
             </Button>
           </>
         )}
-        <Button type="submit" className="w-auto" disabled={!canSubmit}>
+        <Button type="submit" disabled={!canSubmit}>
           {busy ? 'Saving…' : mode === 'edit' ? 'Save' : 'Add note'}
         </Button>
       </ModalFooter>
