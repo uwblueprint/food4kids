@@ -13,6 +13,7 @@ interface NoteDeleteConfirmModalProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   isLoading?: boolean;
+  error?: string | null;
 }
 
 export function NoteDeleteConfirmModal({
@@ -20,6 +21,7 @@ export function NoteDeleteConfirmModal({
   onOpenChange,
   onConfirm,
   isLoading = false,
+  error = null,
 }: NoteDeleteConfirmModalProps) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
@@ -30,6 +32,11 @@ export function NoteDeleteConfirmModal({
             Once you delete a note, it cannot be recovered.
           </ModalDescription>
         </ModalHeader>
+        {error && (
+          <p className="text-p2 text-red" role="alert">
+            {error}
+          </p>
+        )}
         <ModalFooter>
           <Button
             type="button"
