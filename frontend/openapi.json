@@ -4449,35 +4449,13 @@
         ]
       }
     },
-    "/auth/logout/{user_id}": {
+    "/auth/logout": {
       "post": {
-        "description": "Revokes all of the specified driver's refresh tokens",
+        "description": "Revokes all of the specified driver's refresh tokens and clears cookies",
         "operationId": "logout",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "user_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "User Id",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "security": [
