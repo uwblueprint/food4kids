@@ -61,7 +61,7 @@ function RemoveImageButton({
   return (
     <button
       type="button"
-      className="bg-grey-400 text-grey-100 hover:bg-grey-500 absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full transition-colors disabled:opacity-60"
+      className="bg-grey-400 text-grey-100 hover:bg-grey-500 absolute -right-1.5 -bottom-1.5 flex size-5 items-center justify-center rounded-full transition-colors disabled:opacity-60"
       aria-label="Remove image"
       disabled={disabled}
       onClick={onClick}
@@ -273,7 +273,7 @@ function NoteForm({
         </p>
       )}
 
-      <ModalFooter className="mt-auto shrink-0 [&_button]:flex-1">
+      <ModalFooter className="mt-auto shrink-0 justify-end">
         {mode === 'create' && (
           <>
             <input
@@ -287,6 +287,7 @@ function NoteForm({
             <Button
               type="button"
               variant="secondary"
+              className="w-auto"
               disabled={busy || images.length >= NOTE_IMAGE_MAX}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -294,7 +295,7 @@ function NoteForm({
             </Button>
           </>
         )}
-        <Button type="submit" disabled={!canSubmit}>
+        <Button type="submit" className="w-auto" disabled={!canSubmit}>
           {busy ? 'Saving…' : mode === 'edit' ? 'Save' : 'Add note'}
         </Button>
       </ModalFooter>
