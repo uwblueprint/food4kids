@@ -36,6 +36,7 @@ def set_refresh_token_cookie(response: Response, refresh_token: str, remember_me
         samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
         secure=bool(cookie_options["secure"]),
         max_age=max_age,
+        path="/",
     )
 
     # 2. Lightweight cookie tracking remember_me state
@@ -46,4 +47,17 @@ def set_refresh_token_cookie(response: Response, refresh_token: str, remember_me
         samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
         secure=bool(cookie_options["secure"]),
         max_age=max_age,
+        path="/",
     )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    cookie_options = get_cookie_options()
+    for key in ("refreshToken", "rememberMe"):
+        response.delete_cookie(
+            key=key,
+            httponly=True,
+            samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
+            secure=bool(cookie_options["secure"]),
+            path="/",
+        )

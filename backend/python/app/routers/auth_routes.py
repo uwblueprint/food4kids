@@ -1,12 +1,14 @@
 import logging
 from datetime import datetime, timezone
 from uuid import UUID
+import firebase_admin.auth
 
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import get_current_database_user_id
+from app.dependencies.auth import get_access_token
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -28,7 +30,7 @@ from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
 )
 from app.services.implementations.user_service import UserService
-from app.utilities.cookies import set_refresh_token_cookie
+from app.utilities.cookies import set_refresh_token_cookie, clear_auth_cookies
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -98,24 +100,34 @@ async def refresh(
         ) from e
 
 
-@router.post("/logout/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    user_id: UUID,
+    response: Response,
     session: AsyncSession = Depends(get_session),
-    current_database_user_id: UUID = Depends(get_current_database_user_id),
+    access_token: str = Depends(get_access_token),
     auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> None:
     """
-    Revokes all of the specified driver's refresh tokens
+    Revokes all of the specified driver's refresh tokens and clears cookies
     """
-    # Check if the driver is authorized to logout this driver_id
-    if user_id != current_database_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="You are not authorized to logout this driver",
+    try:
+        decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
+            access_token, check_revoked=False # Allow it to clear even if token expired
         )
+        firebase_uid = decoded_token["uid"]
 
-    await auth_service.revoke_tokens(session, user_id)
+        database_user_id = await user_service.get_user_id_by_auth_id(
+            session, firebase_uid
+        )
+        if database_user_id:
+            await auth_service.revoke_tokens(session, database_user_id)
+
+    except Exception:
+        logger.exception("Failed to revoke refresh tokens during logout")
+
+    # Always clear auth cookies
+    clear_auth_cookies(response)
 
 
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
