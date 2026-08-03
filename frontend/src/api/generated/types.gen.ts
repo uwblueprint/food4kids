@@ -4324,13 +4324,13 @@ export type GetRoutesData = {
      *
      * Filter route groups from this date
      */
-    start_date?: string;
+    start_date?: string | null;
     /**
      * End Date
      *
      * Filter route groups until this date
      */
-    end_date?: string;
+    end_date?: string | null;
     /**
      * Order
      *
