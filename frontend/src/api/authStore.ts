@@ -23,7 +23,7 @@ interface AuthState {
    */
   sessionExpired: boolean;
   rememberMe: boolean;
-  setAuth: (authData: AuthResponse, driverId?: string) => void;
+  setAuth: (authData: AuthResponse, driverId?: string, driverId?: string) => void;
   setAuthFromRegister: (registerData: DriverRegisterResponse) => void;
   clearAuth: () => void;
   /** Sign out because the server rejected our token. See `axiosClient`. */
