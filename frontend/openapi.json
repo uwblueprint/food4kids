@@ -2321,6 +2321,7 @@
             "items": {
               "$ref": "#/components/schemas/Attachment"
             },
+            "maxItems": 3,
             "title": "Attachments",
             "type": "array"
           },
