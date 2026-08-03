@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   deleteRouteMutation,
+  getRouteOptions,
   getRouteGroupsQueryKey,
   getRoutesOptions,
   getRoutesQueryKey,
@@ -21,6 +22,27 @@ export function useRoutes(query?: GetRoutesData['query']) {
     ...getRoutesOptions({ query }),
     placeholderData: (prev) => prev,
   });
+}
+
+/**
+ * GET /routes for driver's assigned routes (filtered by driver_id).
+ * Drivers are automatically scoped to their own routes when driver_id is omitted.
+ */
+export function useDriverRoutes() {
+  return useQuery({
+    ...getRoutesOptions({ query: { page: 1, page_size: 100 } }),
+  });
+}
+
+/**
+ * GET /routes/{route_id} to fetch a single route with full details including encoded_polyline.
+ */
+export function useRoute(routeId: string) {
+  return useQuery(
+    getRouteOptions({
+      path: { route_id: routeId },
+    })
+  );
 }
 
 /**

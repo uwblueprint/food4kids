@@ -55,6 +55,17 @@ function FitToPolyline({ coords }: { coords: [number, number][] }) {
   return null;
 }
 
+/** Fits the map to the stop bounds when there are no polyline coordinates. */
+function FitToStops({ stopPositions }: { stopPositions: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (stopPositions.length > 0) {
+      map.fitBounds(stopPositions, { padding: [24, 24] });
+    }
+  }, [stopPositions, map]);
+  return null;
+}
+
 export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
   const coords = useMemo<[number, number][]>(() => {
     if (!encodedPolyline) return [];
@@ -80,7 +91,12 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
     [stops]
   );
 
-  const center = coords[0] ?? stopPoints[0]?.position ?? DEFAULT_CENTER;
+  const stopPositions = useMemo(
+    () => stopPoints.map((p) => p.position),
+    [stopPoints]
+  );
+
+  const center = coords[0] ?? stopPositions[0] ?? DEFAULT_CENTER;
 
   return (
     <div
@@ -114,6 +130,9 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
             />
             <FitToPolyline coords={coords} />
           </>
+        )}
+        {coords.length === 0 && stopPositions.length > 0 && (
+          <FitToStops stopPositions={stopPositions} />
         )}
         {stopPoints.map(({ key, position }) => (
           <CircleMarker
