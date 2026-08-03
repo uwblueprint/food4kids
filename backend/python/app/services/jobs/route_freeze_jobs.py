@@ -164,7 +164,7 @@ async def process_daily_driver_history() -> None:
         # --------------------------------------------------------------
         async with async_session_maker_instance() as session:
             scan = await session.execute(
-                select(Route.route_id, RouteGroup.drive_date)
+                select(Route.route_id, col(RouteGroup.drive_date))
                 .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
                 .outerjoin(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
                 .where(RouteGroup.drive_date <= today)

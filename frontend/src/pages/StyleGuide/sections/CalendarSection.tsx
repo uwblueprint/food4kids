@@ -29,9 +29,9 @@ export function CalendarSection() {
 
       <div className="mb-10 space-y-6">
         <SpecNote title="Selected Date">
-          The selected date is highlighted with a filled Blue/300 circle.
-          Today's date uses no special highlight when unselected — only the
-          selected date is colored.
+          The selected date is highlighted with a light Blue/50 circle and a
+          Blue/400 number. Hovering any other day fills it with a Blue/300
+          circle. Today's date has no special highlight.
         </SpecNote>
         <SpecNote title="Outside Days">
           Days from adjacent months are shown in a faded Grey/300 to provide

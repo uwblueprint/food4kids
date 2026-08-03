@@ -8,8 +8,9 @@ history automatically and can never drift.
 """
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -69,6 +70,7 @@ async def _add_frozen_route(
         length=km,
         route_group_id=rg.route_group_id,
         driver_id=driver_id,
+        start_time=time(8, 0),
     )
     session.add(route)
     await session.commit()
@@ -198,12 +200,14 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
         length=FROZEN_KM,
         route_group_id=rg.route_group_id,
         driver_id=driver_a.driver_id,
+        start_time=time(8, 0),
     )
     future_route = Route(
         name="R-future",
         length=99.0,
         route_group_id=future_rg.route_group_id,
         driver_id=driver_a.driver_id,
+        start_time=time(8, 0),
     )
     test_session.add_all([route, future_route])
     await test_session.commit()
@@ -493,7 +497,9 @@ async def test_driver_delete_endpoint_detaches_routes_and_km(
     a = frozen_world["driver_a"]
     frozen_route = frozen_world["route"]
 
-    resp = await async_client.delete(f"/drivers/{a.driver_id}")
+    # The delete also removes the Firebase account (see test_driver_delete.py).
+    with patch("firebase_admin.auth.delete_user"):
+        resp = await async_client.delete(f"/drivers/{a.driver_id}")
     assert resp.status_code == 204
 
     gone = (

@@ -2,7 +2,6 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from pydantic import field_validator
 from sqlalchemy import Column, Date
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -18,19 +17,9 @@ class RouteGroupBase(SQLModel):
 
     name: str = Field(min_length=1, max_length=255, nullable=False)
     notes: str = Field(default="")
+    # Date-only on purpose: a drive date is a calendar day, not an instant, so
+    # storing it as a timestamp invited UTC-offset drift on read.
     drive_date: date = Field(sa_column=Column(Date(), nullable=False))
-
-    @field_validator("drive_date", mode="before")
-    @classmethod
-    def coerce_drive_date(cls, v: object) -> date | None:
-        """Coerce various date inputs to a date object."""
-        if v is None:
-            return None
-        if isinstance(v, date) and not isinstance(v, datetime):
-            return v
-        if isinstance(v, datetime):
-            return v.date()
-        return v
 
 
 class RouteGroup(RouteGroupBase, BaseModel, table=True):
@@ -85,10 +74,11 @@ class RouteGroupRead(RouteGroupBase):
     num_locations: int = 0
     num_boxes: int = 0
     num_drivers_assigned: int = 0
+    # Derived from the group's stops' locations, not stored: a group's delivery
+    # type is whatever it delivers. None until the group has stops.
     delivery_type: str | None = None
     status: RouteStatusEnum
     routes: list[RouteReadSummary] = []
-    drive_date: date
 
 
 class RouteGroupUpdate(SQLModel):
@@ -98,14 +88,13 @@ class RouteGroupUpdate(SQLModel):
     notes: str | None = None
     drive_date: date | None = None
 
-    @field_validator("drive_date", mode="before")
-    @classmethod
-    def coerce_drive_date(cls, v: object) -> date | None:
-        """Coerce various date inputs to a date object."""
-        if v is None:
-            return None
-        if isinstance(v, date) and not isinstance(v, datetime):
-            return v
-        if isinstance(v, datetime):
-            return v.date()
-        return v
+
+class RouteGroupDuplicate(SQLModel):
+    """Duplicate request model - overrides for the copied group.
+
+    Both optional so the endpoint also works with no body: name falls back to
+    "Copy of {original}" and drive_date to the original's date.
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    drive_date: date | None = None

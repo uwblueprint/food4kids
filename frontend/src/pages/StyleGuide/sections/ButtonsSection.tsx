@@ -35,7 +35,7 @@ const BUTTON_GHOST_CODE = `import { Button } from '@/common/components';
 
 const BUTTON_TEXT_LINK_CODE = `import { Button } from '@/common/components';
 
-<Button variant="textLink">View Details</Button>`;
+<Button variant="textLink">View details</Button>`;
 
 const BUTTON_DISABLED_CODE = `import { Button } from '@/common/components';
 
@@ -113,7 +113,7 @@ export function ButtonsSection() {
         </ComponentPreview>
 
         <ComponentPreview title="Text Link" code={BUTTON_TEXT_LINK_CODE}>
-          <Button variant="textLink">View Details</Button>
+          <Button variant="textLink">View details</Button>
         </ComponentPreview>
 
         <ComponentPreview title="Disabled" code={BUTTON_DISABLED_CODE}>

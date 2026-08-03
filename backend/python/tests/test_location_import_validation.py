@@ -381,7 +381,12 @@ class TestExistingGeocodedAddresses:
         result = await service._existing_geocoded_addresses(
             test_session, {known, unknown, ungeocoded}
         )
-        assert result == {known}
+        # Coordinates come back with the address so planning can place a row
+        # without a lookup; a stored address without them is not a match.
+        assert set(result) == {known}
+        assert result[known].latitude == 43.4
+        assert result[known].longitude == -80.5
+        assert result[known].formatted_address == known
 
     @pytest.mark.asyncio
     async def test_empty_input_returns_empty(self, test_session: AsyncSession) -> None:
@@ -390,4 +395,4 @@ class TestExistingGeocodedAddresses:
             MagicMock(),
             MagicMock(),
         )
-        assert await service._existing_geocoded_addresses(test_session, set()) == set()
+        assert await service._existing_geocoded_addresses(test_session, set()) == {}

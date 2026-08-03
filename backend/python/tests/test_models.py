@@ -149,9 +149,9 @@ class TestCoreBusinessValidation:
         # Test valid password
         user_finalize = UserFinalize(
             user_invite_id=uuid4(),
-            password="securepassword123",
+            password="Securepassword123!",
         )
-        assert user_finalize.password == "securepassword123"
+        assert user_finalize.password == "Securepassword123!"
 
         # Test invalid password (too short)
         with pytest.raises(ValidationError) as exc_info:
@@ -160,6 +160,38 @@ class TestCoreBusinessValidation:
                 password="123",  # Too short
             )
         assert "password" in str(exc_info.value)
+
+        # Test invalid password (missing lowercase)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="AAAAA123!",
+            )
+        assert "lowercase letter" in str(exc_info.value)
+
+        # Test invalid password (missing uppercase)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabc123!",
+            )
+        assert "uppercase letter" in str(exc_info.value)
+
+        # Test invalid password (missing number)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabcAAA!",
+            )
+        assert "number" in str(exc_info.value)
+
+        # Test invalid password (missing special character)
+        with pytest.raises(ValidationError) as exc_info:
+            UserFinalize(
+                user_invite_id=uuid4(),
+                password="abcabcAAA111",
+            )
+        assert "special character" in str(exc_info.value)
 
     def test_route_length_validation(self) -> None:
         """Test route length validation (must be non-negative)."""
@@ -235,7 +267,6 @@ class TestCoreBusinessValidation:
         assert group.color in LocationGroup.DEFAULT_PALETTE
 
         # Test RouteGroup required fields
-        from datetime import datetime
 
         with pytest.raises(ValidationError) as exc_info:
             RouteGroup(
@@ -455,22 +486,6 @@ class TestCoreModels:
         )
         assert route_group_read.route_group_id is not None
 
-    def test_route_group_drive_date_accepts_datetime_and_extracts_date(self) -> None:
-        """drive_date coerces datetime inputs to date by extracting the date part."""
-        route_group = RouteGroup(
-            name="Date group",
-            drive_date=datetime(2024, 1, 15, 8, 30),
-        )
-        assert route_group.drive_date == date(2024, 1, 15)
-
-    def test_route_group_drive_date_accepts_date_directly(self) -> None:
-        """drive_date accepts date objects directly."""
-        route_group = RouteGroup(
-            name="Date group",
-            drive_date=date(2024, 1, 15),
-        )
-        assert route_group.drive_date == date(2024, 1, 15)
-
     def test_driver_history_read_model(self) -> None:
         """The monthly read model is computed at read time, never stored."""
         from uuid import uuid4
@@ -504,7 +519,6 @@ class TestCoreModels:
         assert job_no_group.progress == ProgressEnum.RUNNING
 
         # Update
-        from datetime import datetime
 
         job_update = JobUpdate(
             progress=ProgressEnum.COMPLETED,
@@ -816,7 +830,7 @@ class TestModelValidation:
         assert system_settings.boxes_per_car == 10
         assert system_settings.dropoff_minutes == 3
         assert system_settings.children_per_box == 2
-        assert system_settings.delivery_types == ["School", "Family"]
+        assert system_settings.delivery_types == ["Family", "School"]
         assert system_settings.email_reminders == [
             EmailReminder(days_before=1, time=time(9, 0))
         ]

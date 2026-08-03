@@ -31,6 +31,14 @@ export const buttonVariants = cva(
         ],
         /* 40px on mobile, 44px from tablet up (per CTA design frame) */
         circular: 'size-[40px] tablet:size-[44px] rounded-full',
+        /* The top bar's own icon button, drawn at 48 on every admin frame —
+         * larger than the 44 the table toolbars use. */
+        circularLarge: 'size-12 rounded-full',
+        /* In-table action pill (the Routes tab's "Assign"): 34px tall with
+         * 16px sides and a 14/18 SemiBold body-font label, per the Routes
+         * design frame. Sized to its label — it sits inside a cell, so it
+         * neither reserves a minimum width nor goes full-width on mobile. */
+        compact: 'text-p2 h-[34px] rounded-full px-4 font-semibold',
       },
     },
     compoundVariants: [

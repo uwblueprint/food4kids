@@ -10,7 +10,7 @@ function Card({
   return (
     <div
       className={cn(
-        'shadow-card flex flex-col rounded-2xl bg-white p-6',
+        'shadow-card flex flex-col rounded-xl bg-white p-6',
         className
       )}
       {...props}

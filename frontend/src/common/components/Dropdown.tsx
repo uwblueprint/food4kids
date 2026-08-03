@@ -15,8 +15,13 @@ function DropdownTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        'inline-flex w-full cursor-pointer items-center justify-between rounded-full px-6 py-3',
-        'text-p2 text-grey-500 transition-colors outline-none',
+        // 34px tall, r16, 12px side padding — measured off the Map Columns
+        // frame. `rounded-full` on a 34px box reads the same as r16, but the
+        // token is what the design states.
+        'inline-flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2',
+        // No `outline-none` here: it would set --tw-outline-style to `none`,
+        // which the outline-1 below inherits, making the outline invisible
+        'text-p2 text-grey-500 transition-colors',
         'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
         'focus:outline-2 focus:outline-blue-300',
         'data-[state=open]:outline-2 data-[state=open]:outline-blue-300',
@@ -45,7 +50,7 @@ function DropdownContent({
         position="popper"
         sideOffset={4}
         className={cn(
-          'z-50 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg',
+          'z-50 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-sm',
           'border-grey-300 bg-grey-100 shadow-card border',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
@@ -69,7 +74,7 @@ function DropdownItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        'relative flex w-full cursor-pointer items-center rounded-md px-3 py-2 select-none',
+        'relative flex w-full cursor-pointer items-center rounded-sm px-3 py-2 select-none',
         'text-p1 text-grey-500 outline-none',
         'hover:bg-blue-50 focus:bg-blue-50',
         'data-[state=checked]:font-semibold data-[state=checked]:text-blue-300',

@@ -14,6 +14,11 @@ class RouteGenerationSettings(SQLModel):
     """
 
     return_to_warehouse: bool = False
+    # The moment the drivers leave the warehouse: the group's drive_date
+    # combined with SystemSettings.route_start_time (a time of day). Both
+    # halves are load-bearing — this anchors the optimizer's globalStartTime,
+    # so a wrong date plans the day against the wrong traffic. Naive values are
+    # read as warehouse-local time (settings.scheduler_timezone).
     route_start_time: datetime
     num_routes: int
     max_stops_per_route: int | None = None  # Does not apply to Google Maps Routing

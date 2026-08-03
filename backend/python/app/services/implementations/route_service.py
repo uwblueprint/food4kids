@@ -1,20 +1,28 @@
 import logging
 from datetime import date, datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import case, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
+from app.config import settings
 from app.models.driver import Driver
+from app.models.enum import (
+    DriveDaysOfWeekEnum,
+    DriverAssignmentStatusEnum,
+    RouteStatusEnum,
+)
 from app.models.location import Location
 from app.models.route import (
     Route,
     RouteDetailRead,
     RoutePatchRequest,
+    RouteRead,
     RouteWithDateRead,
     SuggestedDriverResponse,
 )
@@ -57,11 +65,16 @@ class RouteService:
         self,
         session: AsyncSession,
         unassigned_only: bool = False,
-        start_date: str | None = None,
-        end_date: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         pagination: PaginationParams | None = None,
         driver_id: UUID | None = None,
         order: Literal["asc", "desc"] = "asc",
+        search: str | None = None,
+        weekday: list[DriveDaysOfWeekEnum] | None = None,
+        delivery_type: list[str] | None = None,
+        route_status: list[RouteStatusEnum] | None = None,
+        driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
         Get routes with optional filtering for unassigned routes and date range.
@@ -69,6 +82,16 @@ class RouteService:
         unassigned_only filters to routes with no driver_id. driver_id filters
         to routes assigned to that specific driver (powers the driver homepage
         feed). The date range filters on the route's RouteGroup.drive_date.
+
+        search filters (case-insensitive substring) on the assigned driver's
+        full name, applied before pagination so the paged results are drawn
+        from the matches.
+
+        The Routes-tab filters mirror the Groups tab, applied per route:
+        weekday (of the group's drive_date), delivery_type (the route has a
+        stop of that type), route_status (Upcoming = today or later, Completed
+        = earlier), and driver_assignment_status (Assigned = has a driver,
+        Unassigned = none).
 
         order controls the drive_date ordering: "asc" (default) for the
         upcoming feed (oldest-first), "desc" for the past feed
@@ -104,25 +127,64 @@ class RouteService:
             .subquery()
         )
 
-        statement = select(
+        # delivery_type is uniform across a route's locations, so read it off
+        # any of the route's stops (NULL when the route has no stops). No
+        # hardcoded type names — any configured delivery type flows through.
+        delivery_type_expr = (
+            select(Location.delivery_type)
+            .select_from(RouteStop)
+            .join(Location, col(Location.location_id) == col(RouteStop.location_id))
+            .where(col(RouteStop.route_id) == col(Route.route_id))
+            .limit(1)
+            .correlate(Route)
+            .scalar_subquery()
+            .label("delivery_type")
+        )
+
+        # status: upcoming if drive_date is today or future, else completed.
+        # "Today" is the warehouse's today, not UTC's — read in UTC, an evening
+        # in Eastern has already rolled over, so tomorrow's routes would show
+        # as completed. Matches RouteGroupService, which reports the same
+        # status for the group these routes belong to.
+        today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
+        status_expr = case(
+            (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
+            else_=RouteStatusEnum.COMPLETED.value,
+        ).label("status")
+
+        # driver name (NULL when route is unassigned)
+        driver_name_expr = case(
+            (
+                col(Route.driver_id).is_not(None),
+                func.concat(User.first_name, " ", User.last_name),
+            ),
+            else_=None,
+        ).label("driver_name")
+
+        statement = select(  # type: ignore[call-overload]
             Route,
             RouteGroup.drive_date,
+            col(RouteGroup.name).label("group_name"),
             func.coalesce(route_totals.c.num_stops, 0).label("num_stops"),
             func.coalesce(route_totals.c.box_total, 0).label("box_total"),
+            delivery_type_expr,
+            status_expr,
+            driver_name_expr,
         ).join(
             RouteGroup,
-            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+            RouteGroup.route_group_id == Route.route_group_id,
         )
         statement = statement.outerjoin(
             route_totals, route_totals.c.route_id == Route.route_id
         )
+        statement = statement.outerjoin(
+            Driver, col(Driver.driver_id) == col(Route.driver_id)
+        ).outerjoin(User, col(User.user_id) == col(Driver.user_id))
 
         if start_date:
-            start_d = date.fromisoformat(start_date)
-            statement = statement.where(RouteGroup.drive_date >= start_d)
+            statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
-            end_d = date.fromisoformat(end_date)
-            statement = statement.where(RouteGroup.drive_date <= end_d)
+            statement = statement.where(RouteGroup.drive_date <= end_date)
 
         if unassigned_only:
             statement = statement.where(col(Route.driver_id).is_(None))
@@ -130,12 +192,71 @@ class RouteService:
         if driver_id is not None:
             statement = statement.where(Route.driver_id == driver_id)
 
+        if search and search.strip():
+            statement = statement.where(
+                func.concat(User.first_name, " ", User.last_name).ilike(
+                    f"%{search.strip()}%"
+                )
+            )
+
+        # --- Routes-tab filters (mirror the Groups tab, per route) -----------
+        if weekday:
+            dow_map = {
+                DriveDaysOfWeekEnum.MON: 1,
+                DriveDaysOfWeekEnum.TUE: 2,
+                DriveDaysOfWeekEnum.WED: 3,
+                DriveDaysOfWeekEnum.THU: 4,
+                DriveDaysOfWeekEnum.FRI: 5,
+            }
+            statement = statement.where(
+                func.extract("dow", RouteGroup.drive_date).in_(  # type: ignore[arg-type]
+                    [dow_map[w] for w in weekday]
+                )
+            )
+
+        # A route matches a delivery type if any of its stops' locations has it.
+        # (Built as select(...).exists() because Exists has no .join().)
+        if delivery_type:
+            statement = statement.where(
+                select(1)
+                .select_from(RouteStop)
+                .join(Location, Location.location_id == RouteStop.location_id)  # type: ignore[arg-type]
+                .where(RouteStop.route_id == Route.route_id)
+                .where(col(Location.delivery_type).in_(delivery_type))
+                .exists()
+            )
+
+        if route_status:
+            # Same cutoff as status_expr above — a row filtered as Upcoming has
+            # to come back labelled Upcoming.
+            status_conditions: list[Any] = []
+            if RouteStatusEnum.UPCOMING in route_status:
+                status_conditions.append(RouteGroup.drive_date >= today)
+            if RouteStatusEnum.COMPLETED in route_status:
+                status_conditions.append(RouteGroup.drive_date < today)
+            if status_conditions:
+                statement = statement.where(or_(*status_conditions))
+
+        if driver_assignment_status:
+            assignment_conditions: list[Any] = []
+            if DriverAssignmentStatusEnum.ASSIGNED in driver_assignment_status:
+                assignment_conditions.append(col(Route.driver_id).isnot(None))
+            if DriverAssignmentStatusEnum.UNASSIGNED in driver_assignment_status:
+                assignment_conditions.append(col(Route.driver_id).is_(None))
+            if assignment_conditions:
+                statement = statement.where(or_(*assignment_conditions))
+
         drive_date_order = (
             col(RouteGroup.drive_date).desc()
             if order == "desc"
             else col(RouteGroup.drive_date).asc()
         )
-        statement = statement.order_by(drive_date_order, col(Route.name))
+        # route_id last so the order is total: two routes on the same date can
+        # share a name, and paginate_query's count and page are separate
+        # statements, so any remaining tie can shuffle a row between pages.
+        statement = statement.order_by(
+            drive_date_order, col(Route.name), col(Route.route_id)
+        )
 
         if pagination is None:
             pagination = PaginationParams()
@@ -146,13 +267,18 @@ class RouteService:
         items = [
             RouteWithDateRead(
                 route_id=row.Route.route_id,
+                route_group_id=row.Route.route_group_id,
                 name=row.Route.name,
                 notes=row.Route.notes,
                 length=row.Route.length,
                 drive_date=row.drive_date,
+                group_name=row.group_name,
                 start_time=row.Route.start_time,
                 num_stops=row.num_stops,
                 box_total=row.box_total,
+                delivery_type=row.delivery_type,
+                driver_name=row.driver_name,
+                status=row.status,
             )
             for row in rows
         ]
@@ -212,6 +338,15 @@ class RouteService:
 
             children_per_box = await resolve_children_per_box(session)
             rows = await self._fetch_ordered_stops(session, route_id)
+            # drive_date lives on the route's group (same source as the list
+            # endpoint's RouteWithDateRead).
+            drive_date = (
+                await session.execute(
+                    select(col(RouteGroup.drive_date)).where(
+                        RouteGroup.route_group_id == route.route_group_id
+                    )
+                )
+            ).scalar_one()
         except Exception:
             # Roll back so the caller's session is usable, then let the error
             # through: UnhandledExceptionMiddleware logs it and answers 500.
@@ -237,13 +372,23 @@ class RouteService:
                     children_per_box,
                 ),
                 note_chain_id=location.note_chain_id,
+                latitude=(snapshot.latitude if snapshot else location.latitude),
+                longitude=(snapshot.longitude if snapshot else location.longitude),
             )
             for stop, location, snapshot in rows
         ]
 
-        detail = RouteDetailRead.model_validate(route, from_attributes=True)
-        detail.stops = stops
-        return detail
+        # delivery_type is uniform across a route's locations; read it off the
+        # first stop's live Location (None when the route has no stops).
+        delivery_type = rows[0][1].delivery_type if rows else None
+
+        route_read = RouteRead.model_validate(route, from_attributes=True)
+        return RouteDetailRead(
+            **route_read.model_dump(),
+            drive_date=drive_date,
+            delivery_type=delivery_type,
+            stops=stops,
+        )
 
     async def delete_route(self, session: AsyncSession, route_id: UUID) -> bool:
         """Delete route by ID"""
@@ -316,13 +461,25 @@ class RouteService:
             if patch.notes is not None:
                 route.notes = patch.notes
             # driver_id and start_time are nullable, so an explicit null means
-            # "clear it" (unassign / unschedule) — they typically travel
-            # together. Use model_fields_set to tell an explicit null apart
-            # from an omitted field (both are None on the model).
+            # "clear it" (unassign / unschedule) — they travel together. Use
+            # model_fields_set to tell an explicit null apart from an omitted
+            # field (both are None on the model).
             if "driver_id" in patch.model_fields_set:
                 route.driver_id = patch.driver_id
             if "start_time" in patch.model_fields_set:
                 route.start_time = patch.start_time
+
+            # Enforce the assigned-route invariant here rather than letting the
+            # DB CHECK constraint surface as a 500. Evaluated on the merged
+            # state, so it catches assigning a driver to a route that has no
+            # start time just as well as clearing the start time of a route
+            # that already has one.
+            if route.driver_id is not None and route.start_time is None:
+                raise ValueError(
+                    "An assigned route must have a start_time; "
+                    "set start_time in the same request, or clear driver_id "
+                    "to leave the route unassigned."
+                )
 
             # Update stops + re-run routing if location_ids provided
             if patch.location_ids is not None:

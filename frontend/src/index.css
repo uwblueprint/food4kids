@@ -263,31 +263,50 @@
 }
 
 @layer utilities {
-  /* Page-level margins from the F4K design system (admin spec).
-   * Apply to top-level page wrapper elements.
-   * Mobile: 20px · Tablet: 40px · Desktop: 80px left/right, 40px top */
-  .page-margins {
+  /* Page-level margins from the F4K design system, ADMIN platform only.
+   * Mobile: 20px · Tablet: 40px · Desktop: 48px left/right, 40px top.
+   *
+   * Driver pages must not use this: DriverLayout already applies the driver
+   * spec (20px / 32px) to the whole platform, so adding this on top of it
+   * doubles the padding rather than replacing it.
+   *
+   * The desktop inset is measured off the admin frames: content runs 170→1392
+   * inside a 1440 frame whose nav rail is 120 wide, i.e. 48px either side. */
+  .admin-page-margins {
     padding-left: 1.25rem; /* 20px */
     padding-right: 1.25rem;
     padding-top: 1.25rem;
     padding-bottom: 1.5rem;
   }
   @media (width >= theme(--breakpoint-tablet)) {
-    .page-margins {
+    .admin-page-margins {
       padding-left: 2.5rem; /* 40px */
       padding-right: 2.5rem;
     }
   }
   @media (width >= theme(--breakpoint-desktop)) {
-    .page-margins {
-      padding-left: 5rem; /* 80px */
-      padding-right: 5rem;
+    .admin-page-margins {
+      padding-left: 3rem; /* 48px */
+      padding-right: 3rem;
       padding-top: 2.5rem; /* 40px */
     }
   }
 }
 
 @theme inline {
+  /* Corner radii. --radius below is 0.75rem, so the scale runs
+   *   sm 8 · md 10 · lg 12 · xl 16 · 2xl 20 · 3xl 24 · 4xl 28
+   *
+   * Set from the designs, not from shadcn's 0.625rem default: across every
+   * exported frame the radii that actually occur are 8 (form fields, menu
+   * items, dropdowns) and 16 (cards, tables, modals, nav buttons, toggles) —
+   * 16 alone accounts for ~518 nodes. The old default stepped 6/8/10/14/18
+   * and could not express 16 at all, so every card in the app was 2px round
+   * of the frames. `rounded-sm` and `rounded-xl` are now the two you want
+   * nearly all the time.
+   *
+   * The map is the one deliberate exception at 18px, written literally where
+   * it is used — a single off-scale value beats bending the scale for it. */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -329,7 +348,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem; /* 12px — see the radius scale note above */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

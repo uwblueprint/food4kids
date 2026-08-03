@@ -78,7 +78,8 @@ class DriverReportService:
         start_dt and end_dt should be timezone-aware datetimes.
         """
         try:
-            # Convert incoming tz-aware datetimes to scheduler timezone, then extract date
+            # Land in the scheduler timezone before taking the calendar day —
+            # the same instant is a different date either side of midnight.
             if start_dt.tzinfo is not None:
                 start_dt = start_dt.astimezone(self.timezone)
             if end_dt.tzinfo is not None:
@@ -98,9 +99,7 @@ class DriverReportService:
                 .join(RouteStop)
                 .join(Route)
                 .join(RouteGroup)
-                .where(
-                    RouteGroup.drive_date >= start_d, RouteGroup.drive_date <= end_d
-                )
+                .where(RouteGroup.drive_date >= start_d, RouteGroup.drive_date <= end_d)
             )
 
             result = await session.execute(stmt)

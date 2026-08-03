@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, computed_field
+from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
 
 from app.models.driver import DriverRead
+from app.utilities.utils import validate_password_complexity
 
 
 class LoginRequest(BaseModel):
@@ -10,6 +11,24 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ValidateResetTokenRequest(BaseModel):
+    password_reset_token: str
+
+
+class UpdatePasswordRequest(BaseModel):
+    password_reset_token: str
+    new_password: str = Field(min_length=8, max_length=100)
+
+    @field_validator("new_password")
+    @classmethod
+    def check_password(cls, password: str) -> str:
+        return validate_password_complexity(password)
 
 
 class AuthResponse(BaseModel):

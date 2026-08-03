@@ -21,13 +21,13 @@ function FilterChip({
       className={cn(
         // Base
         'inline-flex items-center justify-center',
-        'h-11 rounded-[40px] px-6',
+        'h-11 rounded-xl px-6',
         'text-p1 font-medium',
         'cursor-pointer transition-colors',
         'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300',
         // Default state
         !selected && [
-          'border-grey-300 bg-grey-200 text-grey-500 border',
+          'border-grey-300 text-grey-500 border bg-white',
           'hover:shadow-harsh',
         ],
         // Selected state
