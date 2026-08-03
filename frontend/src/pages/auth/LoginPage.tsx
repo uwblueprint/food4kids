@@ -47,7 +47,7 @@ const LoginForm = () => {
     e.preventDefault();
     setError(null);
     loginMutation.mutate(
-      { email, password },
+      { email, password, remember_me: rememberMe },
       {
         onSuccess: () => {
           navigate('/'); // 3. Navigate to base route on success
