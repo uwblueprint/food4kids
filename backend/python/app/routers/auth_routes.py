@@ -53,7 +53,7 @@ async def login(
             session, login_request.email, login_request.password
         )
 
-        set_refresh_token_cookie(response, refresh_token)
+        set_refresh_token_cookie(response, refresh_token, login_request.remember_me)
 
         return auth_dto
     except ValueError as e:
@@ -82,12 +82,14 @@ async def refresh(
             detail="Refresh token not found",
         )
 
+    remember_me = request.cookies.get("rememberMe") == "true"
+
     try:
         auth_data, new_refresh_token = await auth_service.renew_token(
             session, refresh_token
         )
 
-        set_refresh_token_cookie(response, new_refresh_token)
+        set_refresh_token_cookie(response, new_refresh_token, remember_me)
 
         return auth_data
     except SessionExpiredError as e:
