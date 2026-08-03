@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuthStore } from './authStore';
 import {
@@ -8,6 +8,7 @@ import {
   login,
   type LoginRequest,
   refresh,
+  logout,
   updatePassword,
   type UpdatePasswordRequest,
   type UserFinalize,
@@ -118,6 +119,26 @@ export function useUpdatePassword() {
         throwOnError: true,
       });
       return data;
+    },
+  });
+}
+
+export function useLogout() {
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await logout({
+        throwOnError: true,
+      });
+    },
+    onSettled: () => {
+      clearAuth();
+      queryClient.clear();
+    },
+    onError: (error) => {
+      console.error('Logout error:', error);
     },
   });
 }

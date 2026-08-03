@@ -149,7 +149,6 @@ import type {
   LoginErrors,
   LoginResponses,
   LogoutData,
-  LogoutErrors,
   LogoutResponses,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponses,
@@ -420,14 +419,14 @@ export const login = <ThrowOnError extends boolean = false>(
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens
+ * Revokes all of the specified driver's refresh tokens and clears cookies
  */
 export const logout = <ThrowOnError extends boolean = false>(
-  options: Options<LogoutData, ThrowOnError>
+  options?: Options<LogoutData, ThrowOnError>
 ) =>
-  (options.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
+  (options?.client ?? client).post<LogoutResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/auth/logout/{user_id}',
+    url: '/auth/logout',
     ...options,
   });
 
