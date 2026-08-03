@@ -79,7 +79,7 @@ class NoteCreate(SQLModel):
     """Create request model - chain_id and user_id set by the service"""
 
     message: str = Field(min_length=1, max_length=2000)
-    attachments: list[Attachment] = Field(default=[])
+    attachments: list[Attachment] = Field(default=[], max_length=3)
 
 
 class NoteRead(NoteBase):
