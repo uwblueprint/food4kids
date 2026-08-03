@@ -3,7 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
-from datetime import time
+from datetime import date, datetime, time
 from uuid import uuid4
 
 import pytest
@@ -267,12 +267,11 @@ class TestCoreBusinessValidation:
         assert group.color in LocationGroup.DEFAULT_PALETTE
 
         # Test RouteGroup required fields
-        from datetime import datetime
 
         with pytest.raises(ValidationError) as exc_info:
             RouteGroup(
                 name="",  # Empty name should fail
-                drive_date=datetime(2024, 1, 15, 8, 0),
+                drive_date=date(2024, 1, 15),
             )
         assert "name" in str(exc_info.value)
 
@@ -457,22 +456,20 @@ class TestCoreModels:
 
     def test_route_group_core_operations(self) -> None:
         """Test RouteGroup model core operations."""
-        from datetime import datetime
-
         # Create
         route_group = RouteGroup(
             name="Morning Routes",
             notes="Routes for morning delivery",
-            drive_date=datetime(2024, 1, 15, 8, 0),
+            drive_date=date(2024, 1, 15),
         )
         assert route_group.name == "Morning Routes"
-        assert route_group.drive_date == datetime(2024, 1, 15, 8, 0)
+        assert route_group.drive_date == date(2024, 1, 15)
         assert route_group.created_at is not None
 
         # Create with defaults
         route_group_minimal = RouteGroup(
             name="Evening Routes",
-            drive_date=datetime(2024, 1, 15, 18, 0),
+            drive_date=date(2024, 1, 15),
         )
         assert route_group_minimal.notes == ""  # Default value
 
@@ -483,7 +480,7 @@ class TestCoreModels:
             route_group_id=uuid4(),
             name="Test Group",
             notes="Test notes",
-            drive_date=datetime(2024, 1, 15, 8, 0),
+            drive_date=date(2024, 1, 15),
             num_routes=3,
             status="Completed",
         )
@@ -522,7 +519,6 @@ class TestCoreModels:
         assert job_no_group.progress == ProgressEnum.RUNNING
 
         # Update
-        from datetime import datetime
 
         job_update = JobUpdate(
             progress=ProgressEnum.COMPLETED,

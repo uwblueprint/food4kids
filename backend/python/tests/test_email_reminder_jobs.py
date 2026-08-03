@@ -1,7 +1,7 @@
 """Tests for the reminder email scheduled job."""
 
 import re
-from datetime import date, datetime, time, timedelta
+from datetime import date, time, timedelta
 from functools import partial
 from typing import Any, ClassVar
 
@@ -86,9 +86,7 @@ async def _seed_driver_with_routes(
         for offset in offsets:
             group = RouteGroup(
                 name=f"Route {offset}",
-                drive_date=datetime.combine(
-                    date.today() + timedelta(days=offset), datetime.min.time()
-                ),
+                drive_date=date.today() + timedelta(days=offset),
             )
             session.add(group)
             await session.commit()
@@ -215,9 +213,7 @@ async def test_unassigned_routes_are_not_emailed(
     async with maker() as session:
         group = RouteGroup(
             name="Unassigned",
-            drive_date=datetime.combine(
-                date.today() + timedelta(days=1), datetime.min.time()
-            ),
+            drive_date=date.today() + timedelta(days=1),
         )
         session.add(group)
         await session.commit()

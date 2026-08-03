@@ -6,7 +6,7 @@ Jobs use the unified EmailDispatcher to render and send emails.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import and_
 from sqlmodel import col, select
@@ -55,8 +55,8 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
             # Narrow in SQL to the span the lead days cover, then match the exact
             # dates below. The span is only a prefilter: non-contiguous lead days
             # (say 1 and 3) cover a range that also contains days nobody asked for.
-            start_of_span = datetime.combine(min(target_dates), datetime.min.time())
-            end_of_span = datetime.combine(max(target_dates), datetime.max.time())
+            start_of_span = min(target_dates)
+            end_of_span = max(target_dates)
 
             statement = (
                 select(Route, User, RouteGroup)
@@ -75,9 +75,7 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
 
             result = await session.execute(statement)
             upcoming_routes = [
-                row
-                for row in result.all()
-                if row.RouteGroup.drive_date.date() in target_dates
+                row for row in result.all() if row.RouteGroup.drive_date in target_dates
             ]
 
             if not upcoming_routes:
@@ -92,12 +90,11 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
 
             for route, user, route_group in upcoming_routes:
                 try:
-                    # drive_date is a datetime but carries no meaningful time of
-                    # day (it is always built at midnight), so start_time is the
-                    # only real clock time. Every route here is assigned, and an
-                    # assigned route is guaranteed a start_time by a CHECK
-                    # constraint -- so a null one means the database drifted from
-                    # its own schema, and inventing a time would hide that.
+                    # drive_date is date-only, so start_time is the only clock
+                    # time. Every route here is assigned, and an assigned route
+                    # is guaranteed a start_time by a CHECK constraint -- so a
+                    # null one means the database drifted from its own schema,
+                    # and inventing a time would hide that.
                     if route.start_time is None:
                         raise ValueError(
                             f"Route {route.route_id} is assigned to a driver but "
@@ -110,7 +107,7 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
                         to=user.email,
                         context={
                             "Driver_Name_To_Replace": user.full_name,
-                            "Date_To_Replace": route_group.drive_date.date().strftime(
+                            "Date_To_Replace": route_group.drive_date.strftime(
                                 "%A, %B %d, %Y"
                             ),
                             "Time_To_Replace": route.start_time.strftime("%I:%M %p"),

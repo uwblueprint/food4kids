@@ -845,9 +845,7 @@ class TestLocationRoutes:
         )
         # RouteGroup must exist before Routes (Route.route_group_id is a
         # mandatory FK).
-        route_group = RouteGroup(
-            name="Future Route Group", drive_date=datetime(2099, 1, 1)
-        )
+        route_group = RouteGroup(name="Future Route Group", drive_date=date(2099, 1, 1))
         test_session.add(route_group)
         test_session.add_all(
             [
@@ -964,7 +962,7 @@ class TestLocationRoutes:
             in_roster=True,
         )
         route_group = RouteGroup(
-            name="Future Combined Route Group", drive_date=datetime(2099, 1, 1)
+            name="Future Combined Route Group", drive_date=date(2099, 1, 1)
         )
         test_session.add(route_group)
         test_session.add_all(
@@ -1484,9 +1482,7 @@ class TestLocationRoutes:
             delivery_type="Family",
             in_roster=True,
         )
-        past_group = RouteGroup(
-            name="Past Route Group", drive_date=datetime(2024, 6, 1)
-        )
+        past_group = RouteGroup(name="Past Route Group", drive_date=date(2024, 6, 1))
         test_session.add_all([loc, past_group])
         await test_session.commit()
         await test_session.refresh(loc)
@@ -1546,7 +1542,7 @@ class TestLocationRoutes:
             in_roster=True,
         )
         future_group = RouteGroup(
-            name="Future Route Group", drive_date=datetime(2099, 7, 1)
+            name="Future Route Group", drive_date=date(2099, 7, 1)
         )
         test_session.add_all([loc, future_group])
         await test_session.commit()
@@ -1595,8 +1591,8 @@ class TestLocationRoutes:
             delivery_type="Family",
             in_roster=True,
         )
-        sooner_group = RouteGroup(name="Sooner Group", drive_date=datetime(2098, 1, 1))
-        later_group = RouteGroup(name="Later Group", drive_date=datetime(2099, 1, 1))
+        sooner_group = RouteGroup(name="Sooner Group", drive_date=date(2098, 1, 1))
+        later_group = RouteGroup(name="Later Group", drive_date=date(2099, 1, 1))
         test_session.add_all([loc, sooner_group, later_group])
         await test_session.commit()
         await test_session.refresh(loc)
@@ -2690,6 +2686,29 @@ class TestRouteRoutes:
         assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
+    async def test_get_routes_date_filter_accepts_a_plain_date(
+        self, async_client: AsyncClient
+    ) -> None:
+        """drive_date is date-only, so the filters take a date."""
+        response = await async_client.get(
+            "/routes?start_date=2024-01-01&end_date=2024-12-31"
+        )
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_routes_rejects_an_unparseable_date(
+        self, async_client: AsyncClient
+    ) -> None:
+        """A bad date is a client error, not a 500.
+
+        These params were typed `str` and parsed by hand inside the service, so
+        anything the parser choked on surfaced as an unhandled ValueError.
+        Declaring them as dates moves the rejection into FastAPI's validation.
+        """
+        response = await async_client.get("/routes?start_date=not-a-date")
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_get_routes_with_data(
         self,
         async_client: AsyncClient,
@@ -2740,7 +2759,7 @@ class TestRouteRoutes:
         await test_session.commit()
 
         # A second route in a later-dated group, to exercise drive_date ordering.
-        later_group = RouteGroup(name="Later Group", drive_date=datetime(2024, 6, 1))
+        later_group = RouteGroup(name="Later Group", drive_date=date(2024, 6, 1))
         test_session.add(later_group)
         await test_session.commit()
         await test_session.refresh(later_group)
@@ -2895,7 +2914,7 @@ class TestRouteRoutes:
         # Both routes share a group, so they share its drive_date and status.
         expected_status = (
             RouteStatusEnum.UPCOMING
-            if test_route_group.drive_date.date() >= date.today()
+            if test_route_group.drive_date >= date.today()
             else RouteStatusEnum.COMPLETED
         )
         assert served_row["status"] == expected_status.value
@@ -2944,8 +2963,8 @@ class TestRouteRoutes:
         test_session: AsyncSession,
     ) -> None:
         """Routes status filter: Upcoming = today or later, Completed = earlier."""
-        future_group = RouteGroup(name="Future", drive_date=datetime(2099, 1, 1))
-        past_group = RouteGroup(name="Past", drive_date=datetime(2020, 1, 1))
+        future_group = RouteGroup(name="Future", drive_date=date(2099, 1, 1))
+        past_group = RouteGroup(name="Past", drive_date=date(2020, 1, 1))
         test_session.add_all([future_group, past_group])
         await test_session.flush()
         upcoming = Route(
@@ -3048,9 +3067,7 @@ class TestRouteRoutes:
         past_group = RouteGroup(
             name="Past Route Group",
             notes="",
-            drive_date=datetime.combine(
-                date.today() - timedelta(days=7), datetime.min.time()
-            ),
+            drive_date=date.today() - timedelta(days=7),
         )
         loc = Location(
             location_group_id=test_location_group.location_group_id,
@@ -3249,7 +3266,7 @@ class TestRouteRoutes:
             num_children=2,
             delivery_type="Family",
         )
-        past_group = RouteGroup(name="Past Group", drive_date=datetime(2024, 1, 1))
+        past_group = RouteGroup(name="Past Group", drive_date=date(2024, 1, 1))
         test_session.add_all([note_chain, loc, past_group])
         await test_session.commit()
         await test_session.refresh(note_chain)
@@ -3707,7 +3724,6 @@ class TestRouteRoutes:
     ) -> None:
         """GET /routes/{id}/suggested-driver returns the active driver most
         familiar with the route's locations from past frozen deliveries."""
-        from datetime import datetime
 
         from app.models.driver import Driver
         from app.models.route import Route
@@ -3749,7 +3765,7 @@ class TestRouteRoutes:
         )
         # The driver's past route lives in its own (earlier) group, so the
         # no-double-book exclusion doesn't remove them from the target group.
-        past_group = RouteGroup(name="Past Day", drive_date=datetime(2020, 1, 1))
+        past_group = RouteGroup(name="Past Day", drive_date=date(2020, 1, 1))
         test_session.add_all([loc_a, loc_b, user, driver, past_group])
         await test_session.commit()
         await test_session.refresh(loc_a)
@@ -4033,7 +4049,7 @@ class TestRouteGroupRoutes:
         route_group = RouteGroup(
             name="July 9 - Tuesday A",
             notes="original notes",
-            drive_date=datetime(2026, 7, 9, 9, 0),
+            drive_date=date(2026, 7, 9),
         )
         test_session.add(route_group)
         await test_session.flush()
@@ -4165,7 +4181,7 @@ class TestRouteGroupRoutes:
         route_group = RouteGroup(
             name=long_name,
             notes="empty group",
-            drive_date=datetime(2026, 7, 10, 9, 0),
+            drive_date=date(2026, 7, 10),
         )
         test_session.add(route_group)
         await test_session.commit()
@@ -4189,7 +4205,7 @@ class TestRouteGroupRoutes:
         route_group = RouteGroup(
             name="Tuesday A - Cambridge North",
             notes="",
-            drive_date=datetime(2026, 7, 9, 9, 0),
+            drive_date=date(2026, 7, 9),
         )
         test_session.add(route_group)
         await test_session.commit()
@@ -4198,7 +4214,7 @@ class TestRouteGroupRoutes:
             f"/route-groups/{route_group.route_group_id}/duplicate",
             json={
                 "name": "Tuesday A - Cambridge North (Copy)",
-                "drive_date": "2026-07-16T00:00:00",
+                "drive_date": "2026-07-16",
             },
         )
 
@@ -4206,7 +4222,7 @@ class TestRouteGroupRoutes:
         body = response.json()
         assert body["route_group_id"] != str(route_group.route_group_id)
         assert body["name"] == "Tuesday A - Cambridge North (Copy)"
-        assert body["drive_date"] == "2026-07-16T00:00:00"
+        assert body["drive_date"] == "2026-07-16"
         # The copy has no stops yet, so it has no delivery type to report.
         assert body["delivery_type"] is None
 
@@ -4309,8 +4325,8 @@ class TestRouteGroupRoutes:
         test_route_group: Any,  # noqa: ARG002
     ) -> None:
         """Test GET /route-groups with date filters."""
-        start_date = datetime(2024, 1, 1).isoformat()
-        end_date = datetime(2024, 12, 31).isoformat()
+        start_date = date(2024, 1, 1).isoformat()
+        end_date = date(2024, 12, 31).isoformat()
 
         response = await async_client.get(
             f"/route-groups?start_date={start_date}&end_date={end_date}"
@@ -4326,11 +4342,11 @@ class TestRouteGroupRoutes:
         """GET /route-groups?search filters (case-insensitive) on the group name."""
         cambridge = RouteGroup(
             name="Tuesday A - Cambridge North",
-            drive_date=datetime(2026, 7, 9, 9, 0),
+            drive_date=date(2026, 7, 9),
         )
         elmira = RouteGroup(
             name="Wednesday B - Elmira",
-            drive_date=datetime(2026, 7, 10, 9, 0),
+            drive_date=date(2026, 7, 10),
         )
         test_session.add_all([cambridge, elmira])
         await test_session.commit()
@@ -4353,11 +4369,11 @@ class TestRouteGroupRoutes:
         match rather than the page.
         """
         groups = [
-            RouteGroup(name=f"Page Test {i}", drive_date=datetime(2026, 7, i, 9, 0))
+            RouteGroup(name=f"Page Test {i}", drive_date=date(2026, 7, i))
             for i in range(1, 6)
         ]
         # A group the search excludes, to prove `total` reflects the filter.
-        other = RouteGroup(name="Excluded", drive_date=datetime(2026, 7, 6, 9, 0))
+        other = RouteGroup(name="Excluded", drive_date=date(2026, 7, 6))
         test_session.add_all([*groups, other])
         await test_session.commit()
 
@@ -4396,7 +4412,7 @@ class TestRouteGroupRoutes:
         shares one date, which is the normal case (a day's worth of routes), so
         the tie-break is the only thing deciding the order.
         """
-        shared_date = datetime(2026, 8, 3, 9, 0)
+        shared_date = date(2026, 8, 3)
         test_session.add_all(
             [
                 RouteGroup(name=f"Tied {i:02d}", drive_date=shared_date)
@@ -4429,7 +4445,7 @@ class TestRouteGroupRoutes:
         The key case: a partially-staffed group counts as Unassigned, not
         Assigned.
         """
-        drive_date = datetime(2026, 8, 4, 9, 0)
+        drive_date = date(2026, 8, 4)
         full = RouteGroup(name="Full Staff", drive_date=drive_date)
         partial = RouteGroup(name="Partial Staff", drive_date=drive_date)
         none_assigned = RouteGroup(name="No Staff", drive_date=drive_date)
@@ -4519,7 +4535,7 @@ class TestRouteGroupRoutes:
         )
         test_session.add_all([fam_loc, sch_loc])
         await test_session.flush()
-        drive_date = datetime(2026, 8, 5, 9, 0)
+        drive_date = date(2026, 8, 5)
         fam_group = RouteGroup(name="Fam Group", drive_date=drive_date)
         sch_group = RouteGroup(name="Sch Group", drive_date=drive_date)
         test_session.add_all([fam_group, sch_group])
@@ -4565,7 +4581,7 @@ class TestRouteGroupRoutes:
         Confirms the routes relationship loads without an async lazy-load 500
         and the routes payload is correctly populated.
         """
-        rg = RouteGroup(name="RG", drive_date=datetime(2026, 6, 1))
+        rg = RouteGroup(name="RG", drive_date=date(2026, 6, 1))
         test_session.add(rg)
         await test_session.commit()
         await test_session.refresh(rg)
@@ -4591,7 +4607,7 @@ class TestRouteGroupRoutes:
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
         """A route group with no memberships returns zeroed aggregates and expected status."""
-        rg = RouteGroup(name="Empty Group", drive_date=datetime(2020, 1, 1))
+        rg = RouteGroup(name="Empty Group", drive_date=date(2020, 1, 1))
         test_session.add(rg)
         await test_session.commit()
         await test_session.refresh(rg)
@@ -4629,7 +4645,7 @@ class TestRouteGroupRoutes:
         )
         test_session.add(location)
 
-        rg = RouteGroup(name="School Group", drive_date=datetime(2020, 3, 1))
+        rg = RouteGroup(name="School Group", drive_date=date(2020, 3, 1))
         test_session.add(rg)
         await test_session.flush()
 
@@ -4674,7 +4690,7 @@ class TestRouteGroupRoutes:
         )
         test_session.add(location)
 
-        rg = RouteGroup(name="Pantry Route Group", drive_date=datetime(2020, 3, 1))
+        rg = RouteGroup(name="Pantry Route Group", drive_date=date(2020, 3, 1))
         test_session.add(rg)
         await test_session.flush()
 
@@ -4742,7 +4758,7 @@ class TestRouteGroupRoutes:
         )
         test_session.add_all([loc_a, loc_b])
 
-        rg = RouteGroup(name="Boxes Group", drive_date=datetime(2020, 4, 1))
+        rg = RouteGroup(name="Boxes Group", drive_date=date(2020, 4, 1))
         test_session.add(rg)
         await test_session.flush()
 
@@ -4779,17 +4795,15 @@ class TestRouteGroupRoutes:
     ) -> None:
         """A route group whose drive_date is today reports status 'Upcoming'.
 
-        drive_date is stored date-only (midnight) and is computed here in the
-        scheduler timezone to match the service's clock.
+        drive_date is stored date-only and is computed here in the scheduler
+        timezone to match the service's clock.
         """
         from zoneinfo import ZoneInfo
 
         from app.config import settings
 
         tz = ZoneInfo(settings.scheduler_timezone)
-        today = datetime.now(tz).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-        )
+        today = datetime.now(tz).date()
 
         rg = RouteGroup(name="Today Group", drive_date=today)
         test_session.add(rg)

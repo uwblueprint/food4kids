@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -40,6 +40,10 @@ class RouteGroupService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         self.timezone = ZoneInfo(settings.scheduler_timezone)
+
+    def _today(self) -> date:
+        """Today's date in the project's configured timezone."""
+        return datetime.now(self.timezone).date()
 
     async def create_route_group(
         self, session: AsyncSession, route_group_data: RouteGroupCreate
@@ -234,11 +238,10 @@ class RouteGroupService:
             .label("delivery_type")
         )
 
-        now = datetime.now(self.timezone).replace(tzinfo=None)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today = self._today()
 
         status_expr = case(
-            (RouteGroup.drive_date >= today_start, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
+            (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
             else_=RouteStatusEnum.COMPLETED.value,
         ).label("status")
 
@@ -287,8 +290,8 @@ class RouteGroupService:
     async def get_route_groups(
         self,
         session: AsyncSession,
-        start_date: datetime | None = None,
-        end_date: datetime | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         weekday: list[DriveDaysOfWeekEnum] | None = None,
         delivery_type: list[str] | None = None,
         route_status: list[RouteStatusEnum] | None = None,
@@ -348,18 +351,17 @@ class RouteGroupService:
             )
 
         if route_status:
-            now = datetime.now(self.timezone).replace(tzinfo=None)
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            thirty_days_ago = now - timedelta(days=30)
+            today = self._today()
+            thirty_days_ago = today - timedelta(days=30)
 
             status_conditions: list[Any] = []
             if RouteStatusEnum.UPCOMING in route_status:
-                status_conditions.append(RouteGroup.drive_date >= today_start)
+                status_conditions.append(RouteGroup.drive_date >= today)
 
             if RouteStatusEnum.COMPLETED in route_status:
                 status_conditions.append(
                     and_(
-                        RouteGroup.drive_date <= now,  # type: ignore[arg-type]
+                        RouteGroup.drive_date < today,  # type: ignore[arg-type]
                         RouteGroup.drive_date >= thirty_days_ago,  # type: ignore[arg-type]
                     )
                 )

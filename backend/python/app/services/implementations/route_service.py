@@ -1,7 +1,8 @@
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import case, func, or_
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
+from app.config import settings
 from app.models.driver import Driver
 from app.models.enum import (
     DriveDaysOfWeekEnum,
@@ -63,8 +65,8 @@ class RouteService:
         self,
         session: AsyncSession,
         unassigned_only: bool = False,
-        start_date: str | None = None,
-        end_date: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         pagination: PaginationParams | None = None,
         driver_id: UUID | None = None,
         order: Literal["asc", "desc"] = "asc",
@@ -139,11 +141,14 @@ class RouteService:
             .label("delivery_type")
         )
 
-        # status: upcoming if drive_date is today or future, else completed
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        # status: upcoming if drive_date is today or future, else completed.
+        # "Today" is the warehouse's today, not UTC's — read in UTC, an evening
+        # in Eastern has already rolled over, so tomorrow's routes would show
+        # as completed. Matches RouteGroupService, which reports the same
+        # status for the group these routes belong to.
+        today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
         status_expr = case(
-            (RouteGroup.drive_date >= today_start, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
+            (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
             else_=RouteStatusEnum.COMPLETED.value,
         ).label("status")
 
@@ -177,11 +182,9 @@ class RouteService:
         ).outerjoin(User, col(User.user_id) == col(Driver.user_id))
 
         if start_date:
-            start_dt = datetime.fromisoformat(start_date)
-            statement = statement.where(RouteGroup.drive_date >= start_dt)
+            statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-            statement = statement.where(RouteGroup.drive_date <= end_dt)
+            statement = statement.where(RouteGroup.drive_date <= end_date)
 
         if unassigned_only:
             statement = statement.where(col(Route.driver_id).is_(None))
@@ -224,13 +227,13 @@ class RouteService:
             )
 
         if route_status:
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Same cutoff as status_expr above — a row filtered as Upcoming has
+            # to come back labelled Upcoming.
             status_conditions: list[Any] = []
             if RouteStatusEnum.UPCOMING in route_status:
-                status_conditions.append(RouteGroup.drive_date >= today_start)
+                status_conditions.append(RouteGroup.drive_date >= today)
             if RouteStatusEnum.COMPLETED in route_status:
-                status_conditions.append(RouteGroup.drive_date < today_start)
+                status_conditions.append(RouteGroup.drive_date < today)
             if status_conditions:
                 statement = statement.where(or_(*status_conditions))
 
@@ -339,7 +342,7 @@ class RouteService:
             # endpoint's RouteWithDateRead).
             drive_date = (
                 await session.execute(
-                    select(RouteGroup.drive_date).where(
+                    select(col(RouteGroup.drive_date)).where(
                         RouteGroup.route_group_id == route.route_group_id
                     )
                 )

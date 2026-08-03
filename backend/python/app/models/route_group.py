@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, Date
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -16,7 +17,9 @@ class RouteGroupBase(SQLModel):
 
     name: str = Field(min_length=1, max_length=255, nullable=False)
     notes: str = Field(default="")
-    drive_date: datetime
+    # Date-only on purpose: a drive date is a calendar day, not an instant, so
+    # storing it as a timestamp invited UTC-offset drift on read.
+    drive_date: date = Field(sa_column=Column(Date(), nullable=False))
 
 
 class RouteGroup(RouteGroupBase, BaseModel, table=True):
@@ -83,7 +86,7 @@ class RouteGroupUpdate(SQLModel):
 
     name: str | None = None
     notes: str | None = None
-    drive_date: datetime | None = None
+    drive_date: date | None = None
 
 
 class RouteGroupDuplicate(SQLModel):
@@ -94,4 +97,4 @@ class RouteGroupDuplicate(SQLModel):
     """
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
-    drive_date: datetime | None = None
+    drive_date: date | None = None

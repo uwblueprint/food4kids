@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -126,6 +126,64 @@ class TestBuildPayload:
             # Demand is the derived box count, not raw children:
             # ceil(2 children / 2 per box) = 1 box.
             assert delivery["loadDemands"] == {"load": {"amount": "1"}}
+
+    def test_global_start_time_anchors_the_model(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """route_start_time lands on model.globalStartTime, not on the vehicles.
+
+        A Vehicle has no scalar start time (only startTimeWindows), so a
+        timestamp put there is silently dropped by the API.
+        """
+        payload = algorithm._build_payload(
+            [make_location()], 43.0, -79.0, sample_settings
+        )
+        model = payload["model"]
+
+        # January 1st is outside DST, so America/New_York is UTC-5 here.
+        assert model["globalStartTime"] == "2025-01-01T09:00:00-05:00"
+        assert "globalEndTime" not in model
+        for vehicle in model["vehicles"]:
+            assert "startTime" not in vehicle
+
+    def test_global_start_time_keeps_the_drive_date(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """The date half of route_start_time reaches the API, not just the time.
+
+        The optimizer plans against the timestamp's day, so a settings object
+        built for July must not come out anchored to some other date.
+        """
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2026, 7, 9, 8, 30),
+        )
+
+        payload = algorithm._build_payload([make_location()], 43.0, -79.0, settings)
+
+        # July is DST, so the offset shifts to UTC-4 — same wall clock, and the
+        # date is carried through untouched.
+        assert payload["model"]["globalStartTime"] == "2026-07-09T08:30:00-04:00"
+
+    def test_global_start_time_preserves_an_explicit_offset(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """A tz-aware route_start_time is passed through, not re-stamped."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+        )
+
+        payload = algorithm._build_payload([make_location()], 43.0, -79.0, settings)
+
+        assert payload["model"]["globalStartTime"] == "2025-01-01T14:00:00+00:00"
 
     def test_service_duration_on_deliveries(
         self,

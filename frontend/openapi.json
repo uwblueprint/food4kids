@@ -2619,7 +2619,7 @@
             "title": "Delivery Type"
           },
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -2807,7 +2807,7 @@
         "description": "Create request model",
         "properties": {
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -2836,7 +2836,7 @@
           "drive_date": {
             "anyOf": [
               {
-                "format": "date-time",
+                "format": "date",
                 "type": "string"
               },
               {
@@ -2889,7 +2889,7 @@
             "title": "Delivery Type"
           },
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -2968,7 +2968,7 @@
           "drive_date": {
             "anyOf": [
               {
-                "format": "date-time",
+                "format": "date",
                 "type": "string"
               },
               {
@@ -3324,7 +3324,7 @@
             "title": "Delivery Type"
           },
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -6603,7 +6603,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "format": "date-time",
+                  "format": "date",
                   "type": "string"
                 },
                 {
@@ -6622,7 +6622,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "format": "date-time",
+                  "format": "date",
                   "type": "string"
                 },
                 {
@@ -7041,9 +7041,17 @@
             "name": "start_date",
             "required": false,
             "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "Filter route groups from this date",
-              "title": "Start Date",
-              "type": "string"
+              "title": "Start Date"
             }
           },
           {
@@ -7052,9 +7060,17 @@
             "name": "end_date",
             "required": false,
             "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "Filter route groups until this date",
-              "title": "End Date",
-              "type": "string"
+              "title": "End Date"
             }
           },
           {

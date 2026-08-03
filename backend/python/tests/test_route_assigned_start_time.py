@@ -6,7 +6,7 @@ get around it, and a service-layer check so a client sees a 400 instead of the
 database raising a 500 at them.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, time, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -48,9 +48,7 @@ async def _make_driver(session: AsyncSession) -> Driver:
 async def _make_route_group(session: AsyncSession) -> RouteGroup:
     group = RouteGroup(
         name=f"Group {uuid4().hex[:6]}",
-        drive_date=datetime.combine(
-            date.today() + timedelta(days=1), datetime.min.time()
-        ),
+        drive_date=date.today() + timedelta(days=1),
     )
     session.add(group)
     await session.commit()

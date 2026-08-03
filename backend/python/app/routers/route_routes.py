@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Literal
 from uuid import UUID
 
@@ -42,8 +43,12 @@ async def get_routes(
         False,
         description="If true, only return unassigned routes. If false, return all routes regardless of assignment status.",
     ),
-    start_date: str = Query(None, description="Filter route groups from this date"),
-    end_date: str = Query(None, description="Filter route groups until this date"),
+    start_date: date | None = Query(
+        None, description="Filter route groups from this date"
+    ),
+    end_date: date | None = Query(
+        None, description="Filter route groups until this date"
+    ),
     order: Literal["asc", "desc"] = Query(
         "asc",
         description="Order by drive_date: 'asc' (default, oldest-first) for the "

@@ -3,7 +3,7 @@ import logging
 import os
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, TypeGuard
 from uuid import UUID
@@ -127,15 +127,9 @@ class LocationService:
         self.system_settings_service = system_settings_service
         self.timezone = ZoneInfo(settings.scheduler_timezone)
 
-    def _today_start(self) -> datetime:
-        """Midnight at the start of today in the project's configured timezone.
-
-        Naive datetime to match how drive_date is stored (drive_date columns
-        are naive — see RouteGroup).
-        """
-        return datetime.now(self.timezone).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-        )
+    def _today(self) -> date:
+        """Today's date in the project's configured timezone."""
+        return datetime.now(self.timezone).date()
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -235,7 +229,7 @@ class LocationService:
                 )
 
             if status_filter:
-                today_start = self._today_start()
+                today = self._today()
                 # Subquery: this location has a stop in a route whose group's
                 # drive_date is today/future AND the route isn't yet frozen.
                 is_scheduled = (
@@ -251,7 +245,7 @@ class LocationService:
                         RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
                     )
                     .where(RouteStop.location_id == Location.location_id)
-                    .where(RouteGroup.drive_date >= today_start)
+                    .where(RouteGroup.drive_date >= today)
                     .where(col(RouteSnapshot.route_id).is_(None))
                     .exists()
                 )
@@ -346,7 +340,7 @@ class LocationService:
         ids = list(location_ids)
         if not ids:
             return set()
-        today_start = self._today_start()
+        today = self._today()
         statement = (
             select(RouteStop.location_id)
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
@@ -356,7 +350,7 @@ class LocationService:
                 RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
             )
             .where(col(RouteStop.location_id).in_(ids))
-            .where(RouteGroup.drive_date >= today_start)
+            .where(RouteGroup.drive_date >= today)
             .where(col(RouteSnapshot.route_id).is_(None))
             .distinct()
         )
@@ -374,9 +368,9 @@ class LocationService:
         ids = list(location_ids)
         if not ids:
             return {}
-        today_start = self._today_start()
+        today = self._today()
         statement = (
-            select(RouteStop.location_id, Route.name, RouteGroup.drive_date)
+            select(RouteStop.location_id, Route.name, col(RouteGroup.drive_date))
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
             .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
             .outerjoin(
@@ -384,7 +378,7 @@ class LocationService:
                 RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
             )
             .where(col(RouteStop.location_id).in_(ids))
-            .where(RouteGroup.drive_date >= today_start)
+            .where(RouteGroup.drive_date >= today)
             .where(col(RouteSnapshot.route_id).is_(None))
             .order_by(col(RouteGroup.drive_date).asc())
         )
@@ -573,7 +567,7 @@ class LocationService:
             if total:
                 sample = (
                     await session.execute(
-                        select(Route.name, RouteGroup.drive_date)
+                        select(Route.name, col(RouteGroup.drive_date))
                         .select_from(RouteStop)
                         .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
                         .join(
@@ -586,7 +580,7 @@ class LocationService:
                     )
                 ).all()
                 routes_desc = ", ".join(
-                    f"'{name}' ({drive_date.date()})" for name, drive_date in sample
+                    f"'{name}' ({drive_date})" for name, drive_date in sample
                 )
                 more = f" and {total - len(sample)} more" if total > len(sample) else ""
                 raise LocationInUseError(
