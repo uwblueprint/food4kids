@@ -1,5 +1,5 @@
-import PhoneIcon from '@/assets/icons/phone.svg?react';
 import type { RouteStopDetailRead } from '@/api/generated/types.gen';
+import PhoneIcon from '@/assets/icons/phone.svg?react';
 import { Button } from '@/common/components';
 
 import { formatPhoneDisplay, telHref } from './noteUtils';

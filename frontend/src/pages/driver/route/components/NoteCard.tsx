@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
+import type { NoteRead } from '@/api/generated/types.gen';
 import EditIcon from '@/assets/icons/edit.svg?react';
 import MoreHorizontalIcon from '@/assets/icons/more-horizontal.svg?react';
 import TrashIcon from '@/assets/icons/trash.svg?react';
-import type { NoteRead } from '@/api/generated/types.gen';
 import { Button } from '@/common/components';
 import {
   Popover,

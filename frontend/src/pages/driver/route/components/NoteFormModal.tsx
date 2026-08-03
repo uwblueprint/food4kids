@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-import XIcon from '@/assets/icons/x.svg?react';
-import type { Attachment, NoteRead } from '@/api/generated/types.gen';
 import { describeApiFailure } from '@/api/errors';
+import type { Attachment, NoteRead } from '@/api/generated/types.gen';
 import { useUploadImage } from '@/api/notes';
+import XIcon from '@/assets/icons/x.svg?react';
 import {
   Button,
   Field,
@@ -14,6 +14,11 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/common/components';
+import {
+  DESKTOP_MODAL_LAYOUT,
+  SHEET_MODAL_LAYOUT,
+  sheetHeightStyle,
+} from '@/features/announcements/utils';
 import { cn } from '@/lib/utils';
 
 import {
@@ -56,7 +61,7 @@ function RemoveImageButton({
   return (
     <button
       type="button"
-      className="bg-grey-400 text-grey-100 absolute -right-1.5 -bottom-1.5 flex size-5 items-center justify-center rounded-full transition-colors hover:bg-grey-500 disabled:opacity-60"
+      className="bg-grey-400 text-grey-100 hover:bg-grey-500 absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full transition-colors disabled:opacity-60"
       aria-label="Remove image"
       disabled={disabled}
       onClick={onClick}
@@ -87,8 +92,11 @@ function NoteForm({
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagesRef = useRef(images);
-  imagesRef.current = images;
   const uploadImage = useUploadImage();
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
 
   useEffect(() => {
     return () => {
@@ -187,7 +195,7 @@ function NoteForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex min-h-0 flex-1 flex-col gap-4"
+      className="flex min-h-0 flex-1 flex-col gap-6"
     >
       <ModalHeader className="shrink-0">
         <ModalTitle>{mode === 'edit' ? 'Edit note' : 'Add a note'}</ModalTitle>
@@ -202,7 +210,8 @@ function NoteForm({
               'border-grey-300 flex min-h-0 flex-1 flex-col rounded-xl border bg-white',
               'focus-within:border-blue-300 focus-within:ring-1 focus-within:ring-blue-300',
               busy && 'bg-grey-150 cursor-not-allowed opacity-60',
-              error && 'border-red focus-within:border-red focus-within:ring-red'
+              error &&
+                'border-red focus-within:border-red focus-within:ring-red'
             )}
           >
             <textarea
@@ -220,7 +229,7 @@ function NoteForm({
             />
 
             {mode === 'create' && images.length > 0 && (
-              <div className="flex flex-wrap gap-2 px-3 pt-1 pr-4 pb-4">
+              <div className="flex flex-wrap gap-2 px-3 pt-2 pr-4 pb-3">
                 {images.map((image) => (
                   <div
                     key={image.previewUrl}
@@ -264,7 +273,7 @@ function NoteForm({
         </p>
       )}
 
-      <ModalFooter className="mt-auto shrink-0 justify-end">
+      <ModalFooter className="mt-auto shrink-0 [&_button]:flex-1">
         {mode === 'create' && (
           <>
             <input
@@ -278,7 +287,6 @@ function NoteForm({
             <Button
               type="button"
               variant="secondary"
-              className="w-auto"
               disabled={busy || images.length >= NOTE_IMAGE_MAX}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -286,7 +294,7 @@ function NoteForm({
             </Button>
           </>
         )}
-        <Button type="submit" className="w-auto" disabled={!canSubmit}>
+        <Button type="submit" disabled={!canSubmit}>
           {busy ? 'Saving…' : mode === 'edit' ? 'Save' : 'Add note'}
         </Button>
       </ModalFooter>
@@ -304,7 +312,15 @@ export function NoteFormModal({
 }: NoteFormModalProps) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="flex max-h-[min(640px,90vh)] min-h-0 flex-col">
+      <ModalContent
+        className={cn(
+          'flex min-h-0 flex-col',
+          SHEET_MODAL_LAYOUT,
+          DESKTOP_MODAL_LAYOUT,
+          'desktop:h-[min(560px,85vh)]'
+        )}
+        style={sheetHeightStyle() as React.CSSProperties}
+      >
         {open ? (
           <NoteForm
             key={formKey(mode, note)}
