@@ -1,8 +1,9 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
-import { useRefresh, useLogout } from '@/api/auth';
+import { useLogout, useRefresh } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
+
 import { useInactivityTimeout } from './useInactivityTimeout';
 
 const PUBLIC_ROUTES = [
@@ -32,7 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logoutMutation = useLogout();
 
   useInactivityTimeout({
-    onTimeout: () => { logoutMutation.mutate(); },
+    onTimeout: () => {
+      logoutMutation.mutate();
+    },
     enabled: isAuthenticated && !rememberMe && !isPublicRoute,
   });
 
