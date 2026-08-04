@@ -38,6 +38,7 @@ auth_service = AuthService(logger, user_service, driver_service, email_service)
 
 # Security scheme
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 
 class DriverAccess(StrEnum):

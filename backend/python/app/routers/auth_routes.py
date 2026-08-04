@@ -4,10 +4,11 @@ from typing import Any
 
 import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import get_access_token
+from app.dependencies.auth import optional_security
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -106,7 +107,7 @@ async def refresh(
 async def logout(
     response: Response,
     session: AsyncSession = Depends(get_session),
-    access_token: str = Depends(get_access_token),
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
 ) -> None:
@@ -114,20 +115,24 @@ async def logout(
     Revokes all of the specified driver's refresh tokens and clears cookies
     """
     try:
-        decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
-            access_token,
-            check_revoked=False,  # Allow it to clear even if token expired
-        )
-        firebase_uid = decoded_token["uid"]
+        if credentials is not None:
+            access_token = credentials.credentials
 
-        database_user_id = await user_service.get_user_id_by_auth_id(
-            session, firebase_uid
-        )
-        if database_user_id:
-            await auth_service.revoke_tokens(session, database_user_id)
+            decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
+                access_token,
+                check_revoked=False,  # Allow it to clear even if token expired
+            )
+            firebase_uid = decoded_token["uid"]
+
+            database_user_id = await user_service.get_user_id_by_auth_id(
+                session, firebase_uid
+            )
+            if database_user_id:
+                await auth_service.revoke_tokens(session, database_user_id)
 
     except Exception:
         logger.exception("Failed to revoke refresh tokens during logout")
+
     finally:
         # Always clear auth cookies
         clear_auth_cookies(response)
