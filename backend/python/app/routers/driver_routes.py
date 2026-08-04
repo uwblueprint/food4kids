@@ -204,7 +204,7 @@ async def complete_driver_registration(
 
     # Generate authentication tokens
     auth_dto, refresh_token = await auth_service.generate_token(
-        session, user.email, registration_data.password
+        session, user.email, registration_data.password, remember_me=False
     )
 
     # Set refresh token as httpOnly cookie

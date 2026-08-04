@@ -15,6 +15,7 @@ interface AuthState {
   } | null;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
+  rememberMe: boolean;
   setAuth: (authData: AuthResponse) => void;
   setAuthFromRegister: (registerData: DriverRegisterResponse) => void;
   clearAuth: () => void;
@@ -25,6 +26,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isRestoringSession: true,
+  rememberMe: false,
 
   // Called after a successful Login
   setAuth: (authData) =>
@@ -40,6 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       },
       isAuthenticated: true,
       isRestoringSession: false,
+      rememberMe: authData.remember_me,
     }),
 
   // Called after a successful Registration
@@ -57,6 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       },
       isAuthenticated: true,
       isRestoringSession: false,
+      rememberMe: registerData.auth.remember_me,
     }),
 
   clearAuth: () =>
@@ -65,5 +69,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       isAuthenticated: false,
       isRestoringSession: false,
+      rememberMe: false,
     }),
 }));
