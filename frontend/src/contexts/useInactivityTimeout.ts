@@ -15,14 +15,21 @@ export function useInactivityTimeout({
 }: UseInactivityTimeoutOptions) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Always keep the latest callback without restarting the timer.
+  const onTimeoutRef = useRef(onTimeout);
+
+  useEffect(() => {
+    onTimeoutRef.current = onTimeout;
+  }, [onTimeout]);
+
   const resetTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
     timerRef.current = setTimeout(() => {
-      onTimeout();
+      onTimeoutRef.current();
     }, timeoutMs);
-  }, [onTimeout, timeoutMs]);
+  }, [timeoutMs]);
 
   useEffect(() => {
     if (!enabled) return;
