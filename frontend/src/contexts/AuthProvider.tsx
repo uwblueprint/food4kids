@@ -22,17 +22,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
+  const rememberMe = useAuthStore((state) => state.rememberMe);
 
   const location = useLocation();
   const isPublicRoute = PUBLIC_ROUTES.some((route) =>
     location.pathname.startsWith(route)
   );
 
-  const useLogoutMutation = useLogout();
+  const logoutMutation = useLogout();
 
   useInactivityTimeout({
-    onTimeout: () => { useLogoutMutation.mutate(); },
-    enabled: isAuthenticated && !isPublicRoute,
+    onTimeout: () => { logoutMutation.mutate(); },
+    enabled: isAuthenticated && !rememberMe && !isPublicRoute,
   });
 
   if (isPublicRoute) {
