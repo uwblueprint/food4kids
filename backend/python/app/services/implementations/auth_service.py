@@ -66,7 +66,7 @@ class AuthService:
         self.firebase_rest_client: FirebaseRestClient = FirebaseRestClient(logger)
 
     async def generate_token(
-        self, session: AsyncSession, email: str, password: str
+        self, session: AsyncSession, email: str, password: str, remember_me: bool
     ) -> tuple[AuthResponse, str]:
         try:
             # Always attempt Firebase authentication first
@@ -89,6 +89,7 @@ class AuthService:
                 last_name=user.last_name,
                 email=user.email,
                 role=user.role,
+                remember_me=remember_me,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -112,7 +113,7 @@ class AuthService:
             raise e
 
     async def renew_token(
-        self, session: AsyncSession, refresh_token: str
+        self, session: AsyncSession, refresh_token: str, remember_me: bool
     ) -> tuple[AuthResponse, str]:
         """Exchange a refresh token for a fresh session.
 
@@ -150,5 +151,6 @@ class AuthService:
             last_name=user.last_name,
             email=user.email,
             role=user.role,
+            remember_me=remember_me,
         )
         return auth_response, token_response.refresh_token

@@ -52,7 +52,7 @@ async def login(
     logger.info(f"Login request for {login_request.email}")
     try:
         auth_dto, refresh_token = await auth_service.generate_token(
-            session, login_request.email, login_request.password
+            session, login_request.email, login_request.password, login_request.remember_me
         )
 
         set_refresh_token_cookie(response, refresh_token, login_request.remember_me)
@@ -88,7 +88,7 @@ async def refresh(
 
     try:
         auth_data, new_refresh_token = await auth_service.renew_token(
-            session, refresh_token
+            session, refresh_token, remember_me
         )
 
         set_refresh_token_cookie(response, new_refresh_token, remember_me)
