@@ -109,11 +109,6 @@ AUTH_ENDPOINTS: list[Any] = [
         id="refresh",
     ),
     pytest.param(
-        lambda _error: {get_current_database_user_id: lambda: USER_ID},
-        lambda client: client.post(f"/auth/logout/{USER_ID}"),
-        id="logout",
-    ),
-    pytest.param(
         lambda error: {
             get_password_reset_token_service: lambda: StubTokenService(),
             get_user_service: lambda: StubUserService(error),
@@ -328,7 +323,7 @@ class TestRenewTokenSessionExpiry:
         service = self._service(user=None)
 
         with pytest.raises(SessionExpiredError):
-            await service.renew_token(MagicMock(), "stub-refresh-token")
+            await service.renew_token(MagicMock(), "stub-refresh-token", remember_me=False)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("code", sorted(REAUTH_REQUIRED_FIREBASE_CODES))
@@ -337,7 +332,7 @@ class TestRenewTokenSessionExpiry:
         service = self._service(refresh_error=FirebaseRestError(code))
 
         with pytest.raises(SessionExpiredError):
-            await service.renew_token(MagicMock(), "stub-refresh-token")
+            await service.renew_token(MagicMock(), "stub-refresh-token", remember_me=False)
 
     @pytest.mark.asyncio
     async def test_other_firebase_codes_are_not_swallowed(self) -> None:
@@ -346,7 +341,7 @@ class TestRenewTokenSessionExpiry:
         service = self._service(refresh_error=FirebaseRestError("QUOTA_EXCEEDED"))
 
         with pytest.raises(FirebaseRestError) as excinfo:
-            await service.renew_token(MagicMock(), "stub-refresh-token")
+            await service.renew_token(MagicMock(), "stub-refresh-token", remember_me=False)
 
         assert excinfo.value.code == "QUOTA_EXCEEDED"
 
@@ -376,3 +371,17 @@ class TestRenewTokenSessionExpiry:
 
         assert response.status_code == 401
         assert response.json()["detail"] == "Session expired"
+
+
+class TestLogout:
+    @pytest.mark.asyncio
+    async def test_logout_always_returns_204(
+        self, client_with_overrides: Any, mock_firebase_admin_auth: Any
+    ) -> None:
+        """Logout swallows service errors and always returns 204 No Content."""
+        stub = StubAuthService(RuntimeError("database on fire"))
+        client = await client_with_overrides({get_auth_service: lambda: stub})
+
+        response = await client.post("/auth/logout")
+
+        assert response.status_code == 204

@@ -11,7 +11,7 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str
-    remember_me: bool
+    remember_me: bool = False
 
 
 class ForgotPasswordRequest(BaseModel):

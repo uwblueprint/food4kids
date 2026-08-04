@@ -125,9 +125,9 @@ async def logout(
 
     except Exception:
         logger.exception("Failed to revoke refresh tokens during logout")
-
-    # Always clear auth cookies
-    clear_auth_cookies(response)
+    finally:
+        # Always clear auth cookies
+        clear_auth_cookies(response)
 
 
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
