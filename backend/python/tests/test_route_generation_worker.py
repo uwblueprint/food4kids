@@ -267,7 +267,9 @@ class TestWorkerLoop:
         self, test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         maker = _maker(test_db_engine)
-        monkeypatch.setattr(worker, "async_session_maker_instance", maker)
+        monkeypatch.setattr(
+            "app.models.async_session_maker_instance", maker
+        )
 
         group, location = await _seed_routable_group(maker)
         job = await _queue_pending_job(maker, group)
@@ -280,6 +282,7 @@ class TestWorkerLoop:
 
         async with maker() as session:
             for _ in range(50):
+                session.expire_all()
                 refreshed = (
                     await session.execute(select(Job).where(Job.job_id == job.job_id))
                 ).scalar_one()
@@ -311,7 +314,9 @@ class TestWorkerLoop:
         self, test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         maker = _maker(test_db_engine)
-        monkeypatch.setattr(worker, "async_session_maker_instance", maker)
+        monkeypatch.setattr(
+            "app.models.async_session_maker_instance", maker
+        )
 
         group, _location = await _seed_routable_group(maker)
         first = await _queue_pending_job(maker, group)
@@ -325,6 +330,7 @@ class TestWorkerLoop:
 
         async with maker() as session:
             for _ in range(80):
+                session.expire_all()
                 jobs = (
                     (
                         await session.execute(

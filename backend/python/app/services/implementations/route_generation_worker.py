@@ -20,8 +20,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import update
 from sqlmodel import col, select
 
+from app import models as app_models
 from app.dependencies.services import get_routing_algorithm
-from app.models import async_session_maker_instance
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.services.implementations.route_generation_runner import run_generation_job
@@ -145,14 +145,15 @@ async def route_generation_worker_loop() -> None:
 
 async def _claim_and_run_one() -> bool:
     """Claim one job and run it. Returns False when the queue is empty."""
-    if async_session_maker_instance is None:
+    session_maker = app_models.async_session_maker_instance
+    if session_maker is None:
         logger.error(
             "Cannot run route generation: database session maker is not initialized."
         )
         return False
 
     algorithm = get_routing_algorithm()
-    async with async_session_maker_instance() as session:
+    async with session_maker() as session:
         job_id = await claim_next_pending_job(session)
         if job_id is None:
             return False
