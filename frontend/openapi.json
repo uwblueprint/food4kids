@@ -254,6 +254,10 @@
             "title": "Last Name",
             "type": "string"
           },
+          "remember_me": {
+            "title": "Remember Me",
+            "type": "boolean"
+          },
           "role": {
             "title": "Role",
             "type": "string"
@@ -266,6 +270,7 @@
           "last_name",
           "email",
           "role",
+          "remember_me",
           "full_name"
         ],
         "title": "AuthResponse",
@@ -2071,14 +2076,14 @@
             "type": "string"
           },
           "remember_me": {
+            "default": false,
             "title": "Remember Me",
             "type": "boolean"
           }
         },
         "required": [
           "email",
-          "password",
-          "remember_me"
+          "password"
         ],
         "title": "LoginRequest",
         "type": "object"

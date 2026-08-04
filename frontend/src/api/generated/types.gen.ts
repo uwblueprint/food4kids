@@ -175,6 +175,10 @@ export type AuthResponse = {
    */
   last_name: string;
   /**
+   * Remember Me
+   */
+  remember_me: boolean;
+  /**
    * Role
    */
   role: string;
@@ -1201,7 +1205,7 @@ export type LoginRequest = {
   /**
    * Remember Me
    */
-  remember_me: boolean;
+  remember_me?: boolean;
 };
 
 /**
@@ -2314,6 +2318,10 @@ export type AuthResponseWritable = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Remember Me
+   */
+  remember_me: boolean;
   /**
    * Role
    */
