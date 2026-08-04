@@ -208,7 +208,7 @@ async def complete_driver_registration(
     )
 
     # Set refresh token as httpOnly cookie
-    set_refresh_token_cookie(response, refresh_token)
+    set_refresh_token_cookie(response, refresh_token, remember_me=False)
 
     return DriverRegisterResponse(
         driver=DriverRead.model_validate(user.driver), auth=auth_dto
