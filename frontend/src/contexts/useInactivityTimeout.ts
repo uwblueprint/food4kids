@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 

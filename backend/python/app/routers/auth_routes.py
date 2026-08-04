@@ -1,9 +1,8 @@
 import logging
 from datetime import datetime, timezone
-from uuid import UUID
-import firebase_admin.auth
-
 from typing import Any
+
+import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +29,7 @@ from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
 )
 from app.services.implementations.user_service import UserService
-from app.utilities.cookies import set_refresh_token_cookie, clear_auth_cookies
+from app.utilities.cookies import clear_auth_cookies, set_refresh_token_cookie
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -52,7 +51,10 @@ async def login(
     logger.info(f"Login request for {login_request.email}")
     try:
         auth_dto, refresh_token = await auth_service.generate_token(
-            session, login_request.email, login_request.password, login_request.remember_me
+            session,
+            login_request.email,
+            login_request.password,
+            login_request.remember_me,
         )
 
         set_refresh_token_cookie(response, refresh_token, login_request.remember_me)
@@ -113,7 +115,8 @@ async def logout(
     """
     try:
         decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
-            access_token, check_revoked=False # Allow it to clear even if token expired
+            access_token,
+            check_revoked=False,  # Allow it to clear even if token expired
         )
         firebase_uid = decoded_token["uid"]
 

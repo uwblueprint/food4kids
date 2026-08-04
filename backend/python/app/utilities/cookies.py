@@ -20,7 +20,9 @@ def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
     }
 
 
-def set_refresh_token_cookie(response: Response, refresh_token: str, remember_me: bool) -> None:
+def set_refresh_token_cookie(
+    response: Response, refresh_token: str, remember_me: bool
+) -> None:
     """
     Sets the HTTP-only refresh token cookie on the response object
     with a robust expiration date.
@@ -57,7 +59,9 @@ def clear_auth_cookies(response: Response) -> None:
         response.delete_cookie(
             key=key,
             httponly=True,
-            samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
+            samesite=cast(
+                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
+            ),
             secure=bool(cookie_options["secure"]),
             path="/",
         )
