@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { describeApiFailure, useLogin } from '@/api';
+import { useAuthStore } from '@/api/authStore';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
@@ -37,6 +38,10 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<LoginError | null>(null);
+
+  // Someone sent here by an expired session was working a moment ago and did
+  // nothing wrong, so say what happened rather than presenting a bare form.
+  const sessionExpired = useAuthStore((state) => state.sessionExpired);
 
   const credentialsError = error?.scope === 'credentials';
 
@@ -152,9 +157,17 @@ const LoginForm = () => {
           </div>
 
           {/* Failures that aren't the credentials' fault get one note for the
-              whole form, not a red outline on fields that may be perfectly fine. */}
-          {error?.scope === 'form' && (
+              whole form, not a red outline on fields that may be perfectly fine.
+              A note about *this* attempt supersedes one about the last session. */}
+          {error?.scope === 'form' ? (
             <ErrorNote className="-mb-4">{error.message}</ErrorNote>
+          ) : (
+            !error &&
+            sessionExpired && (
+              <ErrorNote className="-mb-4">
+                Your session ended. Please log in again.
+              </ErrorNote>
+            )
           )}
 
           {/* Log In Button */}

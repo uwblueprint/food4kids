@@ -1,6 +1,8 @@
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { useAuthStore } from '@/api/authStore';
 import {
   applyLocationImport,
   createLocationGroup,
@@ -20,6 +22,9 @@ import axiosClient from '@/lib/axiosClient';
  * They assert on the config the *adapter* receives on purpose: that is the last
  * point before the wire, after interceptors and transformRequest have run, so a
  * regression anywhere along that chain is caught rather than just in one layer.
+ *
+ * The second half covers the response side: which failures end the session and,
+ * just as importantly, which must not.
  */
 
 const XLSX_TYPE =
@@ -165,5 +170,146 @@ describe('JSON operations are unaffected', () => {
       name: 'Tuesday A',
       location_ids: [],
     });
+  });
+});
+
+/**
+ * A 401 ends the session; nothing else does.
+ *
+ * The backend used to answer a revoked or expired token with 403, the same
+ * status it uses for "you are not allowed here", so the client had no way to
+ * act on either. Now that they are distinct, acting on the wrong one is the
+ * failure mode worth guarding: treating 403 as an ended session would bounce a
+ * driver who wandered into an admin route to the login page, where logging in
+ * successfully would return them to the same 403, forever.
+ */
+describe('session expiry', () => {
+  /**
+   * Answer the next request with this status instead of 200.
+   *
+   * Rejecting rather than resolving is what a real adapter does: it runs
+   * axios's `settle`, which applies `validateStatus` and rejects on a non-2xx.
+   * An adapter that merely resolves with `{ status: 401 }` skips that check
+   * entirely, so nothing would ever reach the error interceptor and every
+   * assertion here would pass against a client that does nothing.
+   */
+  function respondWith(status: number) {
+    axiosClient.defaults.adapter = async (config) => {
+      sent = config;
+      const response = {
+        data: { detail: 'nope' },
+        status,
+        statusText: 'Error',
+        headers: {},
+        config,
+      } as AxiosResponse;
+      throw new AxiosError(
+        `Request failed with status code ${status}`,
+        AxiosError.ERR_BAD_REQUEST,
+        config,
+        null,
+        response
+      );
+    };
+  }
+
+  function signedIn() {
+    useAuthStore.setState({
+      accessToken: 'token-abc',
+      user: null,
+      isAuthenticated: true,
+      isRestoringSession: false,
+      sessionExpired: false,
+    });
+  }
+
+  async function attempt() {
+    await expect(
+      createLocationGroup({
+        body: { name: 'Tuesday A', location_ids: [] },
+        throwOnError: true,
+      })
+    ).rejects.toBeDefined();
+  }
+
+  beforeEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  it('signs the user out when a request with a token gets a 401', async () => {
+    signedIn();
+    respondWith(401);
+
+    await attempt();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.accessToken).toBeNull();
+    expect(state.sessionExpired).toBe(true);
+  });
+
+  it('leaves a 401 on an unauthenticated request alone', async () => {
+    // The session-restore call on a first visit. Nobody was signed in, so
+    // there is no session to report as ended.
+    respondWith(401);
+
+    await attempt();
+
+    expect(useAuthStore.getState().sessionExpired).toBe(false);
+  });
+
+  it.each([403, 404, 422, 500])(
+    'does not sign the user out on a %i',
+    async (status) => {
+      signedIn();
+      respondWith(status);
+
+      await attempt();
+
+      const state = useAuthStore.getState();
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.accessToken).toBe('token-abc');
+      expect(state.sessionExpired).toBe(false);
+    }
+  );
+
+  it('leaves the session alone when the request never got a response', async () => {
+    signedIn();
+    axiosClient.defaults.adapter = async () => {
+      throw new Error('Network Error');
+    };
+
+    await attempt();
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('still rejects, so callers can handle the failure themselves', async () => {
+    signedIn();
+    respondWith(401);
+
+    await expect(
+      createLocationGroup({
+        body: { name: 'Tuesday A', location_ids: [] },
+        throwOnError: true,
+      })
+    ).rejects.toMatchObject({ response: { status: 401 } });
+  });
+
+  it('does not disturb a successful response', async () => {
+    signedIn();
+
+    await createLocationGroup({
+      body: { name: 'Tuesday A', location_ids: [] },
+      throwOnError: true,
+    });
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.sessionExpired).toBe(false);
   });
 });

@@ -10,8 +10,6 @@ from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient, FirebaseRestError
 
 if TYPE_CHECKING:
-    from firebase_admin.auth import UserRecord
-
     from app.services.implementations.driver_service import DriverService
     from app.services.implementations.email_service import EmailService
     from app.services.implementations.user_service import UserService
@@ -154,40 +152,3 @@ class AuthService:
             role=user.role,
         )
         return auth_response, token_response.refresh_token
-
-    async def is_authorized_by_role(
-        self, _session: AsyncSession, access_token: str, roles: set[str]
-    ) -> bool:
-        try:
-            decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True, clock_skew_seconds=5
-            )
-            user_role = decoded_id_token.get("role")
-            if not user_role:
-                self.logger.warning(
-                    f"User {decoded_id_token['uid']} has no role claim set"
-                )
-                return False
-            # Allow if role is in the authorized set
-            return user_role in roles
-        except Exception as e:
-            self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
-            return False
-
-    def is_authorized_by_email(self, access_token: str, requested_email: str) -> bool:
-        try:
-            decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True
-            )
-            firebase_user: UserRecord = firebase_admin.auth.get_user(
-                decoded_id_token["uid"]
-            )
-            return bool(
-                firebase_user.email_verified
-                and decoded_id_token["email"] == requested_email
-            )
-        except Exception as e:
-            self.logger.error(
-                f"Authorization by email failed: {type(e).__name__}: {e!s}"
-            )
-            return False

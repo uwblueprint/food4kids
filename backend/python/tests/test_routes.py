@@ -107,18 +107,13 @@ class TestDriverRoutes:
     ) -> None:
         """Test POST /drivers creates a new driver."""
 
-        # We don't want to actually to send an email so we mock the call
-        with (
-            patch(
-                "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
-                new_callable=AsyncMock,
-                return_value=None,
-            ),
-            patch(
-                "app.dependencies.auth.auth_service.is_authorized_by_role",
-                new_callable=AsyncMock,
-                return_value=True,
-            ),
+        # We don't want to actually to send an email so we mock the call.
+        # Authorization needs no patching: conftest overrides the role
+        # dependencies outright.
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+            return_value=None,
         ):
             driver_register_data = {
                 "first_name": sample_driver_data["first_name"],
@@ -5169,16 +5164,11 @@ class TestValidationErrors:
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
         }
-        with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            response = await async_client.post(
-                "/drivers/initialize",
-                json=invalid_data,
-                headers={"Authorization": "Bearer test-token"},
-            )
+        response = await async_client.post(
+            "/drivers/initialize",
+            json=invalid_data,
+            headers={"Authorization": "Bearer test-token"},
+        )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
