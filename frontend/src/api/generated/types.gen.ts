@@ -2531,7 +2531,7 @@ export type TestData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/admins/test';
+  url: '/api/admins/test';
 };
 
 export type TestResponses = {
@@ -2549,7 +2549,7 @@ export type GetAnnouncementsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/announcements/';
+  url: '/api/announcements/';
 };
 
 export type GetAnnouncementsResponses = {
@@ -2568,7 +2568,7 @@ export type CreateAnnouncementData = {
   body: AnnouncementCreate;
   path?: never;
   query?: never;
-  url: '/announcements/';
+  url: '/api/announcements/';
 };
 
 export type CreateAnnouncementErrors = {
@@ -2595,7 +2595,7 @@ export type MarkAnnouncementsAsReadData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/announcements/mark-read';
+  url: '/api/announcements/mark-read';
 };
 
 export type MarkAnnouncementsAsReadResponses = {
@@ -2617,7 +2617,7 @@ export type DeleteAnnouncementData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}';
+  url: '/api/announcements/{announcement_id}';
 };
 
 export type DeleteAnnouncementErrors = {
@@ -2649,7 +2649,7 @@ export type GetAnnouncementData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}';
+  url: '/api/announcements/{announcement_id}';
 };
 
 export type GetAnnouncementErrors = {
@@ -2681,7 +2681,7 @@ export type UpdateAnnouncementData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}';
+  url: '/api/announcements/{announcement_id}';
 };
 
 export type UpdateAnnouncementErrors = {
@@ -2713,7 +2713,7 @@ export type SendAnnouncementEmailData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}/email';
+  url: '/api/announcements/{announcement_id}/email';
 };
 
 export type SendAnnouncementEmailErrors = {
@@ -2744,7 +2744,7 @@ export type ForgotPasswordData = {
   body: ForgotPasswordRequest;
   path?: never;
   query?: never;
-  url: '/auth/forgot-password';
+  url: '/api/auth/forgot-password';
 };
 
 export type ForgotPasswordErrors = {
@@ -2771,7 +2771,7 @@ export type LoginData = {
   body: LoginRequest;
   path?: never;
   query?: never;
-  url: '/auth/login';
+  url: '/api/auth/login';
 };
 
 export type LoginErrors = {
@@ -2801,7 +2801,7 @@ export type LogoutData = {
     user_id: string;
   };
   query?: never;
-  url: '/auth/logout/{user_id}';
+  url: '/api/auth/logout/{user_id}';
 };
 
 export type LogoutErrors = {
@@ -2826,7 +2826,7 @@ export type RefreshData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/auth/refresh';
+  url: '/api/auth/refresh';
 };
 
 export type RefreshResponses = {
@@ -2842,7 +2842,7 @@ export type UpdatePasswordData = {
   body: UpdatePasswordRequest;
   path?: never;
   query?: never;
-  url: '/auth/update-password';
+  url: '/api/auth/update-password';
 };
 
 export type UpdatePasswordErrors = {
@@ -2869,7 +2869,7 @@ export type ValidateResetTokenData = {
   body: ValidateResetTokenRequest;
   path?: never;
   query?: never;
-  url: '/auth/validate-reset-token';
+  url: '/api/auth/validate-reset-token';
 };
 
 export type ValidateResetTokenErrors = {
@@ -2909,7 +2909,7 @@ export type GetDriversData = {
      */
     email?: string | null;
   };
-  url: '/drivers/';
+  url: '/api/drivers/';
 };
 
 export type GetDriversErrors = {
@@ -2936,7 +2936,7 @@ export type InitializeDriverData = {
   body: DriverRegister;
   path?: never;
   query?: never;
-  url: '/drivers/initialize';
+  url: '/api/drivers/initialize';
 };
 
 export type InitializeDriverErrors = {
@@ -2963,7 +2963,7 @@ export type CompleteDriverRegistrationData = {
   body: UserFinalize;
   path?: never;
   query?: never;
-  url: '/drivers/register';
+  url: '/api/drivers/register';
 };
 
 export type CompleteDriverRegistrationErrors = {
@@ -2995,7 +2995,7 @@ export type TestEventEmailData = {
      */
     test_email: string;
   };
-  url: '/drivers/test-event-email';
+  url: '/api/drivers/test-event-email';
 };
 
 export type TestEventEmailErrors = {
@@ -3031,7 +3031,7 @@ export type DeleteDriverData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}';
+  url: '/api/drivers/{driver_id}';
 };
 
 export type DeleteDriverErrors = {
@@ -3062,7 +3062,7 @@ export type GetDriverData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}';
+  url: '/api/drivers/{driver_id}';
 };
 
 export type GetDriverErrors = {
@@ -3092,7 +3092,7 @@ export type UpdateDriverData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}';
+  url: '/api/drivers/{driver_id}';
 };
 
 export type UpdateDriverErrors = {
@@ -3132,7 +3132,7 @@ export type GetDriverHistoryData = {
      */
     month?: number | null;
   };
-  url: '/drivers/{driver_id}/history/';
+  url: '/api/drivers/{driver_id}/history/';
 };
 
 export type GetDriverHistoryErrors = {
@@ -3166,7 +3166,7 @@ export type GetDriverHistorySummaryData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}/history/summary';
+  url: '/api/drivers/{driver_id}/history/summary';
 };
 
 export type GetDriverHistorySummaryErrors = {
@@ -3202,7 +3202,7 @@ export type ExportAllDriversHistoryData = {
     year: number;
   };
   query?: never;
-  url: '/drivers/{driver_id}/history/{year}/export';
+  url: '/api/drivers/{driver_id}/history/{year}/export';
 };
 
 export type ExportAllDriversHistoryErrors = {
@@ -3233,7 +3233,7 @@ export type GetJobsData = {
      */
     progress?: ProgressEnum | null;
   };
-  url: '/jobs/';
+  url: '/api/jobs/';
 };
 
 export type GetJobsErrors = {
@@ -3260,7 +3260,7 @@ export type GenerateJobData = {
   body: RouteGenerationGroupInput;
   path?: never;
   query?: never;
-  url: '/jobs/generate';
+  url: '/api/jobs/generate';
 };
 
 export type GenerateJobErrors = {
@@ -3291,7 +3291,7 @@ export type GetJobData = {
     job_id: string;
   };
   query?: never;
-  url: '/jobs/{job_id}';
+  url: '/api/jobs/{job_id}';
 };
 
 export type GetJobErrors = {
@@ -3321,7 +3321,7 @@ export type CancelJobData = {
     job_id: string;
   };
   query?: never;
-  url: '/jobs/{job_id}/cancel';
+  url: '/api/jobs/{job_id}/cancel';
 };
 
 export type CancelJobErrors = {
@@ -3346,7 +3346,7 @@ export type GetLocationGroupsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/location-groups/';
+  url: '/api/location-groups/';
 };
 
 export type GetLocationGroupsResponses = {
@@ -3365,7 +3365,7 @@ export type CreateLocationGroupData = {
   body: LocationGroupCreate;
   path?: never;
   query?: never;
-  url: '/location-groups/';
+  url: '/api/location-groups/';
 };
 
 export type CreateLocationGroupErrors = {
@@ -3397,7 +3397,7 @@ export type DeleteLocationGroupData = {
     location_group_id: string;
   };
   query?: never;
-  url: '/location-groups/{location_group_id}';
+  url: '/api/location-groups/{location_group_id}';
 };
 
 export type DeleteLocationGroupErrors = {
@@ -3429,7 +3429,7 @@ export type GetLocationGroupData = {
     location_group_id: string;
   };
   query?: never;
-  url: '/location-groups/{location_group_id}';
+  url: '/api/location-groups/{location_group_id}';
 };
 
 export type GetLocationGroupErrors = {
@@ -3461,7 +3461,7 @@ export type UpdateLocationGroupData = {
     location_group_id: string;
   };
   query?: never;
-  url: '/location-groups/{location_group_id}';
+  url: '/api/location-groups/{location_group_id}';
 };
 
 export type UpdateLocationGroupErrors = {
@@ -3488,7 +3488,7 @@ export type DeleteAllLocationsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/locations/';
+  url: '/api/locations/';
 };
 
 export type DeleteAllLocationsResponses = {
@@ -3542,7 +3542,7 @@ export type GetLocationsData = {
      */
     page_size?: number;
   };
-  url: '/locations/';
+  url: '/api/locations/';
 };
 
 export type GetLocationsErrors = {
@@ -3568,7 +3568,7 @@ export type CreateLocationData = {
   body: LocationCreate;
   path?: never;
   query?: never;
-  url: '/locations/';
+  url: '/api/locations/';
 };
 
 export type CreateLocationErrors = {
@@ -3595,7 +3595,7 @@ export type ApplyLocationImportData = {
   body: BodyApplyLocationImport;
   path?: never;
   query?: never;
-  url: '/locations/import';
+  url: '/api/locations/import';
 };
 
 export type ApplyLocationImportErrors = {
@@ -3622,7 +3622,7 @@ export type PreviewLocationImportData = {
   body: BodyPreviewLocationImport;
   path?: never;
   query?: never;
-  url: '/locations/import/preview';
+  url: '/api/locations/import/preview';
 };
 
 export type PreviewLocationImportErrors = {
@@ -3654,7 +3654,7 @@ export type DeleteLocationData = {
     location_id: string;
   };
   query?: never;
-  url: '/locations/{location_id}';
+  url: '/api/locations/{location_id}';
 };
 
 export type DeleteLocationErrors = {
@@ -3686,7 +3686,7 @@ export type GetLocationData = {
     location_id: string;
   };
   query?: never;
-  url: '/locations/{location_id}';
+  url: '/api/locations/{location_id}';
 };
 
 export type GetLocationErrors = {
@@ -3717,7 +3717,7 @@ export type UpdateLocationData = {
     location_id: string;
   };
   query?: never;
-  url: '/locations/{location_id}';
+  url: '/api/locations/{location_id}';
 };
 
 export type UpdateLocationErrors = {
@@ -3749,7 +3749,7 @@ export type DeleteNoteChainData = {
     note_chain_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}';
+  url: '/api/note-chains/{note_chain_id}';
 };
 
 export type DeleteNoteChainErrors = {
@@ -3781,7 +3781,7 @@ export type GetNoteChainData = {
     note_chain_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}';
+  url: '/api/note-chains/{note_chain_id}';
 };
 
 export type GetNoteChainErrors = {
@@ -3821,7 +3821,7 @@ export type GetNotesData = {
      */
     offset?: number;
   };
-  url: '/note-chains/{note_chain_id}/notes';
+  url: '/api/note-chains/{note_chain_id}/notes';
 };
 
 export type GetNotesErrors = {
@@ -3853,7 +3853,7 @@ export type CreateNoteData = {
     note_chain_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}/notes';
+  url: '/api/note-chains/{note_chain_id}/notes';
 };
 
 export type CreateNoteErrors = {
@@ -3887,7 +3887,7 @@ export type DeleteNoteData = {
     note_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}/notes/{note_id}';
+  url: '/api/note-chains/{note_chain_id}/notes/{note_id}';
 };
 
 export type DeleteNoteErrors = {
@@ -3921,7 +3921,7 @@ export type UpdateNoteData = {
     note_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}/notes/{note_id}';
+  url: '/api/note-chains/{note_chain_id}/notes/{note_id}';
 };
 
 export type UpdateNoteErrors = {
@@ -3959,7 +3959,7 @@ export type GetNotesFeedData = {
      */
     page_size?: number;
   };
-  url: '/notes';
+  url: '/api/notes';
 };
 
 export type GetNotesFeedErrors = {
@@ -3998,7 +3998,7 @@ export type GetTotalDeliveriesBetweenData = {
      */
     end: string;
   };
-  url: '/reports/deliveries/count';
+  url: '/api/reports/deliveries/count';
 };
 
 export type GetTotalDeliveriesBetweenErrors = {
@@ -4034,7 +4034,7 @@ export type GetMonthlyRankingData = {
     month: number;
   };
   query?: never;
-  url: '/reports/monthly/{year}/{month}/ranking';
+  url: '/api/reports/monthly/{year}/{month}/ranking';
 };
 
 export type GetMonthlyRankingErrors = {
@@ -4072,7 +4072,7 @@ export type GetMonthlyTotalsData = {
     month: number;
   };
   query?: never;
-  url: '/reports/monthly/{year}/{month}/totals';
+  url: '/api/reports/monthly/{year}/{month}/totals';
 };
 
 export type GetMonthlyTotalsErrors = {
@@ -4160,7 +4160,7 @@ export type GetRouteGroupsData = {
      */
     page_size?: number;
   };
-  url: '/route-groups';
+  url: '/api/route-groups';
 };
 
 export type GetRouteGroupsErrors = {
@@ -4187,7 +4187,7 @@ export type CreateRouteGroupData = {
   body: RouteGroupCreate;
   path?: never;
   query?: never;
-  url: '/route-groups';
+  url: '/api/route-groups';
 };
 
 export type CreateRouteGroupErrors = {
@@ -4219,7 +4219,7 @@ export type DeleteRouteGroupData = {
     route_group_id: string;
   };
   query?: never;
-  url: '/route-groups/{route_group_id}';
+  url: '/api/route-groups/{route_group_id}';
 };
 
 export type DeleteRouteGroupErrors = {
@@ -4251,7 +4251,7 @@ export type UpdateRouteGroupData = {
     route_group_id: string;
   };
   query?: never;
-  url: '/route-groups/{route_group_id}';
+  url: '/api/route-groups/{route_group_id}';
 };
 
 export type UpdateRouteGroupErrors = {
@@ -4286,7 +4286,7 @@ export type DuplicateRouteGroupData = {
     route_group_id: string;
   };
   query?: never;
-  url: '/route-groups/{route_group_id}/duplicate';
+  url: '/api/route-groups/{route_group_id}/duplicate';
 };
 
 export type DuplicateRouteGroupErrors = {
@@ -4386,7 +4386,7 @@ export type GetRoutesData = {
      */
     driver_id?: string | null;
   };
-  url: '/routes';
+  url: '/api/routes';
 };
 
 export type GetRoutesErrors = {
@@ -4416,7 +4416,7 @@ export type DeleteRouteData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}';
+  url: '/api/routes/{route_id}';
 };
 
 export type DeleteRouteErrors = {
@@ -4447,7 +4447,7 @@ export type GetRouteData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}';
+  url: '/api/routes/{route_id}';
 };
 
 export type GetRouteErrors = {
@@ -4477,7 +4477,7 @@ export type UpdateRouteData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}';
+  url: '/api/routes/{route_id}';
 };
 
 export type UpdateRouteErrors = {
@@ -4508,7 +4508,7 @@ export type GetGoogleMapsLinkData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}/google-maps-link';
+  url: '/api/routes/{route_id}/google-maps-link';
 };
 
 export type GetGoogleMapsLinkErrors = {
@@ -4549,7 +4549,7 @@ export type GetSuggestedDriverData = {
      */
     route_group_id: string;
   };
-  url: '/routes/{route_id}/suggested-driver';
+  url: '/api/routes/{route_id}/suggested-driver';
 };
 
 export type GetSuggestedDriverErrors = {
@@ -4578,7 +4578,7 @@ export type GetSystemSettingsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/system-settings/';
+  url: '/api/system-settings/';
 };
 
 export type GetSystemSettingsResponses = {
@@ -4597,7 +4597,7 @@ export type PatchSystemSettingsData = {
   body: SystemSettingsUpdate;
   path?: never;
   query?: never;
-  url: '/system-settings/';
+  url: '/api/system-settings/';
 };
 
 export type PatchSystemSettingsErrors = {
@@ -4624,7 +4624,7 @@ export type RenameDeliveryTypeData = {
   body: DeliveryTypeRename;
   path?: never;
   query?: never;
-  url: '/system-settings/delivery-types/rename';
+  url: '/api/system-settings/delivery-types/rename';
 };
 
 export type RenameDeliveryTypeErrors = {
@@ -4651,7 +4651,7 @@ export type UploadImageData = {
   body: BodyUploadImage;
   path?: never;
   query?: never;
-  url: '/upload/';
+  url: '/api/upload/';
 };
 
 export type UploadImageErrors = {
@@ -4686,7 +4686,7 @@ export type DeleteImageData = {
     filename: string;
   };
   query?: never;
-  url: '/upload/{filename}';
+  url: '/api/upload/{filename}';
 };
 
 export type DeleteImageErrors = {

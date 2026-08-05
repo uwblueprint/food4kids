@@ -1,9 +1,9 @@
+import json
 import os
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import json
-from pathlib import Path
 
 
 class Settings(BaseSettings):
@@ -32,14 +32,22 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(
         default=[
             "http://localhost:3000",
-            "https://uw-blueprint-starter-code.firebaseapp.com",
-            "https://uw-blueprint-starter-code.web.app",
+            # No trailing slashes: the Origin header a browser sends is scheme
+            # + host + port only, and CORSMiddleware compares it exactly.
+            "https://food4kids-473501.firebaseapp.com",
+            "https://food4kids-473501.web.app",
+            "https://routes.food4kidswr.ca",
         ]
     )
     cors_supports_credentials: bool = Field(default=True)
 
     # Firebase
     firebase_project_id: str = Field(default="")
+    # Web API key for the Identity Toolkit REST sign-in/refresh calls. Must be
+    # a Settings field: on Cloud Run the config arrives as a mounted
+    # /secrets/config.json, so anything read via os.getenv() is invisible there
+    # even when it is present in the secret.
+    firebase_web_api_key: str = Field(default="")
     firebase_svc_account_private_key_id: str = Field(default="")
     firebase_svc_account_private_key: str = Field(default="")
     firebase_svc_account_client_email: str = Field(default="")
@@ -181,7 +189,7 @@ def get_settings() -> Settings:
 
     if secrets_file_path.exists():
         try:
-            with open(secrets_file_path, "r") as f:
+            with open(secrets_file_path) as f:
                 raw_secrets = json.load(f)
 
                 # Convert uppercase JSON keys to lowercase for Pydantic mapping
