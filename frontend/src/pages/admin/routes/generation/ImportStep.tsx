@@ -200,7 +200,13 @@ export function ImportStep() {
         deliveryType: selectedDeliveryType,
       });
       setReviewResult(result);
-      navigate('/admin/routes/generation/validate');
+      // A clean preview leaves the validate step with nothing to show and
+      // nothing to fix, so go straight to review.
+      navigate(
+        result.success
+          ? '/admin/routes/generation/review'
+          : '/admin/routes/generation/validate'
+      );
     } catch {
       setReviewError('Could not validate the file — please try again.');
     }

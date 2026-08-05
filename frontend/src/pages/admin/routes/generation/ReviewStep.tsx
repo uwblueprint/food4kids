@@ -369,7 +369,13 @@ export function ReviewStep() {
 
       <GenerationFooter>
         <Button variant="tertiary" asChild>
-          <Link to="/admin/routes/generation/validate">Back to validate</Link>
+          {/* Import skips validate when the preview is clean, so back goes
+              wherever the admin actually came from. */}
+          {reviewResult.success ? (
+            <Link to="/admin/routes/generation/import">Back to import</Link>
+          ) : (
+            <Link to="/admin/routes/generation/validate">Back to validate</Link>
+          )}
         </Button>
         <Button
           variant="primary"
