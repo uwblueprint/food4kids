@@ -10,13 +10,17 @@ REFRESH_TOKEN_MAX_AGE = 14 * 24 * 60 * 60
 
 def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
     """Get cookie options based on environment"""
+    # Deployed traffic reaches the API same-origin, through the Firebase
+    # Hosting /api/** rewrite, so the refresh cookie is never cross-site and
+    # "strict" holds. Preview deploys still hit the backend directly.
     samesite: Literal["none", "strict", "lax"] = (
         "none" if settings.preview_deploy else "strict"
     )
     return {
         "httponly": True,
         "samesite": samesite,
-        "secure": settings.is_production,
+        # SameSite=none is only honoured alongside Secure.
+        "secure": settings.preview_deploy or settings.is_production,
     }
 
 

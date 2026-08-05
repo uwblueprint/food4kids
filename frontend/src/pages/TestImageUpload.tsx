@@ -1,8 +1,9 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 
 import { Input } from '@/common/components/Input';
+import axiosClient from '@/lib/axiosClient';
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE = (axiosClient.defaults.baseURL ?? '').replace(/\/$/, '');
 
 export const TestImageUpload = () => {
   const [status, setStatus] = useState<
@@ -44,7 +45,7 @@ export const TestImageUpload = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/upload/`, {
+      const response = await fetch(`${API_BASE}/api/upload/`, {
         method: 'POST',
         body: formData,
       });
@@ -67,9 +68,12 @@ export const TestImageUpload = () => {
     if (!result?.filename) return;
 
     try {
-      const response = await fetch(`${API_BASE}/upload/${result.filename}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `${API_BASE}/api/upload/${result.filename}`,
+        {
+          method: 'DELETE',
+        }
+      );
 
       if (!response.ok) throw new Error('Delete failed');
 

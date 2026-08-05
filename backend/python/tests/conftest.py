@@ -174,7 +174,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session] = override_get_session
     _apply_auth_overrides(app)
 
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url="http://testserver/api") as test_client:
         yield test_client
 
 
@@ -197,7 +197,7 @@ async def async_client(
     from httpx import ASGITransport
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
@@ -231,7 +231,7 @@ async def client_with_overrides(
                 app.dependency_overrides[dep] = override
 
             return await stack.enter_async_context(
-                AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+                AsyncClient(transport=ASGITransport(app=app), base_url="http://test/api")
             )
 
         yield _make
@@ -452,7 +452,7 @@ async def authed_async_client(
     _apply_auth_overrides(app)
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
