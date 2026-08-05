@@ -15,9 +15,18 @@ interface AuthState {
   } | null;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
+  /**
+   * The session ended on its own rather than by logging out — the token was
+   * expired, or revoked out from under us. Distinguishes "we signed you out"
+   * from "you were never signed in", which the login page needs in order to
+   * explain itself to someone who was working a moment ago.
+   */
+  sessionExpired: boolean;
   setAuth: (authData: AuthResponse) => void;
   setAuthFromRegister: (registerData: DriverRegisterResponse) => void;
   clearAuth: () => void;
+  /** Sign out because the server rejected our token. See `axiosClient`. */
+  expireSession: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -25,6 +34,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isRestoringSession: true,
+  sessionExpired: false,
 
   // Called after a successful Login
   setAuth: (authData) =>
@@ -40,6 +50,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       },
       isAuthenticated: true,
       isRestoringSession: false,
+      // Whatever ended the last session, this one supersedes it.
+      sessionExpired: false,
     }),
 
   // Called after a successful Registration
@@ -57,6 +69,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       },
       isAuthenticated: true,
       isRestoringSession: false,
+      sessionExpired: false,
     }),
 
   clearAuth: () =>
@@ -65,5 +78,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       isAuthenticated: false,
       isRestoringSession: false,
+      sessionExpired: false,
+    }),
+
+  expireSession: () =>
+    set({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isRestoringSession: false,
+      sessionExpired: true,
     }),
 }));
