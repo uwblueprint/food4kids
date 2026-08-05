@@ -62,6 +62,13 @@ jobs:
         working-directory: ./frontend
         run: pnpm format:check
 
+      # Ahead of the build because it runs in seconds rather than minutes, so a
+      # broken request contract fails fast.
+      - name: Test frontend
+        if: steps.changes.outputs.frontend == 'true'
+        working-directory: ./frontend
+        run: pnpm test
+
       # `pnpm build` runs `tsc -b && vite build`, so this both type-checks and
       # catches production-build-only failures (vite config, asset imports,
       # build-time env usage) that tsc alone can't see.
