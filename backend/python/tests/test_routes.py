@@ -59,6 +59,9 @@ class FakeGoogleMapsClient:
             place_id=f"place-{address}",
             latitude=43.0,
             longitude=-80.0,
+            # "Imprecise" stands in for the real failure mode: Google answers
+            # with a town or township centroid instead of a house.
+            is_precise="Imprecise" not in address,
         )
 
 
@@ -1697,6 +1700,72 @@ class TestLocationImportRoutes:
         assert body["rows"][2]["alerts"] == ["INVALID_ADDRESS"]
         assert body["rows"][3]["alerts"] == ["INVALID_PHONE_NUMBER"]
         assert fake_maps.calls == ["1 Valid St", "Invalid Address", "2 Valid St"]
+
+    @pytest.mark.asyncio
+    async def test_review_locations_rejects_imprecise_geocode(
+        self, client_with_overrides: Any
+    ) -> None:
+        """An address Google resolves to a town centroid is not deliverable.
+
+        Google answers a nonexistent street with the surrounding township, which
+        arrives as an ordinary successful result. Those rows must raise
+        INVALID_ADDRESS rather than importing as a stop in the middle of nowhere.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Precise Family",
+                    "Address": "1 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164168",
+                },
+                {
+                    "Name": "Centroid Family",
+                    "Address": "99999 Imprecise Pkwy",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/import/preview", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is False
+        assert body["rows"][0]["alerts"] == []
+        assert body["rows"][1]["alerts"] == ["INVALID_ADDRESS"]
+        # The imprecise row keeps the address the admin typed, so the review
+        # screen doesn't imply we accepted Google's fallback match.
+        assert body["rows"][1]["location"]["address"] == "99999 Imprecise Pkwy"
+
+    @pytest.mark.asyncio
+    async def test_apply_import_refuses_imprecise_address(
+        self, client_with_overrides: Any
+    ) -> None:
+        """Applying is blocked too, not just flagged in the preview."""
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Centroid Family",
+                    "Address": "99999 Imprecise Pkwy",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/import", **request)
+
+        assert response.status_code == 400
 
     @pytest.mark.asyncio
     async def test_review_locations_detects_duplicate_groups_by_two_of_three(
