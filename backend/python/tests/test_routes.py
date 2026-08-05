@@ -40,6 +40,8 @@ IMPORT_COLUMN_MAP = {
     "phone_primary": "Phone",
     "phone_secondary": "Secondary Phone",
     "num_children": "Children",
+    "halal": "Halal",
+    "dietary_restrictions": "Food Restrictions",
 }
 
 
@@ -76,6 +78,8 @@ def import_review_request(
         "Phone",
         "Secondary Phone",
         "Children",
+        "Halal",
+        "Food Restrictions",
     ]
     lines = [",".join(headers)]
     for row in rows:
@@ -1682,6 +1686,13 @@ class TestLocationImportRoutes:
                     "Delivery Group": "Monday",
                     "Phone": "not-a-phone",
                 },
+                {
+                    "Name": "Invalid Secondary Phone Family",
+                    "Address": "3 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164170",
+                    "Secondary Phone": "not-a-phone",
+                },
             ]
         )
 
@@ -1699,7 +1710,13 @@ class TestLocationImportRoutes:
         assert body["rows"][1]["alerts"] == ["INVALID_NAME"]
         assert body["rows"][2]["alerts"] == ["INVALID_ADDRESS"]
         assert body["rows"][3]["alerts"] == ["INVALID_PHONE_NUMBER"]
-        assert fake_maps.calls == ["1 Valid St", "Invalid Address", "2 Valid St"]
+        assert body["rows"][4]["alerts"] == ["INVALID_SECONDARY_PHONE_NUMBER"]
+        assert fake_maps.calls == [
+            "1 Valid St",
+            "Invalid Address",
+            "2 Valid St",
+            "3 Valid St",
+        ]
 
     @pytest.mark.asyncio
     async def test_review_locations_rejects_imprecise_geocode(
@@ -2220,6 +2237,198 @@ class TestLocationImportRoutes:
         assert body["changed"] == []
         assert body["net_new"] == []
         assert body["stale"] == []
+
+    @pytest.mark.asyncio
+    async def test_review_and_ingest_apply_halal_and_dietary_restrictions(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A row whose only edit is halal/restrictions must surface and apply.
+
+        Both fields are written by the import, so they have to take part in
+        change detection (or the row is never offered for review) and in the
+        applier (or the reviewed change is dropped on ingest).
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Halal Family",
+            contact_name="Halal Family",
+            address="Formatted 77 Main St",
+            phone_primary="+14164164171",
+            num_children=3,
+            halal=False,
+            dietary_restrictions="Peanut",
+            delivery_type="Family",
+        )
+        test_session.add(location)
+        await test_session.commit()
+        location_id = location.location_id
+
+        rows = [
+            {
+                "Name": "Halal Family",
+                "Address": "77 Main St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164171",
+                "Children": "3",
+                "Halal": "Yes",
+                "Food Restrictions": "Dairy",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import/preview", **import_review_request(rows)
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert len(body["changed"]) == 1
+        changed = body["changed"][0]
+        assert changed["halal"] == {"new_value": True, "old_value": False}
+        assert changed["dietary_restrictions"] == {
+            "new_value": "Dairy",
+            "old_value": "Peanut",
+        }
+        # Untouched fields stay plain values, not old/new pairs.
+        assert changed["num_children"] == 3
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+
+        await test_session.refresh(location)
+        assert location.location_id == location_id
+        assert location.halal is True
+        assert location.dietary_restrictions == "Dairy"
+
+    @pytest.mark.asyncio
+    async def test_ingest_blank_optional_cells_leave_stored_values(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A blank cell carries no information and must not clear the field.
+
+        A blank cell and an unmapped column both parse to None, so None cannot
+        mean "clear this" — the stored value has to survive the import.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Blank Optionals Family",
+            contact_name="Blank Optionals Family",
+            address="Formatted 88 Main St",
+            phone_primary="+14164164172",
+            num_children=5,
+            halal=True,
+            dietary_restrictions="Gluten",
+            in_roster=False,
+            delivery_type="Family",
+        )
+        test_session.add(location)
+        await test_session.commit()
+
+        # in_roster=False makes this a changed row even though every mapped
+        # field matches, so the applier actually runs over it.
+        rows = [
+            {
+                "Name": "Blank Optionals Family",
+                "Address": "88 Main St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164172",
+                "Children": "",
+                "Halal": "",
+                "Food Restrictions": "",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import/preview", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+        changed = response.json()["changed"]
+        assert len(changed) == 1
+        assert changed[0]["num_children"] == 5
+        assert changed[0]["halal"] is True
+        assert changed[0]["dietary_restrictions"] == "Gluten"
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+
+        await test_session.refresh(location)
+        assert location.num_children == 5
+        assert location.halal is True
+        assert location.dietary_restrictions == "Gluten"
+        assert location.in_roster is True
+
+    @pytest.mark.asyncio
+    async def test_ingest_carries_optional_fields_through_an_address_change(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A moved location keeps the import's values, not the old row's.
+
+        The move retires the old Location and builds a fresh one, which used to
+        copy halal/restrictions off the row being retired — silently discarding
+        the edit the admin had just reviewed.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Moving Family",
+                contact_name="Moving Family",
+                address="Formatted 99 Old St",
+                phone_primary="+14164164173",
+                num_children=2,
+                halal=False,
+                dietary_restrictions="Peanut",
+                delivery_type="Family",
+            )
+        )
+        await test_session.commit()
+
+        rows = [
+            {
+                "Name": "Moving Family",
+                "Address": "100 New St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164173",
+                "Children": "2",
+                "Halal": "Yes",
+                "Food Restrictions": "Dairy",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+
+        assert response.status_code == 200
+        created = response.json()["created"]
+        assert len(created) == 1
+        assert created[0]["address"] == "Formatted 100 New St"
+        assert created[0]["halal"] is True
+        assert created[0]["dietary_restrictions"] == "Dairy"
 
     @pytest.mark.asyncio
     async def test_review_locations_claims_existing_matches_once(

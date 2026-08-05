@@ -93,6 +93,7 @@ export type {
   CancelJobResponse,
   CancelJobResponses,
   ChangedEntry,
+  ChangedFieldBool,
   ChangedFieldOptInt,
   ChangedFieldOptStr,
   ChangedFieldStr,
