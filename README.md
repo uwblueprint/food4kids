@@ -134,7 +134,16 @@ docker-compose exec db psql -U postgres -d f4k
 
 # Seed with test data
 docker-compose exec backend python -m app.seed_database
+
+# ...and restore every seed account's password, if one has drifted.
+# Signs out everyone currently logged in, so it is opt-in.
+docker-compose exec backend python -m app.seed_database --reset-passwords
 ```
+
+Seeding leaves existing Firebase accounts' passwords alone. Writing a password
+moves the account's `tokensValidAfterTime`, which revokes every token already
+issued — so an unconditional rewrite signed out every open session, local and
+otherwise, on each run.
 
 ## API Testing
 
