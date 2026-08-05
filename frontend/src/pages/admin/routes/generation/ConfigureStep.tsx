@@ -25,6 +25,7 @@ import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { GenerationFooter } from './GenerationFooter';
 
 interface RouteFormEntry {
+  name: string;
   routeDate: Date | undefined;
   startTime: string;
   routeCount: number | undefined;
@@ -34,6 +35,7 @@ interface RouteFormEntry {
 type FormState = Record<string, RouteFormEntry>;
 
 interface RouteRow {
+  name: string;
   deliveryGroup: string;
   deliveryType: string;
   stops: number;
@@ -76,6 +78,14 @@ function routeStartDateTime(date: Date, time: string): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}T${time}:00`;
+}
+
+function defaultRouteName(groupName: string, routeDate: Date): string {
+  const date = routeDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+  return `${date} - ${groupName}`;
 }
 
 function ReturnToggle({
@@ -160,8 +170,10 @@ export function ConfigureStep() {
   const defaultEntry = (groupName: string): RouteFormEntry => {
     const stops = importedGroupCounts.get(groupName) ?? 0;
     const defaultCap = systemSettings?.default_cap;
+    const routeDate = nextRouteDate(groupName);
     return {
-      routeDate: nextRouteDate(groupName),
+      name: defaultRouteName(groupName, routeDate),
+      routeDate,
       startTime: normalizeTime(systemSettings?.route_start_time),
       routeCount:
         defaultCap && defaultCap > 0
@@ -194,6 +206,7 @@ export function ConfigureStep() {
   };
 
   const rows: RouteRow[] = importedGroups.map((group) => ({
+    name: getEntry(group.name).name,
     deliveryGroup: group.name,
     deliveryType: selectedDeliveryType,
     stops: importedGroupCounts.get(group.name) ?? group.num_locations,
@@ -203,6 +216,13 @@ export function ConfigureStep() {
   const selectedRows = rows.filter(
     (row) => !deselectedGroups.has(row.deliveryGroup)
   );
+  const allSelected = rows.length > 0 && selectedRows.length === rows.length;
+
+  const toggleAllGroups = () => {
+    setDeselectedGroups(
+      allSelected ? new Set(rows.map((row) => row.deliveryGroup)) : new Set()
+    );
+  };
   const missingGroups = [...importedGroupCounts.keys()].filter(
     (name) => !importedGroups.some((group) => group.name === name)
   );
@@ -211,6 +231,7 @@ export function ConfigureStep() {
     missingGroups.length === 0 &&
     selectedRows.every(
       (row) =>
+        row.form.name.trim().length > 0 &&
         row.form.routeDate &&
         row.form.startTime &&
         row.form.routeCount !== undefined &&
@@ -233,7 +254,7 @@ export function ConfigureStep() {
         return {
           location_group: {
             location_group_id: group.location_group_id,
-            name: group.name,
+            name: row.form.name,
             color: group.color,
             notes: group.notes,
           },
@@ -259,7 +280,19 @@ export function ConfigureStep() {
   const columns: Column<RouteRow>[] = [
     {
       key: 'selected',
-      header: '',
+      header: (
+        <input
+          type="checkbox"
+          checked={allSelected}
+          onChange={toggleAllGroups}
+          aria-label={
+            allSelected
+              ? 'Deselect all route groups'
+              : 'Select all route groups'
+          }
+          className="size-4 cursor-pointer rounded-[4px] accent-blue-300"
+        />
+      ),
       headerClassName: 'w-8 px-2',
       cellClassName: 'w-8 px-2',
       render: (row) => (
@@ -270,6 +303,24 @@ export function ConfigureStep() {
           aria-label={`Generate routes for ${row.deliveryGroup}`}
           className="size-4 cursor-pointer rounded-[4px] accent-blue-300"
         />
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (row) => (
+        <div className="relative w-48">
+          <Input
+            value={row.form.name}
+            disabled={deselectedGroups.has(row.deliveryGroup)}
+            aria-label={`Name for ${row.deliveryGroup}`}
+            onChange={(event) =>
+              updateEntry(row.deliveryGroup, { name: event.target.value })
+            }
+            className="py-2 pr-9"
+          />
+          <EditIcon className="text-grey-500 pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
+        </div>
       ),
     },
     {
@@ -285,7 +336,7 @@ export function ConfigureStep() {
     { key: 'stops', header: 'Stops', render: (row) => String(row.stops) },
     {
       key: 'route_date',
-      header: 'Route Date',
+      header: 'Date',
       render: (row) => (
         <DatePicker
           value={row.form.routeDate}
@@ -313,7 +364,7 @@ export function ConfigureStep() {
     },
     {
       key: 'route_count',
-      header: 'Route Count',
+      header: 'Routes',
       render: (row) => (
         <div className="relative w-20">
           <Input
@@ -339,7 +390,7 @@ export function ConfigureStep() {
     },
     {
       key: 'return_to_warehouse',
-      header: 'Return to Warehouse',
+      header: 'End at Warehouse',
       render: (row) => (
         <ReturnToggle
           checked={row.form.returnToWarehouse}
@@ -356,7 +407,7 @@ export function ConfigureStep() {
     <>
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-grey-500">Configure Routes</h2>
+          <h2 className="text-grey-500">Edit Route Groups</h2>
           <p className="text-p1 text-grey-500">
             Route groups were created from the imported data. Please review the
             details, make necessary changes, and select which routes to
@@ -402,15 +453,15 @@ export function ConfigureStep() {
       </GenerationFooter>
 
       <Modal open={leaveOpen} onOpenChange={setLeaveOpen}>
-        <ModalContent>
+        <ModalContent showCloseButton={false}>
           <ModalHeader>
-            <ModalTitle>Leave Without Saving</ModalTitle>
+            <ModalTitle>Leave without Saving</ModalTitle>
             <ModalDescription>
               If you go back now, all the data you entered will be lost. Would
               you still like to go back anyway?
             </ModalDescription>
           </ModalHeader>
-          <ModalFooter>
+          <ModalFooter className="justify-end">
             <Button variant="secondary" onClick={() => setLeaveOpen(false)}>
               Stay on this page
             </Button>
@@ -425,15 +476,15 @@ export function ConfigureStep() {
       </Modal>
 
       <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <ModalContent>
+        <ModalContent showCloseButton={false}>
           <ModalHeader>
             <ModalTitle>Continue to Generation</ModalTitle>
             <ModalDescription>
-              You're about to generate delivery routes for the groups you have
+              You're about to generate delivery routes for routes you have
               selected. This action cannot be undone.
             </ModalDescription>
           </ModalHeader>
-          <ModalFooter>
+          <ModalFooter className="justify-end">
             <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
