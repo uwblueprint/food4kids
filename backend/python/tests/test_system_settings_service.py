@@ -80,6 +80,7 @@ _GEOCODE_RESULT = GeocodeResult(
     place_id="place-abc",
     latitude=43.4643,
     longitude=-80.5204,
+    is_precise=True,
 )
 
 
