@@ -86,10 +86,9 @@ class _LocationMetrics:
 class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     """Sweep-line clustering for route generation.
 
-    Enforces both ``max_locations_per_cluster`` and ``max_boxes_per_cluster`` when
-    provided (same as ``MockClusteringAlgorithm``). The protocol allows
-    implementations to require at most one limit; this class applies both for F4K
-    driver rules (stops, boxes, and far-route caps).
+    Capacity is measured in boxes (``max_boxes_per_cluster``). The only stop
+    count limit is ``FAR_MAX_STOPS_PER_CLUSTER``, which applies solely to routes
+    containing a far delivery — it is a drive-time rule, not a capacity one.
     """
 
     def __init__(
@@ -103,7 +102,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_locations_per_cluster: int | None = None,
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
@@ -112,8 +110,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         Locations are sweep-sorted from the warehouse, then assigned greedily
         to the least-loaded feasible route so work is spread evenly while
-        respecting box, stop, and far-delivery limits. Both max stop and max box
-        limits apply together when both arguments are set.
+        respecting box and far-delivery limits.
         """
         start_time = time.time()
 
@@ -170,7 +167,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     cluster=cluster,
                     location=location,
                     max_boxes=max_boxes,
-                    max_stops=max_locations_per_cluster,
                     metrics=metrics,
                 )
             ]
@@ -179,8 +175,8 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 boxes = effective_boxes(location, self._children_per_box)
                 raise ValueError(
                     f"Cannot assign '{location.name}' ({boxes} boxes) across {num_clusters} "
-                    f"drivers without violating max {max_boxes} boxes per driver, "
-                    f"stop limits, or far-route caps. Add drivers or adjust loads."
+                    f"drivers without violating max {max_boxes} boxes per driver "
+                    f"or far-route caps. Add drivers or adjust loads."
                 )
 
             best_index = min(
@@ -193,14 +189,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         # Defensive: should be unreachable if _can_add_to_cluster stays in sync.
         for index, cluster in enumerate(clusters):
-            if (
-                max_locations_per_cluster is not None
-                and len(cluster) > max_locations_per_cluster
-            ):
-                raise ValueError(
-                    f"Cluster {index + 1} would have {len(cluster)} locations, "
-                    f"exceeding max_locations_per_cluster={max_locations_per_cluster}."
-                )
             cluster_boxes = sum(
                 effective_boxes(loc, self._children_per_box) for loc in cluster
             )
@@ -215,7 +203,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
     async def cluster_locations_by_constraints(
         self,
         locations: list[Location],
-        max_locations_per_cluster: int | None = None,
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
@@ -261,7 +248,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                 cluster=current,
                 location=location,
                 max_boxes=max_boxes,
-                max_stops=max_locations_per_cluster,
                 metrics=metrics,
             )
 
@@ -272,7 +258,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     cluster=current,
                     location=location,
                     max_boxes=max_boxes,
-                    max_stops=max_locations_per_cluster,
                     metrics=metrics,
                 )
 
@@ -320,14 +305,13 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         cluster: _ClusterState,
         location: Location,
         max_boxes: int,
-        max_stops: int | None,
         metrics: _LocationMetrics,
     ) -> bool:
         boxes = effective_boxes(location, self._children_per_box)
         if cluster.box_count + boxes > max_boxes:
             return False
 
-        stop_cap = self._effective_stop_cap(cluster, metrics.is_far, max_stops)
+        stop_cap = self._effective_stop_cap(cluster, metrics.is_far)
         if stop_cap is not None and cluster.stop_count + 1 > stop_cap:
             return False
 
@@ -354,15 +338,11 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         cluster: _ClusterState,
         location_is_far: bool,
-        max_stops: int | None,
     ) -> int | None:
-        if max_stops is None:
-            if cluster.has_far_stop or location_is_far:
-                return FAR_MAX_STOPS_PER_CLUSTER
-            return None
+        """Stops are capped only on routes that include a far delivery."""
         if cluster.has_far_stop or location_is_far:
-            return min(max_stops, FAR_MAX_STOPS_PER_CLUSTER)
-        return max_stops
+            return FAR_MAX_STOPS_PER_CLUSTER
+        return None
 
     def _far_route_minutes_cap(self, stop_cap: int | None) -> float:
         """Soft time budget for routes that include far deliveries."""

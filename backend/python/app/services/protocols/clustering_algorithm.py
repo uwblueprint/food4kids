@@ -26,25 +26,22 @@ class ClusteringAlgorithmProtocol(Protocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_locations_per_cluster: int | None = None,
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:  # pragma: no cover - interface only
         """Cluster locations into groups.
 
+        Capacity is expressed in boxes and nothing else: a driver's limit is how
+        much fits in their car, not how many doors they knock on. A stop count
+        cap used to exist alongside this one and was removed — see
+        SystemSettings.boxes_per_car for the single configured capacity.
+
         Args:
             locations: List of locations to cluster
             num_clusters: Target number of clusters to create
-            max_locations_per_cluster: Optional maximum number of locations
-                per cluster. If provided and cannot be satisfied with the given
-                number of clusters, the algorithm should raise an error. Can
-                assert that at most one of the max_locations_per_cluster
-                and max_boxes_per_cluster args are non-null (at least for now).
             max_boxes_per_cluster: Optional maximum number of boxes per cluster.
                 If provided and cannot be satisfied with the given
-                number of clusters, the algorithm should raise an error. Can
-                assert that at most one of the max_locations_per_cluster
-                and max_boxes_per_cluster args are non-null (at least for now).
+                number of clusters, the algorithm should raise an error.
             timeout_seconds: Optional timeout in seconds. If provided, the
                 algorithm should raise TimeoutError if execution exceeds this
                 duration. If None, no timeout is enforced.
@@ -54,7 +51,7 @@ class ClusteringAlgorithmProtocol(Protocol):
 
         Raises:
             ValueError: If the clustering parameters are invalid or cannot
-                be satisfied (e.g., num_clusters < 1, or max_locations_per_cluster
+                be satisfied (e.g., num_clusters < 1, or max_boxes_per_cluster
                 is too small for the given number of locations and clusters)
             TimeoutError: If timeout_seconds is provided and execution exceeds
                 the timeout duration

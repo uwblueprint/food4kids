@@ -824,7 +824,6 @@ class TestModelValidation:
         )
         system_settings = SystemSettings()
         assert admin.receive_email_notifications is True
-        assert system_settings.default_cap is None
         assert system_settings.route_start_time is None
         assert system_settings.warehouse_location is None
         assert system_settings.boxes_per_car == 10

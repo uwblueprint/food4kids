@@ -58,7 +58,7 @@ async def test_updated_at_bumps_on_orm_update(test_session: AsyncSession) -> Non
     settings = await _make_settings(test_session)
     await _backdate(test_session, settings)
 
-    settings.default_cap = 5
+    settings.dropoff_minutes = 5
     await test_session.commit()
     await test_session.refresh(settings)
 
@@ -77,7 +77,7 @@ async def test_updated_at_bumps_on_core_bulk_update(
     await test_session.execute(
         update(SystemSettings)
         .where(col(SystemSettings.system_settings_id) == settings.system_settings_id)
-        .values(default_cap=7)
+        .values(dropoff_minutes=7)
     )
     await test_session.commit()
     await test_session.refresh(settings)
@@ -97,7 +97,7 @@ async def test_explicit_updated_at_wins_over_onupdate(
     await test_session.execute(
         update(SystemSettings)
         .where(col(SystemSettings.system_settings_id) == settings.system_settings_id)
-        .values(default_cap=9, updated_at=explicit)
+        .values(dropoff_minutes=9, updated_at=explicit)
     )
     await test_session.commit()
     await test_session.refresh(settings)

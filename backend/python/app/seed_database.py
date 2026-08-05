@@ -194,10 +194,6 @@ JOB_UPDATE_HOUR_MAX = 3
 JOB_FINISH_HOUR_MIN = 1
 # Maximum hours after update time for job finish time
 JOB_FINISH_HOUR_MAX = 4
-# Minimum default capacity for admin info
-DEFAULT_CAP_MIN = 10
-# Maximum default capacity for admin info
-DEFAULT_CAP_MAX = 20
 
 # Time constants
 # Default route start time (HH:MM:SS format)
@@ -1336,7 +1332,6 @@ def main(*, reset_passwords: bool = False) -> None:
                 ROUTE_START_TIME, "%H:%M:%S"
             ).time()
             system_settings = SystemSettings(
-                default_cap=random.randint(DEFAULT_CAP_MIN, DEFAULT_CAP_MAX),
                 route_start_time=route_start_time_obj,
                 warehouse_location=WAREHOUSE_ADDRESS,
                 warehouse_longitude=WAREHOUSE_LON,
