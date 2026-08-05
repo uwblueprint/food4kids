@@ -835,11 +835,16 @@ class LocationService:
             )
         )
         return {
+            # Already on the roster, so grandfathered as precise: these rows were
+            # accepted under whatever rules applied when they were created, and
+            # re-judging them here would block every future import on an address
+            # nobody is changing.
             address: GeocodeResult(
                 formatted_address=address,
                 place_id=place_id or "",
                 latitude=latitude,
                 longitude=longitude,
+                is_precise=True,
             )
             for address, latitude, longitude, place_id in result.all()
             if address in addresses
@@ -848,10 +853,23 @@ class LocationService:
     async def _geocode_import_address(
         self, address: str | None
     ) -> GeocodeResult | None:
-        """Geocode a non-blank import address; skip geocoding when address is missing."""
+        """Geocode a non-blank import address; skip geocoding when address is missing.
+
+        An imprecise match is reported as a geocoding failure so the row raises
+        INVALID_ADDRESS. Google answers almost anything with a successful result
+        — a town centroid for a nonexistent street, the city for a typo — and
+        those are no more deliverable than an address it could not find at all.
+        """
         if not present_str(address):
             return None
-        return await self.google_maps_service.geocode_address(address)
+        result = await self.google_maps_service.geocode_address(address)
+        if result is not None and not result.is_precise:
+            self.logger.info(
+                f"Rejecting imprecise geocode for import address {address!r}: "
+                f"resolved to {result.formatted_address!r}"
+            )
+            return None
+        return result
 
     async def _classify_import_rows(
         self,
@@ -1117,6 +1135,13 @@ class LocationService:
 
             if not geocode_result:
                 raise ValueError(f"Geocoding failed for address: {address}")
+
+            if not geocode_result.is_precise:
+                raise ValueError(
+                    f"Address is not specific enough to deliver to: {address} "
+                    f"(resolved to {geocode_result.formatted_address}). "
+                    "Include a street number."
+                )
 
             location_data.address = geocode_result.formatted_address
             location_data.longitude = geocode_result.longitude
