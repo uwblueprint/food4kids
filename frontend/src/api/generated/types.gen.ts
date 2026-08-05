@@ -14,6 +14,7 @@ export type AlertCode =
   | 'INVALID_ADDRESS'
   | 'MISSING_PHONE_NUMBER'
   | 'INVALID_PHONE_NUMBER'
+  | 'INVALID_SECONDARY_PHONE_NUMBER'
   | 'MISSING_NAME'
   | 'INVALID_NAME'
   | 'MISSING_DELIVERY_GROUP'
@@ -247,9 +248,17 @@ export type ChangedEntry = {
    */
   delivery_group?: string | ChangedFieldOptStr | null;
   /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | ChangedFieldStr;
+  /**
    * Guardian Name
    */
   guardian_name?: string | ChangedFieldOptStr | null;
+  /**
+   * Halal
+   */
+  halal?: boolean | ChangedFieldBool;
   /**
    * Location Id
    */
@@ -270,6 +279,20 @@ export type ChangedEntry = {
    * Row
    */
   row: number;
+};
+
+/**
+ * ChangedFieldBool
+ */
+export type ChangedFieldBool = {
+  /**
+   * New Value
+   */
+  new_value: boolean;
+  /**
+   * Old Value
+   */
+  old_value: boolean;
 };
 
 /**

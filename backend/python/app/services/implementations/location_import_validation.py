@@ -68,8 +68,12 @@ def collect_field_alerts(
     elif phone_invalid:
         alerts.append(AlertCode.INVALID_PHONE_NUMBER)
 
+    # Its own code, not INVALID_PHONE_NUMBER: the Validate screen highlights
+    # the cell the alert names, so sharing the primary's code would mark a
+    # perfectly good primary number red. A blank secondary is not an alert —
+    # the field is optional.
     if phone_secondary_invalid:
-        alerts.append(AlertCode.INVALID_PHONE_NUMBER)
+        alerts.append(AlertCode.INVALID_SECONDARY_PHONE_NUMBER)
 
     if is_blank(entry.delivery_group):
         alerts.append(AlertCode.MISSING_DELIVERY_GROUP)

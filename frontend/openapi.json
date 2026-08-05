@@ -8,6 +8,7 @@
           "INVALID_ADDRESS",
           "MISSING_PHONE_NUMBER",
           "INVALID_PHONE_NUMBER",
+          "INVALID_SECONDARY_PHONE_NUMBER",
           "MISSING_NAME",
           "INVALID_NAME",
           "MISSING_DELIVERY_GROUP",
@@ -364,6 +365,18 @@
             ],
             "title": "Delivery Group"
           },
+          "dietary_restrictions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldStr"
+              }
+            ],
+            "default": "",
+            "title": "Dietary Restrictions"
+          },
           "guardian_name": {
             "anyOf": [
               {
@@ -377,6 +390,18 @@
               }
             ],
             "title": "Guardian Name"
+          },
+          "halal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldBool"
+              }
+            ],
+            "default": false,
+            "title": "Halal"
           },
           "location_id": {
             "format": "uuid",
@@ -435,6 +460,24 @@
           "phone_primary"
         ],
         "title": "ChangedEntry",
+        "type": "object"
+      },
+      "ChangedFieldBool": {
+        "properties": {
+          "new_value": {
+            "title": "New Value",
+            "type": "boolean"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "new_value",
+          "old_value"
+        ],
+        "title": "ChangedFieldBool",
         "type": "object"
       },
       "ChangedFieldOptInt": {

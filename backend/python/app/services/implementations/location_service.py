@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any, TypeGuard, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -24,6 +24,7 @@ from app.models.enum import (
 from app.models.location import (
     AlertCode,
     ChangedEntry,
+    ChangedFieldBool,
     ChangedFieldOptInt,
     ChangedFieldOptStr,
     ChangedFieldStr,
@@ -103,6 +104,20 @@ class ImportPlan:
 
 # How many referencing routes to name in a LocationInUseError message.
 IN_USE_SAMPLE_SIZE = 5
+
+T = TypeVar("T")
+
+
+def resolve_optional(new: T | None, current: T) -> T:
+    """The value an import row would leave on a field it may not speak to.
+
+    A blank cell parses to None, and so does a column the admin never mapped:
+    the two are indistinguishable, so neither can mean "clear this". None
+    therefore carries no information and the stored value stands. Change
+    detection and the applier both go through here so they cannot disagree
+    about what a blank cell means.
+    """
+    return current if new is None else new
 
 
 class LocationInUseError(Exception):
@@ -984,8 +999,13 @@ class LocationService:
             "phone_primary": entry_key.phone != location_key.phone,
             "phone_secondary": (entry.phone_secondary or None)
             != (location.phone_secondary or None),
-            "num_children": entry.num_children is not None
-            and entry.num_children != location.num_children,
+            "num_children": resolve_optional(entry.num_children, location.num_children)
+            != location.num_children,
+            "halal": resolve_optional(entry.halal, location.halal) != location.halal,
+            "dietary_restrictions": resolve_optional(
+                entry.dietary_restrictions, location.dietary_restrictions
+            )
+            != location.dietary_restrictions,
             "in_roster": not location.in_roster,
         }
 
@@ -1043,6 +1063,20 @@ class LocationService:
             )
             if num_children_changed
             else location.num_children,
+            halal=ChangedFieldBool(
+                new_value=resolve_optional(entry.halal, location.halal),
+                old_value=location.halal,
+            )
+            if changes["halal"]
+            else location.halal,
+            dietary_restrictions=ChangedFieldStr(
+                new_value=resolve_optional(
+                    entry.dietary_restrictions, location.dietary_restrictions
+                ),
+                old_value=location.dietary_restrictions,
+            )
+            if changes["dietary_restrictions"]
+            else location.dietary_restrictions,
         )
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
@@ -1245,7 +1279,13 @@ class LocationService:
                     location.guardian_name = entry.guardian_name
                     location.phone_primary = entry.phone_primary
                     location.phone_secondary = entry.phone_secondary
-                    location.num_children = entry.num_children or 0
+                    location.num_children = resolve_optional(
+                        entry.num_children, location.num_children
+                    )
+                    location.halal = resolve_optional(entry.halal, location.halal)
+                    location.dietary_restrictions = resolve_optional(
+                        entry.dietary_restrictions, location.dietary_restrictions
+                    )
                     location.location_group_id = group_id
                     continue
 
@@ -1269,9 +1309,13 @@ class LocationService:
                         longitude=geocode_result.longitude,
                         latitude=geocode_result.latitude,
                         place_id=geocode_result.place_id,
-                        halal=location.halal,
-                        dietary_restrictions=location.dietary_restrictions,
-                        num_children=entry.num_children or 0,
+                        halal=resolve_optional(entry.halal, location.halal),
+                        dietary_restrictions=resolve_optional(
+                            entry.dietary_restrictions, location.dietary_restrictions
+                        ),
+                        num_children=resolve_optional(
+                            entry.num_children, location.num_children
+                        ),
                         delivery_type=delivery_type,
                         in_roster=True,
                         note_chain_id=note_chain_id,

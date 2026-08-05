@@ -37,6 +37,18 @@ function isChanged<T>(value: T | ChangedField<T>): value is ChangedField<T> {
   );
 }
 
+// Halal arrives as a bool on both sides of the diff. ChangedCell renders text,
+// so map through Yes/No while keeping the changed/unchanged shape intact.
+function yesNo(
+  value: boolean | ChangedField<boolean> | undefined
+): string | undefined | ChangedField<string | null> {
+  const label = (flag: boolean) => (flag ? 'Yes' : 'No');
+  if (value === undefined) return undefined;
+  return isChanged(value)
+    ? { new_value: label(value.new_value), old_value: label(value.old_value) }
+    : label(value);
+}
+
 function ChangedCell({
   value,
 }: {
@@ -189,9 +201,8 @@ export function ReviewStep() {
       header: 'School / Last Name',
       render: (row) => row.contact_name,
     },
-    // Not in the frames' Changed table. Without it, a row whose only edit is
-    // the guardian's name shows no visible difference, and there is nothing
-    // for the admin to check off — flag to the designer.
+    // Every field the import writes is diffed here: the admin checks a row off
+    // as reviewed, so a row whose only edit is invisible has nothing to review.
     {
       key: 'guardian_name',
       header: 'Guardian Name',
@@ -213,9 +224,24 @@ export function ReviewStep() {
       render: (row) => <ChangedCell value={row.phone_primary} />,
     },
     {
+      key: 'phone_secondary',
+      header: 'Secondary Phone Number',
+      render: (row) => <ChangedCell value={row.phone_secondary} />,
+    },
+    {
       key: 'num_children',
       header: 'Number of Children',
       render: (row) => <ChangedCell value={row.num_children} />,
+    },
+    {
+      key: 'dietary_restrictions',
+      header: 'Food Restrictions',
+      render: (row) => <ChangedCell value={row.dietary_restrictions} />,
+    },
+    {
+      key: 'halal',
+      header: 'Halal?',
+      render: (row) => <ChangedCell value={yesNo(row.halal)} />,
     },
   ];
 
