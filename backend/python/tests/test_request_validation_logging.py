@@ -160,7 +160,7 @@ class TestResponseIsUnchanged:
         async with probe_client as client:
             response = await client.post("/_probe/household", json={})
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
         detail = response.json()["detail"]
         assert isinstance(detail, list)
@@ -179,5 +179,5 @@ class TestResponseIsUnchanged:
                 "/_probe/household", json={}, headers={"Origin": ALLOWED_ORIGIN}
             )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
