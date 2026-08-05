@@ -15,7 +15,7 @@ interface AuthState {
   } | null;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
-  setAuth: (authData: AuthResponse) => void;
+  setAuth: (authData: AuthResponse, driverId?: string) => void;
   setAuthFromRegister: (registerData: DriverRegisterResponse) => void;
   clearAuth: () => void;
 }
@@ -27,7 +27,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isRestoringSession: true,
 
   // Called after a successful Login
-  setAuth: (authData) =>
+  setAuth: (authData, driverId) =>
     set({
       accessToken: authData.access_token,
       user: {
@@ -37,6 +37,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: authData.email,
         fullName: authData.full_name,
         role: authData.role,
+        driverId,
       },
       isAuthenticated: true,
       isRestoringSession: false,

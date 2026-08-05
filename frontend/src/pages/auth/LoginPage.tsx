@@ -49,8 +49,13 @@ const LoginForm = () => {
     loginMutation.mutate(
       { email, password },
       {
-        onSuccess: () => {
-          navigate('/'); // 3. Navigate to base route on success
+        onSuccess: (data) => {
+          // Redirect based on user role
+          if (data.role === 'driver') {
+            navigate('/driver/home');
+          } else {
+            navigate('/admin/home');
+          }
         },
         onError: (failure) => {
           const connectionMessage = describeApiFailure(failure);
