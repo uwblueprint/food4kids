@@ -317,7 +317,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
         far_time_exceeded = (cluster.has_far_stop or metrics.is_far) and (
             cluster.estimated_minutes + metrics.stop_minutes
-            > self._far_route_minutes_cap(stop_cap)
+            > self._far_route_minutes_cap()
         )
         return not far_time_exceeded
 
@@ -344,10 +344,16 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
             return FAR_MAX_STOPS_PER_CLUSTER
         return None
 
-    def _far_route_minutes_cap(self, stop_cap: int | None) -> float:
-        """Soft time budget for routes that include far deliveries."""
-        stops = stop_cap if stop_cap is not None else FAR_MAX_STOPS_PER_CLUSTER
-        return stops * DEFAULT_SERVICE_MINUTES_PER_STOP + FAR_ROUND_TRIP_DRIVE_MINUTES
+    def _far_route_minutes_cap(self) -> float:
+        """Soft time budget for routes that include far deliveries.
+
+        Only ever applied to far routes, whose stop cap is always
+        FAR_MAX_STOPS_PER_CLUSTER, so the budget is a constant.
+        """
+        return (
+            FAR_MAX_STOPS_PER_CLUSTER * DEFAULT_SERVICE_MINUTES_PER_STOP
+            + FAR_ROUND_TRIP_DRIVE_MINUTES
+        )
 
     def _cluster_load_key(self, cluster: _ClusterState) -> tuple[float, float, float]:
         """Lower is better when assigning the next stop.
