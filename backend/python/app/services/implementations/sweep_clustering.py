@@ -28,6 +28,13 @@ FAR_CITY_KEYWORDS: frozenset[str] = frozenset(
 FAR_DISTANCE_KM_THRESHOLD = 35.0
 
 # Max stops on a route that includes any far delivery.
+#
+# This is a proxy for time, not a capacity: an Elmira run eats a driver's
+# afternoon regardless of how few boxes it carries, and the only time model
+# this algorithm has is the crude one below (straight-line distance over a
+# fixed average speed). Google Maps optimizeTours needs no equivalent — it
+# prices each route's real drive time via costPerHour, so a hardcoded stop
+# cap there would be redundant at best. Keep this rule on this side.
 FAR_MAX_STOPS_PER_CLUSTER = 5
 
 # Rough drive-time model for balancing (minutes).
@@ -88,7 +95,7 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
 
     Capacity is measured in boxes (``max_boxes_per_cluster``). The only stop
     count limit is ``FAR_MAX_STOPS_PER_CLUSTER``, which applies solely to routes
-    containing a far delivery — it is a drive-time rule, not a capacity one.
+    containing a far delivery and stands in for drive time rather than capacity.
     """
 
     def __init__(
