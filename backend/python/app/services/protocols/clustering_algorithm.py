@@ -31,11 +31,6 @@ class ClusteringAlgorithmProtocol(Protocol):
     ) -> list[list[Location]]:  # pragma: no cover - interface only
         """Cluster locations into groups.
 
-        Capacity is expressed in boxes and nothing else: a driver's limit is how
-        much fits in their car, not how many doors they knock on. A stop count
-        cap used to exist alongside this one and was removed — see
-        SystemSettings.boxes_per_car for the single configured capacity.
-
         Args:
             locations: List of locations to cluster
             num_clusters: Target number of clusters to create
