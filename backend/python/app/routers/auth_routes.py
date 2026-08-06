@@ -1,14 +1,10 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any
 
-import firebase_admin.auth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import optional_security
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -106,29 +102,16 @@ async def refresh(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     response: Response,
-    session: AsyncSession = Depends(get_session),
-    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
+    request: Request,
     auth_service: AuthService = Depends(get_auth_service),
-    user_service: UserService = Depends(get_user_service),
 ) -> None:
     """
-    Revokes all of the specified driver's refresh tokens and clears cookies
+    Revokes refresh tokens and clears cookies
     """
     try:
-        if credentials is not None:
-            access_token = credentials.credentials
-
-            decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
-                access_token,
-                check_revoked=False,  # Allow it to clear even if token expired
-            )
-            firebase_uid = decoded_token["uid"]
-
-            database_user_id = await user_service.get_user_id_by_auth_id(
-                session, firebase_uid
-            )
-            if database_user_id:
-                await auth_service.revoke_tokens(session, database_user_id)
+        refresh_token = request.cookies.get("refreshToken")
+        if refresh_token:
+            await auth_service.revoke_tokens_by_refresh_token(refresh_token)
 
     except Exception:
         logger.exception("Failed to revoke refresh tokens during logout")
