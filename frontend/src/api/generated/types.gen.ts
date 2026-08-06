@@ -1645,10 +1645,6 @@ export type RouteGenerationSettings = {
    */
   max_boxes_per_driver?: number;
   /**
-   * Max Stops Per Route
-   */
-  max_stops_per_route?: number | null;
-  /**
    * Num Routes
    */
   num_routes: number;
@@ -2085,10 +2081,6 @@ export type SystemSettingsRead = {
    */
   contact_phone?: string | null;
   /**
-   * Default Cap
-   */
-  default_cap?: number | null;
-  /**
    * Delivery Types
    */
   delivery_types?: Array<string>;
@@ -2170,10 +2162,6 @@ export type SystemSettingsUpdate = {
    * Contact Phone
    */
   contact_phone?: string | null;
-  /**
-   * Default Cap
-   */
-  default_cap?: number | null;
   /**
    * Delivery Types
    */

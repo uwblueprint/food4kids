@@ -2807,17 +2807,6 @@
             "title": "Max Boxes Per Driver",
             "type": "integer"
           },
-          "max_stops_per_route": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Stops Per Route"
-          },
           "num_routes": {
             "title": "Num Routes",
             "type": "integer"
@@ -3562,17 +3551,6 @@
             ],
             "title": "Contact Phone"
           },
-          "default_cap": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default Cap"
-          },
           "delivery_types": {
             "items": {
               "type": "string"
@@ -3781,17 +3759,6 @@
               }
             ],
             "title": "Contact Phone"
-          },
-          "default_cap": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default Cap"
           },
           "delivery_types": {
             "anyOf": [

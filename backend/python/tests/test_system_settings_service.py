@@ -182,9 +182,9 @@ async def test_update_settings_unrelated_patch_skips_geocoding(
     await service.ensure_settings(test_session)  # startup invariant
 
     settings = await service.update_settings(
-        test_session, SystemSettingsUpdate(default_cap=5)
+        test_session, SystemSettingsUpdate(dropoff_minutes=5)
     )
 
-    assert settings.default_cap == 5
+    assert settings.dropoff_minutes == 5
     assert settings.warehouse_location is None
     assert maps.calls == []

@@ -15,8 +15,8 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
     """Simple mock clustering algorithm that splits locations into clusters.
 
     This is a pure function with no database interaction. It distributes
-    locations across clusters while respecting max_locations_per_cluster and
-    max_boxes_per_cluster constraints.
+    locations across clusters while respecting the max_boxes_per_cluster
+    constraint.
     """
 
     def __init__(self, children_per_box: int) -> None:
@@ -26,7 +26,6 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_locations_per_cluster: int | None = None,
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
@@ -35,9 +34,6 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
         Args:
             locations: List of locations to cluster
             num_clusters: Target number of clusters to create
-            max_locations_per_cluster: Optional maximum number of locations
-                per cluster. If provided, validates that the clustering is
-                possible and raises an error if violated.
             max_boxes_per_cluster: Optional maximum number of boxes per cluster.
                 If provided, validates that the clustering is possible and
                 raises an error if violated.
@@ -60,20 +56,10 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
         # Calculate base cluster size and validate constraints
         total_locations = len(locations)
         base_cluster_size = total_locations // num_clusters
-        remainder = total_locations % num_clusters
 
         if base_cluster_size == 0:
             raise ValueError(
                 f"Cannot create {num_clusters} clusters: not enough locations"
-            )
-
-        # The largest cluster will have base_cluster_size + 1 if remainder > 0
-        max_cluster_size = base_cluster_size + (1 if remainder > 0 else 0)
-        if max_locations_per_cluster and max_cluster_size > max_locations_per_cluster:
-            raise ValueError(
-                f"Cannot create {num_clusters} clusters with max "
-                f"{max_locations_per_cluster} locations per cluster. "
-                f"Required cluster size would be up to {max_cluster_size}."
             )
 
         # Distribute locations while respecting constraints
@@ -93,11 +79,7 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
                     or cluster_boxes[cluster_idx] + location_boxes
                     <= max_boxes_per_cluster
                 )
-                locations_ok = (
-                    max_locations_per_cluster is None
-                    or len(clusters[cluster_idx]) < max_locations_per_cluster
-                )
-                if boxes_ok and locations_ok:
+                if boxes_ok:
                     break
                 cluster_idx = (cluster_idx + 1) % num_clusters
                 attempts += 1

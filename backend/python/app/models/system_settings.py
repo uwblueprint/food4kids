@@ -63,7 +63,6 @@ class EmailReminderListType(TypeDecorator[list[EmailReminder]]):
 class SystemSettingsBase(SQLModel):
     """Shared fields between table and API models"""
 
-    default_cap: int | None = Field(default=None)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
     warehouse_longitude: float | None = None
@@ -152,7 +151,6 @@ class DeliveryTypeRename(SQLModel):
 class SystemSettingsUpdate(SQLModel):
     """Update request model - all optional"""
 
-    default_cap: int | None = Field(default=None)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
     warehouse_longitude: float | None = None
