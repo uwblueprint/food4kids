@@ -3,6 +3,7 @@ import { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useAuthStore } from '@/api/authStore';
+import type { AuthResponse } from '@/api/generated';
 import {
   applyLocationImport,
   createLocationGroup,
@@ -311,5 +312,256 @@ describe('session expiry', () => {
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
     expect(state.sessionExpired).toBe(false);
+  });
+});
+
+/**
+ * A 401 is answered by refreshing, not by giving up.
+ *
+ * Firebase mints access tokens with an hour of life, so a tab left open over a
+ * shift outlives its token as a matter of course, while the refresh cookie
+ * beside it is still perfectly good. Treating that as a dead session would sign
+ * people out mid-task on a timer. What actually distinguishes the two is the
+ * refresh endpoint's own answer, so these tests pin who gets renewed, who gets
+ * signed out, and — the loop worth guarding — that nothing retries forever.
+ */
+describe('refreshing an aged-out token', () => {
+  type Reply =
+    | { status: number; body?: unknown }
+    | { networkError: true; status?: never };
+
+  let requests: InternalAxiosRequestConfig[] = [];
+
+  const RENEWED: AuthResponse = {
+    access_token: 'token-xyz',
+    email: 'dana@example.com',
+    first_name: 'Dana',
+    full_name: 'Dana Bell',
+    id: 'user-1',
+    last_name: 'Bell',
+    role: 'Admin',
+  };
+
+  /**
+   * Reply per request rather than per test, since the whole point is that one
+   * call by the caller becomes three on the wire: the original, the refresh,
+   * and the replay.
+   */
+  function serve(reply: (config: InternalAxiosRequestConfig) => Reply) {
+    axiosClient.defaults.adapter = async (config) => {
+      requests.push(config);
+      const answer = reply(config);
+
+      if ('networkError' in answer) {
+        throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
+      }
+
+      const response = {
+        data: answer.body ?? { detail: 'nope' },
+        status: answer.status,
+        statusText: answer.status < 400 ? 'OK' : 'Error',
+        headers: {},
+        config,
+      } as AxiosResponse;
+
+      if (answer.status >= 400) {
+        throw new AxiosError(
+          `Request failed with status code ${answer.status}`,
+          AxiosError.ERR_BAD_REQUEST,
+          config,
+          null,
+          response
+        );
+      }
+      return response;
+    };
+  }
+
+  const isRefresh = (config: InternalAxiosRequestConfig) =>
+    (config.url ?? '').endsWith('/auth/refresh');
+
+  const refreshes = () => requests.filter(isRefresh);
+  const calls = () => requests.filter((config) => !isRefresh(config));
+
+  /** The token an outgoing request actually carried. */
+  const tokenOn = (config: InternalAxiosRequestConfig) =>
+    String(config.headers.Authorization ?? '');
+
+  function signedIn() {
+    useAuthStore.setState({
+      accessToken: 'token-abc',
+      user: null,
+      isAuthenticated: true,
+      isRestoringSession: false,
+      sessionExpired: false,
+    });
+  }
+
+  function attempt() {
+    return createLocationGroup({
+      body: { name: 'Tuesday A', location_ids: [] },
+      throwOnError: true,
+    });
+  }
+
+  /**
+   * A token that has aged out, expressed the way the server would see it: the
+   * old one is refused and the one the refresh hands back is accepted.
+   *
+   * Keyed off the token rather than off call order on purpose — with several
+   * requests in flight the refresh can land before the last of them is sent,
+   * and a counter would make the burst case depend on which won.
+   */
+  function staleToken(refreshReply: Reply = { status: 200, body: RENEWED }) {
+    serve((config) => {
+      if (isRefresh(config)) return refreshReply;
+      return tokenOn(config) === `Bearer ${RENEWED.access_token}`
+        ? { status: 200, body: { id: 'group-1' } }
+        : { status: 401 };
+    });
+  }
+
+  beforeEach(() => {
+    requests = [];
+    useAuthStore.getState().clearAuth();
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  it('refreshes and replays the request, so the caller never sees the 401', async () => {
+    signedIn();
+    staleToken();
+
+    const { data } = await attempt();
+
+    expect(data).toEqual({ id: 'group-1' });
+    expect(refreshes()).toHaveLength(1);
+    expect(calls()).toHaveLength(2);
+  });
+
+  it('keeps the session, and adopts the token the refresh handed back', async () => {
+    signedIn();
+    staleToken();
+
+    await attempt();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.sessionExpired).toBe(false);
+    expect(state.accessToken).toBe('token-xyz');
+    expect(state.user?.email).toBe('dana@example.com');
+  });
+
+  it('sends the replay with the new token rather than the one just refused', async () => {
+    signedIn();
+    staleToken();
+
+    await attempt();
+
+    const [first, replay] = calls();
+    expect(tokenOn(first)).toBe('Bearer token-abc');
+    expect(tokenOn(replay)).toBe('Bearer token-xyz');
+  });
+
+  it('refreshes once for a burst of requests that all go stale together', async () => {
+    signedIn();
+    staleToken();
+
+    await Promise.all([attempt(), attempt(), attempt()]);
+
+    // Each exchange rotates the refresh cookie, so a second refresh would be
+    // spending one the first had already replaced.
+    expect(refreshes()).toHaveLength(1);
+    expect(calls()).toHaveLength(6);
+  });
+
+  it('ends the session when the refresh is refused', async () => {
+    signedIn();
+    staleToken({ status: 401 });
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.accessToken).toBeNull();
+    expect(state.sessionExpired).toBe(true);
+  });
+
+  it('does not refresh again when the replay is refused too', async () => {
+    signedIn();
+    // A token minted seconds ago and still turned away: refreshing a second
+    // time would only mint another, forever.
+    serve((config) =>
+      isRefresh(config) ? { status: 200, body: RENEWED } : { status: 401 }
+    );
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    expect(refreshes()).toHaveLength(1);
+    expect(calls()).toHaveLength(2);
+    expect(useAuthStore.getState().sessionExpired).toBe(true);
+  });
+
+  it('leaves the session standing when the refresh never gets an answer', async () => {
+    signedIn();
+    // Wifi dropping in a stairwell is not the server ending the session, and
+    // signing the driver out over it would lose whatever they were mid-way
+    // through.
+    staleToken({ networkError: true });
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.accessToken).toBe('token-abc');
+    expect(state.sessionExpired).toBe(false);
+  });
+
+  it('leaves the session standing when the refresh fails for some other reason', async () => {
+    signedIn();
+    staleToken({ status: 500 });
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    expect(useAuthStore.getState().sessionExpired).toBe(false);
+  });
+
+  it('never tries to refresh the refresh', async () => {
+    signedIn();
+    serve(() => ({ status: 401 }));
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    expect(refreshes()).toHaveLength(1);
+  });
+
+  it('does not refresh for a request that carried no token', async () => {
+    // The session-restore call on a first visit. There is no session to renew.
+    serve(() => ({ status: 401 }));
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    expect(refreshes()).toHaveLength(0);
+    expect(useAuthStore.getState().sessionExpired).toBe(false);
+  });
+
+  it.each([403, 404, 422, 500])('does not refresh on a %i', async (status) => {
+    signedIn();
+    serve(() => ({ status }));
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    expect(refreshes()).toHaveLength(0);
+    expect(useAuthStore.getState().accessToken).toBe('token-abc');
   });
 });
