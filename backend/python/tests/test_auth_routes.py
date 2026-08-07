@@ -58,6 +58,9 @@ class StubAuthService:
     async def revoke_tokens(self, *_args: Any, **_kwargs: Any) -> None:
         raise self.error
 
+    async def revoke_tokens_by_refresh_token(self, *_args: Any, **_kwargs: Any) -> None:
+        raise self.error
+
 
 class StubTokenService:
     """Returns a valid, unused, unexpired reset token so the handler's guards
@@ -385,6 +388,8 @@ class TestLogout:
         stub = StubAuthService(RuntimeError("database on fire"))
         client = await client_with_overrides({get_auth_service: lambda: stub})
 
-        response = await client.post("/auth/logout")
+        response = await client.post(
+            "/auth/logout", headers={"Cookie": "refreshToken=stub-refresh-token"}
+        )
 
         assert response.status_code == 204
