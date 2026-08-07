@@ -419,13 +419,12 @@ export const login = <ThrowOnError extends boolean = false>(
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens and clears cookies
+ * Revokes refresh tokens and clears cookies
  */
 export const logout = <ThrowOnError extends boolean = false>(
   options?: Options<LogoutData, ThrowOnError>
 ) =>
   (options?.client ?? client).post<LogoutResponses, unknown, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/auth/logout',
     ...options,
   });

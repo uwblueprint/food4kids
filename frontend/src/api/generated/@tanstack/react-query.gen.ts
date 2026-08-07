@@ -607,7 +607,7 @@ export const loginMutation = (
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens and clears cookies
+ * Revokes refresh tokens and clears cookies
  */
 export const logoutMutation = (
   options?: Partial<Options<LogoutData>>

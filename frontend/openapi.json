@@ -4456,18 +4456,13 @@
     },
     "/auth/logout": {
       "post": {
-        "description": "Revokes all of the specified driver's refresh tokens and clears cookies",
+        "description": "Revokes refresh tokens and clears cookies",
         "operationId": "logout",
         "responses": {
           "204": {
             "description": "Successful Response"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "Logout",
         "tags": [
           "authentication"
