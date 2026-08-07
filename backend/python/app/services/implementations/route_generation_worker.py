@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from zoneinfo import ZoneInfo
@@ -157,8 +158,14 @@ async def _claim_and_run_one() -> bool:
         job_id = await claim_next_pending_job(session)
         if job_id is None:
             return False
-        logger.info("Running route generation job %s", job_id)
+        logger.info("Claimed route generation job %s", job_id)
+        started = time.perf_counter()
         await run_generation_job(job_id, session, algorithm)
+        logger.info(
+            "Finished route generation job %s in %.1fs",
+            job_id,
+            time.perf_counter() - started,
+        )
         return True
 
 
