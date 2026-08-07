@@ -29,8 +29,11 @@ function ModalOverlay({
 function ModalContent({
   className,
   children,
+  showCloseButton = true,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean;
+}) {
   return (
     <ModalPortal>
       <ModalOverlay />
@@ -48,12 +51,14 @@ function ModalContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close
-          aria-label="Close"
-          className="shadow-light text-grey-400 hover:text-grey-500 absolute top-4 right-4 flex size-11 items-center justify-center rounded-full bg-white transition-colors"
-        >
-          <XIcon className="size-5" />
-        </DialogPrimitive.Close>
+        {showCloseButton && (
+          <DialogPrimitive.Close
+            aria-label="Close"
+            className="shadow-light text-grey-400 hover:text-grey-500 absolute top-4 right-4 flex size-11 items-center justify-center rounded-full bg-white transition-colors"
+          >
+            <XIcon className="size-5" />
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </ModalPortal>
   );
