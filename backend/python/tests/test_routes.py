@@ -189,6 +189,7 @@ class TestDriverRoutes:
             "id": str(uuid4()),
             "email": "newdriver@example.com",
             "role": "driver",
+            "remember_me": False,
         }
         # We don't want to actually call firebase so we mock the call
         with (

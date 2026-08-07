@@ -254,6 +254,10 @@
             "title": "Last Name",
             "type": "string"
           },
+          "remember_me": {
+            "title": "Remember Me",
+            "type": "boolean"
+          },
           "role": {
             "title": "Role",
             "type": "string"
@@ -266,6 +270,7 @@
           "last_name",
           "email",
           "role",
+          "remember_me",
           "full_name"
         ],
         "title": "AuthResponse",
@@ -2069,6 +2074,11 @@
           "password": {
             "title": "Password",
             "type": "string"
+          },
+          "remember_me": {
+            "default": false,
+            "title": "Remember Me",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4444,42 +4454,15 @@
         ]
       }
     },
-    "/auth/logout/{user_id}": {
+    "/auth/logout": {
       "post": {
-        "description": "Revokes all of the specified driver's refresh tokens",
+        "description": "Revokes refresh tokens and clears cookies",
         "operationId": "logout",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "user_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "User Id",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "Logout",
         "tags": [
           "authentication"

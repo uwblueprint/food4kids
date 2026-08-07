@@ -175,6 +175,10 @@ export type AuthResponse = {
    */
   last_name: string;
   /**
+   * Remember Me
+   */
+  remember_me: boolean;
+  /**
    * Role
    */
   role: string;
@@ -1198,6 +1202,10 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+  /**
+   * Remember Me
+   */
+  remember_me?: boolean;
 };
 
 /**
@@ -2311,6 +2319,10 @@ export type AuthResponseWritable = {
    */
   last_name: string;
   /**
+   * Remember Me
+   */
+  remember_me: boolean;
+  /**
    * Role
    */
   role: string;
@@ -2805,24 +2817,10 @@ export type LoginResponse = LoginResponses[keyof LoginResponses];
 
 export type LogoutData = {
   body?: never;
-  path: {
-    /**
-     * User Id
-     */
-    user_id: string;
-  };
+  path?: never;
   query?: never;
-  url: '/auth/logout/{user_id}';
+  url: '/auth/logout';
 };
-
-export type LogoutErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type LogoutError = LogoutErrors[keyof LogoutErrors];
 
 export type LogoutResponses = {
   /**

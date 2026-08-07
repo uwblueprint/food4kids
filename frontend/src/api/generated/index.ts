@@ -355,8 +355,6 @@ export type {
   LoginResponse,
   LoginResponses,
   LogoutData,
-  LogoutError,
-  LogoutErrors,
   LogoutResponse,
   LogoutResponses,
   MarkAnnouncementsAsReadData,

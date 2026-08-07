@@ -221,7 +221,6 @@ import type {
   LoginError,
   LoginResponse,
   LogoutData,
-  LogoutError,
   LogoutResponse,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponse,
@@ -608,18 +607,18 @@ export const loginMutation = (
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens
+ * Revokes refresh tokens and clears cookies
  */
 export const logoutMutation = (
   options?: Partial<Options<LogoutData>>
 ): UseMutationOptions<
   LogoutResponse,
-  AxiosError<LogoutError>,
+  AxiosError<DefaultError>,
   Options<LogoutData>
 > => {
   const mutationOptions: UseMutationOptions<
     LogoutResponse,
-    AxiosError<LogoutError>,
+    AxiosError<DefaultError>,
     Options<LogoutData>
   > = {
     mutationFn: async (fnOptions) => {
