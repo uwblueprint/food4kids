@@ -185,7 +185,7 @@ class TestSuccessfulGeneration:
             )
         ).scalar_one()
         assert route_group.name == "Test Group - 2026-06-01"
-        assert route_group.drive_date == DRIVE_DATE
+        assert route_group.drive_date == DRIVE_DATE.date()
 
         routes = (
             (
