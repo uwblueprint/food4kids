@@ -53,8 +53,12 @@ const WEEKDAYS: Record<string, number> = {
 };
 
 function nextRouteDate(groupName: string, today = new Date()): Date {
-  const weekdayName = groupName.trim().split(/\s+/)[0]?.toLowerCase();
-  const targetDay = WEEKDAYS[weekdayName];
+  const weekdayName = groupName
+    .toLowerCase()
+    .match(
+      /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/
+    )?.[1];
+  const targetDay = weekdayName ? WEEKDAYS[weekdayName] : undefined;
   const result = new Date(today);
   result.setHours(0, 0, 0, 0);
 
@@ -117,7 +121,7 @@ function ReturnToggle({
       >
         <span
           className={cn(
-            'absolute top-0.5 size-4 rounded-full bg-white transition-transform',
+            'absolute top-0.5 left-0 size-4 rounded-full bg-white transition-transform',
             checked ? 'translate-x-[18px]' : 'translate-x-0.5'
           )}
         />
@@ -169,17 +173,17 @@ export function ConfigureStep() {
 
   const defaultEntry = (groupName: string): RouteFormEntry => {
     const stops = importedGroupCounts.get(groupName) ?? 0;
-    const defaultCap = systemSettings?.default_cap;
+    const boxesPerCar = systemSettings?.boxes_per_car;
     const routeDate = nextRouteDate(groupName);
     return {
       name: defaultRouteName(groupName, routeDate),
       routeDate,
       startTime: normalizeTime(systemSettings?.route_start_time),
       routeCount:
-        defaultCap && defaultCap > 0
-          ? Math.max(1, Math.ceil(stops / defaultCap))
+        boxesPerCar && boxesPerCar > 0
+          ? Math.max(1, Math.ceil(stops / boxesPerCar))
           : 1,
-      returnToWarehouse: selectedDeliveryType.toLowerCase().includes('school'),
+      returnToWarehouse: false,
     };
   };
 
@@ -265,10 +269,10 @@ export function ConfigureStep() {
             ),
             num_routes: row.form.routeCount,
             return_to_warehouse: row.form.returnToWarehouse,
-            max_stops_per_route: systemSettings?.default_cap ?? null,
-            max_boxes_per_driver: systemSettings?.boxes_per_car ?? 10,
-            children_per_box: systemSettings?.children_per_box ?? 2,
-            service_time_minutes: systemSettings?.dropoff_minutes ?? 3,
+            max_stops_per_route: null,
+            max_boxes_per_driver: systemSettings?.boxes_per_car,
+            children_per_box: systemSettings?.children_per_box,
+            service_time_minutes: systemSettings?.dropoff_minutes,
           },
         };
       })
@@ -340,9 +344,17 @@ export function ConfigureStep() {
       render: (row) => (
         <DatePicker
           value={row.form.routeDate}
-          onChange={(routeDate) =>
-            updateEntry(row.deliveryGroup, { routeDate })
-          }
+          onChange={(routeDate) => {
+            const previousDefaultName = row.form.routeDate
+              ? defaultRouteName(row.deliveryGroup, row.form.routeDate)
+              : undefined;
+            updateEntry(row.deliveryGroup, {
+              routeDate,
+              ...(routeDate && row.form.name === previousDefaultName
+                ? { name: defaultRouteName(row.deliveryGroup, routeDate) }
+                : {}),
+            });
+          }}
           disabled={deselectedGroups.has(row.deliveryGroup)}
           className="w-36"
         />
