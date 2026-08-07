@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 from zoneinfo import ZoneInfo
@@ -79,6 +80,7 @@ async def run_generation_job(
     cancelled along the way, in which case the cancellation stands and
     nothing is saved.
     """
+    started = time.perf_counter()
     try:
         job = await _load_running_job(session, job_id)
         if job is None:
@@ -88,13 +90,30 @@ async def run_generation_job(
         group, locations = await _resolve_locations(session, request.location_group)
         warehouse_lat, warehouse_lon = await _resolve_warehouse(session)
 
+        logger.info(
+            "Job %s generating with %s for %d location(s) in group '%s' "
+            "(%d route(s) requested).",
+            job_id,
+            type(algorithm).__name__,
+            len(locations),
+            group.name,
+            request.settings.num_routes,
+        )
+
         async with asyncio.timeout(GENERATION_TIMEOUT_SECONDS):
+            engine_started = time.perf_counter()
             clusters = await algorithm.generate_routes(
                 locations,
                 warehouse_lat,
                 warehouse_lon,
                 request.settings,
                 timeout_seconds=ENGINE_TIMEOUT_SECONDS,
+            )
+            logger.info(
+                "Job %s routing engine finished in %.1fs (%d non-empty cluster(s)).",
+                job_id,
+                time.perf_counter() - engine_started,
+                sum(1 for cluster in clusters if cluster),
             )
             route_group = await _build_route_group(
                 group, request.settings, clusters, warehouse_lat, warehouse_lon
@@ -105,6 +124,12 @@ async def run_generation_job(
     except GenerationFailed as error:
         await _fail(session, job_id, str(error))
     except TimeoutError:
+        logger.warning(
+            "Job %s hit the %.0fs generation budget after %.1fs.",
+            job_id,
+            GENERATION_TIMEOUT_SECONDS,
+            time.perf_counter() - started,
+        )
         await _fail(
             session,
             job_id,
@@ -112,9 +137,19 @@ async def run_generation_job(
             "fewer locations or routes.",
         )
     except HTTPException as error:
+        logger.warning(
+            "Job %s routing API error after %.1fs: %s",
+            job_id,
+            time.perf_counter() - started,
+            error.detail,
+        )
         await _fail(session, job_id, f"Routing API error: {error.detail}")
     except Exception as error:
-        logger.exception("Route generation job %s hit an unexpected error", job_id)
+        logger.exception(
+            "Route generation job %s hit an unexpected error after %.1fs",
+            job_id,
+            time.perf_counter() - started,
+        )
         await _fail(session, job_id, f"Unexpected error: {error}")
 
 
@@ -129,8 +164,8 @@ async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
         return None
 
     if job.progress != ProgressEnum.RUNNING:
-        logger.warning(
-            "Not running job %s: expected it to be Running, found %s.",
+        logger.info(
+            "Skipping job %s: no longer Running (now %s), most likely cancelled.",
             job_id,
             job.progress,
         )
@@ -262,7 +297,7 @@ async def _build_route_group(
     name = f"{group.name} - {settings.route_start_time:%Y-%m-%d}"
     route_group = RouteGroup(
         name=name[:ROUTE_GROUP_NAME_MAX_LENGTH],
-        drive_date=settings.route_start_time,
+        drive_date=settings.route_start_time.date(),
     )
 
     for number, cluster in enumerate(filled, start=1):
@@ -325,8 +360,6 @@ async def _save_or_discard(
                 total_families=len(
                     {stop.location_id for route in routes for stop in route.route_stops}
                 ),
-                # Job opts out of the automatic updated_at bump (its
-                # timestamps start null), so a Core update sets it by hand.
                 updated_at=now,
                 finished_at=now,
             )
@@ -344,6 +377,13 @@ async def _save_or_discard(
         return
 
     await session.commit()
+    logger.info(
+        "Job %s completed: route_group=%s routes=%d stops=%d.",
+        job_id,
+        route_group.route_group_id,
+        len(routes),
+        sum(len(route.route_stops) for route in routes),
+    )
 
 
 async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
@@ -356,15 +396,24 @@ async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
 
     await session.rollback()
     now = _now_est_naive()
-    await session.execute(
-        update(Job)
-        .where(col(Job.job_id) == job_id)
-        .where(col(Job.progress) != ProgressEnum.CANCELLED)
-        .values(
-            progress=ProgressEnum.FAILED,
-            error_message=message,
-            updated_at=now,
-            finished_at=now,
-        )
+    result = cast(
+        "CursorResult[Any]",
+        await session.execute(
+            update(Job)
+            .where(col(Job.job_id) == job_id)
+            .where(col(Job.progress) == ProgressEnum.RUNNING)
+            .values(
+                progress=ProgressEnum.FAILED,
+                error_message=message,
+                updated_at=now,
+                finished_at=now,
+            )
+        ),
     )
     await session.commit()
+    if not result.rowcount:
+        logger.warning(
+            "Job %s failure was not recorded: it was no longer Running "
+            "(likely cancelled).",
+            job_id,
+        )
