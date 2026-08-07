@@ -1,6 +1,8 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
+from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
@@ -31,6 +33,14 @@ class Job(JobBase, BaseModel, table=True):
     finished_at: datetime | None = Field(
         default=None,
     )
+    input_payload: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    error_message: str | None = Field(default=None, sa_type=Text)
+    routes_created: int | None = Field(default=None)
+    total_stops: int | None = Field(default=None)
+    total_distance_km: float | None = Field(default=None)
+    total_families: int | None = Field(default=None)
 
 
 class JobCreate(JobBase):
