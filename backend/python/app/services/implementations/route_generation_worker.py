@@ -59,6 +59,10 @@ async def claim_next_pending_job(session: AsyncSession) -> UUID | None:
     The progress check is in the UPDATE itself, so two workers (or a cancel
     racing the claim) cannot both start the same job: zero rows updated means
     someone else got there first.
+
+    TODO(cancel): When POST /jobs/{id}/cancel marks a job Cancelled, this claim
+    must keep skipping non-Pending rows so a cancelled Pending job is never
+    started. No wake/interrupt is needed here — cancel is honored by not claiming.
     """
     now = now_est_naive()
     oldest_pending = (
