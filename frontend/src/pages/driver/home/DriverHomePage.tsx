@@ -5,6 +5,7 @@ import { useDriverHistorySummary } from '@/api/drivers';
 import { useDriverRoutes, useRoute } from '@/api/routes';
 import noUpcoming from '@/assets/illustrations/boy-edge-case-with-questions.png';
 import noPast from '@/assets/illustrations/girl-confused.png';
+import { useNavigate } from 'react-router-dom';
 import logo from '@/assets/logos/logo_mobile_one_line.svg';
 import { StatisticsCard } from '@/common/components/StatisticsCard';
 import { AnnouncementsBoard } from '@/features/announcements';
@@ -40,6 +41,7 @@ function RouteCardWithDetails({
 }
 
 export const DriverHomePage = () => {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const driverId = user?.driverId;
 
@@ -90,7 +92,10 @@ export const DriverHomePage = () => {
         <img src={logo} alt="food4kids WATERLOO REGION" className="h-10" />
         <div className="flex items-center gap-4">
           <AnnouncementsBoard />
-          <div className="flex size-10 items-center justify-center rounded-full bg-blue-300 font-bold text-white">
+          <div
+            onClick={() => navigate('/driver/profile')}
+            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-blue-300 font-bold text-white transition-opacity hover:opacity-90"
+          >
             {user?.firstName?.[0]}
             {user?.lastName?.[0]}
           </div>
