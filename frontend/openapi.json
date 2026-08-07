@@ -5174,6 +5174,7 @@
     },
     "/jobs/generate": {
       "post": {
+        "description": "Accept a generation request: persist it as PENDING and wake the worker.",
         "operationId": "generate_job",
         "requestBody": {
           "content": {
