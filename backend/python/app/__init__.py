@@ -147,11 +147,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         await session.commit()
         await init_jobs(scheduler_service, session)
 
-        # Start the worker before the startup sweep so a recover-time wake is
-        # not cleared by start_route_generation_worker().
         start_route_generation_worker()
-        # Fail jobs left RUNNING across a reload/restart, and wake the worker
-        # if any PENDING work survived in the durable queue.
         await recover_route_generation_jobs(session)
 
     yield
