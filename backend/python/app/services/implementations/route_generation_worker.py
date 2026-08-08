@@ -43,8 +43,8 @@ _wake_event = asyncio.Event()
 _worker_task: asyncio.Task[None] | None = None
 
 RECOVERY_ERROR_MESSAGE = (
-    "Route generation was interrupted because the server restarted. "
-    "Enqueue the job again."
+    "Route generation was interrupted because the server restarted and "
+    "could not be automatically retried. Enqueue the job again."
 )
 
 
@@ -93,10 +93,18 @@ async def claim_next_pending_job(session: AsyncSession) -> UUID | None:
 
 
 async def recover_route_generation_jobs(session: AsyncSession) -> None:
-    """Fail jobs left RUNNING across a restart, and wake if PENDING remain.
+    """Repair jobs left RUNNING across a restart, and wake if PENDING remain.
 
-    A RUNNING job cannot be resumed: the Google call is gone with the old
-    process. Leaving it RUNNING would make the UI wait forever.
+    A RUNNING job cannot resume its in-flight Google call — that connection is
+    gone. Recovery instead:
+
+    1. If ``route_group_id`` is already set, mark COMPLETED (save finished;
+       only the status flip was lost).
+    2. Else if ``retry_count`` is under the auto-requeue cap, return the job
+       to PENDING so the worker retries from ``input_payload``.
+    3. Else mark FAILED so a crash loop cannot requeue forever.
+
+    Leaving orphans in RUNNING would make the UI wait forever.
     """
     now = now_est_naive()
     result = cast(
@@ -104,6 +112,7 @@ async def recover_route_generation_jobs(session: AsyncSession) -> None:
         await session.execute(
             update(Job)
             .where(col(Job.progress) == ProgressEnum.RUNNING)
+            .where(col(Job.route_group_id).is_(None))
             .values(
                 progress=ProgressEnum.FAILED,
                 error_message=RECOVERY_ERROR_MESSAGE,
@@ -112,11 +121,13 @@ async def recover_route_generation_jobs(session: AsyncSession) -> None:
             )
         ),
     )
-    if result.rowcount:
+    if failed.rowcount:
         logger.warning(
-            "Marked %d interrupted route generation job(s) as Failed after restart.",
-            result.rowcount,
+            "Marked %d interrupted route generation job(s) as Failed after "
+            "restart (automatic retry already used).",
+            failed.rowcount,
         )
+
     await session.commit()
 
     pending = (
