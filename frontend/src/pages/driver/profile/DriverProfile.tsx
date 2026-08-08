@@ -40,24 +40,27 @@ export const DriverProfile = () => {
   };
 
   return (
-    <main className="flex flex-col items-center gap-6 mx-auto w-full max-w-[770px]">
+    <main className="flex flex-col items-center gap-6 mx-auto w-full">
       <Link
         to="/driver/home"
-        className="flex items-center gap-1 text-h2 text-blue-400 font-bold self-start"
+        className="flex items-center gap-1 text-blue-400 self-start"
       >
         <ChevronLeftIcon className="size-6" />
-        Back to home
+        <h2>Back to home</h2>
       </Link>
 
-      {/* 1. Profile circle showing initials */}
-      <div className="flex size-24 items-center justify-center rounded-full bg-blue-300 font-bold text-white text-3xl shadow-sm">
-        {initials}
-      </div>
+      <div className="flex flex-col items-center gap-1">
+        {/* 1. Profile circle showing initials */}
+        <div className="flex size-26 items-center justify-center rounded-full bg-blue-300 text-white">
+          <h1>{initials}</h1>
+        </div>
 
-      {/* 2. Full name properly capitalized */}
-      <h1 className="font-bold text-grey-500 text-center">
-        {fullName}
-      </h1>
+        {/* 2. Full name properly capitalized */}
+        <h1 className="font-bold text-grey-500 text-center">
+          {fullName}
+        </h1>
+      </div>
+      
 
       {/* 3. Email subheading on the left, followed by a field */}
       <div className="flex flex-col gap-2 w-full">
@@ -69,7 +72,7 @@ export const DriverProfile = () => {
 
       {/* 4. Phone number subheading on the left, followed by a field below it */}
       <div className="flex flex-col gap-2 w-full">
-        <h2>Phone Number</h2>
+        <h2>Phone number</h2>
         <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
           {phone}
         </div>
