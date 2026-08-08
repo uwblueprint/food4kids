@@ -1,7 +1,8 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
+import { ChevronLeftIcon } from 'lucide-react';
 import { Button } from '@/common/components';
 
 export const DriverProfile = () => {
@@ -39,7 +40,15 @@ export const DriverProfile = () => {
   };
 
   return (
-    <main className="flex flex-col items-center gap-6 mx-auto w-full max-w-[770px] py-8 px-4">
+    <main className="flex flex-col items-center gap-6 mx-auto w-full max-w-[770px]">
+      <Link
+        to="/driver/home"
+        className="flex items-center gap-1 text-h2 text-blue-400 font-bold self-start"
+      >
+        <ChevronLeftIcon className="size-6" />
+        Back to home
+      </Link>
+
       {/* 1. Profile circle showing initials */}
       <div className="flex size-24 items-center justify-center rounded-full bg-blue-300 font-bold text-white text-3xl shadow-sm">
         {initials}
