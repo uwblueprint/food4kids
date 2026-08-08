@@ -120,7 +120,7 @@ export function AssignRouteModal({
             Cancel
           </Button>
           <div className="flex items-center gap-2.5">
-            <Button variant="secondary">View Route</Button>
+            <Button variant="secondary">View route</Button>
             <Button variant="primary">Assign</Button>
           </div>
         </ModalFooter>

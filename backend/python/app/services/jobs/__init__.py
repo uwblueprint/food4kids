@@ -57,7 +57,7 @@ def _schedule_daily_reminder_emails(
     previously-registered reminder jobs are removed first so stale times stop
     firing after the settings change.
     """
-    from .email_jobs import process_daily_reminder_emails
+    from .email_jobs import send_route_reminders
 
     for job in scheduler_service.list_jobs():
         if str(job["id"]).startswith(DAILY_REMINDER_JOB_PREFIX):
@@ -69,7 +69,7 @@ def _schedule_daily_reminder_emails(
 
     for reminder_time, days_before in sorted(days_by_time.items()):
         scheduler_service.add_cron_job(
-            partial(process_daily_reminder_emails, sorted(set(days_before))),
+            partial(send_route_reminders, sorted(set(days_before))),
             job_id=_reminder_job_id(reminder_time),
             hour=reminder_time.hour,
             minute=reminder_time.minute,
@@ -104,7 +104,6 @@ async def init_jobs(
     2. Define your job function
     3. Import and register it here
     """
-    from .email_jobs import send_route_reminders
     from .route_freeze_jobs import process_daily_driver_history
 
     # Driver history mark daily routes as complete
@@ -115,11 +114,6 @@ async def init_jobs(
         minute=59,
     )
 
+    # Route reminders are scheduled entirely from the persisted email_reminders
+    # setting -- one cron job per configured time, each bound to its lead days.
     await refresh_daily_reminder_email_schedule(scheduler_service, session)
-    # Route reminders stay on the existing daily schedule.
-    scheduler_service.add_cron_job(
-        send_route_reminders,
-        job_id="route_reminders",
-        hour=7,
-        minute=0,
-    )

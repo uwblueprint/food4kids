@@ -69,14 +69,22 @@ def _verified_token(access_token: str) -> dict[str, Any]:
     round-trip — and applies the same email-verification bar to every caller,
     admins included.
 
-    :raises HTTPException: 401 if the token is invalid/expired, 403 if the
-        caller's email is not verified.
+    ``clock_skew_seconds`` tolerates a client whose clock runs slightly ahead
+    of Google's, which would otherwise reject a freshly minted token as
+    issued in the future.
+
+    :raises HTTPException: 401 if the token is invalid/expired/revoked, 403 if
+        the caller's email is not verified.
     """
     try:
         decoded_token: dict[str, Any] = firebase_admin.auth.verify_id_token(
-            access_token, check_revoked=True
+            access_token, check_revoked=True, clock_skew_seconds=5
         )
     except Exception as e:
+        # The response deliberately says only "invalid or expired". Which of
+        # revoked/expired/malformed it was belongs in the log, where it is the
+        # difference between "log back in" and "something is wrong with us".
+        logger.warning("Token verification failed: %s: %s", type(e).__name__, e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -123,18 +131,29 @@ def require_authorization_by_role(roles: set[str]) -> Callable[..., Awaitable[bo
     """
     Create a dependency that checks if the user has one of the required roles
 
+    Verification and the role check are kept apart on purpose, because the
+    caller can only act on one of them. A token that cannot be verified —
+    expired, malformed, revoked because someone re-seeded — means "we don't
+    know who you are", and logging in again fixes it: 401. A verified token
+    whose role is not in ``roles`` means "we know exactly who you are, and this
+    is not for you", which logging in again will never fix: 403.
+
+    This used to run through ``auth_service.is_authorized_by_role``, which
+    wrapped verification in ``except Exception: return False``. Both cases —
+    plus a network blip reaching Firebase — arrived here as one boolean, so
+    every one of them became a 403. A client had no way to tell "your session
+    ended" from "you're not allowed", which is why the frontend could not send
+    an expired session to the login page without also trapping a driver who had
+    merely wandered into an admin route.
+
     :param roles: Set of authorized roles
     :return: FastAPI dependency function
     """
 
-    async def check_role(
-        access_token: str = Depends(get_access_token),
-        session: AsyncSession = Depends(get_session),
-    ) -> bool:
-        authorized = await auth_service.is_authorized_by_role(
-            session, access_token, roles
-        )
-        if not authorized:
+    async def check_role(access_token: str = Depends(get_access_token)) -> bool:
+        decoded_token = _verified_token(access_token)
+
+        if decoded_token.get("role") not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to make this request.",

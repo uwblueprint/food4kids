@@ -4,6 +4,7 @@ from logging.config import dictConfig
 
 import firebase_admin
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
@@ -15,7 +16,7 @@ from app.dependencies.services import (
 from app.services.jobs import init_jobs
 
 from .config import settings
-from .middleware import UnhandledExceptionMiddleware
+from .middleware import UnhandledExceptionMiddleware, log_request_validation_error
 from .models import init_app as init_models
 from .routers import init_app as init_routers
 
@@ -216,6 +217,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # A 422 is raised during parameter resolution, so it never reaches a handler
+    # and would otherwise be logged nowhere at all.
+    app.add_exception_handler(RequestValidationError, log_request_validation_error)
 
     # Initialize routers
     init_routers(app)

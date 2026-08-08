@@ -73,7 +73,6 @@ async def test_cluster_locations_returns_exactly_num_drivers() -> None:
         locations=locations,
         num_clusters=num_drivers,
         max_boxes_per_cluster=14,
-        max_locations_per_cluster=10,
     )
     assert len(clusters) == num_drivers
     assert sum(len(c) for c in clusters) == len(locations)
@@ -124,7 +123,6 @@ async def test_far_address_limits_stops_per_route() -> None:
         locations=near + far,
         num_clusters=3,
         max_boxes_per_cluster=14,
-        max_locations_per_cluster=12,
     )
     for cluster in clusters:
         has_far = any("elmira" in loc.address.lower() for loc in cluster)
@@ -149,7 +147,7 @@ async def test_load_spread_across_drivers() -> None:
 
 @pytest.mark.asyncio
 async def test_far_route_caps_at_five_stops_when_max_stops_omitted() -> None:
-    """Far routes use FAR_MAX_STOPS_PER_CLUSTER even without max_locations_per_cluster."""
+    """Far routes are capped at FAR_MAX_STOPS_PER_CLUSTER stops."""
     algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
     far = [
         _location(

@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 const searchBarVariants = cva(
   /* Base styles shared by all variants */
   [
-    'flex min-w-90 items-center gap-2.5 rounded-full px-6 py-3 border border-grey-300 bg-white',
+    // 328x44 with a 24px inset icon, per the admin frames.
+    'flex min-w-82 items-center gap-2.5 rounded-full px-6 py-2.5 border border-grey-300 bg-white',
     'transition-colors',
     'focus-within:ring-1 focus-within:ring-blue-300',
   ],
@@ -50,7 +51,7 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
           type="search"
           className={cn(
             'h-full w-full bg-transparent outline-none',
-            'text-grey-500 placeholder:text-grey-400 text-lg placeholder:text-lg',
+            'text-grey-500 placeholder:text-grey-400 text-m-p2 font-medium',
             // Remove default search input styling (x button, etc.)
             '[&::-webkit-search-cancel-button]:hidden',
             '[&::-webkit-search-decoration]:hidden',

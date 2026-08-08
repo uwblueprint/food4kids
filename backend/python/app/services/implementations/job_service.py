@@ -42,10 +42,17 @@ class JobService:
     def est_now_naive(self) -> datetime:
         return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
-    async def generate_job(self, _req: RouteGenerationGroupInput | None = None) -> UUID:
-        """Create a job"""
+    async def generate_job(self, req: RouteGenerationGroupInput | None = None) -> UUID:
+        """Create a job, persisting the generation request for a worker to run later.
+
+        The request is stored as JSON on `input_payload` rather than acted on
+        here: this only enqueues the job, it does not run generation.
+        """
         try:
-            job = Job(progress=ProgressEnum.PENDING)
+            job = Job(
+                progress=ProgressEnum.PENDING,
+                input_payload=req.model_dump(mode="json") if req is not None else None,
+            )
             self.session.add(job)
             await self.session.commit()
             await self.session.refresh(job)

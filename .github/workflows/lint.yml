@@ -24,7 +24,15 @@ jobs:
               - "frontend/**"
             python-backend:
               - "backend/python/**"
-      
+
+      # frontend/emails/html/ is the react-email export; backend/python/app/templates/
+      # is the copy Jinja2 actually renders and sends. Both are committed, so they
+      # can silently drift (they already had). This needs no toolchain, so it runs
+      # whenever either side changes -- before the deps are even installed.
+      - name: Check email templates are in sync
+        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.python-backend == 'true'
+        run: ./scripts/sync-email-templates.sh --check
+
       - name: Set up pnpm
         if: steps.changes.outputs.frontend == 'true'
         uses: pnpm/action-setup@v4
@@ -53,6 +61,13 @@ jobs:
         if: steps.changes.outputs.frontend == 'true'
         working-directory: ./frontend
         run: pnpm format:check
+
+      # Ahead of the build because it runs in seconds rather than minutes, so a
+      # broken request contract fails fast.
+      - name: Test frontend
+        if: steps.changes.outputs.frontend == 'true'
+        working-directory: ./frontend
+        run: pnpm test
 
       # `pnpm build` runs `tsc -b && vite build`, so this both type-checks and
       # catches production-build-only failures (vite config, asset imports,

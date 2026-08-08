@@ -11,6 +11,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import {
+  applyLocationImport,
   cancelJob,
   completeDriverRegistration,
   createAnnouncement,
@@ -30,6 +31,7 @@ import {
   deleteRouteGroup,
   duplicateRouteGroup,
   exportAllDriversHistory,
+  forgotPassword,
   generateJob,
   getAnnouncement,
   getAnnouncements,
@@ -55,17 +57,15 @@ import {
   getSuggestedDriver,
   getSystemSettings,
   getTotalDeliveriesBetween,
-  ingestLocations,
   initializeDriver,
   login,
   logout,
   markAnnouncementsAsRead,
   type Options,
   patchSystemSettings,
+  previewLocationImport,
   refresh,
   renameDeliveryType,
-  resetPassword,
-  reviewLocations,
   sendAnnouncementEmail,
   test,
   testEventEmail,
@@ -74,11 +74,16 @@ import {
   updateLocation,
   updateLocationGroup,
   updateNote,
+  updatePassword,
   updateRoute,
   updateRouteGroup,
   uploadImage,
+  validateResetToken,
 } from '../sdk.gen';
 import type {
+  ApplyLocationImportData,
+  ApplyLocationImportError,
+  ApplyLocationImportResponse,
   CancelJobData,
   CancelJobError,
   CancelJobResponse,
@@ -134,6 +139,9 @@ import type {
   DuplicateRouteGroupResponse,
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryError,
+  ForgotPasswordData,
+  ForgotPasswordError,
+  ForgotPasswordResponse,
   GenerateJobData,
   GenerateJobError,
   GenerateJobResponse,
@@ -206,9 +214,6 @@ import type {
   GetTotalDeliveriesBetweenData,
   GetTotalDeliveriesBetweenError,
   GetTotalDeliveriesBetweenResponse,
-  IngestLocationsData,
-  IngestLocationsError,
-  IngestLocationsResponse,
   InitializeDriverData,
   InitializeDriverError,
   InitializeDriverResponse,
@@ -216,24 +221,20 @@ import type {
   LoginError,
   LoginResponse,
   LogoutData,
-  LogoutError,
   LogoutResponse,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponse,
   PatchSystemSettingsData,
   PatchSystemSettingsError,
   PatchSystemSettingsResponse,
+  PreviewLocationImportData,
+  PreviewLocationImportError,
+  PreviewLocationImportResponse,
   RefreshData,
   RefreshResponse,
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
-  ResetPasswordData,
-  ResetPasswordError,
-  ResetPasswordResponse,
-  ReviewLocationsData,
-  ReviewLocationsError,
-  ReviewLocationsResponse,
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
@@ -257,6 +258,9 @@ import type {
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
+  UpdatePasswordData,
+  UpdatePasswordError,
+  UpdatePasswordResponse,
   UpdateRouteData,
   UpdateRouteError,
   UpdateRouteGroupData,
@@ -266,6 +270,9 @@ import type {
   UploadImageData,
   UploadImageError,
   UploadImageResponse,
+  ValidateResetTokenData,
+  ValidateResetTokenError,
+  ValidateResetTokenResponse,
 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
@@ -539,6 +546,36 @@ export const sendAnnouncementEmailMutation = (
 };
 
 /**
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPasswordMutation = (
+  options?: Partial<Options<ForgotPasswordData>>
+): UseMutationOptions<
+  ForgotPasswordResponse,
+  AxiosError<ForgotPasswordError>,
+  Options<ForgotPasswordData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ForgotPasswordResponse,
+    AxiosError<ForgotPasswordError>,
+    Options<ForgotPasswordData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await forgotPassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Login
  *
  * Returns access token in response body and sets refreshToken as an httpOnly cookie
@@ -570,18 +607,18 @@ export const loginMutation = (
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens
+ * Revokes refresh tokens and clears cookies
  */
 export const logoutMutation = (
   options?: Partial<Options<LogoutData>>
 ): UseMutationOptions<
   LogoutResponse,
-  AxiosError<LogoutError>,
+  AxiosError<DefaultError>,
   Options<LogoutData>
 > => {
   const mutationOptions: UseMutationOptions<
     LogoutResponse,
-    AxiosError<LogoutError>,
+    AxiosError<DefaultError>,
     Options<LogoutData>
   > = {
     mutationFn: async (fnOptions) => {
@@ -626,24 +663,53 @@ export const refreshMutation = (
 };
 
 /**
- * Reset Password
+ * Update Password
  *
- * Triggers password reset for user with specified email (reset link will be emailed)
+ * Update an existing user's password if provided a valid password reset token
  */
-export const resetPasswordMutation = (
-  options?: Partial<Options<ResetPasswordData>>
+export const updatePasswordMutation = (
+  options?: Partial<Options<UpdatePasswordData>>
 ): UseMutationOptions<
-  ResetPasswordResponse,
-  AxiosError<ResetPasswordError>,
-  Options<ResetPasswordData>
+  UpdatePasswordResponse,
+  AxiosError<UpdatePasswordError>,
+  Options<UpdatePasswordData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ResetPasswordResponse,
-    AxiosError<ResetPasswordError>,
-    Options<ResetPasswordData>
+    UpdatePasswordResponse,
+    AxiosError<UpdatePasswordError>,
+    Options<UpdatePasswordData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await resetPassword({
+      const { data } = await updatePassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Validate Reset Token
+ *
+ * Validate that a password reset token exists, isn't used, and hasn't expired.
+ */
+export const validateResetTokenMutation = (
+  options?: Partial<Options<ValidateResetTokenData>>
+): UseMutationOptions<
+  ValidateResetTokenResponse,
+  AxiosError<ValidateResetTokenError>,
+  Options<ValidateResetTokenData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ValidateResetTokenResponse,
+    AxiosError<ValidateResetTokenError>,
+    Options<ValidateResetTokenData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await validateResetToken({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -776,8 +842,10 @@ export const testEventEmailMutation = (
  *
  * Delete a driver by ID.
  *
- * Their routes are detached (driver_id SET NULL), so the driver's km stop
- * counting toward anyone.
+ * A hard delete of the person: the user account and their Firebase login go
+ * with the driver record, so a deleted driver can no longer sign in. Their
+ * routes are detached (driver_id SET NULL) rather than deleted, so the
+ * driver's km stop counting toward anyone.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -1385,24 +1453,30 @@ export const createLocationMutation = (
 };
 
 /**
- * Ingest Locations
+ * Apply Location Import
  *
- * Persist net-new locations and archive stale ones.
+ * Apply this import: create net-new locations, update the ones that changed,
+ * and take stale ones off the roster.
+ *
+ * Takes the same file and mapping as the preview rather than a diff posted
+ * back from it, so the plan is recomputed here by the same planner and the
+ * caller cannot choose which rows get rewritten. Rejected with a 400 while
+ * the file still has validation errors.
  */
-export const ingestLocationsMutation = (
-  options?: Partial<Options<IngestLocationsData>>
+export const applyLocationImportMutation = (
+  options?: Partial<Options<ApplyLocationImportData>>
 ): UseMutationOptions<
-  IngestLocationsResponse,
-  AxiosError<IngestLocationsError>,
-  Options<IngestLocationsData>
+  ApplyLocationImportResponse,
+  AxiosError<ApplyLocationImportError>,
+  Options<ApplyLocationImportData>
 > => {
   const mutationOptions: UseMutationOptions<
-    IngestLocationsResponse,
-    AxiosError<IngestLocationsError>,
-    Options<IngestLocationsData>
+    ApplyLocationImportResponse,
+    AxiosError<ApplyLocationImportError>,
+    Options<ApplyLocationImportData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await ingestLocations({
+      const { data } = await applyLocationImport({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1414,29 +1488,29 @@ export const ingestLocationsMutation = (
 };
 
 /**
- * Review Locations
+ * Preview Location Import
  *
- * Review a pending location import: validate rows and (eventually) describe how
- * the import would affect existing locations (net_new / stale / changed).
- * Requires a column_map JSON string mapping system field names to file headers.
+ * Describe what importing this file would do — row validation plus the
+ * net_new / stale / changed split — without writing anything. Requires a
+ * column_map JSON string mapping system field names to file headers.
  *
  * Side effect: the submitted column_map is persisted to system_settings so it
  * becomes the default mapping on the next import.
  */
-export const reviewLocationsMutation = (
-  options?: Partial<Options<ReviewLocationsData>>
+export const previewLocationImportMutation = (
+  options?: Partial<Options<PreviewLocationImportData>>
 ): UseMutationOptions<
-  ReviewLocationsResponse,
-  AxiosError<ReviewLocationsError>,
-  Options<ReviewLocationsData>
+  PreviewLocationImportResponse,
+  AxiosError<PreviewLocationImportError>,
+  Options<PreviewLocationImportData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ReviewLocationsResponse,
-    AxiosError<ReviewLocationsError>,
-    Options<ReviewLocationsData>
+    PreviewLocationImportResponse,
+    AxiosError<PreviewLocationImportError>,
+    Options<PreviewLocationImportData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await reviewLocations({
+      const { data } = await previewLocationImport({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -2002,6 +2076,59 @@ export const getRouteGroupsOptions = (options?: Options<GetRouteGroupsData>) =>
     queryKey: getRouteGroupsQueryKey(options),
   });
 
+export const getRouteGroupsInfiniteQueryKey = (
+  options?: Options<GetRouteGroupsData>
+): QueryKey<Options<GetRouteGroupsData>> =>
+  createQueryKey('getRouteGroups', options, true);
+
+/**
+ * Get Route Groups
+ *
+ * Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
+ * Can include associated routes in the response.
+ */
+export const getRouteGroupsInfiniteOptions = (
+  options?: Options<GetRouteGroupsData>
+) =>
+  infiniteQueryOptions<
+    GetRouteGroupsResponse,
+    AxiosError<GetRouteGroupsError>,
+    InfiniteData<GetRouteGroupsResponse>,
+    QueryKey<Options<GetRouteGroupsData>>,
+    | number
+    | Pick<
+        QueryKey<Options<GetRouteGroupsData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetRouteGroupsData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getRouteGroups({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getRouteGroupsInfiniteQueryKey(options),
+    }
+  );
+
 /**
  * Create Route Group
  *
@@ -2093,6 +2220,7 @@ export const updateRouteGroupMutation = (
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
+ * Optional body overrides the copy's name and drive date.
  */
 export const duplicateRouteGroupMutation = (
   options?: Partial<Options<DuplicateRouteGroupData>>

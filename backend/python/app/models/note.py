@@ -22,8 +22,16 @@ class NoteBase(SQLModel):
     """Shared fields between table and API models"""
 
     note_chain_id: UUID = Field(foreign_key="note_chains.note_chain_id", nullable=False)
+    # Nullable and SET NULL on user delete: a note is an operational record
+    # (what happened on a delivery) that outlives its author. Deleting a driver
+    # is a hard delete of the person, not of the deliveries they logged, so the
+    # message survives with no author — the same shape as a system note, which
+    # readers already handle (see NoteChainService.get_location_notes_feed).
     user_id: UUID | None = Field(
-        default=None, foreign_key="users.user_id", nullable=True
+        default=None,
+        foreign_key="users.user_id",
+        nullable=True,
+        ondelete="SET NULL",
     )
     message: str = Field(min_length=1, max_length=2000)
     is_system: bool = Field(default=False)

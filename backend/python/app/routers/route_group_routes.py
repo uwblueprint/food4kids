@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,9 +14,11 @@ from app.models.enum import (
 )
 from app.models.route_group import (
     RouteGroupCreate,
+    RouteGroupDuplicate,
     RouteGroupRead,
     RouteGroupUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
     LocationService,
@@ -28,10 +30,10 @@ router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
 @router.get("")
 async def get_route_groups(
-    start_date: datetime | None = Query(
+    start_date: date | None = Query(
         None, description="Filter route groups from this date"
     ),
-    end_date: datetime | None = Query(
+    end_date: date | None = Query(
         None, description="Filter route groups until this date"
     ),
     weekday: list[DriveDaysOfWeekEnum] | None = Query(
@@ -47,11 +49,15 @@ async def get_route_groups(
         None, description="Filter by one or more driver assignment statuses"
     ),
     include_routes: bool = Query(False, description="Include routes in the response"),
+    search: str | None = Query(
+        None, description="Case-insensitive filter on the route group name"
+    ),
+    pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     location_service: LocationService = Depends(get_location_service),
     _auth: bool = Depends(require_admin),
-) -> list[RouteGroupRead]:
+) -> PaginatedResponse[RouteGroupRead]:
     """
     Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.
     Can include associated routes in the response.
@@ -68,6 +74,8 @@ async def get_route_groups(
             route_status,
             driver_assignment_status,
             include_routes,
+            search,
+            pagination,
         )
     except InvalidDeliveryTypeError as ve:
         raise HTTPException(
@@ -117,15 +125,17 @@ async def update_route_group(
 )
 async def duplicate_route_group(
     route_group_id: UUID,
+    overrides: RouteGroupDuplicate | None = None,
     session: AsyncSession = Depends(get_session),
     route_group_service: RouteGroupService = Depends(get_route_group_service),
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
     Duplicate a route group and its routes/stops for a new planning cycle.
+    Optional body overrides the copy's name and drive date.
     """
     duplicated_route_group = await route_group_service.duplicate_route_group(
-        session, route_group_id
+        session, route_group_id, overrides
     )
     if not duplicated_route_group:
         raise HTTPException(

@@ -63,7 +63,6 @@ class EmailReminderListType(TypeDecorator[list[EmailReminder]]):
 class SystemSettingsBase(SQLModel):
     """Shared fields between table and API models"""
 
-    default_cap: int | None = Field(default=None)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
     warehouse_longitude: float | None = None
@@ -92,8 +91,11 @@ class SystemSettingsBase(SQLModel):
     # The default lives here and nowhere else: it applies only when a settings
     # row is created. Every other code path must read the configured list off
     # the (always-present) row rather than reaching for a fallback constant.
+    # Family first, per the import frames. This is display order everywhere the
+    # list is rendered, and it only applies to a settings row being created —
+    # an existing row keeps whatever order it was configured with.
     delivery_types: list[str] = Field(
-        default_factory=lambda: ["School", "Family"],
+        default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
     )
 
@@ -149,7 +151,6 @@ class DeliveryTypeRename(SQLModel):
 class SystemSettingsUpdate(SQLModel):
     """Update request model - all optional"""
 
-    default_cap: int | None = Field(default=None)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
     warehouse_longitude: float | None = None

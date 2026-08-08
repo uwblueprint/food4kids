@@ -6,6 +6,7 @@ import {
   deleteAnnouncementMutation,
   getAnnouncementsOptions,
   getAnnouncementsQueryKey,
+  markAnnouncementsAsReadMutation,
   sendAnnouncementEmailMutation,
   updateAnnouncementMutation,
 } from './generated/@tanstack/react-query.gen';
@@ -53,5 +54,15 @@ export function useDeleteAnnouncement() {
 export function useSendAnnouncementEmail() {
   return useMutation({
     ...sendAnnouncementEmailMutation(),
+  });
+}
+
+export function useMarkAnnouncementsAsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...markAnnouncementsAsReadMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getAnnouncementsQueryKey() });
+    },
   });
 }

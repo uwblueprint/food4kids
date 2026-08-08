@@ -33,7 +33,7 @@ export function AnnouncementsEmptyState({
         height={288}
       />
       <Button type="button" onClick={onCreateClick} className="w-full max-w-xs">
-        Create Announcement
+        Create announcement
       </Button>
     </div>
   );

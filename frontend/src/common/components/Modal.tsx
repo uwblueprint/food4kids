@@ -29,8 +29,11 @@ function ModalOverlay({
 function ModalContent({
   className,
   children,
+  showCloseButton = true,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean;
+}) {
   return (
     <ModalPortal>
       <ModalOverlay />
@@ -38,7 +41,7 @@ function ModalContent({
         aria-describedby={undefined}
         className={cn(
           'fixed top-1/2 left-1/2 z-50 w-full max-w-[600px] -translate-x-1/2 -translate-y-1/2',
-          'bg-grey-100 shadow-harsh rounded-2xl p-6',
+          'bg-grey-100 shadow-harsh rounded-xl p-6',
           'flex flex-col items-stretch gap-4',
           'data-[state=open]:animate-in data-[state=closed]:animate-out',
           'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
@@ -48,12 +51,14 @@ function ModalContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close
-          aria-label="Close"
-          className="shadow-light text-grey-400 hover:text-grey-500 absolute top-4 right-4 flex size-11 items-center justify-center rounded-full bg-white transition-colors"
-        >
-          <XIcon className="size-5" />
-        </DialogPrimitive.Close>
+        {showCloseButton && (
+          <DialogPrimitive.Close
+            aria-label="Close"
+            className="shadow-light text-grey-400 hover:text-grey-500 absolute top-4 right-4 flex size-11 items-center justify-center rounded-full bg-white transition-colors"
+          >
+            <XIcon className="size-5" />
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </ModalPortal>
   );

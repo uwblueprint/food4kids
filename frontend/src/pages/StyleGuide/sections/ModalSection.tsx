@@ -35,7 +35,7 @@ const MODAL_CONFIRM_CODE = `import {
 
 <Modal>
   <ModalTrigger asChild>
-    <Button variant="primary">Open Modal</Button>
+    <Button variant="primary">Open modal</Button>
   </ModalTrigger>
   <ModalContent>
     <ModalHeader>
@@ -49,7 +49,7 @@ const MODAL_CONFIRM_CODE = `import {
         <Button variant="secondary">Cancel</Button>
       </ModalClose>
       <ModalClose asChild>
-        <Button variant="primary">Save Changes</Button>
+        <Button variant="primary">Save changes</Button>
       </ModalClose>
     </ModalFooter>
   </ModalContent>
@@ -94,7 +94,7 @@ export function ModalSection() {
         <ComponentPreview title="Confirm Action" code={MODAL_CONFIRM_CODE}>
           <Modal>
             <ModalTrigger asChild>
-              <Button variant="primary">Open Confirm Modal</Button>
+              <Button variant="primary">Open confirm modal</Button>
             </ModalTrigger>
             <ModalContent>
               <ModalHeader>
@@ -109,7 +109,7 @@ export function ModalSection() {
                   <Button variant="secondary">Cancel</Button>
                 </ModalClose>
                 <ModalClose asChild>
-                  <Button variant="primary">Save Changes</Button>
+                  <Button variant="primary">Save changes</Button>
                 </ModalClose>
               </ModalFooter>
             </ModalContent>

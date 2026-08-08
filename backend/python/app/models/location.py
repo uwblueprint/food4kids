@@ -22,6 +22,11 @@ class LocationBase(SQLModel):
     )
     name: str
     contact_name: str
+    # Guardian's name, for Family deliveries. Distinct from contact_name, which
+    # holds the school name or the family's last name — a Family row has both.
+    # Nullable: School rows have no guardian, and rows imported before this
+    # column existed have nothing to backfill from.
+    guardian_name: str | None = None
     address: str
     phone_primary: str
     phone_secondary: str | None = None
@@ -84,6 +89,7 @@ class AlertCode(str, Enum):
     INVALID_ADDRESS = "INVALID_ADDRESS"
     MISSING_PHONE_NUMBER = "MISSING_PHONE_NUMBER"
     INVALID_PHONE_NUMBER = "INVALID_PHONE_NUMBER"
+    INVALID_SECONDARY_PHONE_NUMBER = "INVALID_SECONDARY_PHONE_NUMBER"
     MISSING_NAME = "MISSING_NAME"
     INVALID_NAME = "INVALID_NAME"
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
@@ -102,6 +108,7 @@ class LocationImportEntry(SQLModel):
     """Parsed row from import file; all fields optional until validated."""
 
     contact_name: str | None = None
+    guardian_name: str | None = None
     address: str | None = None
     delivery_group: str | None = None
     phone_primary: str | None = None
@@ -144,11 +151,14 @@ class NetNewEntry(SQLModel):
 
     row: int
     contact_name: str
+    guardian_name: str | None = None
     address: str
     delivery_group: str | None = None
     phone_primary: str
     phone_secondary: str | None = None
     num_children: int | None = None
+    halal: bool | None = None
+    dietary_restrictions: str | None = None
 
 
 class StaleEntry(SQLModel):
@@ -161,6 +171,10 @@ class StaleEntry(SQLModel):
     delivery_group: str | None = None
     phone_primary: str
     phone_secondary: str | None = None
+    # Carried so the review step can show what is being taken off the roster in
+    # the same columns as the changed rows. Always known — it is stored on the
+    # Location, not read from the import.
+    num_children: int = 0
 
 
 class ChangedFieldStr(SQLModel):
@@ -178,6 +192,11 @@ class ChangedFieldOptInt(SQLModel):
     old_value: int | None
 
 
+class ChangedFieldBool(SQLModel):
+    new_value: bool
+    old_value: bool
+
+
 class ChangedEntry(SQLModel):
     """An existing location whose fields differ from the import row.
 
@@ -188,19 +207,27 @@ class ChangedEntry(SQLModel):
     row: int
     location_id: UUID
     contact_name: str
+    guardian_name: str | ChangedFieldOptStr | None = None
     address: str | ChangedFieldStr
     delivery_group: str | ChangedFieldOptStr | None = None
     phone_primary: str | ChangedFieldStr
     phone_secondary: str | ChangedFieldOptStr | None = None
     num_children: int | ChangedFieldOptInt | None = None
+    # Never null: a blank cell leaves the stored value standing, so the
+    # unchanged case renders what the location already holds.
+    halal: bool | ChangedFieldBool = False
+    dietary_restrictions: str | ChangedFieldStr = ""
 
 
-class LocationImportResponse(SQLModel):
-    """Combined validate + review-changes payload.
+class LocationImportPreview(SQLModel):
+    """What POST /locations/import/preview returns: what the file would do.
 
     success=False when any row has alerts. duplicate_groups lists row numbers and
     matching fields for each within-file duplicate cluster. net_new/stale/changed
     describe how the import would affect the existing locations table.
+
+    The old/new pairs on `changed` are for rendering the diff only — applying
+    replans from the file, so nothing here is read back.
     """
 
     success: bool
@@ -234,6 +261,10 @@ class LocationRead(LocationBase):
     assigned_route: str | None = None
     last_delivery_date: datetime | None = None
     total_deliveries: int = 0
+    # Most recent non-system note in this location's chain, for the notes
+    # preview column in list views. Populated by the service; None when the
+    # location has no chain or only system notes.
+    latest_note: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -251,6 +282,7 @@ class LocationUpdate(SQLModel):
     location_group_id: UUID | None = None
     name: str | None = None
     contact_name: str | None = None
+    guardian_name: str | None = None
     address: str | None = None
     phone_primary: str | None = None
     phone_secondary: str | None = None
@@ -265,16 +297,8 @@ class LocationUpdate(SQLModel):
     note_chain_id: UUID | None = None
 
 
-class LocationIngestRequest(SQLModel):
-    """Ingest request — `delivery_type` applies to every net-new row in this
-    import (one Apricot sheet = one delivery type)."""
+class LocationImportResult(SQLModel):
+    """What POST /locations/import returns: what it actually did."""
 
-    delivery_type: str = Field(min_length=1, max_length=100)
-    net_new: list[ValidatedLocationImportEntry]
-    stale: list[StaleEntry]
-    changed: list[ChangedEntry] = []
-
-
-class LocationIngestResponse(SQLModel):
     created: list[LocationRead]
     archived: list[LocationRead]

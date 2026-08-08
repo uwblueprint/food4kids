@@ -160,7 +160,7 @@ def main() -> None:
                 {
                     "id": route_group_id,
                     "name": "Demo Google Maps Route Group",
-                    "drive_date": now,
+                    "drive_date": now.date(),
                     "now": now,
                 },
             )

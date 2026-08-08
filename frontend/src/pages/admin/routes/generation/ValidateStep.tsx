@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Link,
   Navigate,
@@ -9,17 +9,17 @@ import {
 import type {
   AlertCode,
   DuplicateMatchField,
-  LocationImportResponse,
   LocationImportRow,
 } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
-import { AlertCell, Banner, Button, DataTable } from '@/common/components';
+import { AlertCell, Button, DataTable } from '@/common/components';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { GenerationFooter } from './GenerationFooter';
 
 // Styling for error cells — all alerts are blocking and use the same red error.
-const ERROR_CELL_CLASS = 'border-b-2 border-red bg-light-red';
+const ERROR_CELL_CLASS = 'border-b border-red bg-light-red';
 
 // ---------------------------------------------------------------------------
 // Alert display helpers
@@ -42,6 +42,8 @@ function getAlertDisplay(code: AlertCode): {
       return { type: 'error', label: 'Missing Phone Number' };
     case 'INVALID_PHONE_NUMBER':
       return { type: 'error', label: 'Invalid Phone Number' };
+    case 'INVALID_SECONDARY_PHONE_NUMBER':
+      return { type: 'error', label: 'Invalid Secondary Phone Number' };
     case 'MISSING_DELIVERY_GROUP':
       return { type: 'error', label: 'Missing Delivery Group' };
     case 'LOCAL_DUPLICATE':
@@ -62,6 +64,12 @@ const hasAddressAlert = (alerts: AlertCode[]) =>
 const hasPhoneAlert = (alerts: AlertCode[]) =>
   alerts.includes('MISSING_PHONE_NUMBER') ||
   alerts.includes('INVALID_PHONE_NUMBER');
+
+const hasSecondaryPhoneAlert = (alerts: AlertCode[]) =>
+  alerts.includes('INVALID_SECONDARY_PHONE_NUMBER');
+
+const hasInvalidOrMissingAlert = (row: { alerts: AlertCode[] }) =>
+  row.alerts.some((code) => code !== 'LOCAL_DUPLICATE');
 
 // Returns the cell highlight class for non-alert data columns
 function getCellClass(
@@ -95,146 +103,182 @@ export function ValidateStep() {
     return byRow;
   }, [reviewResult?.duplicate_groups]);
 
-  // Track which data the user dismissed the banner for. The banner is shown
-  // again automatically when a new response comes in (different reference).
-  const [dismissedFor, setDismissedFor] = useState<
-    LocationImportResponse | undefined
-  >(undefined);
-
   // Review runs on the Import step; without a result there's nothing to show.
   if (!file || !reviewResult) {
     return <Navigate to="/admin/routes/generation/import" replace />;
   }
 
   const data = reviewResult;
-  const bannerDismissed = dismissedFor === data;
   const errorRows = data.rows.filter((r) => r.alerts.length > 0);
-  const errorCount = errorRows.length;
   const canContinue = data.success === true;
+
+  // The frames split validation into two tables because the two problems have
+  // different remedies. A row can land in both — a duplicate that is also
+  // missing a delivery group needs fixing twice — and each table shows only
+  // the alerts it is responsible for.
+  const invalidRows = errorRows.filter((r) => hasInvalidOrMissingAlert(r));
+  const duplicateRows = errorRows.filter((r) =>
+    r.alerts.includes('LOCAL_DUPLICATE')
+  );
 
   const handleContinue = () => {
     navigate('/admin/routes/generation/review');
   };
 
-  const columns: Column<LocationImportRow>[] = [
-    {
-      key: 'alerts',
-      header: 'Alert',
-      render: (row) => {
-        if (row.alerts.length === 0) return null;
-        return (
-          <AlertCell
-            type="error"
-            label={row.alerts.map((code) => getAlertDisplay(code).label)}
-          />
-        );
+  const alertColumn = (
+    scope: 'invalid' | 'duplicate'
+  ): Column<LocationImportRow> => ({
+    key: 'alerts',
+    header: 'Error',
+    render: (row) => {
+      const codes = row.alerts.filter((code) =>
+        scope === 'duplicate'
+          ? code === 'LOCAL_DUPLICATE'
+          : code !== 'LOCAL_DUPLICATE'
+      );
+      if (codes.length === 0) return null;
+      return (
+        <AlertCell
+          type="error"
+          label={codes.map((code) => getAlertDisplay(code).label)}
+        />
+      );
+    },
+  });
+
+  // Each table highlights only the cells it is about: the invalid/missing
+  // table marks the fields that failed validation, the duplicate table marks
+  // the fields that matched another row. A row in both tables therefore shows
+  // a different set of red cells in each.
+  const dataColumns = (
+    scope: 'invalid' | 'duplicate'
+  ): Column<LocationImportRow>[] => {
+    const invalid = scope === 'invalid';
+    const duplicateFields = (row: LocationImportRow) =>
+      invalid ? undefined : duplicateFieldsByRow.get(row.row);
+
+    return [
+      {
+        key: 'row',
+        header: 'Row',
+        render: (row) => String(row.row),
       },
-    },
-    {
-      key: 'row',
-      header: 'Row',
-      render: (row) => String(row.row),
-      getCellClassName: () => getCellClass(false),
-    },
-    {
-      key: 'contact_name',
-      header: 'School / Last Name',
-      render: (row) => row.location.contact_name ?? '',
-      getCellClassName: (row) =>
-        getCellClass(
-          hasContactNameAlert(row.alerts),
-          'contact_name',
-          duplicateFieldsByRow.get(row.row)
-        ),
-    },
-    {
-      key: 'address',
-      header: 'Address',
-      render: (row) => row.location.address ?? '',
-      getCellClassName: (row) =>
-        getCellClass(
-          hasAddressAlert(row.alerts),
-          'address',
-          duplicateFieldsByRow.get(row.row)
-        ),
-    },
-    {
-      key: 'delivery_group',
-      header: 'Delivery Group',
-      render: (row) => row.location.delivery_group ?? '',
-      getCellClassName: (row) =>
-        getCellClass(
-          row.alerts.includes('MISSING_DELIVERY_GROUP') &&
-            !row.location.delivery_group
-        ),
-    },
-    {
-      key: 'phone_primary',
-      header: 'Primary Phone',
-      render: (row) => row.location.phone_primary ?? '',
-      getCellClassName: (row) =>
-        getCellClass(
-          hasPhoneAlert(row.alerts),
-          'phone_primary',
-          duplicateFieldsByRow.get(row.row)
-        ),
-    },
-  ];
+      {
+        key: 'contact_name',
+        header: 'School / Last Name',
+        render: (row) => row.location.contact_name ?? '',
+        getCellClassName: (row) =>
+          getCellClass(
+            invalid && hasContactNameAlert(row.alerts),
+            'contact_name',
+            duplicateFields(row)
+          ),
+      },
+      {
+        key: 'address',
+        header: 'Address',
+        render: (row) => row.location.address ?? '',
+        getCellClassName: (row) =>
+          getCellClass(
+            invalid && hasAddressAlert(row.alerts),
+            'address',
+            duplicateFields(row)
+          ),
+      },
+      {
+        key: 'delivery_group',
+        header: 'Delivery Group',
+        render: (row) => row.location.delivery_group ?? '',
+        getCellClassName: (row) =>
+          getCellClass(
+            invalid &&
+              row.alerts.includes('MISSING_DELIVERY_GROUP') &&
+              !row.location.delivery_group
+          ),
+      },
+      {
+        key: 'phone_primary',
+        header: 'Phone Number',
+        render: (row) => row.location.phone_primary ?? '',
+        getCellClassName: (row) =>
+          getCellClass(
+            invalid && hasPhoneAlert(row.alerts),
+            'phone_primary',
+            duplicateFields(row)
+          ),
+      },
+      // INVALID_SECONDARY_PHONE_NUMBER is a blocking alert, so the value has
+      // to be on screen — otherwise the admin is told to fix something they
+      // cannot see. Never a duplicate field: the 2-of-3 rule uses the primary.
+      {
+        key: 'phone_secondary',
+        header: 'Secondary Phone Number',
+        render: (row) => row.location.phone_secondary ?? '',
+        getCellClassName: (row) =>
+          getCellClass(invalid && hasSecondaryPhoneAlert(row.alerts)),
+      },
+    ];
+  };
 
   return (
     <>
-      {/* Error banner */}
-      {!bannerDismissed && !data.success && (
-        <Banner variant="error" onDismiss={() => setDismissedFor(data)}>
-          Please correct these{' '}
-          <span className="text-red font-bold">{errorCount}</span>{' '}
-          {errorCount === 1 ? 'error' : 'errors'} before continuing, then go
-          back to import to reupload the file.
-        </Banner>
-      )}
-
-      {/* Success banner */}
-      {!bannerDismissed && data.success && (
-        <Banner variant="success" onDismiss={() => setDismissedFor(data)}>
-          No errors. You may proceed to the next step.
-        </Banner>
-      )}
-
-      {/* Validation card */}
-      <div className="flex flex-col gap-4">
+      <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-grey-500">Validation</h2>
+          <h2 className="text-grey-500">Invalid / Missing Entries</h2>
           <p className="text-p1 text-grey-500">
-            Below are all the records from your imported file with alerts to
-            resolve
+            Resolve all errors, then go back to Import to upload a new file
           </p>
         </div>
         <DataTable
-          columns={columns}
-          rows={errorRows}
+          columns={[alertColumn('invalid'), ...dataColumns('invalid')]}
+          rows={invalidRows}
           getRowKey={(row) => row.row}
           emptyState={
             <EmptyState
-              title="No new entries found in the spreadsheet"
-              description="It's feeling quite empty here"
+              compact
+              image="girl-searching"
+              title="No entries found"
+              description="No action required at this time"
             />
           }
         />
-      </div>
+      </section>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between">
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-grey-500">Duplicate Entries</h2>
+          <p className="text-p1 text-grey-500">
+            Correct all duplicate entries, then go back to Import to upload a
+            new file
+          </p>
+        </div>
+        <DataTable
+          columns={[alertColumn('duplicate'), ...dataColumns('duplicate')]}
+          rows={duplicateRows}
+          getRowKey={(row) => row.row}
+          emptyState={
+            <EmptyState
+              compact
+              image="girl-searching"
+              title="No entries found"
+              description="No action required at this time"
+            />
+          }
+        />
+      </section>
+
+      <GenerationFooter>
         <Button variant="tertiary" asChild>
-          <Link to="/admin/routes/generation/import">Back to Import</Link>
+          <Link to="/admin/routes/generation/import">Back to import</Link>
         </Button>
         <Button
           variant="primary"
           disabled={!canContinue}
           onClick={handleContinue}
         >
-          Continue to Review
+          Continue to review changes
         </Button>
-      </div>
+      </GenerationFooter>
     </>
   );
 }

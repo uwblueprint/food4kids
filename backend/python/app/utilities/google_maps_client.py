@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass
+from typing import Any
 
 import googlemaps  # type: ignore[import-untyped]
 
@@ -12,6 +13,40 @@ class GeocodeResult:
     place_id: str
     latitude: float
     longitude: float
+    is_precise: bool
+
+
+IMPRECISE_LOCATION_TYPE = "APPROXIMATE"
+
+
+def is_precise_geocode_result(result: dict[str, Any]) -> bool:
+    """True when a geocoder result identifies a specific street address.
+
+    Google answers almost any input with a successful match, falling back to
+    whatever it can find: "99999 Nonexistent Pkwy, Blandford Township" resolves
+    to the township centroid, a misspelled street resolves to the city, and a
+    bare postal code resolves to the middle of the delivery area. All of those
+    arrive as ordinary OK results, so a caller that only checks for None accepts
+    them and ends up sending a driver to a field.
+
+    A house we can deliver to always carries a street_number component and is
+    located more precisely than APPROXIMATE. Both conditions are needed —
+    neither alone is sufficient. Also rejects PO boxes and bare rural-route
+    addresses, which are real address formats but not places a driver can find.
+
+    Verified against real Waterloo Region addresses, urban and rural, including
+    apartments and unit numbers; test_google_maps_geocode_precision.py holds the
+    recorded response shapes.
+    """
+    component_types = {
+        component_type
+        for component in result["address_components"]
+        for component_type in component["types"]
+    }
+    if "street_number" not in component_types:
+        return False
+    location_type: str = result["geometry"]["location_type"]
+    return location_type != IMPRECISE_LOCATION_TYPE
 
 
 class GoogleMapsClient:
@@ -33,12 +68,14 @@ class GoogleMapsClient:
         geocode_result = self.client.geocode(cleaned_address, region=self.region_bias)
 
         if geocode_result:
-            location = geocode_result[0]["geometry"]["location"]
+            top = geocode_result[0]
+            location = top["geometry"]["location"]
             return GeocodeResult(
-                formatted_address=geocode_result[0]["formatted_address"],
-                place_id=geocode_result[0]["place_id"],
+                formatted_address=top["formatted_address"],
+                place_id=top["place_id"],
                 latitude=location["lat"],
                 longitude=location["lng"],
+                is_precise=is_precise_geocode_result(top),
             )
         return None
 

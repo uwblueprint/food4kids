@@ -5,7 +5,9 @@ Global test configuration and fixtures for the Food4Kids application.
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from datetime import date
+from typing import Any, NoReturn
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -30,6 +32,29 @@ from app.models import get_session
 
 # Set test environment
 os.environ["APP_ENV"] = "testing"
+
+
+@pytest.fixture(autouse=True)
+def _block_real_email_sends() -> Generator[None, None, None]:
+    """Guard: no test may send through the real Gmail-backed EmailService.
+
+    Local and container runs load the root .env, whose MAILER_* credentials are
+    real — any endpoint a test drives into the real dispatcher (e.g. the auth
+    matrix hitting POST /announcements/{id}/email) would genuinely send Gmail
+    to the seeded @test.dev addresses and bounce. Tests that exercise email
+    flows must swap in their own fake transport (see _FakeEmailService in
+    test_email_reminder_jobs.py); anything reaching this method is a bug.
+    """
+    from app.services.implementations.email_service import EmailService
+
+    def _blocked(_self: EmailService, to: str, **_: str) -> NoReturn:
+        raise RuntimeError(
+            f"Blocked attempt to send a real email to {to!r} from a test - "
+            "override the email dispatcher with a fake transport"
+        )
+
+    with patch.object(EmailService, "send_email", _blocked):
+        yield
 
 
 async def _ensure_system_settings(test_session: AsyncSession) -> None:
@@ -251,16 +276,6 @@ def mock_firebase_admin_auth(mocker: Any) -> Any:
 
 
 @pytest.fixture
-def mock_auth_service(mocker: Any) -> Any:
-    """Mock the auth service for testing."""
-    mock_service = mocker.patch("app.services.implementations.auth_service.AuthService")
-    mock_service.return_value.is_authorized_by_role.return_value = True
-    mock_service.return_value.is_authorized_by_user_id.return_value = True
-    mock_service.return_value.is_authorized_by_email.return_value = True
-    return mock_service
-
-
-@pytest.fixture
 def auth_headers() -> dict[str, str]:
     """Provide authentication headers for testing."""
     return {"Authorization": "Bearer test-token"}
@@ -378,12 +393,10 @@ def sample_announcement_data() -> dict[str, Any]:
 @pytest.fixture
 def sample_route_group_data() -> dict[str, Any]:
     """Sample route group data for testing."""
-    from datetime import datetime
-
     return {
         "name": "Test Route Group",
         "notes": "Test route group for testing",
-        "drive_date": datetime(2024, 1, 15, 8, 0),
+        "drive_date": date(2024, 1, 15),
     }
 
 
