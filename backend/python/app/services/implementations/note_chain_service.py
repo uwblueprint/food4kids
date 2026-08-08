@@ -281,7 +281,10 @@ class NoteChainService:
                 user_id=user_id,
                 message=data.message,
                 is_system=is_system,
-                attachments=data.attachments,
+                attachments=[
+                    attachment.model_dump(mode="json")
+                    for attachment in data.attachments
+                ],
             )
             session.add(note)
             await session.commit()

@@ -1,8 +1,11 @@
 import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
 import type { RouteStopDetailRead } from '@/api/generated/types.gen';
 
 import { DotSeparated } from './DotSeparated';
+import { StopContactSection } from './StopContactSection';
+import { StopNotesSection } from './StopNotesSection';
 
 export interface RouteStopCardProps {
   stop: RouteStopDetailRead;
@@ -37,14 +40,20 @@ function splitAddress(address: string): {
 }
 
 /** A single delivery stop: collapsed shows address + boxes; expanding reveals
- *  contact/phone and (eventually) notes. */
+ *  notes and contact. */
 export function RouteStopCard({ stop }: RouteStopCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const { street, city } = splitAddress(stop.address);
   const boxLabel = `${stop.boxes} ${stop.boxes === 1 ? 'box' : 'boxes'}`;
   const subLine = [city, boxLabel].filter(Boolean);
 
   return (
-    <details className="group border-grey-300 rounded-xl border bg-white p-3">
+    <details
+      className="group border-grey-300 rounded-xl border bg-white p-3"
+      onToggle={(event) => {
+        setExpanded(event.currentTarget.open);
+      }}
+    >
       <summary className="flex cursor-pointer list-none items-start gap-4 [&::-webkit-details-marker]:hidden">
         {/* Stop number badge */}
         <span className="bg-grey-200 text-button font-nunito text-grey-500 flex size-7 shrink-0 items-center justify-center rounded-full font-semibold">
@@ -62,11 +71,15 @@ export function RouteStopCard({ stop }: RouteStopCardProps) {
         <ChevronDown className="text-grey-500 size-6 shrink-0 transition-transform group-open:rotate-180" />
       </summary>
 
-      {/* Expanded content */}
-      <div className="bg-grey-200 -mx-3 mt-3 -mb-3 rounded-b-xl px-3 py-5">
-        {/* TODO: Add Notes Rendering */}
-        <p className="text-p2 text-grey-400">TODO: Add Notes Rendering</p>
-      </div>
+      {expanded && (
+        <div className="bg-grey-200 -mx-3 mt-3 -mb-3 flex flex-col gap-6 rounded-b-xl px-3 py-5">
+          <StopNotesSection
+            noteChainId={stop.note_chain_id}
+            enabled={expanded}
+          />
+          <StopContactSection stop={stop} />
+        </div>
+      )}
     </details>
   );
 }

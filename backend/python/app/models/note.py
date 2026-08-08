@@ -1,8 +1,9 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import Column, Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -16,6 +17,29 @@ class Attachment(SQLModel):
 
     filename: str
     url: str
+
+
+class AttachmentListJSON(TypeDecorator[list[Attachment]]):
+    """Persist ``list[Attachment]`` as JSON."""
+
+    impl = sa.JSON
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: list[Attachment] | None, _dialect: Any
+    ) -> list[dict[str, Any]] | None:
+        if value is None:
+            return None
+        return [
+            Attachment.model_validate(item).model_dump(mode="json") for item in value
+        ]
+
+    def process_result_value(
+        self, value: Any, _dialect: Any
+    ) -> list[Attachment] | None:
+        if value is None:
+            return None
+        return [Attachment.model_validate(item) for item in value]
 
 
 class NoteBase(SQLModel):
@@ -36,7 +60,8 @@ class NoteBase(SQLModel):
     message: str = Field(min_length=1, max_length=2000)
     is_system: bool = Field(default=False)
     attachments: list[Attachment] = Field(
-        default=[], sa_column=Column(sa.JSON, nullable=True, default=[])
+        default=[],
+        sa_column=Column(AttachmentListJSON, nullable=True),
     )
 
 
@@ -54,7 +79,7 @@ class NoteCreate(SQLModel):
     """Create request model - chain_id and user_id set by the service"""
 
     message: str = Field(min_length=1, max_length=2000)
-    attachments: list[Attachment] = Field(default=[])
+    attachments: list[Attachment] = Field(default=[], max_length=3)
 
 
 class NoteRead(NoteBase):
