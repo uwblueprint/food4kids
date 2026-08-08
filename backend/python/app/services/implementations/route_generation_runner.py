@@ -248,12 +248,11 @@ async def _resolve_locations(
         )
 
     if len(routable) < len(locations):
-        logger.warning(
-            "Routing %d of the %d locations in group '%s'; the rest are not "
-            "geocoded yet.",
-            len(routable),
-            len(locations),
-            group.name,
+        raise GenerationFailed(
+            f"Location group '{group.name}' has {len(locations) - len(routable)} "
+            f"location(s) that are not geocoded yet "
+            f"({len(routable)} of {len(locations)} are ready). "
+            "Geocode every location in the group before generating routes."
         )
 
     return group, routable

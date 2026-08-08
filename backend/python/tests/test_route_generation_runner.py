@@ -243,30 +243,26 @@ class TestSuccessfulGeneration:
         assert job.routes_created == 1
 
     @pytest.mark.asyncio
-    async def test_routes_only_the_geocoded_locations(
+    async def test_ungeocoded_locations_fail_the_job(
         self, test_session: AsyncSession
     ) -> None:
-        """A location without coordinates is skipped, not fatal."""
+        """A mix of geocoded and ungeocoded locations is fatal — do not
+        silently route only the ready subset."""
         group = await _add_group(test_session)
-        geocoded = await _add_location(test_session, group, "Family A")
+        await _add_location(test_session, group, "Family A")
         await _add_location(
             test_session, group, "Family B", latitude=None, longitude=None
         )
         await _add_warehouse(test_session)
         job = await _queue_running_job(test_session, group, num_routes=1)
 
-        seen: list[list[Location]] = []
+        await run_generation_job(
+            job.job_id, test_session, FakeRoutingAlgorithm(lambda locations: [locations])
+        )
 
-        def _plan(locations: list[Location]) -> Any:
-            seen.append(locations)
-            return [locations]
-
-        await run_generation_job(job.job_id, test_session, FakeRoutingAlgorithm(_plan))
-
-        assert [location.location_id for location in seen[0]] == [geocoded.location_id]
         await test_session.refresh(job)
-        assert job.progress == ProgressEnum.COMPLETED
-        assert job.total_families == 1
+        assert job.progress == ProgressEnum.FAILED
+        assert "not geocoded" in (job.error_message or "")
 
     @pytest.mark.asyncio
     async def test_empty_clusters_do_not_become_routes(
