@@ -22,11 +22,11 @@ from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
+from app.services.implementations.google_maps_routing_service import (
+    GoogleMapsFleetRoutingAlgorithm,
+)
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.location_service import LocationService
-from app.services.implementations.mock_routing_algorithm import (
-    MockRoutingAlgorithm,
-)
 from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
@@ -155,11 +155,12 @@ def get_route_group_service() -> RouteGroupService:
 
 @lru_cache
 def get_routing_algorithm() -> RoutingAlgorithmProtocol:
-    """Get routing algorithm instance (mock).
+    """Select the routing algorithm to use for route generation.
 
-    Swap this to use a different algorithm implementation.
+    Currently always returns the real Google Fleet Routing implementation.
+
     """
-    return MockRoutingAlgorithm()
+    return GoogleMapsFleetRoutingAlgorithm()
 
 
 @lru_cache
