@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
 import { Button } from '@/common/components';
@@ -46,15 +47,15 @@ export const DriverProfile = () => {
         </div>
 
         {/* 2. Full name properly capitalized */}
-        <h2 className="text-h2 font-bold text-grey-500 text-center">
+        <h1 className="font-bold text-grey-500 text-center">
           {fullName}
-        </h2>
+        </h1>
       </div>
 
       <div className="flex flex-col gap-6 w-full">
         {/* 3. Email subheading on the left, followed by a field */}
         <div className="flex flex-col gap-1.5 w-full">
-          <span className="text-p2 font-semibold text-grey-500">Email</span>
+          <h2>Email</h2>
           <div className="w-full bg-grey-100 border border-grey-300 rounded-[12px] px-4 py-3 text-p2 text-grey-500">
             {email || 'No email specified'}
           </div>
@@ -62,7 +63,7 @@ export const DriverProfile = () => {
 
         {/* 4. Phone number subheading on the left, followed by a field below it */}
         <div className="flex flex-col gap-1.5 w-full">
-          <span className="text-p2 font-semibold text-grey-500">Phone Number</span>
+          <h2>Phone Number</h2>
           <div className="w-full bg-grey-100 border border-grey-300 rounded-[12px] px-4 py-3 text-p2 text-grey-500">
             {phone}
           </div>
@@ -70,7 +71,7 @@ export const DriverProfile = () => {
 
         {/* 5. Address subheading on the left, followed by a field below it */}
         <div className="flex flex-col gap-1.5 w-full">
-          <span className="text-p2 font-semibold text-grey-500">Address</span>
+          <h2>Address</h2>
           <div className="w-full bg-grey-100 border border-grey-300 rounded-[12px] px-4 py-3 text-p2 text-grey-500">
             {address}
           </div>
