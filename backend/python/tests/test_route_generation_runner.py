@@ -257,7 +257,9 @@ class TestSuccessfulGeneration:
         job = await _queue_running_job(test_session, group, num_routes=1)
 
         await run_generation_job(
-            job.job_id, test_session, FakeRoutingAlgorithm(lambda locations: [locations])
+            job.job_id,
+            test_session,
+            FakeRoutingAlgorithm(lambda locations: [locations]),
         )
 
         await test_session.refresh(job)
@@ -369,6 +371,40 @@ class TestFailedGeneration:
         assert job.progress == ProgressEnum.FAILED
         assert "too long" in (job.error_message or "")
         assert await _route_groups(test_session) == []
+
+    @pytest.mark.asyncio
+    async def test_polyline_fetches_run_concurrently(
+        self, test_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Each route's polyline fetch overlaps with the others."""
+        group = await _add_group(test_session)
+        first = await _add_location(test_session, group, "Family A")
+        second = await _add_location(test_session, group, "Family B")
+        third = await _add_location(test_session, group, "Family C")
+        await _add_warehouse(test_session)
+        job = await _queue_running_job(test_session, group, num_routes=3)
+
+        in_flight = 0
+        max_in_flight = 0
+
+        async def _overlapping_polyline(**_kwargs: Any) -> tuple[str, float]:
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await asyncio.sleep(0.05)
+            in_flight -= 1
+            return "fake-polyline", POLYLINE_KM
+
+        monkeypatch.setattr(runner, "fetch_route_polyline", _overlapping_polyline)
+
+        algorithm = FakeRoutingAlgorithm(
+            lambda _locations: [[first], [second], [third]]
+        )
+        await run_generation_job(job.job_id, test_session, algorithm)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.COMPLETED
+        assert max_in_flight == 3
 
     @pytest.mark.asyncio
     async def test_polyline_api_error_fails_the_job(

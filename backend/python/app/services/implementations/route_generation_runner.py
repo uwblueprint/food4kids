@@ -287,7 +287,9 @@ async def _build_route_group(
 
     The engine only says who rides on which route and in what order; the line
     drawn on the map and the distance come from a second call each, so this
-    is one `fetch_route_polyline` per route.
+    is one `fetch_route_polyline` per route. Those HTTP calls run concurrently
+    via ``asyncio.gather`` so they share the remaining generation timeout
+    instead of stacking end-to-end.
 
     Nothing here touches the session, because the caller may still throw the
     whole thing away if the job was cancelled while these calls were running.
@@ -304,13 +306,22 @@ async def _build_route_group(
         drive_date=settings.route_start_time.date(),
     )
 
-    for number, cluster in enumerate(filled, start=1):
-        encoded_polyline, distance_km = await fetch_route_polyline(
-            locations=cluster,
-            warehouse_lat=warehouse_lat,
-            warehouse_lon=warehouse_lon,
-            ends_at_warehouse=settings.return_to_warehouse,
+    polyline_results = await asyncio.gather(
+        *(
+            fetch_route_polyline(
+                locations=cluster,
+                warehouse_lat=warehouse_lat,
+                warehouse_lon=warehouse_lon,
+                ends_at_warehouse=settings.return_to_warehouse,
+            )
+            for cluster in filled
         )
+    )
+
+    for number, (cluster, (encoded_polyline, distance_km)) in enumerate(
+        zip(filled, polyline_results, strict=True),
+        start=1,
+    ):
         route = Route(
             name=f"Route {number}",
             length=distance_km,
