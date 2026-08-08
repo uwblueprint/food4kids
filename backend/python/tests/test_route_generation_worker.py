@@ -260,6 +260,26 @@ class TestEnqueueDoorbell:
         assert job.progress == ProgressEnum.CANCELLED
         assert wakes == []
 
+    @pytest.mark.asyncio
+    async def test_enqueue_reraises_unexpected_errors(
+        self, test_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """DB/lookup failures must not be swallowed after the job is already PENDING."""
+        job = Job(progress=ProgressEnum.PENDING)
+        test_session.add(job)
+        await test_session.commit()
+        await test_session.refresh(job)
+
+        service = JobService(logger=logging.getLogger("test"), session=test_session)
+
+        async def boom(_job_id: Any) -> None:
+            raise RuntimeError("db unavailable")
+
+        monkeypatch.setattr(service, "get_job", boom)
+
+        with pytest.raises(RuntimeError, match="db unavailable"):
+            await service.enqueue(job.job_id)
+
 
 class TestWorkerLoop:
     @pytest.mark.asyncio

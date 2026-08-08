@@ -174,3 +174,4 @@ class JobService:
             wake_route_generation_worker()
         except Exception:
             self.logger.exception("Enqueue failed for job %s", job_id)
+            raise
