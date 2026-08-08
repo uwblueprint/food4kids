@@ -6,6 +6,11 @@ at a time and hands each to ``run_generation_job``. The ``jobs`` table is the
 durable queue; the event is only an in-memory signal, so a process restart
 needs the startup sweep to fail orphaned ``RUNNING`` rows and re-ring if any
 ``PENDING`` work is waiting.
+
+Assumes a single process runs this worker. The drain loop treats a failed claim
+(``None``) as "queue empty" and stops. With multiple uvicorn/gunicorn workers
+or replicas, a lost claim race can also return ``None`` while ``PENDING`` jobs
+remain, leaving them stuck until the next ``POST /jobs/generate`` wake.
 """
 
 from __future__ import annotations
@@ -127,7 +132,11 @@ async def recover_route_generation_jobs(session: AsyncSession) -> None:
 
 
 async def route_generation_worker_loop() -> None:
-    """Sleep until woken, then drain PENDING jobs one at a time."""
+    """Sleep until woken, then drain PENDING jobs one at a time.
+
+    Single-process assumption: ``_claim_and_run_one`` returning False means the
+    queue is empty. That is an unsafe assumptionif multiple processes claim concurrently.
+    """
     logger.info("Route generation worker started")
     try:
         while True:
@@ -143,7 +152,11 @@ async def route_generation_worker_loop() -> None:
 
 
 async def _claim_and_run_one() -> bool:
-    """Claim one job and run it. Returns False when the queue is empty."""
+    """Claim one job and run it. Returns False when claim finds no PENDING job.
+
+    Under a single worker process, that means the queue is empty. With multiple
+    processes, ``None`` can also mean another process claimed first.
+    """
     session_maker = app_models.async_session_maker_instance
     if session_maker is None:
         logger.error(
