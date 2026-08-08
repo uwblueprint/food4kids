@@ -39,47 +39,43 @@ export const DriverProfile = () => {
   };
 
   return (
-    <main className="flex flex-col items-center gap-8 mx-auto w-full max-w-[770px] py-8 px-4">
-      <div className="flex flex-col items-center gap-4 w-full">
-        {/* 1. Profile circle showing initials */}
-        <div className="flex size-24 items-center justify-center rounded-full bg-blue-300 font-bold text-white text-3xl shadow-sm">
-          {initials}
-        </div>
-
-        {/* 2. Full name properly capitalized */}
-        <h1 className="font-bold text-grey-500 text-center">
-          {fullName}
-        </h1>
+    <main className="flex flex-col items-center gap-6 mx-auto w-full max-w-[770px] py-8 px-4">
+      {/* 1. Profile circle showing initials */}
+      <div className="flex size-24 items-center justify-center rounded-full bg-blue-300 font-bold text-white text-3xl shadow-sm">
+        {initials}
       </div>
 
-      <div className="flex flex-col gap-6 w-full">
-        {/* 3. Email subheading on the left, followed by a field */}
-        <div className="flex flex-col gap-1.5 w-full">
-          <h2>Email</h2>
-          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-            {email || 'No email specified'}
-          </div>
-        </div>
+      {/* 2. Full name properly capitalized */}
+      <h1 className="font-bold text-grey-500 text-center">
+        {fullName}
+      </h1>
 
-        {/* 4. Phone number subheading on the left, followed by a field below it */}
-        <div className="flex flex-col gap-1.5 w-full">
-          <h2>Phone Number</h2>
-          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-            {phone}
-          </div>
+      {/* 3. Email subheading on the left, followed by a field */}
+      <div className="flex flex-col gap-2 w-full">
+        <h2>Email</h2>
+        <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
+          {email || 'No email specified'}
         </div>
+      </div>
 
-        {/* 5. Address subheading on the left, followed by a field below it */}
-        <div className="flex flex-col gap-1.5 w-full">
-          <h2>Address</h2>
-          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-            {address}
-          </div>
+      {/* 4. Phone number subheading on the left, followed by a field below it */}
+      <div className="flex flex-col gap-2 w-full">
+        <h2>Phone Number</h2>
+        <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
+          {phone}
+        </div>
+      </div>
+
+      {/* 5. Address subheading on the left, followed by a field below it */}
+      <div className="flex flex-col gap-2 w-full">
+        <h2>Address</h2>
+        <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
+          {address}
         </div>
       </div>
 
       {/* 6. A flex row div, inside it two buttons: left "Change password", right "Logout" */}
-      <div className="flex flex-row gap-4 w-full mt-4">
+      <div className="flex flex-row gap-4 w-full">
         <Button
           variant="secondary"
           className="flex-1"
