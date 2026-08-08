@@ -222,7 +222,7 @@ class TestEnqueueDoorbell:
     ) -> None:
         wakes: list[bool] = []
         monkeypatch.setattr(
-            "app.services.implementations.route_generation_worker.wake_route_generation_worker",
+            "app.services.implementations.job_service.wake_route_generation_worker",
             lambda: wakes.append(True),
         )
 
@@ -244,7 +244,7 @@ class TestEnqueueDoorbell:
     ) -> None:
         wakes: list[bool] = []
         monkeypatch.setattr(
-            "app.services.implementations.route_generation_worker.wake_route_generation_worker",
+            "app.services.implementations.job_service.wake_route_generation_worker",
             lambda: wakes.append(True),
         )
 

@@ -20,7 +20,6 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -39,6 +38,7 @@ from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.route_group_service import (
     ROUTE_GROUP_NAME_MAX_LENGTH,
 )
+from app.utilities.datetime_utils import now_est_naive
 from app.utilities.routes_utils import fetch_route_polyline
 
 if TYPE_CHECKING:
@@ -62,10 +62,6 @@ class GenerationFailed(Exception):
 
     Caught by `run_generation_job`, which stores the message on the job.
     """
-
-
-def _now_est_naive() -> datetime:
-    return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
 
 async def run_generation_job(
@@ -357,7 +353,7 @@ async def _save_or_discard(
     await session.flush()
 
     routes = route_group.routes
-    now = _now_est_naive()
+    now = now_est_naive()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
@@ -411,7 +407,7 @@ async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
     logger.warning("Route generation job %s failed: %s", job_id, message)
 
     await session.rollback()
-    now = _now_est_naive()
+    now = now_est_naive()
     result = cast(
         "CursorResult[Any]",
         await session.execute(

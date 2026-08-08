@@ -14,9 +14,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import update
 from sqlmodel import col, select
@@ -26,6 +24,7 @@ from app.dependencies.services import get_routing_algorithm
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.services.implementations.route_generation_runner import run_generation_job
+from app.utilities.datetime_utils import now_est_naive
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -44,11 +43,6 @@ RECOVERY_ERROR_MESSAGE = (
 )
 
 
-def _now_est_naive() -> datetime:
-    """Now in F4K's timezone, tz-naive."""
-    return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
-
-
 def wake_route_generation_worker() -> None:
     """Wakes the worker looks for PENDING jobs."""
     _wake_event.set()
@@ -65,7 +59,7 @@ async def claim_next_pending_job(session: AsyncSession) -> UUID | None:
     must keep skipping non-Pending rows so a cancelled Pending job is never
     started. No wake/interrupt is needed here — cancel is honored by not claiming.
     """
-    now = _now_est_naive()
+    now = now_est_naive()
     oldest_pending = (
         select(Job.job_id)
         .where(col(Job.progress) == ProgressEnum.PENDING)
@@ -99,7 +93,7 @@ async def recover_route_generation_jobs(session: AsyncSession) -> None:
     A RUNNING job cannot be resumed: the Google call is gone with the old
     process. Leaving it RUNNING would make the UI wait forever.
     """
-    now = _now_est_naive()
+    now = now_est_naive()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
