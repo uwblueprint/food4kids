@@ -1,38 +1,45 @@
 import { useState } from 'react';
 
-import { describeApiFailure, useForgotPassword } from '@/api';
+import { describeApiFailure, useResendOnboardingEmail } from '@/api';
 
 import { RequestLinkForm, SendLinkConfirmation } from './RequestLinkForm';
 import { WrapperWithLogo } from './Wrapper';
 
-/**
- * The endpoint answers 204 whether or not the address exists, which is the
- * anti-enumeration design. A failure here is therefore never about the email the
- * user typed, and is never worth implying it was.
- */
 const sendFailureMessage = (error: unknown) =>
   describeApiFailure(error) ??
-  'We couldn’t send the reset link. Please try again in a moment.';
+  'We couldn’t send the login link. Please try again in a moment.';
 
 type Step = 'FORM' | 'CONFIRMATION';
 
-export const ForgotPassword = () => {
+export const GetLoginLink = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
+  const [hasTimerFinished, setHasTimerFinished] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
 
-  const headerTitle = step === 'FORM' ? 'Forgot password?' : 'Reset link sent';
-  const subheaderTitle =
-    step === 'FORM'
-      ? 'What email did your admin use to sign you up?'
-      : 'If an account exists for that email, we’ve sent a link to reset your password. It may take a few minutes to arrive.';
+  const headerTitle =
+    step === 'FORM' ? 'Didn’t get a link?' : 'Login link sent';
 
-  const forgotPasswordMutation = useForgotPassword();
+  const getSubheaderTitle = (currentStep: Step, timerFinished: boolean) => {
+    if (currentStep === 'FORM') {
+      return "Enter the email address your admin used to invite you. We'll send a new login link.";
+    }
+
+    if (timerFinished) {
+      return "We've emailed you another setup link. It may take a few minutes to land in your inbox.\n\nIf nothing arrives after 15 minutes, please ask your admin.";
+    }
+
+    return "We've emailed your setup link. It may take a few minutes to land in your inbox.";
+  };
+
+  const subheaderTitle = getSubheaderTitle(step, hasTimerFinished);
+
+  const resendOnboardingEmailMutation = useResendOnboardingEmail();
 
   const handleSendLink = (submittedEmail: string) => {
     setSendError(null);
-    forgotPasswordMutation.mutate(
+    resendOnboardingEmailMutation.mutate(
       { email: submittedEmail },
       {
         onSuccess: () => {
@@ -50,7 +57,7 @@ export const ForgotPassword = () => {
     options?: { onError?: (error: unknown) => void }
   ) => {
     setResendError(null);
-    forgotPasswordMutation.mutate(
+    resendOnboardingEmailMutation.mutate(
       { email: submittedEmail },
       {
         onError: (error) => {
@@ -65,14 +72,14 @@ export const ForgotPassword = () => {
     <WrapperWithLogo
       headerTitle={headerTitle}
       subheaderTitle={subheaderTitle}
-      className="desktop:max-w-[362px] desktop:gap-8 gap-4 pt-35"
+      className="desktop:max-w-[362px] desktop:gap-8 gap-4 pt-31"
     >
       {step === 'FORM' ? (
         <RequestLinkForm
           email={email}
           setEmail={setEmail}
           onSubmit={handleSendLink}
-          isPending={forgotPasswordMutation.isPending}
+          isPending={resendOnboardingEmailMutation.isPending}
           sendError={sendError}
           clearError={() => setSendError(null)}
         />
@@ -80,9 +87,10 @@ export const ForgotPassword = () => {
         <SendLinkConfirmation
           email={email}
           onResend={handleResendLink}
-          isPending={forgotPasswordMutation.isPending}
+          isPending={resendOnboardingEmailMutation.isPending}
           resendError={resendError}
           clearError={() => setResendError(null)}
+          onTimerComplete={() => setHasTimerFinished(true)}
         />
       )}
     </WrapperWithLogo>

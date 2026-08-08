@@ -9,6 +9,8 @@ import {
   type LoginRequest,
   logout,
   refresh,
+  resendOnboardingEmail,
+  type ResendOnboardingEmailRequest,
   updatePassword,
   type UpdatePasswordRequest,
   type UserFinalize,
@@ -88,6 +90,18 @@ export function useForgotPassword() {
   return useMutation({
     mutationFn: async (payload: ForgotPasswordRequest) => {
       const { data } = await forgotPassword({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    },
+  });
+}
+
+export function useResendOnboardingEmail() {
+  return useMutation({
+    mutationFn: async (payload: ResendOnboardingEmailRequest) => {
+      const { data } = await resendOnboardingEmail({
         body: payload,
         throwOnError: true,
       });

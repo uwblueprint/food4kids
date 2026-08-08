@@ -163,6 +163,9 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
+  ResendOnboardingEmailData,
+  ResendOnboardingEmailErrors,
+  ResendOnboardingEmailResponses,
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
@@ -441,6 +444,28 @@ export const refresh = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     url: '/auth/refresh',
     ...options,
+  });
+
+/**
+ * Resend Onboarding Email
+ *
+ * Resends the onboarding/invite email to a pending user.
+ * Returns 204 regardless of input/status to prevent user enumeration attacks.
+ */
+export const resendOnboardingEmail = <ThrowOnError extends boolean = false>(
+  options: Options<ResendOnboardingEmailData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ResendOnboardingEmailResponses,
+    ResendOnboardingEmailErrors,
+    ThrowOnError
+  >({
+    url: '/auth/resend-onboarding',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

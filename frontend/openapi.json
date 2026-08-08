@@ -2645,6 +2645,20 @@
         "title": "ProgressEnum",
         "type": "string"
       },
+      "ResendOnboardingEmailRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ResendOnboardingEmailRequest",
+        "type": "object"
+      },
       "RouteDetailRead": {
         "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
@@ -4486,6 +4500,41 @@
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/resend-onboarding": {
+      "post": {
+        "description": "Resends the onboarding/invite email to a pending user.\nReturns 204 regardless of input/status to prevent user enumeration attacks.",
+        "operationId": "resend_onboarding_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendOnboardingEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Onboarding Email",
         "tags": [
           "authentication"
         ]
