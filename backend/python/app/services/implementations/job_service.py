@@ -11,6 +11,9 @@ from sqlmodel import col, select
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.schemas.route_generation import RouteGenerationGroupInput
+from app.services.implementations.route_generation_worker import (
+    wake_route_generation_worker,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -153,10 +156,6 @@ class JobService:
         (or otherwise non-pending) job is left alone so a late enqueue cannot
         resurrect work that an admin already stopped.
         """
-        from app.services.implementations.route_generation_worker import (
-            wake_route_generation_worker,
-        )
-
         try:
             job = await self.get_job(job_id)
 
