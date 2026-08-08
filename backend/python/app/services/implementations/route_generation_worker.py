@@ -49,7 +49,7 @@ RECOVERY_ERROR_MESSAGE = (
 
 
 def wake_route_generation_worker() -> None:
-    """Wakes the worker looks for PENDING jobs."""
+    """Wake the worker so it looks for PENDING jobs."""
     _wake_event.set()
 
 
