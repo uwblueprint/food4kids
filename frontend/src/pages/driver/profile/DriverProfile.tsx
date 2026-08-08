@@ -56,7 +56,7 @@ export const DriverProfile = () => {
         {/* 3. Email subheading on the left, followed by a field */}
         <div className="flex flex-col gap-1.5 w-full">
           <h2>Email</h2>
-          <div className="w-full bg-grey-100 border border-grey-300 rounded-[12px] px-4 py-3 text-p2 text-grey-500">
+          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
             {email || 'No email specified'}
           </div>
         </div>
@@ -64,7 +64,7 @@ export const DriverProfile = () => {
         {/* 4. Phone number subheading on the left, followed by a field below it */}
         <div className="flex flex-col gap-1.5 w-full">
           <h2>Phone Number</h2>
-          <div className="w-full bg-grey-100 border border-grey-300 rounded-[12px] px-4 py-3 text-p2 text-grey-500">
+          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
             {phone}
           </div>
         </div>
@@ -72,7 +72,7 @@ export const DriverProfile = () => {
         {/* 5. Address subheading on the left, followed by a field below it */}
         <div className="flex flex-col gap-1.5 w-full">
           <h2>Address</h2>
-          <div className="w-full bg-grey-100 border border-grey-300 rounded-[12px] px-4 py-3 text-p2 text-grey-500">
+          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
             {address}
           </div>
         </div>
