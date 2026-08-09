@@ -75,11 +75,6 @@ async def run_generation_job(
     summary recorded) or `FAILED` (with `error_message` set), unless it was
     cancelled along the way, in which case the cancellation stands and
     nothing is saved.
-
-    TODO(cancel): Honor POST /jobs/{id}/cancel cooperatively via the jobs row:
-    if progress is no longer Running at load/save/fail checkpoints, exit without
-    completing or overwriting Cancelled. Do not try to abort the in-flight
-    routing call — discard results instead.
     """
     started = time.perf_counter()
     try:
@@ -162,9 +157,6 @@ async def run_generation_job(
 
 async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
     """Fetch the job, if it is still ours to run.
-
-    TODO(cancel): If POST /jobs/{id}/cancel flipped this job to Cancelled before
-    we start real work, return None here so generation never begins.
     """
     job = (
         await session.execute(select(Job).where(Job.job_id == job_id))
@@ -397,10 +389,6 @@ async def _save_or_discard(
     routing engine is working takes the routes with them, instead of leaving
     a RouteGroup attached to a cancelled job, `update_progress` would refuse
     to overwrite the cancellation, and the routes would be stranded.
-
-    TODO(cancel): When POST /jobs/{id}/cancel sets Cancelled mid-run, this
-    Running-only UPDATE must miss (rowcount 0), roll back the RouteGroup, and
-    leave the Cancelled row alone.
     """
     session.add(route_group)
     await session.flush()
@@ -454,9 +442,6 @@ async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
 
     Guarded the same way `JobService.update_progress` is, so a job an admin
     already cancelled stays cancelled instead of resurfacing as a failure.
-
-    TODO(cancel): If POST /jobs/{id}/cancel already set Cancelled, this
-    Running-only failure UPDATE must no-op so Cancelled is not overwritten.
     """
     logger.warning("Route generation job %s failed: %s", job_id, message)
 
