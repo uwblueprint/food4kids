@@ -1,10 +1,10 @@
+import { ChevronLeftIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { useLogout } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
-import { ChevronLeftIcon } from 'lucide-react';
 import { Button } from '@/common/components';
 
 import { LogoutConfirmModal } from './LogoutConfirmModal';
