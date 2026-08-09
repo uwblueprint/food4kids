@@ -1055,6 +1055,8 @@ export const getJobsOptions = (options?: Options<GetJobsData>) =>
 
 /**
  * Generate Job
+ *
+ * Accept a generation request: persist it as PENDING and wake the worker.
  */
 export const generateJobMutation = (
   options?: Partial<Options<GenerateJobData>>

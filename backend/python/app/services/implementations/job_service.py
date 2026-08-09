@@ -11,6 +11,9 @@ from sqlmodel import col, select
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.schemas.route_generation import RouteGenerationGroupInput
+from app.services.implementations.route_generation_worker import (
+    wake_route_generation_worker,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -147,6 +150,12 @@ class JobService:
             raise error
 
     async def enqueue(self, job_id: UUID) -> None:
+        """Wake route-generation worker for a pending job.
+
+        Does not claim or run the job; that is the worker's job. A cancelled
+        (or otherwise non-pending) job is left alone so a late enqueue cannot
+        resurrect work that an admin already stopped.
+        """
         try:
             job = await self.get_job(job_id)
 
@@ -162,13 +171,7 @@ class JobService:
                 )
                 return
 
-            job.progress = ProgressEnum.RUNNING
-            job.started_at = self.est_now_naive()
-            self.session.add(job)
-            await self.session.commit()
+            wake_route_generation_worker()
         except Exception:
             self.logger.exception("Enqueue failed for job %s", job_id)
-            try:
-                await self.update_progress(job_id, ProgressEnum.FAILED)
-            except Exception:
-                self.logger.exception("Failed to mark job %s as FAILED", job_id)
+            raise
