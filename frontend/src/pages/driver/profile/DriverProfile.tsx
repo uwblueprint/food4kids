@@ -1,15 +1,21 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { useLogout } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
 import { ChevronLeftIcon } from 'lucide-react';
 import { Button } from '@/common/components';
 
+import { LogoutConfirmModal } from './LogoutConfirmModal';
+
 export const DriverProfile = () => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
   const driverId = user?.driverId;
+
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const logoutMutation = useLogout();
 
   const { data: driverDetails } = useDriver(driverId || '');
 
@@ -30,9 +36,17 @@ export const DriverProfile = () => {
     `${firstName.charAt(0) || ''}${lastName.charAt(0) || ''}`.toUpperCase() ||
     'D';
 
-  const handleLogout = () => {
-    clearAuth();
-    navigate('/login');
+  const handleLogoutClick = () => {
+    setIsLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = () => {
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        setIsLogoutModalOpen(false);
+        navigate('/login');
+      },
+    });
   };
 
   const handleChangePassword = () => {
@@ -52,7 +66,7 @@ export const DriverProfile = () => {
       <div className="flex flex-col items-center gap-1">
         {/* 1. Profile circle showing initials */}
         <div className="flex size-26 items-center justify-center rounded-full bg-blue-300 text-white">
-          <h1>{initials}</h1>
+          <h1 className="text-[42.545px]">{initials}</h1>
         </div>
 
         {/* 2. Full name properly capitalized */}
@@ -97,11 +111,18 @@ export const DriverProfile = () => {
         </Button>
         <Button
           className="flex-1"
-          onClick={handleLogout}
+          onClick={handleLogoutClick}
         >
           Logout
         </Button>
       </div>
+
+      <LogoutConfirmModal
+        open={isLogoutModalOpen}
+        onOpenChange={setIsLogoutModalOpen}
+        onConfirm={handleConfirmLogout}
+        isLoading={logoutMutation.isPending}
+      />
     </main>
   );
 };
