@@ -156,8 +156,7 @@ async def run_generation_job(
 
 
 async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
-    """Fetch the job, if it is still ours to run.
-    """
+    """Fetch the job, if it is still ours to run."""
     job = (
         await session.execute(select(Job).where(Job.job_id == job_id))
     ).scalar_one_or_none()
@@ -183,7 +182,7 @@ async def _complete_already_saved(session: AsyncSession, job: Job) -> None:
     Used when a crash happened after save but before the status flip, or when
     a requeued job is claimed again despite already having a route_group_id.
     """
-    now = _now_est_naive()
+    now = now_est_naive()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
