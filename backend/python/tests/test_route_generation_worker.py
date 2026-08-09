@@ -10,11 +10,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.models.enum import ProgressEnum
 from app.models.job import Job
@@ -60,7 +60,7 @@ class FakeRoutingAlgorithm:
         timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
         self.calls += 1
-        return self._plan(locations)
+        return cast("list[list[Location]]", self._plan(locations))
 
 
 def _maker(test_db_engine: Any) -> async_sessionmaker[AsyncSession]:
@@ -75,7 +75,7 @@ def reset_worker_state() -> Any:
     worker._wake_event = asyncio.Event()
     worker._worker_task = None
     yield
-    task = worker._worker_task
+    task = cast("asyncio.Task[None] | None", worker._worker_task)
     worker._worker_task = None
     if task is not None and not task.done():
         task.cancel()
@@ -351,7 +351,7 @@ class TestWorkerLoop:
                     (
                         await session.execute(
                             select(Job).where(
-                                Job.job_id.in_([first.job_id, second.job_id])
+                                col(Job.job_id).in_([first.job_id, second.job_id])
                             )
                         )
                     )

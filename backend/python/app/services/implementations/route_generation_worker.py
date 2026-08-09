@@ -81,7 +81,7 @@ async def claim_next_pending_job(session: AsyncSession) -> UUID | None:
             started_at=now,
             updated_at=now,
         )
-        .returning(Job.job_id)
+        .returning(col(Job.job_id))
     )
     job_id = result.scalar_one_or_none()
     if job_id is None:
