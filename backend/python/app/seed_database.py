@@ -12,7 +12,6 @@ import zlib
 from datetime import date, datetime, time, timedelta, timezone
 from itertools import pairwise
 from typing import cast
-from zoneinfo import ZoneInfo
 
 import faker
 import firebase_admin
@@ -48,6 +47,7 @@ from app.models.system_settings import (
 
 # Import all models to register them with SQLModel
 from app.models.user import User
+from app.utilities.datetime_utils import now_est_naive
 
 # Initialize Faker
 fake = faker.Faker()
@@ -1391,9 +1391,7 @@ def main(*, reset_passwords: bool = False) -> None:
                     attachments=[],
                 )
                 set_timestamps(announcement)
-                posted_at = datetime.now(ZoneInfo("America/New_York")).replace(
-                    tzinfo=None
-                ) - timedelta(days=days_ago)
+                posted_at = now_est_naive() - timedelta(days=days_ago)
                 announcement.created_at = posted_at
                 announcement.updated_at = posted_at
                 session.add(announcement)
@@ -1413,9 +1411,7 @@ def main(*, reset_passwords: bool = False) -> None:
                 if random.random() < 0.6:
                     read_entry = AnnouncementLastRead(
                         user_id=driver_user_row[0],
-                        last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(
-                            tzinfo=None
-                        )
+                        last_read_at=now_est_naive()
                         - timedelta(hours=random.randint(0, 72)),
                     )
                     set_timestamps(read_entry)
