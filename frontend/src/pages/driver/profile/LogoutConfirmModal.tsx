@@ -30,9 +30,9 @@ export function LogoutConfirmModal({
             Are you sure you would like to log out of your account?
           </ModalDescription>
         </ModalHeader>
-        <ModalFooter className="justify-end">
+        <ModalFooter className="gap-2 justify-end">
           <Button
-            className="w-[139.5px]"
+            className="w-[139.5px] tablet:w-[139.5px]"
             type="button"
             variant="secondary"
             onClick={() => onOpenChange(false)}
@@ -41,7 +41,7 @@ export function LogoutConfirmModal({
             Go back
           </Button>
           <Button
-            className="w-[139.5px]"
+            className="w-[139.5px] tablet:w-[139.5px]"
             type="button"
             variant="primary"
             onClick={onConfirm}
