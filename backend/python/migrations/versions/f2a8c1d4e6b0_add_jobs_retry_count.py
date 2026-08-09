@@ -5,7 +5,7 @@ orphaned RUNNING job to PENDING. Caps crash-loop retries at one automatic
 requeue (see recover_route_generation_jobs).
 
 Revision ID: f2a8c1d4e6b0
-Revises: d4eefe397549
+Revises: f1a7c0d92b45
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -15,7 +15,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "f2a8c1d4e6b0"
-down_revision = "d4eefe397549"
+down_revision = "f1a7c0d92b45"
 branch_labels = None
 depends_on = None
 
