@@ -1,8 +1,6 @@
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +12,7 @@ from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.route_generation_worker import (
     wake_route_generation_worker,
 )
+from app.utilities.datetime_utils import now_est_naive
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -42,9 +41,6 @@ class JobService:
         result = await self.session.execute(statement)
         return list(result.scalars().all())
 
-    def est_now_naive(self) -> datetime:
-        return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
-
     async def generate_job(self, req: RouteGenerationGroupInput | None = None) -> UUID:
         """Create a job, persisting the generation request for a worker to run later.
 
@@ -72,7 +68,7 @@ class JobService:
 
     async def update_progress(self, job_id: UUID, progress: ProgressEnum) -> None:
         try:
-            now = self.est_now_naive()
+            now = now_est_naive()
             values = {
                 "progress": progress,
                 "updated_at": now,
@@ -116,7 +112,7 @@ class JobService:
         no-ops and returned unchanged.
         """
         try:
-            now = self.est_now_naive()
+            now = now_est_naive()
             result = cast(
                 "CursorResult[Any]",
                 await self.session.execute(
