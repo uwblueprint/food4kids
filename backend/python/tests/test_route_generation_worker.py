@@ -61,7 +61,7 @@ class FakeRoutingAlgorithm:
         timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
         self.calls += 1
-        return cast("list[list[Location]]", self._plan(locations))
+        return self._plan(locations)
 
 
 def _maker(test_db_engine: Any) -> async_sessionmaker[AsyncSession]:
