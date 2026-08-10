@@ -269,7 +269,6 @@ export function ConfigureStep() {
             ),
             num_routes: row.form.routeCount,
             return_to_warehouse: row.form.returnToWarehouse,
-            max_stops_per_route: null,
             max_boxes_per_driver: systemSettings?.boxes_per_car,
             children_per_box: systemSettings?.children_per_box,
             service_time_minutes: systemSettings?.dropoff_minutes,

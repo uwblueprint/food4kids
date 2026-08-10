@@ -1134,6 +1134,17 @@
       "JobRead": {
         "description": "Job response model",
         "properties": {
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
           "job_id": {
             "format": "uuid",
             "title": "Job Id",
@@ -1154,6 +1165,50 @@
               }
             ],
             "title": "Route Group Id"
+          },
+          "routes_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routes Created"
+          },
+          "total_distance_km": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Distance Km"
+          },
+          "total_families": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Families"
+          },
+          "total_stops": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Stops"
           }
         },
         "required": [

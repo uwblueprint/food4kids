@@ -53,6 +53,11 @@ class JobRead(JobBase):
     """Job response model"""
 
     job_id: UUID
+    error_message: str | None = None
+    routes_created: int | None = None
+    total_stops: int | None = None
+    total_distance_km: float | None = None
+    total_families: int | None = None
 
 
 class JobUpdate(SQLModel):
