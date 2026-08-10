@@ -12,7 +12,7 @@ from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.route_generation_worker import (
     wake_route_generation_worker,
 )
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import now_utc
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -68,7 +68,7 @@ class JobService:
 
     async def update_progress(self, job_id: UUID, progress: ProgressEnum) -> None:
         try:
-            now = now_est_naive()
+            now = now_utc()
             values = {
                 "progress": progress,
                 "updated_at": now,
@@ -112,7 +112,7 @@ class JobService:
         no-ops and returned unchanged.
         """
         try:
-            now = now_est_naive()
+            now = now_utc()
             result = cast(
                 "CursorResult[Any]",
                 await self.session.execute(

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Column, DateTime, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
@@ -19,7 +19,9 @@ class AnnouncementLastRead(BaseModel, table=True):
     user_id: UUID = Field(
         foreign_key="users.user_id", nullable=False, ondelete="CASCADE"
     )
-    last_read_at: datetime = Field(nullable=False)
+    last_read_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
 
 
 class AnnouncementLastReadResponse(SQLModel):
