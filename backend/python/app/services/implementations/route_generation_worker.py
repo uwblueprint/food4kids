@@ -29,7 +29,7 @@ from app.dependencies.services import get_routing_algorithm
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.services.implementations.route_generation_runner import run_generation_job
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import now_utc
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -63,7 +63,7 @@ async def claim_next_pending_job(session: AsyncSession) -> UUID | None:
     racing the claim) cannot both start the same job: zero rows updated means
     someone else got there first.
     """
-    now = now_est_naive()
+    now = now_utc()
     oldest_pending = (
         select(Job.job_id)
         .where(col(Job.progress) == ProgressEnum.PENDING)
@@ -106,7 +106,7 @@ async def recover_route_generation_jobs(session: AsyncSession) -> None:
 
     Leaving orphans in RUNNING would make the UI wait forever.
     """
-    now = now_est_naive()
+    now = now_utc()
 
     completed = cast(
         "CursorResult[Any]",

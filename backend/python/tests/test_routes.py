@@ -1413,22 +1413,22 @@ class TestLocationRoutes:
                     note_chain_id=chain.note_chain_id,
                     message="Old note",
                     is_system=False,
-                    created_at=datetime(2026, 1, 1),
-                    updated_at=datetime(2026, 1, 1),
+                    created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="Gate code 2736",
                     is_system=False,
-                    created_at=datetime(2026, 2, 1),
-                    updated_at=datetime(2026, 2, 1),
+                    created_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="System event",
                     is_system=True,
-                    created_at=datetime(2026, 3, 1),
-                    updated_at=datetime(2026, 3, 1),
+                    created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
                 ),
             ]
         )
@@ -5225,14 +5225,14 @@ class TestNoteFeedRoutes:
             location_name="Beta Family",
             message="Older note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Family",
             message="Newer note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?page_size=1&sort=recent")
@@ -5268,7 +5268,7 @@ class TestNoteFeedRoutes:
             location_name="System Family",
             message="Automated note",
             user=None,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?sort=recent")
@@ -5306,21 +5306,21 @@ class TestNoteFeedRoutes:
             location_name="Charlie Location",
             message="Admin middle",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Location",
             message="Driver newest",
             user=driver_user,
-            created_at=datetime(2026, 1, 3, 9, 0),
+            created_at=datetime(2026, 1, 3, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Bravo Location",
             message="Admin oldest",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         oldest_response = await async_client.get("/notes?sort=oldest")

@@ -16,7 +16,7 @@ from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.driver import Driver
 from app.models.user import User
 from app.services.implementations.email_dispatcher import EmailDispatcher
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import now_utc
 
 
 class AnnouncementService:
@@ -117,7 +117,7 @@ class AnnouncementService:
                 setattr(announcement, field, value)
 
             if update_data:
-                announcement.updated_at = now_est_naive()
+                announcement.updated_at = now_utc()
 
             await session.commit()
             return await self.get_announcement(session, announcement_id)
@@ -219,7 +219,7 @@ class AnnouncementService:
             if not user_result.scalars().first():
                 raise ValueError(f"User with id {user_id} not found")
 
-            now = now_est_naive()
+            now = now_utc()
             insert_stmt = pg_insert(AnnouncementLastRead).values(
                 announcement_last_read_id=uuid4(),
                 user_id=user_id,

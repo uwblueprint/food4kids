@@ -38,7 +38,7 @@ from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.route_group_service import (
     ROUTE_GROUP_NAME_MAX_LENGTH,
 )
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import now_utc
 from app.utilities.routes_utils import fetch_route_polyline
 
 if TYPE_CHECKING:
@@ -185,7 +185,7 @@ async def _complete_already_saved(session: AsyncSession, job: Job) -> None:
     ``run_generation_job``). Kept as a defensive no-regenerate path if a job
     ever arrives Running with ``route_group_id`` already set.
     """
-    now = now_est_naive()
+    now = now_utc()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
@@ -396,7 +396,7 @@ async def _save_or_discard(
     await session.flush()
 
     routes = route_group.routes
-    now = now_est_naive()
+    now = now_utc()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
@@ -448,7 +448,7 @@ async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
     logger.warning("Route generation job %s failed: %s", job_id, message)
 
     await session.rollback()
-    now = now_est_naive()
+    now = now_utc()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
