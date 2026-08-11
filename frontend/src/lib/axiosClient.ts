@@ -49,12 +49,6 @@ interface SessionRequestConfig extends InternalAxiosRequestConfig {
  */
 let refreshInFlight: Promise<AuthResponse> | null = null;
 
-/**
- * Trade the httpOnly refresh cookie for a new access token and adopt it.
- *
- * The one thing that knows how to restore a session, whether that is on first
- * load or halfway through one.
- */
 export function refreshSession(): Promise<AuthResponse> {
   const pending =
     refreshInFlight ??
@@ -81,27 +75,19 @@ function isRefreshRequest(config: InternalAxiosRequestConfig): boolean {
   return (config.url ?? '').endsWith(REFRESH_PATH);
 }
 
-// A 401 says the access token we sent was rejected, and that is two different
-// situations wearing one status code. The token may simply have aged out —
-// Firebase mints them with an hour of life, so any tab left open for an
-// afternoon outlives its token — or the session may have been revoked, which
-// kills the refresh cookie alongside it.
+// A 401 is ambiguous: the access token may have simply aged out (Firebase
+// mints them with an hour of life), or the session may be genuinely revoked.
+// Asking `/auth/refresh` — which reads only the httpOnly refresh cookie —
+// resolves it: a new access token means the session is alive, a 401 means it
+// isn't. So a 401 here is met by refreshing and replaying the request; only a
+// refusal from the refresh itself ends the session.
 //
-// Nothing here has to guess which. `/auth/refresh` reads only the httpOnly
-// refresh cookie, so asking it *is* the test: it answers with a new access
-// token while the session is alive and 401s once it is not. So a 401 is met by
-// refreshing and replaying the request, and only a refusal from the refresh
-// itself ends the session. `AuthProvider` sends an unauthenticated visitor to
-// /login from there.
+// Only requests that carried a token count — otherwise the session-restore
+// call that 401s on every first visit would announce an expired session to
+// someone who never had one.
 //
-// Only requests that actually carried a token count. Without this guard, the
-// session-restore call that 401s on every first visit — the ordinary state of
-// someone who simply is not logged in — would announce an expired session to a
-// person who never had one.
-//
-// A 403 is deliberately left alone. It means the server knows exactly who we
-// are and this is not ours; logging in again would land the same 403, so
-// bouncing to the login page would only produce a loop.
+// A 403 is left alone: the server knows exactly who we are and this isn't
+// ours, so logging in again would just repeat the same 403.
 axiosClient.interceptors.response.use(undefined, async (error: unknown) => {
   if (!isAxiosError(error) || error.response?.status !== 401) {
     return Promise.reject(error);

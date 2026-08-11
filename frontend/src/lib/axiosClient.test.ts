@@ -316,14 +316,10 @@ describe('session expiry', () => {
 });
 
 /**
- * A 401 is answered by refreshing, not by giving up.
- *
- * Firebase mints access tokens with an hour of life, so a tab left open over a
- * shift outlives its token as a matter of course, while the refresh cookie
- * beside it is still perfectly good. Treating that as a dead session would sign
- * people out mid-task on a timer. What actually distinguishes the two is the
- * refresh endpoint's own answer, so these tests pin who gets renewed, who gets
- * signed out, and — the loop worth guarding — that nothing retries forever.
+ * Firebase access tokens last an hour, so an open tab outliving one is
+ * routine, not a dead session — the refresh cookie beside it is still good.
+ * These tests pin who gets renewed, who gets signed out, and that nothing
+ * retries forever.
  */
 describe('refreshing an aged-out token', () => {
   type Reply =
@@ -383,7 +379,6 @@ describe('refreshing an aged-out token', () => {
   const refreshes = () => requests.filter(isRefresh);
   const calls = () => requests.filter((config) => !isRefresh(config));
 
-  /** The token an outgoing request actually carried. */
   const tokenOn = (config: InternalAxiosRequestConfig) =>
     String(config.headers.Authorization ?? '');
 
@@ -405,12 +400,9 @@ describe('refreshing an aged-out token', () => {
   }
 
   /**
-   * A token that has aged out, expressed the way the server would see it: the
-   * old one is refused and the one the refresh hands back is accepted.
-   *
-   * Keyed off the token rather than off call order on purpose — with several
-   * requests in flight the refresh can land before the last of them is sent,
-   * and a counter would make the burst case depend on which won.
+   * Keyed off the token rather than call order — with several requests in
+   * flight the refresh can land before the last of them is sent, and a
+   * counter would make the burst case depend on which won.
    */
   function staleToken(refreshReply: Reply = { status: 200, body: RENEWED }) {
     serve((config) => {
