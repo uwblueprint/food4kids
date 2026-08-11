@@ -97,8 +97,9 @@ async def recover_route_generation_jobs(session: AsyncSession) -> None:
     A RUNNING job cannot resume its in-flight Google call — that connection is
     gone. Recovery instead:
 
-    1. If ``route_group_id`` is already set, mark COMPLETED (save finished;
-       only the status flip was lost).
+    1. If ``route_group_id`` is already set, mark COMPLETED. Unreachable while
+       ``_save_or_discard`` commits the RouteGroup and status together; kept as
+       a belt-and-suspenders guard if that assumption changes.
     2. Else if ``retry_count`` is under the auto-requeue cap, return the job
        to PENDING so the worker retries from ``input_payload``.
     3. Else mark FAILED so a crash loop cannot requeue forever.
@@ -110,6 +111,7 @@ async def recover_route_generation_jobs(session: AsyncSession) -> None:
     completed = cast(
         "CursorResult[Any]",
         await session.execute(
+            # Defensive: not expected while RouteGroup + COMPLETED share one commit.
             update(Job)
             .where(col(Job.progress) == ProgressEnum.RUNNING)
             .where(col(Job.route_group_id).is_not(None))
@@ -191,7 +193,7 @@ async def route_generation_worker_loop() -> None:
     """Sleep until woken, then drain PENDING jobs one at a time.
 
     Single-process assumption: ``_claim_and_run_one`` returning False means the
-    queue is empty. That is an unsafe assumptionif multiple processes claim concurrently.
+    queue is empty. That is an unsafe assumption if multiple processes claim concurrently.
     """
     logger.info("Route generation worker started")
     try:

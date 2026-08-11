@@ -82,8 +82,10 @@ async def run_generation_job(
         if job is None:
             return
 
-        # Idempotency: a prior attempt may have saved the RouteGroup before the
-        # process died. Do not call the routing engine again.
+        # Belt-and-suspenders: _save_or_discard commits the RouteGroup and the
+        # COMPLETED status in one transaction, and recovery only requeues jobs
+        # with route_group_id IS NULL, so this should not be reachable today.
+        # Keep the guard in case that atomicity assumption changes later.
         if job.route_group_id is not None:
             await _complete_already_saved(session, job)
             return
@@ -177,10 +179,11 @@ async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
 
 
 async def _complete_already_saved(session: AsyncSession, job: Job) -> None:
-    """Mark a job Completed when its RouteGroup was already persisted.
+    """Mark a job Completed when its RouteGroup is already linked.
 
-    Used when a crash happened after save but before the status flip, or when
-    a requeued job is claimed again despite already having a route_group_id.
+    Not expected under today's save/recovery atomicity (see the guard in
+    ``run_generation_job``). Kept as a defensive no-regenerate path if a job
+    ever arrives Running with ``route_group_id`` already set.
     """
     now = now_est_naive()
     result = cast(

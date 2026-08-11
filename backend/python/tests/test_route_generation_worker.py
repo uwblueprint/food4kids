@@ -209,6 +209,7 @@ class TestClaimAndRecover:
     async def test_recover_completes_running_job_that_already_saved_routes(
         self, test_db_engine: Any
     ) -> None:
+        """Defensive path: RUNNING + route_group_id is not expected from saves."""
         maker = _maker(test_db_engine)
         async with maker() as session:
             group = RouteGroup(name="Saved Group", drive_date=DRIVE_DATE.date())
