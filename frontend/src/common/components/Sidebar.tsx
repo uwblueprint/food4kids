@@ -105,7 +105,9 @@ function SidebarMenuItem({
       }
     >
       <Icon className="size-6" />
-      <span className="text-m-p2 text-center">{label}</span>
+      {/* p1, not the mobile m-p2 token: this sidebar is admin-only, and admin
+          is desktop-only. Same 16/24, weight 500 rather than 400. */}
+      <span className="text-p1 text-center">{label}</span>
     </NavLink>
   );
 }

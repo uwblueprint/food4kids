@@ -60,7 +60,7 @@ export function AnnouncementConfirmModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent className="max-w-[480px]">
         <ModalHeader>
-          <ModalTitle>{copy.title}</ModalTitle>
+          <ModalTitle variant="confirmation">{copy.title}</ModalTitle>
           <ModalDescription>{copy.description}</ModalDescription>
         </ModalHeader>
         <ModalFooter>

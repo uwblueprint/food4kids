@@ -1,10 +1,7 @@
-import { Fragment, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment } from 'react';
 
 import CheckIcon from '@/assets/icons/check.svg?react';
 import { cn } from '@/lib/utils';
-
-/** Half the 24px circle, in px — the label overhang is measured against it. */
-const CIRCLE_RADIUS = 12;
 
 interface Step {
   label: string;
@@ -19,92 +16,86 @@ const STEPS: Step[] = [
   { label: 'Generate Routes', path: '/admin/routes/generation/generate' },
 ];
 
+/**
+ * The 3px rule. Inside a step it sits in a centre-aligned row, so it lines up
+ * with the circle on its own; the connectors between steps hang off the top of
+ * the row instead and need CONNECTOR_DROP to meet them.
+ */
+const CONNECTOR = 'h-[3px]';
+/** (24px circle − 3px rule) / 2, so the two meet without a step in the line. */
+const CONNECTOR_DROP = 'mt-[10.5px]';
+
 interface ProgressStepperProps {
   currentStep: number;
   className?: string;
 }
 
 function ProgressStepper({ currentStep, className }: ProgressStepperProps) {
-  const firstLabel = useRef<HTMLSpanElement>(null);
-  const lastLabel = useRef<HTMLSpanElement>(null);
-  // Half of each end label hangs off its circle. The frames put those two
-  // labels flush with the page margins, so the row is inset by exactly that
-  // overhang — measured, because it's the rendered text width that decides it,
-  // and a hardcoded inset is both wrong for one end and silently wrong again
-  // the next time a label's wording changes.
-  const [endInset, setEndInset] = useState({ left: 0, right: 0 });
-
-  useLayoutEffect(() => {
-    const first = firstLabel.current;
-    const last = lastLabel.current;
-    if (!first || !last) return;
-
-    // getBoundingClientRect, not offsetWidth: the latter rounds to whole
-    // pixels, which leaves the end labels a couple of px off the margin.
-    const overhang = (label: HTMLSpanElement) =>
-      Math.max(0, label.getBoundingClientRect().width / 2 - CIRCLE_RADIUS);
-    const measure = () =>
-      setEndInset({ left: overhang(first), right: overhang(last) });
-
-    measure();
-    // A layout effect runs before the web font has necessarily swapped in, and
-    // fallback metrics put the inset a couple of px out, so re-measure once the
-    // real font is in. The observer then keeps up with anything later — a
-    // wording change, a zoom, a font-size change at another breakpoint.
-    void document.fonts.ready.then(measure);
-    const observer = new ResizeObserver(measure);
-    observer.observe(first);
-    observer.observe(last);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    // The circles are evenly spaced and the labels hang off them: each label is
-    // centred on its circle and taken out of the flow, so a label as wide as
-    // "Edit Route Groups" doesn't push its circle around. That leaves the row as
-    // fixed-size circles with the connectors splitting whatever is left over.
-    // `pb-6` reserves the 4px gap + 20px line the labels occupy.
-    <div
-      className={cn('flex w-full items-center pb-6', className)}
-      style={{ paddingLeft: endInset.left, paddingRight: endInset.right }}
-    >
-      {STEPS.map((step, i) => (
-        <Fragment key={step.path}>
-          {i > 0 && (
-            <div
-              className={cn(
-                'h-[3px] flex-1',
-                i <= currentStep ? 'bg-blue-300' : 'bg-grey-300'
-              )}
-            />
-          )}
-          <div
-            className={cn(
-              'relative flex size-6 shrink-0 items-center justify-center rounded-full border-2',
-              i < currentStep && 'border-blue-300 bg-blue-300',
-              i === currentStep && 'border-blue-300',
-              i > currentStep && 'border-grey-400'
+    // The frames lay this out as five label-sized boxes with equal gaps, each
+    // circle centred over its own label — not as evenly spaced circles with
+    // labels hanging off them. The difference is visible: even spacing puts
+    // "Review Changes" 52px right of where the frame has it. So each step is an
+    // in-flow column (circle over label) and the connectors take the slack,
+    // which also means the end labels sit flush with the row's edges on their
+    // own — no measuring, no end inset.
+    <div className={cn('flex w-full items-start', className)}>
+      {STEPS.map((step, i) => {
+        // The line reaching step i is blue once that step has been passed; the
+        // one leaving it, once the next has.
+        const lineIn = i <= currentStep ? 'bg-blue-300' : 'bg-grey-300';
+        const lineOut = i + 1 <= currentStep ? 'bg-blue-300' : 'bg-grey-300';
+        return (
+          <Fragment key={step.path}>
+            {i > 0 && (
+              <div
+                className={cn(CONNECTOR, CONNECTOR_DROP, 'flex-1', lineIn)}
+              />
             )}
-          >
-            {i < currentStep && <CheckIcon className="size-3.5 text-white" />}
-            <span
-              ref={
-                i === 0
-                  ? firstLabel
-                  : i === STEPS.length - 1
-                    ? lastLabel
-                    : undefined
-              }
-              className={cn(
-                'text-h3 absolute top-full left-1/2 mt-1 -translate-x-1/2 font-bold whitespace-nowrap',
-                i <= currentStep ? 'text-blue-300' : 'text-grey-400'
-              )}
-            >
-              {step.label}
-            </span>
-          </div>
-        </Fragment>
-      ))}
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              {/* The column is as wide as its label, so the circle alone would
+                  leave a gap either side of it. These two segments fill that
+                  gap, joining the circle to the connectors between columns —
+                  blank on the outer side of the first and last steps, which
+                  have no line to reach. */}
+              <div className="flex w-full items-center">
+                <div
+                  className={cn(CONNECTOR, 'flex-1', i > 0 && lineIn)}
+                  aria-hidden
+                />
+                <div
+                  className={cn(
+                    'flex size-6 shrink-0 items-center justify-center rounded-full border-2',
+                    i < currentStep && 'border-blue-300 bg-blue-300',
+                    i === currentStep && 'border-blue-300',
+                    i > currentStep && 'border-grey-400'
+                  )}
+                >
+                  {i < currentStep && (
+                    <CheckIcon className="size-3.5 text-white" />
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    CONNECTOR,
+                    'flex-1',
+                    i < STEPS.length - 1 && lineOut
+                  )}
+                  aria-hidden
+                />
+              </div>
+              <span
+                className={cn(
+                  'text-h3 font-bold whitespace-nowrap',
+                  i <= currentStep ? 'text-blue-300' : 'text-grey-400'
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
