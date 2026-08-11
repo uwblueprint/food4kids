@@ -187,7 +187,7 @@ export function RouteAddressesTab({
       <Modal open={filterOpen} onOpenChange={setFilterOpen}>
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>Filters</ModalTitle>
+            <ModalTitle variant="form">Filters</ModalTitle>
             <ModalDescription>Addresses</ModalDescription>
           </ModalHeader>
 

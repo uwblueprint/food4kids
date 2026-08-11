@@ -28,7 +28,6 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
-  Progress,
   Spinner,
   StatisticsCard,
 } from '@/common/components';
@@ -131,7 +130,7 @@ function GenerationSummary({ jobs, inputs }: SummaryProps) {
                   key={weekday}
                   className="flex min-w-0 flex-col items-center justify-end"
                 >
-                  <div className="flex h-72 w-full items-end justify-center">
+                  <div className="flex h-71 w-full items-end justify-center">
                     {count > 0 && (
                       <div
                         className={`${BAR_COLORS[index]} w-full max-w-40 rounded-t-lg`}
@@ -141,10 +140,10 @@ function GenerationSummary({ jobs, inputs }: SummaryProps) {
                       />
                     )}
                   </div>
-                  <p className="text-h2 mt-3 font-bold text-blue-300">
+                  <p className="text-h2 mt-2 font-bold text-blue-300">
                     {count}
                   </p>
-                  <p className="text-p1 text-grey-400">{weekday}</p>
+                  <p className="text-p1 text-grey-400 mt-1">{weekday}</p>
                 </div>
               );
             })}
@@ -184,8 +183,8 @@ function GenerationSummary({ jobs, inputs }: SummaryProps) {
 
 export function GenerateStep() {
   const navigate = useNavigate();
-  const { file, routeGenerationInputs } =
-    useOutletContext<GenerationOutletContext>();
+  const context = useOutletContext<GenerationOutletContext>();
+  const { file, routeGenerationInputs } = context;
   const [jobIds, setJobIds] = useState<string[]>([]);
   const [cancelOpen, setCancelOpen] = useState(false);
   const generationStarted = useRef(false);
@@ -218,6 +217,14 @@ export function GenerateStep() {
   const allCompleted =
     jobIds.length === routeGenerationInputs.length &&
     completedCount === routeGenerationInputs.length;
+
+  // The frames tick "Generate Routes" off on the summary; the stepper can't
+  // tell that the step it is sitting on has finished, so tell it.
+  const { setCurrentStepComplete } = context;
+  useEffect(() => {
+    setCurrentStepComplete(allCompleted);
+    return () => setCurrentStepComplete(false);
+  }, [allCompleted, setCurrentStepComplete]);
   const errorMessage = startGeneration.error
     ? (describeApiFailure(startGeneration.error) ??
       'Route generation could not be started. Please review your route settings and try again.')
@@ -260,14 +267,18 @@ export function GenerateStep() {
       {allCompleted ? (
         <GenerationSummary jobs={jobs} inputs={routeGenerationInputs} />
       ) : (
-        <Card>
-          <CardHeader>
+        // The frame stacks this card top-down — header, 16, illustration, 16,
+        // then the two status lines 8 apart — inside 32 across, 24 above and 40
+        // below. Its copy differs from ours deliberately: that frame still
+        // carries the validation wording.
+        <Card className="px-8 pt-6 pb-10">
+          <CardHeader className="gap-1">
             <CardTitle>Route Generation</CardTitle>
             <CardDescription>
               Creating optimized delivery routes.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex min-h-84 flex-col items-center justify-center gap-4">
+          <CardContent className="flex flex-col items-center gap-4 pt-4">
             {errorMessage ? (
               <Banner variant="error" className="w-full max-w-2xl">
                 {errorMessage}
@@ -278,24 +289,23 @@ export function GenerateStep() {
                   src={girlCatching}
                   alt=""
                   aria-hidden
-                  className="size-44 object-contain"
+                  className="size-58 object-contain"
                 />
-                <p className="text-p2 text-grey-400">
-                  {completedCount} / {routeGenerationInputs.length} route groups
-                  completed
-                </p>
-                <Progress
-                  value={(completedCount / routeGenerationInputs.length) * 100}
-                  aria-label={`${completedCount} of ${routeGenerationInputs.length} route groups completed`}
-                  className="w-80 max-w-full"
-                />
-                <div
-                  className="text-p2 flex items-center gap-2 text-blue-300"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <Spinner size="sm" />
-                  <span>Generating routes...</span>
+                {/* The frame has no progress bar: the count line and the
+                    spinner carry the progress on their own, 8 apart. */}
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-p2 text-grey-400">
+                    {completedCount} / {routeGenerationInputs.length} route
+                    groups completed
+                  </p>
+                  <div
+                    className="text-p2 flex items-center gap-2 text-blue-300"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <Spinner size="xs" />
+                    <span>Generating routes...</span>
+                  </div>
                 </div>
               </>
             )}
@@ -306,7 +316,7 @@ export function GenerateStep() {
       <GenerationFooter>
         {!allCompleted && (
           <Button
-            variant="secondary"
+            variant="tertiary"
             disabled={startGeneration.isPending}
             onClick={() =>
               jobIds.length > 0
@@ -331,7 +341,10 @@ export function GenerateStep() {
       <Modal open={cancelOpen} onOpenChange={setCancelOpen}>
         <ModalContent showCloseButton={false}>
           <ModalHeader>
-            <ModalTitle>Cancel Route Generation</ModalTitle>
+            {/* 20/28 per the frame; ModalTitle's shared default is the 32/44 h1. */}
+            <ModalTitle variant="confirmation">
+              Cancel Route Generation
+            </ModalTitle>
             <ModalDescription>
               If you go back to{' '}
               <span className="text-blue-300">Configure Routes</span> now, the

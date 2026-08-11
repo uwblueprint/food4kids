@@ -466,7 +466,7 @@ export function ConfigureStep() {
       <Modal open={leaveOpen} onOpenChange={setLeaveOpen}>
         <ModalContent showCloseButton={false}>
           <ModalHeader>
-            <ModalTitle>Leave without Saving</ModalTitle>
+            <ModalTitle variant="confirmation">Leave without Saving</ModalTitle>
             <ModalDescription>
               If you go back now, all the data you entered will be lost. Would
               you still like to go back anyway?
@@ -489,7 +489,9 @@ export function ConfigureStep() {
       <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
         <ModalContent showCloseButton={false}>
           <ModalHeader>
-            <ModalTitle>Continue to Generation</ModalTitle>
+            <ModalTitle variant="confirmation">
+              Continue to Generation
+            </ModalTitle>
             <ModalDescription>
               You're about to generate delivery routes for routes you have
               selected. This action cannot be undone.

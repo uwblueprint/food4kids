@@ -31,8 +31,8 @@ export function StatisticsCardSection() {
           orange (Brand Orange), and pink (Brand Pink).
         </SpecNote>
         <SpecNote title="Character Variants">
-          Five characters: boy, boyPointing, girlConfused, girlSearching, and
-          granny. The character peeks up from the bottom-right edge of the card.
+          Four characters: boy, boyPointing, girlSearching, and granny. The
+          character peeks up from the bottom-right edge of the card.
         </SpecNote>
         <SpecNote title="Sizing">
           Cards are full-width within their container. Use a flex/grid layout to
@@ -93,7 +93,7 @@ export function StatisticsCardSection() {
             <p className="text-p3 mb-4 font-semibold tracking-wider text-blue-300 uppercase">
               Character Variants
             </p>
-            <div className="tablet:grid-cols-5 grid grid-cols-2 gap-4">
+            <div className="tablet:grid-cols-4 grid grid-cols-2 gap-4">
               <StatisticsCard
                 color="green"
                 label="Boy"
@@ -105,12 +105,6 @@ export function StatisticsCardSection() {
                 label="Boy Pointing"
                 value="—"
                 character="boyPointing"
-              />
-              <StatisticsCard
-                color="green"
-                label="Girl Confused"
-                value="—"
-                character="girlConfused"
               />
               <StatisticsCard
                 color="green"

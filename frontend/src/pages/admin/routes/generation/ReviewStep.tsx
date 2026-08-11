@@ -389,7 +389,7 @@ export function ReviewStep() {
       <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>Confirm Changes</ModalTitle>
+            <ModalTitle variant="confirmation">Confirm Changes</ModalTitle>
             <ModalDescription>
               Some data has been updated, added, or removed. Are you sure you
               want to apply these changes?
