@@ -155,6 +155,10 @@ export type AuthResponse = {
    */
   access_token: string;
   /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -2322,6 +2326,10 @@ export type AuthResponseWritable = {
    * Access Token
    */
   access_token: string;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
   /**
    * Email
    */

@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING
 import firebase_admin.auth
 import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
+from app.models.driver import Driver
 from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient, FirebaseRestError
 
@@ -81,6 +83,9 @@ class AuthService:
                 raise ValueError("Invalid email or password")
 
             # Create AuthResponse with all required fields (refresh_token excluded - it goes in httpOnly cookie)
+            driver_id = await session.scalar(
+                select(Driver.driver_id).where(Driver.user_id == user.user_id)
+            )
             auth_response = AuthResponse(
                 access_token=token.access_token,
                 id=user.user_id,
@@ -89,6 +94,7 @@ class AuthService:
                 email=user.email,
                 role=user.role,
                 remember_me=remember_me,
+                driver_id=driver_id,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -160,6 +166,9 @@ class AuthService:
                 f"No user in the database for Firebase auth_id {auth_id}"
             )
 
+        driver_id = await session.scalar(
+            select(Driver.driver_id).where(Driver.user_id == user.user_id)
+        )
         auth_response = AuthResponse(
             access_token=new_access_token,
             id=user.user_id,
@@ -168,5 +177,6 @@ class AuthService:
             email=user.email,
             role=user.role,
             remember_me=remember_me,
+            driver_id=driver_id,
         )
         return auth_response, token_response.refresh_token

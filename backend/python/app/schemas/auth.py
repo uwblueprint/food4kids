@@ -42,6 +42,7 @@ class AuthResponse(BaseModel):
     email: EmailStr
     role: str
     remember_me: bool
+    driver_id: UUID | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

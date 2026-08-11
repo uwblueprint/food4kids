@@ -231,6 +231,18 @@
             "title": "Access Token",
             "type": "string"
           },
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
           "email": {
             "format": "email",
             "title": "Email",
