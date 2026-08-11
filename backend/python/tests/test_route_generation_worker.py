@@ -30,6 +30,7 @@ from app.services.implementations import route_generation_runner as runner
 from app.services.implementations import route_generation_worker as worker
 from app.services.implementations.job_service import JobService
 from app.services.implementations.route_generation_worker import (
+    MAX_AUTO_REQUEUE_ATTEMPTS,
     RECOVERY_ERROR_MESSAGE,
     claim_next_pending_job,
     recover_route_generation_jobs,
@@ -47,7 +48,7 @@ DRIVE_DATE = datetime(2026, 6, 1, 8, 0)
 
 
 class FakeRoutingAlgorithm:
-    def __init__(self, plan: Callable[[list[Location]], Any]) -> None:
+    def __init__(self, plan: Callable[[list[Location]], list[list[Location]]]) -> None:
         self._plan = plan
         self.calls = 0
 
@@ -60,7 +61,7 @@ class FakeRoutingAlgorithm:
         timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
         self.calls += 1
-        return cast("list[list[Location]]", self._plan(locations))
+        return self._plan(locations)
 
 
 def _maker(test_db_engine: Any) -> async_sessionmaker[AsyncSession]:
@@ -179,12 +180,12 @@ class TestClaimAndRecover:
             assert await claim_next_pending_job(session) is None
 
     @pytest.mark.asyncio
-    async def test_recover_fails_running_and_wakes_for_pending(
+    async def test_recover_requeues_running_once_and_wakes(
         self, test_db_engine: Any
     ) -> None:
         maker = _maker(test_db_engine)
         async with maker() as session:
-            running = Job(progress=ProgressEnum.RUNNING)
+            running = Job(progress=ProgressEnum.RUNNING, retry_count=0)
             pending = Job(progress=ProgressEnum.PENDING)
             session.add(running)
             session.add(pending)
@@ -197,21 +198,62 @@ class TestClaimAndRecover:
 
             await session.refresh(running)
             await session.refresh(pending)
-            assert running.progress == ProgressEnum.FAILED
-            assert running.error_message == RECOVERY_ERROR_MESSAGE
-            assert running.finished_at is not None
+            assert running.progress == ProgressEnum.PENDING
+            assert running.retry_count == 1
+            assert running.started_at is None
+            assert running.error_message is None
             assert pending.progress == ProgressEnum.PENDING
             assert worker._wake_event.is_set()
 
     @pytest.mark.asyncio
-    async def test_recover_does_not_wake_when_nothing_pending(
+    async def test_recover_completes_running_job_that_already_saved_routes(
+        self, test_db_engine: Any
+    ) -> None:
+        """Defensive path: RUNNING + route_group_id is not expected from saves."""
+        maker = _maker(test_db_engine)
+        async with maker() as session:
+            group = RouteGroup(name="Saved Group", drive_date=DRIVE_DATE.date())
+            session.add(group)
+            await session.commit()
+            await session.refresh(group)
+
+            running = Job(
+                progress=ProgressEnum.RUNNING,
+                route_group_id=group.route_group_id,
+                routes_created=1,
+            )
+            session.add(running)
+            await session.commit()
+            await session.refresh(running)
+
+            await recover_route_generation_jobs(session)
+
+            await session.refresh(running)
+            assert running.progress == ProgressEnum.COMPLETED
+            assert running.route_group_id == group.route_group_id
+            assert running.finished_at is not None
+            assert not worker._wake_event.is_set()
+
+    @pytest.mark.asyncio
+    async def test_recover_fails_running_after_auto_requeue_exhausted(
         self, test_db_engine: Any
     ) -> None:
         maker = _maker(test_db_engine)
         async with maker() as session:
-            session.add(Job(progress=ProgressEnum.RUNNING))
+            running = Job(
+                progress=ProgressEnum.RUNNING,
+                retry_count=MAX_AUTO_REQUEUE_ATTEMPTS,
+            )
+            session.add(running)
             await session.commit()
+            await session.refresh(running)
+
             await recover_route_generation_jobs(session)
+
+            await session.refresh(running)
+            assert running.progress == ProgressEnum.FAILED
+            assert running.error_message == RECOVERY_ERROR_MESSAGE
+            assert running.finished_at is not None
             assert not worker._wake_event.is_set()
 
 
