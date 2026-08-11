@@ -77,6 +77,7 @@ import {
   updateLocationGroup,
   updateNote,
   updatePassword,
+  updatePasswordAuthed,
   updateRoute,
   updateRouteGroup,
   uploadImage,
@@ -264,6 +265,9 @@ import type {
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
+  UpdatePasswordAuthedData,
+  UpdatePasswordAuthedError,
+  UpdatePasswordAuthedResponse,
   UpdatePasswordData,
   UpdatePasswordError,
   UpdatePasswordResponse,
@@ -687,6 +691,36 @@ export const updatePasswordMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await updatePassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update Password Authed
+ *
+ * Update an authenticated user's password after verifying their current password,
+ * revokes existing refresh tokens, and issues a fresh session with new tokens.
+ */
+export const updatePasswordAuthedMutation = (
+  options?: Partial<Options<UpdatePasswordAuthedData>>
+): UseMutationOptions<
+  UpdatePasswordAuthedResponse,
+  AxiosError<UpdatePasswordAuthedError>,
+  Options<UpdatePasswordAuthedData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    UpdatePasswordAuthedResponse,
+    AxiosError<UpdatePasswordAuthedError>,
+    Options<UpdatePasswordAuthedData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updatePasswordAuthed({
         ...options,
         ...fnOptions,
         throwOnError: true,
