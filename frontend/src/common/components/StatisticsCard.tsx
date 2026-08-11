@@ -1,31 +1,14 @@
 import boyImg from '@/assets/illustrations/boy.png';
-import boyAnnouncingImg from '@/assets/illustrations/boy-announcing.png';
 import boyPointingImg from '@/assets/illustrations/boy-pointing.png';
-import girlConfusedImg from '@/assets/illustrations/girl-confused.png';
 import girlSearchingImg from '@/assets/illustrations/girl-searching.png';
 import grannyImg from '@/assets/illustrations/granny.png';
 import { cn } from '@/lib/utils';
 
-/**
- * Each illustration is placed by hand in the frames, not by one shared rule:
- * the assets are 1000x1000 squares whose figure sits at a different scale and
- * offset in each, so a single width and inset lands them all differently. The
- * numbers below are read off the frames' image-fill transforms — the size the
- * full square is drawn at, and where its top-right corner sits relative to the
- * card, in px. The card clips whatever hangs over.
- *
- * The last two have no frame to read: no design uses them in this card. Their
- * numbers are derived instead — the figure's own bounding box placed at the
- * average position of the four measured ones — and should be replaced with the
- * real transform the first time a frame uses them.
- */
 const CHARACTERS = {
   granny: { src: grannyImg, size: 159, right: -20, top: -23 },
   boy: { src: boyImg, size: 139, right: -15, top: -13 },
   boyPointing: { src: boyPointingImg, size: 164, right: -23, top: -14 },
   girlSearching: { src: girlSearchingImg, size: 179, right: -34, top: -24 },
-  girlConfused: { src: girlConfusedImg, size: 160, right: -21, top: -4 },
-  boyAnnouncing: { src: boyAnnouncingImg, size: 160, right: -15, top: -20 },
 } as const;
 
 const COLOR_MAP = {
