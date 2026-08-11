@@ -63,10 +63,10 @@ export const DriverProfile = () => {
         <h2>Back to home</h2>
       </Link>
 
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-1 mt-3">
         {/* 1. Profile circle showing initials */}
-        <div className="flex size-26 items-center justify-center rounded-full bg-blue-300 text-white">
-          <h1 className="text-[42.545px]">{initials}</h1>
+        <div className="flex size-16 desktop:size-26 items-center justify-center rounded-full bg-blue-300 text-white">
+          <h1 className="text-[26.182px] desktop:text-[42.545px]">{initials}</h1>
         </div>
 
         {/* 2. Full name properly capitalized */}
@@ -101,7 +101,7 @@ export const DriverProfile = () => {
       </div>
 
       {/* 6. A flex row div, inside it two buttons: left "Change password", right "Logout" */}
-      <div className="flex flex-row gap-4 w-full">
+      <div className="flex flex-col desktop:flex-row gap-4 w-full">
         <Button
           variant="secondary"
           className="flex-1"
