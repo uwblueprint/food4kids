@@ -221,6 +221,34 @@ class TestSuccessfulGeneration:
         ]
 
     @pytest.mark.asyncio
+    async def test_does_not_regenerate_when_route_group_already_saved(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Idempotency: if the job already points at a RouteGroup, complete
+        without calling the routing engine again."""
+        group = await _add_group(test_session)
+        await _add_warehouse(test_session)
+        existing = RouteGroup(name="Already Saved", drive_date=DRIVE_DATE.date())
+        test_session.add(existing)
+        await test_session.commit()
+        await test_session.refresh(existing)
+
+        job = await _queue_running_job(test_session, group, num_routes=1)
+        job.route_group_id = existing.route_group_id
+        job.routes_created = 1
+        test_session.add(job)
+        await test_session.commit()
+
+        algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
+        await run_generation_job(job.job_id, test_session, algorithm)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.COMPLETED
+        assert job.route_group_id == existing.route_group_id
+        assert algorithm.calls == 0
+        assert len(await _route_groups(test_session)) == 1
+
+    @pytest.mark.asyncio
     async def test_finds_the_group_by_name_when_the_id_is_made_up(
         self, test_session: AsyncSession
     ) -> None:

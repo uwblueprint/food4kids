@@ -166,11 +166,11 @@
  * Desktop/Pn from tablet up. This is the default for body/paragraph text:
  *   text-p1 → 18→16px   text-p2 → 16→14px   text-p3 → 14→12px
  *
- * WEIGHT is part of the style. Per Figma, only P1 is non-Regular, and its
- * weight is RESPONSIVE: Mobile/P1 is Regular (400), Desktop/P1 is Medium (500)
- * — so text-p1 sets font-weight 400→500 itself (you can't express a per-tier
- * weight with a single font-* utility). P2 and P3 are Regular (400) at every
- * tier, i.e. the browser default, so text-p2/p3 don't set a weight.
+ * WEIGHT is part of the style, and for P1 and P2 it is RESPONSIVE, so the
+ * utility sets it itself (you can't express a per-tier weight with a single
+ * font-* utility): Mobile/P1 Regular (400) → Desktop/P1 Medium (500), and
+ * Mobile/P2 Regular (400) → Desktop/P2 SemiBold (600). P3 is Regular at every
+ * tier, i.e. the browser default, so text-p3 doesn't set a weight.
  *
  * text-m-p1/p2/p3 are STATIC (Mobile sizes, 18/16/14, all Regular) — for the
  * rare element whose size must stay constant across tiers (e.g. a 16px-
@@ -248,9 +248,11 @@
 @utility text-p2 {
   font-size: var(--text-m-p2);
   line-height: var(--text-m-p2--line-height);
+  font-weight: 400; /* Mobile/P2: Nunito Sans Regular */
   @media (width >= theme(--breakpoint-tablet)) {
     font-size: var(--text-p2);
     line-height: var(--text-p2--line-height);
+    font-weight: 600; /* Desktop/P2: Nunito Sans SemiBold */
   }
 }
 @utility text-p3 {

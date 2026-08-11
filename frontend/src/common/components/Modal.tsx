@@ -76,13 +76,33 @@ function ModalHeader({
   );
 }
 
+/**
+ * The two modal shapes in the design system carry different titles: a form
+ * modal ("Add Admin", "Announcements", 600x5xx) heads with the 32/44 h1, a
+ * confirmation dialog ("Delete Route Group", "Log out", 600x180) with the
+ * 20/28 h2.
+ */
+const MODAL_TITLE_VARIANTS = {
+  form: 'text-h1',
+  confirmation: 'text-h2',
+} as const;
+
+type ModalTitleVariant = keyof typeof MODAL_TITLE_VARIANTS;
+
 function ModalTitle({
+  variant,
   className,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Title>) {
+}: React.ComponentProps<typeof DialogPrimitive.Title> & {
+  variant: ModalTitleVariant;
+}) {
   return (
     <DialogPrimitive.Title
-      className={cn('text-h1 text-grey-500 font-bold', className)}
+      className={cn(
+        MODAL_TITLE_VARIANTS[variant],
+        'text-grey-500 font-bold',
+        className
+      )}
       {...props}
     />
   );
@@ -94,7 +114,7 @@ function ModalDescription({
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
-      className={cn('text-p2 text-grey-400 font-normal', className)}
+      className={cn('text-p2 text-grey-400', className)}
       {...props}
     />
   );
@@ -119,3 +139,4 @@ export {
   ModalTitle,
   ModalTrigger,
 };
+export type { ModalTitleVariant };

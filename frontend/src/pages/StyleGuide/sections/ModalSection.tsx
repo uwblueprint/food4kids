@@ -39,7 +39,7 @@ const MODAL_CONFIRM_CODE = `import {
   </ModalTrigger>
   <ModalContent>
     <ModalHeader>
-      <ModalTitle>Save Changes?</ModalTitle>
+      <ModalTitle variant="confirmation">Save Changes?</ModalTitle>
       <ModalDescription>
         Your changes will be applied and saved.
       </ModalDescription>
@@ -98,7 +98,7 @@ export function ModalSection() {
             </ModalTrigger>
             <ModalContent>
               <ModalHeader>
-                <ModalTitle>Save Changes?</ModalTitle>
+                <ModalTitle variant="confirmation">Save Changes?</ModalTitle>
                 <ModalDescription>
                   Your changes will be applied and saved. This action can be
                   undone later.

@@ -105,7 +105,7 @@ function SidebarMenuItem({
       }
     >
       <Icon className="size-6" />
-      <span className="text-m-p2 text-center">{label}</span>
+      <span className="text-p1 text-center">{label}</span>
     </NavLink>
   );
 }

@@ -697,6 +697,10 @@ export type JobEnqueueResponse = {
  */
 export type JobRead = {
   /**
+   * Error Message
+   */
+  error_message?: string | null;
+  /**
    * Job Id
    */
   job_id: string;
@@ -705,6 +709,22 @@ export type JobRead = {
    * Route Group Id
    */
   route_group_id?: string | null;
+  /**
+   * Routes Created
+   */
+  routes_created?: number | null;
+  /**
+   * Total Distance Km
+   */
+  total_distance_km?: number | null;
+  /**
+   * Total Families
+   */
+  total_families?: number | null;
+  /**
+   * Total Stops
+   */
+  total_stops?: number | null;
 };
 
 /**

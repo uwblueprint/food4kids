@@ -82,6 +82,14 @@ async def run_generation_job(
         if job is None:
             return
 
+        # Belt-and-suspenders: _save_or_discard commits the RouteGroup and the
+        # COMPLETED status in one transaction, and recovery only requeues jobs
+        # with route_group_id IS NULL, so this should not be reachable today.
+        # Keep the guard in case that atomicity assumption changes later.
+        if job.route_group_id is not None:
+            await _complete_already_saved(session, job)
+            return
+
         request = _parse_request(job)
         group, locations = await _resolve_locations(session, request.location_group)
         warehouse_lat, warehouse_lon = await _resolve_warehouse(session)
@@ -168,6 +176,44 @@ async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
         return None
 
     return job
+
+
+async def _complete_already_saved(session: AsyncSession, job: Job) -> None:
+    """Mark a job Completed when its RouteGroup is already linked.
+
+    Not expected under today's save/recovery atomicity (see the guard in
+    ``run_generation_job``). Kept as a defensive no-regenerate path if a job
+    ever arrives Running with ``route_group_id`` already set.
+    """
+    now = now_est_naive()
+    result = cast(
+        "CursorResult[Any]",
+        await session.execute(
+            update(Job)
+            .where(col(Job.job_id) == job.job_id)
+            .where(col(Job.progress) == ProgressEnum.RUNNING)
+            .values(
+                progress=ProgressEnum.COMPLETED,
+                error_message=None,
+                updated_at=now,
+                finished_at=now,
+            )
+        ),
+    )
+    if result.rowcount:
+        await session.commit()
+        logger.info(
+            "Job %s completed without regenerating: route_group=%s already saved.",
+            job.job_id,
+            job.route_group_id,
+        )
+        return
+
+    await session.rollback()
+    logger.info(
+        "Job %s already had a RouteGroup but was no longer Running; left unchanged.",
+        job.job_id,
+    )
 
 
 def _parse_request(job: Job) -> RouteGenerationGroupInput:
@@ -360,6 +406,7 @@ async def _save_or_discard(
             .values(
                 progress=ProgressEnum.COMPLETED,
                 route_group_id=route_group.route_group_id,
+                error_message=None,
                 routes_created=len(routes),
                 total_stops=sum(len(route.route_stops) for route in routes),
                 total_distance_km=sum(route.length for route in routes),
