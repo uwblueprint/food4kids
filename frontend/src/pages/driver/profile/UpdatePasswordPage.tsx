@@ -1,0 +1,49 @@
+import { ChevronLeftIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
+import { UpdatePasswordForm } from '@/pages/auth/UpdatePasswordForm';
+
+export const UpdatePasswordPage = () => {
+  const navigate = useNavigate();
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  const handleSubmit = (currentPassword: string, newPassword: string) => {
+    setIsPending(true);
+    setSubmitError(null);
+    // Placeholder for backend endpoint call
+    console.log('Update password submitted:', { currentPassword, newPassword });
+    setTimeout(() => {
+      setIsPending(false);
+      navigate('/driver/profile');
+    }, 500);
+  };
+
+  return (
+    <main className="flex flex-col items-center gap-6 mx-auto w-full">
+      <Link
+        to="/driver/home"
+        className="flex gap-1 text-blue-400 self-start"
+      >
+        <ChevronLeftIcon className="size-6" />
+        <h2>Back to home</h2>
+      </Link>
+
+      <div className="flex gap-1 w-full">
+        <h1>
+          Change password
+        </h1>
+      </div>
+
+      <div className="w-full">
+        <UpdatePasswordForm
+          onSubmit={handleSubmit}
+          isPending={isPending}
+          submitButtonText="Update password"
+          submitError={submitError}
+        />
+      </div>
+    </main>
+  );
+};
