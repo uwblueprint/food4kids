@@ -185,7 +185,7 @@ async def _complete_already_saved(session: AsyncSession, job: Job) -> None:
     ``run_generation_job``). Kept as a defensive no-regenerate path if a job
     ever arrives Running with ``route_group_id`` already set.
     """
-    now = now_est_naive()
+    now = now_utc()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
