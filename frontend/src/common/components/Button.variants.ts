@@ -6,10 +6,6 @@ export const buttonVariants = cva(
     'inline-flex items-center justify-center gap-2',
     'transition-colors duration-150 ease-in-out',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300',
-    /* Disabled is the button's own colours at half strength. The 🌟 Finalized
-     * page draws all 17 of its disabled buttons that way and never once uses
-     * the library's grey Type=Disabled variant — that only survives on Archive
-     * and three Hi-fi stragglers. */
     'disabled:pointer-events-none disabled:opacity-50',
     'cursor-pointer',
     '[&_svg]:pointer-events-none [&_svg]:shrink-0',
