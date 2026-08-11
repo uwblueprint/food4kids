@@ -49,7 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: authData.email,
         fullName: authData.full_name,
         role: authData.role,
-        driverId: authData.driver_id,
+        driverId: authData.driver_id ?? null,
       },
       isAuthenticated: true,
       isRestoringSession: false,
