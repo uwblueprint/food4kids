@@ -74,7 +74,7 @@ export const UpdatePasswordForm = ({
         >
           {/* Current Password Field */}
           <Field>
-            <FieldLabel htmlFor="current-password">Current password</FieldLabel>
+            <FieldLabel htmlFor="current-password">Enter current password</FieldLabel>
             <div className="relative w-full">
               <Input
                 id="current-password"
