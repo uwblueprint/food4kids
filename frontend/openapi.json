@@ -2488,6 +2488,17 @@
             "title": "Attachments",
             "type": "array"
           },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
+          },
           "created_at": {
             "anyOf": [
               {

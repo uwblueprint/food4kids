@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,11 +23,41 @@ class NoteChainService:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
+    @staticmethod
+    def _author_name_expr() -> Any:
+        """SQL expression for an author's display name.
+
+        Postgres concat() treats NULL args as empty strings, so an
+        authorless (system / deleted-author) note would yield " " rather
+        than NULL. Guard with a CASE so author_name is None when there is
+        no author.
+        """
+        return case(
+            (col(User.user_id).is_(None), None),
+            else_=func.concat(User.first_name, " ", User.last_name),
+        )
+
     async def _get_user_role(self, session: AsyncSession, user_id: UUID) -> str | None:
         """Get the role of a user by their ID"""
         statement = select(User.role).where(User.user_id == user_id)
         result = await session.execute(statement)
         return result.scalar_one_or_none()
+
+    async def get_author_name(
+        self, session: AsyncSession, user_id: UUID | None
+    ) -> str | None:
+        """Resolve a user's display name, or None when there is no author."""
+        if user_id is None:
+            return None
+        statement = select(User.first_name, User.last_name).where(
+            User.user_id == user_id
+        )
+        result = await session.execute(statement)
+        row = result.one_or_none()
+        if row is None:
+            return None
+        first_name, last_name = row
+        return f"{first_name} {last_name}"
 
     def _check_permission(self, permission: str, user_role: str | None) -> bool:
         """Check if a user role satisfies a permission level"""
@@ -151,8 +182,12 @@ class NoteChainService:
         user_id: UUID,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[Note]:
-        """Get notes for a chain with pagination, ordered by created_at ascending"""
+    ) -> list[tuple[Note, str | None]]:
+        """Get notes for a chain with pagination, ordered by created_at ascending.
+
+        Each item is ``(note, author_name)``. ``author_name`` is None for
+        system notes and notes whose author was deleted.
+        """
         try:
             # Verify chain exists and check read permission
             note_chain = await self.get_note_chain_by_id(session, note_chain_id)
@@ -164,14 +199,15 @@ class NoteChainService:
                 )
 
             statement = (
-                select(Note)
+                select(Note, self._author_name_expr().label("author_name"))
+                .outerjoin(User, col(User.user_id) == col(Note.user_id))
                 .where(Note.note_chain_id == note_chain_id)
                 .order_by(col(Note.created_at).asc())
                 .offset(offset)
                 .limit(limit)
             )
             result = await session.execute(statement)
-            return list(result.scalars().all())
+            return [(note, author_name) for note, author_name in result.all()]
         except Exception as e:
             self.logger.error(f"Failed to get notes by chain id: {e!s}")
             raise e
@@ -184,13 +220,7 @@ class NoteChainService:
     ) -> PaginatedResponse[NoteFeedItem]:
         """Get location notes across all location note chains."""
         try:
-            # Postgres concat() treats NULL args as empty strings, so an
-            # authorless (system) note would yield " " rather than NULL. Guard
-            # with a CASE so author_name is None when there is no author.
-            author_name_expr = case(
-                (col(User.user_id).is_(None), None),
-                else_=func.concat(User.first_name, " ", User.last_name),
-            )
+            author_name_expr = self._author_name_expr()
             statement = (
                 select(  # type: ignore[call-overload]
                     Note,

@@ -36,52 +36,52 @@ export function NoteCard({
   const date = formatNoteDate(note.created_at);
 
   return (
-    <article className="border-grey-300 flex flex-col gap-2 rounded-xl border bg-white p-3">
-      <div className="flex items-start justify-between gap-2">
+    <article className="relative flex flex-col gap-2 rounded-xl bg-white py-3 px-4">
+      <div className={canManage ? 'pr-7' : undefined}>
         <p className="text-p2 text-grey-500 min-w-0">
-          <span className="font-semibold">{author}</span>
+          <span className="text-grey-400 font-semibold">{author}</span>
           {date && <span className="text-grey-400"> • {date}</span>}
         </p>
-        {canManage && (
-          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                shape="circular"
-                className="size-8 shrink-0"
-                aria-label="Note actions"
-              >
-                <MoreHorizontalIcon className="text-grey-400 size-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-40 p-1">
-              <button
-                type="button"
-                className="text-p2 text-grey-500 hover:bg-grey-200 flex w-full items-center gap-2 rounded-sm px-3 py-2"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onEdit(note);
-                }}
-              >
-                <EditIcon className="size-4" />
-                Edit
-              </button>
-              <button
-                type="button"
-                className="text-p2 text-red hover:bg-light-red flex w-full items-center gap-2 rounded-sm px-3 py-2"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onDelete(note);
-                }}
-              >
-                <TrashIcon className="size-4" />
-                Delete
-              </button>
-            </PopoverContent>
-          </Popover>
-        )}
       </div>
+      {canManage && (
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              shape="circular"
+              className="absolute top-2.5 right-2.5 size-6 shrink-0"
+              aria-label="Note actions"
+            >
+              <MoreHorizontalIcon className="text-grey-400 size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-40 p-1">
+            <button
+              type="button"
+              className="text-p2 text-grey-500 hover:bg-grey-200 flex w-full items-center gap-2 rounded-sm px-3 py-2"
+              onClick={() => {
+                setMenuOpen(false);
+                onEdit(note);
+              }}
+            >
+              <EditIcon className="size-4" />
+              Edit
+            </button>
+            <button
+              type="button"
+              className="text-p2 text-red hover:bg-light-red flex w-full items-center gap-2 rounded-sm px-3 py-2"
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete(note);
+              }}
+            >
+              <TrashIcon className="size-4" />
+              Delete
+            </button>
+          </PopoverContent>
+        </Popover>
+      )}
 
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -104,7 +104,7 @@ export function NoteCard({
       )}
 
       <p className="text-p1 text-grey-500 whitespace-pre-wrap">
-        {note.message}
+        {note.message.trim()}
       </p>
     </article>
   );

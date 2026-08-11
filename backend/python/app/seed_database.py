@@ -915,6 +915,7 @@ def main(*, reset_passwords: bool = False) -> None:
             # plans, so size the driver pool off total_clusters (routes don't
             # exist yet at this point in the refactored ordering).
             num_drivers = max(total_clusters, MIN_DRIVERS)
+            driver_author_ids: list[uuid.UUID] = []
 
             for i in range(num_drivers):
                 n = f"{i + 1:03d}"
@@ -942,6 +943,7 @@ def main(*, reset_passwords: bool = False) -> None:
                 )
                 set_timestamps(user)
                 session.add(user)
+                driver_author_ids.append(user.user_id)
 
                 # Ensure at least the first half of drivers are active
                 is_active = (
@@ -1200,6 +1202,7 @@ def main(*, reset_passwords: bool = False) -> None:
             location_chains_created = 0
             location_notes_created = 0
             all_locations = list(session.exec(select(Location)).all())
+            location_author_ids = admin_author_ids + driver_author_ids
 
             for location in all_locations:
                 note_chain = NoteChain(
@@ -1215,10 +1218,16 @@ def main(*, reset_passwords: bool = False) -> None:
 
                 if random.random() < PROBABILITY_LOCATION_CHAIN_NOTES:
                     num_notes = random.randint(1, MAX_LOCATION_CHAIN_NOTES)
-                    for _ in range(num_notes):
+                    if len(location_author_ids) >= num_notes:
+                        note_authors = random.sample(location_author_ids, num_notes)
+                    else:
+                        note_authors = [
+                            random.choice(location_author_ids) for _ in range(num_notes)
+                        ]
+                    for author_id in note_authors:
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=random.choice(admin_author_ids),
+                            user_id=author_id,
                             message=fake.sentence(),
                             is_system=False,
                         )

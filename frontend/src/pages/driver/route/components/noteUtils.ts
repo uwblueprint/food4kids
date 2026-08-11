@@ -16,13 +16,13 @@ export function formatNoteDate(isoDate: string | null | undefined): string {
 export function noteAuthorLabel(
   note: NoteRead,
   currentUserId: string,
-  currentUserName: string
+  _currentUserName: string
 ): string {
   if (note.is_system) return 'System';
   if (note.user_id && note.user_id === currentUserId) {
-    return currentUserName.trim() || 'You';
+    return 'You';
   }
-  return 'Unknown';
+  return note.author_name?.trim() || 'Unknown';
 }
 
 export function canManageNote(

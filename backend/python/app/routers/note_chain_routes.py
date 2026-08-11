@@ -17,12 +17,17 @@ note_chain_service: NoteChainService = get_note_chain_service()
 router = APIRouter(prefix="/note-chains", tags=["note-chains"])
 
 
-def _to_note_read(note: Note, gcp_client: GCPStorageClient) -> NoteRead:
-    """Serialize a note with freshly signed attachment URLs."""
+def _to_note_read(
+    note: Note,
+    gcp_client: GCPStorageClient,
+    author_name: str | None = None,
+) -> NoteRead:
+    """Serialize a note with freshly signed attachment URLs and author name."""
     read = NoteRead.model_validate(note)
     return read.model_copy(
         update={
             "attachments": refresh_attachment_urls(read.attachments, gcp_client),
+            "author_name": author_name,
         }
     )
 
@@ -95,7 +100,10 @@ async def get_notes(
             session, note_chain_id, current_user_id, limit, offset
         )
 
-        return [_to_note_read(note, gcp_client) for note in notes]
+        return [
+            _to_note_read(note, gcp_client, author_name=author_name)
+            for note, author_name in notes
+        ]
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -128,7 +136,8 @@ async def create_note(
         note = await note_chain_service.create_note(
             session, note_chain_id, current_user_id, data
         )
-        return _to_note_read(note, gcp_client)
+        author_name = await note_chain_service.get_author_name(session, note.user_id)
+        return _to_note_read(note, gcp_client, author_name=author_name)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -158,7 +167,8 @@ async def update_note(
         note = await note_chain_service.update_note(
             session, note_chain_id, note_id, current_user_id, data
         )
-        return _to_note_read(note, gcp_client)
+        author_name = await note_chain_service.get_author_name(session, note.user_id)
+        return _to_note_read(note, gcp_client, author_name=author_name)
     except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

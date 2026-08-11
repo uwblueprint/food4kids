@@ -88,6 +88,7 @@ class NoteRead(NoteBase):
     note_id: UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    author_name: str | None = None
 
 
 class NoteFeedItem(NoteRead):
@@ -97,7 +98,6 @@ class NoteFeedItem(NoteRead):
     location_name: str
     location_address: str
     location_group_name: str
-    author_name: str | None = None
     author_role: str | None = None
 
 
