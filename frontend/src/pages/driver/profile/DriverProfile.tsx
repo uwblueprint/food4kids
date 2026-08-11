@@ -50,14 +50,14 @@ export const DriverProfile = () => {
   };
 
   const handleChangePassword = () => {
-    navigate('/forgot-password');
+    navigate('/driver/profile/update-password');
   };
 
   return (
     <main className="flex flex-col items-center gap-6 mx-auto w-full">
       <Link
         to="/driver/home"
-        className="flex items-center gap-1 text-blue-400 self-start"
+        className="flex gap-1 text-blue-400 self-start"
       >
         <ChevronLeftIcon className="size-6" />
         <h2>Back to home</h2>
