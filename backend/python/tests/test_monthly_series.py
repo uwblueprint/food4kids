@@ -9,7 +9,7 @@ across year boundaries, where naive month arithmetic goes wrong.
 from app.services.implementations.driver_report_service import month_span
 
 
-def test_span_ends_on_requested_month_oldest_first():
+def test_span_ends_on_requested_month_oldest_first() -> None:
     assert month_span(2026, 8, 6) == [
         (2026, 3),
         (2026, 4),
@@ -20,7 +20,7 @@ def test_span_ends_on_requested_month_oldest_first():
     ]
 
 
-def test_span_walks_back_across_a_year_boundary():
+def test_span_walks_back_across_a_year_boundary() -> None:
     assert month_span(2026, 3, 6) == [
         (2025, 10),
         (2025, 11),
@@ -31,16 +31,16 @@ def test_span_walks_back_across_a_year_boundary():
     ]
 
 
-def test_january_is_month_one_not_month_zero():
+def test_january_is_month_one_not_month_zero() -> None:
     # December/January is where an off-by-one in the modulo shows up.
     assert month_span(2026, 1, 3) == [(2025, 11), (2025, 12), (2026, 1)]
     assert month_span(2026, 12, 2) == [(2026, 11), (2026, 12)]
 
 
-def test_single_month_window():
+def test_single_month_window() -> None:
     assert month_span(2026, 7, 1) == [(2026, 7)]
 
 
-def test_window_length_always_matches_months_requested():
+def test_window_length_always_matches_months_requested() -> None:
     for months in range(1, 25):
         assert len(month_span(2026, 5, months)) == months
