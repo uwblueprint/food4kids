@@ -16,7 +16,6 @@ import { formatNoteDate, noteAuthorLabel } from './noteUtils';
 interface NoteCardProps {
   note: NoteRead;
   currentUserId: string;
-  currentUserName: string;
   canManage: boolean;
   onEdit: (note: NoteRead) => void;
   onDelete: (note: NoteRead) => void;
@@ -25,14 +24,13 @@ interface NoteCardProps {
 export function NoteCard({
   note,
   currentUserId,
-  currentUserName,
   canManage,
   onEdit,
   onDelete,
 }: NoteCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const attachments = note.attachments ?? [];
-  const author = noteAuthorLabel(note, currentUserId, currentUserName);
+  const author = noteAuthorLabel(note, currentUserId);
   const date = formatNoteDate(note.created_at);
 
   return (

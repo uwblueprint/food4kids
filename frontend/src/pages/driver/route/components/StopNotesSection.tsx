@@ -26,7 +26,6 @@ export function StopNotesSection({
   enabled,
 }: StopNotesSectionProps) {
   const currentUserId = useAuthStore((state) => state.user?.id ?? '');
-  const currentUserName = useAuthStore((state) => state.user?.fullName ?? '');
   const role = useAuthStore((state) => state.user?.role ?? 'driver');
 
   const {
@@ -151,7 +150,6 @@ export function StopNotesSection({
               key={note.note_id}
               note={note}
               currentUserId={currentUserId}
-              currentUserName={currentUserName}
               canManage={canManageNote(note, currentUserId, role)}
               onEdit={openEdit}
               onDelete={openDelete}

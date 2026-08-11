@@ -15,8 +15,7 @@ export function formatNoteDate(isoDate: string | null | undefined): string {
 
 export function noteAuthorLabel(
   note: NoteRead,
-  currentUserId: string,
-  _currentUserName: string
+  currentUserId: string
 ): string {
   if (note.is_system) return 'System';
   if (note.user_id && note.user_id === currentUserId) {
