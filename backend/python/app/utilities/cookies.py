@@ -4,8 +4,8 @@ from fastapi import Response
 
 from app.config import settings
 
-# Refresh tokens last 14 days
-REFRESH_TOKEN_MAX_AGE = 14 * 24 * 60 * 60
+# Refresh tokens last 30 days
+REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60
 
 
 def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
@@ -20,18 +20,48 @@ def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
     }
 
 
-def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
+def set_refresh_token_cookie(
+    response: Response, refresh_token: str, remember_me: bool
+) -> None:
     """
     Sets the HTTP-only refresh token cookie on the response object
     with a robust expiration date.
     """
     cookie_options = get_cookie_options()
+    max_age = REFRESH_TOKEN_MAX_AGE if remember_me else None
 
+    # 1. Main secure HttpOnly refresh token
     response.set_cookie(
         key="refreshToken",
         value=refresh_token,
         httponly=bool(cookie_options["httponly"]),
         samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
         secure=bool(cookie_options["secure"]),
-        max_age=REFRESH_TOKEN_MAX_AGE,
+        max_age=max_age,
+        path="/",
     )
+
+    # 2. Lightweight cookie tracking remember_me state
+    response.set_cookie(
+        key="rememberMe",
+        value="true" if remember_me else "false",
+        httponly=True,
+        samesite=cast("Literal['none', 'strict', 'lax']", cookie_options["samesite"]),
+        secure=bool(cookie_options["secure"]),
+        max_age=max_age,
+        path="/",
+    )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    cookie_options = get_cookie_options()
+    for key in ("refreshToken", "rememberMe"):
+        response.delete_cookie(
+            key=key,
+            httponly=True,
+            samesite=cast(
+                "Literal['none', 'strict', 'lax']", cookie_options["samesite"]
+            ),
+            secure=bool(cookie_options["secure"]),
+            path="/",
+        )

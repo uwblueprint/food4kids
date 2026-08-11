@@ -1,8 +1,10 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
-import { useRefresh } from '@/api/auth';
+import { useLogout, useRefresh } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
+
+import { useInactivityTimeout } from './useInactivityTimeout';
 
 const PUBLIC_ROUTES = [
   '/login',
@@ -21,11 +23,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
+  const rememberMe = useAuthStore((state) => state.rememberMe);
 
   const location = useLocation();
   const isPublicRoute = PUBLIC_ROUTES.some((route) =>
     location.pathname.startsWith(route)
   );
+
+  const logoutMutation = useLogout();
+
+  useInactivityTimeout({
+    onTimeout: () => {
+      logoutMutation.mutate();
+    },
+    enabled: isAuthenticated && !rememberMe && !isPublicRoute,
+  });
 
   if (isPublicRoute) {
     return <>{children}</>;

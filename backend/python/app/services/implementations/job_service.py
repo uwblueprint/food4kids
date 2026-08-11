@@ -1,8 +1,6 @@
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +9,10 @@ from sqlmodel import col, select
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.schemas.route_generation import RouteGenerationGroupInput
+from app.services.implementations.route_generation_worker import (
+    wake_route_generation_worker,
+)
+from app.utilities.datetime_utils import now_est_naive
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -39,13 +41,17 @@ class JobService:
         result = await self.session.execute(statement)
         return list(result.scalars().all())
 
-    def est_now_naive(self) -> datetime:
-        return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+    async def generate_job(self, req: RouteGenerationGroupInput | None = None) -> UUID:
+        """Create a job, persisting the generation request for a worker to run later.
 
-    async def generate_job(self, _req: RouteGenerationGroupInput | None = None) -> UUID:
-        """Create a job"""
+        The request is stored as JSON on `input_payload` rather than acted on
+        here: this only enqueues the job, it does not run generation.
+        """
         try:
-            job = Job(progress=ProgressEnum.PENDING)
+            job = Job(
+                progress=ProgressEnum.PENDING,
+                input_payload=req.model_dump(mode="json") if req is not None else None,
+            )
             self.session.add(job)
             await self.session.commit()
             await self.session.refresh(job)
@@ -62,7 +68,7 @@ class JobService:
 
     async def update_progress(self, job_id: UUID, progress: ProgressEnum) -> None:
         try:
-            now = self.est_now_naive()
+            now = now_est_naive()
             values = {
                 "progress": progress,
                 "updated_at": now,
@@ -106,7 +112,7 @@ class JobService:
         no-ops and returned unchanged.
         """
         try:
-            now = self.est_now_naive()
+            now = now_est_naive()
             result = cast(
                 "CursorResult[Any]",
                 await self.session.execute(
@@ -140,6 +146,12 @@ class JobService:
             raise error
 
     async def enqueue(self, job_id: UUID) -> None:
+        """Wake route-generation worker for a pending job.
+
+        Does not claim or run the job; that is the worker's job. A cancelled
+        (or otherwise non-pending) job is left alone so a late enqueue cannot
+        resurrect work that an admin already stopped.
+        """
         try:
             job = await self.get_job(job_id)
 
@@ -155,13 +167,7 @@ class JobService:
                 )
                 return
 
-            job.progress = ProgressEnum.RUNNING
-            job.started_at = self.est_now_naive()
-            self.session.add(job)
-            await self.session.commit()
+            wake_route_generation_worker()
         except Exception:
             self.logger.exception("Enqueue failed for job %s", job_id)
-            try:
-                await self.update_progress(job_id, ProgressEnum.FAILED)
-            except Exception:
-                self.logger.exception("Failed to mark job %s as FAILED", job_id)
+            raise

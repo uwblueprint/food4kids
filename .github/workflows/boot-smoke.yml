@@ -165,11 +165,10 @@ jobs:
       - name: Authed API smoke
         if: steps.changes.outputs.python-backend == 'true' && env.AUTH_SMOKE == 'true'
         run: |
-          RESP=$(curl -fsS -X POST http://localhost:8080/auth/login \
+          RESP=$(curl -fsS -c /tmp/cookiejar.txt -X POST http://localhost:8080/auth/login \
             -H "Content-Type: application/json" \
             -d '{"email":"admin1@f4k.dev","password":"test123"}')
           TOKEN=$(jq -r .access_token <<<"$RESP")
-          USER_ID=$(jq -r .id <<<"$RESP")
           if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
             echo "::error::Login succeeded but returned no access_token"
             exit 1
@@ -195,8 +194,8 @@ jobs:
           echo "Seeded data readable ($TOTAL locations)"
 
           CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "http://localhost:8080/auth/logout/$USER_ID" \
-            -H "Authorization: Bearer $TOKEN")
+            "http://localhost:8080/auth/logout" \
+            -b /tmp/cookiejar.txt)
           if [ "$CODE" != "204" ]; then
             echo "::error::Authed logout returned HTTP $CODE (expected 204)"
             exit 1

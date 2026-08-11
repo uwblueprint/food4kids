@@ -335,6 +335,7 @@ describe('refreshing an aged-out token', () => {
     full_name: 'Dana Bell',
     id: 'user-1',
     last_name: 'Bell',
+    remember_me: false,
     role: 'Admin',
   };
 

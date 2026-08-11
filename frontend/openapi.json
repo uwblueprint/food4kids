@@ -254,6 +254,10 @@
             "title": "Last Name",
             "type": "string"
           },
+          "remember_me": {
+            "title": "Remember Me",
+            "type": "boolean"
+          },
           "role": {
             "title": "Role",
             "type": "string"
@@ -266,6 +270,7 @@
           "last_name",
           "email",
           "role",
+          "remember_me",
           "full_name"
         ],
         "title": "AuthResponse",
@@ -1129,6 +1134,17 @@
       "JobRead": {
         "description": "Job response model",
         "properties": {
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
           "job_id": {
             "format": "uuid",
             "title": "Job Id",
@@ -1149,6 +1165,50 @@
               }
             ],
             "title": "Route Group Id"
+          },
+          "routes_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routes Created"
+          },
+          "total_distance_km": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Distance Km"
+          },
+          "total_families": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Families"
+          },
+          "total_stops": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Stops"
           }
         },
         "required": [
@@ -2069,6 +2129,11 @@
           "password": {
             "title": "Password",
             "type": "string"
+          },
+          "remember_me": {
+            "default": false,
+            "title": "Remember Me",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4444,42 +4509,15 @@
         ]
       }
     },
-    "/auth/logout/{user_id}": {
+    "/auth/logout": {
       "post": {
-        "description": "Revokes all of the specified driver's refresh tokens",
+        "description": "Revokes refresh tokens and clears cookies",
         "operationId": "logout",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "user_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "User Id",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "Logout",
         "tags": [
           "authentication"
@@ -5191,6 +5229,7 @@
     },
     "/jobs/generate": {
       "post": {
+        "description": "Accept a generation request: persist it as PENDING and wake the worker.",
         "operationId": "generate_job",
         "requestBody": {
           "content": {

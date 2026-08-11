@@ -2,19 +2,15 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, TypeVar
-from zoneinfo import ZoneInfo
 
 import sqlmodel as sm
 from sqlmodel import Field
 
+from app.utilities.datetime_utils import now_est_naive
+
 _ONGOING_MODEL_VALIDATE: ContextVar[bool] = ContextVar("_ONGOING_MODEL_VALIDATE")
 
 T = TypeVar("T", bound="BaseModel")
-
-
-def _now_est_naive() -> datetime:
-    """Current time in F4K's timezone (America/New_York), stored tz-naive."""
-    return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
 
 @contextmanager
@@ -36,10 +32,10 @@ class BaseModel(sm.SQLModel):
     # `updated_at` is bumped by a column-level SQLAlchemy `onupdate`, which fires
     # for BOTH ORM flushes and Core `update()` statements — so bulk updates stay
     # accurate too — unless the statement sets `updated_at` itself.
-    created_at: datetime | None = Field(default_factory=_now_est_naive)
+    created_at: datetime | None = Field(default_factory=now_est_naive)
     updated_at: datetime | None = Field(
-        default_factory=_now_est_naive,
-        sa_column_kwargs={"onupdate": _now_est_naive},
+        default_factory=now_est_naive,
+        sa_column_kwargs={"onupdate": now_est_naive},
     )
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

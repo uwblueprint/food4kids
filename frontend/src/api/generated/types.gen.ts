@@ -175,6 +175,10 @@ export type AuthResponse = {
    */
   last_name: string;
   /**
+   * Remember Me
+   */
+  remember_me: boolean;
+  /**
    * Role
    */
   role: string;
@@ -693,6 +697,10 @@ export type JobEnqueueResponse = {
  */
 export type JobRead = {
   /**
+   * Error Message
+   */
+  error_message?: string | null;
+  /**
    * Job Id
    */
   job_id: string;
@@ -701,6 +709,22 @@ export type JobRead = {
    * Route Group Id
    */
   route_group_id?: string | null;
+  /**
+   * Routes Created
+   */
+  routes_created?: number | null;
+  /**
+   * Total Distance Km
+   */
+  total_distance_km?: number | null;
+  /**
+   * Total Families
+   */
+  total_families?: number | null;
+  /**
+   * Total Stops
+   */
+  total_stops?: number | null;
 };
 
 /**
@@ -1198,6 +1222,10 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+  /**
+   * Remember Me
+   */
+  remember_me?: boolean;
 };
 
 /**
@@ -2311,6 +2339,10 @@ export type AuthResponseWritable = {
    */
   last_name: string;
   /**
+   * Remember Me
+   */
+  remember_me: boolean;
+  /**
    * Role
    */
   role: string;
@@ -2805,24 +2837,10 @@ export type LoginResponse = LoginResponses[keyof LoginResponses];
 
 export type LogoutData = {
   body?: never;
-  path: {
-    /**
-     * User Id
-     */
-    user_id: string;
-  };
+  path?: never;
   query?: never;
-  url: '/auth/logout/{user_id}';
+  url: '/auth/logout';
 };
-
-export type LogoutErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type LogoutError = LogoutErrors[keyof LogoutErrors];
 
 export type LogoutResponses = {
   /**
