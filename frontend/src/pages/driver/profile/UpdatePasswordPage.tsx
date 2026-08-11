@@ -2,22 +2,34 @@ import { ChevronLeftIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { useUpdatePasswordAuthed } from '@/api/auth';
+import { describeApiFailure } from '@/api/errors';
 import { UpdatePasswordForm } from '@/pages/auth/UpdatePasswordForm';
 
 export const UpdatePasswordPage = () => {
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const { mutate, isPending } = useUpdatePasswordAuthed();
 
   const handleSubmit = (currentPassword: string, newPassword: string) => {
-    setIsPending(true);
     setSubmitError(null);
-    // Placeholder for backend endpoint call
-    console.log('Update password submitted:', { currentPassword, newPassword });
-    setTimeout(() => {
-      setIsPending(false);
-      navigate('/driver/profile');
-    }, 500);
+    mutate(
+      {
+        current_password: currentPassword,
+        new_password: newPassword,
+      },
+      {
+        onSuccess: () => {
+          navigate('/driver/profile');
+        },
+        onError: (error) => {
+          const message = describeApiFailure(error);
+          setSubmitError(
+            message || 'Incorrect current password.'
+          );
+        },
+      }
+    );
   };
 
   return (
