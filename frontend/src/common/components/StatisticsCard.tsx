@@ -55,7 +55,6 @@ function StatisticsCard({
         <div className="absolute right-14 bottom-3 size-1.5 rotate-45 bg-white" />
 
         {/* Text */}
-        {/* 16/20 label over a 32/44 value, centred in the 100px card. */}
         <div className="relative flex h-full flex-col justify-center">
           <p className="text-h3 text-grey-100 font-bold">{label}</p>
           <p className="text-h1 text-grey-100 font-bold">{value}</p>
