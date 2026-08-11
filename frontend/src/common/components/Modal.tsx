@@ -80,9 +80,7 @@ function ModalHeader({
  * The two modal shapes in the design system carry different titles: a form
  * modal ("Add Admin", "Announcements", 600x5xx) heads with the 32/44 h1, a
  * confirmation dialog ("Delete Route Group", "Log out", 600x180) with the
- * 20/28 h2. No default — picking one is a decision about which shape the
- * dialog is, and defaulting to the form size is how confirmations ended up
- * with a 32px title.
+ * 20/28 h2.
  */
 const MODAL_TITLE_VARIANTS = {
   form: 'text-h1',
