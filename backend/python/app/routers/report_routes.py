@@ -10,6 +10,7 @@ from app.config import settings
 from app.dependencies.auth import require_admin
 from app.models import get_session
 from app.services.implementations.driver_report_service import DriverReportService
+from app.utilities.datetime_utils import now_est_naive
 
 logger = logging.getLogger(__name__)
 service = DriverReportService(logger)
@@ -31,6 +32,10 @@ class MonthlyTotalsResponse(BaseModel):
     month: int
     total_km: float
     total_deliveries: int
+
+
+MIN_SERIES_MONTHS = 1
+MAX_SERIES_MONTHS = 24
 
 
 def _ensure_est(dt: datetime) -> datetime:
@@ -57,6 +62,42 @@ async def get_total_deliveries_between(
     # will normalize them to naive scheduler-local datetimes to match DB.
     total = await service.get_total_deliveries_between(session, start_est, end_est)
     return DeliveriesCountResponse(total_deliveries=total)
+
+
+@router.get("/monthly-series", response_model=list[MonthlyTotalsResponse])
+async def get_monthly_series(
+    months: int = Query(
+        6,
+        ge=MIN_SERIES_MONTHS,
+        le=MAX_SERIES_MONTHS,
+        description="How many months to return, counting back from the end month",
+    ),
+    end_year: int | None = Query(
+        None, description="Year of the newest month; defaults to the current month"
+    ),
+    end_month: int | None = Query(
+        None, ge=1, le=12, description="Month of the newest month (1-12)"
+    ),
+    session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
+) -> list[MonthlyTotalsResponse]:
+    """Return km and deliveries per month for a trailing window, oldest first.
+
+    Backs the homepage statistics bar charts, which need a whole series at
+    once rather than one request per bar.
+    """
+    if (end_year is None) != (end_month is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end_year and end_month must be provided together",
+        )
+
+    if end_year is None or end_month is None:
+        today = now_est_naive()
+        end_year, end_month = today.year, today.month
+
+    series = await service.get_monthly_series(session, end_year, end_month, months)
+    return [MonthlyTotalsResponse(**point) for point in series]
 
 
 @router.get("/monthly/{year}/{month}/ranking", response_model=list[DriverRankingItem])
