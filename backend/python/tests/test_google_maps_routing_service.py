@@ -9,10 +9,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.config import settings as app_settings
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GLOBAL_DURATION_COST_PER_HOUR,
     MANDATORY_DELIVERY_PENALTY,
+    SCOPES,
     VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
 )
@@ -489,3 +491,76 @@ class TestGenerateRoutes:
                 sample_settings,
                 timeout_seconds=0.01,
             )
+
+
+class TestEnsureCredentials:
+    """Credentials come from Application Default Credentials, never from settings."""
+
+    @pytest.fixture(autouse=True)
+    def _configured_project(self, mocker: Any) -> None:
+        mocker.patch.object(app_settings, "route_opt_project_id", "f4k-test-project")
+
+    def test_fetches_from_adc_and_refreshes(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        credentials = mocker.Mock(valid=False)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        assert algorithm._ensure_credentials() is credentials
+        default.assert_called_once_with(scopes=SCOPES)
+        credentials.refresh.assert_called_once()
+
+    def test_caches_while_valid(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """A valid cached credential is reused without touching ADC again."""
+        credentials = mocker.Mock(valid=True)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        first = algorithm._ensure_credentials()
+        second = algorithm._ensure_credentials()
+
+        assert first is second is credentials
+        default.assert_called_once()
+        # Refreshed once on creation; the cached hit is free.
+        credentials.refresh.assert_called_once()
+
+    def test_refreshes_expired_without_refetching(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """An expired credential refreshes in place rather than re-resolving ADC."""
+        credentials = mocker.Mock(valid=False)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        algorithm._ensure_credentials()
+        algorithm._ensure_credentials()
+
+        default.assert_called_once()
+        assert credentials.refresh.call_count == 2
+
+    def test_unconfigured_project_raises(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """Fail loudly rather than calling optimizeTours against an empty project."""
+        mocker.patch.object(app_settings, "route_opt_project_id", "")
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+        )
+
+        with pytest.raises(RuntimeError, match="ROUTE_OPT_PROJECT_ID"):
+            algorithm._ensure_credentials()
+
+        default.assert_not_called()

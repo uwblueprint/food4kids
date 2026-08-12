@@ -50,8 +50,8 @@ async def test_fleet_routing_live() -> None:
     """Hit the live Fleet Routing API and print the resulting routes."""
     from app.config import settings as app_settings
 
-    if not app_settings.route_opt_client_email:
-        pytest.skip("ROUTE_OPT_* env vars not configured")
+    if not app_settings.route_opt_project_id:
+        pytest.skip("ROUTE_OPT_PROJECT_ID not configured")
 
     settings = RouteGenerationSettings(
         num_routes=2,
