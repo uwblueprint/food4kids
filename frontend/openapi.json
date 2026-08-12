@@ -231,6 +231,18 @@
             "title": "Access Token",
             "type": "string"
           },
+          "admin_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Id"
+          },
           "driver_id": {
             "anyOf": [
               {

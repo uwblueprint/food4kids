@@ -12,6 +12,7 @@ interface AuthState {
     fullName: string;
     role: string;
     driverId: string | null; // Populated if they are a driver
+    adminId: string | null; // Populated if they are an admin
   } | null;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
@@ -50,6 +51,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         fullName: authData.full_name,
         role: authData.role,
         driverId: authData.driver_id ?? null,
+        adminId: authData.admin_id ?? null,
       },
       isAuthenticated: true,
       isRestoringSession: false,
@@ -70,6 +72,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         fullName: registerData.auth.full_name,
         role: registerData.driver.role,
         driverId: registerData.driver.driver_id,
+        adminId: registerData.auth.admin_id ?? null,
       },
       isAuthenticated: true,
       isRestoringSession: false,
