@@ -38,7 +38,7 @@ from app.schemas.route_generation import RouteGenerationGroupInput
 from app.services.implementations.route_group_service import (
     ROUTE_GROUP_NAME_MAX_LENGTH,
 )
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import now_utc
 from app.utilities.routes_utils import fetch_route_polyline
 
 if TYPE_CHECKING:
@@ -80,6 +80,14 @@ async def run_generation_job(
     try:
         job = await _load_running_job(session, job_id)
         if job is None:
+            return
+
+        # Belt-and-suspenders: _save_or_discard commits the RouteGroup and the
+        # COMPLETED status in one transaction, and recovery only requeues jobs
+        # with route_group_id IS NULL, so this should not be reachable today.
+        # Keep the guard in case that atomicity assumption changes later.
+        if job.route_group_id is not None:
+            await _complete_already_saved(session, job)
             return
 
         request = _parse_request(job)
@@ -168,6 +176,44 @@ async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
         return None
 
     return job
+
+
+async def _complete_already_saved(session: AsyncSession, job: Job) -> None:
+    """Mark a job Completed when its RouteGroup is already linked.
+
+    Not expected under today's save/recovery atomicity (see the guard in
+    ``run_generation_job``). Kept as a defensive no-regenerate path if a job
+    ever arrives Running with ``route_group_id`` already set.
+    """
+    now = now_utc()
+    result = cast(
+        "CursorResult[Any]",
+        await session.execute(
+            update(Job)
+            .where(col(Job.job_id) == job.job_id)
+            .where(col(Job.progress) == ProgressEnum.RUNNING)
+            .values(
+                progress=ProgressEnum.COMPLETED,
+                error_message=None,
+                updated_at=now,
+                finished_at=now,
+            )
+        ),
+    )
+    if result.rowcount:
+        await session.commit()
+        logger.info(
+            "Job %s completed without regenerating: route_group=%s already saved.",
+            job.job_id,
+            job.route_group_id,
+        )
+        return
+
+    await session.rollback()
+    logger.info(
+        "Job %s already had a RouteGroup but was no longer Running; left unchanged.",
+        job.job_id,
+    )
 
 
 def _parse_request(job: Job) -> RouteGenerationGroupInput:
@@ -350,7 +396,7 @@ async def _save_or_discard(
     await session.flush()
 
     routes = route_group.routes
-    now = now_est_naive()
+    now = now_utc()
     result = cast(
         "CursorResult[Any]",
         await session.execute(
@@ -360,6 +406,7 @@ async def _save_or_discard(
             .values(
                 progress=ProgressEnum.COMPLETED,
                 route_group_id=route_group.route_group_id,
+                error_message=None,
                 routes_created=len(routes),
                 total_stops=sum(len(route.route_stops) for route in routes),
                 total_distance_km=sum(route.length for route in routes),
@@ -401,7 +448,7 @@ async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
     logger.warning("Route generation job %s failed: %s", job_id, message)
 
     await session.rollback()
-    now = now_est_naive()
+    now = now_utc()
     result = cast(
         "CursorResult[Any]",
         await session.execute(

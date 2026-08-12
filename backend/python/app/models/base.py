@@ -6,7 +6,7 @@ from typing import Any, TypeVar
 import sqlmodel as sm
 from sqlmodel import Field
 
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import now_utc
 
 _ONGOING_MODEL_VALIDATE: ContextVar[bool] = ContextVar("_ONGOING_MODEL_VALIDATE")
 
@@ -32,10 +32,19 @@ class BaseModel(sm.SQLModel):
     # `updated_at` is bumped by a column-level SQLAlchemy `onupdate`, which fires
     # for BOTH ORM flushes and Core `update()` statements — so bulk updates stay
     # accurate too — unless the statement sets `updated_at` itself.
-    created_at: datetime | None = Field(default_factory=now_est_naive)
+    #
+    # Both are `timestamptz` holding UTC. Storing a naive local time instead
+    # would leave the zone as convention rather than data, and Python reads a
+    # naive value back as the container's local time (UTC), silently shifting
+    # it by the EST offset.
+    created_at: datetime | None = Field(
+        default_factory=now_utc,
+        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
+    )
     updated_at: datetime | None = Field(
-        default_factory=now_est_naive,
-        sa_column_kwargs={"onupdate": now_est_naive},
+        default_factory=now_utc,
+        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
+        sa_column_kwargs={"onupdate": now_utc},
     )
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

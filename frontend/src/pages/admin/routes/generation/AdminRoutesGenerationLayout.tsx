@@ -37,6 +37,14 @@ export interface GenerationOutletContext {
   setReviewResult: (r: LocationImportPreview | null) => void;
   routeGenerationInputs: RouteGenerationGroupInput[];
   setRouteGenerationInputs: (inputs: RouteGenerationGroupInput[]) => void;
+  /**
+   * Whether the step being shown has finished its work. Only the last step
+   * reports this — the frames tick "Generate Routes" off once the summary is
+   * up, and the stepper otherwise has no way to know a step it is sitting on
+   * is done.
+   */
+  currentStepComplete: boolean;
+  setCurrentStepComplete: (complete: boolean) => void;
 }
 
 export function AdminRoutesGenerationLayout() {
@@ -56,6 +64,7 @@ export function AdminRoutesGenerationLayout() {
   const [routeGenerationInputs, setRouteGenerationInputs] = useState<
     RouteGenerationGroupInput[]
   >([]);
+  const [currentStepComplete, setCurrentStepComplete] = useState(false);
 
   if (!hasSeededColumnMap && settingsLoaded) {
     setHasSeededColumnMap(true);
@@ -75,6 +84,8 @@ export function AdminRoutesGenerationLayout() {
     setReviewResult,
     routeGenerationInputs,
     setRouteGenerationInputs,
+    currentStepComplete,
+    setCurrentStepComplete,
   };
 
   return (
@@ -103,7 +114,9 @@ export function AdminRoutesGenerationLayout() {
       </div>
 
       {/* Stepper — shared across all steps */}
-      <ProgressStepper currentStep={currentStep} />
+      <ProgressStepper
+        currentStep={currentStep + (currentStepComplete ? 1 : 0)}
+      />
 
       {/* Step content */}
       <Outlet context={context} />

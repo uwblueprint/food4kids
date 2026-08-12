@@ -92,7 +92,7 @@ export function DuplicateRouteGroupModal({
     <Modal open={open} onOpenChange={handleOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>Duplicate Route Group</ModalTitle>
+          <ModalTitle variant="form">Duplicate Route Group</ModalTitle>
         </ModalHeader>
 
         <div className="flex flex-col gap-4">

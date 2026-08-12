@@ -47,7 +47,7 @@ from app.models.system_settings import (
 
 # Import all models to register them with SQLModel
 from app.models.user import User
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import from_local_wall_clock, now_utc
 
 # Initialize Faker
 fake = faker.Faker()
@@ -1300,11 +1300,18 @@ def main(*, reset_passwords: bool = False) -> None:
                 jobs_created = len(selected_groups)
 
                 for route_group_id, drive_date in selected_groups:
-                    started_at = datetime.combine(
-                        drive_date,
-                        time(
-                            hour=random.randint(JOB_START_HOUR_MIN, JOB_START_HOUR_MAX)
-                        ),
+                    # The hour is a wall-clock hour on the drive date, so read it
+                    # in the app's timezone rather than handing Postgres a naive
+                    # value it would resolve against the session timezone.
+                    started_at = from_local_wall_clock(
+                        datetime.combine(
+                            drive_date,
+                            time(
+                                hour=random.randint(
+                                    JOB_START_HOUR_MIN, JOB_START_HOUR_MAX
+                                )
+                            ),
+                        )
                     )
                     updated_at = started_at + timedelta(
                         hours=random.randint(JOB_UPDATE_HOUR_MIN, JOB_UPDATE_HOUR_MAX)
@@ -1391,7 +1398,7 @@ def main(*, reset_passwords: bool = False) -> None:
                     attachments=[],
                 )
                 set_timestamps(announcement)
-                posted_at = now_est_naive() - timedelta(days=days_ago)
+                posted_at = now_utc() - timedelta(days=days_ago)
                 announcement.created_at = posted_at
                 announcement.updated_at = posted_at
                 session.add(announcement)
@@ -1411,8 +1418,7 @@ def main(*, reset_passwords: bool = False) -> None:
                 if random.random() < 0.6:
                     read_entry = AnnouncementLastRead(
                         user_id=driver_user_row[0],
-                        last_read_at=now_est_naive()
-                        - timedelta(hours=random.randint(0, 72)),
+                        last_read_at=now_utc() - timedelta(hours=random.randint(0, 72)),
                     )
                     set_timestamps(read_entry)
                     session.add(read_entry)
