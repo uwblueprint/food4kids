@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import jwt
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.driver import DriverCreate
 from app.models.user import User
@@ -19,7 +20,7 @@ from app.services.implementations.user_service import UserService
 class TestAuthServiceDriverId:
     @pytest.mark.asyncio
     async def test_generate_token_includes_driver_id_for_driver(
-        self, test_session: Any
+        self, test_session: AsyncSession
     ) -> None:
         user = User(
             first_name="Test",
@@ -63,7 +64,7 @@ class TestAuthServiceDriverId:
 
     @pytest.mark.asyncio
     async def test_generate_token_driver_id_none_for_admin(
-        self, test_session: Any
+        self, test_session: AsyncSession
     ) -> None:
         user = User(
             first_name="Test",
@@ -95,7 +96,7 @@ class TestAuthServiceDriverId:
 
     @pytest.mark.asyncio
     async def test_renew_token_includes_driver_id_for_driver(
-        self, test_session: Any
+        self, test_session: AsyncSession
     ) -> None:
         user = User(
             first_name="Test",
@@ -139,7 +140,7 @@ class TestAuthServiceDriverId:
 
     @pytest.mark.asyncio
     async def test_renew_token_driver_id_none_for_admin(
-        self, test_session: Any
+        self, test_session: AsyncSession
     ) -> None:
         user = User(
             first_name="Test",
