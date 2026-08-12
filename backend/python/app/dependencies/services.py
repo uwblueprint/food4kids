@@ -138,7 +138,9 @@ def get_auth_service(
 ) -> AuthService:
     """Get auth service instance"""
     logger = get_logger()
-    return AuthService(logger, user_service, driver_service, admin_service, email_service)
+    return AuthService(
+        logger, user_service, driver_service, admin_service, email_service
+    )
 
 
 @lru_cache

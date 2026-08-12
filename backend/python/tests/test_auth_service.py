@@ -48,7 +48,9 @@ class TestAuthServiceDriverId:
 
         user_service = UserService(getLogger(__name__))
         admin_service = AdminService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
+        auth_service = AuthService(
+            getLogger(__name__), user_service, driver_service, admin_service
+        )
 
         token_response = SimpleNamespace(
             access_token="fake-access-token", refresh_token="fake-refresh-token"
@@ -88,7 +90,9 @@ class TestAuthServiceDriverId:
         user_service = UserService(getLogger(__name__))
         driver_service = DriverService(getLogger(__name__))
         admin_service = AdminService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
+        auth_service = AuthService(
+            getLogger(__name__), user_service, driver_service, admin_service
+        )
 
         token_response = SimpleNamespace(
             access_token="fake-access-token", refresh_token="fake-refresh-token"
@@ -134,7 +138,9 @@ class TestAuthServiceDriverId:
 
         user_service = UserService(getLogger(__name__))
         admin_service = AdminService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
+        auth_service = AuthService(
+            getLogger(__name__), user_service, driver_service, admin_service
+        )
 
         access_token = jwt.encode({"sub": "auth-driver-456"}, "k" * 32, "HS256")
         token_response = TokenResponse(
@@ -174,7 +180,9 @@ class TestAuthServiceDriverId:
         user_service = UserService(getLogger(__name__))
         driver_service = DriverService(getLogger(__name__))
         admin_service = AdminService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
+        auth_service = AuthService(
+            getLogger(__name__), user_service, driver_service, admin_service
+        )
 
         access_token = jwt.encode({"sub": "auth-admin-456"}, "k" * 32, "HS256")
         token_response = TokenResponse(
