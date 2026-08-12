@@ -282,11 +282,12 @@ def upload_seed_note_images() -> list[dict[str, str]]:
     """Upload the shared placeholder images and return them as attachments.
 
     Writes to fixed keys under ``SEED_NOTE_IMAGE_PREFIX`` so re-seeding replaces
-    the objects rather than piling up new ones. Returns nothing when GCS isn't
-    configured, which is how the boot smoke job runs; a failure with credentials
-    present is a real error and propagates.
+    the objects rather than piling up new ones. Returns nothing when no bucket is
+    configured, which is how the boot smoke job runs; with a bucket named, a
+    failure (including missing Application Default Credentials) is a real error
+    and propagates.
     """
-    if not (settings.gcp_bucket_name and settings.gcp_service_account_private_key):
+    if not settings.gcp_bucket_name:
         print("  GCS is not configured — seeding notes without images")
         return []
 
