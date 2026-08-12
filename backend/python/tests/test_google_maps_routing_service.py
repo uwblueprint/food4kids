@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -12,6 +12,7 @@ import pytest
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GLOBAL_DURATION_COST_PER_HOUR,
+    GLOBAL_HORIZON_HOURS,
     MANDATORY_DELIVERY_PENALTY,
     VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
@@ -145,9 +146,65 @@ class TestBuildPayload:
 
         # January 1st is outside DST, so America/New_York is UTC-5 here.
         assert model["globalStartTime"] == "2025-01-01T09:00:00-05:00"
-        assert "globalEndTime" not in model
         for vehicle in model["vehicles"]:
             assert "startTime" not in vehicle
+
+    def test_global_end_time_is_always_sent_and_after_the_start(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """globalEndTime must be present and later than globalStartTime.
+
+        Omitting it defaults the field to the epoch, and the API rejects every
+        request with "`global_start_time` after `global_end_time`".
+        """
+        model = algorithm._build_payload(
+            [make_location()], 43.0, -79.0, sample_settings
+        )["model"]
+
+        assert "globalEndTime" in model
+        start = datetime.fromisoformat(model["globalStartTime"])
+        end = datetime.fromisoformat(model["globalEndTime"])
+        assert end > start
+        assert end - start == timedelta(hours=GLOBAL_HORIZON_HOURS)
+
+    def test_global_end_time_spans_a_full_day_of_slack(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """The horizon is wide enough that a long day can never overrun it."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2026, 7, 9, 8, 30),
+        )
+
+        model = algorithm._build_payload([make_location()], 43.0, -79.0, settings)[
+            "model"
+        ]
+
+        assert model["globalStartTime"] == "2026-07-09T08:30:00-04:00"
+        assert model["globalEndTime"] == "2026-07-10T08:30:00-04:00"
+
+    def test_global_end_time_follows_an_explicit_offset(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """A tz-aware start keeps its own offset on both ends of the window."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+        )
+
+        model = algorithm._build_payload([make_location()], 43.0, -79.0, settings)[
+            "model"
+        ]
+
+        assert model["globalStartTime"] == "2025-01-01T14:00:00+00:00"
+        assert model["globalEndTime"] == "2025-01-02T14:00:00+00:00"
 
     def test_global_start_time_keeps_the_drive_date(
         self,
