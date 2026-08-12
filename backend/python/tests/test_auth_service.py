@@ -2,7 +2,6 @@
 
 from logging import getLogger
 from types import SimpleNamespace
-from typing import Any
 from unittest.mock import MagicMock
 
 import jwt
