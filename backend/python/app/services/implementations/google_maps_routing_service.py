@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from datetime import timedelta
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -41,6 +42,21 @@ MANDATORY_DELIVERY_PENALTY = 1_000_000
 GLOBAL_DURATION_COST_PER_HOUR = 6
 VEHICLE_COST_PER_HOUR = 1
 
+# The plan's time horizon. A globalEndTime is mandatory, so this is wide
+# enough that it never binds — nothing else here constrains the plan either.
+GLOBAL_HORIZON_HOURS = 24
+
+
+def _localize(moment: datetime) -> datetime:
+    """Return `moment` as a timezone-aware datetime in warehouse-local time.
+
+    A naive input is warehouse-local, not UTC — every caller works in the
+    operating timezone, so assuming UTC would shift the plan by the offset.
+    """
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=ZoneInfo(app_settings.scheduler_timezone))
+    return moment
+
 
 def _to_rfc3339(moment: datetime) -> str:
     """Format a moment as an RFC 3339 timestamp the optimizeTours API accepts.
@@ -48,14 +64,8 @@ def _to_rfc3339(moment: datetime) -> str:
     Two things the API is strict about, and `strftime("%z")` gets wrong:
     the offset needs a colon (``-05:00``, not ``-0500``), and the timestamp
     must be unambiguous — a naive one is rejected.
-
-    A naive input is read as local warehouse time rather than UTC. Every
-    caller works in the operating timezone, so assuming UTC would silently
-    shift the plan by the offset (five hours, in the wrong direction).
     """
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=ZoneInfo(app_settings.scheduler_timezone))
-    return moment.isoformat()
+    return _localize(moment).isoformat()
 
 
 class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
@@ -182,12 +192,13 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         # the wrong date would have the API plan against the wrong day's
         # traffic. See RouteGenerationSettings.route_start_time.
         #
-        # No globalEndTime: the routes have no hard deadline, and inventing one
-        # would make the model infeasible whenever a day's deliveries overrun it.
+        global_start = _localize(settings.route_start_time)
+        global_end = global_start + timedelta(hours=GLOBAL_HORIZON_HOURS)
         return {
             "model": {
                 "globalDurationCostPerHour": GLOBAL_DURATION_COST_PER_HOUR,
-                "globalStartTime": _to_rfc3339(settings.route_start_time),
+                "globalStartTime": _to_rfc3339(global_start),
+                "globalEndTime": _to_rfc3339(global_end),
                 "vehicles": vehicles,
                 "shipments": forced_pickups + deliveries,
             }
