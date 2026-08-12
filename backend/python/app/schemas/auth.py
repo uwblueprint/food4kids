@@ -43,6 +43,7 @@ class AuthResponse(BaseModel):
     role: str
     remember_me: bool
     driver_id: UUID | None = None
+    admin_id: UUID | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

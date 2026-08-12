@@ -1,4 +1,4 @@
-"""Tests for AuthService — token generation, renewal, and driver_id propagation."""
+"""Tests for AuthService — token generation, renewal, driver_id, and admin_id propagation."""
 
 from logging import getLogger
 from types import SimpleNamespace
@@ -8,9 +8,11 @@ import jwt
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.admin import Admin
 from app.models.driver import DriverCreate
 from app.models.user import User
 from app.schemas.auth import TokenResponse
+from app.services.implementations.admin_service import AdminService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.user_service import UserService
@@ -45,7 +47,8 @@ class TestAuthServiceDriverId:
         await test_session.commit()
 
         user_service = UserService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service)
+        admin_service = AdminService(getLogger(__name__))
+        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
 
         token_response = SimpleNamespace(
             access_token="fake-access-token", refresh_token="fake-refresh-token"
@@ -60,6 +63,7 @@ class TestAuthServiceDriverId:
         )
 
         assert auth_response.driver_id == driver.driver_id
+        assert auth_response.admin_id is None
 
     @pytest.mark.asyncio
     async def test_generate_token_driver_id_none_for_admin(
@@ -73,11 +77,18 @@ class TestAuthServiceDriverId:
             auth_id="auth-admin-123",
         )
         test_session.add(user)
+        admin = Admin(
+            user_id=user.user_id,
+            admin_phone="+12125551234",
+            receive_email_notifications=True,
+        )
+        test_session.add(admin)
         await test_session.commit()
 
         user_service = UserService(getLogger(__name__))
         driver_service = DriverService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service)
+        admin_service = AdminService(getLogger(__name__))
+        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
 
         token_response = SimpleNamespace(
             access_token="fake-access-token", refresh_token="fake-refresh-token"
@@ -92,6 +103,7 @@ class TestAuthServiceDriverId:
         )
 
         assert auth_response.driver_id is None
+        assert auth_response.admin_id == admin.admin_id
 
     @pytest.mark.asyncio
     async def test_renew_token_includes_driver_id_for_driver(
@@ -121,7 +133,8 @@ class TestAuthServiceDriverId:
         await test_session.commit()
 
         user_service = UserService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service)
+        admin_service = AdminService(getLogger(__name__))
+        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
 
         access_token = jwt.encode({"sub": "auth-driver-456"}, "k" * 32, "HS256")
         token_response = TokenResponse(
@@ -135,6 +148,7 @@ class TestAuthServiceDriverId:
         )
 
         assert auth_response.driver_id == driver.driver_id
+        assert auth_response.admin_id is None
         assert auth_response.remember_me is True
 
     @pytest.mark.asyncio
@@ -149,11 +163,18 @@ class TestAuthServiceDriverId:
             auth_id="auth-admin-456",
         )
         test_session.add(user)
+        admin = Admin(
+            user_id=user.user_id,
+            admin_phone="+12125551234",
+            receive_email_notifications=True,
+        )
+        test_session.add(admin)
         await test_session.commit()
 
         user_service = UserService(getLogger(__name__))
         driver_service = DriverService(getLogger(__name__))
-        auth_service = AuthService(getLogger(__name__), user_service, driver_service)
+        admin_service = AdminService(getLogger(__name__))
+        auth_service = AuthService(getLogger(__name__), user_service, driver_service, admin_service)
 
         access_token = jwt.encode({"sub": "auth-admin-456"}, "k" * 32, "HS256")
         token_response = TokenResponse(
@@ -167,3 +188,4 @@ class TestAuthServiceDriverId:
         )
 
         assert auth_response.driver_id is None
+        assert auth_response.admin_id == admin.admin_id

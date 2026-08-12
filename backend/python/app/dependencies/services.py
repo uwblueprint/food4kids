@@ -17,6 +17,7 @@ from functools import lru_cache
 from fastapi import Depends
 
 from app.config import settings
+from app.services.implementations.admin_service import AdminService
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
@@ -122,14 +123,22 @@ def get_driver_service() -> DriverService:
     return DriverService(logger)
 
 
+@lru_cache
+def get_admin_service() -> AdminService:
+    """Get admin service instance"""
+    logger = get_logger()
+    return AdminService(logger)
+
+
 def get_auth_service(
     user_service: UserService = Depends(get_user_service),
     driver_service: DriverService = Depends(get_driver_service),
+    admin_service: AdminService = Depends(get_admin_service),
     email_service: EmailService = Depends(get_email_service),
 ) -> AuthService:
     """Get auth service instance"""
     logger = get_logger()
-    return AuthService(logger, user_service, driver_service, email_service)
+    return AuthService(logger, user_service, driver_service, admin_service, email_service)
 
 
 @lru_cache

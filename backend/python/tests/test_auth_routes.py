@@ -305,7 +305,7 @@ class TestRenewTokenSessionExpiry:
     ) -> AuthService:
         user_service = MagicMock()
         user_service.get_user_by_auth_id = AsyncMock(return_value=user)
-        service = AuthService(getLogger(__name__), user_service, MagicMock())
+        service = AuthService(getLogger(__name__), user_service, MagicMock(), MagicMock())
         firebase_client: Any = MagicMock()
         if refresh_error is not None:
             firebase_client.refresh_token.side_effect = refresh_error
