@@ -157,11 +157,8 @@ class TestBuildPayload:
     ) -> None:
         """globalEndTime must be present and later than globalStartTime.
 
-        The API does not treat an omitted globalEndTime as "no deadline" — it
-        defaults the field to the epoch and rejects the request with
-        "`global_start_time` after `global_end_time`". Every live call failed
-        that way while these unit tests stayed green, so this asserts the
-        invariant the API actually enforces.
+        Omitting it defaults the field to the epoch, and the API rejects every
+        request with "`global_start_time` after `global_end_time`".
         """
         model = algorithm._build_payload(
             [make_location()], 43.0, -79.0, sample_settings
@@ -188,7 +185,6 @@ class TestBuildPayload:
             "model"
         ]
 
-        # Both ends sit inside DST here, so they share the -04:00 offset.
         assert model["globalStartTime"] == "2026-07-09T08:30:00-04:00"
         assert model["globalEndTime"] == "2026-07-10T08:30:00-04:00"
 

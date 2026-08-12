@@ -53,8 +53,7 @@ async def test_fleet_routing_live() -> None:
     if not app_settings.route_opt_client_email:
         pytest.skip("ROUTE_OPT_* env vars not configured")
 
-    # Relative to today so the script doesn't rot: the API plans against the
-    # timestamp's day, and a hardcoded date drifts into the past.
+    # Relative so the script doesn't rot — the API plans against the day given.
     tomorrow_at_nine = datetime.combine(
         datetime.now().date() + timedelta(days=1), time(9, 0)
     )
