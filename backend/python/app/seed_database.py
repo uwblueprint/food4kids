@@ -5,6 +5,7 @@ Comprehensive database seeding script with advanced features.
 
 import argparse
 import csv
+import logging
 import os
 import random
 import uuid
@@ -24,6 +25,7 @@ from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
 from app import initialize_firebase
+from app.config import settings
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
@@ -48,6 +50,8 @@ from app.models.system_settings import (
 # Import all models to register them with SQLModel
 from app.models.user import User
 from app.utilities.datetime_utils import from_local_wall_clock, now_utc
+from app.utilities.gcp_client import GCPStorageClient
+from app.utilities.seed_images import render_seed_image
 
 # Initialize Faker
 fake = faker.Faker()
@@ -82,6 +86,24 @@ MAX_LOCATION_CHAIN_NOTES = 3
 MAX_ROUTE_CHAIN_NOTES = 2
 # Max notes per driver chain
 MAX_DRIVER_CHAIN_NOTES = 3
+# Probability that a location note carries image attachments. Only location
+# notes get them: that chain is what the driver's route page renders, so it is
+# the only place a thumbnail is ever seen.
+PROBABILITY_LOCATION_NOTE_IMAGES = 0.35
+# Max images per note. Matches the frontend's own cap (NOTE_IMAGE_MAX) and the
+# NoteCreate limit, so the seed can't produce a note the API would reject.
+MAX_NOTE_IMAGES = 3
+# Number of distinct placeholder images uploaded once and shared across notes.
+# Re-using a small pool keeps seeding to a handful of uploads instead of one
+# per note, and the bucket to a fixed, known set of objects.
+SEED_NOTE_IMAGE_COUNT = 6
+# Stable key prefix for those objects, so a re-seed overwrites the previous
+# run's images rather than orphaning them.
+SEED_NOTE_IMAGE_PREFIX = "seed/note-images"
+# Signed URL lifetime for seeded images. Note reads re-sign from the stored
+# filename, so this only has to outlive the seed run itself; a week is the
+# ceiling GCS V4 signing allows and costs nothing to ask for.
+SEED_NOTE_IMAGE_URL_HOURS = 24 * 7
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -246,6 +268,47 @@ def set_timestamps(instance: BaseModel) -> None:
     """Set updated_at to match created_at for seed data"""
     if instance.created_at is not None and instance.updated_at is None:
         instance.updated_at = instance.created_at
+
+
+def upload_seed_note_images() -> list[dict[str, str]]:
+    """Upload the shared placeholder images and return them as attachments.
+
+    Writes to fixed keys under ``SEED_NOTE_IMAGE_PREFIX``, so running the seed
+    twice replaces the same objects instead of leaving the previous run's
+    behind. Returns plain dicts because that is what the attachments column
+    stores.
+
+    Like the Firebase helpers above, this talks to a real external service and
+    is patched out in tests rather than faked here.
+    """
+    client = GCPStorageClient(logging.getLogger(__name__), settings.gcp_bucket_name)
+
+    attachments: list[dict[str, str]] = []
+    for index in range(SEED_NOTE_IMAGE_COUNT):
+        filename, contents = render_seed_image(index)
+        result = client.upload_file(
+            contents,
+            filename,
+            "image/png",
+            expiration_hours=SEED_NOTE_IMAGE_URL_HOURS,
+            key=f"{SEED_NOTE_IMAGE_PREFIX}/{index:02d}-{filename}",
+        )
+        attachments.append({"filename": result.filename, "url": result.url})
+
+    return attachments
+
+
+def pick_note_attachments(pool: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Choose the attachments for one note: usually none, sometimes up to three.
+
+    Returns copies so two notes sharing an image can never alias the same dict
+    into two JSON columns.
+    """
+    if not pool or random.random() >= PROBABILITY_LOCATION_NOTE_IMAGES:
+        return []
+
+    count = random.randint(1, min(MAX_NOTE_IMAGES, len(pool)))
+    return [dict(attachment) for attachment in random.sample(pool, count)]
 
 
 def ensure_firebase_user(
@@ -1199,8 +1262,13 @@ def main(*, reset_passwords: bool = False) -> None:
 
             # Create note chains for locations
             print("Creating note chains for locations...")
+            print("Uploading placeholder note images...")
+            note_image_pool = upload_seed_note_images()
+            print(f"Uploaded {len(note_image_pool)} placeholder note images")
+
             location_chains_created = 0
             location_notes_created = 0
+            location_notes_with_images = 0
             all_locations = list(session.exec(select(Location)).all())
             location_author_ids = admin_author_ids + driver_author_ids
 
@@ -1225,20 +1293,25 @@ def main(*, reset_passwords: bool = False) -> None:
                             random.choice(location_author_ids) for _ in range(num_notes)
                         ]
                     for author_id in note_authors:
+                        attachments = pick_note_attachments(note_image_pool)
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
                             user_id=author_id,
                             message=fake.sentence(),
                             is_system=False,
+                            attachments=attachments,
                         )
                         set_timestamps(note)
                         session.add(note)
                         location_notes_created += 1
+                        if attachments:
+                            location_notes_with_images += 1
 
             session.commit()
             print(
                 f"Created {location_chains_created} location note chains "
-                f"with {location_notes_created} notes"
+                f"with {location_notes_created} notes "
+                f"({location_notes_with_images} carrying images)"
             )
 
             # Create note chains for routes (only a sample, since the per-day
