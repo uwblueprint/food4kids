@@ -10,7 +10,7 @@ from app.config import settings
 from app.dependencies.auth import require_admin
 from app.models import get_session
 from app.services.implementations.driver_report_service import DriverReportService
-from app.utilities.datetime_utils import now_est_naive
+from app.utilities.datetime_utils import now_utc
 
 logger = logging.getLogger(__name__)
 service = DriverReportService(logger)
@@ -93,7 +93,9 @@ async def get_monthly_series(
         )
 
     if end_year is None or end_month is None:
-        today = now_est_naive()
+        # "The current month" is a calendar fact, so read the UTC instant in
+        # the scheduler's zone — near midnight the two disagree on the date.
+        today = now_utc().astimezone(ZoneInfo(settings.scheduler_timezone))
         end_year, end_month = today.year, today.month
 
     series = await service.get_monthly_series(session, end_year, end_month, months)
