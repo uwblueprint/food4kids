@@ -61,7 +61,7 @@ function RemoveImageButton({
   return (
     <button
       type="button"
-      className="bg-grey-400 text-grey-100 hover:bg-grey-500 absolute -right-1.5 -bottom-1.5 flex size-5 items-center justify-center rounded-full transition-colors disabled:opacity-60"
+      className="bg-grey-400 text-grey-100 hover:bg-grey-500 absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full transition-colors disabled:opacity-60"
       aria-label="Remove image"
       disabled={disabled}
       onClick={onClick}
@@ -198,7 +198,9 @@ function NoteForm({
       className="flex min-h-0 flex-1 flex-col gap-6"
     >
       <ModalHeader className="shrink-0">
-        <ModalTitle>{mode === 'edit' ? 'Edit note' : 'Add a note'}</ModalTitle>
+        <ModalTitle>
+          {mode === 'edit' ? 'Edit note' : 'Announcements'}
+        </ModalTitle>
       </ModalHeader>
 
       <Field className="flex min-h-0 flex-1 flex-col">
@@ -222,7 +224,10 @@ function NoteForm({
               maxLength={NOTE_MESSAGE_MAX}
               disabled={busy}
               className={cn(
-                'text-p2 text-grey-500 placeholder:text-p1 placeholder:text-grey-400',
+                'text-m-p2 font-normal text-grey-500',
+                'placeholder:text-[length:var(--text-p2)]',
+                'placeholder:leading-[var(--text-p2--line-height)]',
+                'placeholder:font-semibold placeholder:text-grey-400',
                 'box-border min-h-[160px] w-full flex-1 resize-none bg-transparent px-3 py-3 outline-none',
                 'disabled:text-grey-400 disabled:cursor-not-allowed'
               )}
@@ -273,7 +278,7 @@ function NoteForm({
         </p>
       )}
 
-      <ModalFooter className="mt-auto shrink-0 justify-end">
+      <ModalFooter className="mt-auto shrink-0 flex-col [&_button]:w-full tablet:flex-row tablet:[&_button]:flex-1">
         {mode === 'create' && (
           <>
             <input
@@ -287,7 +292,6 @@ function NoteForm({
             <Button
               type="button"
               variant="secondary"
-              className="w-auto"
               disabled={busy || images.length >= NOTE_IMAGE_MAX}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -295,7 +299,7 @@ function NoteForm({
             </Button>
           </>
         )}
-        <Button type="submit" className="w-auto" disabled={!canSubmit}>
+        <Button type="submit" disabled={!canSubmit}>
           {busy ? 'Saving…' : mode === 'edit' ? 'Save' : 'Add note'}
         </Button>
       </ModalFooter>
