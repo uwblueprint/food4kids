@@ -54,49 +54,52 @@ export const DriverProfile = () => {
   };
 
   return (
-    <main className="flex flex-col items-center gap-6 mx-auto w-full">
-      <Link
-        to="/driver/home"
-        className="flex gap-1 text-blue-400 self-start"
-      >
-        <ChevronLeftIcon className="size-6" />
-        <h2>Back to home</h2>
-      </Link>
+    <>
+    <main className="flex flex-col items-center gap-6 mx-auto w-full justify-between flex-1 desktop:justify-start">
+      <div className="flex flex-col items-center gap-6 w-full">
+        <Link
+          to="/driver/home"
+          className="flex gap-1 text-blue-400 self-start"
+        >
+          <ChevronLeftIcon className="size-6" />
+          <h2>Back to home</h2>
+        </Link>
 
-      <div className="flex flex-col items-center gap-1 mt-3">
-        {/* 1. Profile circle showing initials */}
-        <div className="flex size-16 desktop:size-26 items-center justify-center rounded-full bg-blue-300 text-white">
-          <h1 className="text-[26.182px] desktop:text-[42.545px]">{initials}</h1>
+        <div className="flex flex-col items-center gap-1 mt-3 tablet:mt-0">
+          {/* 1. Profile circle showing initials */}
+          <div className="flex size-16 desktop:size-26 items-center justify-center rounded-full bg-blue-300 text-white">
+            <h1 className="text-[26.182px] desktop:text-[42.545px]">{initials}</h1>
+          </div>
+
+          {/* 2. Full name properly capitalized */}
+          <h1 className="font-bold text-grey-500 text-center">
+            {fullName}
+          </h1>
+        </div>
+        
+
+        {/* 3. Email subheading on the left, followed by a field */}
+        <div className="flex flex-col gap-2 w-full">
+          <h2>Email</h2>
+          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
+            {email || 'No email specified'}
+          </div>
         </div>
 
-        {/* 2. Full name properly capitalized */}
-        <h1 className="font-bold text-grey-500 text-center">
-          {fullName}
-        </h1>
-      </div>
-      
-
-      {/* 3. Email subheading on the left, followed by a field */}
-      <div className="flex flex-col gap-2 w-full">
-        <h2>Email</h2>
-        <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-          {email || 'No email specified'}
+        {/* 4. Phone number subheading on the left, followed by a field below it */}
+        <div className="flex flex-col gap-2 w-full">
+          <h2>Phone number</h2>
+          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
+            {phone}
+          </div>
         </div>
-      </div>
 
-      {/* 4. Phone number subheading on the left, followed by a field below it */}
-      <div className="flex flex-col gap-2 w-full">
-        <h2>Phone number</h2>
-        <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-          {phone}
-        </div>
-      </div>
-
-      {/* 5. Address subheading on the left, followed by a field below it */}
-      <div className="flex flex-col gap-2 w-full">
-        <h2>Address</h2>
-        <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-          {address}
+        {/* 5. Address subheading on the left, followed by a field below it */}
+        <div className="flex flex-col gap-2 w-full">
+          <h2>Address</h2>
+          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
+            {address}
+          </div>
         </div>
       </div>
 
@@ -104,25 +107,25 @@ export const DriverProfile = () => {
       <div className="flex flex-col desktop:flex-row gap-4 w-full">
         <Button
           variant="secondary"
-          className="flex-1"
+          className="desktop:flex-1"
           onClick={handleChangePassword}
         >
           Change password
         </Button>
         <Button
-          className="flex-1"
+          className="desktop:flex-1"
           onClick={handleLogoutClick}
         >
           Logout
         </Button>
       </div>
-
-      <LogoutConfirmModal
-        open={isLogoutModalOpen}
-        onOpenChange={setIsLogoutModalOpen}
-        onConfirm={handleConfirmLogout}
-        isLoading={logoutMutation.isPending}
-      />
     </main>
+    <LogoutConfirmModal
+      open={isLogoutModalOpen}
+      onOpenChange={setIsLogoutModalOpen}
+      onConfirm={handleConfirmLogout}
+      isLoading={logoutMutation.isPending}
+    />
+    </>
   );
 };
