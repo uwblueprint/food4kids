@@ -224,10 +224,10 @@ function NoteForm({
               maxLength={NOTE_MESSAGE_MAX}
               disabled={busy}
               className={cn(
-                'text-m-p2 font-normal text-grey-500',
+                'text-m-p2 text-grey-500 font-normal',
                 'placeholder:text-[length:var(--text-p2)]',
                 'placeholder:leading-[var(--text-p2--line-height)]',
-                'placeholder:font-semibold placeholder:text-grey-400',
+                'placeholder:text-grey-400 placeholder:font-semibold',
                 'box-border min-h-[160px] w-full flex-1 resize-none bg-transparent px-3 py-3 outline-none',
                 'disabled:text-grey-400 disabled:cursor-not-allowed'
               )}
@@ -278,7 +278,7 @@ function NoteForm({
         </p>
       )}
 
-      <ModalFooter className="mt-auto shrink-0 flex-col [&_button]:w-full tablet:flex-row tablet:[&_button]:flex-1">
+      <ModalFooter className="tablet:flex-row tablet:[&_button]:flex-1 mt-auto shrink-0 flex-col [&_button]:w-full">
         {mode === 'create' && (
           <>
             <input
