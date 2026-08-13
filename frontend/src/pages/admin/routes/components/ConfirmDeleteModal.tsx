@@ -47,7 +47,7 @@ export function ConfirmDeleteModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>{title}</ModalTitle>
+          <ModalTitle variant="confirmation">{title}</ModalTitle>
           <ModalDescription>{description}</ModalDescription>
         </ModalHeader>
 

@@ -93,7 +93,7 @@ function AnnouncementForm({
       className="flex min-h-0 flex-1 flex-col gap-6"
     >
       <ModalHeader className="shrink-0">
-        <ModalTitle>Announcements</ModalTitle>
+        <ModalTitle variant="form">Announcements</ModalTitle>
       </ModalHeader>
 
       <Field className="shrink-0">

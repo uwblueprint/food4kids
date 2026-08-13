@@ -89,6 +89,7 @@ class AlertCode(str, Enum):
     INVALID_ADDRESS = "INVALID_ADDRESS"
     MISSING_PHONE_NUMBER = "MISSING_PHONE_NUMBER"
     INVALID_PHONE_NUMBER = "INVALID_PHONE_NUMBER"
+    INVALID_SECONDARY_PHONE_NUMBER = "INVALID_SECONDARY_PHONE_NUMBER"
     MISSING_NAME = "MISSING_NAME"
     INVALID_NAME = "INVALID_NAME"
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
@@ -191,6 +192,11 @@ class ChangedFieldOptInt(SQLModel):
     old_value: int | None
 
 
+class ChangedFieldBool(SQLModel):
+    new_value: bool
+    old_value: bool
+
+
 class ChangedEntry(SQLModel):
     """An existing location whose fields differ from the import row.
 
@@ -201,15 +207,16 @@ class ChangedEntry(SQLModel):
     row: int
     location_id: UUID
     contact_name: str
-    # Diffed like the rest. The frames' Changed table has no Guardian Name
-    # column, but leaving it undiffed would mean a row whose only edit is the
-    # guardian's name never surfaces and the edit is dropped on ingest.
     guardian_name: str | ChangedFieldOptStr | None = None
     address: str | ChangedFieldStr
     delivery_group: str | ChangedFieldOptStr | None = None
     phone_primary: str | ChangedFieldStr
     phone_secondary: str | ChangedFieldOptStr | None = None
     num_children: int | ChangedFieldOptInt | None = None
+    # Never null: a blank cell leaves the stored value standing, so the
+    # unchanged case renders what the location already holds.
+    halal: bool | ChangedFieldBool = False
+    dietary_restrictions: str | ChangedFieldStr = ""
 
 
 class LocationImportPreview(SQLModel):

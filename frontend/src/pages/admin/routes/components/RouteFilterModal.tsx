@@ -62,7 +62,7 @@ export function RouteFilterModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>Filters</ModalTitle>
+          <ModalTitle variant="form">Filters</ModalTitle>
           <ModalDescription>{subtitle}</ModalDescription>
         </ModalHeader>
 

@@ -21,7 +21,6 @@ class RouteGenerationSettings(SQLModel):
     # read as warehouse-local time (settings.scheduler_timezone).
     route_start_time: datetime
     num_routes: int
-    max_stops_per_route: int | None = None  # Does not apply to Google Maps Routing
     max_boxes_per_driver: int = Field(default=14, gt=0)
     # From system settings; used to derive per-location box counts as
     # ceil(num_children / children_per_box). See app.utilities.boxes.

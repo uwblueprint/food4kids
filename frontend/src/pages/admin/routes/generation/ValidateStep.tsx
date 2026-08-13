@@ -42,6 +42,8 @@ function getAlertDisplay(code: AlertCode): {
       return { type: 'error', label: 'Missing Phone Number' };
     case 'INVALID_PHONE_NUMBER':
       return { type: 'error', label: 'Invalid Phone Number' };
+    case 'INVALID_SECONDARY_PHONE_NUMBER':
+      return { type: 'error', label: 'Invalid Secondary Phone Number' };
     case 'MISSING_DELIVERY_GROUP':
       return { type: 'error', label: 'Missing Delivery Group' };
     case 'LOCAL_DUPLICATE':
@@ -62,6 +64,9 @@ const hasAddressAlert = (alerts: AlertCode[]) =>
 const hasPhoneAlert = (alerts: AlertCode[]) =>
   alerts.includes('MISSING_PHONE_NUMBER') ||
   alerts.includes('INVALID_PHONE_NUMBER');
+
+const hasSecondaryPhoneAlert = (alerts: AlertCode[]) =>
+  alerts.includes('INVALID_SECONDARY_PHONE_NUMBER');
 
 const hasInvalidOrMissingAlert = (row: { alerts: AlertCode[] }) =>
   row.alerts.some((code) => code !== 'LOCAL_DUPLICATE');
@@ -201,6 +206,16 @@ export function ValidateStep() {
             'phone_primary',
             duplicateFields(row)
           ),
+      },
+      // INVALID_SECONDARY_PHONE_NUMBER is a blocking alert, so the value has
+      // to be on screen — otherwise the admin is told to fix something they
+      // cannot see. Never a duplicate field: the 2-of-3 rule uses the primary.
+      {
+        key: 'phone_secondary',
+        header: 'Secondary Phone Number',
+        render: (row) => row.location.phone_secondary ?? '',
+        getCellClassName: (row) =>
+          getCellClass(invalid && hasSecondaryPhoneAlert(row.alerts)),
       },
     ];
   };

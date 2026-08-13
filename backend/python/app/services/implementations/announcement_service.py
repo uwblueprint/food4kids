@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime
 from uuid import UUID, uuid4
-from zoneinfo import ZoneInfo
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +16,7 @@ from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.driver import Driver
 from app.models.user import User
 from app.services.implementations.email_dispatcher import EmailDispatcher
+from app.utilities.datetime_utils import now_utc
 
 
 class AnnouncementService:
@@ -24,10 +24,6 @@ class AnnouncementService:
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-
-    @staticmethod
-    def _est_now_naive() -> datetime:
-        return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
     async def _get_user_role(self, session: AsyncSession, user_id: UUID) -> str | None:
         statement = select(User.role).where(User.user_id == user_id)
@@ -121,7 +117,7 @@ class AnnouncementService:
                 setattr(announcement, field, value)
 
             if update_data:
-                announcement.updated_at = self._est_now_naive()
+                announcement.updated_at = now_utc()
 
             await session.commit()
             return await self.get_announcement(session, announcement_id)
@@ -223,7 +219,7 @@ class AnnouncementService:
             if not user_result.scalars().first():
                 raise ValueError(f"User with id {user_id} not found")
 
-            now = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+            now = now_utc()
             insert_stmt = pg_insert(AnnouncementLastRead).values(
                 announcement_last_read_id=uuid4(),
                 user_id=user_id,

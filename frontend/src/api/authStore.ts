@@ -11,13 +11,24 @@ interface AuthState {
     email: string;
     fullName: string;
     role: string;
-    driverId?: string; // Populated if they are a driver
+    driverId: string | null; // Populated if they are a driver
+    adminId: string | null; // Populated if they are an admin
   } | null;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
-  setAuth: (authData: AuthResponse, driverId?: string) => void;
+  /**
+   * The session ended on its own rather than by logging out — the token was
+   * expired, or revoked out from under us. Distinguishes "we signed you out"
+   * from "you were never signed in", which the login page needs in order to
+   * explain itself to someone who was working a moment ago.
+   */
+  sessionExpired: boolean;
+  rememberMe: boolean;
+  setAuth: (authData: AuthResponse) => void;
   setAuthFromRegister: (registerData: DriverRegisterResponse) => void;
   clearAuth: () => void;
+  /** Sign out because the server rejected our token. See `axiosClient`. */
+  expireSession: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -25,9 +36,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isRestoringSession: true,
+  sessionExpired: false,
+  rememberMe: false,
 
   // Called after a successful Login
-  setAuth: (authData, driverId) =>
+  setAuth: (authData) =>
     set({
       accessToken: authData.access_token,
       user: {
@@ -37,10 +50,14 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: authData.email,
         fullName: authData.full_name,
         role: authData.role,
-        driverId,
+        driverId: authData.driver_id ?? null,
+        adminId: authData.admin_id ?? null,
       },
       isAuthenticated: true,
       isRestoringSession: false,
+      // Whatever ended the last session, this one supersedes it.
+      sessionExpired: false,
+      rememberMe: authData.remember_me,
     }),
 
   // Called after a successful Registration
@@ -55,9 +72,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         fullName: registerData.auth.full_name,
         role: registerData.driver.role,
         driverId: registerData.driver.driver_id,
+        adminId: registerData.auth.admin_id ?? null,
       },
       isAuthenticated: true,
       isRestoringSession: false,
+      sessionExpired: false,
+      rememberMe: registerData.auth.remember_me,
     }),
 
   clearAuth: () =>
@@ -66,5 +86,17 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       isAuthenticated: false,
       isRestoringSession: false,
+      sessionExpired: false,
+      rememberMe: false,
+    }),
+
+  expireSession: () =>
+    set({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isRestoringSession: false,
+      sessionExpired: true,
+      rememberMe: false,
     }),
 }));

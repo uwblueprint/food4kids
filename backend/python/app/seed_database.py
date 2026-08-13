@@ -3,17 +3,20 @@
 Comprehensive database seeding script with advanced features.
 """
 
+import argparse
 import csv
 import os
 import random
 import uuid
-from datetime import date, datetime, time, timedelta
+import zlib
+from datetime import date, datetime, time, timedelta, timezone
+from itertools import pairwise
 from typing import cast
-from zoneinfo import ZoneInfo
 
 import faker
 import firebase_admin
 import phonenumbers
+import polyline
 from firebase_admin import auth
 from phonenumbers import PhoneNumberFormat
 from sklearn.cluster import KMeans  # type: ignore[import-untyped]
@@ -44,6 +47,7 @@ from app.models.system_settings import (
 
 # Import all models to register them with SQLModel
 from app.models.user import User
+from app.utilities.datetime_utils import from_local_wall_clock, now_utc
 
 # Initialize Faker
 fake = faker.Faker()
@@ -190,10 +194,6 @@ JOB_UPDATE_HOUR_MAX = 3
 JOB_FINISH_HOUR_MIN = 1
 # Maximum hours after update time for job finish time
 JOB_FINISH_HOUR_MAX = 4
-# Minimum default capacity for admin info
-DEFAULT_CAP_MIN = 10
-# Maximum default capacity for admin info
-DEFAULT_CAP_MAX = 20
 
 # Time constants
 # Default route start time (HH:MM:SS format)
@@ -255,19 +255,38 @@ def ensure_firebase_user(
     role: str,
     first_name: str,
     last_name: str,
+    *,
+    reset_password: bool = False,
 ) -> str:
-    """Create or update a Firebase user so it is always loginable with the given credentials."""
+    """Create or update a Firebase user so it is always loginable.
+
+    An existing user's password is deliberately left alone. Firebase treats a
+    password write as a credential change: it moves the account's
+    ``tokensValidAfterTime`` to now, which revokes every ID and refresh token
+    already issued. Because ``verify_id_token`` is called with
+    ``check_revoked=True``, everyone holding one is signed out on their very
+    next request.
+
+    Rewriting the password unconditionally therefore made re-seeding sign out
+    every open session — including CI's, which seeds the same Firebase project
+    that local development uses, so an unrelated merge would log a developer
+    out mid-task. The password does not need writing anyway: it is a constant,
+    so on the second run it is already the value being written.
+
+    Measured against the real project, only the password does this — writing
+    ``display_name`` or custom claims leaves ``tokensValidAfterTime`` untouched.
+    The other fields are still written when they differ, which is why this
+    reconciles rather than blindly updating.
+
+    :param reset_password: Write the password even when the account exists, for
+        the case where it really has drifted. Signs everyone out; that is the
+        point, so it has to be asked for.
+    """
     full_name = f"{first_name} {last_name}"
+    claims = {"role": role, "given_name": first_name, "family_name": last_name}
+
     try:
-        auth.get_user(uid)
-        auth.update_user(
-            uid,
-            email=email,
-            password=password,
-            email_verified=True,
-            display_name=full_name,
-        )
-        print(f"  Firebase user {uid} ({email}) already exists, updated")
+        existing = auth.get_user(uid)
     except auth.UserNotFoundError:
         auth.create_user(
             uid=uid,
@@ -276,11 +295,27 @@ def ensure_firebase_user(
             email_verified=True,
             display_name=full_name,
         )
+        auth.set_custom_user_claims(uid, claims)
         print(f"  Firebase user {uid} ({email}) created")
-    auth.set_custom_user_claims(
-        uid,
-        {"role": role, "given_name": first_name, "family_name": last_name},
-    )
+        return uid
+
+    changes: dict[str, object] = {}
+    if existing.email != email:
+        changes["email"] = email
+    if existing.display_name != full_name:
+        changes["display_name"] = full_name
+    if not existing.email_verified:
+        changes["email_verified"] = True
+    if reset_password:
+        changes["password"] = password
+
+    if changes:
+        auth.update_user(uid, **changes)
+    if (existing.custom_claims or {}) != claims:
+        auth.set_custom_user_claims(uid, claims)
+
+    updated = ", ".join(sorted(changes)) if changes else "nothing to change"
+    print(f"  Firebase user {uid} ({email}) already exists, {updated}")
     return uid
 
 
@@ -409,6 +444,61 @@ def calculate_route_length(
     return total_length
 
 
+"""Shape of the synthetic path drawn between consecutive stops.
+
+Points per leg buys the bend its resolution; the fraction is how far off the
+straight line the middle of a leg is pushed, as a share of that leg's own
+length, so the bend stays proportional whether the next stop is 200m or 5km
+away.
+"""
+POLYLINE_POINTS_PER_LEG = 6
+POLYLINE_BEND_FRACTION = 0.12
+
+
+def build_route_polyline(ordered_coords: list[tuple[float, float]], seed: int) -> str:
+    """Encode a plausible-looking path through `ordered_coords`.
+
+    This does NOT follow real streets. The seeder has no routing provider, so
+    each leg is drawn as a bowed curve between its two stops — enough for the
+    route maps to read as routes instead of a star of straight lines out of the
+    warehouse, and nothing more. In production `encoded_polyline` comes from the
+    routing provider, so no code should ever treat a seeded polyline as
+    directions or measure anything off it; `Route.length` remains the haversine
+    figure the rest of the seeder already computes.
+
+    `seed` keeps a given cluster's shape stable across seed runs. The draws go
+    through a local Random rather than the module-level one on purpose: pulling
+    from the global stream here would shift every downstream random choice in
+    the seeder and silently change unrelated fixture data.
+    """
+    if len(ordered_coords) < 2:
+        return ""
+
+    rng = random.Random(seed)
+    path: list[tuple[float, float]] = [ordered_coords[0]]
+
+    for (lat1, lon1), (lat2, lon2) in pairwise(ordered_coords):
+        dlat, dlon = lat2 - lat1, lon2 - lon1
+        # Perpendicular to the leg, so the offset bows the segment sideways
+        # rather than stretching it past either stop.
+        perp_lat, perp_lon = -dlon, dlat
+        bend = rng.uniform(-POLYLINE_BEND_FRACTION, POLYLINE_BEND_FRACTION)
+
+        for step in range(1, POLYLINE_POINTS_PER_LEG):
+            t = step / POLYLINE_POINTS_PER_LEG
+            # Zero at t=0 and t=1, widest mid-leg: the curve always meets its
+            # stops exactly, so markers sit on the line instead of beside it.
+            arc = bend * (4.0 * t * (1.0 - t))
+            path.append(
+                (lat1 + dlat * t + perp_lat * arc, lon1 + dlon * t + perp_lon * arc)
+            )
+        path.append((lat2, lon2))
+
+    # precision=5 is the Google encoding the routing provider returns, and what
+    # the frontend's decoder assumes.
+    return polyline.encode(path, precision=5)
+
+
 class ClusterPlan:
     """Pre-computed TSP plan for one cluster within one location group.
 
@@ -424,11 +514,15 @@ class ClusterPlan:
         ordered_location_ids: list[str],
         cluster_locations: list[Location],
         length_km: float,
+        encoded_polyline: str,
     ):
         self.cluster_idx = cluster_idx
         self.ordered_location_ids = ordered_location_ids
         self.cluster_locations = cluster_locations
         self.length_km = length_km
+        # Computed with the plan, not per Route: every drive_date materialized
+        # from this cluster drives the same stops in the same order.
+        self.encoded_polyline = encoded_polyline
 
 
 def plan_clusters_for_group(
@@ -476,12 +570,29 @@ def plan_clusters_for_group(
         total_length = calculate_route_length(
             route_order, cluster_locations, WAREHOUSE_LAT, WAREHOUSE_LON
         )
+
+        # Routes leave the warehouse and finish at their last stop
+        # (ends_at_warehouse is False for seeded routes), matching the legs
+        # calculate_route_length already measures.
+        by_id = {str(loc.location_id): loc for loc in cluster_locations}
+        coords: list[tuple[float, float]] = [(WAREHOUSE_LAT, WAREHOUSE_LON)]
+        for location_id in route_order:
+            location = by_id[location_id]
+            coords.append(
+                (cast("float", location.latitude), cast("float", location.longitude))
+            )
+
         plans.append(
             ClusterPlan(
                 cluster_idx=cluster_idx,
                 ordered_location_ids=route_order,
                 cluster_locations=cluster_locations,
                 length_km=round(total_length, 2),
+                # crc32 over the stop order, not hash(): hash() is salted per
+                # process, which would reshape every route on each seed run.
+                encoded_polyline=build_route_polyline(
+                    coords, zlib.crc32("".join(route_order).encode())
+                ),
             )
         )
     return plans
@@ -534,6 +645,10 @@ def materialize_route_for_group(
         route_group_id=route_group.route_group_id,
         driver_id=driver_id,
         start_time=start_time,
+        encoded_polyline=plan.encoded_polyline or None,
+        polyline_updated_at=(
+            datetime.now(timezone.utc) if plan.encoded_polyline else None
+        ),
     )
     set_timestamps(route)
     session.add(route)
@@ -583,8 +698,14 @@ def materialize_route_for_group(
     return route
 
 
-def main() -> None:
-    """Main seeding function"""
+def main(*, reset_passwords: bool = False) -> None:
+    """Main seeding function
+
+    :param reset_passwords: Rewrite every seeded account's password to
+        ``SEED_PASSWORD``, signing out everyone currently holding a token. Off
+        by default so a routine re-seed leaves open sessions alone; see
+        ``ensure_firebase_user``.
+    """
     print("Starting final database seeding...")
 
     if not firebase_admin._apps:  # type: ignore[attr-defined]
@@ -646,6 +767,7 @@ def main() -> None:
                     role="admin",
                     first_name=first_name,
                     last_name=last_name,
+                    reset_password=reset_passwords,
                 )
 
                 user = User(
@@ -808,6 +930,7 @@ def main() -> None:
                     role="driver",
                     first_name=first_name,
                     last_name=last_name,
+                    reset_password=reset_passwords,
                 )
 
                 user = User(
@@ -991,12 +1114,31 @@ def main() -> None:
             set_timestamps(route_no_stops)
             session.add(route_no_stops)
 
+            fixture_coords: list[tuple[float, float]] = [
+                (WAREHOUSE_LAT, WAREHOUSE_LON),
+                *(
+                    (loc.latitude, loc.longitude)
+                    for loc in stop_locations
+                    if loc.latitude is not None and loc.longitude is not None
+                ),
+            ]
+            fixture_polyline = build_route_polyline(
+                fixture_coords,
+                zlib.crc32(
+                    "".join(str(loc.location_id) for loc in stop_locations).encode()
+                ),
+            )
+
             route_with_stops = Route(
                 name="TEST Route (has stops)",
                 notes="Seeded fixture: unassigned, has stops (delete disabled).",
                 length=5.0,
                 route_group_id=fixture_group.route_group_id,
                 driver_id=None,
+                encoded_polyline=fixture_polyline or None,
+                polyline_updated_at=(
+                    datetime.now(timezone.utc) if fixture_polyline else None
+                ),
             )
             set_timestamps(route_with_stops)
             session.add(route_with_stops)
@@ -1158,11 +1300,18 @@ def main() -> None:
                 jobs_created = len(selected_groups)
 
                 for route_group_id, drive_date in selected_groups:
-                    started_at = datetime.combine(
-                        drive_date,
-                        time(
-                            hour=random.randint(JOB_START_HOUR_MIN, JOB_START_HOUR_MAX)
-                        ),
+                    # The hour is a wall-clock hour on the drive date, so read it
+                    # in the app's timezone rather than handing Postgres a naive
+                    # value it would resolve against the session timezone.
+                    started_at = from_local_wall_clock(
+                        datetime.combine(
+                            drive_date,
+                            time(
+                                hour=random.randint(
+                                    JOB_START_HOUR_MIN, JOB_START_HOUR_MAX
+                                )
+                            ),
+                        )
                     )
                     updated_at = started_at + timedelta(
                         hours=random.randint(JOB_UPDATE_HOUR_MIN, JOB_UPDATE_HOUR_MAX)
@@ -1190,7 +1339,6 @@ def main() -> None:
                 ROUTE_START_TIME, "%H:%M:%S"
             ).time()
             system_settings = SystemSettings(
-                default_cap=random.randint(DEFAULT_CAP_MIN, DEFAULT_CAP_MAX),
                 route_start_time=route_start_time_obj,
                 warehouse_location=WAREHOUSE_ADDRESS,
                 warehouse_longitude=WAREHOUSE_LON,
@@ -1250,9 +1398,7 @@ def main() -> None:
                     attachments=[],
                 )
                 set_timestamps(announcement)
-                posted_at = datetime.now(ZoneInfo("America/New_York")).replace(
-                    tzinfo=None
-                ) - timedelta(days=days_ago)
+                posted_at = now_utc() - timedelta(days=days_ago)
                 announcement.created_at = posted_at
                 announcement.updated_at = posted_at
                 session.add(announcement)
@@ -1272,10 +1418,7 @@ def main() -> None:
                 if random.random() < 0.6:
                     read_entry = AnnouncementLastRead(
                         user_id=driver_user_row[0],
-                        last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(
-                            tzinfo=None
-                        )
-                        - timedelta(hours=random.randint(0, 72)),
+                        last_read_at=now_utc() - timedelta(hours=random.randint(0, 72)),
                     )
                     set_timestamps(read_entry)
                     session.add(read_entry)
@@ -1299,4 +1442,14 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--reset-passwords",
+        action="store_true",
+        help=(
+            f"Rewrite every seeded account's password to '{SEED_PASSWORD}'. "
+            "Signs out everyone currently logged in, so it is off by default — "
+            "use it only when a password has actually drifted."
+        ),
+    )
+    main(reset_passwords=parser.parse_args().reset_passwords)

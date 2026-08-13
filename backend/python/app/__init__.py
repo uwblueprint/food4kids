@@ -4,6 +4,7 @@ from logging.config import dictConfig
 
 import firebase_admin
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
@@ -12,10 +13,15 @@ from app.dependencies.services import (
     get_scheduler_service,
     get_system_settings_service,
 )
+from app.services.implementations.route_generation_worker import (
+    recover_route_generation_jobs,
+    start_route_generation_worker,
+    stop_route_generation_worker,
+)
 from app.services.jobs import init_jobs
 
 from .config import settings
-from .middleware import UnhandledExceptionMiddleware
+from .middleware import UnhandledExceptionMiddleware, log_request_validation_error
 from .models import init_app as init_models
 from .routers import init_app as init_routers
 
@@ -141,9 +147,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         await session.commit()
         await init_jobs(scheduler_service, session)
 
+        start_route_generation_worker()
+        await recover_route_generation_jobs(session)
+
     yield
 
-    # Cleanup: stop the scheduler service during application shutdown
+    # Cleanup: stop background work before tearing down the scheduler.
+    await stop_route_generation_worker()
     scheduler_service.stop()
 
 
@@ -216,6 +226,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # A 422 is raised during parameter resolution, so it never reaches a handler
+    # and would otherwise be logged nowhere at all.
+    app.add_exception_handler(RequestValidationError, log_request_validation_error)
 
     # Initialize routers
     init_routers(app)

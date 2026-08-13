@@ -40,6 +40,8 @@ IMPORT_COLUMN_MAP = {
     "phone_primary": "Phone",
     "phone_secondary": "Secondary Phone",
     "num_children": "Children",
+    "halal": "Halal",
+    "dietary_restrictions": "Food Restrictions",
 }
 
 
@@ -59,6 +61,9 @@ class FakeGoogleMapsClient:
             place_id=f"place-{address}",
             latitude=43.0,
             longitude=-80.0,
+            # "Imprecise" stands in for the real failure mode: Google answers
+            # with a town or township centroid instead of a house.
+            is_precise="Imprecise" not in address,
         )
 
 
@@ -73,6 +78,8 @@ def import_review_request(
         "Phone",
         "Secondary Phone",
         "Children",
+        "Halal",
+        "Food Restrictions",
     ]
     lines = [",".join(headers)]
     for row in rows:
@@ -104,18 +111,13 @@ class TestDriverRoutes:
     ) -> None:
         """Test POST /drivers creates a new driver."""
 
-        # We don't want to actually to send an email so we mock the call
-        with (
-            patch(
-                "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
-                new_callable=AsyncMock,
-                return_value=None,
-            ),
-            patch(
-                "app.dependencies.auth.auth_service.is_authorized_by_role",
-                new_callable=AsyncMock,
-                return_value=True,
-            ),
+        # We don't want to actually to send an email so we mock the call.
+        # Authorization needs no patching: conftest overrides the role
+        # dependencies outright.
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+            return_value=None,
         ):
             driver_register_data = {
                 "first_name": sample_driver_data["first_name"],
@@ -187,6 +189,7 @@ class TestDriverRoutes:
             "id": str(uuid4()),
             "email": "newdriver@example.com",
             "role": "driver",
+            "remember_me": False,
         }
         # We don't want to actually call firebase so we mock the call
         with (
@@ -1410,22 +1413,22 @@ class TestLocationRoutes:
                     note_chain_id=chain.note_chain_id,
                     message="Old note",
                     is_system=False,
-                    created_at=datetime(2026, 1, 1),
-                    updated_at=datetime(2026, 1, 1),
+                    created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="Gate code 2736",
                     is_system=False,
-                    created_at=datetime(2026, 2, 1),
-                    updated_at=datetime(2026, 2, 1),
+                    created_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="System event",
                     is_system=True,
-                    created_at=datetime(2026, 3, 1),
-                    updated_at=datetime(2026, 3, 1),
+                    created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
                 ),
             ]
         )
@@ -1679,6 +1682,13 @@ class TestLocationImportRoutes:
                     "Delivery Group": "Monday",
                     "Phone": "not-a-phone",
                 },
+                {
+                    "Name": "Invalid Secondary Phone Family",
+                    "Address": "3 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164170",
+                    "Secondary Phone": "not-a-phone",
+                },
             ]
         )
 
@@ -1696,7 +1706,79 @@ class TestLocationImportRoutes:
         assert body["rows"][1]["alerts"] == ["INVALID_NAME"]
         assert body["rows"][2]["alerts"] == ["INVALID_ADDRESS"]
         assert body["rows"][3]["alerts"] == ["INVALID_PHONE_NUMBER"]
-        assert fake_maps.calls == ["1 Valid St", "Invalid Address", "2 Valid St"]
+        assert body["rows"][4]["alerts"] == ["INVALID_SECONDARY_PHONE_NUMBER"]
+        assert fake_maps.calls == [
+            "1 Valid St",
+            "Invalid Address",
+            "2 Valid St",
+            "3 Valid St",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_review_locations_rejects_imprecise_geocode(
+        self, client_with_overrides: Any
+    ) -> None:
+        """An address Google resolves to a town centroid is not deliverable.
+
+        Google answers a nonexistent street with the surrounding township, which
+        arrives as an ordinary successful result. Those rows must raise
+        INVALID_ADDRESS rather than importing as a stop in the middle of nowhere.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Precise Family",
+                    "Address": "1 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164168",
+                },
+                {
+                    "Name": "Centroid Family",
+                    "Address": "99999 Imprecise Pkwy",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/import/preview", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is False
+        assert body["rows"][0]["alerts"] == []
+        assert body["rows"][1]["alerts"] == ["INVALID_ADDRESS"]
+        # The imprecise row keeps the address the admin typed, so the review
+        # screen doesn't imply we accepted Google's fallback match.
+        assert body["rows"][1]["location"]["address"] == "99999 Imprecise Pkwy"
+
+    @pytest.mark.asyncio
+    async def test_apply_import_refuses_imprecise_address(
+        self, client_with_overrides: Any
+    ) -> None:
+        """Applying is blocked too, not just flagged in the preview."""
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Centroid Family",
+                    "Address": "99999 Imprecise Pkwy",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/import", **request)
+
+        assert response.status_code == 400
 
     @pytest.mark.asyncio
     async def test_review_locations_detects_duplicate_groups_by_two_of_three(
@@ -2151,6 +2233,198 @@ class TestLocationImportRoutes:
         assert body["changed"] == []
         assert body["net_new"] == []
         assert body["stale"] == []
+
+    @pytest.mark.asyncio
+    async def test_review_and_ingest_apply_halal_and_dietary_restrictions(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A row whose only edit is halal/restrictions must surface and apply.
+
+        Both fields are written by the import, so they have to take part in
+        change detection (or the row is never offered for review) and in the
+        applier (or the reviewed change is dropped on ingest).
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Halal Family",
+            contact_name="Halal Family",
+            address="Formatted 77 Main St",
+            phone_primary="+14164164171",
+            num_children=3,
+            halal=False,
+            dietary_restrictions="Peanut",
+            delivery_type="Family",
+        )
+        test_session.add(location)
+        await test_session.commit()
+        location_id = location.location_id
+
+        rows = [
+            {
+                "Name": "Halal Family",
+                "Address": "77 Main St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164171",
+                "Children": "3",
+                "Halal": "Yes",
+                "Food Restrictions": "Dairy",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import/preview", **import_review_request(rows)
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert len(body["changed"]) == 1
+        changed = body["changed"][0]
+        assert changed["halal"] == {"new_value": True, "old_value": False}
+        assert changed["dietary_restrictions"] == {
+            "new_value": "Dairy",
+            "old_value": "Peanut",
+        }
+        # Untouched fields stay plain values, not old/new pairs.
+        assert changed["num_children"] == 3
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+
+        await test_session.refresh(location)
+        assert location.location_id == location_id
+        assert location.halal is True
+        assert location.dietary_restrictions == "Dairy"
+
+    @pytest.mark.asyncio
+    async def test_ingest_blank_optional_cells_leave_stored_values(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A blank cell carries no information and must not clear the field.
+
+        A blank cell and an unmapped column both parse to None, so None cannot
+        mean "clear this" — the stored value has to survive the import.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Blank Optionals Family",
+            contact_name="Blank Optionals Family",
+            address="Formatted 88 Main St",
+            phone_primary="+14164164172",
+            num_children=5,
+            halal=True,
+            dietary_restrictions="Gluten",
+            in_roster=False,
+            delivery_type="Family",
+        )
+        test_session.add(location)
+        await test_session.commit()
+
+        # in_roster=False makes this a changed row even though every mapped
+        # field matches, so the applier actually runs over it.
+        rows = [
+            {
+                "Name": "Blank Optionals Family",
+                "Address": "88 Main St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164172",
+                "Children": "",
+                "Halal": "",
+                "Food Restrictions": "",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import/preview", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+        changed = response.json()["changed"]
+        assert len(changed) == 1
+        assert changed[0]["num_children"] == 5
+        assert changed[0]["halal"] is True
+        assert changed[0]["dietary_restrictions"] == "Gluten"
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+
+        await test_session.refresh(location)
+        assert location.num_children == 5
+        assert location.halal is True
+        assert location.dietary_restrictions == "Gluten"
+        assert location.in_roster is True
+
+    @pytest.mark.asyncio
+    async def test_ingest_carries_optional_fields_through_an_address_change(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A moved location keeps the import's values, not the old row's.
+
+        The move retires the old Location and builds a fresh one, which used to
+        copy halal/restrictions off the row being retired — silently discarding
+        the edit the admin had just reviewed.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Moving Family",
+                contact_name="Moving Family",
+                address="Formatted 99 Old St",
+                phone_primary="+14164164173",
+                num_children=2,
+                halal=False,
+                dietary_restrictions="Peanut",
+                delivery_type="Family",
+            )
+        )
+        await test_session.commit()
+
+        rows = [
+            {
+                "Name": "Moving Family",
+                "Address": "100 New St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164173",
+                "Children": "2",
+                "Halal": "Yes",
+                "Food Restrictions": "Dairy",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+
+        assert response.status_code == 200
+        created = response.json()["created"]
+        assert len(created) == 1
+        assert created[0]["address"] == "Formatted 100 New St"
+        assert created[0]["halal"] is True
+        assert created[0]["dietary_restrictions"] == "Dairy"
 
     @pytest.mark.asyncio
     async def test_review_locations_claims_existing_matches_once(
@@ -4951,14 +5225,14 @@ class TestNoteFeedRoutes:
             location_name="Beta Family",
             message="Older note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Family",
             message="Newer note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?page_size=1&sort=recent")
@@ -4994,7 +5268,7 @@ class TestNoteFeedRoutes:
             location_name="System Family",
             message="Automated note",
             user=None,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?sort=recent")
@@ -5032,21 +5306,21 @@ class TestNoteFeedRoutes:
             location_name="Charlie Location",
             message="Admin middle",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Location",
             message="Driver newest",
             user=driver_user,
-            created_at=datetime(2026, 1, 3, 9, 0),
+            created_at=datetime(2026, 1, 3, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Bravo Location",
             message="Admin oldest",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         oldest_response = await async_client.get("/notes?sort=oldest")
@@ -5100,16 +5374,11 @@ class TestValidationErrors:
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
         }
-        with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            response = await async_client.post(
-                "/drivers/initialize",
-                json=invalid_data,
-                headers={"Authorization": "Bearer test-token"},
-            )
+        response = await async_client.post(
+            "/drivers/initialize",
+            json=invalid_data,
+            headers={"Authorization": "Bearer test-token"},
+        )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
@@ -5353,6 +5622,49 @@ class TestJobRoutes:
         assert response.json()["job_id"] == str(job_id)
 
     @pytest.mark.asyncio
+    async def test_generate_job_persists_input_payload(
+        self, test_session: AsyncSession
+    ) -> None:
+        """JobService.generate_job stores the request so a worker can replay it later."""
+        from app.schemas.route_generation import (
+            RouteGenerationGroupInput,
+            RouteGenerationSettings,
+        )
+        from app.services.implementations.job_service import JobService
+
+        req = RouteGenerationGroupInput(
+            location_group=LocationGroup(name="Group", color="#FF5733"),
+            settings=RouteGenerationSettings(
+                route_start_time=datetime(2026, 6, 1, 8, 0), num_routes=2
+            ),
+        )
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job(req)
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is not None
+
+        rehydrated = RouteGenerationGroupInput.model_validate(job.input_payload)
+        assert rehydrated.location_group.name == "Group"
+        assert rehydrated.settings.num_routes == 2
+
+    @pytest.mark.asyncio
+    async def test_generate_job_with_no_request_leaves_payload_null(
+        self, test_session: AsyncSession
+    ) -> None:
+        """generate_job(None) is still valid and stores no payload."""
+        from app.services.implementations.job_service import JobService
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job()
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is None
+
+    @pytest.mark.asyncio
     async def test_cancel_pending_job(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
@@ -5423,7 +5735,7 @@ class TestJobRoutes:
     async def test_enqueue_cancelled_job_does_not_run(
         self, test_session: AsyncSession
     ) -> None:
-        """Queued work checks job state before moving to Running."""
+        """enqueue is only a doorbell: cancelled jobs stay cancelled."""
         from app.models.job import Job
         from app.services.implementations.job_service import JobService
 

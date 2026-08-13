@@ -276,16 +276,6 @@ def mock_firebase_admin_auth(mocker: Any) -> Any:
 
 
 @pytest.fixture
-def mock_auth_service(mocker: Any) -> Any:
-    """Mock the auth service for testing."""
-    mock_service = mocker.patch("app.services.implementations.auth_service.AuthService")
-    mock_service.return_value.is_authorized_by_role.return_value = True
-    mock_service.return_value.is_authorized_by_user_id.return_value = True
-    mock_service.return_value.is_authorized_by_email.return_value = True
-    return mock_service
-
-
-@pytest.fixture
 def auth_headers() -> dict[str, str]:
     """Provide authentication headers for testing."""
     return {"Authorization": "Bearer test-token"}

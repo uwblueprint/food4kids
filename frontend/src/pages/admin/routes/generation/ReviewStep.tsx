@@ -9,17 +9,7 @@ import {
 import { useApplyLocationImport } from '@/api';
 import type { ChangedEntry, StaleEntry } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
-import {
-  Banner,
-  Button,
-  DataTable,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
-} from '@/common/components';
+import { Banner, Button, DataTable } from '@/common/components';
 import { cn } from '@/lib/utils';
 
 import { EmptyState } from '../components';
@@ -35,6 +25,18 @@ function isChanged<T>(value: T | ChangedField<T>): value is ChangedField<T> {
     'new_value' in (value as object) &&
     'old_value' in (value as object)
   );
+}
+
+// Halal arrives as a bool on both sides of the diff. ChangedCell renders text,
+// so map through Yes/No while keeping the changed/unchanged shape intact.
+function yesNo(
+  value: boolean | ChangedField<boolean> | undefined
+): string | undefined | ChangedField<string | null> {
+  const label = (flag: boolean) => (flag ? 'Yes' : 'No');
+  if (value === undefined) return undefined;
+  return isChanged(value)
+    ? { new_value: label(value.new_value), old_value: label(value.old_value) }
+    : label(value);
 }
 
 function ChangedCell({
@@ -106,7 +108,6 @@ export function ReviewStep() {
   const [reviewedRemoved, setReviewedRemoved] = useState<Set<string>>(
     new Set()
   );
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
 
   if (!file || !reviewResult || !selectedDeliveryType) {
@@ -144,7 +145,9 @@ export function ReviewStep() {
     reviewedChanged.size === changedEntries.length &&
     reviewedRemoved.size === staleRows.length;
 
-  const handleConfirm = async () => {
+  // Checking every row off *is* the confirmation, so Continue applies the
+  // import directly rather than asking again in a modal.
+  const handleContinue = async () => {
     setIngestError(null);
     try {
       // The same file and mapping the preview ran on: the backend replans it
@@ -155,13 +158,8 @@ export function ReviewStep() {
         columnMap,
         deliveryType: selectedDeliveryType,
       });
-      setConfirmOpen(false);
       navigate('/admin/routes/generation/configure');
     } catch {
-      // Close first: Radix marks the rest of the page aria-hidden and locks
-      // body scroll while the modal is open, so a banner set behind it is
-      // unreachable both visually and to screen readers.
-      setConfirmOpen(false);
       setIngestError('Could not apply the import changes — please try again.');
     }
   };
@@ -189,9 +187,8 @@ export function ReviewStep() {
       header: 'School / Last Name',
       render: (row) => row.contact_name,
     },
-    // Not in the frames' Changed table. Without it, a row whose only edit is
-    // the guardian's name shows no visible difference, and there is nothing
-    // for the admin to check off — flag to the designer.
+    // Every field the import writes is diffed here: the admin checks a row off
+    // as reviewed, so a row whose only edit is invisible has nothing to review.
     {
       key: 'guardian_name',
       header: 'Guardian Name',
@@ -213,9 +210,24 @@ export function ReviewStep() {
       render: (row) => <ChangedCell value={row.phone_primary} />,
     },
     {
+      key: 'phone_secondary',
+      header: 'Secondary Phone Number',
+      render: (row) => <ChangedCell value={row.phone_secondary} />,
+    },
+    {
       key: 'num_children',
       header: 'Number of Children',
       render: (row) => <ChangedCell value={row.num_children} />,
+    },
+    {
+      key: 'dietary_restrictions',
+      header: 'Food Restrictions',
+      render: (row) => <ChangedCell value={row.dietary_restrictions} />,
+    },
+    {
+      key: 'halal',
+      header: 'Halal?',
+      render: (row) => <ChangedCell value={yesNo(row.halal)} />,
     },
   ];
 
@@ -343,40 +355,22 @@ export function ReviewStep() {
 
       <GenerationFooter>
         <Button variant="tertiary" asChild>
-          <Link to="/admin/routes/generation/validate">Back to validate</Link>
+          {/* Import skips validate when the preview is clean, so back goes
+              wherever the admin actually came from. */}
+          {reviewResult.success ? (
+            <Link to="/admin/routes/generation/import">Back to import</Link>
+          ) : (
+            <Link to="/admin/routes/generation/validate">Back to validate</Link>
+          )}
         </Button>
         <Button
           variant="primary"
-          disabled={!allReviewed}
-          onClick={() => setConfirmOpen(true)}
+          disabled={!allReviewed || isIngesting}
+          onClick={handleContinue}
         >
-          Continue to edit route groups
+          {isIngesting ? 'Applying…' : 'Continue to edit route groups'}
         </Button>
       </GenerationFooter>
-
-      <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle>Confirm Changes</ModalTitle>
-            <ModalDescription>
-              Some data has been updated, added, or removed. Are you sure you
-              want to apply these changes?
-            </ModalDescription>
-          </ModalHeader>
-          <ModalFooter>
-            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              disabled={isIngesting}
-              onClick={handleConfirm}
-            >
-              {isIngesting ? 'Applying…' : 'Apply changes'}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </>
   );
 }

@@ -2,9 +2,13 @@
 are stamped on insert, and ``updated_at`` is bumped on every update — via a
 column-level ``onupdate`` that fires for both ORM flushes and Core ``update()``
 statements. ``Job`` overrides ``updated_at`` and is exempt.
+
+Every timestamp here is timezone-aware UTC, matching the ``timestamptz``
+columns. Comparing an aware value to a naive one silently returns False for
+``==`` and raises for ``<``/``>``, so the fixtures must carry a timezone.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import update
@@ -16,7 +20,7 @@ from app.models.system_settings import SystemSettings
 
 # A fixed past instant used to backdate rows deterministically, so "did
 # updated_at move to ~now?" doesn't hinge on sub-microsecond timing.
-_PAST = datetime(2000, 1, 1, 12, 0, 0)
+_PAST = datetime(2000, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 
 
 async def _make_settings(session: AsyncSession) -> SystemSettings:
@@ -58,7 +62,7 @@ async def test_updated_at_bumps_on_orm_update(test_session: AsyncSession) -> Non
     settings = await _make_settings(test_session)
     await _backdate(test_session, settings)
 
-    settings.default_cap = 5
+    settings.dropoff_minutes = 5
     await test_session.commit()
     await test_session.refresh(settings)
 
@@ -77,7 +81,7 @@ async def test_updated_at_bumps_on_core_bulk_update(
     await test_session.execute(
         update(SystemSettings)
         .where(col(SystemSettings.system_settings_id) == settings.system_settings_id)
-        .values(default_cap=7)
+        .values(dropoff_minutes=7)
     )
     await test_session.commit()
     await test_session.refresh(settings)
@@ -92,12 +96,12 @@ async def test_explicit_updated_at_wins_over_onupdate(
     """When a statement sets updated_at itself, onupdate does not override it."""
     settings = await _make_settings(test_session)
     await _backdate(test_session, settings)
-    explicit = datetime(2010, 6, 15, 8, 30, 0)
+    explicit = datetime(2010, 6, 15, 8, 30, 0, tzinfo=timezone.utc)
 
     await test_session.execute(
         update(SystemSettings)
         .where(col(SystemSettings.system_settings_id) == settings.system_settings_id)
-        .values(default_cap=9, updated_at=explicit)
+        .values(dropoff_minutes=9, updated_at=explicit)
     )
     await test_session.commit()
     await test_session.refresh(settings)
@@ -115,7 +119,7 @@ async def test_job_updated_at_is_not_auto_bumped(test_session: AsyncSession) -> 
     await test_session.refresh(job)
     assert job.updated_at is None
 
-    job.started_at = datetime(2021, 3, 3, 3, 3, 3)
+    job.started_at = datetime(2021, 3, 3, 3, 3, 3, tzinfo=timezone.utc)
     await test_session.commit()
     await test_session.refresh(job)
 

@@ -149,7 +149,6 @@ import type {
   LoginErrors,
   LoginResponses,
   LogoutData,
-  LogoutErrors,
   LogoutResponses,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponses,
@@ -420,14 +419,13 @@ export const login = <ThrowOnError extends boolean = false>(
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens
+ * Revokes refresh tokens and clears cookies
  */
 export const logout = <ThrowOnError extends boolean = false>(
-  options: Options<LogoutData, ThrowOnError>
+  options?: Options<LogoutData, ThrowOnError>
 ) =>
-  (options.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/auth/logout/{user_id}',
+  (options?.client ?? client).post<LogoutResponses, unknown, ThrowOnError>({
+    url: '/auth/logout',
     ...options,
   });
 
@@ -725,6 +723,8 @@ export const getJobs = <ThrowOnError extends boolean = false>(
 
 /**
  * Generate Job
+ *
+ * Accept a generation request: persist it as PENDING and wake the worker.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>

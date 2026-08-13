@@ -1,4 +1,6 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { refreshSession } from '@/lib/axiosClient';
 
 import { useAuthStore } from './authStore';
 import {
@@ -8,7 +10,7 @@ import {
   type ForgotPasswordRequest,
   login,
   type LoginRequest,
-  refresh,
+  logout,
   updatePassword,
   type UpdatePasswordRequest,
   type UserFinalize,
@@ -82,43 +84,15 @@ export function useLogin() {
 }
 
 export function useRefresh() {
-  const setAuth = useAuthStore((state) => state.setAuth);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
   return useQuery({
     queryKey: ['session-refresh'],
     queryFn: async () => {
       try {
-        const { data } = await refresh({
-          throwOnError: true,
-        });
-
-        // First set auth with the access token so axios client is configured
-        setAuth(data, undefined);
-
-        let driverId: string | undefined;
-
-        // If user is a driver, fetch their driver_id from the drivers endpoint
-        if (data.role === 'driver') {
-          try {
-            const { data: drivers } = await getDrivers({
-              query: { email: data.email },
-              throwOnError: true,
-            });
-            if (drivers && drivers.length > 0) {
-              driverId = drivers[0].driver_id;
-            }
-          } catch (error) {
-            console.error('Failed to fetch driver info during refresh:', error);
-          }
-        }
-
-        // Update auth again with driverId if we found it
-        if (driverId) {
-          setAuth(data, driverId);
-        }
-
-        return data;
+        // The same exchange the 401 handler runs mid-session, so a reload and a
+        // token that aged out under an open tab restore the session identically.
+        return await refreshSession();
       } catch (error) {
         console.error('Session auto-refresh failed:', error);
         clearAuth();
@@ -166,6 +140,26 @@ export function useUpdatePassword() {
         throwOnError: true,
       });
       return data;
+    },
+  });
+}
+
+export function useLogout() {
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await logout({
+        throwOnError: true,
+      });
+    },
+    onSettled: () => {
+      clearAuth();
+      queryClient.clear();
+    },
+    onError: (error) => {
+      console.error('Logout error:', error);
     },
   });
 }

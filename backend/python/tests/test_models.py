@@ -3,7 +3,7 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from uuid import uuid4
 
 import pytest
@@ -522,8 +522,8 @@ class TestCoreModels:
 
         job_update = JobUpdate(
             progress=ProgressEnum.COMPLETED,
-            started_at=datetime(2024, 1, 15, 8, 0),
-            finished_at=datetime(2024, 1, 15, 10, 0),
+            started_at=datetime(2024, 1, 15, 8, 0, tzinfo=timezone.utc),
+            finished_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
         )
         assert job_update.progress == ProgressEnum.COMPLETED
         assert ProgressEnum.CANCELLED.value == "Cancelled"
@@ -824,7 +824,6 @@ class TestModelValidation:
         )
         system_settings = SystemSettings()
         assert admin.receive_email_notifications is True
-        assert system_settings.default_cap is None
         assert system_settings.route_start_time is None
         assert system_settings.warehouse_location is None
         assert system_settings.boxes_per_car == 10

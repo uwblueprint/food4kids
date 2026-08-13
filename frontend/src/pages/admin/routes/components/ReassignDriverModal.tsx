@@ -81,7 +81,7 @@ export function ReassignDriverModal({
     <Modal open={open} onOpenChange={handleOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>
+          <ModalTitle variant="form">
             {isReassign ? 'Reassign Driver' : 'Assign Driver'}
           </ModalTitle>
           <ModalDescription>

@@ -10,6 +10,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
+import firebase_admin.auth
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -56,6 +57,26 @@ async def _get(app: FastAPI, headers: dict[str, str] | None = None) -> Any:
         return await ac.get("/protected", headers=headers or {})
 
 
+def _token(
+    *,
+    role: str = "admin",
+    uid: str = "fb-uid",
+    email: str = "user@f4k.dev",
+    email_verified: bool = True,
+) -> dict[str, Any]:
+    """A decoded Firebase ID token, verified and in good standing by default.
+
+    Tests override only the claim they are about, so ``email_verified=True``
+    does not have to be restated by every case that is not about it.
+    """
+    return {
+        "uid": uid,
+        "email": email,
+        "email_verified": email_verified,
+        "role": role,
+    }
+
+
 # ---------------------------------------------------------------------------
 # get_access_token
 # ---------------------------------------------------------------------------
@@ -84,6 +105,14 @@ class TestGetAccessToken:
 
 
 class TestRequireAuthorizationByRole:
+    """The 401/403 split is the whole point of this dependency.
+
+    A client can only act on one of two things: re-authenticate, or give up.
+    A token that cannot be verified is 401 — logging in again fixes it. A
+    verified token whose role is wrong is 403 — logging in again never will.
+    These used to arrive as one boolean, so both answered 403.
+    """
+
     @pytest.mark.asyncio
     async def test_authorized_role_passes(self) -> None:
         """User with matching role gets 200."""
@@ -91,43 +120,118 @@ class TestRequireAuthorizationByRole:
         app = _make_app(dep)
 
         with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=True,
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=_token(role="admin"),
         ):
             resp = await _get(app, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_unauthorized_role_returns_403(self) -> None:
-        """User without matching role gets 403."""
+    async def test_wrong_role_returns_403(self) -> None:
+        """Identity is established; the role simply is not allowed here."""
         dep = require_authorization_by_role({"admin"})
         app = _make_app(dep)
 
         with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=False,
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=_token(role="driver"),
         ):
             resp = await _get(app, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_multiple_roles_any_match_passes(self) -> None:
+    async def test_missing_role_claim_returns_403(self) -> None:
+        """No role claim cannot satisfy any role set."""
+        dep = require_authorization_by_role({"admin"})
+        app = _make_app(dep)
+
+        token = _token()
+        del token["role"]
+
+        with patch(
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=token,
+        ):
+            resp = await _get(app, {"Authorization": "Bearer tok"})
+
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            firebase_admin.auth.RevokedIdTokenError("revoked"),
+            firebase_admin.auth.InvalidIdTokenError("malformed"),
+            ValueError("not a JWT"),
+            Exception("network blip reaching Firebase"),
+        ],
+    )
+    async def test_unverifiable_token_returns_401(self, failure: Exception) -> None:
+        """The regression this class exists for.
+
+        Each of these used to be swallowed into ``False`` and answered with
+        403, so a client could not tell an ended session from a permission it
+        would never be granted. ``RevokedIdTokenError`` is the one that bit
+        us: re-seeding rewrote Firebase passwords, revoking every outstanding
+        token, and the app reported it as "forbidden".
+        """
+        dep = require_authorization_by_role({"admin"})
+        app = _make_app(dep)
+
+        with patch(
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            side_effect=failure,
+        ):
+            resp = await _get(app, {"Authorization": "Bearer tok"})
+
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_unverified_email_returns_403(self) -> None:
+        """Enforced for every caller, admins included, as elsewhere in this
+        module. The role gate used to skip this bar entirely."""
+        dep = require_authorization_by_role({"admin"})
+        app = _make_app(dep)
+
+        with patch(
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=_token(role="admin", email_verified=False),
+        ):
+            resp = await _get(app, {"Authorization": "Bearer tok"})
+
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("role", ["admin", "driver"])
+    async def test_multiple_roles_any_match_passes(self, role: str) -> None:
         """User matching any role in the set gets 200."""
         dep = require_authorization_by_role({"admin", "driver"})
         app = _make_app(dep)
 
         with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=True,
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=_token(role=role),
         ):
             resp = await _get(app, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_revocation_is_checked(self) -> None:
+        """Without ``check_revoked`` a revoked token stays valid until it
+        expires, so a mid-session revocation would go unnoticed for an hour."""
+        dep = require_authorization_by_role({"admin"})
+        app = _make_app(dep)
+
+        with patch(
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=_token(role="admin"),
+        ) as verify:
+            await _get(app, {"Authorization": "Bearer tok"})
+
+        assert verify.call_args.kwargs["check_revoked"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -141,9 +245,8 @@ class TestRequireAdmin:
         app = _make_app(require_admin)
 
         with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=True,
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=_token(role="admin"),
         ):
             resp = await _get(app, {"Authorization": "Bearer tok"})
 
@@ -154,13 +257,26 @@ class TestRequireAdmin:
         app = _make_app(require_admin)
 
         with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=False,
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            return_value=_token(role="driver"),
         ):
             resp = await _get(app, {"Authorization": "Bearer tok"})
 
         assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_revoked_token_returns_401_not_403(self) -> None:
+        """The pre-built dependency guards most admin endpoints, so this is
+        the path a signed-out admin actually hits."""
+        app = _make_app(require_admin)
+
+        with patch(
+            "app.dependencies.auth.firebase_admin.auth.verify_id_token",
+            side_effect=firebase_admin.auth.RevokedIdTokenError("revoked"),
+        ):
+            resp = await _get(app, {"Authorization": "Bearer tok"})
+
+        assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------

@@ -1,12 +1,10 @@
 import logging
 from datetime import datetime, timezone
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import get_current_database_user_id
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -28,7 +26,7 @@ from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
 )
 from app.services.implementations.user_service import UserService
-from app.utilities.cookies import set_refresh_token_cookie
+from app.utilities.cookies import clear_auth_cookies, set_refresh_token_cookie
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -50,10 +48,13 @@ async def login(
     logger.info(f"Login request for {login_request.email}")
     try:
         auth_dto, refresh_token = await auth_service.generate_token(
-            session, login_request.email, login_request.password
+            session,
+            login_request.email,
+            login_request.password,
+            login_request.remember_me,
         )
 
-        set_refresh_token_cookie(response, refresh_token)
+        set_refresh_token_cookie(response, refresh_token, login_request.remember_me)
 
         return auth_dto
     except ValueError as e:
@@ -82,12 +83,14 @@ async def refresh(
             detail="Refresh token not found",
         )
 
+    remember_me = request.cookies.get("rememberMe") == "true"
+
     try:
         auth_data, new_refresh_token = await auth_service.renew_token(
-            session, refresh_token
+            session, refresh_token, remember_me
         )
 
-        set_refresh_token_cookie(response, new_refresh_token)
+        set_refresh_token_cookie(response, new_refresh_token, remember_me)
 
         return auth_data
     except SessionExpiredError as e:
@@ -96,24 +99,26 @@ async def refresh(
         ) from e
 
 
-@router.post("/logout/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    user_id: UUID,
-    session: AsyncSession = Depends(get_session),
-    current_database_user_id: UUID = Depends(get_current_database_user_id),
+    response: Response,
+    request: Request,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
-    Revokes all of the specified driver's refresh tokens
+    Revokes refresh tokens and clears cookies
     """
-    # Check if the driver is authorized to logout this driver_id
-    if user_id != current_database_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="You are not authorized to logout this driver",
-        )
+    try:
+        refresh_token = request.cookies.get("refreshToken")
+        if refresh_token:
+            await auth_service.revoke_tokens_by_refresh_token(refresh_token)
 
-    await auth_service.revoke_tokens(session, user_id)
+    except Exception:
+        logger.exception("Failed to revoke refresh tokens during logout")
+
+    finally:
+        # Always clear auth cookies
+        clear_auth_cookies(response)
 
 
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)

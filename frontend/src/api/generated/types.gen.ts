@@ -14,6 +14,7 @@ export type AlertCode =
   | 'INVALID_ADDRESS'
   | 'MISSING_PHONE_NUMBER'
   | 'INVALID_PHONE_NUMBER'
+  | 'INVALID_SECONDARY_PHONE_NUMBER'
   | 'MISSING_NAME'
   | 'INVALID_NAME'
   | 'MISSING_DELIVERY_GROUP'
@@ -154,6 +155,14 @@ export type AuthResponse = {
    */
   access_token: string;
   /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -173,6 +182,10 @@ export type AuthResponse = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Remember Me
+   */
+  remember_me: boolean;
   /**
    * Role
    */
@@ -247,9 +260,17 @@ export type ChangedEntry = {
    */
   delivery_group?: string | ChangedFieldOptStr | null;
   /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | ChangedFieldStr;
+  /**
    * Guardian Name
    */
   guardian_name?: string | ChangedFieldOptStr | null;
+  /**
+   * Halal
+   */
+  halal?: boolean | ChangedFieldBool;
   /**
    * Location Id
    */
@@ -270,6 +291,20 @@ export type ChangedEntry = {
    * Row
    */
   row: number;
+};
+
+/**
+ * ChangedFieldBool
+ */
+export type ChangedFieldBool = {
+  /**
+   * New Value
+   */
+  new_value: boolean;
+  /**
+   * Old Value
+   */
+  old_value: boolean;
 };
 
 /**
@@ -670,6 +705,10 @@ export type JobEnqueueResponse = {
  */
 export type JobRead = {
   /**
+   * Error Message
+   */
+  error_message?: string | null;
+  /**
    * Job Id
    */
   job_id: string;
@@ -678,6 +717,22 @@ export type JobRead = {
    * Route Group Id
    */
   route_group_id?: string | null;
+  /**
+   * Routes Created
+   */
+  routes_created?: number | null;
+  /**
+   * Total Distance Km
+   */
+  total_distance_km?: number | null;
+  /**
+   * Total Families
+   */
+  total_families?: number | null;
+  /**
+   * Total Stops
+   */
+  total_stops?: number | null;
 };
 
 /**
@@ -1175,6 +1230,10 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+  /**
+   * Remember Me
+   */
+  remember_me?: boolean;
 };
 
 /**
@@ -1622,10 +1681,6 @@ export type RouteGenerationSettings = {
    */
   max_boxes_per_driver?: number;
   /**
-   * Max Stops Per Route
-   */
-  max_stops_per_route?: number | null;
-  /**
    * Num Routes
    */
   num_routes: number;
@@ -2062,10 +2117,6 @@ export type SystemSettingsRead = {
    */
   contact_phone?: string | null;
   /**
-   * Default Cap
-   */
-  default_cap?: number | null;
-  /**
    * Delivery Types
    */
   delivery_types?: Array<string>;
@@ -2147,10 +2198,6 @@ export type SystemSettingsUpdate = {
    * Contact Phone
    */
   contact_phone?: string | null;
-  /**
-   * Default Cap
-   */
-  default_cap?: number | null;
   /**
    * Delivery Types
    */
@@ -2284,6 +2331,14 @@ export type AuthResponseWritable = {
    */
   access_token: string;
   /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -2299,6 +2354,10 @@ export type AuthResponseWritable = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Remember Me
+   */
+  remember_me: boolean;
   /**
    * Role
    */
@@ -2794,24 +2853,10 @@ export type LoginResponse = LoginResponses[keyof LoginResponses];
 
 export type LogoutData = {
   body?: never;
-  path: {
-    /**
-     * User Id
-     */
-    user_id: string;
-  };
+  path?: never;
   query?: never;
-  url: '/auth/logout/{user_id}';
+  url: '/auth/logout';
 };
-
-export type LogoutErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type LogoutError = LogoutErrors[keyof LogoutErrors];
 
 export type LogoutResponses = {
   /**

@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css,md}\"",
     "email:dev": "email dev --dir emails --port 3000",
@@ -34,6 +36,7 @@
     "@mapbox/polyline": "^1.2.1",
     "@radix-ui/react-select": "^2.2.6",
     "@react-email/tailwind": "^2.0.7",
+    "@sentry/react": "^10.68.0",
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-query-devtools": "^5.100.14",
     "@xstate/react": "^6.1.0",
@@ -90,6 +93,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.60.0",
     "vite": "^7.3.5",
-    "vite-plugin-svgr": "^4.5.0"
+    "vite-plugin-svgr": "^4.5.0",
+    "vitest": "^3.2.4"
   }
 }

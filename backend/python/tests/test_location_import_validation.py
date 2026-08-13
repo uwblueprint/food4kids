@@ -120,7 +120,42 @@ class TestFieldValidation:
             phone_invalid=False,
             phone_secondary_invalid=True,
         )
-        assert AlertCode.INVALID_PHONE_NUMBER in alerts
+        # Its own code, so the Validate screen does not redden a valid primary.
+        assert alerts == [AlertCode.INVALID_SECONDARY_PHONE_NUMBER]
+
+    def test_blank_phone_secondary_is_not_an_alert(self) -> None:
+        for blank in (None, "", "   "):
+            alerts = collect_field_alerts(
+                LocationImportEntry(
+                    contact_name="Smith",
+                    address="123 Main St",
+                    delivery_group="Tuesday A",
+                    phone_primary="+15195551234",
+                    phone_secondary=blank,
+                ),
+                geocode_ok=True,
+                phone_invalid=False,
+                phone_secondary_invalid=False,
+            )
+            assert alerts == []
+
+    def test_both_phones_invalid_reports_both_codes(self) -> None:
+        alerts = collect_field_alerts(
+            LocationImportEntry(
+                contact_name="Smith",
+                address="123 Main St",
+                delivery_group="Tuesday A",
+                phone_primary="not-a-phone",
+                phone_secondary="also-not-a-phone",
+            ),
+            geocode_ok=True,
+            phone_invalid=True,
+            phone_secondary_invalid=True,
+        )
+        assert alerts == [
+            AlertCode.INVALID_PHONE_NUMBER,
+            AlertCode.INVALID_SECONDARY_PHONE_NUMBER,
+        ]
 
     def test_multiple_errors_on_one_row(self) -> None:
         alerts = collect_field_alerts(

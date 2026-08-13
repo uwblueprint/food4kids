@@ -46,8 +46,7 @@ LOCATIONS_COUNT = 18
 
 # Configure number of clusters + locations per cluster and max boxes per cluster limits
 NUM_CLUSTERS = 10
-MAX_LOCATIONS_PER_CLUSTER = 10
-MAX_BOXES_PER_CLUSTER = None
+MAX_BOXES_PER_CLUSTER = 14
 
 
 async def main() -> None:
@@ -95,7 +94,6 @@ async def main() -> None:
 
         print("Running K-Means clustering:")
         print(f"  - Number of clusters: {NUM_CLUSTERS}")
-        print(f"  - Max locations per cluster: {MAX_LOCATIONS_PER_CLUSTER}")
         print(f"  - Max boxes per cluster: {MAX_BOXES_PER_CLUSTER}")
         print("-" * 60)
 
@@ -103,7 +101,6 @@ async def main() -> None:
             clusters = await clustering_algo.cluster_locations(
                 locations=locations,
                 num_clusters=NUM_CLUSTERS,
-                max_locations_per_cluster=MAX_LOCATIONS_PER_CLUSTER,
                 max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
                 timeout_seconds=30.0,
             )
