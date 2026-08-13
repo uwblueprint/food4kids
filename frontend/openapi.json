@@ -300,6 +300,105 @@
         "title": "AuthResponse",
         "type": "object"
       },
+      "BillingCostsResponse": {
+        "properties": {
+          "budget_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Amount"
+          },
+          "budget_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Currency"
+          },
+          "budget_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Display Name"
+          },
+          "budget_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Scope"
+          },
+          "credits": {
+            "title": "Credits",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "data_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data As Of"
+          },
+          "gross_cost": {
+            "title": "Gross Cost",
+            "type": "number"
+          },
+          "invoice_month": {
+            "title": "Invoice Month",
+            "type": "string"
+          },
+          "month_to_date_cost": {
+            "title": "Month To Date Cost",
+            "type": "number"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "invoice_month",
+          "currency",
+          "month_to_date_cost",
+          "gross_cost",
+          "credits",
+          "budget_amount",
+          "budget_currency",
+          "budget_display_name",
+          "budget_scope",
+          "data_as_of"
+        ],
+        "title": "BillingCostsResponse",
+        "type": "object"
+      },
       "Body_apply_location_import": {
         "properties": {
           "column_map": {
@@ -4453,6 +4552,33 @@
         "summary": "Send Announcement Email",
         "tags": [
           "announcements"
+        ]
+      }
+    },
+    "/api/billing/costs": {
+      "get": {
+        "description": "Return month-to-date spend for the configured project, against its budget.\n\nQueried live on every request. Figures come from the Cloud Billing export and\ntypically lag by several hours — see ``data_as_of``.",
+        "operationId": "get_billing_costs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCostsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Billing Costs",
+        "tags": [
+          "billing"
         ]
       }
     },

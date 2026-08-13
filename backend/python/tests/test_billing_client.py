@@ -100,6 +100,51 @@ class TestSelectBudget:
     def test_returns_none_when_no_budgets_exist(self, client: BillingClient) -> None:
         assert client._select_budget([]) is None
 
+    def test_largest_wins_among_several_account_wide_budgets(
+        self, client: BillingClient
+    ) -> None:
+        """The real account carries a $1 alert alongside the $20 ceiling.
+
+        Picking by list order would make the reported budget depend on whatever
+        order the API returned.
+        """
+        result = client._select_budget(
+            [
+                _budget({"specifiedAmount": {"units": "1"}}),
+                _budget({"specifiedAmount": {"units": "20"}}),
+            ]
+        )
+
+        assert result is not None
+        assert result.amount == 20.0
+
+    def test_order_does_not_affect_the_choice(self, client: BillingClient) -> None:
+        low = _budget({"specifiedAmount": {"units": "1"}})
+        high = _budget({"specifiedAmount": {"units": "20"}})
+
+        forward = client._select_budget([low, high])
+        reversed_ = client._select_budget([high, low])
+
+        assert forward is not None and reversed_ is not None
+        assert forward.amount == reversed_.amount == 20.0
+
+    def test_project_scope_beats_a_larger_account_wide_budget(
+        self, client: BillingClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Specificity outranks size — a project budget is the better match."""
+        monkeypatch.setattr(settings, "billing_target_project_id", "f4k-123")
+
+        result = client._select_budget(
+            [
+                _budget({"specifiedAmount": {"units": "9999"}}),
+                _budget({"specifiedAmount": {"units": "20"}}, ["projects/f4k-123"]),
+            ]
+        )
+
+        assert result is not None
+        assert result.amount == 20.0
+        assert result.scope == "project"
+
     def test_combines_units_and_nanos(self, client: BillingClient) -> None:
         result = client._select_budget(
             [_budget({"specifiedAmount": {"units": "50", "nanos": 500000000}})]
@@ -158,7 +203,7 @@ class TestConfigurationGuards:
     def test_missing_service_account_raises(
         self, client: BillingClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(settings, "billing_sa_client_email", "")
+        monkeypatch.setattr(settings, "billing_service_account_client_email", "")
 
         with pytest.raises(BillingNotConfiguredError, match="BILLING_"):
             client._ensure_credentials()
@@ -213,7 +258,7 @@ def configured(client: BillingClient, monkeypatch: pytest.MonkeyPatch) -> Billin
         "billing_export_dataset",
         "billing_export_table",
         "billing_target_project_id",
-        "billing_sa_project_id",
+        "billing_service_account_client_email",
     ):
         monkeypatch.setattr(settings, field, "set")
     monkeypatch.setattr(client, "_ensure_credentials", lambda: object())

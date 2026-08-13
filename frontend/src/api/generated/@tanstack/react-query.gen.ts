@@ -35,6 +35,7 @@ import {
   generateJob,
   getAnnouncement,
   getAnnouncements,
+  getBillingCosts,
   getDriver,
   getDriverHistory,
   getDriverHistorySummary,
@@ -151,6 +152,8 @@ import type {
   GetAnnouncementResponse,
   GetAnnouncementsData,
   GetAnnouncementsResponse,
+  GetBillingCostsData,
+  GetBillingCostsResponse,
   GetDriverData,
   GetDriverError,
   GetDriverHistoryData,
@@ -548,6 +551,39 @@ export const sendAnnouncementEmailMutation = (
   };
   return mutationOptions;
 };
+
+export const getBillingCostsQueryKey = (
+  options?: Options<GetBillingCostsData>
+) => createQueryKey('getBillingCosts', options);
+
+/**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Queried live on every request. Figures come from the Cloud Billing export and
+ * typically lag by several hours — see ``data_as_of``.
+ */
+export const getBillingCostsOptions = (
+  options?: Options<GetBillingCostsData>
+) =>
+  queryOptions<
+    GetBillingCostsResponse,
+    AxiosError<DefaultError>,
+    GetBillingCostsResponse,
+    ReturnType<typeof getBillingCostsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getBillingCosts({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getBillingCostsQueryKey(options),
+  });
 
 /**
  * Forgot Password

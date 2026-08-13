@@ -78,6 +78,8 @@ import type {
   GetAnnouncementResponses,
   GetAnnouncementsData,
   GetAnnouncementsResponses,
+  GetBillingCostsData,
+  GetBillingCostsResponses,
   GetDriverData,
   GetDriverErrors,
   GetDriverHistoryData,
@@ -376,6 +378,28 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/announcements/{announcement_id}/email',
+    ...options,
+  });
+
+/**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Queried live on every request. Figures come from the Cloud Billing export and
+ * typically lag by several hours — see ``data_as_of``.
+ */
+export const getBillingCosts = <ThrowOnError extends boolean = false>(
+  options?: Options<GetBillingCostsData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetBillingCostsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/billing/costs',
     ...options,
   });
 

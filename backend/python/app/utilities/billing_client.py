@@ -83,7 +83,7 @@ class BillingClient:
             if self._credentials is not None:
                 return self._credentials
 
-            if not settings.billing_sa_client_email:
+            if not settings.billing_service_account_client_email:
                 raise BillingNotConfiguredError(
                     "Billing integration is not configured. "
                     "Set the BILLING_* environment variables."
@@ -92,13 +92,16 @@ class BillingClient:
             self._credentials = service_account.Credentials.from_service_account_info(
                 {
                     "type": "service_account",
-                    "project_id": settings.billing_sa_project_id,
-                    "private_key_id": settings.billing_sa_private_key_id,
-                    "private_key": settings.billing_sa_private_key.replace(
+                    "project_id": settings.billing_target_project_id,
+                    "private_key_id": settings.billing_service_account_private_key_id,
+                    "private_key": settings.billing_service_account_private_key.replace(
                         "\\n", "\n"
                     ).strip(),
-                    "client_email": settings.billing_sa_client_email,
-                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "client_email": settings.billing_service_account_client_email,
+                    "client_id": settings.billing_service_account_client_id,
+                    "auth_uri": settings.billing_service_account_auth_uri,
+                    "token_uri": settings.billing_service_account_token_uri,
+                    "auth_provider_x509_cert_url": settings.billing_service_account_auth_provider_x509_cert_url,
                 },
                 scopes=SCOPES,
             )
@@ -145,20 +148,32 @@ class BillingClient:
         return self._select_budget(response.get("budgets", []))
 
     def _select_budget(self, budgets: list[dict]) -> BudgetInfo | None:
-        """Pick the most specific budget: project-scoped over account-wide."""
+        """Pick the most specific budget: project-scoped over account-wide.
+
+        An account can carry several budgets — ours has a low alert threshold
+        alongside the real ceiling — so within each scope the largest amount
+        wins. Picking by list order would make the reported budget depend on
+        whatever order the API happened to return.
+        """
         target = f"projects/{settings.billing_target_project_id}"
-        account_wide: dict | None = None
+        project_scoped: list[BudgetInfo] = []
+        account_wide: list[BudgetInfo] = []
 
         for budget in budgets:
             projects = budget.get("budgetFilter", {}).get("projects", [])
             if target in projects:
-                return self._to_budget_info(budget, "project")
-            if not projects and account_wide is None:
-                account_wide = budget
+                info = self._to_budget_info(budget, "project")
+                if info is not None:
+                    project_scoped.append(info)
+            elif not projects:
+                info = self._to_budget_info(budget, "billing_account")
+                if info is not None:
+                    account_wide.append(info)
 
-        if account_wide is not None:
-            return self._to_budget_info(account_wide, "billing_account")
-        return None
+        candidates = project_scoped or account_wide
+        if not candidates:
+            return None
+        return max(candidates, key=lambda b: b.amount)
 
     @staticmethod
     def _to_budget_info(budget: dict, scope: str) -> BudgetInfo | None:
@@ -208,7 +223,7 @@ class BillingClient:
                 AS credit_amount,
               ANY_VALUE(currency) AS currency,
               MAX(export_time) AS last_export_time
-            FROM `{settings.billing_sa_project_id}.{settings.billing_export_dataset}.{settings.billing_export_table}`
+            FROM `{settings.billing_target_project_id}.{settings.billing_export_dataset}.{settings.billing_export_table}`
             WHERE project.id = @project_id
               AND invoice.month = @invoice_month
               AND _PARTITIONTIME >= TIMESTAMP(@partition_floor)
@@ -232,7 +247,7 @@ class BillingClient:
 
         try:
             client = bigquery.Client(
-                credentials=credentials, project=settings.billing_sa_project_id
+                credentials=credentials, project=settings.billing_target_project_id
             )
             rows = list(client.query(query, job_config=job_config).result())
         except gcp_exceptions.Forbidden as e:
