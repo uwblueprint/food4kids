@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useMonthlyDriverRanking, useMonthlySeries } from '@/api/reports';
-import ChevronDownIcon from '@/assets/icons/chevron-down.svg?react';
+import ArrowDropDownIcon from '@/assets/icons/arrow-drop-down.svg?react';
 import {
   Card,
   Popover,
@@ -116,9 +116,9 @@ export function StatisticsWidget() {
               <span className="font-nunito text-h2 text-grey-500 font-bold">
                 {activeView?.label}
               </span>
-              <ChevronDownIcon
+              <ArrowDropDownIcon
                 className={cn(
-                  'text-grey-500 size-5 transition-transform',
+                  'text-grey-500 size-6 transition-transform',
                   menuOpen && 'rotate-180'
                 )}
               />
