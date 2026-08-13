@@ -4,6 +4,8 @@ import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
 import { StatisticsWidget } from '@/features/statistics';
 
+import { UnassignedRoutesCard } from './components';
+
 const today = formatDisplayDate(new Date());
 
 /** Every bento tile: 28px corners and the soft admin-page shadow. */
@@ -44,6 +46,8 @@ export const AdminHomePage = () => {
           <CardContent>TODO: Unassigned Routes</CardContent>
         </Card>
         <Card className={TILE}>
+        <UnassignedRoutesCard />
+        <Card>
           <CardContent>TODO: Recent Notes</CardContent>
         </Card>
       </div>
