@@ -9,17 +9,7 @@ import {
 import { useApplyLocationImport } from '@/api';
 import type { ChangedEntry, StaleEntry } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
-import {
-  Banner,
-  Button,
-  DataTable,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
-} from '@/common/components';
+import { Banner, Button, DataTable } from '@/common/components';
 import { cn } from '@/lib/utils';
 
 import { EmptyState } from '../components';
@@ -118,7 +108,6 @@ export function ReviewStep() {
   const [reviewedRemoved, setReviewedRemoved] = useState<Set<string>>(
     new Set()
   );
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
 
   if (!file || !reviewResult || !selectedDeliveryType) {
@@ -156,7 +145,9 @@ export function ReviewStep() {
     reviewedChanged.size === changedEntries.length &&
     reviewedRemoved.size === staleRows.length;
 
-  const handleConfirm = async () => {
+  // Checking every row off *is* the confirmation, so Continue applies the
+  // import directly rather than asking again in a modal.
+  const handleContinue = async () => {
     setIngestError(null);
     try {
       // The same file and mapping the preview ran on: the backend replans it
@@ -167,13 +158,8 @@ export function ReviewStep() {
         columnMap,
         deliveryType: selectedDeliveryType,
       });
-      setConfirmOpen(false);
       navigate('/admin/routes/generation/configure');
     } catch {
-      // Close first: Radix marks the rest of the page aria-hidden and locks
-      // body scroll while the modal is open, so a banner set behind it is
-      // unreachable both visually and to screen readers.
-      setConfirmOpen(false);
       setIngestError('Could not apply the import changes — please try again.');
     }
   };
@@ -379,36 +365,12 @@ export function ReviewStep() {
         </Button>
         <Button
           variant="primary"
-          disabled={!allReviewed}
-          onClick={() => setConfirmOpen(true)}
+          disabled={!allReviewed || isIngesting}
+          onClick={handleContinue}
         >
-          Continue to edit route groups
+          {isIngesting ? 'Applying…' : 'Continue to edit route groups'}
         </Button>
       </GenerationFooter>
-
-      <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle variant="confirmation">Confirm Changes</ModalTitle>
-            <ModalDescription>
-              Some data has been updated, added, or removed. Are you sure you
-              want to apply these changes?
-            </ModalDescription>
-          </ModalHeader>
-          <ModalFooter>
-            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              disabled={isIngesting}
-              onClick={handleConfirm}
-            >
-              {isIngesting ? 'Applying…' : 'Apply changes'}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </>
   );
 }
