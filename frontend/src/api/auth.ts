@@ -133,31 +133,8 @@ export function useUpdatePasswordAuthed() {
       });
       return data;
     },
-    onSuccess: async (data) => {
-      // First set auth with the access token so axios client is configured
-      setAuth(data, undefined);
-
-      let driverId: string | undefined;
-
-      // If user is a driver, fetch their driver_id from the drivers endpoint
-      if (data.role === 'driver') {
-        try {
-          const { data: drivers } = await getDrivers({
-            query: { email: data.email },
-            throwOnError: true,
-          });
-          if (drivers && drivers.length > 0) {
-            driverId = drivers[0].driver_id;
-          }
-        } catch (error) {
-          console.error('Failed to fetch driver info during password update:', error);
-        }
-      }
-
-      // Update auth again with driverId if we found it
-      if (driverId) {
-        setAuth(data, driverId);
-      }
+    onSuccess: (data) => {
+      setAuth(data);
     },
     onError: (error) => {
       console.error('Update password error:', error);
