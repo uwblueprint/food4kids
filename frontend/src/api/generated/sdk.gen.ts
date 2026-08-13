@@ -113,6 +113,9 @@ import type {
   GetMonthlyRankingData,
   GetMonthlyRankingErrors,
   GetMonthlyRankingResponses,
+  GetMonthlySeriesData,
+  GetMonthlySeriesErrors,
+  GetMonthlySeriesResponses,
   GetMonthlyTotalsData,
   GetMonthlyTotalsErrors,
   GetMonthlyTotalsResponses,
@@ -1213,6 +1216,28 @@ export const getTotalDeliveriesBetween = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/reports/deliveries/count',
+    ...options,
+  });
+
+/**
+ * Get Monthly Series
+ *
+ * Return km and deliveries per month for a trailing window, oldest first.
+ *
+ * Backs the homepage statistics bar charts, which need a whole series at
+ * once rather than one request per bar.
+ */
+export const getMonthlySeries = <ThrowOnError extends boolean = false>(
+  options?: Options<GetMonthlySeriesData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetMonthlySeriesResponses,
+    GetMonthlySeriesErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/reports/monthly-series',
     ...options,
   });
 

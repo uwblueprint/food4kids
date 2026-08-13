@@ -47,6 +47,7 @@ import {
   getLocationGroups,
   getLocations,
   getMonthlyRanking,
+  getMonthlySeries,
   getMonthlyTotals,
   getNoteChain,
   getNotes,
@@ -185,6 +186,9 @@ import type {
   GetMonthlyRankingData,
   GetMonthlyRankingError,
   GetMonthlyRankingResponse,
+  GetMonthlySeriesData,
+  GetMonthlySeriesError,
+  GetMonthlySeriesResponse,
   GetMonthlyTotalsData,
   GetMonthlyTotalsError,
   GetMonthlyTotalsResponse,
@@ -1989,6 +1993,39 @@ export const getTotalDeliveriesBetweenInfiniteOptions = (
       queryKey: getTotalDeliveriesBetweenInfiniteQueryKey(options),
     }
   );
+
+export const getMonthlySeriesQueryKey = (
+  options?: Options<GetMonthlySeriesData>
+) => createQueryKey('getMonthlySeries', options);
+
+/**
+ * Get Monthly Series
+ *
+ * Return km and deliveries per month for a trailing window, oldest first.
+ *
+ * Backs the homepage statistics bar charts, which need a whole series at
+ * once rather than one request per bar.
+ */
+export const getMonthlySeriesOptions = (
+  options?: Options<GetMonthlySeriesData>
+) =>
+  queryOptions<
+    GetMonthlySeriesResponse,
+    AxiosError<GetMonthlySeriesError>,
+    GetMonthlySeriesResponse,
+    ReturnType<typeof getMonthlySeriesQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getMonthlySeries({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getMonthlySeriesQueryKey(options),
+  });
 
 export const getMonthlyRankingQueryKey = (
   options: Options<GetMonthlyRankingData>

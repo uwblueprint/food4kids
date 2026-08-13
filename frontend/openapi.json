@@ -6545,6 +6545,101 @@
         ]
       }
     },
+    "/reports/monthly-series": {
+      "get": {
+        "description": "Return km and deliveries per month for a trailing window, oldest first.\n\nBacks the homepage statistics bar charts, which need a whole series at\nonce rather than one request per bar.",
+        "operationId": "get_monthly_series",
+        "parameters": [
+          {
+            "description": "How many months to return, counting back from the end month",
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "description": "How many months to return, counting back from the end month",
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Year of the newest month; defaults to the current month",
+            "in": "query",
+            "name": "end_year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Year of the newest month; defaults to the current month",
+              "title": "End Year"
+            }
+          },
+          {
+            "description": "Month of the newest month (1-12)",
+            "in": "query",
+            "name": "end_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 12,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Month of the newest month (1-12)",
+              "title": "End Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyTotalsResponse"
+                  },
+                  "title": "Response Get Monthly Series",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Monthly Series",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/reports/monthly/{year}/{month}/ranking": {
       "get": {
         "description": "Return monthly ranking list of drivers by km (descending).",

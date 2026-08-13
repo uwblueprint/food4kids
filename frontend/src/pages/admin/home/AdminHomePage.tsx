@@ -2,6 +2,7 @@ import SearchIcon from '@/assets/icons/search.svg?react';
 import { Account, Button, Card, CardContent } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
+import { StatisticsWidget } from '@/features/statistics';
 
 const today = formatDisplayDate(new Date());
 
@@ -31,9 +32,7 @@ export const AdminHomePage = () => {
           <Card>
             <CardContent>TODO: Route Generation Cost</CardContent>
           </Card>
-          <Card>
-            <CardContent>TODO: Statistics Toggles</CardContent>
-          </Card>
+          <StatisticsWidget />
         </div>
         <Card>
           <CardContent>TODO: Unassigned Routes</CardContent>
