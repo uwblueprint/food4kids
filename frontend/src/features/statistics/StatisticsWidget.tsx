@@ -105,7 +105,7 @@ export function StatisticsWidget() {
     // resizing as the user toggles between the three views.
     <Card className="shadow-admin-bento min-h-[327px] gap-4 rounded-4xl">
       {/* Title and month stepper share this row, per the Top Drivers design. */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
             <button
@@ -113,7 +113,7 @@ export function StatisticsWidget() {
               aria-label="Change statistic"
               className="flex cursor-pointer items-center gap-1 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-300"
             >
-              <span className="font-nunito text-h2 text-grey-500 font-bold">
+              <span className="font-nunito text-h2 text-grey-500 leading-[27px] font-bold">
                 {activeView?.label}
               </span>
               <ArrowDropDownIcon
@@ -126,8 +126,8 @@ export function StatisticsWidget() {
           </PopoverTrigger>
           <PopoverContent
             align="start"
-            sideOffset={8}
-            className="border-grey-200 w-44 border p-3 shadow-[0px_0px_12px_rgba(0,0,0,0.08)]"
+            sideOffset={3}
+            className="shadow-dropdown w-[175px] rounded-xl p-3"
           >
             <div className="flex flex-col">
               {STATISTIC_VIEWS.map(({ id, label }) => (
@@ -139,7 +139,7 @@ export function StatisticsWidget() {
                     setMenuOpen(false);
                   }}
                   className={cn(
-                    'text-p1 text-grey-500 cursor-pointer rounded-sm p-2 text-left transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-300',
+                    'text-grey-500 cursor-pointer rounded-sm p-2 text-left text-base leading-[22px] transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-300',
                     id === view && 'bg-blue-50'
                   )}
                 >
