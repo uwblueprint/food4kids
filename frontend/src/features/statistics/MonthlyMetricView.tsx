@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-import { CURRENT_MONTH_BAR_CLASS, HISTORY_BAR_CLASSES } from './constants';
+import { BAR_COLOR_CLASSES, HISTORY_BAR_OPACITY } from './constants';
 import type { CalendarMonth } from './utils';
 import { formatMonthAbbreviation, formatMonthName } from './utils';
 
@@ -35,10 +35,10 @@ export function MonthlyMetricView({
   const currentMonth = points.at(-1);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-start gap-4">
         <div className="flex flex-1 flex-col items-center gap-1">
-          <p className="text-grey-500 text-3xl leading-10 font-medium">
+          <p className="text-grey-500 text-2xl leading-10 font-medium">
             {formatValue(total)}
           </p>
           <p className="text-grey-400 text-base leading-5 font-light">
@@ -46,7 +46,7 @@ export function MonthlyMetricView({
           </p>
         </div>
         <div className="flex flex-1 flex-col items-center gap-1">
-          <p className="text-3xl leading-10 font-semibold text-blue-300">
+          <p className="text-2xl leading-10 font-extrabold text-blue-300">
             {currentMonth ? formatValue(currentMonth.value) : '—'}
           </p>
           <p className="text-grey-400 text-base leading-5 font-light">
@@ -69,11 +69,10 @@ export function MonthlyMetricView({
                 // A month with no activity draws nothing; anything above zero
                 // keeps a sliver so it can't be mistaken for one that has none.
                 className={cn(
-                  'w-full rounded-lg',
+                  'w-full rounded-sm',
                   point.value > 0 && 'min-h-1',
-                  index === points.length - 1
-                    ? CURRENT_MONTH_BAR_CLASS
-                    : HISTORY_BAR_CLASSES[index % HISTORY_BAR_CLASSES.length]
+                  BAR_COLOR_CLASSES[index % BAR_COLOR_CLASSES.length],
+                  index < points.length - 1 && HISTORY_BAR_OPACITY
                 )}
                 style={{
                   height: peak > 0 ? `${(point.value / peak) * 100}%` : 0,
@@ -89,7 +88,7 @@ export function MonthlyMetricView({
             <p
               key={`${point.year}-${point.month}`}
               aria-hidden
-              className="text-grey-400 flex-1 text-center text-base font-light"
+              className="text-grey-400 flex-1 text-center text-base leading-[22px] font-light"
             >
               {formatMonthAbbreviation(point)}
             </p>

@@ -14,21 +14,19 @@ export const STATISTIC_VIEWS = [
 export type StatisticView = (typeof STATISTIC_VIEWS)[number]['id'];
 
 /**
- * Bar fills for the trailing months, cycled oldest-to-newest.
+ * Bar fills for the six months, cycled oldest-to-newest.
  *
- * The designs show the history in washed-out brand colours with no repeating
- * pattern between frames, so the palette cycles rather than pinning a colour
- * per calendar month — what carries meaning is that the newest month is the
- * one saturated bar (see CURRENT_MONTH_BAR_CLASS), not which hue a given
- * older month landed on.
+ * The palette cycles rather than pinning a colour per calendar month — what
+ * carries meaning is that the newest month is the one bar at full strength
+ * and the history sits at 20%, not which hue a given older month landed on.
  */
-export const HISTORY_BAR_CLASSES = [
-  'bg-brand-orange/20',
-  'bg-brand-pink/20',
-  'bg-brand-light-blue/20',
-  'bg-brand-green/20',
-  'bg-blue-300/20',
+export const BAR_COLOR_CLASSES = [
+  'bg-brand-orange',
+  'bg-brand-pink',
+  'bg-brand-light-blue',
+  'bg-brand-green',
+  'bg-blue-300',
 ] as const;
 
-/** The newest month reads as the highlight, matching the blue "In <month>" stat. */
-export const CURRENT_MONTH_BAR_CLASS = 'bg-blue-300';
+/** Everything but the newest month is washed out to 20%. */
+export const HISTORY_BAR_OPACITY = 'opacity-20';
