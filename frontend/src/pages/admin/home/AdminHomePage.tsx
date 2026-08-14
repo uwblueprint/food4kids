@@ -2,6 +2,7 @@ import SearchIcon from '@/assets/icons/search.svg?react';
 import { Account, Button, Card, CardContent } from '@/common/components';
 import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
+import { CalendarWidget } from '@/features/calendar';
 import { StatisticsWidget } from '@/features/statistics';
 
 import { UnassignedRoutesCard } from './components';
@@ -33,9 +34,7 @@ export const AdminHomePage = () => {
           tiles taking the rest, on 468px and 380px rows. Only the right rail is
           fixed — the left tiles grow with the viewport. */}
       <div className="grid grid-cols-[1fr_363px] grid-rows-[468px_380px] gap-5">
-        <Card className={TILE}>
-          <CardContent>TODO: Calendar</CardContent>
-        </Card>
+        <CalendarWidget />
         <div className="grid grid-rows-[121px_1fr] gap-5">
           <Card className={TILE}>
             <CardContent>TODO: Route Generation Cost</CardContent>
