@@ -23,11 +23,17 @@ services:
       - 8.8.8.8
     volumes:
       - ./backend/python:/app
+      # Application Default Credentials for the Google APIs that use IAM rather
+      # than an API key (Route Optimization). Same key pull-env.sh already uses;
+      # on Cloud Run the attached runtime service account supplies these instead.
+      - ./food4kids-env-service-account.json:/gcp/credentials.json:ro
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - ./.env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/gcp/credentials.json
   db:
     container_name: f4k_db
     image: postgres:17-alpine
