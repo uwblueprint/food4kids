@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from google.api_core import exceptions as gcp_exceptions
-from google.cloud import storage  # type: ignore[import-untyped]
+
+# google-cloud-bigquery ships py.typed, so mypy now resolves the google.cloud
+# namespace and reports the untyped storage package as a missing attribute.
+from google.cloud import storage  # type: ignore[attr-defined]
 from google.oauth2 import service_account
 
 from app.config import settings

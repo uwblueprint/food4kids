@@ -13,7 +13,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from google.api_core import exceptions as gcp_exceptions
 from google.cloud import bigquery
@@ -24,6 +24,7 @@ from app.config import settings
 
 if TYPE_CHECKING:
     import logging
+    from collections.abc import Mapping, Sequence
 
 SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
@@ -147,7 +148,7 @@ class BillingClient:
 
         return self._select_budget(response.get("budgets", []))
 
-    def _select_budget(self, budgets: list[dict]) -> BudgetInfo | None:
+    def _select_budget(self, budgets: Sequence[Mapping[str, Any]]) -> BudgetInfo | None:
         """Pick the most specific budget: project-scoped over account-wide.
 
         An account can carry several budgets — ours has a low alert threshold
@@ -176,7 +177,7 @@ class BillingClient:
         return max(candidates, key=lambda b: b.amount)
 
     @staticmethod
-    def _to_budget_info(budget: dict, scope: str) -> BudgetInfo | None:
+    def _to_budget_info(budget: Mapping[str, Any], scope: str) -> BudgetInfo | None:
         """Convert a Budget resource to BudgetInfo.
 
         Returns None for last-period budgets, which carry no fixed amount to
