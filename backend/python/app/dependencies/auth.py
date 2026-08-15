@@ -64,6 +64,13 @@ def get_access_token(
     return credentials.credentials
 
 
+def get_verified_token(
+    access_token: str = Depends(get_access_token),
+) -> dict[str, Any]:
+    """Verify access token and return decoded token claims"""
+    return _verified_token(access_token)
+
+
 def _verified_token(access_token: str) -> dict[str, Any]:
     """
     Verify the Firebase ID token once and require a verified email.
