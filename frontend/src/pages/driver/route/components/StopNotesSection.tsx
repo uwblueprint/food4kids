@@ -10,6 +10,7 @@ import {
   useUpdateNote,
 } from '@/api/notes';
 import { Button, Spinner } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import { NoteCard } from './NoteCard';
 import { NoteDeleteConfirmModal } from './NoteDeleteConfirmModal';
@@ -143,24 +144,38 @@ export function StopNotesSection({
         <p className="text-p2 text-grey-400">No notes yet.</p>
       )}
 
-      {!isLoading && notes.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {notes.map((note) => (
-            <NoteCard
+      {/* One card holds the whole thread plus the compose button, with the
+          notes hairline-separated inside it. The notes are one conversation
+          about this stop, not a stack of unrelated cards. With no notes there
+          is no thread to hold, and the card collapses to a white ring around
+          the button. */}
+      {!isLoading && (
+        <div
+          className={cn(
+            'flex flex-col',
+            notes.length > 0 && 'rounded-xl bg-white p-2'
+          )}
+        >
+          {notes.map((note, index) => (
+            <div
               key={note.note_id}
-              note={note}
-              currentUserId={currentUserId}
-              canManage={canManageNote(note, currentUserId, role)}
-              onEdit={openEdit}
-              onDelete={openDelete}
-            />
+              className={index > 0 ? 'border-grey-200 border-t' : undefined}
+            >
+              <NoteCard
+                note={note}
+                currentUserId={currentUserId}
+                canManage={canManageNote(note, currentUserId, role)}
+                onEdit={openEdit}
+                onDelete={openDelete}
+              />
+            </div>
           ))}
+
+          <Button type="button" className="w-full" onClick={openCreate}>
+            Add note
+          </Button>
         </div>
       )}
-
-      <Button type="button" className="w-full" onClick={openCreate}>
-        Add note
-      </Button>
 
       <NoteFormModal
         open={formOpen}
