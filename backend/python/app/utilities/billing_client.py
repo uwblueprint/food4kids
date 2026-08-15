@@ -126,6 +126,10 @@ class BillingClient:
         # Reentrant: _ensure_bq_client holds this while calling
         # _ensure_credentials, which takes it again.
         self._credentials_lock = threading.RLock()
+        self._budgets_api: Any = None
+        # A discovery Resource wraps one httplib2 connection and is not
+        # thread-safe, so this guards the call as well as the construction.
+        self._budgets_api_lock = threading.Lock()
         self._cost_cache: _TimedCache[CostInfo] = _TimedCache()
         self._budget_cache: _TimedCache[BudgetInfo | None] = _TimedCache()
 
@@ -191,15 +195,22 @@ class BillingClient:
         credentials = self._ensure_credentials()
 
         try:
-            service = build(
-                "billingbudgets", "v1", credentials=credentials, cache_discovery=False
-            )
-            response = (
-                service.billingAccounts()
-                .budgets()
-                .list(parent=f"billingAccounts/{settings.billing_account_id}")
-                .execute()
-            )
+            # cache_discovery=False means build() fetches the discovery document
+            # over the network, so it is built once rather than per lookup.
+            with self._budgets_api_lock:
+                if self._budgets_api is None:
+                    self._budgets_api = build(
+                        "billingbudgets",
+                        "v1",
+                        credentials=credentials,
+                        cache_discovery=False,
+                    )
+                response = (
+                    self._budgets_api.billingAccounts()
+                    .budgets()
+                    .list(parent=f"billingAccounts/{settings.billing_account_id}")
+                    .execute()
+                )
         except gcp_exceptions.Forbidden as e:
             raise BillingPermissionDeniedError(
                 "Budget lookup failed: permission denied. The service account "

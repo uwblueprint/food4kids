@@ -511,7 +511,10 @@ class TestBudgetCaching:
 
     def _patch_budget_api(
         self, monkeypatch: pytest.MonkeyPatch, calls: list[int]
-    ) -> None:
+    ) -> list[int]:
+        """Patch the Budget API; return a counter of discovery builds."""
+        builds = [0]
+
         class _Budgets:
             def list(self, **_kwargs: Any) -> Any:
                 return self
@@ -528,9 +531,26 @@ class TestBudgetCaching:
             def billingAccounts(self) -> _Accounts:
                 return _Accounts()
 
-        monkeypatch.setattr(
-            "app.utilities.billing_client.build", lambda *_a, **_k: _Service()
-        )
+        def _build(*_a: Any, **_k: Any) -> _Service:
+            builds[0] += 1
+            return _Service()
+
+        monkeypatch.setattr("app.utilities.billing_client.build", _build)
+        return builds
+
+    def test_discovery_service_is_built_once_and_reused(
+        self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """build() fetches the discovery document, so a cache miss shouldn't."""
+        monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 0)
+        calls = [0]
+        builds = self._patch_budget_api(monkeypatch, calls)
+
+        configured.fetch_budget()
+        configured.fetch_budget()
+
+        assert calls[0] == 2
+        assert builds[0] == 1
 
     def test_second_call_within_ttl_does_not_refetch(
         self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
