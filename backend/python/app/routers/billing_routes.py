@@ -43,8 +43,9 @@ async def get_billing_costs(
 ) -> BillingCostsResponse:
     """Return month-to-date spend for the configured project, against its budget.
 
-    Queried live on every request. Figures come from the Cloud Billing export and
-    typically lag by several hours — see ``data_as_of``.
+    Figures come from the Cloud Billing export and typically lag by several
+    hours — see ``data_as_of``. Responses are cached for
+    ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
     """
     try:
         summary = await billing_service.get_month_to_date_summary()

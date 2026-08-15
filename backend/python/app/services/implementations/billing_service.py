@@ -46,15 +46,19 @@ class BillingService:
     async def get_month_to_date_summary(self) -> BillingSummary:
         """Fetch budget and month-to-date spend for the configured project.
 
-        Runs live on every call — there is no caching, per the API contract.
+        Both may be served from ``BillingClient``'s short-lived cache; on a miss
+        they run concurrently, since neither lookup feeds the other and each
+        carries its own timeout.
         """
         now = datetime.now(ZoneInfo(settings.scheduler_timezone))
 
-        cost = await asyncio.wait_for(
-            asyncio.to_thread(self.billing_client.fetch_month_to_date_cost, now),
-            timeout=BILLING_TIMEOUT_SECONDS,
+        cost, budget = await asyncio.gather(
+            asyncio.wait_for(
+                asyncio.to_thread(self.billing_client.fetch_month_to_date_cost, now),
+                timeout=BILLING_TIMEOUT_SECONDS,
+            ),
+            self._fetch_budget_or_none(),
         )
-        budget = await self._fetch_budget_or_none()
 
         return BillingSummary(
             project_id=settings.billing_target_project_id,

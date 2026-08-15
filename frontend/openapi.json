@@ -4557,7 +4557,7 @@
     },
     "/api/billing/costs": {
       "get": {
-        "description": "Return month-to-date spend for the configured project, against its budget.\n\nQueried live on every request. Figures come from the Cloud Billing export and\ntypically lag by several hours — see ``data_as_of``.",
+        "description": "Return month-to-date spend for the configured project, against its budget.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
         "operationId": "get_billing_costs",
         "responses": {
           "200": {
