@@ -25,12 +25,7 @@ export const DriverProfile = () => {
   const phone = driverDetails?.phone || 'Not provided';
   const address = driverDetails?.address || 'Not provided';
 
-  const capitalize = (s: string) =>
-    s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
-  const fullName =
-    user?.fullName ||
-    `${capitalize(firstName)} ${capitalize(lastName)}`.trim() ||
-    'Driver Profile';
+  const fullName = user?.fullName || 'Driver Profile';
 
   const initials =
     `${firstName.charAt(0) || ''}${lastName.charAt(0) || ''}`.toUpperCase() ||
@@ -115,13 +110,14 @@ export const DriverProfile = () => {
             Logout
           </Button>
         </div>
+
+        <LogoutConfirmModal
+          open={isLogoutModalOpen}
+          onOpenChange={setIsLogoutModalOpen}
+          onConfirm={handleConfirmLogout}
+          isLoading={logoutMutation.isPending}
+        />
       </main>
-      <LogoutConfirmModal
-        open={isLogoutModalOpen}
-        onOpenChange={setIsLogoutModalOpen}
-        onConfirm={handleConfirmLogout}
-        isLoading={logoutMutation.isPending}
-      />
     </>
   );
 };
