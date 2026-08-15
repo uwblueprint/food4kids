@@ -93,6 +93,21 @@ class TestPickNoteAttachments:
 
 
 class TestUploadSeedNoteImages:
+    @pytest.fixture(autouse=True)
+    def configured_gcs(self) -> Any:
+        """Pretend GCS is configured.
+
+        Without this the tests would pass or skip depending on whether the
+        machine running them happens to have GCP credentials in its env — which
+        is exactly the difference between a laptop and CI.
+        """
+        with patch.multiple(
+            seed_module.settings,
+            gcp_bucket_name="test-bucket",
+            gcp_service_account_private_key="-----BEGIN PRIVATE KEY-----test",
+        ):
+            yield
+
     def _client(self) -> tuple[MagicMock, list[dict[str, Any]]]:
         calls: list[dict[str, Any]] = []
 
@@ -183,6 +198,46 @@ class TestUploadSeedNoteImages:
                 f"{seed_module.SEED_NOTE_IMAGE_PREFIX}/"
             )
             assert set(attachment) == {"filename", "url"}
+
+
+class TestUploadSeedNoteImagesWithoutGCS:
+    """The seed has to survive an environment with no bucket.
+
+    CI's boot smoke job runs the seed with no GCP settings at all, so uploading
+    must degrade to "notes without images" rather than taking the whole seed
+    down with it.
+    """
+
+    @pytest.mark.parametrize(
+        ("bucket", "private_key"),
+        [
+            ("", ""),
+            ("", "-----BEGIN PRIVATE KEY-----test"),
+            ("test-bucket", ""),
+        ],
+    )
+    def test_returns_nothing_when_settings_are_missing(
+        self, bucket: str, private_key: str
+    ) -> None:
+        with (
+            patch.multiple(
+                seed_module.settings,
+                gcp_bucket_name=bucket,
+                gcp_service_account_private_key=private_key,
+            ),
+            patch.object(seed_module, "GCPStorageClient") as client_class,
+        ):
+            assert seed_module.upload_seed_note_images() == []
+
+        # Never even constructed — building the client is what parses the key
+        # and raises on a malformed PEM.
+        client_class.assert_not_called()
+
+    def test_an_empty_pool_seeds_notes_without_attachments(self) -> None:
+        """The skip has to reach the notes, not just the upload helper."""
+        random.seed(1)
+        for _ in range(50):
+            assert seed_module.pick_note_attachments([]) == []
 
 
 class TestUploadFileKeyOverride:

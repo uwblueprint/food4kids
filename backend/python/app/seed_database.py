@@ -280,7 +280,16 @@ def upload_seed_note_images() -> list[dict[str, str]]:
 
     Like the Firebase helpers above, this talks to a real external service and
     is patched out in tests rather than faked here.
+
+    Returns no attachments when GCS isn't configured — the boot smoke job seeds
+    with no GCP credentials at all, and placeholder note images aren't what it
+    is testing. A failure with credentials *present* is a real error and is left
+    to propagate.
     """
+    if not (settings.gcp_bucket_name and settings.gcp_service_account_private_key):
+        print("  GCS is not configured — seeding notes without images")
+        return []
+
     client = GCPStorageClient(logging.getLogger(__name__), settings.gcp_bucket_name)
 
     attachments: list[dict[str, str]] = []
@@ -1264,7 +1273,8 @@ def main(*, reset_passwords: bool = False) -> None:
             print("Creating note chains for locations...")
             print("Uploading placeholder note images...")
             note_image_pool = upload_seed_note_images()
-            print(f"Uploaded {len(note_image_pool)} placeholder note images")
+            if note_image_pool:
+                print(f"Uploaded {len(note_image_pool)} placeholder note images")
 
             location_chains_created = 0
             location_notes_created = 0
