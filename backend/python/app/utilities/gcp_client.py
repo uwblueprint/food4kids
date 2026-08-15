@@ -60,10 +60,7 @@ class GCPStorageClient:
         try:
             blob.upload_from_string(contents, content_type=content_type)
 
-            url = blob.generate_signed_url(
-                expiration=timedelta(hours=expiration_hours),
-                method="GET",
-            )
+            url = self.generate_signed_url(key, expiration_hours=expiration_hours)
         except gcp_exceptions.Forbidden as e:
             raise GCSStorageError("Storage upload failed: permission denied.") from e
         except gcp_exceptions.NotFound as e:
@@ -82,6 +79,30 @@ class GCPStorageClient:
             content_type=content_type,
             size_bytes=len(contents),
         )
+
+    def generate_signed_url(self, filename: str, expiration_hours: int = 24) -> str:
+        """Mint a time-limited GET URL for an existing object.
+
+        Upload stores these URLs on notes, but they expire (default upload
+        expiry is 1h). Callers that *read* notes should re-sign from
+        ``filename`` so thumbnails keep working after the stored URL dies.
+        """
+        try:
+            return str(
+                self.bucket.blob(filename).generate_signed_url(
+                    expiration=timedelta(hours=expiration_hours),
+                    method="GET",
+                )
+            )
+        except gcp_exceptions.Forbidden as e:
+            raise GCSStorageError(
+                "Storage signed URL failed: permission denied."
+            ) from e
+        except Exception as e:
+            self.logger.exception("Unexpected error generating signed URL.")
+            raise GCSStorageError(
+                "Storage signed URL failed due to an unexpected error."
+            ) from e
 
     def delete_file(self, filename: str) -> None:
         """Delete a file from GCS"""

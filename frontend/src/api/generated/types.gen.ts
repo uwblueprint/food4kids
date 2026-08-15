@@ -1423,6 +1423,10 @@ export type NoteRead = {
    */
   attachments?: Array<Attachment>;
   /**
+   * Author Name
+   */
+  author_name?: string | null;
+  /**
    * Created At
    */
   created_at?: string | null;

@@ -28,6 +28,7 @@ from app.dependencies.auth import (
     require_self_driver_or_admin,
     resolve_route_list_driver_filter,
 )
+from app.dependencies.services import get_gcp_storage_client
 from app.models import get_session
 
 # Set test environment
@@ -55,6 +56,35 @@ def _block_real_email_sends() -> Generator[None, None, None]:
 
     with patch.object(EmailService, "send_email", _blocked):
         yield
+
+
+class _FakeGCPStorageClient:
+    """Stand-in for GCS so note/upload routes don't need real credentials in CI."""
+
+    def upload_file(self, _contents: bytes, filename: str, _content_type: str) -> Any:
+        from types import SimpleNamespace
+
+        key = f"test-{filename}"
+        return SimpleNamespace(
+            filename=key,
+            url=f"https://gcs.test/{key}",
+            content_type=_content_type,
+            size_bytes=len(_contents),
+        )
+
+    def generate_signed_url(self, filename: str, expiration_hours: int = 24) -> str:
+        return f"https://gcs.test/{filename}?exp={expiration_hours}h"
+
+    def delete_file(self, _filename: str) -> None:
+        return None
+
+    def file_exists(self, _filename: str) -> bool:
+        return True
+
+
+def _apply_gcp_override(app: Any) -> None:
+    """Note routes re-sign attachment URLs via GCS; stub it for all API tests."""
+    app.dependency_overrides[get_gcp_storage_client] = _FakeGCPStorageClient
 
 
 async def _ensure_system_settings(test_session: AsyncSession) -> None:
@@ -174,6 +204,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
 
     app.dependency_overrides[get_session] = override_get_session
     _apply_auth_overrides(app)
+    _apply_gcp_override(app)
 
     with TestClient(app) as test_client:
         yield test_client
@@ -194,6 +225,7 @@ async def async_client(
 
     app.dependency_overrides[get_session] = override_get_session
     _apply_auth_overrides(app)
+    _apply_gcp_override(app)
 
     from httpx import ASGITransport
 
@@ -228,6 +260,7 @@ async def client_with_overrides(
             # Bypass auth like the other client fixtures; explicit overrides
             # below can still replace individual auth dependencies.
             _apply_auth_overrides(app)
+            _apply_gcp_override(app)
             for dep, override in (overrides or {}).items():
                 app.dependency_overrides[dep] = override
 
@@ -439,6 +472,7 @@ async def authed_async_client(
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_database_user_id] = override_auth
     _apply_auth_overrides(app)
+    _apply_gcp_override(app)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

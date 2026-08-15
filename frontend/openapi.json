@@ -2321,6 +2321,7 @@
             "items": {
               "$ref": "#/components/schemas/Attachment"
             },
+            "maxItems": 3,
             "title": "Attachments",
             "type": "array"
           },
@@ -2486,6 +2487,17 @@
             },
             "title": "Attachments",
             "type": "array"
+          },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
           },
           "created_at": {
             "anyOf": [
