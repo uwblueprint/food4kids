@@ -18,14 +18,16 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from google.api_core import exceptions as gcp_exceptions
 from google.cloud import bigquery
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 from app.config import settings
+from app.utilities.gcp_credentials import build_service_account_credentials
 
 if TYPE_CHECKING:
     import logging
     from collections.abc import Mapping, Sequence
+
+    from google.oauth2 import service_account
 
 SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
@@ -145,20 +147,15 @@ class BillingClient:
                     "Set the BILLING_* environment variables."
                 )
 
-            self._credentials = service_account.Credentials.from_service_account_info(
-                {
-                    "type": "service_account",
-                    "project_id": settings.billing_target_project_id,
-                    "private_key_id": settings.billing_service_account_private_key_id,
-                    "private_key": settings.billing_service_account_private_key.replace(
-                        "\\n", "\n"
-                    ).strip(),
-                    "client_email": settings.billing_service_account_client_email,
-                    "client_id": settings.billing_service_account_client_id,
-                    "auth_uri": settings.billing_service_account_auth_uri,
-                    "token_uri": settings.billing_service_account_token_uri,
-                    "auth_provider_x509_cert_url": settings.billing_service_account_auth_provider_x509_cert_url,
-                },
+            self._credentials = build_service_account_credentials(
+                project_id=settings.billing_target_project_id,
+                private_key_id=settings.billing_service_account_private_key_id,
+                private_key=settings.billing_service_account_private_key,
+                client_email=settings.billing_service_account_client_email,
+                client_id=settings.billing_service_account_client_id,
+                auth_uri=settings.billing_service_account_auth_uri,
+                token_uri=settings.billing_service_account_token_uri,
+                auth_provider_x509_cert_url=settings.billing_service_account_auth_provider_x509_cert_url,
                 scopes=SCOPES,
             )
             return self._credentials
