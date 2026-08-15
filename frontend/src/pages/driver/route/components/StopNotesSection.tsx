@@ -10,6 +10,7 @@ import {
   useUpdateNote,
 } from '@/api/notes';
 import { Button, Spinner } from '@/common/components';
+import { cn } from '@/lib/utils';
 
 import { NoteCard } from './NoteCard';
 import { NoteDeleteConfirmModal } from './NoteDeleteConfirmModal';
@@ -145,9 +146,16 @@ export function StopNotesSection({
 
       {/* One card holds the whole thread plus the compose button, with the
           notes hairline-separated inside it. The notes are one conversation
-          about this stop, not a stack of unrelated cards. */}
+          about this stop, not a stack of unrelated cards. With no notes there
+          is no thread to hold, and the card collapses to a white ring around
+          the button. */}
       {!isLoading && (
-        <div className="flex flex-col rounded-xl bg-white p-2">
+        <div
+          className={cn(
+            'flex flex-col',
+            notes.length > 0 && 'rounded-xl bg-white p-2'
+          )}
+        >
           {notes.map((note, index) => (
             <div
               key={note.note_id}
