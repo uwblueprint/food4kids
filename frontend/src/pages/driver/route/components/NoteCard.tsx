@@ -34,7 +34,7 @@ export function NoteCard({
   const date = formatNoteDate(note.created_at);
 
   return (
-    <article className="relative flex flex-col gap-2 rounded-xl bg-white px-4 py-3">
+    <article className="relative flex flex-col gap-2 px-4 py-3">
       <div className={canManage ? 'pr-7' : undefined}>
         <p className="text-p2 text-grey-500 min-w-0">
           <span className="text-grey-400 font-semibold">{author}</span>
