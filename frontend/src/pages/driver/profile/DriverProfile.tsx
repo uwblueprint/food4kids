@@ -11,8 +11,8 @@ import { LogoutConfirmModal } from './LogoutConfirmModal';
 
 export const DriverProfile = () => {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
-  const driverId = user?.driverId;
+  const user = useAuthStore((state) => state.user)!;
+  const driverId = user.driverId;
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const logoutMutation = useLogout();
@@ -22,7 +22,7 @@ export const DriverProfile = () => {
     !!driverId
   );
 
-  if (isLoading || !user) {
+  if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Spinner />
@@ -30,17 +30,15 @@ export const DriverProfile = () => {
     );
   }
 
-  const firstName = user?.firstName || driverDetails?.first_name || '';
-  const lastName = user?.lastName || driverDetails?.last_name || '';
-  const email = user?.email || driverDetails?.email || '';
+  const firstName = user.firstName;
+  const lastName = user.lastName;
+  const email = user.email;
   const phone = driverDetails?.phone || 'Not provided';
   const address = driverDetails?.address || 'Not provided';
 
-  const fullName = user?.fullName || 'Driver Profile';
+  const fullName = user.fullName;
 
-  const initials =
-    `${firstName.charAt(0) || ''}${lastName.charAt(0) || ''}`.toUpperCase() ||
-    'D';
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
   const handleLogoutClick = () => {
     setIsLogoutModalOpen(true);
