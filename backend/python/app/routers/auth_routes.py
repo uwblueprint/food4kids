@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.dependencies.auth import _verified_token, get_access_token
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -21,7 +22,6 @@ from app.schemas.auth import (
     UpdatePasswordRequest,
     ValidateResetTokenRequest,
 )
-from app.dependencies.auth import _verified_token, get_access_token
 from app.services.implementations.auth_service import AuthService, SessionExpiredError
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.password_reset_token_service import (
@@ -289,7 +289,9 @@ async def update_password_authed(
     try:
         await auth_service.revoke_tokens(auth_id)
     except Exception:
-        logger.exception(f"Failed to revoke tokens for user {auth_id} after password update")
+        logger.exception(
+            f"Failed to revoke tokens for user {auth_id} after password update"
+        )
 
     # 4. Generate new session / tokens
     try:
@@ -299,7 +301,9 @@ async def update_password_authed(
         set_refresh_token_cookie(response, refresh_token, remember_me=False)
         return auth_dto
     except Exception as e:
-        logger.exception(f"Failed to generate new token after password update for {email}")
+        logger.exception(
+            f"Failed to generate new token after password update for {email}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Password updated, but failed to establish new session. Please log in again.",
