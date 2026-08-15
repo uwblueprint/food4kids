@@ -12,7 +12,11 @@ import pytest
 
 from app.dependencies.services import get_billing_service
 from app.services.implementations.billing_service import BillingSummary
-from app.utilities.billing_client import BillingError, BillingNotConfiguredError
+from app.utilities.billing_client import (
+    BillingError,
+    BillingNotConfiguredError,
+    BillingPermissionDeniedError,
+)
 
 # pytest.ini's asyncio_mode=auto sits under a [tool:pytest] header and so is not
 # read; async tests need the marker explicitly, as elsewhere in this suite.
@@ -103,7 +107,9 @@ class TestBillingCostsFailures:
         self, client_with_overrides: Any
     ) -> None:
         client = await client_with_overrides(
-            _override(BillingError("Cost query failed: permission denied."))
+            _override(
+                BillingPermissionDeniedError("Cost query failed: permission denied.")
+            )
         )
 
         assert (await client.get(ENDPOINT)).status_code == 403

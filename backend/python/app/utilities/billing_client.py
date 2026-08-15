@@ -80,6 +80,14 @@ class BillingNotConfiguredError(BillingError):
     """Raised when the BILLING_* settings are absent."""
 
 
+class BillingPermissionDeniedError(BillingError):
+    """Raised when the billing service account lacks a required role.
+
+    Its own type so the router can map it to 403 without matching on the
+    message text, which would break silently if the wording changed.
+    """
+
+
 @dataclass
 class BudgetInfo:
     """A budget as configured in Cloud Billing."""
@@ -193,7 +201,7 @@ class BillingClient:
                 .execute()
             )
         except gcp_exceptions.Forbidden as e:
-            raise BillingError(
+            raise BillingPermissionDeniedError(
                 "Budget lookup failed: permission denied. The service account "
                 "needs roles/billing.viewer on the billing account."
             ) from e
@@ -316,7 +324,7 @@ class BillingClient:
             client = self._ensure_bq_client()
             rows = list(client.query(query, job_config=job_config).result())
         except gcp_exceptions.Forbidden as e:
-            raise BillingError(
+            raise BillingPermissionDeniedError(
                 "Cost query failed: permission denied. The service account needs "
                 "roles/bigquery.jobUser and roles/bigquery.dataViewer."
             ) from e

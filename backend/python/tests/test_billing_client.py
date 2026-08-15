@@ -17,6 +17,7 @@ from app.utilities.billing_client import (
     BillingClient,
     BillingError,
     BillingNotConfiguredError,
+    BillingPermissionDeniedError,
     CostInfo,
 )
 
@@ -269,10 +270,10 @@ def configured(client: BillingClient, monkeypatch: pytest.MonkeyPatch) -> Billin
 
 
 class TestErrorMapping:
-    """SDK failures collapse to BillingError with a message the router can key on.
+    """SDK failures collapse to BillingError, with a distinct type for 403s.
 
-    The router maps to 403 by looking for "permission denied" in the message, so
-    that wording is load-bearing rather than cosmetic.
+    The router keys off ``BillingPermissionDeniedError`` rather than the message
+    text, so these assert the type; the wording is only for the operator.
     """
 
     def test_budget_forbidden_says_permission_denied(
@@ -283,7 +284,7 @@ class TestErrorMapping:
             _raise(gcp_exceptions.Forbidden("nope")),
         )
 
-        with pytest.raises(BillingError, match="permission denied"):
+        with pytest.raises(BillingPermissionDeniedError, match="permission denied"):
             configured.fetch_budget()
 
     def test_budget_not_found_is_reported_as_such(
@@ -318,7 +319,7 @@ class TestErrorMapping:
             _raise(gcp_exceptions.Forbidden("nope")),
         )
 
-        with pytest.raises(BillingError, match="permission denied"):
+        with pytest.raises(BillingPermissionDeniedError, match="permission denied"):
             configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
 
     def test_missing_export_table_hints_at_setup(

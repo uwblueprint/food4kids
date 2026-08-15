@@ -6,7 +6,11 @@ from pydantic import BaseModel
 from app.dependencies.auth import require_admin
 from app.dependencies.services import get_billing_service
 from app.services.implementations.billing_service import BillingService
-from app.utilities.billing_client import BillingError, BillingNotConfiguredError
+from app.utilities.billing_client import (
+    BillingError,
+    BillingNotConfiguredError,
+    BillingPermissionDeniedError,
+)
 
 # Note: every other router in this app mounts at the root (/route-groups,
 # /system-settings, ...). The /api segment here is specified by the billing
@@ -48,13 +52,12 @@ async def get_billing_costs(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         ) from e
+    except BillingPermissionDeniedError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except BillingError as e:
-        status_code = (
-            status.HTTP_403_FORBIDDEN
-            if "permission denied" in str(e).lower()
-            else status.HTTP_503_SERVICE_UNAVAILABLE
-        )
-        raise HTTPException(status_code=status_code, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        ) from e
     except TimeoutError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
