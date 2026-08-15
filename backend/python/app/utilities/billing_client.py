@@ -11,9 +11,10 @@ throughout the day rather than in real time.
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from google.api_core import exceptions as gcp_exceptions
 from google.cloud import bigquery
@@ -32,6 +33,43 @@ SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 # time. Floor the partition scan this far before the month start so the filter
 # only trims cost, never rows.
 PARTITION_LOOKBACK_DAYS = 2
+
+T = TypeVar("T")
+
+
+class _TimedCache(Generic[T]):
+    """Single-value cache with a TTL, safe to read from worker threads.
+
+    Both lookups run under ``asyncio.to_thread``, so several requests can land
+    here concurrently. A TTL of zero disables caching entirely.
+    """
+
+    def __init__(self) -> None:
+        self._entry: tuple[str, T, float] | None = None
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> tuple[bool, T | None]:
+        """Return ``(hit, value)``. ``hit`` distinguishes a cached ``None``."""
+        if settings.billing_cache_ttl_seconds <= 0:
+            return False, None
+        with self._lock:
+            if self._entry is None:
+                return False, None
+            cached_key, value, expires_at = self._entry
+            if cached_key != key or time.monotonic() >= expires_at:
+                return False, None
+            return True, value
+
+    def set(self, key: str, value: T) -> None:
+        if settings.billing_cache_ttl_seconds <= 0:
+            return
+        with self._lock:
+            expiry = time.monotonic() + settings.billing_cache_ttl_seconds
+            self._entry = (key, value, expiry)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entry = None
 
 
 class BillingError(Exception):
@@ -76,7 +114,12 @@ class BillingClient:
     def __init__(self, logger: logging.Logger) -> None:
         self.logger = logger
         self._credentials: service_account.Credentials | None = None
-        self._credentials_lock = threading.Lock()
+        self._bq_client: bigquery.Client | None = None
+        # Reentrant: _ensure_bq_client holds this while calling
+        # _ensure_credentials, which takes it again.
+        self._credentials_lock = threading.RLock()
+        self._cost_cache: _TimedCache[CostInfo] = _TimedCache()
+        self._budget_cache: _TimedCache[BudgetInfo | None] = _TimedCache()
 
     def _ensure_credentials(self) -> service_account.Credentials:
         """Build (once) the dedicated billing service account credentials."""
@@ -108,16 +151,34 @@ class BillingClient:
             )
             return self._credentials
 
+    def _ensure_bq_client(self) -> bigquery.Client:
+        """Build the BigQuery client once and reuse it across requests.
+
+        Constructing one per call re-does credential and transport setup on
+        every request for no benefit — the client is safe to share.
+        """
+        with self._credentials_lock:
+            if self._bq_client is None:
+                self._bq_client = bigquery.Client(
+                    credentials=self._ensure_credentials(),
+                    project=settings.billing_target_project_id,
+                )
+            return self._bq_client
+
     def fetch_budget(self) -> BudgetInfo | None:
         """Return the budget for our target project, or None if none is set.
 
         Prefers a budget explicitly filtered to the target project; falls back to
-        the first account-wide budget so a single shared budget still surfaces.
+        account-wide budgets so a single shared budget still surfaces.
         """
         if not settings.billing_account_id:
             raise BillingNotConfiguredError(
                 "Billing account is not configured. Set BILLING_ACCOUNT_ID."
             )
+
+        hit, cached = self._budget_cache.get(settings.billing_account_id)
+        if hit:
+            return cached
 
         credentials = self._ensure_credentials()
 
@@ -146,7 +207,9 @@ class BillingClient:
                 "Budget lookup failed due to an unexpected error."
             ) from e
 
-        return self._select_budget(response.get("budgets", []))
+        budget = self._select_budget(response.get("budgets", []))
+        self._budget_cache.set(settings.billing_account_id, budget)
+        return budget
 
     def _select_budget(self, budgets: Sequence[Mapping[str, Any]]) -> BudgetInfo | None:
         """Pick the most specific budget: project-scoped over account-wide.
@@ -210,7 +273,11 @@ class BillingClient:
                     f"Billing export is not configured. Set {name}."
                 )
 
-        credentials = self._ensure_credentials()
+        invoice_month = now.strftime("%Y%m")
+        hit, cached = self._cost_cache.get(invoice_month)
+        if hit and cached is not None:
+            return cached
+
         month_start = now.replace(
             day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None
         )
@@ -231,25 +298,22 @@ class BillingClient:
         """
 
         job_config = bigquery.QueryJobConfig(
+            maximum_bytes_billed=settings.billing_max_bytes_billed,
             query_parameters=[
                 bigquery.ScalarQueryParameter(
                     "project_id", "STRING", settings.billing_target_project_id
                 ),
-                bigquery.ScalarQueryParameter(
-                    "invoice_month", "STRING", now.strftime("%Y%m")
-                ),
+                bigquery.ScalarQueryParameter("invoice_month", "STRING", invoice_month),
                 bigquery.ScalarQueryParameter(
                     "partition_floor",
                     "TIMESTAMP",
                     month_start - timedelta(days=PARTITION_LOOKBACK_DAYS),
                 ),
-            ]
+            ],
         )
 
         try:
-            client = bigquery.Client(
-                credentials=credentials, project=settings.billing_target_project_id
-            )
+            client = self._ensure_bq_client()
             rows = list(client.query(query, job_config=job_config).result())
         except gcp_exceptions.Forbidden as e:
             raise BillingError(
@@ -261,11 +325,21 @@ class BillingClient:
                 "Cost query failed: billing export table not found. "
                 "Cloud Billing export to BigQuery may not be enabled."
             ) from e
+        except gcp_exceptions.BadRequest as e:
+            # Most likely the maximum_bytes_billed ceiling. Say so, because the
+            # fix is a config change rather than something to retry.
+            self.logger.warning("Billing export query rejected: %s", e)
+            raise BillingError(
+                "Cost query failed: the query was rejected, possibly for "
+                "exceeding the configured bytes-billed limit."
+            ) from e
         except Exception as e:
             self.logger.exception("Unexpected error querying billing export")
             raise BillingError("Cost query failed due to an unexpected error.") from e
 
-        return self._parse_cost_row(rows[0] if rows else None)
+        cost = self._parse_cost_row(rows[0] if rows else None)
+        self._cost_cache.set(invoice_month, cost)
+        return cost
 
     @staticmethod
     def _parse_cost_row(row: object) -> CostInfo:

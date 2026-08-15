@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     billing_target_project_id: str = Field(default="")
     billing_export_dataset: str = Field(default="")
     billing_export_table: str = Field(default="")
+    # Cost data only refreshes every few hours, so a short TTL costs no accuracy
+    # while protecting against a polling caller running up BigQuery scans.
+    # Set to 0 to query live on every request.
+    billing_cache_ttl_seconds: int = Field(default=300)
+    # Hard ceiling per query. BigQuery kills the job rather than billing beyond
+    # this, so a runaway caller fails loudly instead of quietly costing money.
+    billing_max_bytes_billed: int = Field(default=1024**3)
 
     # Preview deploy
     preview_deploy: bool = Field(default=False)

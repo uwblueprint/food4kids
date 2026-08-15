@@ -262,6 +262,9 @@ def configured(client: BillingClient, monkeypatch: pytest.MonkeyPatch) -> Billin
     ):
         monkeypatch.setattr(settings, field, "set")
     monkeypatch.setattr(client, "_ensure_credentials", lambda: object())
+    # Caching off by default so each test's calls actually reach the fake;
+    # the cache tests below opt back in.
+    monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 0)
     return client
 
 
@@ -342,3 +345,183 @@ class TestErrorMapping:
             configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
 
         assert "password" not in str(excinfo.value)
+
+
+class _FakeQueryJob:
+    def __init__(self, rows: list[Any]) -> None:
+        self._rows = rows
+
+    def result(self) -> list[Any]:
+        return self._rows
+
+
+class _FakeBQClient:
+    """Records every query so tests can count how many actually ran."""
+
+    def __init__(self) -> None:
+        self.job_configs: list[Any] = []
+
+    def query(self, _query: str, job_config: Any = None) -> _FakeQueryJob:
+        self.job_configs.append(job_config)
+        return _FakeQueryJob([FakeRow(1.0, -0.25, "CAD", datetime(2026, 7, 29))])
+
+
+@pytest.fixture
+def fake_bq(monkeypatch: pytest.MonkeyPatch) -> tuple[_FakeBQClient, list[int]]:
+    """Patch bigquery.Client, returning the fake and a construction counter."""
+    fake = _FakeBQClient()
+    constructions = [0]
+
+    def _factory(*_args: Any, **_kwargs: Any) -> _FakeBQClient:
+        constructions[0] += 1
+        return fake
+
+    monkeypatch.setattr("app.utilities.billing_client.bigquery.Client", _factory)
+    return fake, constructions
+
+
+class TestQueryCost:
+    """Guards against a polling caller running up a surprise BigQuery bill."""
+
+    def test_query_caps_bytes_billed(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(settings, "billing_max_bytes_billed", 12345)
+        fake, _ = fake_bq
+
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+
+        assert fake.job_configs[0].maximum_bytes_billed == 12345
+
+    def test_bigquery_client_is_built_once_and_reused(
+        self, configured: BillingClient, fake_bq: tuple[_FakeBQClient, list[int]]
+    ) -> None:
+        _, constructions = fake_bq
+
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 30))
+
+        assert constructions[0] == 1
+
+
+class TestCostCaching:
+    """A short TTL costs no accuracy — the export only refreshes every few hours."""
+
+    def test_second_call_within_ttl_does_not_requery(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 300)
+        fake, _ = fake_bq
+
+        first = configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+        second = configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+
+        assert len(fake.job_configs) == 1
+        assert first == second
+
+    def test_zero_ttl_queries_every_time(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Setting the TTL to 0 restores the original live-per-request contract."""
+        monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 0)
+        fake, _ = fake_bq
+
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+
+        assert len(fake.job_configs) == 2
+
+    def test_expired_entry_requeries(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 300)
+        fake, _ = fake_bq
+        clock = [1000.0]
+        monkeypatch.setattr(
+            "app.utilities.billing_client.time.monotonic", lambda: clock[0]
+        )
+
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+        clock[0] += 301
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 29))
+
+        assert len(fake.job_configs) == 2
+
+    def test_a_new_invoice_month_is_never_served_from_cache(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Rolling into a new month must not report the old month's total."""
+        monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 300)
+        fake, _ = fake_bq
+
+        configured.fetch_month_to_date_cost(datetime(2026, 7, 31))
+        configured.fetch_month_to_date_cost(datetime(2026, 8, 1))
+
+        assert len(fake.job_configs) == 2
+
+
+class TestBudgetCaching:
+    """The budget changes far less often than the cost, but shares the TTL."""
+
+    def _patch_budget_api(
+        self, monkeypatch: pytest.MonkeyPatch, calls: list[int]
+    ) -> None:
+        class _Budgets:
+            def list(self, **_kwargs: Any) -> Any:
+                return self
+
+            def execute(self) -> dict[str, Any]:
+                calls[0] += 1
+                return {"budgets": [_budget({"specifiedAmount": {"units": "20"}})]}
+
+        class _Accounts:
+            def budgets(self) -> _Budgets:
+                return _Budgets()
+
+        class _Service:
+            def billingAccounts(self) -> _Accounts:
+                return _Accounts()
+
+        monkeypatch.setattr(
+            "app.utilities.billing_client.build", lambda *_a, **_k: _Service()
+        )
+
+    def test_second_call_within_ttl_does_not_refetch(
+        self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 300)
+        calls = [0]
+        self._patch_budget_api(monkeypatch, calls)
+
+        first = configured.fetch_budget()
+        second = configured.fetch_budget()
+
+        assert calls[0] == 1
+        assert first == second
+
+    def test_zero_ttl_refetches(
+        self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "billing_cache_ttl_seconds", 0)
+        calls = [0]
+        self._patch_budget_api(monkeypatch, calls)
+
+        configured.fetch_budget()
+        configured.fetch_budget()
+
+        assert calls[0] == 2
