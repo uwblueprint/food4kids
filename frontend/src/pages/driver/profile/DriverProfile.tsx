@@ -17,7 +17,7 @@ export const DriverProfile = () => {
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const logoutMutation = useLogout();
 
-  const { data: driverDetails } = useDriver(driverId || '');
+  const { data: driverDetails } = useDriver(driverId || '', !!driverId);
 
   const firstName = user?.firstName || driverDetails?.first_name || '';
   const lastName = user?.lastName || driverDetails?.last_name || '';
@@ -55,77 +55,73 @@ export const DriverProfile = () => {
 
   return (
     <>
-    <main className="flex flex-col items-center gap-6 mx-auto w-full justify-between flex-1 desktop:justify-start">
-      <div className="flex flex-col items-center gap-6 w-full">
-        <Link
-          to="/driver/home"
-          className="flex gap-1 text-blue-400 self-start"
-        >
-          <ChevronLeftIcon className="size-6" />
-          <h2>Back to home</h2>
-        </Link>
+      <main className="desktop:justify-start mx-auto flex w-full flex-1 flex-col items-center justify-between gap-6">
+        <div className="flex w-full flex-col items-center gap-6">
+          <Link
+            to="/driver/home"
+            className="flex gap-1 self-start text-blue-400"
+          >
+            <ChevronLeftIcon className="size-6" />
+            <h2>Back to home</h2>
+          </Link>
 
-        <div className="flex flex-col items-center gap-1 mt-3 tablet:mt-0">
-          {/* 1. Profile circle showing initials */}
-          <div className="flex size-16 desktop:size-26 items-center justify-center rounded-full bg-blue-300 text-white">
-            <h1 className="text-[26.182px] desktop:text-[42.545px]">{initials}</h1>
+          <div className="tablet:mt-0 mt-3 flex flex-col items-center gap-1">
+            {/* 1. Profile circle showing initials */}
+            <div className="desktop:size-26 flex size-16 items-center justify-center rounded-full bg-blue-300 text-white">
+              <h1 className="desktop:text-[42.545px] text-[26.182px]">
+                {initials}
+              </h1>
+            </div>
+
+            {/* 2. Full name properly capitalized */}
+            <h1 className="text-grey-500 text-center font-bold">{fullName}</h1>
           </div>
 
-          {/* 2. Full name properly capitalized */}
-          <h1 className="font-bold text-grey-500 text-center">
-            {fullName}
-          </h1>
-        </div>
-        
+          {/* 3. Email subheading on the left, followed by a field */}
+          <div className="flex w-full flex-col gap-2">
+            <h2>Email</h2>
+            <div className="bg-grey-150 text-p1 w-full rounded-[8px] p-3">
+              {email || 'No email specified'}
+            </div>
+          </div>
 
-        {/* 3. Email subheading on the left, followed by a field */}
-        <div className="flex flex-col gap-2 w-full">
-          <h2>Email</h2>
-          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-            {email || 'No email specified'}
+          {/* 4. Phone number subheading on the left, followed by a field below it */}
+          <div className="flex w-full flex-col gap-2">
+            <h2>Phone number</h2>
+            <div className="bg-grey-150 text-p1 w-full rounded-[8px] p-3">
+              {phone}
+            </div>
+          </div>
+
+          {/* 5. Address subheading on the left, followed by a field below it */}
+          <div className="flex w-full flex-col gap-2">
+            <h2>Address</h2>
+            <div className="bg-grey-150 text-p1 w-full rounded-[8px] p-3">
+              {address}
+            </div>
           </div>
         </div>
 
-        {/* 4. Phone number subheading on the left, followed by a field below it */}
-        <div className="flex flex-col gap-2 w-full">
-          <h2>Phone number</h2>
-          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-            {phone}
-          </div>
+        {/* 6. A flex row div, inside it two buttons: left "Change password", right "Logout" */}
+        <div className="desktop:flex-row flex w-full flex-col gap-4">
+          <Button
+            variant="secondary"
+            className="desktop:flex-1"
+            onClick={handleChangePassword}
+          >
+            Change password
+          </Button>
+          <Button className="desktop:flex-1" onClick={handleLogoutClick}>
+            Logout
+          </Button>
         </div>
-
-        {/* 5. Address subheading on the left, followed by a field below it */}
-        <div className="flex flex-col gap-2 w-full">
-          <h2>Address</h2>
-          <div className="w-full bg-grey-150 rounded-[8px] p-3 text-p1">
-            {address}
-          </div>
-        </div>
-      </div>
-
-      {/* 6. A flex row div, inside it two buttons: left "Change password", right "Logout" */}
-      <div className="flex flex-col desktop:flex-row gap-4 w-full">
-        <Button
-          variant="secondary"
-          className="desktop:flex-1"
-          onClick={handleChangePassword}
-        >
-          Change password
-        </Button>
-        <Button
-          className="desktop:flex-1"
-          onClick={handleLogoutClick}
-        >
-          Logout
-        </Button>
-      </div>
-    </main>
-    <LogoutConfirmModal
-      open={isLogoutModalOpen}
-      onOpenChange={setIsLogoutModalOpen}
-      onConfirm={handleConfirmLogout}
-      isLoading={logoutMutation.isPending}
-    />
+      </main>
+      <LogoutConfirmModal
+        open={isLogoutModalOpen}
+        onOpenChange={setIsLogoutModalOpen}
+        onConfirm={handleConfirmLogout}
+        isLoading={logoutMutation.isPending}
+      />
     </>
   );
 };
