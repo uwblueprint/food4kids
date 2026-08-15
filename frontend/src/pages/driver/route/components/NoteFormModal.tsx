@@ -198,7 +198,7 @@ function NoteForm({
       className="flex min-h-0 flex-1 flex-col gap-6"
     >
       <ModalHeader className="shrink-0">
-        <ModalTitle>
+        <ModalTitle variant="form">
           {mode === 'edit' ? 'Edit note' : 'Announcements'}
         </ModalTitle>
       </ModalHeader>

@@ -27,7 +27,7 @@ export function NoteDeleteConfirmModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent className="max-w-[480px]">
         <ModalHeader>
-          <ModalTitle>Delete note?</ModalTitle>
+          <ModalTitle variant="confirmation">Delete note?</ModalTitle>
           <ModalDescription>
             Once you delete a note, it cannot be recovered.
           </ModalDescription>
