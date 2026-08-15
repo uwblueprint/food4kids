@@ -5,8 +5,9 @@ style of ``test_google_maps_routing_service.py``.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from google.api_core import exceptions as gcp_exceptions
@@ -244,13 +245,6 @@ class TestConfigurationGuards:
             client.fetch_month_to_date_cost(datetime(2026, 7, 29))
 
 
-class TestPartitionLookback:
-    """The partition filter must never be tighter than the month start."""
-
-    def test_lookback_precedes_month_start(self) -> None:
-        assert PARTITION_LOOKBACK_DAYS > 0
-
-
 @pytest.fixture
 def configured(client: BillingClient, monkeypatch: pytest.MonkeyPatch) -> BillingClient:
     """A client with settings populated and credentials stubbed out."""
@@ -379,6 +373,42 @@ def fake_bq(monkeypatch: pytest.MonkeyPatch) -> tuple[_FakeBQClient, list[int]]:
 
     monkeypatch.setattr("app.utilities.billing_client.bigquery.Client", _factory)
     return fake, constructions
+
+
+def _partition_floor(job_config: Any) -> datetime:
+    """Pull the bound ``partition_floor`` value out of a captured job config."""
+    by_name = {p.name: p.value for p in job_config.query_parameters}
+    return by_name["partition_floor"]  # type: ignore[no-any-return]
+
+
+class TestPartitionLookback:
+    """The partition filter must never be tighter than the month start.
+
+    `_PARTITIONTIME` can lag a row's usage time, so the floor exists to trim
+    scanned bytes without dropping rows. A floor landing after the true month
+    start would undercount the month with no error raised.
+    """
+
+    @pytest.mark.parametrize(
+        "zone", ["America/New_York", "UTC", "Asia/Kolkata", "Australia/Sydney"]
+    )
+    def test_floor_precedes_month_start_in_every_zone(
+        self,
+        configured: BillingClient,
+        fake_bq: tuple[_FakeBQClient, list[int]],
+        zone: str,
+    ) -> None:
+        """Zones ahead of UTC are the ones a naive floor silently narrows."""
+        now = datetime(2026, 7, 29, 3, 0, tzinfo=ZoneInfo(zone))
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        fake, _ = fake_bq
+
+        configured.fetch_month_to_date_cost(now)
+
+        floor = _partition_floor(fake.job_configs[0])
+        assert floor.tzinfo is not None, "BigQuery reads a naive TIMESTAMP as UTC"
+        assert floor < month_start
+        assert month_start - floor == timedelta(days=PARTITION_LOOKBACK_DAYS)
 
 
 class TestQueryCost:

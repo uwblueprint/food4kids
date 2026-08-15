@@ -286,9 +286,9 @@ class BillingClient:
         if hit and cached is not None:
             return cached
 
-        month_start = now.replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-        )
+        # Stays timezone-aware: BigQuery reads a naive TIMESTAMP parameter as
+        # UTC, so stripping the offset here would shift the floor by it.
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         # Dataset/table come from settings, never from the request, so they are
         # safe to interpolate; the filters are bound parameters.
