@@ -333,7 +333,7 @@ def sample_location_data() -> dict[str, Any]:
         "contact_name": "Jane Smith",
         "delivery_type": "School",
         "address": "123 Main St, City, State 12345",
-        "phone_primary": "(555) 123-4567",
+        "phone_primary": "tel:+1-519-576-1102",
         "longitude": -122.4194,
         "latitude": 37.7749,
         "halal": False,

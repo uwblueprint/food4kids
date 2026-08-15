@@ -34,7 +34,7 @@ const MOCK_ROWS: MockRow[] = [
     name: 'Smith',
     address: '',
     deliveryGroup: 'Monday A',
-    phone: '416 123 4850',
+    phone: '(416) 123-4850',
     errorCell: 'address',
   },
   {
@@ -45,7 +45,7 @@ const MOCK_ROWS: MockRow[] = [
     name: 'Connor',
     address: '',
     deliveryGroup: 'Tuesday A',
-    phone: '416 343 8450',
+    phone: '(416) 343-8450',
     errorCell: 'address',
   },
   {
@@ -56,7 +56,7 @@ const MOCK_ROWS: MockRow[] = [
     name: 'Dougall',
     address: '',
     deliveryGroup: 'Thursday B',
-    phone: '416 233 8450',
+    phone: '(416) 233-8450',
     errorCell: 'address',
   },
   {
@@ -67,7 +67,7 @@ const MOCK_ROWS: MockRow[] = [
     name: 'Morales',
     address: '',
     deliveryGroup: 'Tuesday A',
-    phone: '519 343 8450',
+    phone: '(519) 343-8450',
     errorCell: 'address',
   },
   {
@@ -78,7 +78,7 @@ const MOCK_ROWS: MockRow[] = [
     name: 'Patel',
     address: '400 Oak Ave',
     deliveryGroup: 'Monday A',
-    phone: '427 284 2498',
+    phone: '(427) 284-2498',
   },
   {
     id: 6,
@@ -88,7 +88,7 @@ const MOCK_ROWS: MockRow[] = [
     name: 'Patel',
     address: '400 Oak Ave',
     deliveryGroup: 'Monday A',
-    phone: '427 284 2498',
+    phone: '(427) 284-2498',
   },
   {
     id: 7,
@@ -98,7 +98,7 @@ const MOCK_ROWS: MockRow[] = [
     name: 'Jordan',
     address: '43 Burr Ave',
     deliveryGroup: '',
-    phone: '519 5443 298',
+    phone: '(519) 544-3298',
     errorCell: 'deliveryGroup',
   },
 ];
@@ -162,7 +162,7 @@ const SIMPLE_ROWS: SimpleRow[] = [
     name: 'Smith',
     address: '14 Maple St',
     deliveryGroup: 'Monday A',
-    phone: '416 123 4850',
+    phone: '(416) 123-4850',
   },
   {
     id: 2,
@@ -170,7 +170,7 @@ const SIMPLE_ROWS: SimpleRow[] = [
     name: 'Connor',
     address: '88 Birch Ave',
     deliveryGroup: 'Tuesday A',
-    phone: '416 343 8450',
+    phone: '(416) 343-8450',
   },
   {
     id: 3,
@@ -178,7 +178,7 @@ const SIMPLE_ROWS: SimpleRow[] = [
     name: 'Dougall',
     address: '23 Cedar Rd',
     deliveryGroup: 'Thursday B',
-    phone: '416 233 8450',
+    phone: '(416) 233-8450',
   },
   {
     id: 4,
@@ -186,7 +186,7 @@ const SIMPLE_ROWS: SimpleRow[] = [
     name: 'Morales',
     address: '7 Elm Cres',
     deliveryGroup: 'Tuesday A',
-    phone: '519 343 8450',
+    phone: '(519) 343-8450',
   },
   {
     id: 5,
@@ -194,7 +194,7 @@ const SIMPLE_ROWS: SimpleRow[] = [
     name: 'Patel',
     address: '400 Oak Ave',
     deliveryGroup: 'Monday A',
-    phone: '427 284 2498',
+    phone: '(427) 284-2498',
   },
 ];
 

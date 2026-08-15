@@ -15,7 +15,9 @@ if TYPE_CHECKING:
 
 
 class DriverBase(SQLModel):
-    phone: str = Field(min_length=1, max_length=20)
+    # 32, not 20: phones are stored RFC 3966 (``tel:+1-519-576-3443;ext=1``),
+    # which runs to 31 characters with the longest extension we accept.
+    phone: str = Field(min_length=1, max_length=32)
     partner_driver_name: str | None = Field(default=None, max_length=255)
     # Seven slots, Monday = 0 through Sunday = 6; use availability[date.weekday()].
     availability: list[bool] = Field(
@@ -117,13 +119,23 @@ class DriverRead(DriverBase):
 class DriverUpdate(SQLModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=255)
     last_name: str | None = Field(default=None, min_length=1, max_length=255)
-    phone: str | None = Field(default=None, min_length=1, max_length=20)
+    phone: str | None = Field(default=None, min_length=1, max_length=32)
     partner_driver_name: str | None = Field(default=None, max_length=255)
     availability: list[bool] | None = Field(default=None)
     address: str | None = Field(default=None, min_length=1, max_length=255)
     license_plate: str | None = Field(default=None, min_length=1, max_length=20)
     car_make_model: str | None = Field(default=None, min_length=1, max_length=255)
     active: bool | None = Field(default=None)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str | None) -> str | None:
+        """Normalize on update too — ``update_driver_by_id`` assigns straight
+        onto the row, and SQLModel table instances don't re-run validators on
+        assignment, so without this an edit writes the raw client string."""
+        if v is None:
+            return None
+        return validate_phone(v)
 
     @field_validator("availability")
     @classmethod
@@ -168,7 +180,7 @@ class DriverRegister(SQLModel):
     email: EmailStr = Field(max_length=254)
 
     # Driver fields
-    phone: str = Field(min_length=1, max_length=20)
+    phone: str = Field(min_length=1, max_length=32)
     partner_driver_name: str | None = Field(default=None, max_length=255)
     availability: list[bool] = Field(default_factory=lambda: [False] * 7)
     license_plate: str = Field(min_length=1, max_length=20)

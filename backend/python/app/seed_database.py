@@ -319,8 +319,12 @@ def ensure_firebase_user(
     return uid
 
 
-def generate_valid_phone() -> str:
-    """Generate a valid phone number in E164 format"""
+def generate_valid_phone(*, with_extension: bool = False) -> str:
+    """Generate a valid phone number in the stored RFC 3966 format.
+
+    ``with_extension`` seeds the ``;ext=`` case — schools and the F4K office
+    have extensions, so at least some seeded data should carry one.
+    """
     # Valid Canadian area codes (Ontario and Quebec)
     valid_area_codes = [416, 647, 437, 514, 613, 905, 289, 519, 226, 705, 807, 343, 365]
 
@@ -331,16 +335,18 @@ def generate_valid_phone() -> str:
         exchange = random.randint(200, 999)  # Exchange code (3 digits)
         number = random.randint(1000, 9999)  # Last 4 digits
         phone_str = f"+1{area_code}{exchange:03d}{number:04d}"
+        if with_extension:
+            phone_str += f" ext. {random.randint(1, 999)}"
 
         try:
             parsed = phonenumbers.parse(phone_str, None)
             if phonenumbers.is_valid_number(parsed):
-                return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+                return phonenumbers.format_number(parsed, PhoneNumberFormat.RFC3966)
         except Exception:
             continue
 
     # Fallback: return a known valid number if we can't generate one
-    return "+14165551234"
+    return "tel:+1-416-555-1234"
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -861,7 +867,11 @@ def main(*, reset_passwords: bool = False) -> None:
                             else contact_name,
                             contact_name=contact_name,
                             address=address,
-                            phone_primary=generate_valid_phone(),
+                            # Schools answer on a switchboard — seed them with
+                            # extensions so the ;ext= path is exercised.
+                            phone_primary=generate_valid_phone(
+                                with_extension=is_school
+                            ),
                             phone_secondary=generate_valid_phone()
                             if random.choice([True, False])
                             else None,
@@ -1347,7 +1357,8 @@ def main(*, reset_passwords: bool = False) -> None:
                 dropoff_minutes=3,
                 children_per_box=2,
                 contact_name="Emily Loro",
-                contact_phone=generate_valid_phone(),
+                # The real office number has an extension; keep the seed honest.
+                contact_phone=generate_valid_phone(with_extension=True),
                 f4k_wr_instagram="https://instagram.com/food4kidswr",
                 f4k_wr_facebook="https://facebook.com/food4kidswr",
                 f4k_wr_email="hello@food4kidswr.ca",

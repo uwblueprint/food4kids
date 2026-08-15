@@ -3,8 +3,10 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from sqlmodel import Field, Relationship, SQLModel, String
+
+from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 from .enum import LocationStatusEnum
@@ -58,6 +60,24 @@ class LocationBase(SQLModel):
         ondelete="SET NULL",
         unique=True,
     )
+
+    @field_validator("phone_primary", "phone_secondary")
+    @classmethod
+    def validate_phones(cls, v: str | None) -> str | None:
+        """Normalize to RFC 3966, as Driver and Admin do.
+
+        The import path normalizes before it ever builds a Location, but
+        POST /locations and PATCH /locations/{id} do not — without this they
+        store whatever the client sent, and the Addresses table then shows one
+        household's number formatted and the next one raw.
+
+        Note this is *not* the import's validation gate: an invalid number
+        there is reported as an INVALID_PHONE_NUMBER alert on the review screen
+        (see LocationImportEntry, which deliberately does not inherit this).
+        """
+        if v is None:
+            return None
+        return validate_phone(v)
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -295,6 +315,15 @@ class LocationUpdate(SQLModel):
     delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
     in_roster: bool | None = None
     note_chain_id: UUID | None = None
+
+    @field_validator("phone_primary", "phone_secondary")
+    @classmethod
+    def validate_phones(cls, v: str | None) -> str | None:
+        """Normalize on update too — the service assigns onto the row, and
+        SQLModel table instances don't re-run validators on assignment."""
+        if v is None:
+            return None
+        return validate_phone(v)
 
 
 class LocationImportResult(SQLModel):

@@ -13,6 +13,7 @@ import type {
 } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import { AlertCell, Button, DataTable } from '@/common/components';
+import { formatPhone } from '@/common/utils';
 
 import { EmptyState } from '../components';
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
@@ -199,7 +200,13 @@ export function ValidateStep() {
       {
         key: 'phone_primary',
         header: 'Phone Number',
-        render: (row) => row.location.phone_primary ?? '',
+        // Valid numbers were normalized during validation, so this shows the
+        // stored form; an invalid one keeps the admin's raw text (formatPhone
+        // passes it through) so they can see what to fix.
+        render: (row) =>
+          row.location.phone_primary
+            ? formatPhone(row.location.phone_primary)
+            : '',
         getCellClassName: (row) =>
           getCellClass(
             invalid && hasPhoneAlert(row.alerts),
@@ -213,7 +220,10 @@ export function ValidateStep() {
       {
         key: 'phone_secondary',
         header: 'Secondary Phone Number',
-        render: (row) => row.location.phone_secondary ?? '',
+        render: (row) =>
+          row.location.phone_secondary
+            ? formatPhone(row.location.phone_secondary)
+            : '',
         getCellClassName: (row) =>
           getCellClass(invalid && hasSecondaryPhoneAlert(row.alerts)),
       },

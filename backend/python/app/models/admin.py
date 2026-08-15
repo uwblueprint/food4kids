@@ -67,6 +67,16 @@ class AdminUpdate(SQLModel):
     # admin-specific
     admin_phone: str | None = Field(default=None, min_length=1, max_length=100)
 
+    @field_validator("admin_phone")
+    @classmethod
+    def validate_admin_phone(cls, v: str | None) -> str | None:
+        """Normalize on update too — the service assigns straight onto the row,
+        and SQLModel table instances don't re-run validators on assignment, so
+        without this an edit writes whatever string the client sent."""
+        if v is None:
+            return None
+        return validate_phone(v)
+
     # user fields
     first_name: str | None = Field(default=None, min_length=1, max_length=255)
     last_name: str | None = Field(default=None, min_length=1, max_length=255)

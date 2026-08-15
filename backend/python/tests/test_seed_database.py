@@ -195,11 +195,11 @@ class TestDataValidation:
     """Seeded data satisfies business validation rules."""
 
     @pytest.mark.asyncio
-    async def test_phone_numbers_are_e164(self, test_session: AsyncSession) -> None:
+    async def test_phone_numbers_are_rfc3966(self, test_session: AsyncSession) -> None:
         drivers = (await test_session.execute(select(Driver))).scalars().all()
         for driver in drivers:
-            assert driver.phone.startswith("+"), (
-                f"Driver phone {driver.phone} should be E.164"
+            assert driver.phone.startswith("tel:+"), (
+                f"Driver phone {driver.phone} should be RFC 3966"
             )
             assert len(driver.availability) == 7
             assert phonenumbers.is_valid_number(
@@ -208,8 +208,8 @@ class TestDataValidation:
 
         locations = (await test_session.execute(select(Location))).scalars().all()
         for location in locations:
-            assert location.phone_primary.startswith("+"), (
-                f"Location phone {location.phone_primary} should be E.164"
+            assert location.phone_primary.startswith("tel:+"), (
+                f"Location phone {location.phone_primary} should be RFC 3966"
             )
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(location.phone_primary, None)
@@ -217,8 +217,8 @@ class TestDataValidation:
 
         admins = (await test_session.execute(select(Admin))).scalars().all()
         for admin in admins:
-            assert admin.admin_phone.startswith("+"), (
-                f"Admin phone {admin.admin_phone} should be E.164"
+            assert admin.admin_phone.startswith("tel:+"), (
+                f"Admin phone {admin.admin_phone} should be RFC 3966"
             )
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(admin.admin_phone, None)
