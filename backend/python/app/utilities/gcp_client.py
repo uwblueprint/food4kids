@@ -53,14 +53,25 @@ class GCPStorageClient:
         filename: str,
         content_type: str,
         expiration_hours: int = 1,
+        key: str | None = None,
     ) -> UploadResult:
-        """Upload a file to GCS and return a signed URL"""
-        key = f"{uuid.uuid4()}-{filename}"
-        blob = self.bucket.blob(key)
+        """Upload a file to GCS and return a signed URL
+
+        :param key: Object key to write, instead of the default
+            ``<uuid>-<filename>``. User uploads must keep the default so two
+            people uploading ``photo.jpg`` don't collide. A caller that owns
+            its whole keyspace and wants writes to be repeatable — the seed
+            script, which would otherwise orphan a fresh copy of every image
+            on each run — passes one explicitly.
+        """
+        object_key = key if key is not None else f"{uuid.uuid4()}-{filename}"
+        blob = self.bucket.blob(object_key)
         try:
             blob.upload_from_string(contents, content_type=content_type)
 
-            url = self.generate_signed_url(key, expiration_hours=expiration_hours)
+            url = self.generate_signed_url(
+                object_key, expiration_hours=expiration_hours
+            )
         except gcp_exceptions.Forbidden as e:
             raise GCSStorageError("Storage upload failed: permission denied.") from e
         except gcp_exceptions.NotFound as e:
@@ -74,7 +85,7 @@ class GCPStorageClient:
             ) from e
 
         return UploadResult(
-            filename=key,
+            filename=object_key,
             url=url,
             content_type=content_type,
             size_bytes=len(contents),
