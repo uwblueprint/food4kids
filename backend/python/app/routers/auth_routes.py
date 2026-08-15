@@ -1,11 +1,12 @@
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies.auth import _verified_token, get_access_token
+from app.dependencies.auth import get_verified_token
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -253,7 +254,7 @@ async def update_password_authed(
     update_password_request: UpdatePasswordAuthedRequest,
     response: Response,
     session: AsyncSession = Depends(get_session),
-    access_token: str = Depends(get_access_token),
+    decoded_token: dict[str, Any] = Depends(get_verified_token),
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
 ) -> AuthResponse:
@@ -261,7 +262,6 @@ async def update_password_authed(
     Update an authenticated user's password after verifying their current password,
     revokes existing refresh tokens, and issues a fresh session with new tokens.
     """
-    decoded_token = _verified_token(access_token)
     email = decoded_token.get("email")
     auth_id = decoded_token.get("uid")
 
