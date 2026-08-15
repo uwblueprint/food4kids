@@ -1,4 +1,4 @@
-import AwardIcon from '@/assets/icons/award.svg?react';
+import TrophyIcon from '@/assets/icons/trophy.svg?react';
 import { Spinner } from '@/common/components';
 
 import { TOP_DRIVERS_LIMIT } from './constants';
@@ -49,31 +49,29 @@ export function TopDriversView({
   }
 
   return (
-    <ol className="flex min-h-0 flex-1 flex-col gap-5">
-      <li className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 p-3">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-100/60">
-            <AwardIcon className="size-5 text-blue-300" />
+    <ol className="flex min-h-0 flex-1 flex-col gap-4">
+      <li className="flex h-16 items-center justify-between rounded-lg bg-blue-50 p-3">
+        <div className="flex items-center gap-2">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-300">
+            <TrophyIcon className="size-[18px] text-blue-50" />
           </span>
-          <span className="text-lg leading-6 font-extrabold text-blue-300">
+          <span className="text-base leading-5 font-extrabold text-blue-300">
             {leader.driver_name}
           </span>
         </div>
-        <span className="text-lg leading-6 font-extrabold text-blue-300">
+        <span className="text-base leading-5 font-extrabold text-blue-300">
           {formatKilometres(leader.km)}km
         </span>
       </li>
       {runnersUp.map((driver, index) => (
         <li
           key={driver.driver_id}
-          className="flex flex-1 items-center justify-between pr-3 text-lg font-light"
+          className="flex flex-1 items-center justify-between pr-3 text-base leading-5 font-light"
         >
-          <span className="text-grey-500 leading-6">
+          <span className="text-grey-500">
             {index + 2}. {driver.driver_name}
           </span>
-          <span className="text-grey-400 leading-6">
-            {formatKilometres(driver.km)}km
-          </span>
+          <span className="text-grey-400">{formatKilometres(driver.km)}km</span>
         </li>
       ))}
     </ol>
