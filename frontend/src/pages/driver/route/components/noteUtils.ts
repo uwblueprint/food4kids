@@ -15,10 +15,15 @@ export function formatNoteDate(isoDate: string | null | undefined): string {
 
 export function noteAuthorLabel(note: NoteRead, currentUserId: string): string {
   if (note.is_system) return 'System';
+
+  const name = note.author_name?.trim();
+  // Your own notes still show your name, with "(You)" only as a marker — the
+  // design labels them "Andy Mayback (You)". A bare "You" reads as a different
+  // kind of author from every other row in the thread.
   if (note.user_id && note.user_id === currentUserId) {
-    return 'You';
+    return name ? `${name} (You)` : 'You';
   }
-  return note.author_name?.trim() || 'Unknown';
+  return name || 'Unknown';
 }
 
 export function canManageNote(

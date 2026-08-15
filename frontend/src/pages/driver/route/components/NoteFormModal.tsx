@@ -112,6 +112,22 @@ function NoteForm({
     trimmed.length > 0 && trimmed.length <= NOTE_MESSAGE_MAX && !busy;
   const isOverCharThreshold = message.length >= NOTE_MESSAGE_MAX * 0.8;
 
+  // Creating shows what you have staged; editing shows what the note already
+  // carries. Editing used to show nothing at all, which read as "my images are
+  // gone" even though the update only ever touches the message.
+  const shownImages =
+    mode === 'edit'
+      ? (note?.attachments ?? []).map((attachment) => ({
+          key: attachment.filename,
+          src: attachment.url,
+          removable: false,
+        }))
+      : images.map((image) => ({
+          key: image.previewUrl,
+          src: image.previewUrl,
+          removable: true,
+        }));
+
   const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
@@ -199,7 +215,7 @@ function NoteForm({
     >
       <ModalHeader className="shrink-0">
         <ModalTitle variant="form">
-          {mode === 'edit' ? 'Edit note' : 'Announcements'}
+          {mode === 'edit' ? 'Edit note' : 'Add note'}
         </ModalTitle>
       </ModalHeader>
 
@@ -233,24 +249,26 @@ function NoteForm({
               )}
             />
 
-            {mode === 'create' && images.length > 0 && (
+            {shownImages.length > 0 && (
               <div className="flex flex-wrap gap-2 px-3 pt-2 pr-4 pb-3">
-                {images.map((image) => (
-                  <div
-                    key={image.previewUrl}
-                    className="relative size-16 shrink-0"
-                  >
+                {shownImages.map((image) => (
+                  <div key={image.key} className="relative size-16 shrink-0">
                     <div className="border-grey-300 size-full overflow-hidden rounded-lg border">
                       <img
-                        src={image.previewUrl}
+                        src={image.src}
                         alt=""
                         className="size-full object-cover"
                       />
                     </div>
-                    <RemoveImageButton
-                      disabled={busy}
-                      onClick={() => removeImage(image.previewUrl)}
-                    />
+                    {/* Only staged images can be taken back out. An edit can
+                        change the message and nothing else, so the note's
+                        existing images are shown but not removable. */}
+                    {image.removable && (
+                      <RemoveImageButton
+                        disabled={busy}
+                        onClick={() => removeImage(image.key)}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -266,6 +284,12 @@ function NoteForm({
             {mode === 'create' && (
               <p>
                 {images.length}/{NOTE_IMAGE_MAX} images
+              </p>
+            )}
+            {mode === 'edit' && shownImages.length > 0 && (
+              <p>
+                {shownImages.length}{' '}
+                {shownImages.length === 1 ? 'image' : 'images'}
               </p>
             )}
           </div>

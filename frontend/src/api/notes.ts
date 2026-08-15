@@ -19,7 +19,6 @@ export function useNotes(
   return useQuery({
     ...getNotesOptions({ path: { note_chain_id: noteChainId ?? '' } }),
     enabled: isAuthenticated && enabled && !!noteChainId,
-    placeholderData: [],
   });
 }
 
