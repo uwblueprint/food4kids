@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLogout } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
-import { Button } from '@/common/components';
+import { Button, Spinner } from '@/common/components';
 
 import { LogoutConfirmModal } from './LogoutConfirmModal';
 
@@ -17,7 +17,18 @@ export const DriverProfile = () => {
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const logoutMutation = useLogout();
 
-  const { data: driverDetails } = useDriver(driverId || '', !!driverId);
+  const { data: driverDetails, isLoading } = useDriver(
+    driverId || '',
+    !!driverId
+  );
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
 
   const firstName = user?.firstName || driverDetails?.first_name || '';
   const lastName = user?.lastName || driverDetails?.last_name || '';
