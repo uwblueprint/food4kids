@@ -1566,10 +1566,9 @@ export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
  *
  * Return the singleton system settings row.
  *
- * Never null: ``ensure_settings`` creates the row at startup, so a missing one
- * is a broken deployment. This used to answer 200-with-null while its own
- * PATCH — which goes through ``require_settings`` — raised on the same state,
- * so the Settings page would render a blank form that could not be saved.
+ * Never null — ``ensure_settings`` creates it at startup, and PATCH already
+ * raises on a missing row, so a soft read here would mean a blank form that
+ * every save rejects.
  */
 export const getSystemSettings = <ThrowOnError extends boolean = false>(
   options?: Options<GetSystemSettingsData, ThrowOnError>

@@ -5831,22 +5831,17 @@ class TestSystemSettingsRoutes:
         body = response.json()
         assert body is not None
         assert body["system_settings_id"]
-        # Model defaults, from the row ensure_settings creates at startup.
-        assert body["boxes_per_car"] == 10
+        assert body["boxes_per_car"] == 10  # model defaults
         assert body["delivery_types"] == ["Family", "School"]
 
     @pytest.mark.asyncio
     async def test_get_system_settings_without_a_row_is_a_server_error(
         self, test_session: AsyncSession
     ) -> None:
-        """A missing row is a broken startup invariant, not a 200-with-null.
+        """A missing row is a broken invariant, not a 200-with-null.
 
-        The read and the write have to agree: ``update_settings`` already
-        raises via ``require_settings``, so answering null here would hand the
-        Settings page a blank form that every save rejects.
-
-        Built inline because ``async_client`` creates the row (mirroring
-        startup), which is exactly the state under test.
+        Built inline because ``async_client`` creates the row, which is the
+        state under test.
         """
         app = create_app()
 

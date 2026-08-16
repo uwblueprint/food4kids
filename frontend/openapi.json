@@ -7748,7 +7748,7 @@
     },
     "/system-settings/": {
       "get": {
-        "description": "Return the singleton system settings row.\n\nNever null: ``ensure_settings`` creates the row at startup, so a missing one\nis a broken deployment. This used to answer 200-with-null while its own\nPATCH — which goes through ``require_settings`` — raised on the same state,\nso the Settings page would render a blank form that could not be saved.",
+        "description": "Return the singleton system settings row.\n\nNever null — ``ensure_settings`` creates it at startup, and PATCH already\nraises on a missing row, so a soft read here would mean a blank form that\nevery save rejects.",
         "operationId": "get_system_settings",
         "responses": {
           "200": {
