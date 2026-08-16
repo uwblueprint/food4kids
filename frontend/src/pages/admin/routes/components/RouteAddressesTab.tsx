@@ -40,7 +40,8 @@ const COLUMNS: Column<LocationRead>[] = [
   {
     key: 'phone_primary',
     header: 'Phone number',
-    render: (row) => orDash(row.phone_primary && formatPhone(row.phone_primary)),
+    render: (row) =>
+      orDash(row.phone_primary && formatPhone(row.phone_primary)),
   },
   {
     key: 'assigned_route',
