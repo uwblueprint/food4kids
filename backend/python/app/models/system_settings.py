@@ -135,20 +135,11 @@ class SystemSettingsRead(SystemSettingsBase):
 
 
 class OrgContactRead(SQLModel):
-    """The org's public point of contact — the only slice of system settings
-    that is readable without a token.
+    """The slice of system settings readable without a token (see
+    ``GET /system-settings/contact``).
 
-    Two screens need it and neither can present admin credentials: the driver
-    route view's "Call Food4Kids" button, and the catch-all error page, which
-    renders for logged-out visitors too (a failed login lands there). The rest
-    of ``SystemSettingsRead`` — warehouse coordinates, email-reminder schedule,
-    import column maps — stays behind ``require_admin``, so this is a separate
-    model rather than a filtered view of that one: the fields a caller can read
-    without authenticating are enumerated here, and adding a field to system
-    settings can never widen them by accident.
-
-    ``contact_phone`` is RFC 3966 (``tel:+1-519-576-3443;ext=1``), i.e. already
-    a usable ``href``; the frontend's ``formatPhone`` renders the display form.
+    Enumerates its fields rather than filtering ``SystemSettingsRead``, so a
+    new settings column can't widen the public surface by accident.
     """
 
     contact_name: str | None

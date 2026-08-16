@@ -141,11 +141,8 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     # --- system settings ---
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,
-    # The org's point of contact, deliberately readable without a token: its
-    # consumers are the driver route screen's "Call Food4Kids" button and the
-    # catch-all error page, which renders for logged-out visitors. The response
-    # model lists contact_name and contact_phone explicitly, so the rest of the
-    # settings row stays behind the ADMIN_ONLY entries above.
+    # Public by design: the error page renders for logged-out visitors. Scoped
+    # to contact_name/contact_phone by OrgContactRead.
     ("GET", "/system-settings/contact"): Policy.PUBLIC,
     # --- reports ---
     ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,

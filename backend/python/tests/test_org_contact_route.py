@@ -1,16 +1,8 @@
-"""The auth split on ``/system-settings``.
+"""The auth split on ``/system-settings``: ``/contact`` is public, the rest is not.
 
-``GET /system-settings/contact`` is the one route on this router that any
-caller may read, because its consumers cannot present an admin token: the
-driver route screen's "Call Food4Kids" button, and the catch-all error page,
-which renders for logged-out visitors. Everything else on the settings row —
-warehouse coordinates, email-reminder schedule, import column maps — stays
-behind ``require_admin``.
-
-The shared client fixtures in ``conftest.py`` override ``require_admin`` to a
-no-op, which would make an admin-only route look public and a public route look
-indistinguishable from it. So these tests build their own app with *only* the
-session overridden, and send no ``Authorization`` header at all.
+``conftest.py``'s client fixtures stub ``require_admin`` to a no-op, which would
+make a gated route indistinguishable from a public one — so these tests build
+their own app with only the session overridden, and send no token.
 """
 
 from collections.abc import AsyncGenerator
@@ -60,11 +52,9 @@ async def _set_contact(
 ) -> None:
     """Write contact fields the way a PATCH would.
 
-    A ``table=True`` SQLModel skips validation on assignment, so setting
-    ``contact_phone`` directly would store whatever string the test typed.
-    Routing the value through ``SystemSettingsUpdate`` runs the same
-    ``validate_contact_phone`` the endpoint does, so the stored form under test
-    is the RFC 3966 one production actually holds.
+    A ``table=True`` SQLModel skips validation on assignment, so the value goes
+    through ``SystemSettingsUpdate`` to get the RFC 3966 normalization
+    production applies.
     """
     validated = SystemSettingsUpdate(**fields)
     for key in fields:
@@ -105,11 +95,8 @@ async def test_contact_readable_without_a_token(
 async def test_contact_exposes_only_name_and_phone(
     anonymous_client: AsyncClient, test_session: AsyncSession, settings_row: Any
 ) -> None:
-    """No other settings field rides along, however the row is populated.
-
-    This is the guard that matters: the row carries warehouse coordinates and
-    import column maps, and none of it may reach an unauthenticated caller.
-    """
+    """The guard that matters: warehouse coords and column maps live on the
+    same row, and none of it may reach an unauthenticated caller."""
     settings_row.warehouse_location = "50 Sportsworld Crossing Rd, Kitchener"
     settings_row.warehouse_latitude = 43.4123
     settings_row.warehouse_longitude = -80.4567
@@ -128,8 +115,7 @@ async def test_contact_exposes_only_name_and_phone(
 async def test_contact_returns_nulls_when_unconfigured(
     anonymous_client: AsyncClient,
 ) -> None:
-    """A fresh settings row has neither field set; both come back null rather
-    than 404, so the frontend renders its no-number fallback."""
+    """Null rather than 404, so the frontend renders its no-number fallback."""
     response = await anonymous_client.get("/system-settings/contact")
 
     assert response.status_code == 200
@@ -140,8 +126,7 @@ async def test_contact_returns_nulls_when_unconfigured(
 async def test_contact_returns_name_without_phone(
     anonymous_client: AsyncClient, test_session: AsyncSession, settings_row: Any
 ) -> None:
-    """The two fields are independent — a configured name with no number is a
-    reachable state, and the endpoint reports it rather than blanking both."""
+    """The two fields are independent; one set and one not must not blank both."""
     await _set_contact(test_session, settings_row, contact_name="Emily Loro")
 
     response = await anonymous_client.get("/system-settings/contact")
@@ -168,13 +153,10 @@ async def test_contact_returns_phone_without_name(
 async def test_contact_missing_settings_row_is_a_server_error(
     anonymous_client: AsyncClient,
 ) -> None:
-    """No ``settings_row`` fixture here, so the startup invariant is broken.
+    """No ``settings_row`` fixture, so the startup invariant is broken.
 
-    ``require_settings`` raises rather than inventing an empty contact, per the
-    fail-loudly rule — a missing row is a broken deployment, not a state to
-    paper over. ``UnhandledExceptionMiddleware`` turns that into a 500, so the
-    frontend sees a failed request and falls back, rather than being told with
-    a 200 that Food4Kids has no phone number.
+    ``require_settings`` raises rather than inventing an empty contact, so this
+    500s instead of claiming with a 200 that there is no phone number.
     """
     response = await anonymous_client.get("/system-settings/contact")
 
@@ -191,11 +173,8 @@ async def test_contact_missing_settings_row_is_a_server_error(
 async def test_full_settings_still_requires_a_token(
     anonymous_client: AsyncClient,
 ) -> None:
-    """Same router, same tokenless client: the full row is refused.
-
-    Without this the contact test above proves nothing — it could be passing
-    because the router lost its auth, not because one route was carved out.
-    """
+    """Same router, same tokenless client, refused — without this the tests
+    above would also pass if the router had simply lost its auth."""
     response = await anonymous_client.get("/system-settings/")
 
     assert response.status_code == 401

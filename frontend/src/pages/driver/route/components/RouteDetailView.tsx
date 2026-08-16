@@ -48,9 +48,8 @@ function formatStartTime(value: string | null | undefined): string | null {
 
 export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
   const { data: route, isLoading, isError } = useRoute(routeId);
-  // Deliberately not part of the loading/error gate below: the route is what
-  // this screen is, and a contact lookup that is slow or down should not keep
-  // a driver from their stops.
+  // Deliberately outside the loading/error gate below — a slow contact lookup
+  // shouldn't keep a driver from their stops.
   const { data: orgContact } = useOrgContact();
   const contactPhone = orgContact?.contact_phone;
   const [mapsLoading, setMapsLoading] = useState(false);
@@ -181,10 +180,8 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
           className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
         />
         <div className="grid grid-cols-2 gap-3">
-          {/* The stored number is RFC 3966, so it is already the href — no
-              construction. With none configured there is nothing to dial, so
-              the button stays a disabled <button> rather than a link to
-              nowhere. */}
+          {/* RFC 3966, so the stored value is already the href. With none
+              configured, a disabled button beats a link to nowhere. */}
           {contactPhone ? (
             <Button asChild variant="secondary" className="tablet:w-full">
               <a href={contactPhone}>Call Food4Kids</a>

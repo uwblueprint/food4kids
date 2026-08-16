@@ -99,8 +99,7 @@ export function ServiceUnavailablePage() {
 
 export function CatchAllErrorPage() {
   const navigate = useNavigate();
-  // This page renders for logged-out visitors too — a login that 500s lands
-  // here — which is why the endpoint behind this hook is unauthenticated.
+  // Renders for logged-out visitors, which is why this endpoint is public.
   const { data: orgContact } = useOrgContact();
   const contact = contactSentence(
     orgContact?.contact_name,

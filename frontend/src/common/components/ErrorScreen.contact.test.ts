@@ -3,13 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { contactSentence } from './ErrorScreen.contact';
 
 /**
- * The catch-all error page's contact line, built from `system_settings`.
- *
- * Both fields are independently nullable, and the page renders before the
- * (unauthenticated) contact request resolves, so every combination of
- * name/phone × set/unset/undefined is reachable in practice. The sentence has
- * to stay grammatical in all of them — the failure this guards against is the
- * literal "contact  at  for help." a naive template would produce.
+ * Every name/phone × set/unset/undefined combination is reachable, and each
+ * must stay grammatical. The failure guarded against is the literal
+ * "contact  at  for help." a naive template would produce.
  */
 describe('contactSentence', () => {
   it('names the contact and their number when both are configured', () => {
@@ -41,8 +37,7 @@ describe('contactSentence', () => {
   });
 
   it('treats the pre-fetch undefined state as unconfigured', () => {
-    // The page renders immediately; the query resolves after. Until it does,
-    // both fields are undefined and the page must not promise a number.
+    // Both fields are undefined until the query resolves.
     expect(contactSentence(undefined, undefined)).toBeNull();
     expect(contactSentence(undefined, 'tel:+1-519-576-3443')).toBe(
       'If the issue persists, call (519) 576-3443 for help.'
@@ -53,8 +48,7 @@ describe('contactSentence', () => {
   });
 
   it('treats a blank or whitespace-only name as no name', () => {
-    // The API's min_length=1 makes "" unreachable through a PATCH, but a name
-    // that is all spaces is not, and "contact     at ..." reads as a bug.
+    // min_length=1 rules out "", but an all-spaces name is still storable.
     expect(contactSentence('', 'tel:+1-519-576-3443')).toBe(
       'If the issue persists, call (519) 576-3443 for help.'
     );
@@ -71,10 +65,8 @@ describe('contactSentence', () => {
   });
 
   it('never leaks a raw tel: URI into the sentence', () => {
-    // A non-NANP number is storable (validate_phone honours an explicit country
-    // code), and there is no design for it — but the reader must not be shown
-    // "tel:+44-20-7946-0958". formatPhone renders it as a plain international
-    // number; this pins that the error copy goes through it.
+    // A non-NANP number is storable and has no design, but must not surface
+    // as a raw "tel:" URI. Pins that the copy goes through formatPhone.
     expect(contactSentence(null, 'tel:+44-20-7946-0958')).toBe(
       'If the issue persists, call +44 20 7946 0958 for help.'
     );

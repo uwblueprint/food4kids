@@ -2,18 +2,15 @@ import { formatPhone } from '@/common/utils/phoneUtils';
 
 /**
  * Build the "if this keeps happening, call someone" half of the catch-all
- * error message from whatever Settings has configured.
+ * error message.
  *
- * All four combinations are reachable — `contact_name` and `contact_phone` are
- * independently nullable, and the page renders before the contact request
- * resolves — so the sentence has to stay grammatical in each. It is assembled
- * here rather than interpolated inline: with neither configured there is no one
- * to point at, so the sentence is dropped entirely instead of degrading into
- * "contact  at  for help."
+ * Both fields are independently nullable and the page renders before the query
+ * resolves, so all four combinations are reachable and each needs to stay
+ * grammatical — hence a function rather than an inline template that would
+ * produce "contact  at  for help."
  *
- * Lives beside `ErrorScreen.tsx` rather than in it (cf. `Button.variants.ts`)
- * because a module that exports both components and plain functions breaks Fast
- * Refresh.
+ * Split out of `ErrorScreen.tsx` (cf. `Button.variants.ts`) because mixing
+ * component and non-component exports breaks Fast Refresh.
  *
  * @returns the sentence, or `null` when there is no contact to name.
  */

@@ -17,17 +17,11 @@ export function useSystemSettings() {
 }
 
 /**
- * The org's point of contact — the name and number Settings calls "the number
- * the Call Food4Kids button leads to".
+ * The org's point of contact. Separate from {@link useSystemSettings} because
+ * its endpoint is unauthenticated — that one would 401 for both callers.
  *
- * A separate query from {@link useSystemSettings} because the endpoint behind
- * it is unauthenticated: the two screens that need it are the driver route
- * view (a driver, not an admin) and the catch-all error page, which renders
- * for logged-out visitors. `useSystemSettings` would 401 for both.
- *
- * `contact_phone` arrives as RFC 3966 (`tel:+1-519-576-3443;ext=1`), i.e.
- * already a valid `href` — pass it through untouched for links, and through
- * `formatPhone` for anything the reader sees.
+ * `contact_phone` is RFC 3966, i.e. already a valid `href`. Pass it through
+ * untouched for links, and through `formatPhone` for anything a reader sees.
  */
 export function useOrgContact() {
   return useQuery(getOrgContactOptions());

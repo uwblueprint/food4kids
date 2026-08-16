@@ -2579,7 +2579,7 @@
         "type": "object"
       },
       "OrgContactRead": {
-        "description": "The org's public point of contact — the only slice of system settings\nthat is readable without a token.\n\nTwo screens need it and neither can present admin credentials: the driver\nroute view's \"Call Food4Kids\" button, and the catch-all error page, which\nrenders for logged-out visitors too (a failed login lands there). The rest\nof ``SystemSettingsRead`` — warehouse coordinates, email-reminder schedule,\nimport column maps — stays behind ``require_admin``, so this is a separate\nmodel rather than a filtered view of that one: the fields a caller can read\nwithout authenticating are enumerated here, and adding a field to system\nsettings can never widen them by accident.\n\n``contact_phone`` is RFC 3966 (``tel:+1-519-576-3443;ext=1``), i.e. already\na usable ``href``; the frontend's ``formatPhone`` renders the display form.",
+        "description": "The slice of system settings readable without a token (see\n``GET /system-settings/contact``).\n\nEnumerates its fields rather than filtering ``SystemSettingsRead``, so a\nnew settings column can't widen the public surface by accident.",
         "properties": {
           "contact_name": {
             "anyOf": [
@@ -7828,7 +7828,7 @@
     },
     "/system-settings/contact": {
       "get": {
-        "description": "Return the org's point of contact — name and phone — to any caller.\n\nDeliberately unauthenticated, and the only route on this router that is.\nIts two consumers cannot present an admin token: the driver route screen's\n\"Call Food4Kids\" button belongs to a driver, and the catch-all error page\nrenders for logged-out visitors (a login that 500s lands there), so gating\nit would leave exactly the person who most needs the number unable to see\nit. The values are the org's published contact details — the same ones on\nthe Food4Kids website — not member data.\n\nThe response is ``OrgContactRead``, which lists these two fields\nexplicitly, so a new column on ``SystemSettings`` can never leak through\nhere. Everything else on the settings row stays behind ``require_admin``\non ``GET /``.",
+        "description": "Return the org's point of contact — name and phone — to any caller.\n\nThe only unauthenticated route here, because neither consumer can present\nan admin token: the driver route screen's \"Call Food4Kids\" button, and the\ncatch-all error page, which renders for logged-out visitors. These are the\norg's published contact details, not member data; everything else on the\nsettings row stays behind ``require_admin``.",
         "operationId": "get_org_contact",
         "responses": {
           "200": {

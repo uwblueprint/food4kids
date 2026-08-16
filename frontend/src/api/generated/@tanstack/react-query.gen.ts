@@ -2640,18 +2640,11 @@ export const getOrgContactQueryKey = (options?: Options<GetOrgContactData>) =>
  *
  * Return the org's point of contact — name and phone — to any caller.
  *
- * Deliberately unauthenticated, and the only route on this router that is.
- * Its two consumers cannot present an admin token: the driver route screen's
- * "Call Food4Kids" button belongs to a driver, and the catch-all error page
- * renders for logged-out visitors (a login that 500s lands there), so gating
- * it would leave exactly the person who most needs the number unable to see
- * it. The values are the org's published contact details — the same ones on
- * the Food4Kids website — not member data.
- *
- * The response is ``OrgContactRead``, which lists these two fields
- * explicitly, so a new column on ``SystemSettings`` can never leak through
- * here. Everything else on the settings row stays behind ``require_admin``
- * on ``GET /``.
+ * The only unauthenticated route here, because neither consumer can present
+ * an admin token: the driver route screen's "Call Food4Kids" button, and the
+ * catch-all error page, which renders for logged-out visitors. These are the
+ * org's published contact details, not member data; everything else on the
+ * settings row stays behind ``require_admin``.
  */
 export const getOrgContactOptions = (options?: Options<GetOrgContactData>) =>
   queryOptions<
