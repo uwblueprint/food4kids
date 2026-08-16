@@ -1,11 +1,8 @@
 import logo from '@/assets/logos/logo_mobile_one_line.svg';
+import noUpcoming from '@/assets/illustrations/boy-edge-case-with-questions.png';
+import noPast from '@/assets/illustrations/girl-confused.png';
+import { useState } from 'react';
 import { StatisticsCard } from '@/common/components/StatisticsCard';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/common/components/Tabs';
 import { AnnouncementsBoard } from '@/features/announcements';
 import { RouteCard } from './components';
 import { useAuthStore } from '@/api/authStore';
@@ -17,9 +14,11 @@ function RouteCardWithDetails({
   routeId,
   title,
   date,
+  isPast,
 }: {
   routeId: string;
   title: string;
+  isPast?: boolean;
   date: string;
 }) {
   const { data: routeDetails } = useRoute(routeId);
@@ -38,6 +37,7 @@ function RouteCardWithDetails({
       date={date}
       encodedPolyline={routeDetails?.encoded_polyline || ''}
       stops={routeDetails?.stops}
+      isPast={isPast}
     />
   );
 }
@@ -85,8 +85,10 @@ export const DriverHomePage = () => {
     const hour12 = hour % 12 || 12;
     return `${hour12}:${minutes} ${ampm}`;
   };
+  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
+
   return (
-    <main className="flex flex-col gap-8">
+    <main className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <img src={logo} alt="food4kids WATERLOO REGION" className="h-10" />
         <div className="flex items-center gap-4">
@@ -102,61 +104,110 @@ export const DriverHomePage = () => {
         Hello, {user?.firstName || 'Driver'}!
       </h1>
 
-      <div className="tablet:grid-cols-2 grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <StatisticsCard
           label="This Year"
           value={`${(driverStats?.current_year_km || 0).toFixed(1)} km`}
-          character="boyPointing"
-          color="blue"
+          character="granny"
+          color="green"
         />
         <StatisticsCard
           label="Lifetime"
           value={`${(driverStats?.lifetime_km || 0).toFixed(1)} km`}
-          character="granny"
-          color="green"
+          character="boy"
+          color="blue"
         />
       </div>
+      {/* Segmented control (pill) - visible on all sizes */}
+      <div className="mb-2 w-full">
+        <div className="bg-grey-150 w-full rounded-full p-1">
+          <div className="flex w-full rounded-full">
+            <button
+              onClick={() => setTab('upcoming')}
+              className={
+                (tab === 'upcoming'
+                  ? 'bg-blue-50 text-blue-300'
+                  : 'text-grey-500') +
+                ' text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold'
+              }
+            >
+              Upcoming
+            </button>
+            <button
+              onClick={() => setTab('past')}
+              className={
+                (tab === 'past'
+                  ? 'bg-blue-50 text-blue-300'
+                  : 'text-grey-500') +
+                ' text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold'
+              }
+            >
+              Past
+            </button>
+          </div>
+        </div>
+      </div>
 
-      <Tabs defaultValue="upcoming">
-        <TabsList>
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="past">Past</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="upcoming">
-          <div className="tablet:grid-cols-2 grid grid-cols-1 gap-4">
-            {upcomingRoutes.length === 0 ? (
-              <p className="text-p2 text-grey-500">No upcoming routes</p>
-            ) : (
-              upcomingRoutes.map((route) => (
+      {/* Content: render selected tab's routes using a responsive grid */}
+      <div>
+        {tab === 'upcoming' ? (
+          upcomingRoutes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <img
+                src={noUpcoming}
+                alt="No upcoming routes"
+                className="mx-auto h-40 w-auto"
+              />
+              <h3 className="text-h3 text-grey-500 mt-6 font-bold">
+                Routes not found
+              </h3>
+              <p className="text-p2 text-grey-500 mt-2">
+                You have no upcoming routes.
+              </p>
+            </div>
+          ) : (
+            <div className="tablet:grid-cols-2 grid grid-cols-1 gap-4">
+              {upcomingRoutes.map((route) => (
                 <RouteCardWithDetails
                   key={route.route_id}
                   routeId={route.route_id}
                   title={route.name}
                   date={`${formatDate(route.drive_date)} · ${formatTime(route.start_time)} · ${route.num_stops} stops`}
+                  isPast={false}
                 />
-              ))
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="past">
-          <div className="tablet:grid-cols-2 grid grid-cols-1 gap-4">
-            {pastRoutes.length === 0 ? (
-              <p className="text-p2 text-grey-500">No past routes</p>
-            ) : (
-              pastRoutes.map((route) => (
+              ))}
+            </div>
+          )
+        ) : tab === 'past' ? (
+          pastRoutes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <img
+                src={noPast}
+                alt="No past routes"
+                className="mx-auto h-40 w-auto"
+              />
+              <h3 className="text-h3 text-grey-500 mt-6 font-bold">
+                Routes not found
+              </h3>
+              <p className="text-p2 text-grey-500 mt-2">
+                You have no past routes.
+              </p>
+            </div>
+          ) : (
+            <div className="tablet:grid-cols-2 grid grid-cols-1 gap-4">
+              {pastRoutes.map((route) => (
                 <RouteCardWithDetails
                   key={route.route_id}
                   routeId={route.route_id}
                   title={route.name}
                   date={`${formatDate(route.drive_date)} · ${formatTime(route.start_time)} · ${route.num_stops} stops`}
+                  isPast={true}
                 />
-              ))
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+              ))}
+            </div>
+          )
+        ) : null}
+      </div>
     </main>
   );
 };
