@@ -9,13 +9,13 @@ describe('formatPhone', () => {
 
   it('keeps the extension', () => {
     expect(formatPhone('tel:+1-519-576-3443;ext=1')).toBe(
-      '(519) 576-3443 ext. 1'
+      '(519) 576-3443 Ext. 1'
     );
   });
 
   it('keeps a multi-digit extension', () => {
     expect(formatPhone('tel:+1-519-576-3443;ext=224')).toBe(
-      '(519) 576-3443 ext. 224'
+      '(519) 576-3443 Ext. 224'
     );
   });
 

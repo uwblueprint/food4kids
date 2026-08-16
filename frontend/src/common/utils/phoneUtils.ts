@@ -23,5 +23,6 @@ export const formatPhone = (value: string): string => {
 
   const [, area, exchange, line, extension] = match;
   const formatted = `(${area}) ${exchange}-${line}`;
-  return extension ? `${formatted} ext. ${extension}` : formatted;
+  // "Ext." capitalized, per Settings — the one frame that shows an extension.
+  return extension ? `${formatted} Ext. ${extension}` : formatted;
 };
