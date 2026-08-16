@@ -268,7 +268,8 @@ async def delete_driver(
     # Firebase account. Notes the driver wrote survive with user_id SET NULL.
     #
     # delete_user_by_id deletes from Firebase first and commits after, in one
-    # transaction, so a Firebase failure rolls the DB back and a retry is clean.
+    # transaction. Not reorderable: DB-first leaves a working login for a driver
+    # the admin has been told is gone, where Firebase-first just rolls back.
     driver = await driver_service.get_driver_by_id(session, driver_id)
     if not driver:
         raise HTTPException(

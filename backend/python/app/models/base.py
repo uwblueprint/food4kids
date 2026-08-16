@@ -25,7 +25,8 @@ class BaseModel(sm.SQLModel):
 
     # Both stamped on insert; `updated_at` is bumped by a column-level
     # `onupdate`, so it fires for Core `update()` statements as well as ORM
-    # flushes. Models needing "null until first set" (e.g. Job) override it.
+    # flushes — but not for an `update()` that sets `updated_at` itself.
+    # Models needing "null until first set" (e.g. Job) override it.
     #
     # `timestamptz` holding UTC — a naive column reads back as the container's
     # local time, silently shifting by the EST offset.
