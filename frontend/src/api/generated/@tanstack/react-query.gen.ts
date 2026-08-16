@@ -52,6 +52,7 @@ import {
   getNoteChain,
   getNotes,
   getNotesFeed,
+  getOrgContact,
   getRoute,
   getRouteGroups,
   getRoutes,
@@ -201,6 +202,8 @@ import type {
   GetNotesFeedError,
   GetNotesFeedResponse,
   GetNotesResponse,
+  GetOrgContactData,
+  GetOrgContactResponse,
   GetRouteData,
   GetRouteError,
   GetRouteGroupsData,
@@ -2628,6 +2631,46 @@ export const patchSystemSettingsMutation = (
   };
   return mutationOptions;
 };
+
+export const getOrgContactQueryKey = (options?: Options<GetOrgContactData>) =>
+  createQueryKey('getOrgContact', options);
+
+/**
+ * Get Org Contact
+ *
+ * Return the org's point of contact — name and phone — to any caller.
+ *
+ * Deliberately unauthenticated, and the only route on this router that is.
+ * Its two consumers cannot present an admin token: the driver route screen's
+ * "Call Food4Kids" button belongs to a driver, and the catch-all error page
+ * renders for logged-out visitors (a login that 500s lands there), so gating
+ * it would leave exactly the person who most needs the number unable to see
+ * it. The values are the org's published contact details — the same ones on
+ * the Food4Kids website — not member data.
+ *
+ * The response is ``OrgContactRead``, which lists these two fields
+ * explicitly, so a new column on ``SystemSettings`` can never leak through
+ * here. Everything else on the settings row stays behind ``require_admin``
+ * on ``GET /``.
+ */
+export const getOrgContactOptions = (options?: Options<GetOrgContactData>) =>
+  queryOptions<
+    GetOrgContactResponse,
+    AxiosError<DefaultError>,
+    GetOrgContactResponse,
+    ReturnType<typeof getOrgContactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getOrgContact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getOrgContactQueryKey(options),
+  });
 
 /**
  * Rename Delivery Type

@@ -1,12 +1,14 @@
 import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useOrgContact } from '@/api';
 import error403Img from '@/assets/errors/error-403.png';
 import error404Img from '@/assets/errors/error-404.png';
 import error503Img from '@/assets/errors/error-503.png';
 import boyEdgeCaseImg from '@/assets/illustrations/boy-edge-case-with-questions.png';
 
 import { Button } from './Button';
+import { contactSentence } from './ErrorScreen.contact';
 
 interface ErrorScreenProps {
   illustration: string;
@@ -97,11 +99,18 @@ export function ServiceUnavailablePage() {
 
 export function CatchAllErrorPage() {
   const navigate = useNavigate();
+  // This page renders for logged-out visitors too — a login that 500s lands
+  // here — which is why the endpoint behind this hook is unauthenticated.
+  const { data: orgContact } = useOrgContact();
+  const contact = contactSentence(
+    orgContact?.contact_name,
+    orgContact?.contact_phone
+  );
+
   return (
     <ErrorScreen illustration={boyEdgeCaseImg} title="Something went wrong">
       <p className="text-p1 text-grey-500 mb-12 text-center">
-        Please try again shortly. If the issue persists, contact Emily Loro at
-        (123) 456-7890 for help.
+        Please try again shortly.{contact ? ` ${contact}` : ''}
       </p>
       <Button variant="primary" onClick={() => navigate(-1)}>
         Back
