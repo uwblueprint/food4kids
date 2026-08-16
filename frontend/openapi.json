@@ -2578,6 +2578,39 @@
         "title": "NoteUpdate",
         "type": "object"
       },
+      "OrgContactRead": {
+        "description": "The slice of system settings readable without a token (see\n``GET /system-settings/contact``).\n\nEnumerates its fields rather than filtering ``SystemSettingsRead``, so a\nnew settings column can't widen the public surface by accident.",
+        "properties": {
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          }
+        },
+        "required": [
+          "contact_name",
+          "contact_phone"
+        ],
+        "title": "OrgContactRead",
+        "type": "object"
+      },
       "PaginatedResponse_LocationRead_": {
         "properties": {
           "items": {
@@ -7788,6 +7821,28 @@
           }
         ],
         "summary": "Patch System Settings",
+        "tags": [
+          "system-settings"
+        ]
+      }
+    },
+    "/system-settings/contact": {
+      "get": {
+        "description": "Return the org's point of contact — name and phone — to any caller.\n\nThe only unauthenticated route here, because neither consumer can present\nan admin token: the driver route screen's \"Call Food4Kids\" button, and the\ncatch-all error page, which renders for logged-out visitors. These are the\norg's published contact details, not member data; everything else on the\nsettings row stays behind ``require_admin``.",
+        "operationId": "get_org_contact",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgContactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Org Contact",
         "tags": [
           "system-settings"
         ]

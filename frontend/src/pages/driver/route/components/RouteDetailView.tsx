@@ -2,6 +2,7 @@ import { ChevronLeft, Map, MapPin, Package, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useOrgContact } from '@/api';
 import { getGoogleMapsLink } from '@/api/generated';
 import { Button, Spinner } from '@/common/components';
 import { RouteMap } from '@/common/components/RouteMap';
@@ -10,12 +11,6 @@ import { cn } from '@/lib/utils';
 
 import { DotSeparated } from './DotSeparated';
 import { RouteStopCard } from './RouteStopCard';
-
-// TODO: replace with system_settings.contact_phone — the number Settings calls
-// "the number the Call Food4Kids button leads to". GET /system-settings is
-// admin-only, so the driver app needs an endpoint for the org contact info
-// first. Stored phones are RFC 3966, which is already a tel: URI.
-const F4K_PHONE = 'tel:+1-555-0100';
 
 const statusWrapper =
   'flex w-full items-center justify-center rounded-xl border border-grey-300 bg-grey-150 p-8';
@@ -53,6 +48,10 @@ function formatStartTime(value: string | null | undefined): string | null {
 
 export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
   const { data: route, isLoading, isError } = useRoute(routeId);
+  // Deliberately outside the loading/error gate below — a slow contact lookup
+  // shouldn't keep a driver from their stops.
+  const { data: orgContact } = useOrgContact();
+  const contactPhone = orgContact?.contact_phone;
   const [mapsLoading, setMapsLoading] = useState(false);
   const [mapsError, setMapsError] = useState(false);
 
@@ -181,9 +180,17 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
           className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
         />
         <div className="grid grid-cols-2 gap-3">
-          <Button asChild variant="secondary" className="tablet:w-full">
-            <a href={F4K_PHONE}>Call Food4Kids</a>
-          </Button>
+          {/* RFC 3966, so the stored value is already the href. With none
+              configured, a disabled button beats a link to nowhere. */}
+          {contactPhone ? (
+            <Button asChild variant="secondary" className="tablet:w-full">
+              <a href={contactPhone}>Call Food4Kids</a>
+            </Button>
+          ) : (
+            <Button variant="secondary" className="tablet:w-full" disabled>
+              Call Food4Kids
+            </Button>
+          )}
           <Button
             variant="primary"
             className="tablet:w-full"

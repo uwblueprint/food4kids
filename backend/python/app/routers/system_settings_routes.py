@@ -6,6 +6,7 @@ from app.dependencies.services import get_scheduler_service, get_system_settings
 from app.models import get_session
 from app.models.system_settings import (
     DeliveryTypeRename,
+    OrgContactRead,
     SystemSettingsRead,
     SystemSettingsUpdate,
 )
@@ -31,6 +32,25 @@ async def get_system_settings(
     """Return the singleton system settings row, or null if none has been created."""
     settings = await system_settings_service.get_settings(session)
     return SystemSettingsRead.model_validate(settings) if settings else None
+
+
+@router.get("/contact", response_model=OrgContactRead)
+async def get_org_contact(
+    session: AsyncSession = Depends(get_session),
+    system_settings_service: SystemSettingsService = Depends(
+        get_system_settings_service
+    ),
+) -> OrgContactRead:
+    """Return the org's point of contact — name and phone — to any caller.
+
+    The only unauthenticated route here, because neither consumer can present
+    an admin token: the driver route screen's "Call Food4Kids" button, and the
+    catch-all error page, which renders for logged-out visitors. These are the
+    org's published contact details, not member data; everything else on the
+    settings row stays behind ``require_admin``.
+    """
+    settings = await system_settings_service.require_settings(session)
+    return OrgContactRead.model_validate(settings)
 
 
 @router.patch("/", response_model=SystemSettingsRead)

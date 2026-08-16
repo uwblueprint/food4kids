@@ -1469,6 +1469,26 @@ export type NoteUpdate = {
 };
 
 /**
+ * OrgContactRead
+ *
+ * The slice of system settings readable without a token (see
+ * ``GET /system-settings/contact``).
+ *
+ * Enumerates its fields rather than filtering ``SystemSettingsRead``, so a
+ * new settings column can't widen the public surface by accident.
+ */
+export type OrgContactRead = {
+  /**
+   * Contact Name
+   */
+  contact_name: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone: string | null;
+};
+
+/**
  * PaginatedResponse[LocationRead]
  */
 export type PaginatedResponseLocationRead = {
@@ -4716,6 +4736,23 @@ export type PatchSystemSettingsResponses = {
 
 export type PatchSystemSettingsResponse =
   PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
+
+export type GetOrgContactData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/system-settings/contact';
+};
+
+export type GetOrgContactResponses = {
+  /**
+   * Successful Response
+   */
+  200: OrgContactRead;
+};
+
+export type GetOrgContactResponse =
+  GetOrgContactResponses[keyof GetOrgContactResponses];
 
 export type RenameDeliveryTypeData = {
   body: DeliveryTypeRename;

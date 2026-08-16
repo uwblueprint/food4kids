@@ -134,6 +134,18 @@ class SystemSettingsRead(SystemSettingsBase):
     system_settings_id: UUID
 
 
+class OrgContactRead(SQLModel):
+    """The slice of system settings readable without a token (see
+    ``GET /system-settings/contact``).
+
+    Enumerates its fields rather than filtering ``SystemSettingsRead``, so a
+    new settings column can't widen the public surface by accident.
+    """
+
+    contact_name: str | None
+    contact_phone: str | None
+
+
 class DeliveryTypeRename(SQLModel):
     """Request body for renaming a configured delivery type.
 

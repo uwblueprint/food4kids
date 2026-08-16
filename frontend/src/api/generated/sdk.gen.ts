@@ -128,6 +128,8 @@ import type {
   GetNotesFeedErrors,
   GetNotesFeedResponses,
   GetNotesResponses,
+  GetOrgContactData,
+  GetOrgContactResponses,
   GetRouteData,
   GetRouteErrors,
   GetRouteGroupsData,
@@ -1599,6 +1601,30 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Org Contact
+ *
+ * Return the org's point of contact — name and phone — to any caller.
+ *
+ * The only unauthenticated route here, because neither consumer can present
+ * an admin token: the driver route screen's "Call Food4Kids" button, and the
+ * catch-all error page, which renders for logged-out visitors. These are the
+ * org's published contact details, not member data; everything else on the
+ * settings row stays behind ``require_admin``.
+ */
+export const getOrgContact = <ThrowOnError extends boolean = false>(
+  options?: Options<GetOrgContactData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetOrgContactResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/system-settings/contact',
+    ...options,
   });
 
 /**
