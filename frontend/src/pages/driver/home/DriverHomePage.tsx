@@ -1,13 +1,15 @@
-import logo from '@/assets/logos/logo_mobile_one_line.svg';
-import noUpcoming from '@/assets/illustrations/boy-edge-case-with-questions.png';
-import noPast from '@/assets/illustrations/girl-confused.png';
 import { useState } from 'react';
-import { StatisticsCard } from '@/common/components/StatisticsCard';
-import { AnnouncementsBoard } from '@/features/announcements';
-import { RouteCard } from './components';
+
 import { useAuthStore } from '@/api/authStore';
 import { useDriverHistorySummary } from '@/api/drivers';
 import { useDriverRoutes, useRoute } from '@/api/routes';
+import noUpcoming from '@/assets/illustrations/boy-edge-case-with-questions.png';
+import noPast from '@/assets/illustrations/girl-confused.png';
+import logo from '@/assets/logos/logo_mobile_one_line.svg';
+import { StatisticsCard } from '@/common/components/StatisticsCard';
+import { AnnouncementsBoard } from '@/features/announcements';
+
+import { RouteCard } from './components';
 
 // Wrapper component to fetch route details and render RouteCard
 function RouteCardWithDetails({

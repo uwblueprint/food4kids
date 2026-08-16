@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
+import { useAuthStore } from './api/authStore';
 import {
   CatchAllErrorPage,
   ForbiddenPage,
@@ -28,7 +29,6 @@ import {
 import { DriverHomePage, IndividualRoutePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { TestImageUpload } from './pages/TestImageUpload';
-import { useAuthStore } from './api/authStore';
 
 function RootRedirect() {
   const user = useAuthStore((state) => state.user);

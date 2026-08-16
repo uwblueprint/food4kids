@@ -58,12 +58,8 @@ function StatisticsCard({
 
         {/* Text */}
         <div className="relative flex h-full flex-col justify-center">
-          <p className="text-h5 sm:text-h4 tablet:text-h3 text-grey-100 font-sans">
-            {label}
-          </p>
-          <p className="text-h3 sm:text-h2 tablet:text-h1 text-grey-100 font-nunito font-bold">
-            {value}
-          </p>
+          <p className="text-h4 text-grey-100 font-sans">{label}</p>
+          <p className="text-h2 text-grey-100 font-nunito font-bold">{value}</p>
         </div>
       </div>
 
@@ -77,7 +73,7 @@ function StatisticsCard({
           width: CHARACTERS[character].size,
           height: CHARACTERS[character].size,
           right: CHARACTERS[character].right,
-          bottom: (CHARACTERS[character] as any).bottom,
+          bottom: CHARACTERS[character].bottom,
         }}
       />
     </div>
