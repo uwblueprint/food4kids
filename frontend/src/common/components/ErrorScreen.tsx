@@ -65,8 +65,7 @@ export function ForbiddenPage() {
         This page is only available to authorized users. Please log in to
         continue.
       </p>
-      {/* TODO: replace '/' with login route */}
-      <Button variant="primary" onClick={() => navigate('/')}>
+      <Button variant="primary" onClick={() => navigate('/login')}>
         Log in
       </Button>
     </ErrorScreen>
