@@ -18,11 +18,11 @@ export function useSystemSettings() {
 }
 
 /**
- * The org's point of contact. Separate from {@link useSystemSettings} because
- * its endpoint is unauthenticated — that one would 401 for both callers.
+ * The org's name and phone, from the public endpoint — {@link useSystemSettings}
+ * would 401 for driver screens and the error page.
  *
- * `contact_phone` is RFC 3966, i.e. already a valid `href`. Pass it through
- * untouched for links, and through `formatPhone` for anything a reader sees.
+ * `contact_phone` is RFC 3966: already a valid `href`, use `formatPhone` to
+ * display it.
  */
 export function useOrgContact() {
   return useQuery(getOrgContactOptions());

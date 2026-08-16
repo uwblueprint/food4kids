@@ -1,8 +1,7 @@
-"""The auth split on ``/system-settings``: ``/contact`` is public, the rest is not.
+"""``/system-settings/contact`` is public, the rest of the router isn't.
 
-``conftest.py``'s client fixtures stub ``require_admin`` to a no-op, which would
-make a gated route indistinguishable from a public one — so these tests build
-their own app with only the session overridden, and send no token.
+conftest's client fixtures stub out require_admin, so these build their own app
+and send no token.
 """
 
 from collections.abc import AsyncGenerator
@@ -50,12 +49,8 @@ async def settings_row(test_session: AsyncSession) -> Any:
 async def _set_contact(
     session: AsyncSession, settings: SystemSettings, **fields: Any
 ) -> None:
-    """Write contact fields the way a PATCH would.
-
-    A ``table=True`` SQLModel skips validation on assignment, so the value goes
-    through ``SystemSettingsUpdate`` to get the RFC 3966 normalization
-    production applies.
-    """
+    """Write contact fields the way a PATCH would — a table=True SQLModel skips
+    validation on assignment, so the RFC 3966 normalization needs forcing."""
     validated = SystemSettingsUpdate(**fields)
     for key in fields:
         setattr(settings, key, getattr(validated, key))
@@ -95,8 +90,7 @@ async def test_contact_readable_without_a_token(
 async def test_contact_exposes_only_name_and_phone(
     anonymous_client: AsyncClient, test_session: AsyncSession, settings_row: Any
 ) -> None:
-    """The guard that matters: warehouse coords and column maps live on the
-    same row, and none of it may reach an unauthenticated caller."""
+    """Warehouse coords and column maps are on the same row and must not leak."""
     settings_row.warehouse_location = "50 Sportsworld Crossing Rd, Kitchener"
     settings_row.warehouse_latitude = 43.4123
     settings_row.warehouse_longitude = -80.4567
@@ -153,11 +147,7 @@ async def test_contact_returns_phone_without_name(
 async def test_contact_missing_settings_row_is_a_server_error(
     anonymous_client: AsyncClient,
 ) -> None:
-    """No ``settings_row`` fixture, so the startup invariant is broken.
-
-    ``require_settings`` raises rather than inventing an empty contact, so this
-    500s instead of claiming with a 200 that there is no phone number.
-    """
+    """No settings row: 500s rather than claiming there's no phone number."""
     response = await anonymous_client.get("/system-settings/contact")
 
     assert response.status_code == 500
@@ -173,8 +163,8 @@ async def test_contact_missing_settings_row_is_a_server_error(
 async def test_full_settings_still_requires_a_token(
     anonymous_client: AsyncClient,
 ) -> None:
-    """Same router, same tokenless client, refused — without this the tests
-    above would also pass if the router had simply lost its auth."""
+    """Refused — without this, the tests above would pass on a router that had
+    simply lost its auth."""
     response = await anonymous_client.get("/system-settings/")
 
     assert response.status_code == 401

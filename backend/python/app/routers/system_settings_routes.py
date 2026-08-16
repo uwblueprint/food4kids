@@ -29,12 +29,8 @@ async def get_system_settings(
     ),
     _auth: bool = Depends(require_admin),
 ) -> SystemSettingsRead:
-    """Return the singleton system settings row.
-
-    Never null — ``ensure_settings`` creates it at startup, and PATCH already
-    raises on a missing row, so a soft read here would mean a blank form that
-    every save rejects.
-    """
+    """Return the singleton settings row. Never null — PATCH already raises on
+    a missing row, so a soft read here would mean an unsaveable blank form."""
     settings = await system_settings_service.require_settings(session)
     return SystemSettingsRead.model_validate(settings)
 
@@ -46,14 +42,8 @@ async def get_org_contact(
         get_system_settings_service
     ),
 ) -> OrgContactRead:
-    """Return the org's point of contact — name and phone — to any caller.
-
-    The only unauthenticated route here, because neither consumer can present
-    an admin token: the driver route screen's "Call Food4Kids" button, and the
-    catch-all error page, which renders for logged-out visitors. These are the
-    org's published contact details, not member data; everything else on the
-    settings row stays behind ``require_admin``.
-    """
+    """The org's name and phone. Unauthenticated — the error page renders for
+    logged-out visitors, and these are published details, not member data."""
     settings = await system_settings_service.require_settings(session)
     return OrgContactRead.model_validate(settings)
 

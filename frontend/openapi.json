@@ -2579,7 +2579,7 @@
         "type": "object"
       },
       "OrgContactRead": {
-        "description": "The slice of system settings readable without a token (see\n``GET /system-settings/contact``).\n\nEnumerates its fields rather than filtering ``SystemSettingsRead``, so a\nnew settings column can't widen the public surface by accident.",
+        "description": "Smaller response object for callers that shouldn't see all settings\n(driver screens, error pages).",
         "properties": {
           "contact_name": {
             "anyOf": [
@@ -7748,7 +7748,7 @@
     },
     "/system-settings/": {
       "get": {
-        "description": "Return the singleton system settings row.\n\nNever null — ``ensure_settings`` creates it at startup, and PATCH already\nraises on a missing row, so a soft read here would mean a blank form that\nevery save rejects.",
+        "description": "Return the singleton settings row. Never null — PATCH already raises on\na missing row, so a soft read here would mean an unsaveable blank form.",
         "operationId": "get_system_settings",
         "responses": {
           "200": {
@@ -7820,7 +7820,7 @@
     },
     "/system-settings/contact": {
       "get": {
-        "description": "Return the org's point of contact — name and phone — to any caller.\n\nThe only unauthenticated route here, because neither consumer can present\nan admin token: the driver route screen's \"Call Food4Kids\" button, and the\ncatch-all error page, which renders for logged-out visitors. These are the\norg's published contact details, not member data; everything else on the\nsettings row stays behind ``require_admin``.",
+        "description": "The org's name and phone. Unauthenticated — the error page renders for\nlogged-out visitors, and these are published details, not member data.",
         "operationId": "get_org_contact",
         "responses": {
           "200": {

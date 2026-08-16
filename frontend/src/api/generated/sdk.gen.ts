@@ -1564,11 +1564,8 @@ export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
 /**
  * Get System Settings
  *
- * Return the singleton system settings row.
- *
- * Never null — ``ensure_settings`` creates it at startup, and PATCH already
- * raises on a missing row, so a soft read here would mean a blank form that
- * every save rejects.
+ * Return the singleton settings row. Never null — PATCH already raises on
+ * a missing row, so a soft read here would mean an unsaveable blank form.
  */
 export const getSystemSettings = <ThrowOnError extends boolean = false>(
   options?: Options<GetSystemSettingsData, ThrowOnError>
@@ -1610,13 +1607,8 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
 /**
  * Get Org Contact
  *
- * Return the org's point of contact — name and phone — to any caller.
- *
- * The only unauthenticated route here, because neither consumer can present
- * an admin token: the driver route screen's "Call Food4Kids" button, and the
- * catch-all error page, which renders for logged-out visitors. These are the
- * org's published contact details, not member data; everything else on the
- * settings row stays behind ``require_admin``.
+ * The org's name and phone. Unauthenticated — the error page renders for
+ * logged-out visitors, and these are published details, not member data.
  */
 export const getOrgContact = <ThrowOnError extends boolean = false>(
   options?: Options<GetOrgContactData, ThrowOnError>

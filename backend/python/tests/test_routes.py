@@ -5838,11 +5838,7 @@ class TestSystemSettingsRoutes:
     async def test_get_system_settings_without_a_row_is_a_server_error(
         self, test_session: AsyncSession
     ) -> None:
-        """A missing row is a broken invariant, not a 200-with-null.
-
-        Built inline because ``async_client`` creates the row, which is the
-        state under test.
-        """
+        """Built inline because async_client creates the row under test."""
         app = create_app()
 
         async def _session() -> AsyncGenerator[AsyncSession, None]:

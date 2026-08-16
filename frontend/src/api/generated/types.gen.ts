@@ -1471,11 +1471,8 @@ export type NoteUpdate = {
 /**
  * OrgContactRead
  *
- * The slice of system settings readable without a token (see
- * ``GET /system-settings/contact``).
- *
- * Enumerates its fields rather than filtering ``SystemSettingsRead``, so a
- * new settings column can't widen the public surface by accident.
+ * Smaller response object for callers that shouldn't see all settings
+ * (driver screens, error pages).
  */
 export type OrgContactRead = {
   /**
