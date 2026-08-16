@@ -134,6 +134,14 @@ class SystemSettingsRead(SystemSettingsBase):
     system_settings_id: UUID
 
 
+class OrgContactRead(SQLModel):
+    """Smaller response object for callers that shouldn't see all settings
+    (driver screens, error pages)."""
+
+    contact_name: str | None
+    contact_phone: str | None
+
+
 class DeliveryTypeRename(SQLModel):
     """Request body for renaming a configured delivery type.
 

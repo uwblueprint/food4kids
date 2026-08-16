@@ -21,7 +21,7 @@ import {
   TableToolbar,
 } from '@/common/components';
 import { useTableSort } from '@/common/hooks';
-import { formatShortDate, orDash } from '@/common/utils';
+import { formatPhone, formatShortDate, orDash } from '@/common/utils';
 
 import type { AddressesTabState } from '../hooks';
 import { AddressActionsCell } from './AddressActionsCell';
@@ -40,7 +40,8 @@ const COLUMNS: Column<LocationRead>[] = [
   {
     key: 'phone_primary',
     header: 'Phone number',
-    render: (row) => orDash(row.phone_primary),
+    render: (row) =>
+      orDash(row.phone_primary && formatPhone(row.phone_primary)),
   },
   {
     key: 'assigned_route',

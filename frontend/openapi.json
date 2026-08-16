@@ -810,7 +810,6 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "maxLength": 20,
             "minLength": 1,
             "title": "Phone",
             "type": "string"
@@ -901,7 +900,6 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "maxLength": 20,
             "minLength": 1,
             "title": "Phone",
             "type": "string"
@@ -1043,7 +1041,6 @@
           "phone": {
             "anyOf": [
               {
-                "maxLength": 20,
                 "minLength": 1,
                 "type": "string"
               },
@@ -2321,6 +2318,7 @@
             "items": {
               "$ref": "#/components/schemas/Attachment"
             },
+            "maxItems": 3,
             "title": "Attachments",
             "type": "array"
           },
@@ -2487,6 +2485,17 @@
             "title": "Attachments",
             "type": "array"
           },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -2567,6 +2576,39 @@
           "message"
         ],
         "title": "NoteUpdate",
+        "type": "object"
+      },
+      "OrgContactRead": {
+        "description": "Smaller response object for callers that shouldn't see all settings\n(driver screens, error pages).",
+        "properties": {
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          }
+        },
+        "required": [
+          "contact_name",
+          "contact_phone"
+        ],
+        "title": "OrgContactRead",
         "type": "object"
       },
       "PaginatedResponse_LocationRead_": {
@@ -6545,6 +6587,101 @@
         ]
       }
     },
+    "/reports/monthly-series": {
+      "get": {
+        "description": "Return km and deliveries per month for a trailing window, oldest first.\n\nBacks the homepage statistics bar charts, which need a whole series at\nonce rather than one request per bar.",
+        "operationId": "get_monthly_series",
+        "parameters": [
+          {
+            "description": "How many months to return, counting back from the end month",
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "description": "How many months to return, counting back from the end month",
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Year of the newest month; defaults to the current month",
+            "in": "query",
+            "name": "end_year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Year of the newest month; defaults to the current month",
+              "title": "End Year"
+            }
+          },
+          {
+            "description": "Month of the newest month (1-12)",
+            "in": "query",
+            "name": "end_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 12,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Month of the newest month (1-12)",
+              "title": "End Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyTotalsResponse"
+                  },
+                  "title": "Response Get Monthly Series",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Monthly Series",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/reports/monthly/{year}/{month}/ranking": {
       "get": {
         "description": "Return monthly ranking list of drivers by km (descending).",
@@ -7611,22 +7748,14 @@
     },
     "/system-settings/": {
       "get": {
-        "description": "Return the singleton system settings row, or null if none has been created.",
+        "description": "Return the singleton settings row. Never null — PATCH already raises on\na missing row, so a soft read here would mean an unsaveable blank form.",
         "operationId": "get_system_settings",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/SystemSettingsRead"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "title": "Response Get System Settings"
+                  "$ref": "#/components/schemas/SystemSettingsRead"
                 }
               }
             },
@@ -7684,6 +7813,28 @@
           }
         ],
         "summary": "Patch System Settings",
+        "tags": [
+          "system-settings"
+        ]
+      }
+    },
+    "/system-settings/contact": {
+      "get": {
+        "description": "The org's name and phone. Unauthenticated — the error page renders for\nlogged-out visitors, and these are published details, not member data.",
+        "operationId": "get_org_contact",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgContactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Org Contact",
         "tags": [
           "system-settings"
         ]

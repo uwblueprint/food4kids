@@ -1,22 +1,9 @@
-"""Contract for the seed script's Firebase account reconciliation.
+"""Contract for ``ensure_firebase_user``: an existing account's password is
+never written unless explicitly asked for (a password write signs out every
+open session — see the function's own docstring).
 
-``ensure_firebase_user`` used to rewrite every existing account's password on
-every run. Firebase treats a password write as a credential change and moves
-``tokensValidAfterTime`` to now, revoking every token already issued; because
-the app verifies with ``check_revoked=True``, that signs out everyone holding
-one. Re-seeding therefore logged out every open session, and CI's boot smoke
-seeds the *same* Firebase project local development uses, so an unrelated merge
-would sign a developer out mid-task.
-
-Measured against the real project, the password is the only write that does
-this — ``display_name`` and custom claims leave the timestamp alone. So these
-tests pin one rule above all: **an existing account's password is not written
-unless it is explicitly asked for.**
-
-``test_seed_database.py`` patches this function out wholesale to keep the seed
-tests offline, which is why it needs its own file. Firebase is a mock here for
-the same reason — the assertions are about which calls are made, not about
-Firebase's behaviour.
+Needs its own file because test_seed_database.py patches the function out
+wholesale to keep the seed tests offline.
 """
 
 from typing import Any

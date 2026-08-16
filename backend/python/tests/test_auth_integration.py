@@ -1,27 +1,10 @@
-"""
-Integration tests for route-level authorization wiring.
+"""Integration tests for route-level authorization wiring.
 
-Unlike test_auth_middleware.py (which tests the auth *dependencies* in isolation
-against synthetic routes), this module mounts the **real** application and drives
-every auth-bearing endpoint as four different account types, asserting the auth
-decision for each. It exists because conftest.py bypasses auth for all other
-router tests, so nothing else verifies that the correct guard is wired to the
-correct route.
-
-Two tests:
-
-1. ``test_route_auth_matrix`` — for each route with a role/ownership policy,
-   request it as an anonymous caller, the owning driver, a different driver, and
-   an admin, and assert each is allowed/denied as the policy requires.
-
-2. ``test_every_exposed_route_is_classified`` — a completeness guard: every route
-   the app exposes must appear in ROUTE_POLICIES. Adding a new endpoint without
-   classifying its auth fails this test, forcing an explicit decision (and, for
-   the auth-bearing policies, coverage by the matrix above).
-
-The single source of truth is ROUTE_POLICIES below: a ``(method, path) -> Policy``
-registry. ``path`` matches FastAPI's templated path exactly (e.g.
-``/drivers/{driver_id}``).
+conftest.py bypasses auth for every other router test, so this is the only place
+that mounts the real app and checks each endpoint has the right guard on it.
+ROUTE_POLICIES below is the source of truth, keyed by FastAPI's templated path:
+every exposed route must appear in it, and each auth-bearing one is driven as an
+anonymous caller, the owning driver, another driver, and an admin.
 """
 
 import re
@@ -141,8 +124,11 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     # --- system settings ---
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,
+    # Public by design; scoped to name/phone by OrgContactRead.
+    ("GET", "/system-settings/contact"): Policy.PUBLIC,
     # --- reports ---
     ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,
+    ("GET", "/reports/monthly-series"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/ranking"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/totals"): Policy.ADMIN_ONLY,
     # --- note chains (authenticated, any user) ---
@@ -332,7 +318,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         name="Seed Location",
         contact_name="Seed Location",
         address="123 Seed St",
-        phone_primary="5550000001",
+        phone_primary="tel:+1-519-576-0001",
         num_children=8,
         delivery_type="Family",
     )
@@ -378,9 +364,11 @@ async def auth_client(
 
     app.dependency_overrides[get_session] = override_get_session
     # The GCS client constructs a real google.cloud client eagerly (no creds in
-    # tests). Stub it so upload-route dependency resolution succeeds and auth —
+    # CI). Stub it so note/upload dependency resolution succeeds and auth —
     # not a missing-credentials 500 — decides the outcome.
-    app.dependency_overrides[get_gcp_storage_client] = MagicMock
+    fake_gcp = MagicMock()
+    fake_gcp.generate_signed_url.return_value = "https://gcs.test/stub"
+    app.dependency_overrides[get_gcp_storage_client] = lambda: fake_gcp
 
     # raise_app_exceptions=False: an unhandled handler exception becomes a 500
     # response (as a real server would return) instead of propagating into the

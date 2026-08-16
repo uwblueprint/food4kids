@@ -1,10 +1,12 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from sqlmodel import Field, Relationship, SQLModel, String
+
+from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 from .enum import LocationStatusEnum
@@ -58,6 +60,19 @@ class LocationBase(SQLModel):
         ondelete="SET NULL",
         unique=True,
     )
+
+    @field_validator("phone_primary", "phone_secondary")
+    @classmethod
+    def validate_phones(cls, v: str | None) -> str | None:
+        """Normalize to RFC 3966, as Driver and Admin do — POST/PATCH
+        /locations would otherwise store whatever the client sent.
+
+        Not the import's validation gate: LocationImportEntry deliberately
+        doesn't inherit this, so it can report an INVALID_PHONE_NUMBER alert.
+        """
+        if v is None:
+            return None
+        return validate_phone(v)
 
 
 class Location(LocationBase, BaseModel, table=True):
@@ -295,6 +310,25 @@ class LocationUpdate(SQLModel):
     delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
     in_roster: bool | None = None
     note_chain_id: UUID | None = None
+
+    @field_validator("phone_primary", mode="before")
+    @classmethod
+    def reject_explicit_null_primary(cls, v: Any) -> Any:
+        """``locations.phone_primary`` is NOT NULL, so an explicit ``null`` has
+        to fail here as a 422 rather than as an IntegrityError at commit.
+        ``phone_secondary`` is nullable — null there legitimately clears it."""
+        if v is None:
+            raise ValueError("cannot be null; omit the field to leave it unchanged")
+        return v
+
+    @field_validator("phone_primary", "phone_secondary")
+    @classmethod
+    def validate_phones(cls, v: str | None) -> str | None:
+        """Normalize on update too — the service assigns onto the row, and
+        SQLModel table instances don't re-run validators on assignment."""
+        if v is None:
+            return None
+        return validate_phone(v)
 
 
 class LocationImportResult(SQLModel):

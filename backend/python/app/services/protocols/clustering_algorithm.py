@@ -7,19 +7,10 @@ if TYPE_CHECKING:
 
 
 class ClusteringAlgorithmProtocol(Protocol):
-    """Protocol for clustering algorithms.
+    """Protocol for clustering algorithms, so implementations can be swapped in.
 
-    Clustering algorithms are pure functions that take a list of locations and
-    clustering parameters, and return clusters (each cluster is a list of locations).
-    Algorithms should not interact with the database - they only compute
-    the cluster assignments.
-
-    Multiple clustering approaches may be used in the final product, so this
-    protocol allows for different implementations to be swapped in.
-
-    Algorithms may call external APIs (e.g., for distance calculations) or
-    perform long computations, so they are async to allow for efficient
-    concurrent operations.
+    Pure functions from locations + parameters to clusters, with no database
+    access. Async because an implementation may call out for distances.
     """
 
     async def cluster_locations(
