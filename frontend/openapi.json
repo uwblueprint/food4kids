@@ -7523,7 +7523,7 @@
         ]
       },
       "get": {
-        "description": "Get a route by its unique identifier, with its ordered stops embedded.\n\nEach stop carries its sequence #, address, contact name, phone (+ secondary),\nbox count, and a note_chain_id reference. Stops are sourced live from\nLocation for upcoming routes and from frozen route_stop_snapshots for past\nroutes. Notes are not embedded: fetch them via GET /note-chains/{id}/notes.",
+        "description": "Get a route by its unique identifier, with its ordered stops embedded.\n\nEach stop carries its sequence #, address, contact name, phone (+ secondary),\nbox count, and a note_chain_id reference. Stops are sourced live from\nLocation for upcoming routes and from frozen route_stop_snapshots for past\nroutes. Notes are not embedded: fetch them via GET /note-chains/{id}/notes.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to GET.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    The route with its ordered stops. Responds with HTTP 200 OK on success.",
         "operationId": "get_route",
         "parameters": [
           {

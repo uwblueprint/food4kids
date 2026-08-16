@@ -1,14 +1,16 @@
 """Background consumer for route generation jobs.
 
-One long-lived asyncio task sleeps on a wake event until ``POST /jobs/generate``
-rings it, then drains ``PENDING`` jobs one at a time into ``run_generation_job``.
-The ``jobs`` table is the durable queue; the event is only in-memory, so a
-restart relies on the startup sweep to repair orphaned ``RUNNING`` rows and
-re-ring if anything is still pending.
+One long-lived asyncio task sleeps on a wake event until
+``POST /jobs/generate`` wakes the worker, then claims ``PENDING`` jobs one
+at a time and hands each to ``run_generation_job``. The ``jobs`` table is the
+durable queue; the event is only an in-memory signal, so a process restart
+needs the startup sweep to repair orphaned ``RUNNING`` rows (complete,
+requeue, or fail) and re-ring if any ``PENDING`` work is waiting.
 
-Assumes a single process. The drain loop reads a failed claim as "queue empty",
-which under multiple workers or replicas a lost claim race also produces —
-leaving real ``PENDING`` jobs stuck until the next wake.
+Assumes a single process runs this worker. The drain loop treats a failed claim
+(``None``) as "queue empty" and stops. With multiple uvicorn/gunicorn workers
+or replicas, a lost claim race can also return ``None`` while ``PENDING`` jobs
+remain, leaving them stuck until the next ``POST /jobs/generate`` wake.
 """
 
 from __future__ import annotations
@@ -92,10 +94,17 @@ async def claim_next_pending_job(session: AsyncSession) -> UUID | None:
 async def recover_route_generation_jobs(session: AsyncSession) -> None:
     """Repair jobs left RUNNING across a restart, and wake if PENDING remain.
 
-    A RUNNING job can't resume its in-flight Google call, so instead: COMPLETED
-    if ``route_group_id`` is already set (defensive — ``_save_or_discard``
-    commits both together), PENDING if ``retry_count`` is under the cap, and
-    FAILED otherwise so a crash loop can't requeue forever.
+    A RUNNING job cannot resume its in-flight Google call — that connection is
+    gone. Recovery instead:
+
+    1. If ``route_group_id`` is already set, mark COMPLETED. Unreachable while
+       ``_save_or_discard`` commits the RouteGroup and status together; kept as
+       a belt-and-suspenders guard if that assumption changes.
+    2. Else if ``retry_count`` is under the auto-requeue cap, return the job
+       to PENDING so the worker retries from ``input_payload``.
+    3. Else mark FAILED so a crash loop cannot requeue forever.
+
+    Leaving orphans in RUNNING would make the UI wait forever.
     """
     now = now_utc()
 
