@@ -2580,7 +2580,12 @@ export const getSystemSettingsQueryKey = (
 /**
  * Get System Settings
  *
- * Return the singleton system settings row, or null if none has been created.
+ * Return the singleton system settings row.
+ *
+ * Never null: ``ensure_settings`` creates the row at startup, so a missing one
+ * is a broken deployment. This used to answer 200-with-null while its own
+ * PATCH — which goes through ``require_settings`` — raised on the same state,
+ * so the Settings page would render a blank form that could not be saved.
  */
 export const getSystemSettingsOptions = (
   options?: Options<GetSystemSettingsData>

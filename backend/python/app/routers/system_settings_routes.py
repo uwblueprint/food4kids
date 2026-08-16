@@ -21,17 +21,23 @@ from app.services.jobs import refresh_daily_reminder_email_schedule
 router = APIRouter(prefix="/system-settings", tags=["system-settings"])
 
 
-@router.get("/", response_model=SystemSettingsRead | None)
+@router.get("/", response_model=SystemSettingsRead)
 async def get_system_settings(
     session: AsyncSession = Depends(get_session),
     system_settings_service: SystemSettingsService = Depends(
         get_system_settings_service
     ),
     _auth: bool = Depends(require_admin),
-) -> SystemSettingsRead | None:
-    """Return the singleton system settings row, or null if none has been created."""
-    settings = await system_settings_service.get_settings(session)
-    return SystemSettingsRead.model_validate(settings) if settings else None
+) -> SystemSettingsRead:
+    """Return the singleton system settings row.
+
+    Never null: ``ensure_settings`` creates the row at startup, so a missing one
+    is a broken deployment. This used to answer 200-with-null while its own
+    PATCH — which goes through ``require_settings`` — raised on the same state,
+    so the Settings page would render a blank form that could not be saved.
+    """
+    settings = await system_settings_service.require_settings(session)
+    return SystemSettingsRead.model_validate(settings)
 
 
 @router.get("/contact", response_model=OrgContactRead)

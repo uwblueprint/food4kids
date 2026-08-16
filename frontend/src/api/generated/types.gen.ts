@@ -4700,11 +4700,9 @@ export type GetSystemSettingsData = {
 
 export type GetSystemSettingsResponses = {
   /**
-   * Response Get System Settings
-   *
    * Successful Response
    */
-  200: SystemSettingsRead | null;
+  200: SystemSettingsRead;
 };
 
 export type GetSystemSettingsResponse =

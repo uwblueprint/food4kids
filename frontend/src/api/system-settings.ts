@@ -6,8 +6,10 @@ import {
 } from './generated/@tanstack/react-query.gen';
 import type { SystemSettingsRead } from './generated/types.gen';
 
+// `undefined` only — while the query is in flight. The API no longer answers
+// null: a missing settings row is a broken deployment and fails the request.
 export function getConfiguredDeliveryTypes(
-  settings: SystemSettingsRead | null | undefined
+  settings: SystemSettingsRead | undefined
 ) {
   return settings?.delivery_types ?? [];
 }

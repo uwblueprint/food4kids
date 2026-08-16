@@ -10,17 +10,24 @@ Tests cover:
 """
 
 import json
+from collections.abc import AsyncGenerator
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
+from app import create_app
+from app.dependencies.auth import (
+    DriverAccess,
+    require_admin,
+    require_self_driver_or_admin,
+)
 from app.dependencies.services import get_google_maps_client
+from app.models import get_session
 from app.models.enum import ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -5817,9 +5824,43 @@ class TestSystemSettingsRoutes:
 
     @pytest.mark.asyncio
     async def test_get_system_settings(self, async_client: AsyncClient) -> None:
-        """GET /system-settings returns 200 (null-safe when unset)."""
+        """GET /system-settings returns the singleton row, never null."""
         response = await async_client.get("/system-settings/")
         assert response.status_code == 200
+
+        body = response.json()
+        assert body is not None
+        assert body["system_settings_id"]
+        # Model defaults, from the row ensure_settings creates at startup.
+        assert body["boxes_per_car"] == 10
+        assert body["delivery_types"] == ["Family", "School"]
+
+    @pytest.mark.asyncio
+    async def test_get_system_settings_without_a_row_is_a_server_error(
+        self, test_session: AsyncSession
+    ) -> None:
+        """A missing row is a broken startup invariant, not a 200-with-null.
+
+        The read and the write have to agree: ``update_settings`` already
+        raises via ``require_settings``, so answering null here would hand the
+        Settings page a blank form that every save rejects.
+
+        Built inline because ``async_client`` creates the row (mirroring
+        startup), which is exactly the state under test.
+        """
+        app = create_app()
+
+        async def _session() -> AsyncGenerator[AsyncSession, None]:
+            yield test_session
+
+        app.dependency_overrides[get_session] = _session
+        app.dependency_overrides[require_admin] = lambda: True
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get("/system-settings/")
+
+        assert response.status_code == 500
 
     @pytest.mark.asyncio
     async def test_patch_system_settings(self, async_client: AsyncClient) -> None:
