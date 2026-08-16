@@ -15,12 +15,8 @@ MAX_STORED_PHONE_LENGTH = 32
 def validate_phone(v: str) -> str:
     """Normalize a phone number to RFC 3966 (``tel:+1-519-576-3443;ext=1``).
 
-    RFC 3966 rather than E.164 because E.164 has no extension field: it parses
-    ``(519) 576-3443 Ext. 1`` happily and then drops the ``Ext. 1`` on the way
-    out. F4K's own contact number has an extension, and school delivery
-    locations routinely do, so silently truncating to the switchboard sends a
-    driver to the wrong line with nothing raised. The stored value doubles as
-    the ``tel:`` URI a call button needs.
+    RFC 3966 rather than E.164 because E.164 silently drops extensions, and
+    F4K's number has one. Doubles as the ``tel:`` URI a call button needs.
     """
     try:
         parsed_phone = phonenumbers.parse(v, "CA")
