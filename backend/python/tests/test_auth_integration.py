@@ -141,8 +141,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("DELETE", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     # --- system settings ---
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,
-    # Public by design: the error page renders for logged-out visitors. Scoped
-    # to contact_name/contact_phone by OrgContactRead.
+    # Public by design; scoped to name/phone by OrgContactRead.
     ("GET", "/system-settings/contact"): Policy.PUBLIC,
     # --- reports ---
     ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,

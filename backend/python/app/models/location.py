@@ -64,16 +64,11 @@ class LocationBase(SQLModel):
     @field_validator("phone_primary", "phone_secondary")
     @classmethod
     def validate_phones(cls, v: str | None) -> str | None:
-        """Normalize to RFC 3966, as Driver and Admin do.
+        """Normalize to RFC 3966, as Driver and Admin do — POST/PATCH
+        /locations would otherwise store whatever the client sent.
 
-        The import path normalizes before it ever builds a Location, but
-        POST /locations and PATCH /locations/{id} do not — without this they
-        store whatever the client sent, and the Addresses table then shows one
-        household's number formatted and the next one raw.
-
-        Note this is *not* the import's validation gate: an invalid number
-        there is reported as an INVALID_PHONE_NUMBER alert on the review screen
-        (see LocationImportEntry, which deliberately does not inherit this).
+        Not the import's validation gate: LocationImportEntry deliberately
+        doesn't inherit this, so it can report an INVALID_PHONE_NUMBER alert.
         """
         if v is None:
             return None

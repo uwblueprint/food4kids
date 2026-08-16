@@ -21,17 +21,18 @@ from app.services.jobs import refresh_daily_reminder_email_schedule
 router = APIRouter(prefix="/system-settings", tags=["system-settings"])
 
 
-@router.get("/", response_model=SystemSettingsRead | None)
+@router.get("/", response_model=SystemSettingsRead)
 async def get_system_settings(
     session: AsyncSession = Depends(get_session),
     system_settings_service: SystemSettingsService = Depends(
         get_system_settings_service
     ),
     _auth: bool = Depends(require_admin),
-) -> SystemSettingsRead | None:
-    """Return the singleton system settings row, or null if none has been created."""
-    settings = await system_settings_service.get_settings(session)
-    return SystemSettingsRead.model_validate(settings) if settings else None
+) -> SystemSettingsRead:
+    """Return the singleton settings row. Never null — PATCH already raises on
+    a missing row, so a soft read here would mean an unsaveable blank form."""
+    settings = await system_settings_service.require_settings(session)
+    return SystemSettingsRead.model_validate(settings)
 
 
 @router.get("/contact", response_model=OrgContactRead)
@@ -41,14 +42,8 @@ async def get_org_contact(
         get_system_settings_service
     ),
 ) -> OrgContactRead:
-    """Return the org's point of contact — name and phone — to any caller.
-
-    The only unauthenticated route here, because neither consumer can present
-    an admin token: the driver route screen's "Call Food4Kids" button, and the
-    catch-all error page, which renders for logged-out visitors. These are the
-    org's published contact details, not member data; everything else on the
-    settings row stays behind ``require_admin``.
-    """
+    """The org's name and phone. Unauthenticated — the error page renders for
+    logged-out visitors, and these are published details, not member data."""
     settings = await system_settings_service.require_settings(session)
     return OrgContactRead.model_validate(settings)
 

@@ -2,11 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { contactSentence } from './ErrorScreen.contact';
 
-/**
- * Every name/phone × set/unset/undefined combination is reachable, and each
- * must stay grammatical. The failure guarded against is the literal
- * "contact  at  for help." a naive template would produce.
- */
+// Every name/phone combination is reachable and each must stay grammatical —
+// the failure guarded against is a literal "contact  at  for help."
 describe('contactSentence', () => {
   it('names the contact and their number when both are configured', () => {
     expect(contactSentence('Emily Loro', 'tel:+1-519-576-3443')).toBe(
@@ -65,8 +62,7 @@ describe('contactSentence', () => {
   });
 
   it('never leaks a raw tel: URI into the sentence', () => {
-    // A non-NANP number is storable and has no design, but must not surface
-    // as a raw "tel:" URI. Pins that the copy goes through formatPhone.
+    // Storable, no design for it, but must not surface as a raw "tel:" URI.
     expect(contactSentence(null, 'tel:+44-20-7946-0958')).toBe(
       'If the issue persists, call +44 20 7946 0958 for help.'
     );

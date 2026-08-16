@@ -6,8 +6,9 @@ import {
 } from './generated/@tanstack/react-query.gen';
 import type { SystemSettingsRead } from './generated/types.gen';
 
+// `undefined` only — the in-flight state. The API no longer answers null.
 export function getConfiguredDeliveryTypes(
-  settings: SystemSettingsRead | null | undefined
+  settings: SystemSettingsRead | undefined
 ) {
   return settings?.delivery_types ?? [];
 }
@@ -17,11 +18,11 @@ export function useSystemSettings() {
 }
 
 /**
- * The org's point of contact. Separate from {@link useSystemSettings} because
- * its endpoint is unauthenticated — that one would 401 for both callers.
+ * The org's name and phone, from the public endpoint — {@link useSystemSettings}
+ * would 401 for driver screens and the error page.
  *
- * `contact_phone` is RFC 3966, i.e. already a valid `href`. Pass it through
- * untouched for links, and through `formatPhone` for anything a reader sees.
+ * `contact_phone` is RFC 3966: already a valid `href`, use `formatPhone` to
+ * display it.
  */
 export function useOrgContact() {
   return useQuery(getOrgContactOptions());
