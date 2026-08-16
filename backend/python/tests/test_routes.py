@@ -5124,12 +5124,16 @@ class TestNoteChainRoutes:
             json={"message": "Hello"},
         )
         assert note_resp.status_code == 201
-        note_id = note_resp.json()["note_id"]
+        note_body = note_resp.json()
+        note_id = note_body["note_id"]
+        assert note_body["author_name"] is not None
+        assert note_body["author_name"].strip() != ""
 
         # List notes
         list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
         assert list_resp.status_code == 200
         assert len(list_resp.json()) == 1
+        assert list_resp.json()[0]["author_name"] == note_body["author_name"]
 
         # Update
         patch_resp = await authed_async_client.patch(
@@ -5138,12 +5142,70 @@ class TestNoteChainRoutes:
         )
         assert patch_resp.status_code == 200
         assert patch_resp.json()["message"] == "Edited"
+        assert patch_resp.json()["author_name"] == note_body["author_name"]
 
         # Delete
         delete_note_resp = await authed_async_client.delete(
             f"/note-chains/{chain_id}/notes/{note_id}"
         )
         assert delete_note_resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_list_notes_includes_mixed_author_names(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """GET /note-chains/{id}/notes returns each author's real name.
+
+        Mirrors seeded All Stops data where a location chain has notes from
+        more than one person (admin + driver).
+        """
+        from app.models.note import Note
+        from app.models.user import User
+
+        chain_id = await self._create_chain(test_session)
+
+        other_author = User(
+            first_name="Casey",
+            last_name="Driver",
+            email="casey.driver@example.com",
+            role="driver",
+            auth_id="auth-casey-driver",
+        )
+        test_session.add(other_author)
+        await test_session.flush()
+
+        # One note from the authed admin (created via API)...
+        mine = await authed_async_client.post(
+            f"/note-chains/{chain_id}/notes",
+            json={"message": "Left boxes by the door"},
+        )
+        assert mine.status_code == 201
+
+        # ...and one from a different seeded-style author.
+        other_note = Note(
+            note_chain_id=UUID(chain_id),
+            user_id=other_author.user_id,
+            message="Gate code is 4821",
+            is_system=False,
+        )
+        test_session.add(other_note)
+        await test_session.commit()
+
+        list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
+        assert list_resp.status_code == 200
+        notes = list_resp.json()
+        assert len(notes) == 2
+
+        by_message = {note["message"]: note for note in notes}
+        assert (
+            by_message["Left boxes by the door"]["author_name"]
+            == mine.json()["author_name"]
+        )
+        assert by_message["Gate code is 4821"]["author_name"] == "Casey Driver"
+        assert (
+            by_message["Left boxes by the door"]["author_name"]
+            != by_message["Gate code is 4821"]["author_name"]
+        )
 
     @pytest.mark.asyncio
     async def test_get_note_chain(

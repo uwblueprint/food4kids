@@ -155,6 +155,14 @@ export type AuthResponse = {
    */
   access_token: string;
   /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -1415,6 +1423,10 @@ export type NoteRead = {
    */
   attachments?: Array<Attachment>;
   /**
+   * Author Name
+   */
+  author_name?: string | null;
+  /**
    * Created At
    */
   created_at?: string | null;
@@ -2322,6 +2334,14 @@ export type AuthResponseWritable = {
    * Access Token
    */
   access_token: string;
+  /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
   /**
    * Email
    */
@@ -4049,6 +4069,54 @@ export type GetTotalDeliveriesBetweenResponses = {
 
 export type GetTotalDeliveriesBetweenResponse =
   GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
+
+export type GetMonthlySeriesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Months
+     *
+     * How many months to return, counting back from the end month
+     */
+    months?: number;
+    /**
+     * End Year
+     *
+     * Year of the newest month; defaults to the current month
+     */
+    end_year?: number | null;
+    /**
+     * End Month
+     *
+     * Month of the newest month (1-12)
+     */
+    end_month?: number | null;
+  };
+  url: '/reports/monthly-series';
+};
+
+export type GetMonthlySeriesErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlySeriesError =
+  GetMonthlySeriesErrors[keyof GetMonthlySeriesErrors];
+
+export type GetMonthlySeriesResponses = {
+  /**
+   * Response Get Monthly Series
+   *
+   * Successful Response
+   */
+  200: Array<MonthlyTotalsResponse>;
+};
+
+export type GetMonthlySeriesResponse =
+  GetMonthlySeriesResponses[keyof GetMonthlySeriesResponses];
 
 export type GetMonthlyRankingData = {
   body?: never;

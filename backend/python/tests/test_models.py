@@ -794,6 +794,21 @@ class TestModelValidation:
         valid = NoteCreate(message="x" * 2000)
         assert len(valid.message) == 2000
 
+        three = [
+            Attachment(filename=f"{i}.png", url=f"https://example.com/{i}.png")
+            for i in range(3)
+        ]
+        assert len(NoteCreate(message="ok", attachments=three).attachments) == 3
+        with pytest.raises(ValidationError) as exc_info:
+            NoteCreate(
+                message="too many",
+                attachments=[
+                    *three,
+                    Attachment(filename="4.png", url="https://example.com/4.png"),
+                ],
+            )
+        assert "attachments" in str(exc_info.value)
+
     def test_numeric_field_validation(self) -> None:
         """Test numeric field validation."""
         # Test negative int validation (if any models have this)

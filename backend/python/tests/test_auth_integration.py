@@ -143,6 +143,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,
     # --- reports ---
     ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,
+    ("GET", "/reports/monthly-series"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/ranking"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/totals"): Policy.ADMIN_ONLY,
     # --- note chains (authenticated, any user) ---
@@ -378,9 +379,11 @@ async def auth_client(
 
     app.dependency_overrides[get_session] = override_get_session
     # The GCS client constructs a real google.cloud client eagerly (no creds in
-    # tests). Stub it so upload-route dependency resolution succeeds and auth —
+    # CI). Stub it so note/upload dependency resolution succeeds and auth —
     # not a missing-credentials 500 — decides the outcome.
-    app.dependency_overrides[get_gcp_storage_client] = MagicMock
+    fake_gcp = MagicMock()
+    fake_gcp.generate_signed_url.return_value = "https://gcs.test/stub"
+    app.dependency_overrides[get_gcp_storage_client] = lambda: fake_gcp
 
     # raise_app_exceptions=False: an unhandled handler exception becomes a 500
     # response (as a real server would return) instead of propagating into the

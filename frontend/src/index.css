@@ -59,6 +59,7 @@
   --shadow-harsh: 0px 4px 24px #00000014;
   --shadow-light: 0px 0px 10px #0000000a;
   --shadow-admin-bento: 0px 0px 32px #0000000a;
+  --shadow-dropdown: 0px 0px 24px #00000014; /* Menus over the bento tiles */
 
   /* --- Spacing: extends Tailwind's 4px base grid ---
    * Design uses an 8px grid: 0, 4, 8, 16, 32, 64, 128, 256, 512
