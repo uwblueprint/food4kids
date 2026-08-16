@@ -11,8 +11,11 @@ import { cn } from '@/lib/utils';
 import { DotSeparated } from './DotSeparated';
 import { RouteStopCard } from './RouteStopCard';
 
-// TODO: replace with the real Food4Kids office number
-const F4K_PHONE = '+1-555-0100';
+// TODO: replace with system_settings.contact_phone — the number Settings calls
+// "the number the Call Food4Kids button leads to". GET /system-settings is
+// admin-only, so the driver app needs an endpoint for the org contact info
+// first. Stored phones are RFC 3966, which is already a tel: URI.
+const F4K_PHONE = 'tel:+1-555-0100';
 
 const statusWrapper =
   'flex w-full items-center justify-center rounded-xl border border-grey-300 bg-grey-150 p-8';
@@ -179,7 +182,7 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
         />
         <div className="grid grid-cols-2 gap-3">
           <Button asChild variant="secondary" className="tablet:w-full">
-            <a href={`tel:${F4K_PHONE}`}>Call Food4Kids</a>
+            <a href={F4K_PHONE}>Call Food4Kids</a>
           </Button>
           <Button
             variant="primary"

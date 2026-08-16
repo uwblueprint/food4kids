@@ -104,7 +104,7 @@ async def _seed_routable_group(
             name="Family A",
             contact_name="Family A",
             address="1 Test St",
-            phone_primary="5550000000",
+            phone_primary="tel:+1-519-576-0000",
             delivery_type="Family",
             latitude=43.7,
             longitude=-79.4,

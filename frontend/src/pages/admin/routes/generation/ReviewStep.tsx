@@ -10,6 +10,7 @@ import { useApplyLocationImport } from '@/api';
 import type { ChangedEntry, StaleEntry } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
 import { Banner, Button, DataTable } from '@/common/components';
+import { formatPhone } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { EmptyState } from '../components';
@@ -37,6 +38,20 @@ function yesNo(
   return isChanged(value)
     ? { new_value: label(value.new_value), old_value: label(value.old_value) }
     : label(value);
+}
+
+// Phones arrive RFC 3966 on both sides of the diff; format through to the
+// display form the same way yesNo maps booleans, so the changed/unchanged
+// shape survives.
+function phone(
+  value: string | ChangedField<string | null> | null | undefined
+): string | null | undefined | ChangedField<string | null> {
+  if (value === undefined || value === null) return value;
+  if (!isChanged(value)) return formatPhone(value);
+  return {
+    new_value: value.new_value === null ? null : formatPhone(value.new_value),
+    old_value: value.old_value === null ? null : formatPhone(value.old_value),
+  };
 }
 
 function ChangedCell({
@@ -207,12 +222,12 @@ export function ReviewStep() {
     {
       key: 'phone_primary',
       header: 'Phone Number',
-      render: (row) => <ChangedCell value={row.phone_primary} />,
+      render: (row) => <ChangedCell value={phone(row.phone_primary)} />,
     },
     {
       key: 'phone_secondary',
       header: 'Secondary Phone Number',
-      render: (row) => <ChangedCell value={row.phone_secondary} />,
+      render: (row) => <ChangedCell value={phone(row.phone_secondary)} />,
     },
     {
       key: 'num_children',
@@ -263,7 +278,7 @@ export function ReviewStep() {
     {
       key: 'phone_primary',
       header: 'Phone Number',
-      render: (row) => row.phone_primary,
+      render: (row) => formatPhone(row.phone_primary),
     },
     {
       key: 'num_children',

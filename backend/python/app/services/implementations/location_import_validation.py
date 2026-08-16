@@ -29,7 +29,7 @@ def is_invalid_school_or_last_name(name: str) -> bool:
 
 
 def try_normalize_phone(phone: str | None) -> tuple[str | None, bool]:
-    """Return (E.164 phone, is_invalid).
+    """Return (RFC 3966 phone, is_invalid).
 
     is_invalid is True only when a non-empty value fails validation.
     """
@@ -105,7 +105,7 @@ def _phone_match_key(phone: str | None) -> str | None:
     """Match key for phone_primary.
 
     Callers should normalize phones onto the entry before duplicate detection
-    (see review_locations) so valid numbers compare as E.164.
+    (see review_locations) so valid numbers compare as RFC 3966.
     """
     if not present_str(phone):
         return None

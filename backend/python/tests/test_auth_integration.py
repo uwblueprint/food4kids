@@ -333,7 +333,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         name="Seed Location",
         contact_name="Seed Location",
         address="123 Seed St",
-        phone_primary="5550000001",
+        phone_primary="tel:+1-519-576-0001",
         num_children=8,
         delivery_type="Family",
     )
