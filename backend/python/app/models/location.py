@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from pydantic import computed_field, field_validator
@@ -315,6 +315,16 @@ class LocationUpdate(SQLModel):
     delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
     in_roster: bool | None = None
     note_chain_id: UUID | None = None
+
+    @field_validator("phone_primary", mode="before")
+    @classmethod
+    def reject_explicit_null_primary(cls, v: Any) -> Any:
+        """``locations.phone_primary`` is NOT NULL, so an explicit ``null`` has
+        to fail here as a 422 rather than as an IntegrityError at commit.
+        ``phone_secondary`` is nullable — null there legitimately clears it."""
+        if v is None:
+            raise ValueError("cannot be null; omit the field to leave it unchanged")
+        return v
 
     @field_validator("phone_primary", "phone_secondary")
     @classmethod

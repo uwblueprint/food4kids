@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from app.models.admin import AdminUpdate
 from app.models.driver import DriverUpdate
 from app.models.location import LocationUpdate
-from app.utilities.utils import validate_phone
+from app.utilities.utils import MAX_STORED_PHONE_LENGTH, validate_phone
 
 # Every spelling of the same Kitchener number an admin might paste or a
 # spreadsheet might hold.
@@ -83,6 +83,25 @@ class TestValidatePhone:
         longest = validate_phone("(519) 576-3443 ext. 9999999")
         assert len(longest) <= 32
 
+    def test_extension_that_overflows_the_column_is_rejected(self) -> None:
+        """The cap is on the *normalized* value, not the submitted string.
+
+        This input is 32 characters raw — a ``Field(max_length=32)`` would wave
+        it through, and it would then be a Postgres "value too long" error at
+        commit rather than a 422.
+        """
+        raw = "519 576 3443 ext 123456789012345"
+        assert len(raw) == MAX_STORED_PHONE_LENGTH
+        with pytest.raises(ValueError, match="too long to store"):
+            validate_phone(raw)
+
+    def test_driver_update_rejects_an_overflowing_extension(self) -> None:
+        """DriverUpdate.phone carries no max_length, so the cap in
+        validate_phone is the only thing standing between a long extension and
+        the varchar(32) column."""
+        with pytest.raises(ValidationError):
+            DriverUpdate(phone="519 576 3443 ext 123456789012345")
+
 
 class TestUpdateModelsNormalize:
     """Update models must normalize too.
@@ -126,3 +145,32 @@ class TestUpdateModelsNormalize:
     def test_location_update_rejects_invalid_secondary(self) -> None:
         with pytest.raises(ValidationError):
             LocationUpdate(phone_primary="(519) 576-3443", phone_secondary="nope")
+
+
+class TestUpdateModelsRejectExplicitNull:
+    """A non-nullable phone column must reject an explicit ``null``.
+
+    The ``None`` default means "field omitted" and never reaches a validator,
+    so a client sending ``{"admin_phone": null}`` would otherwise assign None
+    onto the row and fail as an IntegrityError at commit — a 500 — instead of
+    a 422 naming the field.
+    """
+
+    def test_admin_update_rejects_null_phone(self) -> None:
+        with pytest.raises(ValidationError):
+            AdminUpdate(admin_phone=None)
+
+    def test_admin_update_still_allows_omitting_phone(self) -> None:
+        assert AdminUpdate(first_name="Emily").admin_phone is None
+
+    def test_location_update_rejects_null_primary(self) -> None:
+        with pytest.raises(ValidationError):
+            LocationUpdate(phone_primary=None)
+
+    def test_location_update_allows_null_secondary(self) -> None:
+        """phone_secondary is nullable — null there legitimately clears it."""
+        assert LocationUpdate(phone_secondary=None).phone_secondary is None
+
+    def test_driver_update_rejects_null_phone(self) -> None:
+        with pytest.raises(ValidationError):
+            DriverUpdate(phone=None)

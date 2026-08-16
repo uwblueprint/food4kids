@@ -786,7 +786,6 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "maxLength": 32,
             "minLength": 1,
             "title": "Phone",
             "type": "string"
@@ -877,7 +876,6 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "maxLength": 32,
             "minLength": 1,
             "title": "Phone",
             "type": "string"
@@ -1019,7 +1017,6 @@
           "phone": {
             "anyOf": [
               {
-                "maxLength": 32,
                 "minLength": 1,
                 "type": "string"
               },

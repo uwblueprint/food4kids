@@ -27,6 +27,24 @@ describe('formatPhone', () => {
     expect(formatPhone(value)).toMatch(/^\(\d{3}\) \d{3}-\d{4}$/);
   });
 
+  // `validate_phone` parses with region "CA", but phonenumbers ignores that
+  // default when the input already carries a country code — so a non-NANP
+  // number is storable. There is no design for it; it just must not leak a
+  // raw `tel:` URI into the UI.
+  it('renders a non-NANP number as a plain international number', () => {
+    expect(formatPhone('tel:+44-20-8366-1177')).toBe('+44 20 8366 1177');
+  });
+
+  it('keeps the extension on a non-NANP number', () => {
+    expect(formatPhone('tel:+44-20-8366-1177;ext=9')).toBe(
+      '+44 20 8366 1177 Ext. 9'
+    );
+  });
+
+  it('renders a NANP-length-mismatched value rather than leaking tel:', () => {
+    expect(formatPhone('tel:+1-5195-76-3443')).toBe('+1 5195 76 3443');
+  });
+
   // The import Validate step shows a row's raw spreadsheet text when the
   // number failed validation, so the admin can see what to fix. Those values
   // must survive untouched rather than being mangled or hidden.
@@ -36,9 +54,10 @@ describe('formatPhone', () => {
     '519-576-3443',
     '(519) 576-3443',
     '+15195763443',
-    'tel:+44-20-8366-1177',
+    'tel:',
+    'tel:519-576-3443',
     'tel:+1-519-576-3443;ext=',
-    'tel:+1-5195-76-3443',
+    'tel:+1-519-576-3443;ext=abc',
   ])('passes through unrecognized value %s', (value) => {
     expect(formatPhone(value)).toBe(value);
   });

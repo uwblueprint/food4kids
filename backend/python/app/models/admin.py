@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, computed_field, field_validator
@@ -67,14 +68,23 @@ class AdminUpdate(SQLModel):
     # admin-specific
     admin_phone: str | None = Field(default=None, min_length=1, max_length=100)
 
+    @field_validator("admin_phone", mode="before")
+    @classmethod
+    def reject_explicit_null(cls, v: Any) -> Any:
+        """``admin_info.admin_phone`` is NOT NULL, so an explicit ``null`` has
+        to fail here as a 422 rather than as an IntegrityError at commit. The
+        ``None`` default means "not provided" and never reaches a validator —
+        same guard as DriverUpdate's."""
+        if v is None:
+            raise ValueError("cannot be null; omit the field to leave it unchanged")
+        return v
+
     @field_validator("admin_phone")
     @classmethod
-    def validate_admin_phone(cls, v: str | None) -> str | None:
+    def validate_admin_phone(cls, v: str) -> str:
         """Normalize on update too — the service assigns straight onto the row,
         and SQLModel table instances don't re-run validators on assignment, so
         without this an edit writes whatever string the client sent."""
-        if v is None:
-            return None
         return validate_phone(v)
 
     # user fields
