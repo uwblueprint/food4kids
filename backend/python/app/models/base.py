@@ -23,20 +23,13 @@ def set_ongoing_model_validate() -> Any:
 class BaseModel(sm.SQLModel):
     """Enhanced base model with common fields and functionality"""
 
-    # Common timestamp fields.
-    # Industry-standard convention (Rails/Django/Laravel): both are stamped on
-    # insert (equal to within microseconds) and `updated_at` is bumped on every
-    # update. Models that genuinely need "null until first set" (e.g. Job, whose
-    # lifecycle tracks started/updated/finished) override `updated_at` explicitly.
+    # Both stamped on insert; `updated_at` is bumped by a column-level
+    # `onupdate`, so it fires for Core `update()` statements as well as ORM
+    # flushes — but not for an `update()` that sets `updated_at` itself.
+    # Models needing "null until first set" (e.g. Job) override it.
     #
-    # `updated_at` is bumped by a column-level SQLAlchemy `onupdate`, which fires
-    # for BOTH ORM flushes and Core `update()` statements — so bulk updates stay
-    # accurate too — unless the statement sets `updated_at` itself.
-    #
-    # Both are `timestamptz` holding UTC. Storing a naive local time instead
-    # would leave the zone as convention rather than data, and Python reads a
-    # naive value back as the container's local time (UTC), silently shifting
-    # it by the EST offset.
+    # `timestamptz` holding UTC — a naive column reads back as the container's
+    # local time, silently shifting by the EST offset.
     created_at: datetime | None = Field(
         default_factory=now_utc,
         sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]

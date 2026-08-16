@@ -273,18 +273,10 @@ def set_timestamps(instance: BaseModel) -> None:
 def upload_seed_note_images() -> list[dict[str, str]]:
     """Upload the shared placeholder images and return them as attachments.
 
-    Writes to fixed keys under ``SEED_NOTE_IMAGE_PREFIX``, so running the seed
-    twice replaces the same objects instead of leaving the previous run's
-    behind. Returns plain dicts because that is what the attachments column
-    stores.
-
-    Like the Firebase helpers above, this talks to a real external service and
-    is patched out in tests rather than faked here.
-
-    Returns no attachments when GCS isn't configured — the boot smoke job seeds
-    with no GCP credentials at all, and placeholder note images aren't what it
-    is testing. A failure with credentials *present* is a real error and is left
-    to propagate.
+    Writes to fixed keys under ``SEED_NOTE_IMAGE_PREFIX`` so re-seeding replaces
+    the objects rather than piling up new ones. Returns nothing when GCS isn't
+    configured, which is how the boot smoke job runs; a failure with credentials
+    present is a real error and propagates.
     """
     if not (settings.gcp_bucket_name and settings.gcp_service_account_private_key):
         print("  GCS is not configured — seeding notes without images")
@@ -332,27 +324,15 @@ def ensure_firebase_user(
 ) -> str:
     """Create or update a Firebase user so it is always loginable.
 
-    An existing user's password is deliberately left alone. Firebase treats a
-    password write as a credential change: it moves the account's
-    ``tokensValidAfterTime`` to now, which revokes every ID and refresh token
-    already issued. Because ``verify_id_token`` is called with
-    ``check_revoked=True``, everyone holding one is signed out on their very
-    next request.
+    An existing account's password is deliberately not rewritten. Firebase
+    treats a password write as a credential change and moves
+    ``tokensValidAfterTime`` to now, and since tokens are verified with
+    ``check_revoked=True``, that signs out everyone with an open session —
+    re-seeding would log developers out. Other fields don't do this and are
+    still written when they differ.
 
-    Rewriting the password unconditionally therefore made re-seeding sign out
-    every open session — including CI's, which seeds the same Firebase project
-    that local development uses, so an unrelated merge would log a developer
-    out mid-task. The password does not need writing anyway: it is a constant,
-    so on the second run it is already the value being written.
-
-    Measured against the real project, only the password does this — writing
-    ``display_name`` or custom claims leaves ``tokensValidAfterTime`` untouched.
-    The other fields are still written when they differ, which is why this
-    reconciles rather than blindly updating.
-
-    :param reset_password: Write the password even when the account exists, for
-        the case where it really has drifted. Signs everyone out; that is the
-        point, so it has to be asked for.
+    :param reset_password: Write the password anyway, for an account that has
+        genuinely drifted. Signs everyone out, so it has to be asked for.
     """
     full_name = f"{first_name} {last_name}"
     claims = {"role": role, "given_name": first_name, "family_name": last_name}
@@ -536,18 +516,12 @@ POLYLINE_BEND_FRACTION = 0.12
 def build_route_polyline(ordered_coords: list[tuple[float, float]], seed: int) -> str:
     """Encode a plausible-looking path through `ordered_coords`.
 
-    This does NOT follow real streets. The seeder has no routing provider, so
-    each leg is drawn as a bowed curve between its two stops — enough for the
-    route maps to read as routes instead of a star of straight lines out of the
-    warehouse, and nothing more. In production `encoded_polyline` comes from the
-    routing provider, so no code should ever treat a seeded polyline as
-    directions or measure anything off it; `Route.length` remains the haversine
-    figure the rest of the seeder already computes.
+    Each leg is a bowed curve, not real streets — enough that route maps read as
+    routes rather than a star out of the warehouse. Nothing may measure off a
+    seeded polyline; `Route.length` stays the haversine figure.
 
-    `seed` keeps a given cluster's shape stable across seed runs. The draws go
-    through a local Random rather than the module-level one on purpose: pulling
-    from the global stream here would shift every downstream random choice in
-    the seeder and silently change unrelated fixture data.
+    `seed` keeps a cluster's shape stable across runs, via a local Random so the
+    draws don't shift every other random choice in the seeder.
     """
     if len(ordered_coords) < 2:
         return ""
@@ -1139,20 +1113,12 @@ def main(*, reset_passwords: bool = False) -> None:
                 f"and {routes_created} route instances"
             )
 
-            # ----------------------------------------------------------------
-            # Explicit test fixtures. Dated one day before every other seeded
-            # group so they pin to the top of the oldest-first routes feed (page
-            # size 50), where the random past data is otherwise all assigned and
-            # fully stopped. These exercise UI states the random data won't
-            # reliably surface on page 1:
-            #   - two unassigned routes -> the "missing assigned drivers" banner
-            #   - a route with no stops -> route delete enabled
-            #   - a route with stops   -> route delete disabled (tooltip)
-            #   - an empty route group -> group delete enabled
-            #   - unscheduled + inactive standalone locations -> status/filter,
-            #     both safe to delete (not referenced by any route)
-            # All are named "TEST ..." so they're easy to spot and remove.
-            # ----------------------------------------------------------------
+            # Explicit "TEST ..." fixtures for UI states the random data won't
+            # reliably surface: unassigned routes (missing-driver banner), a
+            # route with and without stops (delete enabled/disabled), an empty
+            # route group, and unscheduled + inactive standalone locations.
+            # Dated a day before everything else so they land on page 1 of the
+            # oldest-first feed.
             print("Creating explicit test fixtures...")
             fixture_date = start_date - timedelta(days=1)
             fixture_loc_group_id = group_ids["Tuesday A"]

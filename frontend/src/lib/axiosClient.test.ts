@@ -13,19 +13,12 @@ import {
 import axiosClient from '@/lib/axiosClient';
 
 /**
- * These tests pin the shape of the request that leaves the axios client,
- * because the failure they guard against is silent: hand axios a FormData body
- * while a Content-Type of application/json is in effect and it re-serializes
- * the form to JSON, turning every File into `{}`. The API then rejects the
- * upload with a 422 naming the very fields the client believed it had sent, and
- * nothing is logged server-side because the request never reaches a handler.
- *
- * They assert on the config the *adapter* receives on purpose: that is the last
- * point before the wire, after interceptors and transformRequest have run, so a
- * regression anywhere along that chain is caught rather than just in one layer.
- *
- * The second half covers the response side: which failures end the session and,
- * just as importantly, which must not.
+ * Pins the request that leaves the axios client — chiefly that FormData stays
+ * multipart and isn't re-serialized to JSON (see the Content-Type note in
+ * axiosClient.ts). Assertions are on the config the *adapter* receives, the
+ * last point before the wire, so a regression anywhere along the interceptor /
+ * transformRequest chain is caught. Then the response side: which failures end
+ * the session and which must not.
  */
 
 const XLSX_TYPE =
