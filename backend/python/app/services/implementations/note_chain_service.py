@@ -294,7 +294,9 @@ class NoteChainService:
         data: NoteCreate,
         is_system: bool = False,
     ) -> Note:
-        """Add a note to a chain. user_id=None for system notes."""
+        """Add a note to a chain. System notes pass user_id=None with
+        is_system=True; a null user_id on its own only means the author has
+        since been deleted."""
         try:
             note_chain = await self.get_note_chain_by_id(session, note_chain_id)
 
