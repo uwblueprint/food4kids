@@ -1,27 +1,10 @@
-"""
-Integration tests for route-level authorization wiring.
+"""Integration tests for route-level authorization wiring.
 
-Unlike test_auth_middleware.py (which tests the auth *dependencies* in isolation
-against synthetic routes), this module mounts the **real** application and drives
-every auth-bearing endpoint as four different account types, asserting the auth
-decision for each. It exists because conftest.py bypasses auth for all other
-router tests, so nothing else verifies that the correct guard is wired to the
-correct route.
-
-Two tests:
-
-1. ``test_route_auth_matrix`` — for each route with a role/ownership policy,
-   request it as an anonymous caller, the owning driver, a different driver, and
-   an admin, and assert each is allowed/denied as the policy requires.
-
-2. ``test_every_exposed_route_is_classified`` — a completeness guard: every route
-   the app exposes must appear in ROUTE_POLICIES. Adding a new endpoint without
-   classifying its auth fails this test, forcing an explicit decision (and, for
-   the auth-bearing policies, coverage by the matrix above).
-
-The single source of truth is ROUTE_POLICIES below: a ``(method, path) -> Policy``
-registry. ``path`` matches FastAPI's templated path exactly (e.g.
-``/drivers/{driver_id}``).
+conftest.py bypasses auth for every other router test, so this is the only place
+that mounts the real app and checks each endpoint has the right guard on it.
+ROUTE_POLICIES below is the source of truth, keyed by FastAPI's templated path:
+every exposed route must appear in it, and each auth-bearing one is driven as an
+anonymous caller, the owning driver, another driver, and an admin.
 """
 
 import re

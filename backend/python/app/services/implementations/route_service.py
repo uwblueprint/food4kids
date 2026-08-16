@@ -77,25 +77,20 @@ class RouteService:
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
-        Get routes with optional filtering for unassigned routes and date range.
+        Get routes, filtered and paginated. Powers both the admin Routes tab
+        and the driver homepage feed.
 
-        unassigned_only filters to routes with no driver_id. driver_id filters
-        to routes assigned to that specific driver (powers the driver homepage
-        feed). The date range filters on the route's RouteGroup.drive_date.
-
-        search filters (case-insensitive substring) on the assigned driver's
-        full name, applied before pagination so the paged results are drawn
-        from the matches.
-
-        The Routes-tab filters mirror the Groups tab, applied per route:
-        weekday (of the group's drive_date), delivery_type (the route has a
-        stop of that type), route_status (Upcoming = today or later, Completed
-        = earlier), and driver_assignment_status (Assigned = has a driver,
-        Unassigned = none).
-
-        order controls the drive_date ordering: "asc" (default) for the
-        upcoming feed (oldest-first), "desc" for the past feed
-        (most-recent-first).
+        Args:
+            unassigned_only: Only routes with no driver_id.
+            driver_id: Only routes assigned to this driver.
+            start_date / end_date: Range over the group's drive_date.
+            search: Case-insensitive substring of the assigned driver's full
+                name, applied before pagination.
+            order: drive_date ordering — "asc" for the upcoming feed, "desc"
+                for the past feed.
+            weekday, delivery_type, route_status, driver_assignment_status:
+                the Groups-tab filters, applied per route. Upcoming = drive_date
+                today or later, Completed = earlier.
         """
         children_per_box = await resolve_children_per_box(session)
 
@@ -418,20 +413,10 @@ class RouteService:
     ) -> Route | None:
         """Update a route's metadata and/or stops.
 
-        If location_ids are provided:
-        - Existing route stops are deleted and replaced with the new ordered list.
-        - fetch_route_polyline is called to get the new encoded polyline + distance.
-        - Route.length and Route.encoded_polyline are updated accordingly.
-
-        Metadata fields (name, notes, driver_id, start_time) are updated
-        independently if provided.
-
-        FROZEN routes (those with a RouteSnapshot) may be edited too — it's
-        a "correct the record" operation. Driver mileage is derived from
-        routes, so a reassignment or length change updates history
-        automatically; the only extra work is rebuilding the per-stop
-        snapshots when stops change, since the old ones are cascade-deleted
-        with the old stops.
+        Passing location_ids replaces the stops wholesale and re-fetches the
+        polyline and length. Frozen routes may be edited too — it's a "correct
+        the record" operation — which means rebuilding the per-stop snapshots,
+        since the old ones cascade away with the old stops.
 
         Args:
             session: Database session

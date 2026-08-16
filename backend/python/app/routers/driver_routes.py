@@ -262,31 +262,13 @@ async def delete_driver(
     routes are detached (driver_id SET NULL) rather than deleted, so the
     driver's km stop counting toward anyone.
     """
-    # The inverse of initialize_driver, and it must leave nothing behind that
-    # can still authenticate — the bug this replaced deleted only the `drivers`
-    # row, so the user, their invite and their Firebase account all survived and
-    # they could still log in.
+    # Deleting the `users` row cascades to `drivers`, `user_invites`,
+    # `password_reset_tokens`, `announcement_last_reads` and `announcements`. A
+    # live reset token is as good as a credential, so it has to go with the
+    # Firebase account. Notes the driver wrote survive with user_id SET NULL.
     #
-    # What goes: the `users` row, and by DB cascade `drivers`, `user_invites`,
-    # `password_reset_tokens`, `announcement_last_reads` and `announcements`;
-    # plus the Firebase account (delete_user_by_id skips it for a driver who
-    # never finished signup and so has auth_id IS NULL). Dropping the reset
-    # tokens matters as much as the credential: a live token is a password
-    # reset link already sitting in the deleted driver's inbox.
-    #
-    # What stays: routes, detached; and notes the driver wrote on route or
-    # location chains, which survive with user_id SET NULL. Those are
-    # operational records the org still needs — the person is deleted, the
-    # deliveries they logged are not. Driver history is derived from routes, so
-    # detaching them takes it to zero with no stored total to clean up.
-    #
-    # Ordering is Firebase-then-commit, in one DB transaction: if the Firebase
-    # delete fails, the DB work rolls back and the whole thing is a retryable
-    # no-op. The other order would leave a live credential for a driver the
-    # admin has been told is gone, which is the failure that actually matters.
-    # initialize_driver makes the same trade in the other direction — DB rows
-    # commit first, then the invite email is dispatched, so a send failure never
-    # leaves a half-built driver.
+    # delete_user_by_id deletes from Firebase first and commits after, in one
+    # transaction, so a Firebase failure rolls the DB back and a retry is clean.
     driver = await driver_service.get_driver_by_id(session, driver_id)
     if not driver:
         raise HTTPException(

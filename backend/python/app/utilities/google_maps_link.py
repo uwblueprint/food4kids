@@ -21,17 +21,11 @@ def build_google_maps_directions_url(
     warehouse_lat: float,
     warehouse_lon: float,
 ) -> str:
-    """Build a Google Maps directions URL for a route.
+    """Build a Google Maps ``/dir/`` URL from the warehouse through each stop.
 
-    The URL follows the format:
-        https://www.google.com/maps/dir/{origin}/{stop1}/{stop2}/...
-
-    Each stop is represented by its address (URL-encoded), falling back to
-    raw ``lat,lon`` coordinates when no address is available.
-
-    Google Maps ``/dir/`` URLs support a maximum of 50 waypoints (excluding
-    the origin).  Browsers generally refuse URLs longer than ~2 000
-    characters.  Both limits are enforced here.
+    Stops are URL-encoded addresses, falling back to raw ``lat,lon``. Google's
+    50-waypoint cap and the ~2000-character browser URL limit are both enforced
+    below, since neither failure shows up until a driver taps the link.
 
     Args:
         stops: Ordered list of resolved waypoints (route stops).
