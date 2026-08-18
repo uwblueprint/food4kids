@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
-import ClockIcon from '@/assets/icons/clock.svg?react';
 import { Button, Spinner } from '@/common/components';
 import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
@@ -34,35 +33,6 @@ function formatStartTime(value: string | null | undefined): string | null {
   return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
-function getRouteStartDate(
-  driveDate: string,
-  startTime: string | null | undefined
-): Date {
-  const date = parseDateOnly(driveDate);
-  if (!startTime) return date;
-  const [h, m, s] = startTime.split(':').map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return date;
-  date.setHours(h, m, Number.isNaN(s) ? 0 : s, 0);
-  return date;
-}
-
-function formatStartsIn(
-  driveDate: string,
-  startTime: string | null | undefined
-): string {
-  const start = getRouteStartDate(driveDate, startTime);
-  const diffMs = start.getTime() - Date.now();
-  if (diffMs <= 0) {
-    return startTime ? 'Started' : `Starts ${formatPreviewDate(driveDate)}`;
-  }
-  const totalMinutes = Math.floor(diffMs / 60_000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours === 0) return `Starts in ${minutes}m`;
-  if (minutes === 0) return `Starts in ${hours}h`;
-  return `Starts in ${hours}h ${minutes}m`;
-}
-
 function PreviewMetadata({ route }: { route: RouteWithDateRead }) {
   const parts = [
     formatPreviewDate(route.drive_date),
@@ -81,7 +51,6 @@ export function UnassignedRoutePreviewCard({
 }: UnassignedRoutePreviewCardProps) {
   const { data: detail, isLoading, isError } = useRoute(route.route_id);
   const [assignOpen, setAssignOpen] = useState(false);
-  const startsIn = formatStartsIn(route.drive_date, route.start_time);
 
   return (
     <>
@@ -112,12 +81,6 @@ export function UnassignedRoutePreviewCard({
               Map unavailable
             </div>
           )}
-          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 shadow-sm">
-            <ClockIcon className="text-grey-400 size-3.5 shrink-0" />
-            <span className="text-m-p3 text-grey-400 whitespace-nowrap">
-              {startsIn}
-            </span>
-          </div>
         </div>
 
         <div className="flex flex-col items-start gap-4 self-stretch p-6">
