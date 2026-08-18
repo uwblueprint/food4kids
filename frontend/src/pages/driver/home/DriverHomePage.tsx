@@ -9,7 +9,7 @@ export const DriverHomePage = () => {
   const [routeId, setRouteId] = useState<string | null>(null);
 
   return (
-    <main className="page-margins flex flex-col gap-4">
+    <main className="flex flex-col gap-4">
       <div className="flex items-start justify-between">
         <h1>Driver Home</h1>
         <AnnouncementsBoard />
@@ -26,12 +26,12 @@ export const DriverHomePage = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Paste a route UUID"
-            className="border-grey-300 bg-grey-100 text-p2 flex-1 rounded-lg border px-3 py-2"
+            className="border-grey-300 bg-grey-100 text-p2 flex-1 rounded-sm border px-3 py-2"
           />
           <button
             type="button"
             onClick={() => setRouteId(input.trim() || null)}
-            className="text-p2 rounded-lg bg-blue-300 px-4 py-2 font-semibold text-white"
+            className="text-p2 rounded-sm bg-blue-300 px-4 py-2 font-semibold text-white"
           >
             Load
           </button>

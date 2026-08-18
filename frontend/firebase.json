@@ -1,12 +1,16 @@
 {
   "hosting": {
+    "site": "food4kids-473501",
     "public": "dist",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "backend-service",
+          "region": "us-east1"
+        }
+      },
       {
         "source": "**",
         "destination": "/index.html"

@@ -1,4 +1,3 @@
-import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,7 +10,6 @@ from app.models.note import NoteCreate, NoteRead, NoteUpdate
 from app.models.note_chain import NoteChainRead
 from app.services.implementations.note_chain_service import NoteChainService
 
-logger = logging.getLogger(__name__)
 note_chain_service: NoteChainService = get_note_chain_service()
 
 router = APIRouter(prefix="/note-chains", tags=["note-chains"])
@@ -42,11 +40,6 @@ async def get_note_chain(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.delete("/{note_chain_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -70,11 +63,6 @@ async def delete_note_chain(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 # --- Notes endpoints ---
@@ -105,11 +93,6 @@ async def get_notes(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.post(
@@ -139,11 +122,6 @@ async def create_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.patch("/{note_chain_id}/notes/{note_id}", response_model=NoteRead)
@@ -170,11 +148,6 @@ async def update_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
 
 
 @router.delete(
@@ -201,8 +174,3 @@ async def delete_note(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(pe),
         ) from pe
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e

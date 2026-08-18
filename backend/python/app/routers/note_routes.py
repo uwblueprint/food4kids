@@ -1,7 +1,6 @@
-import logging
 from enum import Enum
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_admin
@@ -10,8 +9,6 @@ from app.models import get_session
 from app.models.note import NoteFeedItem
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.note_chain_service import NoteChainService
-
-logger = logging.getLogger(__name__)
 
 
 class NoteFeedSort(str, Enum):
@@ -37,14 +34,7 @@ async def get_notes_feed(
     _auth: bool = Depends(require_admin),
 ) -> PaginatedResponse[NoteFeedItem]:
     """Get location notes across all location note chains."""
-    try:
-        pagination = PaginationParams(page=page, page_size=page_size)
-        return await note_chain_service.get_location_notes_feed(
-            session, pagination, sort.value
-        )
-    except Exception as e:
-        logger.exception("Failed to get notes feed")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get notes feed",
-        ) from e
+    pagination = PaginationParams(page=page, page_size=page_size)
+    return await note_chain_service.get_location_notes_feed(
+        session, pagination, sort.value
+    )

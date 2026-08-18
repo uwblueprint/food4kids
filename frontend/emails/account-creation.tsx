@@ -12,7 +12,7 @@ export default function AccountCreationEmail() {
           Create your driver account
         </Heading>
         <Text className="text-[16px] leading-[24px] text-grey-500 m-0 mb-[24px]">
-          Hi Driver_Name_To_Replace,
+          Hi {"{{ Driver_Name_To_Replace }}"},
         </Text>
         <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
             Thank you for volunteering as a driver for Food4Kids!
@@ -21,17 +21,16 @@ export default function AccountCreationEmail() {
             You've been invited to create your account. Click the button below to set your password.
         </Text>
         <Section className="text-center mt-[30px] mb-[32px]">
-          <Button 
-            // REPLACE THIS WITH ACTUAL URL (unless we want to Rick Roll recipients...)
-            href="Sign_Up_URL" 
+          <Button
+            href="{{ Sign_Up_URL }}"
             className="rounded-full border border-solid border-blue-400 bg-blue-300 px-[44px] py-[12px] font-nunito text-grey-100 text-[16px] tracking-wide"
           >
-            Verify Account
+            Verify account
           </Button>
         </Section>
 
         <Text className="text-[14px] text-grey-400 m-0 mb-[4px] leading-[18px]">
-          This link will expire in Days_Till_Expiry hours. If you're not an F4K Waterloo driver, please disregard this message.
+          This link will expire in {"{{ Hours_Till_Expiry }}"} hours. If you're not an F4K Waterloo driver, please disregard this message.
         </Text>
       </Section>
       

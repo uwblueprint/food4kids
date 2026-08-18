@@ -80,7 +80,7 @@ export function GenerateStep() {
         </div>
         <div className="flex justify-end">
           <Button asChild variant="primary">
-            <Link to="/admin/routes">View Routes</Link>
+            <Link to="/admin/routes">View routes</Link>
           </Button>
         </div>
       </div>

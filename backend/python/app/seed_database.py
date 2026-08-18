@@ -26,7 +26,6 @@ from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.base import BaseModel
 from app.models.driver import Driver
-from app.models.driver_history import DriverHistory
 from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
@@ -67,8 +66,6 @@ PROBABILITY_ROUTE_NOTES = 0.1
 PROBABILITY_DIETARY_RESTRICTIONS = 0.3
 # Probability that a location will have a number of children specified
 PROBABILITY_NUM_CHILDREN = 0.8
-# Probability to skip creating driver history for the current year
-PROBABILITY_SKIP_CURRENT_YEAR_HISTORY = 0.2
 # Probability that a location note chain will have notes
 PROBABILITY_LOCATION_CHAIN_NOTES = 0.6
 # Probability that a route note chain will have notes
@@ -169,8 +166,6 @@ SAMPLE_ANNOUNCEMENTS: list[tuple[str, str, int, str]] = [
 ]
 # Number of days considered as "next week" for assignment strategy
 NEXT_WEEK_DAYS = 7
-# Number of years back to generate driver history for
-HISTORY_YEARS_BACK = 2
 # Maximum number of past route groups to fetch when creating jobs
 PAST_ROUTE_GROUPS_LIMIT = 5
 # Minimum number of jobs to create
@@ -183,10 +178,6 @@ MAX_JOBS = 5
 NUM_CHILDREN_MIN = 1
 # Maximum number of children at a location
 NUM_CHILDREN_MAX = 4
-# Minimum kilometers driven in driver history (per year)
-DRIVER_HISTORY_KM_MIN = 500
-# Maximum kilometers driven in driver history (per year)
-DRIVER_HISTORY_KM_MAX = 3000
 # Minimum hour of day for job start time (24-hour format)
 JOB_START_HOUR_MIN = 8
 # Maximum hour of day for job start time (24-hour format)
@@ -207,6 +198,10 @@ DEFAULT_CAP_MAX = 20
 # Time constants
 # Default route start time (HH:MM:SS format)
 ROUTE_START_TIME = "08:00:00"
+ROUTE_START_TIME_OF_DAY = time(8, 0, 0)
+# Drivers are released in waves rather than all at once, so each route in a
+# group starts this many minutes after the previous one.
+ROUTE_START_STAGGER_MINUTES = 15
 
 # Location group schedule: group name -> (weekday, alternating slot).
 # weekday is Monday=0 .. Sunday=6. Groups sharing a weekday are suffixed
@@ -523,12 +518,23 @@ def materialize_route_for_group(
         else None
     )
 
+    # An assigned route must carry a start time (enforced by a CHECK
+    # constraint). Drivers leave in waves, so stagger each route in the group
+    # off the standard start; an unassigned route stays unscheduled.
+    start_time: time | None = None
+    if driver_id is not None:
+        start_time = (
+            datetime.combine(date.min, ROUTE_START_TIME_OF_DAY)
+            + timedelta(minutes=ROUTE_START_STAGGER_MINUTES * plan.cluster_idx)
+        ).time()
+
     route = Route(
         name=f"Route {plan.cluster_idx + 1}",
         notes=fake.sentence() if random.random() < PROBABILITY_ROUTE_NOTES else "",
         length=plan.length_km,
         route_group_id=route_group.route_group_id,
         driver_id=driver_id,
+        start_time=start_time,
     )
     set_timestamps(route)
     session.add(route)
@@ -598,7 +604,6 @@ def main() -> None:
             tables_to_clear = [
                 "announcement_last_reads",
                 "notes",
-                "driver_history",
                 "jobs",
                 "route_stop_snapshots",
                 "route_snapshots",
@@ -929,6 +934,129 @@ def main() -> None:
                 f"and {routes_created} route instances"
             )
 
+            # ----------------------------------------------------------------
+            # Explicit test fixtures. Dated one day before every other seeded
+            # group so they pin to the top of the oldest-first routes feed (page
+            # size 50), where the random past data is otherwise all assigned and
+            # fully stopped. These exercise UI states the random data won't
+            # reliably surface on page 1:
+            #   - two unassigned routes -> the "missing assigned drivers" banner
+            #   - a route with no stops -> route delete enabled
+            #   - a route with stops   -> route delete disabled (tooltip)
+            #   - an empty route group -> group delete enabled
+            #   - unscheduled + inactive standalone locations -> status/filter,
+            #     both safe to delete (not referenced by any route)
+            # All are named "TEST ..." so they're easy to spot and remove.
+            # ----------------------------------------------------------------
+            print("Creating explicit test fixtures...")
+            fixture_date = datetime.combine(
+                start_date - timedelta(days=1), datetime.min.time()
+            )
+            fixture_loc_group_id = group_ids["Tuesday A"]
+            # Reuse a few existing locations as stops for the populated route.
+            stop_locations = list(
+                session.exec(
+                    select(Location)
+                    .where(
+                        Location.location_group_id == uuid.UUID(fixture_loc_group_id)
+                    )
+                    .limit(3)
+                ).all()
+            )
+
+            # 1) Empty group: no routes -> Groups tab delete enabled.
+            empty_group = RouteGroup(
+                name="TEST - Empty Group (no routes)",
+                notes="Seeded fixture: empty group, safe to delete.",
+                drive_date=fixture_date,
+            )
+            set_timestamps(empty_group)
+            session.add(empty_group)
+
+            # 2) Group with two unassigned routes: one with no stops (route
+            #    delete enabled) and one with stops (route delete disabled ->
+            #    tooltip). Both unassigned -> Routes banner reads "2 routes ...".
+            fixture_group = RouteGroup(
+                name="TEST - Fixture Routes",
+                notes="Seeded fixture: unassigned routes for banner/delete tests.",
+                drive_date=fixture_date,
+            )
+            set_timestamps(fixture_group)
+            session.add(fixture_group)
+            session.flush()
+
+            route_no_stops = Route(
+                name="TEST Route (no stops)",
+                notes="Seeded fixture: no stops, delete enabled.",
+                length=0.0,
+                route_group_id=fixture_group.route_group_id,
+                driver_id=None,
+            )
+            set_timestamps(route_no_stops)
+            session.add(route_no_stops)
+
+            route_with_stops = Route(
+                name="TEST Route (has stops)",
+                notes="Seeded fixture: unassigned, has stops (delete disabled).",
+                length=5.0,
+                route_group_id=fixture_group.route_group_id,
+                driver_id=None,
+            )
+            set_timestamps(route_with_stops)
+            session.add(route_with_stops)
+            session.flush()
+
+            for stop_num, loc in enumerate(stop_locations, start=1):
+                stop = RouteStop(
+                    route_id=route_with_stops.route_id,
+                    location_id=loc.location_id,
+                    stop_number=stop_num,
+                )
+                set_timestamps(stop)
+                session.add(stop)
+
+            # 3) Standalone locations for the Addresses tab: one unscheduled (on
+            #    the roster, no upcoming route) and one inactive (off the
+            #    roster). Neither is on a route, so both are safe to delete.
+            unscheduled_loc = Location(
+                location_group_id=uuid.UUID(fixture_loc_group_id),
+                name="TEST Unscheduled Family",
+                contact_name="TEST Unscheduled Family",
+                address="1 Test Street, Kitchener, ON, N2A 0T0",
+                phone_primary=generate_valid_phone(),
+                longitude=WAREHOUSE_LON,
+                latitude=WAREHOUSE_LAT,
+                halal=False,
+                dietary_restrictions="Nut allergy",
+                num_children=2,
+                delivery_type="Family",
+                in_roster=True,
+            )
+            inactive_loc = Location(
+                location_group_id=uuid.UUID(fixture_loc_group_id),
+                name="TEST Inactive Family",
+                contact_name="TEST Inactive Family",
+                address="2 Test Street, Kitchener, ON, N2A 0T0",
+                phone_primary=generate_valid_phone(),
+                longitude=WAREHOUSE_LON,
+                latitude=WAREHOUSE_LAT,
+                halal=True,
+                dietary_restrictions="",
+                num_children=0,
+                delivery_type="Family",
+                in_roster=False,
+            )
+            set_timestamps(unscheduled_loc)
+            set_timestamps(inactive_loc)
+            session.add(unscheduled_loc)
+            session.add(inactive_loc)
+
+            session.commit()
+            print(
+                "Created test fixtures: 1 empty group, 1 group with 2 unassigned "
+                "routes (no-stops + has-stops), 2 standalone locations"
+            )
+
             # Create note chains for locations
             print("Creating note chains for locations...")
             location_chains_created = 0
@@ -1008,55 +1136,6 @@ def main() -> None:
                 f"Created {route_chains_created} route note chains "
                 f"with {route_notes_created} notes"
             )
-
-            # Create driver history
-            print("Creating driver history...")
-            history_entries = 0
-            current_year = datetime.now().year
-            years = [current_year - HISTORY_YEARS_BACK, current_year - 1, current_year]
-
-            all_drivers_result = session.execute(
-                text("SELECT driver_id FROM drivers")
-            ).fetchall()
-
-            for driver_row in all_drivers_result:
-                valid_years = [y for y in years if 2025 <= y <= 2100]
-                if not valid_years:
-                    valid_years = [current_year]
-
-                driver_years = random.sample(
-                    valid_years, random.randint(1, len(valid_years))
-                )
-
-                for year in driver_years:
-                    if (
-                        year == current_year
-                        and random.random() < PROBABILITY_SKIP_CURRENT_YEAR_HISTORY
-                    ):
-                        continue
-
-                    months = random.sample(range(1, 13), random.randint(3, 12))
-
-                    for month in months:
-                        driver_history = DriverHistory(
-                            driver_id=driver_row[0],
-                            year=year,
-                            month=month,
-                            km=round(
-                                random.uniform(
-                                    DRIVER_HISTORY_KM_MIN,
-                                    DRIVER_HISTORY_KM_MAX,
-                                ),
-                                2,
-                            ),
-                        )
-
-                        set_timestamps(driver_history)
-                        session.add(driver_history)
-                        history_entries += 1
-
-            session.commit()
-            print(f"Created {history_entries} driver history entries")
 
             # Create jobs (linked to past route groups)
             print("Creating jobs...")

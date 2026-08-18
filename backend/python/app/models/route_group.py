@@ -71,6 +71,8 @@ class RouteGroupRead(RouteGroupBase):
     num_locations: int = 0
     num_boxes: int = 0
     num_drivers_assigned: int = 0
+    # Derived from the group's stops' locations, not stored: a group's delivery
+    # type is whatever it delivers. None until the group has stops.
     delivery_type: str | None = None
     status: RouteStatusEnum
     routes: list[RouteReadSummary] = []
@@ -81,4 +83,15 @@ class RouteGroupUpdate(SQLModel):
 
     name: str | None = None
     notes: str | None = None
+    drive_date: datetime | None = None
+
+
+class RouteGroupDuplicate(SQLModel):
+    """Duplicate request model - overrides for the copied group.
+
+    Both optional so the endpoint also works with no body: name falls back to
+    "Copy of {original}" and drive_date to the original's date.
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
     drive_date: datetime | None = None

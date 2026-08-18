@@ -25,7 +25,7 @@ food4kids/
 │   │   ├── routers/            # FastAPI route handlers
 │   │   ├── schemas/            # Pydantic schemas for API
 │   │   ├── services/           # Business logic layer
-│   │   ├── templates/          # Email/HTML templates
+│   │   ├── templates/          # Email HTML (generated — see "Email Templates")
 │   │   └── utilities/          # Shared utility functions
 │   ├── scripts/                # Developer scripts (run manually, not by CI)
 │   ├── tests/                  # Unit and functional tests
@@ -141,6 +141,20 @@ docker-compose exec backend python -m app.seed_database
 Use the interactive Swagger UI at http://localhost:8080/docs, or see the [Postman Setup Guide](https://www.notion.so/uwblueprintexecs/Postman-Setup-28410f3fb1dc80f8b1e8c414c4a21802).
 
 The frontend consumes the API through a TypeScript client generated from FastAPI's OpenAPI schema. After making backend route or schema changes, regenerate with `pnpm generate:api` from `frontend/`. See [frontend/README.md](frontend/README.md#api-client-generated-from-openapi) for details.
+
+## Email Templates
+
+The emails are written as React Email components in `frontend/emails/*.tsx` — **that is the only place to edit them.** The HTML under `frontend/emails/html/` and `backend/python/app/templates/` is generated output; hand-editing either copy gets overwritten by the next export.
+
+Placeholders are rendered as literal `{{ Name }}` text by the sources, so Jinja2 substitutes them at send time. The name of every placeholder is declared in `backend/python/app/constants/email_config.py` as that email's `required_context`, and `backend/python/tests/test_email_template_placeholders.py` fails if the two ever disagree.
+
+After changing a template, regenerate both copies with one command from the repo root:
+
+```bash
+./scripts/sync-email-templates.sh
+```
+
+Commit both directories together; CI fails if they drift. To preview while editing, run `pnpm run email:dev` from `frontend/`.
 
 ## Docker Commands
 

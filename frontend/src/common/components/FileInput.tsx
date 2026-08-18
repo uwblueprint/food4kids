@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 
 import ShareIcon from '@/assets/icons/share.svg?react';
-import { Tag } from '@/common/components';
+import XIcon from '@/assets/icons/x.svg?react';
 import { cn } from '@/lib/utils';
 
 interface FileInputProps {
@@ -9,6 +9,7 @@ interface FileInputProps {
   selectedFile?: File | null;
   onClearFile?: () => void;
   accept?: string;
+  acceptedFileTypesLabel?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -18,6 +19,7 @@ function FileInput({
   selectedFile,
   onClearFile,
   accept = '.xlsx',
+  acceptedFileTypesLabel = 'Excel files (.xlsx) only',
   disabled,
   className,
 }: FileInputProps) {
@@ -29,6 +31,41 @@ function FileInput({
     onFileSelect(files[0]);
   };
 
+  if (selectedFile) {
+    const sizeInKb = selectedFile.size / 1024;
+    const displaySize =
+      sizeInKb >= 1024
+        ? `${(sizeInKb / 1024).toFixed(2)} MB`
+        : `${sizeInKb.toFixed(2)} KB`;
+
+    return (
+      <div
+        className={cn(
+          'border-grey-300 flex h-16 items-center rounded-sm border bg-white px-6',
+          className
+        )}
+      >
+        <div className="mr-4 flex size-9 shrink-0 items-center justify-center rounded bg-[#107c41] text-xs font-bold text-white">
+          XLS
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-p1 truncate font-bold">{selectedFile.name}</p>
+          <p className="text-p2 text-grey-400 font-semibold">{displaySize}</p>
+        </div>
+        {onClearFile && (
+          <button
+            type="button"
+            onClick={onClearFile}
+            aria-label="Remove uploaded file"
+            className="text-grey-500 hover:text-red ml-4 cursor-pointer"
+          >
+            <XIcon className="size-5" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       role="button"
@@ -36,7 +73,7 @@ function FileInput({
       aria-label="Upload file"
       className={cn(
         'flex h-[248px] cursor-pointer flex-col items-center justify-center gap-4',
-        'rounded-2xl border border-dashed border-blue-100',
+        'rounded-xl border border-dashed border-blue-100',
         'transition-colors',
         isDragging && 'bg-blue-50',
         disabled && 'pointer-events-none opacity-50',
@@ -70,18 +107,9 @@ function FileInput({
         </p>
         <p className="text-p1 text-grey-500">
           <span className="text-red">* </span>
-          Excel files (.xlsx) only
+          {acceptedFileTypesLabel}
         </p>
       </div>
-      {selectedFile && (
-        <Tag
-          variant="success"
-          onRemove={onClearFile}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {selectedFile.name}
-        </Tag>
-      )}
     </div>
   );
 }

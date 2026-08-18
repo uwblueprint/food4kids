@@ -2,8 +2,20 @@ import axios from 'axios';
 
 import { useAuthStore } from '@/api/authStore';
 
+const configured = import.meta.env.VITE_API_BASE_URL;
+const baseURL =
+  configured !== undefined
+    ? configured.trim()
+    : import.meta.env.DEV
+      ? 'http://localhost:8080'
+      : undefined;
+
+if (baseURL === undefined) {
+  throw new Error('VITE_API_BASE_URL must be set for production builds');
+}
+
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+  baseURL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',

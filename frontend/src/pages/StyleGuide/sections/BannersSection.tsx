@@ -17,7 +17,7 @@ const BANNER_SUCCESS_CODE = `import { Banner } from '@/common/components';
 const BANNER_ERROR_CODE = `import { Banner } from '@/common/components';
 
 <Banner variant="error">
-  Unsupported format — please upload an Excel (.xlsx) file
+  Unsupported format. Please upload an Excel (.xlsx) file.
 </Banner>`;
 
 const BANNER_WARNING_CODE = `import { Banner } from '@/common/components';
@@ -64,7 +64,7 @@ export function BannersSection() {
         >
           <div className="w-full max-w-2xl">
             <Banner variant="error">
-              Unsupported format — please upload an Excel (.xlsx) file
+              Unsupported format. Please upload an Excel (.xlsx) file.
             </Banner>
           </div>
         </ComponentPreview>

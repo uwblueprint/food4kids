@@ -8,6 +8,9 @@ import {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ApplyLocationImportData,
+  ApplyLocationImportErrors,
+  ApplyLocationImportResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
@@ -17,9 +20,6 @@ import type {
   CreateAnnouncementData,
   CreateAnnouncementErrors,
   CreateAnnouncementResponses,
-  CreateDriverHistoryData,
-  CreateDriverHistoryErrors,
-  CreateDriverHistoryResponses,
   CreateLocationData,
   CreateLocationErrors,
   CreateLocationGroupData,
@@ -39,9 +39,6 @@ import type {
   DeleteAnnouncementResponses,
   DeleteDriverData,
   DeleteDriverErrors,
-  DeleteDriverHistoryData,
-  DeleteDriverHistoryErrors,
-  DeleteDriverHistoryResponses,
   DeleteDriverResponses,
   DeleteImageData,
   DeleteImageErrors,
@@ -70,6 +67,9 @@ import type {
   ExportAllDriversHistoryData,
   ExportAllDriversHistoryErrors,
   ExportAllDriversHistoryResponses,
+  ForgotPasswordData,
+  ForgotPasswordErrors,
+  ForgotPasswordResponses,
   GenerateJobData,
   GenerateJobErrors,
   GenerateJobResponses,
@@ -142,9 +142,6 @@ import type {
   GetTotalDeliveriesBetweenData,
   GetTotalDeliveriesBetweenErrors,
   GetTotalDeliveriesBetweenResponses,
-  IngestLocationsData,
-  IngestLocationsErrors,
-  IngestLocationsResponses,
   InitializeDriverData,
   InitializeDriverErrors,
   InitializeDriverResponses,
@@ -159,17 +156,14 @@ import type {
   PatchSystemSettingsData,
   PatchSystemSettingsErrors,
   PatchSystemSettingsResponses,
+  PreviewLocationImportData,
+  PreviewLocationImportErrors,
+  PreviewLocationImportResponses,
   RefreshData,
   RefreshResponses,
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
-  ResetPasswordData,
-  ResetPasswordErrors,
-  ResetPasswordResponses,
-  ReviewLocationsData,
-  ReviewLocationsErrors,
-  ReviewLocationsResponses,
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
@@ -183,9 +177,6 @@ import type {
   UpdateAnnouncementResponses,
   UpdateDriverData,
   UpdateDriverErrors,
-  UpdateDriverHistoryData,
-  UpdateDriverHistoryErrors,
-  UpdateDriverHistoryResponses,
   UpdateDriverResponses,
   UpdateLocationData,
   UpdateLocationErrors,
@@ -196,6 +187,9 @@ import type {
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
+  UpdatePasswordData,
+  UpdatePasswordErrors,
+  UpdatePasswordResponses,
   UpdateRouteData,
   UpdateRouteErrors,
   UpdateRouteGroupData,
@@ -205,6 +199,9 @@ import type {
   UploadImageData,
   UploadImageErrors,
   UploadImageResponses,
+  ValidateResetTokenData,
+  ValidateResetTokenErrors,
+  ValidateResetTokenResponses,
 } from './types.gen';
 
 export type Options<
@@ -236,7 +233,7 @@ export const test = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<TestResponses, unknown, ThrowOnError>({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/admins/test',
+    url: '/api/admins/test',
     ...options,
   });
 
@@ -255,7 +252,7 @@ export const getAnnouncements = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/announcements/',
+    url: '/api/announcements/',
     ...options,
   });
 
@@ -274,7 +271,7 @@ export const createAnnouncement = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/announcements/',
+    url: '/api/announcements/',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -297,7 +294,7 @@ export const markAnnouncementsAsRead = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/announcements/mark-read',
+    url: '/api/announcements/mark-read',
     ...options,
   });
 
@@ -315,7 +312,7 @@ export const deleteAnnouncement = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/announcements/{announcement_id}',
+    url: '/api/announcements/{announcement_id}',
     ...options,
   });
 
@@ -334,7 +331,7 @@ export const getAnnouncement = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/announcements/{announcement_id}',
+    url: '/api/announcements/{announcement_id}',
     ...options,
   });
 
@@ -353,7 +350,7 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/announcements/{announcement_id}',
+    url: '/api/announcements/{announcement_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -376,8 +373,30 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/announcements/{announcement_id}/email',
+    url: '/api/announcements/{announcement_id}/email',
     ...options,
+  });
+
+/**
+ * Forgot Password
+ *
+ * Triggers password reset for user with specified email (reset link will be emailed)
+ * Returns 204 regardless to avoid enumeration attacks
+ */
+export const forgotPassword = <ThrowOnError extends boolean = false>(
+  options: Options<ForgotPasswordData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ForgotPasswordResponses,
+    ForgotPasswordErrors,
+    ThrowOnError
+  >({
+    url: '/api/auth/forgot-password',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -390,7 +409,7 @@ export const login = <ThrowOnError extends boolean = false>(
 ) =>
   (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
     responseType: 'json',
-    url: '/auth/login',
+    url: '/api/auth/login',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -408,7 +427,7 @@ export const logout = <ThrowOnError extends boolean = false>(
 ) =>
   (options.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/auth/logout/{user_id}',
+    url: '/api/auth/logout/{user_id}',
     ...options,
   });
 
@@ -422,26 +441,50 @@ export const refresh = <ThrowOnError extends boolean = false>(
 ) =>
   (options?.client ?? client).post<RefreshResponses, unknown, ThrowOnError>({
     responseType: 'json',
-    url: '/auth/refresh',
+    url: '/api/auth/refresh',
     ...options,
   });
 
 /**
- * Reset Password
+ * Update Password
  *
- * Triggers password reset for user with specified email (reset link will be emailed)
+ * Update an existing user's password if provided a valid password reset token
  */
-export const resetPassword = <ThrowOnError extends boolean = false>(
-  options: Options<ResetPasswordData, ThrowOnError>
+export const updatePassword = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePasswordData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    ResetPasswordResponses,
-    ResetPasswordErrors,
+    UpdatePasswordResponses,
+    UpdatePasswordErrors,
     ThrowOnError
   >({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/auth/resetPassword/{email}',
+    url: '/api/auth/update-password',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Validate Reset Token
+ *
+ * Validate that a password reset token exists, isn't used, and hasn't expired.
+ */
+export const validateResetToken = <ThrowOnError extends boolean = false>(
+  options: Options<ValidateResetTokenData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ValidateResetTokenResponses,
+    ValidateResetTokenErrors,
+    ThrowOnError
+  >({
+    url: '/api/auth/validate-reset-token',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -459,7 +502,7 @@ export const getDrivers = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/',
+    url: '/api/drivers/',
     ...options,
   });
 
@@ -480,7 +523,7 @@ export const initializeDriver = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/initialize',
+    url: '/api/drivers/initialize',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -504,7 +547,7 @@ export const completeDriverRegistration = <
     ThrowOnError
   >({
     responseType: 'json',
-    url: '/drivers/register',
+    url: '/api/drivers/register',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -527,14 +570,19 @@ export const testEventEmail = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: 'json',
-    url: '/drivers/test-event-email',
+    url: '/api/drivers/test-event-email',
     ...options,
   });
 
 /**
  * Delete Driver
  *
- * Delete a driver by ID
+ * Delete a driver by ID.
+ *
+ * A hard delete of the person: the user account and their Firebase login go
+ * with the driver record, so a deleted driver can no longer sign in. Their
+ * routes are detached (driver_id SET NULL) rather than deleted, so the
+ * driver's km stop counting toward anyone.
  */
 export const deleteDriver = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDriverData, ThrowOnError>
@@ -545,7 +593,7 @@ export const deleteDriver = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}',
+    url: '/api/drivers/{driver_id}',
     ...options,
   });
 
@@ -564,7 +612,7 @@ export const getDriver = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}',
+    url: '/api/drivers/{driver_id}',
     ...options,
   });
 
@@ -583,7 +631,7 @@ export const updateDriver = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}',
+    url: '/api/drivers/{driver_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -592,29 +640,12 @@ export const updateDriver = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Delete Driver History
- *
- * Delete a monthly driver history entry.
- */
-export const deleteDriverHistory = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteDriverHistoryData, ThrowOnError>
-) =>
-  (options.client ?? client).delete<
-    DeleteDriverHistoryResponses,
-    DeleteDriverHistoryErrors,
-    ThrowOnError
-  >({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/',
-    ...options,
-  });
-
-/**
  * Get Driver History
  *
- * Get driver history with optional year and month.
+ * Get monthly km totals, derived from the driver's frozen routes
+ * (bucketed by drive_date month).
  * Rules:
- * - No year, no month: return all histories
+ * - No year, no month: return all months with activity
  * - Year only: return all months for that year
  * - Year + month: return specific month
  * - Month without year: 400 error
@@ -629,59 +660,8 @@ export const getDriverHistory = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/',
+    url: '/api/drivers/{driver_id}/history/',
     ...options,
-  });
-
-/**
- * Update Driver History
- *
- * Updates driver history
- * Rules:
- * - Driver history must exist with (driver_id, year, month)
- */
-export const updateDriverHistory = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateDriverHistoryData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateDriverHistoryResponses,
-    UpdateDriverHistoryErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Create Driver History
- *
- * Creates new driver history
- * Rules:
- * - Driver must exist with driver_id
- * - Must be unique: (driver_id, year, month)
- */
-export const createDriverHistory = <ThrowOnError extends boolean = false>(
-  options: Options<CreateDriverHistoryData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CreateDriverHistoryResponses,
-    CreateDriverHistoryErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**
@@ -699,7 +679,7 @@ export const getDriverHistorySummary = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/summary',
+    url: '/api/drivers/{driver_id}/history/summary',
     ...options,
   });
 
@@ -720,7 +700,7 @@ export const exportAllDriversHistory = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/drivers/{driver_id}/history/{year}/export',
+    url: '/api/drivers/{driver_id}/history/{year}/export',
     ...options,
   });
 
@@ -739,7 +719,7 @@ export const getJobs = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/jobs/',
+    url: '/api/jobs/',
     ...options,
   });
 
@@ -756,7 +736,7 @@ export const generateJob = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/jobs/generate',
+    url: '/api/jobs/generate',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -773,7 +753,7 @@ export const getJob = <ThrowOnError extends boolean = false>(
   (options.client ?? client).get<GetJobResponses, GetJobErrors, ThrowOnError>({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/jobs/{job_id}',
+    url: '/api/jobs/{job_id}',
     ...options,
   });
 
@@ -792,7 +772,7 @@ export const cancelJob = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/jobs/{job_id}/cancel',
+    url: '/api/jobs/{job_id}/cancel',
     ...options,
   });
 
@@ -811,7 +791,7 @@ export const getLocationGroups = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/location-groups/',
+    url: '/api/location-groups/',
     ...options,
   });
 
@@ -830,7 +810,7 @@ export const createLocationGroup = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/location-groups/',
+    url: '/api/location-groups/',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -852,7 +832,7 @@ export const deleteLocationGroup = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/location-groups/{location_group_id}',
+    url: '/api/location-groups/{location_group_id}',
     ...options,
   });
 
@@ -871,7 +851,7 @@ export const getLocationGroup = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/location-groups/{location_group_id}',
+    url: '/api/location-groups/{location_group_id}',
     ...options,
   });
 
@@ -890,7 +870,7 @@ export const updateLocationGroup = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/location-groups/{location_group_id}',
+    url: '/api/location-groups/{location_group_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -912,7 +892,7 @@ export const deleteAllLocations = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/',
+    url: '/api/locations/',
     ...options,
   });
 
@@ -931,7 +911,7 @@ export const getLocations = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/',
+    url: '/api/locations/',
     ...options,
   });
 
@@ -950,7 +930,7 @@ export const createLocation = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/',
+    url: '/api/locations/',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -959,50 +939,57 @@ export const createLocation = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Ingest Locations
+ * Apply Location Import
  *
- * Persist net-new locations and archive stale ones.
+ * Apply this import: create net-new locations, update the ones that changed,
+ * and take stale ones off the roster.
+ *
+ * Takes the same file and mapping as the preview rather than a diff posted
+ * back from it, so the plan is recomputed here by the same planner and the
+ * caller cannot choose which rows get rewritten. Rejected with a 400 while
+ * the file still has validation errors.
  */
-export const ingestLocations = <ThrowOnError extends boolean = false>(
-  options: Options<IngestLocationsData, ThrowOnError>
+export const applyLocationImport = <ThrowOnError extends boolean = false>(
+  options: Options<ApplyLocationImportData, ThrowOnError>
 ) =>
   (options.client ?? client).post<
-    IngestLocationsResponses,
-    IngestLocationsErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/ingest',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Review Locations
- *
- * Review a pending location import: validate rows and (eventually) describe how
- * the import would affect existing locations (net_new / stale / changed).
- * Requires a column_map JSON string mapping system field names to file headers.
- *
- * Side effect: the submitted column_map is persisted to system_settings so it
- * becomes the default mapping on the next import.
- */
-export const reviewLocations = <ThrowOnError extends boolean = false>(
-  options: Options<ReviewLocationsData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    ReviewLocationsResponses,
-    ReviewLocationsErrors,
+    ApplyLocationImportResponses,
+    ApplyLocationImportErrors,
     ThrowOnError
   >({
     ...formDataBodySerializer,
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/review',
+    url: '/api/locations/import',
+    ...options,
+    headers: {
+      'Content-Type': null,
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Location Import
+ *
+ * Describe what importing this file would do — row validation plus the
+ * net_new / stale / changed split — without writing anything. Requires a
+ * column_map JSON string mapping system field names to file headers.
+ *
+ * Side effect: the submitted column_map is persisted to system_settings so it
+ * becomes the default mapping on the next import.
+ */
+export const previewLocationImport = <ThrowOnError extends boolean = false>(
+  options: Options<PreviewLocationImportData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    PreviewLocationImportResponses,
+    PreviewLocationImportErrors,
+    ThrowOnError
+  >({
+    ...formDataBodySerializer,
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/locations/import/preview',
     ...options,
     headers: {
       'Content-Type': null,
@@ -1024,7 +1011,7 @@ export const deleteLocation = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/{location_id}',
+    url: '/api/locations/{location_id}',
     ...options,
   });
 
@@ -1043,7 +1030,7 @@ export const getLocation = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/{location_id}',
+    url: '/api/locations/{location_id}',
     ...options,
   });
 
@@ -1062,7 +1049,7 @@ export const updateLocation = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/{location_id}',
+    url: '/api/locations/{location_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1084,7 +1071,7 @@ export const deleteNoteChain = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/note-chains/{note_chain_id}',
+    url: '/api/note-chains/{note_chain_id}',
     ...options,
   });
 
@@ -1103,7 +1090,7 @@ export const getNoteChain = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/note-chains/{note_chain_id}',
+    url: '/api/note-chains/{note_chain_id}',
     ...options,
   });
 
@@ -1122,7 +1109,7 @@ export const getNotes = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/note-chains/{note_chain_id}/notes',
+    url: '/api/note-chains/{note_chain_id}/notes',
     ...options,
   });
 
@@ -1141,7 +1128,7 @@ export const createNote = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/note-chains/{note_chain_id}/notes',
+    url: '/api/note-chains/{note_chain_id}/notes',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1163,7 +1150,7 @@ export const deleteNote = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/note-chains/{note_chain_id}/notes/{note_id}',
+    url: '/api/note-chains/{note_chain_id}/notes/{note_id}',
     ...options,
   });
 
@@ -1182,7 +1169,7 @@ export const updateNote = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/note-chains/{note_chain_id}/notes/{note_id}',
+    url: '/api/note-chains/{note_chain_id}/notes/{note_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1205,7 +1192,7 @@ export const getNotesFeed = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/notes',
+    url: '/api/notes',
     ...options,
   });
 
@@ -1225,7 +1212,7 @@ export const getTotalDeliveriesBetween = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/reports/deliveries/count',
+    url: '/api/reports/deliveries/count',
     ...options,
   });
 
@@ -1244,7 +1231,7 @@ export const getMonthlyRanking = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/reports/monthly/{year}/{month}/ranking',
+    url: '/api/reports/monthly/{year}/{month}/ranking',
     ...options,
   });
 
@@ -1263,7 +1250,7 @@ export const getMonthlyTotals = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/reports/monthly/{year}/{month}/totals',
+    url: '/api/reports/monthly/{year}/{month}/totals',
     ...options,
   });
 
@@ -1283,7 +1270,7 @@ export const getRouteGroups = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/route-groups',
+    url: '/api/route-groups',
     ...options,
   });
 
@@ -1302,7 +1289,7 @@ export const createRouteGroup = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/route-groups',
+    url: '/api/route-groups',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1324,7 +1311,7 @@ export const deleteRouteGroup = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/route-groups/{route_group_id}',
+    url: '/api/route-groups/{route_group_id}',
     ...options,
   });
 
@@ -1343,7 +1330,7 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/route-groups/{route_group_id}',
+    url: '/api/route-groups/{route_group_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1355,6 +1342,7 @@ export const updateRouteGroup = <ThrowOnError extends boolean = false>(
  * Duplicate Route Group
  *
  * Duplicate a route group and its routes/stops for a new planning cycle.
+ * Optional body overrides the copy's name and drive date.
  */
 export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
   options: Options<DuplicateRouteGroupData, ThrowOnError>
@@ -1366,8 +1354,12 @@ export const duplicateRouteGroup = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/route-groups/{route_group_id}/duplicate',
+    url: '/api/route-groups/{route_group_id}/duplicate',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -1393,7 +1385,7 @@ export const getRoutes = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/routes',
+    url: '/api/routes',
     ...options,
   });
 
@@ -1419,7 +1411,7 @@ export const deleteRoute = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/routes/{route_id}',
+    url: '/api/routes/{route_id}',
     ...options,
   });
 
@@ -1450,7 +1442,7 @@ export const getRoute = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/routes/{route_id}',
+    url: '/api/routes/{route_id}',
     ...options,
   });
 
@@ -1476,7 +1468,7 @@ export const updateRoute = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/routes/{route_id}',
+    url: '/api/routes/{route_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1509,7 +1501,7 @@ export const getGoogleMapsLink = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/routes/{route_id}/google-maps-link',
+    url: '/api/routes/{route_id}/google-maps-link',
     ...options,
   });
 
@@ -1538,7 +1530,7 @@ export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/routes/{route_id}/suggested-driver',
+    url: '/api/routes/{route_id}/suggested-driver',
     ...options,
   });
 
@@ -1557,7 +1549,7 @@ export const getSystemSettings = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/system-settings/',
+    url: '/api/system-settings/',
     ...options,
   });
 
@@ -1576,7 +1568,7 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/system-settings/',
+    url: '/api/system-settings/',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1599,7 +1591,7 @@ export const renameDeliveryType = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/system-settings/delivery-types/rename',
+    url: '/api/system-settings/delivery-types/rename',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1623,7 +1615,7 @@ export const uploadImage = <ThrowOnError extends boolean = false>(
     ...formDataBodySerializer,
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/upload/',
+    url: '/api/upload/',
     ...options,
     headers: {
       'Content-Type': null,
@@ -1646,6 +1638,6 @@ export const deleteImage = <ThrowOnError extends boolean = false>(
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/upload/{filename}',
+    url: '/api/upload/{filename}',
     ...options,
   });

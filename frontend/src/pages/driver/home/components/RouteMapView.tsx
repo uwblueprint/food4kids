@@ -8,7 +8,7 @@ export interface RouteMapViewProps {
 }
 
 const statusWrapper =
-  'flex w-full items-center justify-center rounded-2xl border border-grey-300 bg-grey-150';
+  'flex w-full items-center justify-center rounded-xl border border-grey-300 bg-grey-150';
 
 export function RouteMapView({ routeId, className }: RouteMapViewProps) {
   const { data: route, isError, error } = useRoute(routeId);
@@ -26,6 +26,10 @@ export function RouteMapView({ routeId, className }: RouteMapViewProps) {
   // TODO: Add loading state once design has drawn up the loading screen
 
   return (
-    <RouteMap encodedPolyline={route.encoded_polyline} className={className} />
+    <RouteMap
+      encodedPolyline={route.encoded_polyline}
+      stops={route.stops}
+      className={className}
+    />
   );
 }

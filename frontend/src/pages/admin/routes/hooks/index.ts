@@ -3,5 +3,10 @@ export type {
   AddressesTabState,
 } from './useAddressesTabState';
 export { useAddressesTabState } from './useAddressesTabState';
-export type { GroupsFilterState, GroupsTabState } from './useGroupsTabState';
+export type { GroupsTabState } from './useGroupsTabState';
 export { useGroupsTabState } from './useGroupsTabState';
+export type {
+  RouteFilterState,
+  UseRouteFiltersReturn,
+} from './useRouteFilters';
+export { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
