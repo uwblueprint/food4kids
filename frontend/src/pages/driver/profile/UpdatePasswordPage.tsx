@@ -24,28 +24,21 @@ export const UpdatePasswordPage = () => {
         },
         onError: (error) => {
           const message = describeApiFailure(error);
-          setSubmitError(
-            message || 'Incorrect current password.'
-          );
+          setSubmitError(message || 'Incorrect current password.');
         },
       }
     );
   };
 
   return (
-    <main className="flex flex-col items-center gap-6 mx-auto w-full">
-      <Link
-        to="/driver/home"
-        className="flex gap-1 text-blue-400 self-start"
-      >
+    <main className="mx-auto flex w-full flex-col items-center gap-6">
+      <Link to="/driver/home" className="flex gap-1 self-start text-blue-400">
         <ChevronLeftIcon className="size-6" />
         <h2>Back to home</h2>
       </Link>
 
-      <div className="flex gap-1 w-full">
-        <h1>
-          Change password
-        </h1>
+      <div className="flex w-full gap-1">
+        <h1>Change password</h1>
       </div>
 
       <div className="w-full">
