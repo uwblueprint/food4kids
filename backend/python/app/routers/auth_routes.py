@@ -265,12 +265,6 @@ async def update_password_authed(
     email = decoded_token.get("email")
     auth_id = decoded_token.get("uid")
 
-    if not email or not auth_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-        )
-
     # 1. Verify that the current password is correct, raise 400 if incorrect
     try:
         auth_service.firebase_rest_client.sign_in_with_password(
