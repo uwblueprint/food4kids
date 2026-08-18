@@ -101,10 +101,7 @@ export function UnassignedRoutesCard() {
           <div className="flex min-w-0 items-center gap-2">
             <CardTitle className="text-h3">Unassigned</CardTitle>
             {total > 0 && (
-              <Tag
-                variant="error"
-                className="text-p3 text-red flex h-auto shrink-0 items-center justify-center self-stretch rounded-full border-0 bg-[#F4D5D5] px-3 py-0 font-normal"
-              >
+              <Tag variant="error" className="shrink-0">
                 {total} route{total === 1 ? '' : 's'}
               </Tag>
             )}
