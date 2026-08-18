@@ -1,16 +1,29 @@
 import logging
-from typing import Any, ClassVar
+from datetime import date
+from typing import Any, ClassVar, Literal
 from uuid import UUID
 
 import firebase_admin.auth
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
-from app.models.driver import Driver, DriverCreate, DriverUpdate
+from app.models.driver import (
+    Driver,
+    DriverCreate,
+    DriverListRead,
+    DriverRead,
+    DriverUpdate,
+)
 from app.models.enum import NotePermission
 from app.models.note_chain import NoteChain
+from app.models.route import Route
+from app.models.route_group import RouteGroup
+from app.models.route_snapshot import RouteSnapshot
 from app.models.user import User
+from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.utilities.pagination import paginate_query
 
 
 class DriverService:
@@ -99,6 +112,114 @@ class DriverService:
         except Exception as e:
             self.logger.error(f"Failed to get drivers: {e!s}")
             raise e
+
+    async def get_driver_list(
+        self,
+        session: AsyncSession,
+        pagination: PaginationParams,
+        search: str | None = None,
+        sort_by: Literal[
+            "name", "current_year_km", "last_year_km", "last_delivery"
+        ] = "name",
+        order: Literal["asc", "desc"] = "asc",
+    ) -> PaginatedResponse[DriverListRead]:
+        """Return a page of driver rows with list-level activity aggregates."""
+        today = date.today()
+        current_year_start = date(today.year, 1, 1)
+        last_year_start = date(today.year - 1, 1, 1)
+
+        mileage = (
+            select(
+                Route.driver_id.label("driver_id"),
+                func.sum(
+                    case(
+                        (RouteGroup.drive_date >= current_year_start, Route.length),
+                        else_=0,
+                    )
+                ).label("current_year_km"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                RouteGroup.drive_date >= last_year_start,
+                                RouteGroup.drive_date < current_year_start,
+                            ),
+                            Route.length,
+                        ),
+                        else_=0,
+                    )
+                ).label("last_year_km"),
+                func.max(RouteGroup.drive_date).label("last_delivery"),
+            )
+            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)
+            .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)
+            .where(Route.driver_id.is_not(None))
+            .group_by(Route.driver_id)
+            .subquery()
+        )
+        activity = (
+            select(Route.driver_id.label("driver_id"))
+            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)
+            .where(Route.driver_id.is_not(None), RouteGroup.drive_date >= today)
+            .group_by(Route.driver_id)
+            .subquery()
+        )
+
+        current_km = func.coalesce(mileage.c.current_year_km, 0)
+        last_km = func.coalesce(mileage.c.last_year_km, 0)
+        statement = (
+            select(
+                Driver,
+                current_km.label("current_year_km"),
+                last_km.label("last_year_km"),
+                mileage.c.last_delivery,
+                activity.c.driver_id.is_not(None).label("is_active"),
+            )
+            .options(selectinload(Driver.user))  # type: ignore[arg-type]
+            .join(User, User.user_id == Driver.user_id)
+            .outerjoin(mileage, mileage.c.driver_id == Driver.driver_id)
+            .outerjoin(activity, activity.c.driver_id == Driver.driver_id)
+        )
+        if search and (term := search.strip()):
+            pattern = f"%{term}%"
+            statement = statement.where(
+                or_(
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
+                    (User.first_name + " " + User.last_name).ilike(pattern),
+                )
+            )
+
+        sort_columns = {
+            "name": (User.first_name, User.last_name),
+            "current_year_km": (current_km,),
+            "last_year_km": (last_km,),
+            "last_delivery": (mileage.c.last_delivery,),
+        }
+        columns = sort_columns[sort_by]
+        statement = statement.order_by(
+            *(
+                column.desc().nulls_last()
+                if order == "desc"
+                else column.asc().nulls_last()
+                for column in columns
+            ),
+            Driver.driver_id,
+        )
+        result, total = await paginate_query(session, statement, pagination)
+        rows = [
+            DriverListRead(
+                **DriverRead.model_validate(driver).model_dump(),
+                current_year_km=float(current_year_km_value),
+                last_year_km=float(last_year_km_value),
+                last_delivery=last_delivery,
+                is_active=is_active,
+            )
+            for driver, current_year_km_value, last_year_km_value, last_delivery, is_active in result.all()
+        ]
+        return PaginatedResponse.create(
+            rows, total, pagination.page, pagination.page_size
+        )
 
     async def create_driver(
         self,

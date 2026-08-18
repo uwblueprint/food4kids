@@ -518,7 +518,7 @@ export const getBillingCosts = <ThrowOnError extends boolean = false>(
 /**
  * Get Drivers
  *
- * Get all drivers, optionally filter by driver_id or email
+ * Paginated driver rows with server-side name search and list aggregates.
  */
 export const getDrivers = <ThrowOnError extends boolean = false>(
   options?: Options<GetDriversData, ThrowOnError>
