@@ -91,6 +91,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/auth/logout"): Policy.PUBLIC,
     ("POST", "/auth/forgot-password"): Policy.PUBLIC,
     ("POST", "/auth/update-password"): Policy.PUBLIC,
+    ("POST", "/auth/update-password-authed"): Policy.DRIVER_OR_ADMIN,
     # --- drivers ---
     ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
