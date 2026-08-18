@@ -555,40 +555,6 @@ export const sendAnnouncementEmailMutation = (
   return mutationOptions;
 };
 
-export const getBillingCostsQueryKey = (
-  options?: Options<GetBillingCostsData>
-) => createQueryKey('getBillingCosts', options);
-
-/**
- * Get Billing Costs
- *
- * Return month-to-date spend for the configured project, against its budget.
- *
- * Figures come from the Cloud Billing export and typically lag by several
- * hours — see ``data_as_of``. Responses are cached for
- * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
- */
-export const getBillingCostsOptions = (
-  options?: Options<GetBillingCostsData>
-) =>
-  queryOptions<
-    GetBillingCostsResponse,
-    AxiosError<DefaultError>,
-    GetBillingCostsResponse,
-    ReturnType<typeof getBillingCostsQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getBillingCosts({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getBillingCostsQueryKey(options),
-  });
-
 /**
  * Forgot Password
  *
@@ -763,6 +729,40 @@ export const validateResetTokenMutation = (
   };
   return mutationOptions;
 };
+
+export const getBillingCostsQueryKey = (
+  options?: Options<GetBillingCostsData>
+) => createQueryKey('getBillingCosts', options);
+
+/**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Figures come from the Cloud Billing export and typically lag by several
+ * hours — see ``data_as_of``. Responses are cached for
+ * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
+ */
+export const getBillingCostsOptions = (
+  options?: Options<GetBillingCostsData>
+) =>
+  queryOptions<
+    GetBillingCostsResponse,
+    AxiosError<DefaultError>,
+    GetBillingCostsResponse,
+    ReturnType<typeof getBillingCostsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getBillingCosts({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getBillingCostsQueryKey(options),
+  });
 
 export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
   createQueryKey('getDrivers', options);

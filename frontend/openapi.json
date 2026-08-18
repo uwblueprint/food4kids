@@ -4597,33 +4597,6 @@
         ]
       }
     },
-    "/api/billing/costs": {
-      "get": {
-        "description": "Return month-to-date spend for the configured project, against its budget.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
-        "operationId": "get_billing_costs",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BillingCostsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Billing Costs",
-        "tags": [
-          "billing"
-        ]
-      }
-    },
     "/auth/forgot-password": {
       "post": {
         "description": "Triggers password reset for user with specified email (reset link will be emailed)\nReturns 204 regardless to avoid enumeration attacks",
@@ -4805,6 +4778,33 @@
         "summary": "Validate Reset Token",
         "tags": [
           "authentication"
+        ]
+      }
+    },
+    "/billing/costs": {
+      "get": {
+        "description": "Return month-to-date spend for the configured project, against its budget.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
+        "operationId": "get_billing_costs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCostsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Billing Costs",
+        "tags": [
+          "billing"
         ]
       }
     },

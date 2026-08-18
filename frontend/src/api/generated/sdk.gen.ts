@@ -384,29 +384,6 @@ export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get Billing Costs
- *
- * Return month-to-date spend for the configured project, against its budget.
- *
- * Figures come from the Cloud Billing export and typically lag by several
- * hours — see ``data_as_of``. Responses are cached for
- * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
- */
-export const getBillingCosts = <ThrowOnError extends boolean = false>(
-  options?: Options<GetBillingCostsData, ThrowOnError>
-) =>
-  (options?.client ?? client).get<
-    GetBillingCostsResponses,
-    unknown,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/billing/costs',
-    ...options,
-  });
-
-/**
  * Forgot Password
  *
  * Triggers password reset for user with specified email (reset link will be emailed)
@@ -513,6 +490,29 @@ export const validateResetToken = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Figures come from the Cloud Billing export and typically lag by several
+ * hours — see ``data_as_of``. Responses are cached for
+ * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
+ */
+export const getBillingCosts = <ThrowOnError extends boolean = false>(
+  options?: Options<GetBillingCostsData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetBillingCostsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/billing/costs',
+    ...options,
   });
 
 /**

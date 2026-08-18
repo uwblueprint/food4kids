@@ -1,4 +1,4 @@
-"""Tests for GET /api/billing/costs.
+"""Tests for GET /billing/costs.
 
 External failures are simulated by swapping the billing service via
 ``client_with_overrides``; the assertions are about status mapping and that no
@@ -22,7 +22,7 @@ from app.utilities.billing_client import (
 # read; async tests need the marker explicitly, as elsewhere in this suite.
 pytestmark = pytest.mark.asyncio
 
-ENDPOINT = "/api/billing/costs"
+ENDPOINT = "/billing/costs"
 
 
 def _summary() -> BillingSummary:

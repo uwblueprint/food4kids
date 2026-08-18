@@ -2870,23 +2870,6 @@ export type SendAnnouncementEmailResponses = {
 export type SendAnnouncementEmailResponse =
   SendAnnouncementEmailResponses[keyof SendAnnouncementEmailResponses];
 
-export type GetBillingCostsData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/api/billing/costs';
-};
-
-export type GetBillingCostsResponses = {
-  /**
-   * Successful Response
-   */
-  200: BillingCostsResponse;
-};
-
-export type GetBillingCostsResponse =
-  GetBillingCostsResponses[keyof GetBillingCostsResponses];
-
 export type ForgotPasswordData = {
   body: ForgotPasswordRequest;
   path?: never;
@@ -3024,6 +3007,23 @@ export type ValidateResetTokenResponses = {
 
 export type ValidateResetTokenResponse =
   ValidateResetTokenResponses[keyof ValidateResetTokenResponses];
+
+export type GetBillingCostsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/billing/costs';
+};
+
+export type GetBillingCostsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BillingCostsResponse;
+};
+
+export type GetBillingCostsResponse =
+  GetBillingCostsResponses[keyof GetBillingCostsResponses];
 
 export type GetDriversData = {
   body?: never;

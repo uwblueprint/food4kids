@@ -83,7 +83,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # --- admin ---
     ("GET", "/admins/test"): Policy.ADMIN_ONLY,
     # --- billing ---
-    ("GET", "/api/billing/costs"): Policy.ADMIN_ONLY,
+    ("GET", "/billing/costs"): Policy.ADMIN_ONLY,
     # --- auth infrastructure (public by design) ---
     ("POST", "/auth/login"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,

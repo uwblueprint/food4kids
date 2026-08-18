@@ -12,10 +12,7 @@ from app.utilities.billing_client import (
     BillingPermissionDeniedError,
 )
 
-# Note: every other router in this app mounts at the root (/route-groups,
-# /system-settings, ...). The /api segment here is specified by the billing
-# ticket and is currently unique to this router.
-router = APIRouter(prefix="/api/billing", tags=["billing"])
+router = APIRouter(prefix="/billing", tags=["billing"])
 
 
 class BillingCostsResponse(BaseModel):
