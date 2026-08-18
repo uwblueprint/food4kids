@@ -30,6 +30,7 @@ from app.services.implementations.password_reset_token_service import (
 )
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import clear_auth_cookies, set_refresh_token_cookie
+from app.utilities.firebase_rest_client import FirebaseRestError
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -270,11 +271,13 @@ async def update_password_authed(
         auth_service.firebase_rest_client.sign_in_with_password(
             email, update_password_request.current_password
         )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect current password.",
-        ) from e
+    except FirebaseRestError as e:
+        if e.code in "INVALID_LOGIN_CREDENTIALS":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect current password.",
+            ) from e
+        raise
 
     # 2. Update the password on firebase
     await user_service.update_password(auth_id, update_password_request.new_password)
@@ -288,17 +291,8 @@ async def update_password_authed(
         )
 
     # 4. Generate new session / tokens
-    try:
-        auth_dto, refresh_token = await auth_service.generate_token(
-            session, email, update_password_request.new_password, remember_me=False
-        )
-        set_refresh_token_cookie(response, refresh_token, remember_me=False)
-        return auth_dto
-    except Exception as e:
-        logger.exception(
-            f"Failed to generate new token after password update for {email}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Password updated, but failed to establish new session. Please log in again.",
-        ) from e
+    auth_dto, refresh_token = await auth_service.generate_token(
+        session, email, update_password_request.new_password, remember_me=False
+    )
+    set_refresh_token_cookie(response, refresh_token, remember_me=False)
+    return auth_dto
