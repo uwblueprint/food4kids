@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, TypeGuard
@@ -30,10 +31,9 @@ from app.models.location import (
     Location,
     LocationCreate,
     LocationImportEntry,
-    LocationImportResponse,
+    LocationImportPreview,
+    LocationImportResult,
     LocationImportRow,
-    LocationIngestRequest,
-    LocationIngestResponse,
     LocationRead,
     LocationUpdate,
     NetNewEntry,
@@ -41,6 +41,7 @@ from app.models.location import (
     ValidatedLocationImportEntry,
 )
 from app.models.location_group import LocationGroup
+from app.models.note import Note
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -72,21 +73,44 @@ ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-# Default CSV column names
-DEFAULT_COLUMN_MAP = {
-    "contact_name": "Guardian Name",
-    "address": "Address",
-    "delivery_group": "Delivery Day",
-    "phone_primary": "Primary Phone",
-    "phone_secondary": "Secondary Phone",
-    "num_children": "Number of Children",
-    "halal": "Halal?",
-    "dietary_restrictions": "Specific Food Restrictions",
-}
-
 
 class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
+
+
+@dataclass
+class ImportPlan:
+    """What a given import file would do to the roster.
+
+    Deliberately holds domain objects rather than the wire models: the matched
+    rows come with the Location they matched, so applying a plan is a straight
+    field copy with nothing to unwrap. The old/new pairs the Review screen
+    shows are rendered from this, not the other way round.
+
+    `geocode_by_address` is keyed on the entry's (already formatted) address so
+    the apply path can reuse what planning geocoded rather than paying for the
+    same lookups twice.
+    """
+
+    success: bool
+    rows: list[LocationImportRow]
+    duplicate_groups: list[DuplicateGroup]
+    net_new: list[tuple[int, ValidatedLocationImportEntry]]
+    stale: list[Location]
+    changed: list[tuple[int, ValidatedLocationImportEntry, Location]]
+    geocode_by_address: dict[str, GeocodeResult]
+
+
+# How many referencing routes to name in a LocationInUseError message.
+IN_USE_SAMPLE_SIZE = 5
+
+
+class LocationInUseError(Exception):
+    """Raised when deleting a location that route stops still reference.
+
+    Deliberately not a ValueError: the router maps ValueError to 404 and
+    this to 409. Deleting would otherwise fail at the FK
+    (route_stops.location_id has no ON DELETE action) with a raw 500."""
 
 
 class LocationService:
@@ -152,6 +176,7 @@ class LocationService:
         future_set = await self.load_has_future_route_set(session, ids)
         assigned = await self.load_assigned_routes(session, ids)
         aggregates = await self.load_delivery_aggregates(session, ids)
+        latest_notes = await self.load_latest_notes(session, [location.note_chain_id])
         total, last_date = aggregates.get(location_id, (0, None))
         return self._to_read(
             location,
@@ -159,6 +184,11 @@ class LocationService:
             assigned_route=assigned.get(location_id),
             last_delivery_date=last_date,
             total_deliveries=total,
+            latest_note=(
+                latest_notes.get(location.note_chain_id)
+                if location.note_chain_id
+                else None
+            ),
         )
 
     async def get_locations(
@@ -168,6 +198,7 @@ class LocationService:
         delivery_type: list[str] | None = None,
         status_filter: list[LocationStatusEnum] | None = None,
         location_group_id: list[UUID] | None = None,
+        search: str | None = None,
     ) -> PaginatedResponse[LocationRead]:
         """Get paginated locations.
 
@@ -177,6 +208,9 @@ class LocationService:
         from in_roster + whether the location appears in a present/future
         route. Callers can narrow via the optional ``status_filter`` and
         ``delivery_type`` and ``location_group_id`` query params.
+
+        ``search`` filters (case-insensitive substring) on the delivery
+        address, which carries the postal code, applied before pagination.
         """
         try:
             statement = (
@@ -193,6 +227,11 @@ class LocationService:
             if location_group_id:
                 statement = statement.where(
                     col(Location.location_group_id).in_(location_group_id)
+                )
+
+            if search and search.strip():
+                statement = statement.where(
+                    col(Location.address).ilike(f"%{search.strip()}%")
                 )
 
             if status_filter:
@@ -236,6 +275,9 @@ class LocationService:
             future_set = await self.load_has_future_route_set(session, loc_ids)
             assigned = await self.load_assigned_routes(session, loc_ids)
             aggregates = await self.load_delivery_aggregates(session, loc_ids)
+            latest_notes = await self.load_latest_notes(
+                session, (loc.note_chain_id for loc in items)
+            )
             reads = [
                 self._to_read(
                     loc,
@@ -243,6 +285,11 @@ class LocationService:
                     assigned_route=assigned.get(loc.location_id),
                     last_delivery_date=aggregates.get(loc.location_id, (0, None))[1],
                     total_deliveries=aggregates.get(loc.location_id, (0, None))[0],
+                    latest_note=(
+                        latest_notes.get(loc.note_chain_id)
+                        if loc.note_chain_id
+                        else None
+                    ),
                 )
                 for loc in items
             ]
@@ -377,6 +424,31 @@ class LocationService:
         result = await session.execute(statement)
         return {row[0]: (row[1], row[2]) for row in result.all()}
 
+    async def load_latest_notes(
+        self, session: AsyncSession, note_chain_ids: Iterable[UUID | None]
+    ) -> dict[UUID, str]:
+        """Return a mapping of note_chain_id → most recent non-system note
+        message, for the notes preview column.
+
+        One query rather than per-location N+1. System notes (auto-generated
+        events) are excluded so the preview shows human-authored notes only.
+        """
+        ids = [cid for cid in note_chain_ids if cid is not None]
+        if not ids:
+            return {}
+        statement = (
+            select(Note.note_chain_id, Note.message)
+            .where(col(Note.note_chain_id).in_(ids))
+            .where(col(Note.is_system).is_(False))
+            .order_by(col(Note.created_at).desc())
+        )
+        result = await session.execute(statement)
+        latest: dict[UUID, str] = {}
+        for chain_id, message in result.all():
+            if chain_id not in latest:
+                latest[chain_id] = message
+        return latest
+
     def _to_read(
         self,
         loc: Location,
@@ -384,6 +456,7 @@ class LocationService:
         assigned_route: str | None = None,
         last_delivery_date: datetime | None = None,
         total_deliveries: int = 0,
+        latest_note: str | None = None,
     ) -> LocationRead:
         """Build a LocationRead with the derived has_future_route populated.
 
@@ -395,6 +468,7 @@ class LocationService:
         read.assigned_route = assigned_route
         read.last_delivery_date = last_delivery_date
         read.total_deliveries = total_deliveries
+        read.latest_note = latest_note
         return read
 
     async def create_location(
@@ -472,7 +546,14 @@ class LocationService:
     async def delete_location_by_id(
         self, session: AsyncSession, location_id: UUID
     ) -> None:
-        """Delete location by ID"""
+        """Delete location by ID.
+
+        A location referenced by any route stop (past or future) cannot be
+        hard-deleted — the FK would reject it anyway; this surfaces a clean
+        LocationInUseError (409) with the referencing routes instead of a
+        raw IntegrityError 500. Use in_roster=False to retire a location
+        that has delivery history.
+        """
         try:
             statement = select(Location).where(Location.location_id == location_id)
             result = await session.execute(statement)
@@ -481,25 +562,93 @@ class LocationService:
             if not location:
                 raise ValueError(f"Location with id {location_id} not found")
 
+            total = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(RouteStop)
+                    .where(RouteStop.location_id == location_id)
+                )
+            ).scalar_one()
+
+            if total:
+                sample = (
+                    await session.execute(
+                        select(Route.name, RouteGroup.drive_date)
+                        .select_from(RouteStop)
+                        .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
+                        .join(
+                            RouteGroup,
+                            RouteGroup.route_group_id == Route.route_group_id,  # type: ignore[arg-type]
+                        )
+                        .where(RouteStop.location_id == location_id)
+                        .order_by(col(RouteGroup.drive_date))
+                        .limit(IN_USE_SAMPLE_SIZE)
+                    )
+                ).all()
+                routes_desc = ", ".join(
+                    f"'{name}' ({drive_date.date()})" for name, drive_date in sample
+                )
+                more = f" and {total - len(sample)} more" if total > len(sample) else ""
+                raise LocationInUseError(
+                    f"Location is used by {total} route(s): {routes_desc}{more}. "
+                    f"Set in_roster to false to retire it instead of deleting."
+                )
+
             await session.delete(location)
             await session.commit()
+        except LocationInUseError:
+            # Expected outcome, not a failure — don't log it as one.
+            raise
         except Exception as e:
             self.logger.error(f"Failed to delete location by id: {e!s}")
             await session.rollback()
             raise e
 
-    async def review_locations(
+    async def preview_import(
         self,
         session: AsyncSession,
         file: UploadFile,
         column_map: dict[str, str],
-    ) -> LocationImportResponse:
-        """Review a pending location import: validate rows and classify changes.
+        delivery_type: str,
+    ) -> LocationImportPreview:
+        """Describe what importing this file would do, without writing anything.
+
+        A preview and an apply run the same planner, so what the admin sees on
+        the Validate and Review screens is what applying the same file does.
+        The old/new pairs below exist only to render that diff — the applier
+        works from the plan's Location objects directly.
+        """
+        plan = await self._plan_import(session, file, column_map, delivery_type)
+        return LocationImportPreview(
+            success=plan.success,
+            total_rows=len(plan.rows),
+            rows=plan.rows,
+            duplicate_groups=plan.duplicate_groups,
+            net_new=[
+                self._to_net_new_entry(row_num, entry)
+                for row_num, entry in plan.net_new
+            ],
+            stale=[self._to_stale_entry(location) for location in plan.stale],
+            changed=[
+                self._to_changed_entry(row_num, entry, location)
+                for row_num, entry, location in plan.changed
+            ],
+        )
+
+    async def _plan_import(
+        self,
+        session: AsyncSession,
+        file: UploadFile,
+        column_map: dict[str, str],
+        delivery_type: str,
+    ) -> ImportPlan:
+        """Validate rows, classify them against the roster, and geocode once.
 
         Side effect: persists `column_map` to system_settings so it becomes the
         default mapping on the next import.
         """
         try:
+            await self.validate_delivery_type(session, delivery_type)
             await self.system_settings_service.set_import_column_map(
                 session, column_map
             )
@@ -532,7 +681,11 @@ class LocationService:
             geocode_ok_by_address: dict[str, bool] = dict.fromkeys(
                 known_valid_addresses, True
             )
-            geocode_result_by_address: dict[str, GeocodeResult] = {}
+            # Seeded with what the roster already knows, so every address in
+            # the file ends up with coordinates attached.
+            geocode_result_by_address: dict[str, GeocodeResult] = dict(
+                known_valid_addresses
+            )
             if addresses_to_geocode:
                 geocoded = await asyncio.gather(
                     *(
@@ -630,48 +783,73 @@ class LocationService:
                 for row in rows
                 if not row.alerts and self._has_required_fields(row.location)
             ]
-            net_new: list[NetNewEntry] = []
-            stale: list[StaleEntry] = []
-            changed: list[ChangedEntry] = []
+            net_new: list[tuple[int, ValidatedLocationImportEntry]] = []
+            stale: list[Location] = []
+            changed: list[tuple[int, ValidatedLocationImportEntry, Location]] = []
             success = not any(r.alerts for r in rows)
             if success:
                 net_new, stale, changed = await self._classify_import_rows(
-                    session, valid_rows
+                    session, valid_rows, delivery_type
                 )
 
-            return LocationImportResponse(
+            return ImportPlan(
                 success=success,
-                total_rows=len(rows),
                 rows=rows,
                 duplicate_groups=duplicate_groups,
                 net_new=net_new,
                 stale=stale,
                 changed=changed,
+                # Keyed by formatted address: planning rewrites each entry to
+                # the formatted form, so that is what the applier looks up.
+                geocode_by_address={
+                    result.formatted_address: result
+                    for result in geocode_result_by_address.values()
+                },
             )
         except Exception as e:
-            self.logger.error(f"Failed to validate locations: {e!s}")
+            self.logger.error(f"Failed to plan location import: {e!s}")
             raise e
 
     async def _existing_geocoded_addresses(
         self, session: AsyncSession, addresses: set[str]
-    ) -> set[str]:
-        """Return the subset of addresses that already exist on a geocoded Location.
+    ) -> dict[str, GeocodeResult]:
+        """Coordinates already on file for any of these addresses.
 
         Exact match on Location.address (import side is already stripped). Only
         rows with latitude/longitude count as known-valid so we still geocode
         addresses that were stored without coordinates.
+
+        Returns the coordinates rather than just the names so that planning ends
+        up holding a result for every address in the file, whether it came from
+        the database or from Google. Applying can then place any row without
+        going back out to the API — including a net-new row that happens to
+        reuse an address already on the roster.
         """
         if not addresses:
-            return set()
+            return {}
 
         result = await session.execute(
-            select(Location.address).where(
+            select(
+                Location.address,
+                Location.latitude,
+                Location.longitude,
+                Location.place_id,
+            ).where(
                 col(Location.address).in_(addresses),
                 col(Location.latitude).is_not(None),
                 col(Location.longitude).is_not(None),
             )
         )
-        return {address for address in result.scalars().all() if address in addresses}
+        return {
+            address: GeocodeResult(
+                formatted_address=address,
+                place_id=place_id or "",
+                latitude=latitude,
+                longitude=longitude,
+            )
+            for address, latitude, longitude, place_id in result.all()
+            if address in addresses
+        }
 
     async def _geocode_import_address(
         self, address: str | None
@@ -685,14 +863,21 @@ class LocationService:
         self,
         session: AsyncSession,
         valid_rows: list[tuple[int, ValidatedLocationImportEntry]],
-    ) -> tuple[list[NetNewEntry], list[StaleEntry], list[ChangedEntry]]:
+        delivery_type: str,
+    ) -> tuple[
+        list[tuple[int, ValidatedLocationImportEntry]],
+        list[Location],
+        list[tuple[int, ValidatedLocationImportEntry, Location]],
+    ]:
         result = await session.execute(
-            select(Location).options(selectinload(Location.location_group))  # type: ignore[arg-type]
+            select(Location)
+            .where(Location.delivery_type == delivery_type)
+            .options(selectinload(Location.location_group))  # type: ignore[arg-type]
         )
         existing_locations = list(result.scalars().all())
         matched_existing_ids: set[UUID] = set()
-        net_new: list[NetNewEntry] = []
-        changed: list[ChangedEntry] = []
+        net_new: list[tuple[int, ValidatedLocationImportEntry]] = []
+        changed: list[tuple[int, ValidatedLocationImportEntry, Location]] = []
 
         for row_num, entry in valid_rows:
             match = self._find_existing_import_match(
@@ -704,16 +889,15 @@ class LocationService:
                 ],
             )
             if match is None:
-                net_new.append(self._to_net_new_entry(row_num, entry))
+                net_new.append((row_num, entry))
                 continue
 
             matched_existing_ids.add(match.location_id)
-            changed_entry = self._to_changed_entry(row_num, entry, match)
-            if changed_entry is not None:
-                changed.append(changed_entry)
+            if self._import_row_differs(entry, match):
+                changed.append((row_num, entry, match))
 
         stale = [
-            self._to_stale_entry(location)
+            location
             for location in existing_locations
             if location.in_roster and location.location_id not in matched_existing_ids
         ]
@@ -745,11 +929,14 @@ class LocationService:
         return NetNewEntry(
             row=row_num,
             contact_name=entry.contact_name,
+            guardian_name=entry.guardian_name,
             address=entry.address,
             delivery_group=entry.delivery_group,
             phone_primary=entry.phone_primary,
             phone_secondary=entry.phone_secondary,
             num_children=entry.num_children,
+            halal=entry.halal,
+            dietary_restrictions=entry.dietary_restrictions,
         )
 
     @staticmethod
@@ -761,44 +948,66 @@ class LocationService:
             delivery_group=location.location_group.name,
             phone_primary=location.phone_primary,
             phone_secondary=location.phone_secondary,
+            num_children=location.num_children,
         )
+
+    @staticmethod
+    def _import_field_changes(
+        entry: ValidatedLocationImportEntry, location: Location
+    ) -> dict[str, bool]:
+        """Which fields this import row would alter on the location it matched.
+
+        A row coming back onto the roster counts as a change even when every
+        field matches, so it is offered for review rather than silently
+        reactivated.
+        """
+        entry_key = entry_match_key(entry)
+        location_key = location_match_key(location)
+        return {
+            "contact_name": entry_key.name != location_key.name,
+            "guardian_name": (entry.guardian_name or None)
+            != (location.guardian_name or None),
+            "address": entry_key.address != location_key.address,
+            "delivery_group": entry.delivery_group != location.location_group.name,
+            "phone_primary": entry_key.phone != location_key.phone,
+            "phone_secondary": (entry.phone_secondary or None)
+            != (location.phone_secondary or None),
+            "num_children": entry.num_children is not None
+            and entry.num_children != location.num_children,
+            "in_roster": not location.in_roster,
+        }
+
+    def _import_row_differs(
+        self, entry: ValidatedLocationImportEntry, location: Location
+    ) -> bool:
+        return any(self._import_field_changes(entry, location).values())
 
     def _to_changed_entry(
         self, row_num: int, entry: ValidatedLocationImportEntry, location: Location
-    ) -> ChangedEntry | None:
-        old_delivery_group = location.location_group.name
-        entry_key = entry_match_key(entry)
-        location_key = location_match_key(location)
-        contact_name_changed = entry_key.name != location_key.name
-        address_changed = entry_key.address != location_key.address
-        delivery_group_changed = entry.delivery_group != old_delivery_group
-        phone_primary_changed = entry_key.phone != location_key.phone
-        phone_secondary_changed = (entry.phone_secondary or None) != (
-            location.phone_secondary or None
-        )
-        num_children_changed = (
-            entry.num_children is not None
-            and entry.num_children != location.num_children
-        )
-        roster_changed = not location.in_roster
+    ) -> ChangedEntry:
+        """Render a planned change as old/new pairs, for the Review screen.
 
-        if not any(
-            [
-                contact_name_changed,
-                address_changed,
-                delivery_group_changed,
-                phone_primary_changed,
-                phone_secondary_changed,
-                num_children_changed,
-                roster_changed,
-            ]
-        ):
-            return None
+        Display only — nothing reads these back. The applier takes the entry
+        and the Location straight off the plan.
+        """
+        old_delivery_group = location.location_group.name
+        changes = self._import_field_changes(entry, location)
+        guardian_name_changed = changes["guardian_name"]
+        address_changed = changes["address"]
+        delivery_group_changed = changes["delivery_group"]
+        phone_primary_changed = changes["phone_primary"]
+        phone_secondary_changed = changes["phone_secondary"]
+        num_children_changed = changes["num_children"]
 
         return ChangedEntry(
             row=row_num,
             location_id=location.location_id,
             contact_name=entry.contact_name,
+            guardian_name=ChangedFieldOptStr(
+                new_value=entry.guardian_name, old_value=location.guardian_name
+            )
+            if guardian_name_changed
+            else entry.guardian_name,
             address=ChangedFieldStr(new_value=entry.address, old_value=location.address)
             if address_changed
             else entry.address,
@@ -883,6 +1092,7 @@ class LocationService:
 
         return LocationImportEntry(
             contact_name=get_value("contact_name"),
+            guardian_name=get_value("guardian_name"),
             address=get_value("address"),
             delivery_group=get_value("delivery_group"),
             phone_primary=get_value("phone_primary"),
@@ -923,6 +1133,7 @@ class LocationService:
             location_group_id=location_data.location_group_id,
             name=location_data.name,
             contact_name=location_data.contact_name,
+            guardian_name=location_data.guardian_name,
             address=location_data.address,
             phone_primary=location_data.phone_primary,
             phone_secondary=location_data.phone_secondary,
@@ -936,57 +1147,41 @@ class LocationService:
             in_roster=location_data.in_roster,
         )
 
-    async def ingest_locations(
-        self, session: AsyncSession, request: LocationIngestRequest
-    ) -> LocationIngestResponse:
-        """Persist import merge results.
+    async def apply_import(
+        self,
+        session: AsyncSession,
+        file: UploadFile,
+        column_map: dict[str, str],
+        delivery_type: str,
+    ) -> LocationImportResult:
+        """Plan this import and write it.
+
+        Takes the file rather than a diff posted back from the client: the plan
+        is recomputed here from the same planner the preview used, so the
+        caller can neither name which rows get rewritten nor hand us a diff
+        that no longer matches the roster.
 
         Stale rows are not deleted. Address changes create a replacement
         location carrying over notes/history and mark the old row inactive.
         """
         try:
-            await self.validate_delivery_type(session, request.delivery_type)
-            changed_ids = [entry.location_id for entry in request.changed]
-            if len(set(changed_ids)) != len(changed_ids):
-                raise ValueError("Each changed location can only be included once")
-
-            group_by_name = await self._ensure_location_groups_for_ingest(
-                session, request
-            )
-
-            stale_ids = [loc.location_id for loc in request.stale]
-            existing_ids = list(set(stale_ids + changed_ids))
-            existing_by_id: dict[UUID, Location] = {}
-            if existing_ids:
-                result = await session.execute(
-                    select(Location)
-                    .where(Location.location_id.in_(existing_ids))  # type: ignore[attr-defined]
-                    .options(selectinload(Location.location_group))  # type: ignore[arg-type]
+            plan = await self._plan_import(session, file, column_map, delivery_type)
+            if not plan.success:
+                raise ValueError(
+                    "Import has unresolved validation errors and cannot be applied"
                 )
-                existing_by_id = {
-                    location.location_id: location
-                    for location in result.scalars().all()
-                }
+
+            group_by_name = await self._ensure_location_groups(session, plan)
 
             stale_db_rows: list[Location] = []
-            for stale_id in stale_ids:
-                loc = existing_by_id.get(stale_id)
-                if loc is not None:
-                    loc.in_roster = False
-                    stale_db_rows.append(loc)
-
-            geocode_results = await asyncio.gather(
-                *[
-                    self.google_maps_service.geocode_address(entry.address)
-                    for entry in request.net_new
-                ]
-            )
+            for location in plan.stale:
+                location.in_roster = False
+                stale_db_rows.append(location)
 
             new_note_chains: list[NoteChain] = []
             new_locations: list[Location] = []
-            for entry, geocode_result in zip(
-                request.net_new, geocode_results, strict=True
-            ):
+            for _, entry in plan.net_new:
+                geocode_result = plan.geocode_by_address.get(entry.address)
                 if not geocode_result:
                     raise ValueError(f"Geocoding failed for address: {entry.address}")
 
@@ -1000,6 +1195,7 @@ class LocationService:
                     Location(
                         name=entry.contact_name,
                         contact_name=entry.contact_name,
+                        guardian_name=entry.guardian_name,
                         address=geocode_result.formatted_address,
                         phone_primary=entry.phone_primary,
                         phone_secondary=entry.phone_secondary,
@@ -1009,7 +1205,7 @@ class LocationService:
                         halal=entry.halal or False,
                         dietary_restrictions=entry.dietary_restrictions or "",
                         num_children=entry.num_children or 0,
-                        delivery_type=request.delivery_type,
+                        delivery_type=delivery_type,
                         in_roster=True,
                         note_chain_id=note_chain.note_chain_id,
                         location_group_id=group_by_name[
@@ -1018,95 +1214,51 @@ class LocationService:
                     )
                 )
 
-            address_changed_entries = [
-                entry
-                for entry in request.changed
-                if isinstance(entry.address, ChangedFieldStr)
-            ]
-            changed_geocode_results = await asyncio.gather(
-                *[
-                    self.google_maps_service.geocode_address(
-                        self._changed_str_value(entry.address)
-                    )
-                    for entry in address_changed_entries
-                ]
-            )
-            geocode_by_changed_id = {
-                entry.location_id: geocode_result
-                for entry, geocode_result in zip(
-                    address_changed_entries, changed_geocode_results, strict=True
-                )
-            }
-
-            for changed_entry in request.changed:
-                location = existing_by_id.get(changed_entry.location_id)
-                if location is None:
-                    raise ValueError(
-                        f"Location with id {changed_entry.location_id} was not found"
-                    )
-
-                delivery_group = self._changed_optional_str_value(
-                    changed_entry.delivery_group
-                )
-                if not delivery_group:
+            for _, entry, location in plan.changed:
+                if not entry.delivery_group:
                     raise ValueError("Changed location is missing delivery_group")
+                group_id = group_by_name[entry.delivery_group].location_group_id
 
-                if isinstance(changed_entry.address, ChangedFieldStr):
-                    geocode_result = geocode_by_changed_id[changed_entry.location_id]
-                    if not geocode_result:
-                        raise ValueError(
-                            f"Geocoding failed for address: {changed_entry.address.new_value}"
-                        )
-                    note_chain_id = location.note_chain_id
-                    location.in_roster = False
-                    location.note_chain_id = None
-                    if location not in stale_db_rows:
-                        stale_db_rows.append(location)
-                    new_locations.append(
-                        Location(
-                            name=changed_entry.contact_name,
-                            contact_name=changed_entry.contact_name,
-                            address=geocode_result.formatted_address,
-                            phone_primary=self._changed_str_value(
-                                changed_entry.phone_primary
-                            ),
-                            phone_secondary=self._changed_optional_str_value(
-                                changed_entry.phone_secondary
-                            ),
-                            longitude=geocode_result.longitude,
-                            latitude=geocode_result.latitude,
-                            place_id=geocode_result.place_id,
-                            halal=location.halal,
-                            dietary_restrictions=location.dietary_restrictions,
-                            num_children=self._changed_optional_int_value(
-                                changed_entry.num_children
-                            )
-                            or 0,
-                            delivery_type=request.delivery_type,
-                            in_roster=True,
-                            note_chain_id=note_chain_id,
-                            location_group_id=group_by_name[
-                                delivery_group
-                            ].location_group_id,
-                        )
-                    )
+                if not self._import_field_changes(entry, location)["address"]:
+                    location.in_roster = True
+                    location.name = entry.contact_name
+                    location.contact_name = entry.contact_name
+                    location.guardian_name = entry.guardian_name
+                    location.phone_primary = entry.phone_primary
+                    location.phone_secondary = entry.phone_secondary
+                    location.num_children = entry.num_children or 0
+                    location.location_group_id = group_id
                     continue
 
-                location.in_roster = True
-                location.name = changed_entry.contact_name
-                location.contact_name = changed_entry.contact_name
-                location.phone_primary = self._changed_str_value(
-                    changed_entry.phone_primary
+                # Moved house: the old row keeps the past routes that reference
+                # it, so it is retired and a fresh one takes over the notes.
+                geocode_result = plan.geocode_by_address.get(entry.address)
+                if not geocode_result:
+                    raise ValueError(f"Geocoding failed for address: {entry.address}")
+                note_chain_id = location.note_chain_id
+                location.in_roster = False
+                location.note_chain_id = None
+                stale_db_rows.append(location)
+                new_locations.append(
+                    Location(
+                        name=entry.contact_name,
+                        contact_name=entry.contact_name,
+                        guardian_name=entry.guardian_name,
+                        address=geocode_result.formatted_address,
+                        phone_primary=entry.phone_primary,
+                        phone_secondary=entry.phone_secondary,
+                        longitude=geocode_result.longitude,
+                        latitude=geocode_result.latitude,
+                        place_id=geocode_result.place_id,
+                        halal=location.halal,
+                        dietary_restrictions=location.dietary_restrictions,
+                        num_children=entry.num_children or 0,
+                        delivery_type=delivery_type,
+                        in_roster=True,
+                        note_chain_id=note_chain_id,
+                        location_group_id=group_id,
+                    )
                 )
-                location.phone_secondary = self._changed_optional_str_value(
-                    changed_entry.phone_secondary
-                )
-                location.num_children = (
-                    self._changed_optional_int_value(changed_entry.num_children) or 0
-                )
-                location.location_group_id = group_by_name[
-                    delivery_group
-                ].location_group_id
 
             session.add_all(new_note_chains)
             session.add_all(new_locations)
@@ -1121,7 +1273,7 @@ class LocationService:
             stale_future_set = await self.load_has_future_route_set(
                 session, [loc.location_id for loc in stale_db_rows]
             )
-            return LocationIngestResponse(
+            return LocationImportResult(
                 created=[
                     self._to_read(loc, has_future_route=False) for loc in new_locations
                 ],
@@ -1137,8 +1289,8 @@ class LocationService:
             await session.rollback()
             raise e
 
-    async def _ensure_location_groups_for_ingest(
-        self, session: AsyncSession, request: LocationIngestRequest
+    async def _ensure_location_groups(
+        self, session: AsyncSession, plan: ImportPlan
     ) -> dict[str, LocationGroup]:
         groups_result = await session.execute(select(LocationGroup))
         group_by_name: dict[str, LocationGroup] = {
@@ -1146,16 +1298,13 @@ class LocationService:
         }
         needed_names = {
             entry.delivery_group
-            for entry in request.net_new
+            for _, entry in plan.net_new
             if entry.delivery_group not in group_by_name
         }
         needed_names.update(
-            delivery_group
-            for delivery_group in (
-                self._changed_optional_str_value(entry.delivery_group)
-                for entry in request.changed
-            )
-            if delivery_group and delivery_group not in group_by_name
+            entry.delivery_group
+            for _, entry, _location in plan.changed
+            if entry.delivery_group and entry.delivery_group not in group_by_name
         )
         for name in sorted(needed_names):
             group = LocationGroup(name=name)  # type: ignore[call-arg]
@@ -1164,25 +1313,3 @@ class LocationService:
         if needed_names:
             await session.flush()
         return group_by_name
-
-    @staticmethod
-    def _changed_str_value(value: str | ChangedFieldStr) -> str:
-        if isinstance(value, ChangedFieldStr):
-            return value.new_value
-        return value
-
-    @staticmethod
-    def _changed_optional_str_value(
-        value: str | ChangedFieldOptStr | None,
-    ) -> str | None:
-        if isinstance(value, ChangedFieldOptStr):
-            return value.new_value
-        return value
-
-    @staticmethod
-    def _changed_optional_int_value(
-        value: int | ChangedFieldOptInt | None,
-    ) -> int | None:
-        if isinstance(value, ChangedFieldOptInt):
-            return value.new_value
-        return value

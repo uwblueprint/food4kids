@@ -11,7 +11,7 @@ app/
       scheduler_service.py    # Central scheduler management
     jobs/
       __init__.py            # init_jobs() - registers all jobs
-      driver_history_jobs.py # Example job implementation
+      route_freeze_jobs.py # Example job implementation
       README.md              # This file
 ```
 
@@ -69,7 +69,7 @@ Add your job to `__init__.py`:
 
 ```python
 def init_jobs(scheduler_service) -> None:
-    from .driver_history_jobs import process_daily_driver_history
+    from .route_freeze_jobs import process_daily_driver_history
     from .email_jobs import your_job_function  # Import your new job
     
     # Existing jobs...

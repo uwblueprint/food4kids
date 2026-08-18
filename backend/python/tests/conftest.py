@@ -5,7 +5,8 @@ Global test configuration and fixtures for the Food4Kids application.
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from typing import Any, NoReturn
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -30,6 +31,29 @@ from app.models import get_session
 
 # Set test environment
 os.environ["APP_ENV"] = "testing"
+
+
+@pytest.fixture(autouse=True)
+def _block_real_email_sends() -> Generator[None, None, None]:
+    """Guard: no test may send through the real Gmail-backed EmailService.
+
+    Local and container runs load the root .env, whose MAILER_* credentials are
+    real — any endpoint a test drives into the real dispatcher (e.g. the auth
+    matrix hitting POST /announcements/{id}/email) would genuinely send Gmail
+    to the seeded @test.dev addresses and bounce. Tests that exercise email
+    flows must swap in their own fake transport (see _FakeEmailService in
+    test_email_reminder_jobs.py); anything reaching this method is a bug.
+    """
+    from app.services.implementations.email_service import EmailService
+
+    def _blocked(_self: EmailService, to: str, **_: str) -> NoReturn:
+        raise RuntimeError(
+            f"Blocked attempt to send a real email to {to!r} from a test - "
+            "override the email dispatcher with a fake transport"
+        )
+
+    with patch.object(EmailService, "send_email", _blocked):
+        yield
 
 
 async def _ensure_system_settings(test_session: AsyncSession) -> None:
@@ -73,7 +97,6 @@ async def test_db_engine() -> AsyncGenerator[Any, None]:
         from app.models.announcement import Announcement  # noqa: F401
         from app.models.announcement_last_read import AnnouncementLastRead  # noqa: F401
         from app.models.driver import Driver  # noqa: F401
-        from app.models.driver_history import DriverHistory  # noqa: F401
         from app.models.job import Job  # noqa: F401
         from app.models.location import Location  # noqa: F401
         from app.models.location_group import LocationGroup  # noqa: F401
@@ -151,7 +174,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session] = override_get_session
     _apply_auth_overrides(app)
 
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url="http://testserver/api") as test_client:
         yield test_client
 
 
@@ -174,7 +197,7 @@ async def async_client(
     from httpx import ASGITransport
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
@@ -208,7 +231,7 @@ async def client_with_overrides(
                 app.dependency_overrides[dep] = override
 
             return await stack.enter_async_context(
-                AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+                AsyncClient(transport=ASGITransport(app=app), base_url="http://test/api")
             )
 
         yield _make
@@ -429,7 +452,7 @@ async def authed_async_client(
     _apply_auth_overrides(app)
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
