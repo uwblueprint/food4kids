@@ -1,5 +1,5 @@
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { AxiosError } from 'axios';
+import { AxiosError, isAxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useAuthStore } from '@/api/authStore';
@@ -549,5 +549,152 @@ describe('refreshing an aged-out token', () => {
 
     expect(refreshes()).toHaveLength(0);
     expect(useAuthStore.getState().accessToken).toBe('token-abc');
+  });
+});
+
+describe('errors reach callers without credentials', () => {
+  /**
+   * However a request fails, the error reaching application code must not
+   * carry `config.data` (a login's is the password) or the Authorization
+   * header — while the wire still saw the body, proving the scrub runs after
+   * the replay decision rather than before it.
+   */
+  type Reply = { status: number; body?: unknown };
+
+  const RENEWED: AuthResponse = {
+    access_token: 'token-xyz',
+    email: 'dana@example.com',
+    first_name: 'Dana',
+    full_name: 'Dana Bell',
+    id: 'user-1',
+    last_name: 'Bell',
+    remember_me: false,
+    role: 'Admin',
+  };
+
+  /** `config.data` captured at adapter time — the scrub must not reach back. */
+  let bodiesOnTheWire: unknown[] = [];
+
+  function serve(reply: (config: InternalAxiosRequestConfig) => Reply) {
+    axiosClient.defaults.adapter = async (config) => {
+      bodiesOnTheWire.push(config.data);
+      const answer = reply(config);
+      const response = {
+        data: answer.body ?? { detail: 'nope' },
+        status: answer.status,
+        statusText: answer.status < 400 ? 'OK' : 'Error',
+        headers: {},
+        config,
+      } as AxiosResponse;
+      if (answer.status >= 400) {
+        throw new AxiosError(
+          `Request failed with status code ${answer.status}`,
+          AxiosError.ERR_BAD_REQUEST,
+          config,
+          null,
+          response
+        );
+      }
+      return response;
+    };
+  }
+
+  const isRefresh = (config: InternalAxiosRequestConfig) =>
+    (config.url ?? '').endsWith('/auth/refresh');
+
+  const tokenOn = (config: InternalAxiosRequestConfig) =>
+    String(config.headers.Authorization ?? '');
+
+  function signedIn() {
+    useAuthStore.setState({
+      accessToken: 'token-abc',
+      user: null,
+      isAuthenticated: true,
+      isRestoringSession: false,
+      sessionExpired: false,
+    });
+  }
+
+  function attempt() {
+    return createLocationGroup({
+      body: { name: 'Tuesday A', location_ids: [] },
+      throwOnError: true,
+    });
+  }
+
+  async function attemptAndCatch(): Promise<unknown> {
+    try {
+      await attempt();
+    } catch (error) {
+      return error;
+    }
+    throw new Error('Expected the request to fail');
+  }
+
+  function expectScrubbed(error: unknown) {
+    if (!isAxiosError(error)) throw new Error('Expected an AxiosError');
+    expect(error.config?.data).toBeUndefined();
+    expect(error.config?.headers?.Authorization).toBeUndefined();
+    // Same object by reference, but pin the other path to it anyway.
+    expect(error.response?.config.data).toBeUndefined();
+  }
+
+  beforeEach(() => {
+    bodiesOnTheWire = [];
+    useAuthStore.getState().clearAuth();
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  it('scrubs a plain failure that carried a body and a token', async () => {
+    signedIn();
+    serve(() => ({ status: 500 }));
+
+    const error = await attemptAndCatch();
+
+    expect(bodiesOnTheWire[0]).toBeTruthy();
+    expectScrubbed(error);
+  });
+
+  it('scrubs the 401 handed back when the refresh is refused', async () => {
+    signedIn();
+    serve(() => ({ status: 401 }));
+
+    const error = await attemptAndCatch();
+
+    expectScrubbed(error);
+  });
+
+  it('scrubs a refused replay, which still went out with its body', async () => {
+    signedIn();
+    // Refresh succeeds; the request itself is refused before and after.
+    serve((config) =>
+      isRefresh(config) ? { status: 200, body: RENEWED } : { status: 401 }
+    );
+
+    const error = await attemptAndCatch();
+
+    // Wire order: original, refresh, replay. The replay must have carried
+    // the body — scrubbing before the retry would break every replay.
+    expect(bodiesOnTheWire).toHaveLength(3);
+    expect(bodiesOnTheWire[2]).toBeTruthy();
+    expectScrubbed(error);
+  });
+
+  it('leaves a successful replay untouched', async () => {
+    signedIn();
+    serve((config) => {
+      if (isRefresh(config)) return { status: 200, body: RENEWED };
+      return tokenOn(config) === `Bearer ${RENEWED.access_token}`
+        ? { status: 200, body: { id: 'group-1' } }
+        : { status: 401 };
+    });
+
+    const { data } = await attempt();
+
+    expect(data).toEqual({ id: 'group-1' });
+    expect(bodiesOnTheWire[2]).toBeTruthy();
   });
 });
