@@ -4,6 +4,7 @@ from . import (
     admin_routes,
     announcement_routes,
     auth_routes,
+    billing_routes,
     driver_history_routes,
     driver_routes,
     job_routes,
@@ -24,6 +25,7 @@ def init_app(app: FastAPI) -> None:
     app.include_router(admin_routes.router)
     app.include_router(announcement_routes.router)
     app.include_router(auth_routes.router)
+    app.include_router(billing_routes.router)
     app.include_router(driver_history_routes.router)
     app.include_router(driver_routes.router)
     app.include_router(location_group_routes.router)
