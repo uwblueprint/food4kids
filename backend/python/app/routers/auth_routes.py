@@ -272,7 +272,7 @@ async def update_password_authed(
             email, update_password_request.current_password
         )
     except FirebaseRestError as e:
-        if e.code in "INVALID_LOGIN_CREDENTIALS":
+        if e.code == "INVALID_LOGIN_CREDENTIALS":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Incorrect current password.",
