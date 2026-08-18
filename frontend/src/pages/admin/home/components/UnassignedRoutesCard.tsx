@@ -103,7 +103,7 @@ export function UnassignedRoutesCard() {
             {total > 0 && (
               <Tag
                 variant="error"
-                className="text-p3 h-auto shrink-0 rounded-full border-0 bg-[#F4D5D5] px-2.5 py-0.5 font-normal text-red"
+                className="text-p3 text-red flex h-auto shrink-0 items-center justify-center self-stretch rounded-full border-0 bg-[#F4D5D5] px-3 py-0 font-normal"
               >
                 {total} route{total === 1 ? '' : 's'}
               </Tag>
@@ -137,7 +137,7 @@ export function UnassignedRoutesCard() {
           <div className="flex min-h-0 gap-4">
             <UnassignedRoutePreviewCard
               route={selectedRoute}
-              className="w-[280px] shrink-0"
+              className="min-w-0"
             />
             <ul className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-y-auto">
               {routes.map((route) => {

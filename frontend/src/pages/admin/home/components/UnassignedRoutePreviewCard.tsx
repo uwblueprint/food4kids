@@ -71,9 +71,7 @@ function PreviewMetadata({ route }: { route: RouteWithDateRead }) {
   ].filter(Boolean);
 
   return (
-    <p className="text-m-p3 text-grey-400 font-normal">
-      {parts.join(' • ')}
-    </p>
+    <p className="text-m-p3 text-grey-400 font-normal">{parts.join(' • ')}</p>
   );
 }
 
@@ -89,11 +87,11 @@ export function UnassignedRoutePreviewCard({
     <>
       <div
         className={cn(
-          'border-grey-300 flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white',
+          'border-grey-300 flex min-w-0 flex-[1_0_0] flex-col items-start self-stretch overflow-hidden rounded-xl border bg-white',
           className
         )}
       >
-        <div className="relative h-40 w-full shrink-0 bg-grey-150">
+        <div className="bg-grey-150 relative h-40 w-full shrink-0">
           {isLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center">
               <Spinner size="sm" />
@@ -122,12 +120,12 @@ export function UnassignedRoutePreviewCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex flex-col items-start gap-4 self-stretch p-6">
           <div className="flex flex-col gap-0.5">
             <p className="text-m-p1 text-grey-500 font-bold">{route.name}</p>
             <PreviewMetadata route={route} />
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4 self-stretch">
             <Button
               variant="secondary"
               shape="compact"
