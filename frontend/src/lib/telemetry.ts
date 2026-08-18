@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react';
-import { isAxiosError } from 'axios';
+import { isAxiosError, isCancel } from 'axios';
 
 /**
  * The one sanctioned way to report a failure. Never hand an error object to a
@@ -27,6 +27,10 @@ interface FailureFacts {
 }
 
 export function reportError(error: unknown, context: string): void {
+  if (isCancel(error)) {
+    return;
+  }
+
   const url = isAxiosError(error) ? (error.config?.url ?? '') : '';
   const status = isAxiosError(error) ? error.response?.status : undefined;
   const facts: FailureFacts = isAxiosError(error)
@@ -65,7 +69,7 @@ export function reportError(error: unknown, context: string): void {
   const unexpected = facts.status === undefined || facts.status >= 500;
   if (unexpected) {
     Sentry.logger.error('Request failed', attributes);
-    Sentry.captureException(error, { extra: { ...facts } });
+    Sentry.captureException(error, { extra: attributes });
   } else {
     Sentry.logger.warn('Request failed', attributes);
   }

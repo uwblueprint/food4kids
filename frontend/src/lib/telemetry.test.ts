@@ -1,5 +1,10 @@
 import * as Sentry from '@sentry/react';
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios';
+import {
+  AxiosError,
+  AxiosHeaders,
+  type AxiosResponse,
+  CanceledError,
+} from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { reportError } from '@/lib/telemetry';
@@ -115,6 +120,13 @@ describe('reportError', () => {
     reportError(httpError(404), 'query');
     const [, attributes] = vi.mocked(Sentry.logger.warn).mock.calls[0];
     expect(attributes).not.toHaveProperty('online');
+  });
+
+  it('ignores a cancelled request', () => {
+    reportError(new CanceledError('canceled'), 'query');
+    expect(Sentry.logger.error).not.toHaveBeenCalled();
+    expect(Sentry.logger.warn).not.toHaveBeenCalled();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   it('carries only the context for a non-HTTP error', () => {
