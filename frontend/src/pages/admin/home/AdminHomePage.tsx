@@ -42,12 +42,8 @@ export const AdminHomePage = () => {
           </Card>
           <StatisticsWidget />
         </div>
-        <Card className={TILE}>
-          <CardContent>TODO: Unassigned Routes</CardContent>
-        </Card>
-        <Card className={TILE}>
         <UnassignedRoutesCard />
-        <Card>
+        <Card className={TILE}>
           <CardContent>TODO: Recent Notes</CardContent>
         </Card>
       </div>
