@@ -104,7 +104,7 @@ async def _add_location(
         name=name,
         contact_name=name,
         address=f"{name} Street",
-        phone_primary="5550000000",
+        phone_primary="tel:+1-519-576-0000",
         delivery_type="Family",
         latitude=latitude,
         longitude=longitude,

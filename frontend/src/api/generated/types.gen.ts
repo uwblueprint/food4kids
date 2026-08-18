@@ -1473,6 +1473,10 @@ export type NoteRead = {
    */
   attachments?: Array<Attachment>;
   /**
+   * Author Name
+   */
+  author_name?: string | null;
+  /**
    * Created At
    */
   created_at?: string | null;
@@ -1512,6 +1516,23 @@ export type NoteUpdate = {
    * Message
    */
   message: string;
+};
+
+/**
+ * OrgContactRead
+ *
+ * Smaller response object for callers that shouldn't see all settings
+ * (driver screens, error pages).
+ */
+export type OrgContactRead = {
+  /**
+   * Contact Name
+   */
+  contact_name: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone: string | null;
 };
 
 /**
@@ -4743,11 +4764,9 @@ export type GetSystemSettingsData = {
 
 export type GetSystemSettingsResponses = {
   /**
-   * Response Get System Settings
-   *
    * Successful Response
    */
-  200: SystemSettingsRead | null;
+  200: SystemSettingsRead;
 };
 
 export type GetSystemSettingsResponse =
@@ -4779,6 +4798,23 @@ export type PatchSystemSettingsResponses = {
 
 export type PatchSystemSettingsResponse =
   PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
+
+export type GetOrgContactData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/system-settings/contact';
+};
+
+export type GetOrgContactResponses = {
+  /**
+   * Successful Response
+   */
+  200: OrgContactRead;
+};
+
+export type GetOrgContactResponse =
+  GetOrgContactResponses[keyof GetOrgContactResponses];
 
 export type RenameDeliveryTypeData = {
   body: DeliveryTypeRename;

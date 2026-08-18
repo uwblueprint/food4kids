@@ -1,23 +1,12 @@
-"""Route freeze scheduled job.
+"""Route freeze scheduled job, run nightly at 23:59.
 
-Runs nightly at 23:59. For every route that is DUE (its group's drive_date
-is today or earlier) and not yet frozen, create the RouteSnapshot +
-RouteStopSnapshot rows that lock in what was delivered. The presence of the
-snapshot is the freeze signal — there is no separate flag column.
+Snapshots every route that is due (drive_date today or earlier) and not yet
+frozen. The presence of a RouteSnapshot is the freeze signal — there is no flag
+column — and it's also what stops the next run revisiting the route, so a freeze
+has to be all-or-nothing or its stops are stranded un-snapshotted for good.
 
-The job writes no mileage: driver history is derived at read time from
-frozen routes (see DriverHistoryService). Freezing a route is what makes
-it count.
-
-Because the scan is "due and un-frozen" rather than "dated today", a missed
-run, a crash mid-run, a night with unconfigured warehouse coordinates, or a
-route whose stops aren't geocoded yet all self-heal on the next successful
-run. Each route is processed in its own session/transaction, so one failing
-route can't poison the rest of the run.
-
-Freezing a route is all-or-nothing. The route snapshot is what stops the
-scan from revisiting it, so a partial freeze would strand un-snapshotted
-stops with no preserved address or contact details, permanently.
+Scanning by "due and un-frozen" rather than "dated today" means a missed or
+crashed run self-heals the next night. Each route gets its own transaction.
 """
 
 from __future__ import annotations

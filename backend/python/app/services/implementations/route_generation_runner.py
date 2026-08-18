@@ -1,16 +1,12 @@
 """Runs one claimed route generation job end to end.
 
-Called by the background worker after it has claimed a `PENDING` job and
-marked it `RUNNING`. The session is passed in rather than opened here, and
-the algorithm is passed in rather than resolved here. That is what makes the
-runner testable: tests call it directly with the `test_session` fixture
-(whose writes are never committed, so a worker-owned session on another
-connection couldn't see them) and a fake algorithm, instead of standing up
-a worker.
+Called by the background worker once it has claimed a `PENDING` job and marked
+it `RUNNING`. Session and algorithm are both passed in so tests can drive this
+directly with `test_session` and a fake algorithm, no worker involved.
 
-`run_generation_job` never raises. Every failure is recorded on the job as
-`FAILED` with a reason, because a job left sitting in `RUNNING` is a job the
-UI waits on forever.
+`run_generation_job` never raises — every failure is recorded on the job as
+`FAILED` with a reason, since a job stuck in `RUNNING` is one the UI waits on
+forever.
 """
 
 from __future__ import annotations

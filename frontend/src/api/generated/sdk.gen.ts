@@ -130,6 +130,8 @@ import type {
   GetNotesFeedErrors,
   GetNotesFeedResponses,
   GetNotesResponses,
+  GetOrgContactData,
+  GetOrgContactResponses,
   GetRouteData,
   GetRouteErrors,
   GetRouteGroupsData,
@@ -1587,7 +1589,8 @@ export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
 /**
  * Get System Settings
  *
- * Return the singleton system settings row, or null if none has been created.
+ * Return the singleton settings row. Never null — PATCH already raises on
+ * a missing row, so a soft read here would mean an unsaveable blank form.
  */
 export const getSystemSettings = <ThrowOnError extends boolean = false>(
   options?: Options<GetSystemSettingsData, ThrowOnError>
@@ -1624,6 +1627,25 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Org Contact
+ *
+ * The org's name and phone. Unauthenticated — the error page renders for
+ * logged-out visitors, and these are published details, not member data.
+ */
+export const getOrgContact = <ThrowOnError extends boolean = false>(
+  options?: Options<GetOrgContactData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetOrgContactResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/system-settings/contact',
+    ...options,
   });
 
 /**

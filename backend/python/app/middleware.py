@@ -20,27 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 class UnhandledExceptionMiddleware:
-    """Turn an unhandled exception into a 500 that says nothing about it.
+    """Log the traceback of an unhandled exception, answer with a bare 500.
 
-    Route handlers deliberately do *not* wrap their bodies in
-    ``except Exception``. Doing so per-handler cost us three things:
+    So handlers need no catch-all ``except Exception`` of their own — that
+    swallowed the ``HTTPException`` they had just raised and leaked internal
+    error text through ``detail``. Keep only specific ``except`` clauses that
+    map a known failure to a meaningful 4xx.
 
-    1. ``HTTPException`` subclasses ``Exception``, so a handler caught the
-       4xx it had just raised and re-emitted it as a 500 (see #216).
-    2. ``detail=str(e)`` leaked internal error text — SQL, constraint names,
-       third-party client messages — to whoever called the endpoint.
-    3. Re-raising as ``HTTPException`` made the failure look *expected* to
-       Starlette, so the original traceback was never logged.
-
-    This middleware sits inside the CORS layer (so the 500 still carries the
-    CORS headers a browser needs to read it) and outside the router, and
-    handles all three centrally: it logs the traceback and returns a fixed
-    body. Handlers keep only their specific ``except`` clauses, which map a
-    known failure to a meaningful 4xx.
-
-    If the response has already started, the body is committed and the status
-    line is long gone, so there is nothing to salvage — the exception is
-    re-raised for Starlette's ``ServerErrorMiddleware`` to deal with.
+    Wired inside the CORS layer, so the 500 still carries the headers a browser
+    needs to read it. Once the response has started there is nothing left to
+    change, and the exception goes on to Starlette.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -88,21 +77,9 @@ async def log_request_validation_error(request: Request, exc: Exception) -> Resp
     """Log a 422 on its way out, then let FastAPI answer it as it always has.
 
     FastAPI rejects a malformed request while resolving the route's parameters,
-    which is *before* any handler body runs. Nothing downstream of that point
-    ever executes, so a 422 leaves no trace: the caller is told which fields are
-    missing, and the server log shows the request never happened. Debugging one
-    means reproducing it with a network tab open, because the logs cannot help.
-
-    That combination cost a long session on #242, where the frontend was posting
-    JSON to a multipart endpoint. The server knew exactly what was wrong with the
-    request and said so only to the caller.
-
-    Only the *shape* of each error is logged — its location and message. The
-    ``input`` key that pydantic also returns echoes the submitted value back, and
-    these endpoints carry household addresses, phone numbers and children's
-    names; that belongs in a 422 body going to an authenticated admin, not in
-    container logs. The response itself is delegated rather than rebuilt, so the
-    contract the frontend and OpenAPI schema depend on cannot drift from here.
+    before any handler body runs, so without this a 422 leaves no server-side
+    trace at all — only the caller is told what was wrong. The response is
+    delegated rather than rebuilt so its shape can't drift from FastAPI's.
     """
     if not isinstance(exc, RequestValidationError):  # pragma: no cover - defensive
         raise exc

@@ -5,6 +5,7 @@ Comprehensive database seeding script with advanced features.
 
 import argparse
 import csv
+import logging
 import os
 import random
 import uuid
@@ -24,6 +25,7 @@ from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
 from app import initialize_firebase
+from app.config import settings
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
@@ -48,6 +50,8 @@ from app.models.system_settings import (
 # Import all models to register them with SQLModel
 from app.models.user import User
 from app.utilities.datetime_utils import from_local_wall_clock, now_utc
+from app.utilities.gcp_client import GCPStorageClient
+from app.utilities.seed_images import render_seed_image
 
 # Initialize Faker
 fake = faker.Faker()
@@ -82,6 +86,24 @@ MAX_LOCATION_CHAIN_NOTES = 3
 MAX_ROUTE_CHAIN_NOTES = 2
 # Max notes per driver chain
 MAX_DRIVER_CHAIN_NOTES = 3
+# Probability that a location note carries image attachments. Only location
+# notes get them: that chain is what the driver's route page renders, so it is
+# the only place a thumbnail is ever seen.
+PROBABILITY_LOCATION_NOTE_IMAGES = 0.35
+# Max images per note. Matches the frontend's own cap (NOTE_IMAGE_MAX) and the
+# NoteCreate limit, so the seed can't produce a note the API would reject.
+MAX_NOTE_IMAGES = 3
+# Number of distinct placeholder images uploaded once and shared across notes.
+# Re-using a small pool keeps seeding to a handful of uploads instead of one
+# per note, and the bucket to a fixed, known set of objects.
+SEED_NOTE_IMAGE_COUNT = 6
+# Stable key prefix for those objects, so a re-seed overwrites the previous
+# run's images rather than orphaning them.
+SEED_NOTE_IMAGE_PREFIX = "seed/note-images"
+# Signed URL lifetime for seeded images. Note reads re-sign from the stored
+# filename, so this only has to outlive the seed run itself; a week is the
+# ceiling GCS V4 signing allows and costs nothing to ask for.
+SEED_NOTE_IMAGE_URL_HOURS = 24 * 7
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -248,6 +270,48 @@ def set_timestamps(instance: BaseModel) -> None:
         instance.updated_at = instance.created_at
 
 
+def upload_seed_note_images() -> list[dict[str, str]]:
+    """Upload the shared placeholder images and return them as attachments.
+
+    Writes to fixed keys under ``SEED_NOTE_IMAGE_PREFIX`` so re-seeding replaces
+    the objects rather than piling up new ones. Returns nothing when GCS isn't
+    configured, which is how the boot smoke job runs; a failure with credentials
+    present is a real error and propagates.
+    """
+    if not (settings.gcp_bucket_name and settings.gcp_service_account_private_key):
+        print("  GCS is not configured — seeding notes without images")
+        return []
+
+    client = GCPStorageClient(logging.getLogger(__name__), settings.gcp_bucket_name)
+
+    attachments: list[dict[str, str]] = []
+    for index in range(SEED_NOTE_IMAGE_COUNT):
+        filename, contents = render_seed_image(index)
+        result = client.upload_file(
+            contents,
+            filename,
+            "image/png",
+            expiration_hours=SEED_NOTE_IMAGE_URL_HOURS,
+            key=f"{SEED_NOTE_IMAGE_PREFIX}/{index:02d}-{filename}",
+        )
+        attachments.append({"filename": result.filename, "url": result.url})
+
+    return attachments
+
+
+def pick_note_attachments(pool: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Choose the attachments for one note: usually none, sometimes up to three.
+
+    Returns copies so two notes sharing an image can never alias the same dict
+    into two JSON columns.
+    """
+    if not pool or random.random() >= PROBABILITY_LOCATION_NOTE_IMAGES:
+        return []
+
+    count = random.randint(1, min(MAX_NOTE_IMAGES, len(pool)))
+    return [dict(attachment) for attachment in random.sample(pool, count)]
+
+
 def ensure_firebase_user(
     uid: str,
     email: str,
@@ -260,27 +324,15 @@ def ensure_firebase_user(
 ) -> str:
     """Create or update a Firebase user so it is always loginable.
 
-    An existing user's password is deliberately left alone. Firebase treats a
-    password write as a credential change: it moves the account's
-    ``tokensValidAfterTime`` to now, which revokes every ID and refresh token
-    already issued. Because ``verify_id_token`` is called with
-    ``check_revoked=True``, everyone holding one is signed out on their very
-    next request.
+    An existing account's password is deliberately not rewritten. Firebase
+    treats a password write as a credential change and moves
+    ``tokensValidAfterTime`` to now, and since tokens are verified with
+    ``check_revoked=True``, that signs out everyone with an open session —
+    re-seeding would log developers out. Other fields don't do this and are
+    still written when they differ.
 
-    Rewriting the password unconditionally therefore made re-seeding sign out
-    every open session — including CI's, which seeds the same Firebase project
-    that local development uses, so an unrelated merge would log a developer
-    out mid-task. The password does not need writing anyway: it is a constant,
-    so on the second run it is already the value being written.
-
-    Measured against the real project, only the password does this — writing
-    ``display_name`` or custom claims leaves ``tokensValidAfterTime`` untouched.
-    The other fields are still written when they differ, which is why this
-    reconciles rather than blindly updating.
-
-    :param reset_password: Write the password even when the account exists, for
-        the case where it really has drifted. Signs everyone out; that is the
-        point, so it has to be asked for.
+    :param reset_password: Write the password anyway, for an account that has
+        genuinely drifted. Signs everyone out, so it has to be asked for.
     """
     full_name = f"{first_name} {last_name}"
     claims = {"role": role, "given_name": first_name, "family_name": last_name}
@@ -319,8 +371,12 @@ def ensure_firebase_user(
     return uid
 
 
-def generate_valid_phone() -> str:
-    """Generate a valid phone number in E164 format"""
+def generate_valid_phone(*, with_extension: bool = False) -> str:
+    """Generate a valid phone number in the stored RFC 3966 format.
+
+    ``with_extension`` seeds the ``;ext=`` case — schools and the F4K office
+    have extensions, so at least some seeded data should carry one.
+    """
     # Valid Canadian area codes (Ontario and Quebec)
     valid_area_codes = [416, 647, 437, 514, 613, 905, 289, 519, 226, 705, 807, 343, 365]
 
@@ -331,16 +387,18 @@ def generate_valid_phone() -> str:
         exchange = random.randint(200, 999)  # Exchange code (3 digits)
         number = random.randint(1000, 9999)  # Last 4 digits
         phone_str = f"+1{area_code}{exchange:03d}{number:04d}"
+        if with_extension:
+            phone_str += f" ext. {random.randint(1, 999)}"
 
         try:
             parsed = phonenumbers.parse(phone_str, None)
             if phonenumbers.is_valid_number(parsed):
-                return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+                return phonenumbers.format_number(parsed, PhoneNumberFormat.RFC3966)
         except Exception:
             continue
 
     # Fallback: return a known valid number if we can't generate one
-    return "+14165551234"
+    return "tel:+1-416-555-1234"
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -458,18 +516,12 @@ POLYLINE_BEND_FRACTION = 0.12
 def build_route_polyline(ordered_coords: list[tuple[float, float]], seed: int) -> str:
     """Encode a plausible-looking path through `ordered_coords`.
 
-    This does NOT follow real streets. The seeder has no routing provider, so
-    each leg is drawn as a bowed curve between its two stops — enough for the
-    route maps to read as routes instead of a star of straight lines out of the
-    warehouse, and nothing more. In production `encoded_polyline` comes from the
-    routing provider, so no code should ever treat a seeded polyline as
-    directions or measure anything off it; `Route.length` remains the haversine
-    figure the rest of the seeder already computes.
+    Each leg is a bowed curve, not real streets — enough that route maps read as
+    routes rather than a star out of the warehouse. Nothing may measure off a
+    seeded polyline; `Route.length` stays the haversine figure.
 
-    `seed` keeps a given cluster's shape stable across seed runs. The draws go
-    through a local Random rather than the module-level one on purpose: pulling
-    from the global stream here would shift every downstream random choice in
-    the seeder and silently change unrelated fixture data.
+    `seed` keeps a cluster's shape stable across runs, via a local Random so the
+    draws don't shift every other random choice in the seeder.
     """
     if len(ordered_coords) < 2:
         return ""
@@ -861,7 +913,11 @@ def main(*, reset_passwords: bool = False) -> None:
                             else contact_name,
                             contact_name=contact_name,
                             address=address,
-                            phone_primary=generate_valid_phone(),
+                            # Schools answer on a switchboard — seed them with
+                            # extensions so the ;ext= path is exercised.
+                            phone_primary=generate_valid_phone(
+                                with_extension=is_school
+                            ),
                             phone_secondary=generate_valid_phone()
                             if random.choice([True, False])
                             else None,
@@ -915,6 +971,7 @@ def main(*, reset_passwords: bool = False) -> None:
             # plans, so size the driver pool off total_clusters (routes don't
             # exist yet at this point in the refactored ordering).
             num_drivers = max(total_clusters, MIN_DRIVERS)
+            driver_author_ids: list[uuid.UUID] = []
 
             for i in range(num_drivers):
                 n = f"{i + 1:03d}"
@@ -942,6 +999,7 @@ def main(*, reset_passwords: bool = False) -> None:
                 )
                 set_timestamps(user)
                 session.add(user)
+                driver_author_ids.append(user.user_id)
 
                 # Ensure at least the first half of drivers are active
                 is_active = (
@@ -1055,20 +1113,12 @@ def main(*, reset_passwords: bool = False) -> None:
                 f"and {routes_created} route instances"
             )
 
-            # ----------------------------------------------------------------
-            # Explicit test fixtures. Dated one day before every other seeded
-            # group so they pin to the top of the oldest-first routes feed (page
-            # size 50), where the random past data is otherwise all assigned and
-            # fully stopped. These exercise UI states the random data won't
-            # reliably surface on page 1:
-            #   - two unassigned routes -> the "missing assigned drivers" banner
-            #   - a route with no stops -> route delete enabled
-            #   - a route with stops   -> route delete disabled (tooltip)
-            #   - an empty route group -> group delete enabled
-            #   - unscheduled + inactive standalone locations -> status/filter,
-            #     both safe to delete (not referenced by any route)
-            # All are named "TEST ..." so they're easy to spot and remove.
-            # ----------------------------------------------------------------
+            # Explicit "TEST ..." fixtures for UI states the random data won't
+            # reliably surface: unassigned routes (missing-driver banner), a
+            # route with and without stops (delete enabled/disabled), an empty
+            # route group, and unscheduled + inactive standalone locations.
+            # Dated a day before everything else so they land on page 1 of the
+            # oldest-first feed.
             print("Creating explicit test fixtures...")
             fixture_date = start_date - timedelta(days=1)
             fixture_loc_group_id = group_ids["Tuesday A"]
@@ -1197,9 +1247,16 @@ def main(*, reset_passwords: bool = False) -> None:
 
             # Create note chains for locations
             print("Creating note chains for locations...")
+            print("Uploading placeholder note images...")
+            note_image_pool = upload_seed_note_images()
+            if note_image_pool:
+                print(f"Uploaded {len(note_image_pool)} placeholder note images")
+
             location_chains_created = 0
             location_notes_created = 0
+            location_notes_with_images = 0
             all_locations = list(session.exec(select(Location)).all())
+            location_author_ids = admin_author_ids + driver_author_ids
 
             for location in all_locations:
                 note_chain = NoteChain(
@@ -1215,21 +1272,32 @@ def main(*, reset_passwords: bool = False) -> None:
 
                 if random.random() < PROBABILITY_LOCATION_CHAIN_NOTES:
                     num_notes = random.randint(1, MAX_LOCATION_CHAIN_NOTES)
-                    for _ in range(num_notes):
+                    if len(location_author_ids) >= num_notes:
+                        note_authors = random.sample(location_author_ids, num_notes)
+                    else:
+                        note_authors = [
+                            random.choice(location_author_ids) for _ in range(num_notes)
+                        ]
+                    for author_id in note_authors:
+                        attachments = pick_note_attachments(note_image_pool)
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=random.choice(admin_author_ids),
+                            user_id=author_id,
                             message=fake.sentence(),
                             is_system=False,
+                            attachments=attachments,
                         )
                         set_timestamps(note)
                         session.add(note)
                         location_notes_created += 1
+                        if attachments:
+                            location_notes_with_images += 1
 
             session.commit()
             print(
                 f"Created {location_chains_created} location note chains "
-                f"with {location_notes_created} notes"
+                f"with {location_notes_created} notes "
+                f"({location_notes_with_images} carrying images)"
             )
 
             # Create note chains for routes (only a sample, since the per-day
@@ -1347,7 +1415,8 @@ def main(*, reset_passwords: bool = False) -> None:
                 dropoff_minutes=3,
                 children_per_box=2,
                 contact_name="Emily Loro",
-                contact_phone=generate_valid_phone(),
+                # The real office number has an extension; keep the seed honest.
+                contact_phone=generate_valid_phone(with_extension=True),
                 f4k_wr_instagram="https://instagram.com/food4kidswr",
                 f4k_wr_facebook="https://facebook.com/food4kidswr",
                 f4k_wr_email="hello@food4kidswr.ca",

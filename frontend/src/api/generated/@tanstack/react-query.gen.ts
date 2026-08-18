@@ -53,6 +53,7 @@ import {
   getNoteChain,
   getNotes,
   getNotesFeed,
+  getOrgContact,
   getRoute,
   getRouteGroups,
   getRoutes,
@@ -204,6 +205,8 @@ import type {
   GetNotesFeedError,
   GetNotesFeedResponse,
   GetNotesResponse,
+  GetOrgContactData,
+  GetOrgContactResponse,
   GetRouteData,
   GetRouteError,
   GetRouteGroupsData,
@@ -2614,7 +2617,8 @@ export const getSystemSettingsQueryKey = (
 /**
  * Get System Settings
  *
- * Return the singleton system settings row, or null if none has been created.
+ * Return the singleton settings row. Never null — PATCH already raises on
+ * a missing row, so a soft read here would mean an unsaveable blank form.
  */
 export const getSystemSettingsOptions = (
   options?: Options<GetSystemSettingsData>
@@ -2665,6 +2669,34 @@ export const patchSystemSettingsMutation = (
   };
   return mutationOptions;
 };
+
+export const getOrgContactQueryKey = (options?: Options<GetOrgContactData>) =>
+  createQueryKey('getOrgContact', options);
+
+/**
+ * Get Org Contact
+ *
+ * The org's name and phone. Unauthenticated — the error page renders for
+ * logged-out visitors, and these are published details, not member data.
+ */
+export const getOrgContactOptions = (options?: Options<GetOrgContactData>) =>
+  queryOptions<
+    GetOrgContactResponse,
+    AxiosError<DefaultError>,
+    GetOrgContactResponse,
+    ReturnType<typeof getOrgContactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getOrgContact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getOrgContactQueryKey(options),
+  });
 
 /**
  * Rename Delivery Type

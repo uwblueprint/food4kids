@@ -22,21 +22,11 @@ IMPRECISE_LOCATION_TYPE = "APPROXIMATE"
 def is_precise_geocode_result(result: dict[str, Any]) -> bool:
     """True when a geocoder result identifies a specific street address.
 
-    Google answers almost any input with a successful match, falling back to
-    whatever it can find: "99999 Nonexistent Pkwy, Blandford Township" resolves
-    to the township centroid, a misspelled street resolves to the city, and a
-    bare postal code resolves to the middle of the delivery area. All of those
-    arrive as ordinary OK results, so a caller that only checks for None accepts
-    them and ends up sending a driver to a field.
-
-    A house we can deliver to always carries a street_number component and is
-    located more precisely than APPROXIMATE. Both conditions are needed —
-    neither alone is sufficient. Also rejects PO boxes and bare rural-route
-    addresses, which are real address formats but not places a driver can find.
-
-    Verified against real Waterloo Region addresses, urban and rural, including
-    apartments and unit numbers; test_google_maps_geocode_precision.py holds the
-    recorded response shapes.
+    Google returns an OK result for almost anything — a nonexistent street
+    number resolves to the township centroid — so "got a result" is not enough.
+    A house we can deliver to has both a street_number component and a
+    location_type better than APPROXIMATE; neither alone is sufficient. Also
+    rejects PO boxes and bare rural routes, which no driver can find.
     """
     component_types = {
         component_type
