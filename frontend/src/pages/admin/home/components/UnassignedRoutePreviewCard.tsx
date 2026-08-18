@@ -87,11 +87,11 @@ export function UnassignedRoutePreviewCard({
     <>
       <div
         className={cn(
-          'border-grey-300 flex min-w-0 flex-[1_0_0] flex-col items-start self-stretch overflow-hidden rounded-xl border bg-white',
+          'border-grey-300 isolate z-0 flex min-w-0 flex-[1_0_0] flex-col items-start self-stretch overflow-hidden rounded-xl border bg-white',
           className
         )}
       >
-        <div className="bg-grey-150 relative h-40 w-full shrink-0">
+        <div className="bg-grey-150 relative isolate z-0 h-40 w-full shrink-0 overflow-hidden [&_.leaflet-bottom]:z-0 [&_.leaflet-container]:z-0 [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-0">
           {isLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center">
               <Spinner size="sm" />
@@ -112,7 +112,7 @@ export function UnassignedRoutePreviewCard({
               Map unavailable
             </div>
           )}
-          <div className="absolute top-2.5 right-2.5 z-[500] flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 shadow-sm">
+          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 shadow-sm">
             <ClockIcon className="text-grey-400 size-3.5 shrink-0" />
             <span className="text-m-p3 text-grey-400 whitespace-nowrap">
               {startsIn}
