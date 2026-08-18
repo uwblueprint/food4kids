@@ -1023,7 +1023,7 @@ def main(*, reset_passwords: bool = False) -> None:
                     partner_driver_name=fake.name()
                     if random.choice([True, False])
                     else None,
-                    availability=[random.choice([True, False]) for _ in range(7)],
+                    availability=[random.choice([True, False]) for _ in range(5)],
                     address=fake.address(),
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),

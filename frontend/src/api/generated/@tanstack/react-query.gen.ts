@@ -770,7 +770,7 @@ export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
 /**
  * Get Drivers
  *
- * Get all drivers, optionally filter by driver_id or email
+ * Paginated driver rows with server-side name search and list aggregates.
  */
 export const getDriversOptions = (options?: Options<GetDriversData>) =>
   queryOptions<
@@ -790,6 +790,90 @@ export const getDriversOptions = (options?: Options<GetDriversData>) =>
     },
     queryKey: getDriversQueryKey(options),
   });
+
+const createInfiniteParams = <
+  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
+>(
+  queryKey: QueryKey<Options>,
+  page: K
+) => {
+  const params = { ...queryKey[0] };
+  if (page.body) {
+    params.body = {
+      ...(queryKey[0].body as any),
+      ...(page.body as any),
+    };
+  }
+  if (page.headers) {
+    params.headers = {
+      ...queryKey[0].headers,
+      ...page.headers,
+    };
+  }
+  if (page.path) {
+    params.path = {
+      ...(queryKey[0].path as any),
+      ...(page.path as any),
+    };
+  }
+  if (page.query) {
+    params.query = {
+      ...(queryKey[0].query as any),
+      ...(page.query as any),
+    };
+  }
+  return params as unknown as typeof page;
+};
+
+export const getDriversInfiniteQueryKey = (
+  options?: Options<GetDriversData>
+): QueryKey<Options<GetDriversData>> =>
+  createQueryKey('getDrivers', options, true);
+
+/**
+ * Get Drivers
+ *
+ * Paginated driver rows with server-side name search and list aggregates.
+ */
+export const getDriversInfiniteOptions = (options?: Options<GetDriversData>) =>
+  infiniteQueryOptions<
+    GetDriversResponse,
+    AxiosError<GetDriversError>,
+    InfiniteData<GetDriversResponse>,
+    QueryKey<Options<GetDriversData>>,
+    | number
+    | Pick<
+        QueryKey<Options<GetDriversData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetDriversData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getDrivers({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getDriversInfiniteQueryKey(options),
+    }
+  );
 
 /**
  * Initialize Driver
@@ -1382,40 +1466,6 @@ export const getLocationsOptions = (options?: Options<GetLocationsData>) =>
     },
     queryKey: getLocationsQueryKey(options),
   });
-
-const createInfiniteParams = <
-  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
->(
-  queryKey: QueryKey<Options>,
-  page: K
-) => {
-  const params = { ...queryKey[0] };
-  if (page.body) {
-    params.body = {
-      ...(queryKey[0].body as any),
-      ...(page.body as any),
-    };
-  }
-  if (page.headers) {
-    params.headers = {
-      ...queryKey[0].headers,
-      ...page.headers,
-    };
-  }
-  if (page.path) {
-    params.path = {
-      ...(queryKey[0].path as any),
-      ...(page.path as any),
-    };
-  }
-  if (page.query) {
-    params.query = {
-      ...(queryKey[0].query as any),
-      ...(page.query as any),
-    };
-  }
-  return params as unknown as typeof page;
-};
 
 export const getLocationsInfiniteQueryKey = (
   options?: Options<GetLocationsData>

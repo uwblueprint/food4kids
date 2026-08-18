@@ -218,7 +218,7 @@ class TestDataValidation:
             assert driver.phone.startswith("tel:+"), (
                 f"Driver phone {driver.phone} should be RFC 3966"
             )
-            assert len(driver.availability) == 7
+            assert len(driver.availability) == 5
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(driver.phone, None)
             ), f"Driver phone {driver.phone} should parse as valid"
