@@ -95,7 +95,7 @@ export function UnassignedRoutesCard() {
     routes.find((route) => routeKey(route) === effectiveSelectedKey) ?? null;
 
   return (
-    <Card className="col-span-2 min-h-0">
+    <Card className="shadow-admin-bento min-h-0 rounded-4xl">
       <CardHeader className="mb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
