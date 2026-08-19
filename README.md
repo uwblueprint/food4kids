@@ -91,6 +91,10 @@ gcloud secrets versions access latest --secret="f4k-development-backend-env" --p
 
 This writes `.env` to the repo root. You still need `frontend/.env` from the PL.
 
+> **If containers are already running,** re-pulling `.env` is not enough. Compose reads
+> `env_file` when a container is **created**, so `docker compose restart` silently keeps the
+> old values. Use `docker compose up -d --force-recreate` instead.
+
 ### Git hooks
 
 The repo ships a pre-commit hook that keeps the frontend OpenAPI client in sync with the backend automatically — when a commit touches the API contract it regenerates `frontend/openapi.json` and `frontend/src/api/generated/` (no running backend needed) and stages the result.
@@ -132,13 +136,27 @@ docker-compose exec backend alembic upgrade head
 # Connect to DB
 docker-compose exec db psql -U postgres -d f4k
 
-# Seed with test data
+# Seed with test data (needs app/data/locations.csv — see below)
 docker-compose exec backend python -m app.seed_database
+
+# Seed using the committed fake-data fixture instead of the real locations CSV
+docker-compose exec -e LOCATIONS_CSV_PATH=tests/data/test_locations.csv \
+  backend python -m app.seed_database
 
 # ...and restore every seed account's password, if one has drifted.
 # Signs out everyone currently logged in, so it is opt-in.
 docker-compose exec backend python -m app.seed_database --reset-passwords
 ```
+
+Seeding reads real location data from `backend/python/app/data/locations.csv`, which is
+gitignored and **not** in a fresh clone — without it the seed fails partway through with
+`FileNotFoundError: Locations CSV file not found at app/data/locations.csv`, after it has
+already cleared the database. Either get that file from the PL, or point
+`LOCATIONS_CSV_PATH` at the committed fixture as shown above (this is what CI does — see
+`.github/workflows/boot-smoke.yml`).
+
+A successful seed prints the login credentials: `admin1@f4k.dev` / `admin2@f4k.dev` and
+`driver001@f4k.dev`–`driver006@f4k.dev`, all with password `test123`.
 
 Seeding leaves existing Firebase accounts' passwords alone. Writing a password
 moves the account's `tokensValidAfterTime`, which revokes every token already
@@ -214,9 +232,71 @@ docker-compose up --build
 </details>
 
 <details>
+<summary>db container exits: "database files are incompatible with server"</summary>
+
+```
+FATAL:  database files are incompatible with server
+DETAIL: The data directory was initialized by PostgreSQL version 12,
+        which is not compatible with this version 17.x
+```
+
+Your `postgres_data` volume predates the Postgres 12 → 17 upgrade (#177). Postgres will not
+start on a data directory from an older major version, and the backend fails with it because
+it waits on `db` being healthy.
+
+The volume has to be recreated. **This destroys your local dev database**, which is fine if
+it is just seed data — back it up first if not.
+
+```bash
+docker compose down
+docker volume rm food4kids_postgres_data
+docker compose up -d
+docker compose exec backend alembic upgrade head
+# then re-seed (see Database above)
+```
+
+</details>
+
+<details>
+<summary>Frontend loads a blank page / "Failed to resolve import"</summary>
+
+Vite logs something like `Failed to resolve import "zustand" from "src/api/authStore.ts"`
+and the page renders empty. The `frontend_node_modules` volume is stale — it persists across
+rebuilds, so dependencies added since you last installed are missing.
+
+```bash
+docker compose exec -e CI=true frontend pnpm install
+docker compose restart frontend
+```
+
+`CI=true` matters: without it pnpm prompts "The modules directory will be removed and
+reinstalled from scratch. Proceed?" and hangs, because `exec` has no interactive stdin.
+
+</details>
+
+<details>
 <summary>Firebase authentication issues</summary>
 
 - Verify Firebase config in your env files
 - Ensure Firebase Admin SDK credentials are properly formatted
+
+Two failures worth naming, both seen while seeding:
+
+**`invalid_grant: Invalid grant: account not found`** — the service account in your `.env`
+no longer exists (deleted or rotated on the Google side), or `.env` points at a retired
+project. Re-pull `.env` from Secret Manager rather than hand-editing the
+`FIREBASE_SVC_ACCOUNT_*` values, then `docker compose up -d --force-recreate`.
+
+**`InsufficientPermissionError … (INSUFFICIENT_PERMISSION)`** — the credential authenticates
+but lacks Firebase Auth permissions, i.e. it is the wrong service account for the job. The
+app needs the **Firebase Admin SDK** account (`firebase-adminsdk-…@…`). Note that
+`food4kids-env-service-account.json` is *not* it — that key only exists to read Secret
+Manager for `pull-env.sh`, and it cannot create users.
+
+Confirm which account the container actually loaded:
+
+```bash
+docker compose exec backend printenv FIREBASE_PROJECT_ID FIREBASE_SVC_ACCOUNT_CLIENT_EMAIL
+```
 
 </details>
