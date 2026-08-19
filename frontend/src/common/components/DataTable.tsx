@@ -198,7 +198,10 @@ function DataTable<T>({
                   tabIndex={onRowClick ? 0 : undefined}
                   onClick={() => onRowClick?.(row)}
                   onKeyDown={(event) => {
-                    if (onRowClick && (event.key === 'Enter' || event.key === ' ')) {
+                    if (
+                      onRowClick &&
+                      (event.key === 'Enter' || event.key === ' ')
+                    ) {
                       event.preventDefault();
                       onRowClick(row);
                     }

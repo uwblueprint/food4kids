@@ -1761,11 +1761,7 @@ export type PaginatedResponseRouteWithDateRead = {
  * ProgressEnum
  */
 export type ProgressEnum =
-  | 'Pending'
-  | 'Running'
-  | 'Cancelled'
-  | 'Completed'
-  | 'Failed';
+  'Pending' | 'Running' | 'Cancelled' | 'Completed' | 'Failed';
 
 /**
  * RouteDetailRead

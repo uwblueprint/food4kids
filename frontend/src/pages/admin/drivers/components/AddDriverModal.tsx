@@ -49,7 +49,8 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
       },
       {
         onSuccess: () => setSent(true),
-        onError: () => setEmailError('A driver with this email already exists.'),
+        onError: () =>
+          setEmailError('A driver with this email already exists.'),
       }
     );
   };
@@ -68,7 +69,7 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
                 The driver will receive an email to set up their account.
               </p>
             </div>
-              <Button variant="primary" onClick={() => handleOpenChange(false)}>
+            <Button variant="primary" onClick={() => handleOpenChange(false)}>
               Done
             </Button>
           </div>
@@ -82,7 +83,11 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
             </ModalHeader>
             <Field>
               <FieldLabel required>First Name</FieldLabel>
-              <Input name="first_name" placeholder="Enter first name" required />
+              <Input
+                name="first_name"
+                placeholder="Enter first name"
+                required
+              />
             </Field>
             <Field>
               <FieldLabel required>Last Name</FieldLabel>
@@ -110,7 +115,11 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" disabled={initialize.isPending}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={initialize.isPending}
+              >
                 Send invite
               </Button>
             </ModalFooter>

@@ -83,7 +83,11 @@ export function DriverNotesModal({
           <Button variant="tertiary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={() => void save()} disabled={create.isPending}>
+          <Button
+            variant="primary"
+            onClick={() => void save()}
+            disabled={create.isPending}
+          >
             Save
           </Button>
         </ModalFooter>

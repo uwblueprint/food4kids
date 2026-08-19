@@ -72,7 +72,9 @@ export const AdminDriversPage = () => {
         header: 'Name',
         sortable: true,
         sortValue: (row) => row.first_name,
-        render: (row) => <HighlightText text={row.full_name} query={searchTerm} />,
+        render: (row) => (
+          <HighlightText text={row.full_name} query={searchTerm} />
+        ),
       },
       { key: 'email', header: 'Email', render: (row) => row.email },
       {
@@ -177,13 +179,19 @@ export const AdminDriversPage = () => {
                 />
               }
             />
-            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
       </div>
 
       <AddDriverModal open={addOpen} onOpenChange={setAddOpen} />
-      {selected && <DriverPanel selected={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <DriverPanel selected={selected} onClose={() => setSelected(null)} />
+      )}
     </>
   );
 };

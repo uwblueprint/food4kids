@@ -35,7 +35,8 @@ export function EditDriverModal({
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const optional = (name: string) => String(data.get(name) ?? '').trim() || null;
+    const optional = (name: string) =>
+      String(data.get(name) ?? '').trim() || null;
     update.mutate(
       {
         path: { driver_id: driver.driver_id },
@@ -59,16 +60,26 @@ export function EditDriverModal({
       <ModalContent className="max-h-[90vh] max-w-[560px] overflow-y-auto">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <ModalHeader>
-            <ModalTitle variant="confirmation">Edit Driver Information</ModalTitle>
+            <ModalTitle variant="confirmation">
+              Edit Driver Information
+            </ModalTitle>
           </ModalHeader>
           <div className="grid grid-cols-2 gap-4">
             <Field>
               <FieldLabel required>First Name</FieldLabel>
-              <Input name="first_name" defaultValue={driver.first_name} required />
+              <Input
+                name="first_name"
+                defaultValue={driver.first_name}
+                required
+              />
             </Field>
             <Field>
               <FieldLabel required>Last Name</FieldLabel>
-              <Input name="last_name" defaultValue={driver.last_name} required />
+              <Input
+                name="last_name"
+                defaultValue={driver.last_name}
+                required
+              />
             </Field>
           </div>
           <Field>
@@ -134,7 +145,11 @@ export function EditDriverModal({
             <p className="text-p2 text-red">Couldn&apos;t save this driver.</p>
           )}
           <ModalFooter className="pt-2">
-            <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="tertiary"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={update.isPending}>
