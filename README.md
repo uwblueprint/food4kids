@@ -95,6 +95,40 @@ This writes `.env` to the repo root. You still need `frontend/.env` from the PL.
 > `env_file` when a container is **created**, so `docker compose restart` silently keeps the
 > old values. Use `docker compose up -d --force-recreate` instead.
 
+**4. Add the billing variables (not yet in Secret Manager)**
+
+Three billing settings are missing from the stored secret, so a freshly pulled `.env` leaves
+`GET /billing/costs` returning **503**. Append them by hand:
+
+```bash
+BILLING_TARGET_PROJECT_ID=food4kids-473501
+BILLING_EXPORT_DATASET=billing_export
+BILLING_EXPORT_TABLE=gcp_billing_export_v1_0160D6_E1A41B_658629
+```
+
+This is tracked in [#269](https://github.com/uwblueprint/food4kids/pull/269)'s "Steps to Test".
+Delete this step once the secret carries them directly — see the note below.
+
+<details>
+<summary>Why the secret needs cleaning up</summary>
+
+The secret's billing block doesn't match [`app/config.py`](backend/python/app/config.py), and
+two of its keys have **trailing spaces in the key names**:
+
+| In the secret | Should be | Notes |
+| ------------- | --------- | ----- |
+| `EXPORT_TABLE_NAME ` | `BILLING_EXPORT_TABLE` | same value, wrong name — pure rename |
+| `BILLING_SERVICE_ACCOUNT ` | *(delete)* | byte-identical duplicate of `BILLING_SERVICE_ACCOUNT_CLIENT_EMAIL` |
+| — | `BILLING_TARGET_PROJECT_ID` | missing |
+| — | `BILLING_EXPORT_DATASET` | missing |
+
+Nothing in the repo reads either misnamed key, so renaming and deleting them is safe. The
+`BILLING_SERVICE_ACCOUNT_*` rename landed in `7a4ea0d2`; the secret was never finished to
+match. Fixing it needs Secret Manager Admin on `food4kids-473501` — the
+`food4kids-env-service-account.json` key is `versions.access` only and cannot write.
+
+</details>
+
 ### Git hooks
 
 The repo ships a pre-commit hook that keeps the frontend OpenAPI client in sync with the backend automatically — when a commit touches the API contract it regenerates `frontend/openapi.json` and `frontend/src/api/generated/` (no running backend needed) and stages the result.
