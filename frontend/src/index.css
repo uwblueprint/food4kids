@@ -267,7 +267,7 @@
 
 @layer utilities {
   /* Page-level margins from the F4K design system, ADMIN platform only.
-   * Mobile: 20px · Tablet: 40px · Desktop: 32px left/right, 40px top.
+   * Mobile: 20px · Tablet: 40px · Desktop: 32px all round.
    *
    * Driver pages must not use this: DriverLayout already applies the driver
    * spec (20px / 32px) to the whole platform, so adding this on top of it
@@ -291,7 +291,7 @@
     .admin-page-margins {
       padding-left: 2rem; /* 32px */
       padding-right: 2rem;
-      padding-top: 2.5rem; /* 40px */
+      padding-top: 2rem;
     }
   }
 }
