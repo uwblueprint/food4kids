@@ -59,7 +59,7 @@ export function UnassignedRoutePreviewCard({
         )}
       >
         <div className="border-grey-300 flex w-full flex-col overflow-hidden rounded-xl border bg-white">
-          <div className="bg-grey-150 relative isolate z-0 h-40 w-full shrink-0 overflow-hidden [&_.leaflet-bottom]:z-0 [&_.leaflet-container]:z-0 [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-0">
+          <div className="bg-grey-150 relative isolate z-0 h-[162px] w-full shrink-0 overflow-hidden [&_.leaflet-bottom]:z-0 [&_.leaflet-container]:z-0 [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-0">
             {isLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <Spinner size="sm" />
@@ -82,8 +82,8 @@ export function UnassignedRoutePreviewCard({
             )}
           </div>
 
-          <div className="flex flex-col items-start gap-4 self-stretch p-4">
-            <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-4 self-stretch px-4 pt-2 pb-4">
+            <div className="flex flex-col gap-1">
               <p className="text-h3 text-grey-500 font-bold">{route.name}</p>
               <PreviewMetadata route={route} />
             </div>
