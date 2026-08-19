@@ -18,6 +18,7 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
 
 from app import create_app
+from app.config import settings
 
 LOGGER_NAME = "app.middleware"
 
@@ -41,12 +42,17 @@ async def probe_household(household: Household) -> dict[str, int]:
 
 
 @pytest.fixture
-def probe_client() -> AsyncClient:
+def probe_client(monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """A client for the real app, with a route that validates a body.
 
     Built from ``create_app`` so the handler under test is the one the app
     actually registers, rather than a hand-wired copy.
+
+    ALLOWED_ORIGIN is configured here rather than inherited from the default
+    list, so the CORS assertions below test middleware ordering and not which
+    origins happen to ship enabled.
     """
+    monkeypatch.setattr(settings, "cors_origins", [ALLOWED_ORIGIN])
     app = create_app()
     app.include_router(probe_router)
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

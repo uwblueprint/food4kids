@@ -41,13 +41,11 @@ class Settings(BaseSettings):
     database_url: str = Field(default="")
 
     # CORS
-    cors_origins: list[str] = Field(
-        default=[
-            "http://localhost:3000",
-            "https://uw-blueprint-starter-code.firebaseapp.com",
-            "https://uw-blueprint-starter-code.web.app",
-        ]
-    )
+    # Empty by default: every deployed origin belongs to a specific
+    # deployment and is configured there. Development adds its own localhost
+    # entries in create_app(). An origin listed here is trusted with
+    # credentialed requests, so the default has to be nothing.
+    cors_origins: list[str] = Field(default=[])
     cors_supports_credentials: bool = Field(default=True)
 
     # Firebase
