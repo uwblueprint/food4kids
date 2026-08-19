@@ -94,8 +94,8 @@ export function UnassignedRoutesCard() {
 
   return (
     <Card className="shadow-admin-bento min-h-0 rounded-4xl">
-      <CardHeader className="mb-2">
-        <div className="flex items-center justify-between gap-2">
+      <CardHeader className="mb-4">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <CardTitle className="text-h2">Unassigned</CardTitle>
             {total > 0 && (

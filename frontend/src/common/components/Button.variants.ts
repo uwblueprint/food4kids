@@ -42,11 +42,13 @@ export const buttonVariants = cva(
       },
     },
     compoundVariants: [
-      /* textLink doesn't need pill sizing — reset padding, width, and radius */
+      /* textLink doesn't need pill sizing — reset padding, width, and radius.
+       * `leading-6` matches Figma's Text Link (16/24); the pill's own 20 would
+       * leave the link shorter than the heading it sits beside. */
       {
         variant: 'textLink',
         shape: 'default',
-        className: 'min-w-0 px-0 rounded-none w-auto h-auto',
+        className: 'min-w-0 p-0 rounded-none w-auto h-auto leading-6',
       },
     ],
     defaultVariants: {
