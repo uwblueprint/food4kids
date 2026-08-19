@@ -25,7 +25,8 @@ from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
 from app import initialize_firebase
-from app.config import Environment, settings
+from app.config import settings
+from app.database_url import SYNC_DRIVER, get_database_url
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
@@ -246,22 +247,6 @@ SMALL_CITIES = ["cambridge", "elmira", "new hamburg"]
 # Warehouse location
 WAREHOUSE_LAT, WAREHOUSE_LON = 43.402343, -80.464610
 WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
-
-
-def get_database_url() -> str:
-    """Build the database URL from the environment, like migrations/env.py.
-
-    In production, reads DATABASE_URL directly (supports Neon/Supabase/etc.
-    with SSL params). In development, builds from individual POSTGRES_* vars.
-    """
-    if settings.environment is Environment.PRODUCTION:
-        return os.environ["DATABASE_URL"]
-    return "postgresql://{username}:{password}@{host}:5432/{db}".format(
-        username=os.environ["POSTGRES_USER"],
-        password=os.environ["POSTGRES_PASSWORD"],
-        host=os.environ["DB_HOST"],
-        db=os.environ["POSTGRES_DB_DEV"],
-    )
 
 
 def set_timestamps(instance: BaseModel) -> None:
@@ -765,7 +750,7 @@ def main(*, reset_passwords: bool = False) -> None:
     print("Firebase initialized")
 
     # Create database connection
-    engine = create_engine(get_database_url(), echo=False)
+    engine = create_engine(get_database_url(SYNC_DRIVER), echo=False)
 
     with Session(engine) as session:
         try:
