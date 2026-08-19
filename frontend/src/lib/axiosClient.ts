@@ -123,4 +123,14 @@ axiosClient.interceptors.response.use(undefined, async (error: unknown) => {
   return axiosClient(config);
 });
 
+// Drop the request body and auth token from failed requests, so no error can
+// take them off this device. After the 401 handler: a replay re-sends config.
+axiosClient.interceptors.response.use(undefined, (error: unknown) => {
+  if (isAxiosError(error) && error.config) {
+    delete error.config.data;
+    error.config.headers?.delete('Authorization');
+  }
+  return Promise.reject(error);
+});
+
 export default axiosClient;

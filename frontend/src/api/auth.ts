@@ -33,9 +33,6 @@ export function useRegisterDriver() {
     onSuccess: (data) => {
       setAuthFromRegister(data);
     },
-    onError: (error) => {
-      console.error('Registration error:', error);
-    },
   });
 }
 
@@ -53,9 +50,6 @@ export function useLogin() {
     onSuccess: (data) => {
       setAuth(data);
     },
-    onError: (error) => {
-      console.error('Login error:', error);
-    },
   });
 }
 
@@ -70,7 +64,6 @@ export function useRefresh() {
         // token that aged out under an open tab restore the session identically.
         return await refreshSession();
       } catch (error) {
-        console.error('Session auto-refresh failed:', error);
         clearAuth();
         throw error;
       }
@@ -133,9 +126,6 @@ export function useLogout() {
     onSettled: () => {
       clearAuth();
       queryClient.clear();
-    },
-    onError: (error) => {
-      console.error('Logout error:', error);
     },
   });
 }
