@@ -95,37 +95,32 @@ This writes `.env` to the repo root. You still need `frontend/.env` from the PL.
 > `env_file` when a container is **created**, so `docker compose restart` silently keeps the
 > old values. Use `docker compose up -d --force-recreate` instead.
 
-**4. Add the billing variables (not yet in Secret Manager)**
-
-Three billing settings are missing from the stored secret, so a freshly pulled `.env` leaves
-`GET /billing/costs` returning **503**. Append them by hand:
-
-```bash
-BILLING_TARGET_PROJECT_ID=food4kids-473501
-BILLING_EXPORT_DATASET=billing_export
-BILLING_EXPORT_TABLE=gcp_billing_export_v1_0160D6_E1A41B_658629
-```
-
-This is tracked in [#269](https://github.com/uwblueprint/food4kids/pull/269)'s "Steps to Test".
-Delete this step once the secret carries them directly — see the note below.
+A pulled `.env` is complete — no variables need adding by hand. If `GET /billing/costs`
+returns **503**, your `.env` predates secret version 3 (2026-08-19); re-pull it.
 
 <details>
-<summary>Why the secret needs cleaning up</summary>
+<summary>What changed in secret version 3</summary>
 
-The secret's billing block doesn't match [`app/config.py`](backend/python/app/config.py), and
-two of its keys have **trailing spaces in the key names**:
+Versions 1–2 were missing the billing config the backend expects, so billing 503'd on a
+fresh pull and the workaround lived only in
+[#269](https://github.com/uwblueprint/food4kids/pull/269)'s "Steps to Test". Version 3
+reconciles the secret with [`app/config.py`](backend/python/app/config.py):
 
-| In the secret | Should be | Notes |
-| ------------- | --------- | ----- |
-| `EXPORT_TABLE_NAME ` | `BILLING_EXPORT_TABLE` | same value, wrong name — pure rename |
-| `BILLING_SERVICE_ACCOUNT ` | *(delete)* | byte-identical duplicate of `BILLING_SERVICE_ACCOUNT_CLIENT_EMAIL` |
-| — | `BILLING_TARGET_PROJECT_ID` | missing |
-| — | `BILLING_EXPORT_DATASET` | missing |
+| Change | Key |
+| ------ | --- |
+| renamed | `EXPORT_TABLE_NAME ` → `BILLING_EXPORT_TABLE` (same value) |
+| deleted | `BILLING_SERVICE_ACCOUNT ` — byte-identical duplicate of `BILLING_SERVICE_ACCOUNT_CLIENT_EMAIL` |
+| deleted | `FIREBASE_REQUEST_URI` — unreferenced starter-code leftover |
+| added | `BILLING_TARGET_PROJECT_ID` |
+| added | `BILLING_EXPORT_DATASET` |
 
-Nothing in the repo reads either misnamed key, so renaming and deleting them is safe. The
-`BILLING_SERVICE_ACCOUNT_*` rename landed in `7a4ea0d2`; the secret was never finished to
-match. Fixing it needs Secret Manager Admin on `food4kids-473501` — the
-`food4kids-env-service-account.json` key is `versions.access` only and cannot write.
+The first two key names carried trailing spaces, so they could never have matched a setting.
+No other value changed: 46 keys are common to both versions and all 46 are byte-identical.
+
+Note that several keys legitimately share a value and should **not** be merged — the
+`*_AUTH_URI` / `*_TOKEN_URI` / `*_AUTH_PROVIDER_X509_CERT_URL` pairs are Google's fixed OAuth
+endpoints, identical in every service-account JSON, and the four `*_PROJECT_ID` keys point at
+the same project today but belong to independent services.
 
 </details>
 
