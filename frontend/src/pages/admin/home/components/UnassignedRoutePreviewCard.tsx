@@ -58,7 +58,7 @@ export function UnassignedRoutePreviewCard({
           className
         )}
       >
-        <div className="border-grey-300 flex w-full flex-col overflow-hidden rounded-xl border bg-white">
+        <div className="outline-grey-300 flex w-full flex-col overflow-hidden rounded-xl bg-white outline outline-1 outline-offset-[-1px]">
           <div className="bg-grey-150 relative isolate z-0 h-[162px] w-full shrink-0 overflow-hidden [&_.leaflet-bottom]:z-0 [&_.leaflet-container]:z-0 [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-0">
             {isLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
