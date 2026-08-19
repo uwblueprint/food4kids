@@ -40,9 +40,7 @@ function PreviewMetadata({ route }: { route: RouteWithDateRead }) {
     `${route.num_stops} stop${route.num_stops === 1 ? '' : 's'}`,
   ].filter(Boolean);
 
-  return (
-    <p className="text-m-p3 text-grey-400 font-normal">{parts.join(' • ')}</p>
-  );
+  return <p className="text-p2 text-grey-400">{parts.join(' • ')}</p>;
 }
 
 export function UnassignedRoutePreviewCard({
@@ -56,7 +54,7 @@ export function UnassignedRoutePreviewCard({
     <>
       <div
         className={cn(
-          'isolate z-0 flex min-w-0 flex-[1_0_0] flex-col items-start self-stretch',
+          'isolate z-0 flex min-w-0 flex-col items-start self-stretch',
           className
         )}
       >
@@ -86,21 +84,15 @@ export function UnassignedRoutePreviewCard({
 
           <div className="flex flex-col items-start gap-4 self-stretch p-4">
             <div className="flex flex-col gap-0.5">
-              <p className="text-m-p1 text-grey-500 font-bold">{route.name}</p>
+              <p className="text-h3 text-grey-500 font-bold">{route.name}</p>
               <PreviewMetadata route={route} />
             </div>
             <div className="flex items-center gap-4 self-stretch">
-              <Button
-                variant="secondary"
-                shape="compact"
-                asChild
-                className="min-w-0 flex-1"
-              >
+              <Button variant="secondary" asChild className="min-w-0 flex-1">
                 <Link to="/admin/routes?tab=routes">View route</Link>
               </Button>
               <Button
                 variant="primary"
-                shape="compact"
                 className="min-w-0 flex-1"
                 onClick={() => setAssignOpen(true)}
               >
