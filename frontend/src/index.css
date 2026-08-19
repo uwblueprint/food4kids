@@ -267,14 +267,14 @@
 
 @layer utilities {
   /* Page-level margins from the F4K design system, ADMIN platform only.
-   * Mobile: 20px · Tablet: 40px · Desktop: 48px left/right, 40px top.
+   * Mobile: 20px · Tablet: 40px · Desktop: 32px left/right, 40px top.
    *
    * Driver pages must not use this: DriverLayout already applies the driver
    * spec (20px / 32px) to the whole platform, so adding this on top of it
    * doubles the padding rather than replacing it.
    *
-   * The desktop inset is measured off the admin frames: content runs 170→1392
-   * inside a 1440 frame whose nav rail is 120 wide, i.e. 48px either side. */
+   * The desktop inset is measured off the admin frames: content runs 152→1408
+   * inside a 1440 frame whose nav rail is 120 wide, i.e. 32px either side. */
   .admin-page-margins {
     padding-left: 1.25rem; /* 20px */
     padding-right: 1.25rem;
@@ -289,8 +289,8 @@
   }
   @media (width >= theme(--breakpoint-desktop)) {
     .admin-page-margins {
-      padding-left: 3rem; /* 48px */
-      padding-right: 3rem;
+      padding-left: 2rem; /* 32px */
+      padding-right: 2rem;
       padding-top: 2.5rem; /* 40px */
     }
   }

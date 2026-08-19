@@ -29,10 +29,10 @@ export const AdminHomePage = () => {
           <Account />
         </div>
       </div>
-      {/* The bento: a 331px right rail with the calendar and unassigned-routes
+      {/* The bento: a 363px right rail with the calendar and unassigned-routes
           tiles taking the rest, on 468px and 376px rows. Only the right rail is
           fixed — the left tiles grow with the viewport. */}
-      <div className="grid grid-cols-[1fr_331px] grid-rows-[468px_376px] gap-5">
+      <div className="grid grid-cols-[1fr_363px] grid-rows-[468px_376px] gap-5">
         <Card className={TILE}>
           <CardContent>TODO: Calendar</CardContent>
         </Card>
