@@ -5,9 +5,10 @@ from uuid import UUID
 
 import firebase_admin.auth
 from sqlalchemy import and_, case, func, or_
+from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.models.driver import (
     Driver,
@@ -130,10 +131,13 @@ class DriverService:
 
         mileage = (
             select(
-                Route.driver_id.label("driver_id"),
+                col(Route.driver_id).label("driver_id"),
                 func.sum(
                     case(
-                        (RouteGroup.drive_date >= current_year_start, Route.length),
+                        (
+                            col(RouteGroup.drive_date) >= current_year_start,
+                            col(Route.length),
+                        ),
                         else_=0,
                     )
                 ).label("current_year_km"),
@@ -141,34 +145,43 @@ class DriverService:
                     case(
                         (
                             and_(
-                                RouteGroup.drive_date >= last_year_start,
-                                RouteGroup.drive_date < current_year_start,
+                                col(RouteGroup.drive_date) >= last_year_start,
+                                col(RouteGroup.drive_date) < current_year_start,
                             ),
-                            Route.length,
+                            col(Route.length),
                         ),
                         else_=0,
                     )
                 ).label("last_year_km"),
-                func.max(RouteGroup.drive_date).label("last_delivery"),
+                func.max(col(RouteGroup.drive_date)).label("last_delivery"),
             )
-            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)
-            .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)
-            .where(Route.driver_id.is_not(None))
-            .group_by(Route.driver_id)
+            .join(
+                RouteGroup,
+                col(RouteGroup.route_group_id) == col(Route.route_group_id),
+            )
+            .join(RouteSnapshot, col(RouteSnapshot.route_id) == col(Route.route_id))
+            .where(col(Route.driver_id).is_not(None))
+            .group_by(col(Route.driver_id))
             .subquery()
         )
         activity = (
-            select(Route.driver_id.label("driver_id"))
-            .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)
-            .where(Route.driver_id.is_not(None), RouteGroup.drive_date >= today)
-            .group_by(Route.driver_id)
+            select(col(Route.driver_id).label("driver_id"))
+            .join(
+                RouteGroup,
+                col(RouteGroup.route_group_id) == col(Route.route_group_id),
+            )
+            .where(
+                col(Route.driver_id).is_not(None),
+                col(RouteGroup.drive_date) >= today,
+            )
+            .group_by(col(Route.driver_id))
             .subquery()
         )
 
         current_km = func.coalesce(mileage.c.current_year_km, 0)
         last_km = func.coalesce(mileage.c.last_year_km, 0)
         statement = (
-            select(
+            sa_select(
                 Driver,
                 current_km.label("current_year_km"),
                 last_km.label("last_year_km"),
@@ -176,22 +189,22 @@ class DriverService:
                 activity.c.driver_id.is_not(None).label("is_active"),
             )
             .options(selectinload(Driver.user))  # type: ignore[arg-type]
-            .join(User, User.user_id == Driver.user_id)
-            .outerjoin(mileage, mileage.c.driver_id == Driver.driver_id)
-            .outerjoin(activity, activity.c.driver_id == Driver.driver_id)
+            .join(User, col(User.user_id) == col(Driver.user_id))
+            .outerjoin(mileage, mileage.c.driver_id == col(Driver.driver_id))
+            .outerjoin(activity, activity.c.driver_id == col(Driver.driver_id))
         )
         if search and (term := search.strip()):
             pattern = f"%{term}%"
             statement = statement.where(
                 or_(
-                    User.first_name.ilike(pattern),
-                    User.last_name.ilike(pattern),
-                    (User.first_name + " " + User.last_name).ilike(pattern),
+                    col(User.first_name).ilike(pattern),
+                    col(User.last_name).ilike(pattern),
+                    (col(User.first_name) + " " + col(User.last_name)).ilike(pattern),
                 )
             )
 
         sort_columns = {
-            "name": (User.first_name, User.last_name),
+            "name": (col(User.first_name), col(User.last_name)),
             "current_year_km": (current_km,),
             "last_year_km": (last_km,),
             "last_delivery": (mileage.c.last_delivery,),
@@ -204,7 +217,7 @@ class DriverService:
                 else column.asc().nulls_last()
                 for column in columns
             ),
-            Driver.driver_id,
+            col(Driver.driver_id),
         )
         result, total = await paginate_query(session, statement, pagination)
         rows = [
