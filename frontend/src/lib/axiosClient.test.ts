@@ -316,7 +316,8 @@ describe('session expiry', () => {
  */
 describe('refreshing an aged-out token', () => {
   type Reply =
-    { status: number; body?: unknown } | { networkError: true; status?: never };
+    | { status: number; body?: unknown }
+    | { networkError: true; status?: never };
 
   let requests: InternalAxiosRequestConfig[] = [];
 
