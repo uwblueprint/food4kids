@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app import create_app
 from app.config import Environment, settings
+from app.routers import API_PREFIX
 
 UNKNOWN = "https://not-ours.example.com"
 LOCALHOST = "http://localhost:3000"
@@ -28,7 +29,7 @@ def client(monkeypatch: pytest.MonkeyPatch, environment: Environment) -> TestCli
 def allowed_origin(test_client: TestClient, origin: str) -> str | None:
     """The Access-Control-Allow-Origin a preflight from ``origin`` gets back."""
     response = test_client.options(
-        "/auth/login",
+        f"{API_PREFIX}/auth/login",
         headers={
             "Origin": origin,
             "Access-Control-Request-Method": "POST",
