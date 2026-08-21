@@ -1,12 +1,19 @@
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Calendar,
-} from '@/common/components';
+import { addDays, format, startOfWeek } from 'date-fns';
+
+import { Button, Card, CardContent, CardHeader } from '@/common/components';
 
 export function CalendarWidget() {
+  const today = new Date();
+  const monday = startOfWeek(today, { weekStartsOn: 1 });
+  const weekDays = Array.from({ length: 5 }, (_, index) => {
+    const dayDate = addDays(monday, index);
+    return {
+      dayName: format(dayDate, 'eee'),
+      dayNumber: format(dayDate, 'd'),
+      dateKey: dayDate.toISOString(),
+    };
+  });
+
   return (
     <Card className="shadow-admin-bento col-span-2 gap-4 rounded-4xl">
       <CardHeader className="flex-row justify-between">
@@ -21,7 +28,13 @@ export function CalendarWidget() {
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div></div>
+        <div className="flex justify-between">
+          {weekDays.map(({ dayName, dayNumber, dateKey }) => (
+            <Button key={dateKey} variant="secondary">
+              {`${dayName} ${dayNumber}`}
+            </Button>
+          ))}
+        </div>
         <div></div>
       </CardContent>
     </Card>
