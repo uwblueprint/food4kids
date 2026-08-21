@@ -25,9 +25,10 @@ from sqlalchemy import update
 from sqlmodel import col, select
 
 from app import models as app_models
-from app.dependencies.services import get_routing_algorithm
-from app.models.enum import ProgressEnum
+from app.dependencies.services import build_routing_algorithm
+from app.models.enum import ProgressEnum, RouteGenerationMethod
 from app.models.job import Job
+from app.models.system_settings import SystemSettings
 from app.services.implementations.route_generation_runner import run_generation_job
 from app.utilities.datetime_utils import now_utc
 
@@ -209,6 +210,34 @@ async def route_generation_worker_loop() -> None:
         raise
 
 
+async def _build_algorithm_for_job(
+    session: AsyncSession,
+    session_maker: Any,
+) -> Any:
+    """Build this job's routing engine from the configured method.
+
+    The warehouse and box size come from the same settings row, since the
+    in-house engine clusters around the depot and needs both up front.
+    """
+    row = (await session.execute(select(SystemSettings).limit(1))).scalars().first()
+    if row is None:
+        raise RuntimeError(
+            "SystemSettings row is missing; it must be created at startup "
+            "via ensure_settings()."
+        )
+
+    method = RouteGenerationMethod(row.route_generation_method)
+    logger.info("Route generation method: %s", method.value)
+
+    return build_routing_algorithm(
+        method,
+        session_maker,
+        warehouse_lat=row.warehouse_latitude or 0.0,
+        warehouse_lon=row.warehouse_longitude or 0.0,
+        children_per_box=row.children_per_box,
+    )
+
+
 async def _claim_and_run_one() -> bool:
     """Claim one job and run it. Returns False when claim finds no PENDING job.
 
@@ -222,12 +251,14 @@ async def _claim_and_run_one() -> bool:
         )
         return False
 
-    algorithm = get_routing_algorithm()
     async with session_maker() as session:
         job_id = await claim_next_pending_job(session)
         if job_id is None:
             return False
         logger.info("Claimed route generation job %s", job_id)
+        # Built per job, after claiming, so an admin changing the method in
+        # settings takes effect on the next job rather than at process start.
+        algorithm = await _build_algorithm_for_job(session, session_maker)
         started = time.perf_counter()
         await run_generation_job(job_id, session, algorithm)
         logger.info(
