@@ -69,6 +69,20 @@ class Settings(BaseSettings):
     route_opt_private_key: str = Field(default="")
     route_opt_client_email: str = Field(default="")
 
+    # Route generation quotas — each Google SKU's free monthly allowance, in
+    # that SKU's own billing unit. Google grants these per SKU and they do not
+    # pool, so they are tracked and configured separately.
+    #
+    # Route Optimization bills per *shipment*, and one generation sends one
+    # shipment per delivery plus one per vehicle, so 1000 covers only ~11 runs
+    # of a typical 75-stop group. Set below the true allowance to leave headroom
+    # for our counter drifting from Google's.
+    quota_fleet_routing_shipments: int = Field(default=1000)
+    quota_single_vehicle_shipments: int = Field(default=1000)
+    # Routes API computeRoutes bills per *request* — a much larger allowance,
+    # also drawn on by route polyline lookups.
+    quota_routes_compute_requests: int = Field(default=10000)
+
     # GCP
     gcp_bucket_name: str = Field(default="")
     gcp_service_account_project_id: str = Field(default="")
