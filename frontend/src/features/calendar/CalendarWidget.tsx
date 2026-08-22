@@ -1,6 +1,8 @@
 import { addDays, format, startOfWeek } from 'date-fns';
 import { useMemo, useState } from 'react';
 
+import ChevronLeftIcon from '@/assets/icons/chevron-left.svg?react';
+import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
 import {
@@ -43,9 +45,12 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
 
 export function CalendarWidget() {
   const today = new Date();
-  const monday = startOfWeek(today, { weekStartsOn: 1 });
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() =>
+    startOfWeek(today, { weekStartsOn: 1 })
+  );
+
   const weekDays = Array.from({ length: 5 }, (_, index) => {
-    const dayDate = addDays(monday, index);
+    const dayDate = addDays(currentWeekStart, index);
     return {
       dayName: format(dayDate, 'eee'),
       dayNumber: format(dayDate, 'd'),
@@ -61,6 +66,22 @@ export function CalendarWidget() {
 
   const [selectedDateKey, setSelectedDateKey] =
     useState<string>(initialSelectedKey);
+
+  const handlePrevWeek = () => {
+    setCurrentWeekStart((prev) => {
+      const newWeek = addDays(prev, -7);
+      setSelectedDateKey(toNaiveDateString(newWeek));
+      return newWeek;
+    });
+  };
+
+  const handleNextWeek = () => {
+    setCurrentWeekStart((prev) => {
+      const newWeek = addDays(prev, 7);
+      setSelectedDateKey(toNaiveDateString(newWeek));
+      return newWeek;
+    });
+  };
 
   const { data } = useRoutes({
     start_date: toNaiveDateString(weekDays[0].dayDate),
@@ -87,19 +108,33 @@ export function CalendarWidget() {
 
   return (
     <Card className="shadow-admin-bento gap-4 rounded-4xl">
-      <CardHeader className="flex-row justify-between">
+      <CardHeader className="flex-row items-center justify-between">
         <div>
           <h2 className="font-nunito text-h2 text-grey-500 font-bold">
             Calendar
           </h2>
-          <h3>This week</h3>
         </div>
-        <div className="flex gap-4">
-          <Button variant="secondary">Print all routes</Button>
+        <div className="flex items-center">
+          <button
+            type="button"
+            aria-label="Previous week"
+            onClick={handlePrevWeek}
+            className="text-grey-400 hover:bg-grey-200 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-blue-300"
+          >
+            <ChevronLeftIcon className="size-6" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next week"
+            onClick={handleNextWeek}
+            className="text-grey-400 hover:bg-grey-200 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-blue-300"
+          >
+            <ChevronRightIcon className="size-6" />
+          </button>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex justify-between">
+        <div className="flex justify-between gap-3">
           {weekDays.map(({ dayName, dayNumber, dateKey }) => {
             const isSelected = selectedDateKey === dateKey;
             return (
@@ -108,8 +143,10 @@ export function CalendarWidget() {
                 variant="secondary"
                 onClick={() => setSelectedDateKey(dateKey)}
                 className={cn(
-                  isSelected &&
+                  `flex-1 ${
+                    isSelected &&
                     'border-blue-200 bg-blue-50 text-blue-300 hover:bg-blue-100'
+                  }`
                 )}
               >
                 {`${dayName} ${dayNumber}`}
