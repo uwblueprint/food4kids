@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlmodel import SQLModel, create_engine
 
+from app.config import Environment, settings
+
 # Database engines
 engine: Engine | None = None
 async_engine: AsyncEngine | None = None
@@ -19,7 +21,7 @@ async_session_maker_instance: async_sessionmaker[AsyncSession] | None = None
 
 def get_database_url() -> str:
     """Get database URL based on environment"""
-    if os.getenv("APP_ENV") == "production":
+    if settings.environment is Environment.PRODUCTION:
         return os.getenv("DATABASE_URL", "").replace(
             "postgresql://", "postgresql+asyncpg://"
         )
@@ -30,7 +32,7 @@ def get_database_url() -> str:
             host=os.getenv("DB_HOST"),
             db=(
                 os.getenv("POSTGRES_DB_TEST")
-                if os.getenv("APP_ENV") == "testing"
+                if settings.environment is Environment.TESTING
                 else os.getenv("POSTGRES_DB_DEV")
             ),
         )
@@ -44,8 +46,7 @@ def init_database() -> None:
     sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
 
     # Set echo based on environment
-    app_env = os.getenv("APP_ENV")
-    echo_sql = app_env in ("development", "testing")
+    echo_sql = settings.environment in (Environment.DEVELOPMENT, Environment.TESTING)
 
     # Synchronous engine for migrations
     engine = create_engine(sync_database_url, echo=echo_sql)
@@ -115,5 +116,5 @@ def init_app(_app: Any | None = None) -> None:
     init_database()
 
     # Create tables if in testing mode
-    if os.getenv("APP_ENV") == "testing":
+    if settings.environment is Environment.TESTING:
         create_db_and_tables()
