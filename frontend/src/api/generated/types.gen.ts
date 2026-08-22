@@ -1650,6 +1650,16 @@ export type ProgressEnum =
   | 'Failed';
 
 /**
+ * ResendOnboardingEmailRequest
+ */
+export type ResendOnboardingEmailRequest = {
+  /**
+   * Email
+   */
+  email: string;
+};
+
+/**
  * RouteDetailRead
  *
  * GET /routes/{route_id} response: the bare route plus its ordered stops.
@@ -2953,6 +2963,33 @@ export type RefreshResponses = {
 };
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
+
+export type ResendOnboardingEmailData = {
+  body: ResendOnboardingEmailRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/resend-onboarding';
+};
+
+export type ResendOnboardingEmailErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResendOnboardingEmailError =
+  ResendOnboardingEmailErrors[keyof ResendOnboardingEmailErrors];
+
+export type ResendOnboardingEmailResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ResendOnboardingEmailResponse =
+  ResendOnboardingEmailResponses[keyof ResendOnboardingEmailResponses];
 
 export type UpdatePasswordData = {
   body: UpdatePasswordRequest;

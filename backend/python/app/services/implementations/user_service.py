@@ -36,10 +36,14 @@ class UserService:
             self.logger.error(f"Failed to get user by id: {e!s}")
             raise e
 
-    async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
+    async def get_user_by_email(
+        self, session: AsyncSession, email: str, for_update: bool = False
+    ) -> User | None:
         """Get user by email, if they are still a driver or an admin"""
         try:
             statement = select(User).where(User.email == email)
+            if for_update:
+                statement = statement.with_for_update()
             result = await session.execute(statement)
             user = result.scalars().first()
 
