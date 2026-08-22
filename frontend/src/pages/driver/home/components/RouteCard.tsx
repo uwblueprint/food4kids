@@ -1,8 +1,9 @@
+import { Link } from 'react-router-dom';
+
 import type { RouteStopDetailRead } from '@/api/generated';
 import { Button } from '@/common/components/Button';
 import { RouteMap } from '@/common/components/RouteMap';
 import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
 
 export interface RouteCardProps {
   title: string;
