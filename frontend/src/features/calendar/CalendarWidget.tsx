@@ -40,7 +40,7 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
     header: 'Start Time',
     render: (row) => formatStartTime(row.start_time) ?? '—',
   },
-  { key: 'num_stops', header: '# of Stops', render: (row) => row.num_stops },
+  { key: 'num_stops', header: 'Stops', render: (row) => row.num_stops },
 ];
 
 export function CalendarWidget() {
