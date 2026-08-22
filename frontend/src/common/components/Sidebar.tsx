@@ -79,6 +79,12 @@ interface SidebarMenuItemProps {
   label: string;
   to: string;
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  /**
+   * The icon's own size, for the ones whose artwork isn't square — `size-6`
+   * would stretch them. The 24px box around it stays either way, so the
+   * labels below keep their line.
+   */
+  iconClassName?: string;
   end?: boolean;
 }
 
@@ -86,6 +92,7 @@ function SidebarMenuItem({
   label,
   to,
   icon: Icon,
+  iconClassName = 'size-6',
   end = false,
 }: SidebarMenuItemProps) {
   return (
@@ -104,8 +111,10 @@ function SidebarMenuItem({
         )
       }
     >
-      <Icon className="size-6" />
-      <span className="text-m-p2 text-center">{label}</span>
+      <span className="flex size-6 items-center justify-center">
+        <Icon className={iconClassName} />
+      </span>
+      <span className="text-p1 text-center">{label}</span>
     </NavLink>
   );
 }

@@ -4,10 +4,13 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from google.api_core import exceptions as gcp_exceptions
-from google.cloud import storage  # type: ignore[import-untyped]
-from google.oauth2 import service_account
+
+# google-cloud-bigquery ships py.typed, so mypy now resolves the google.cloud
+# namespace and reports the untyped storage package as a missing attribute.
+from google.cloud import storage  # type: ignore[attr-defined]
 
 from app.config import settings
+from app.utilities.gcp_credentials import build_service_account_credentials
 
 
 class GCSStorageError(Exception):
@@ -28,21 +31,16 @@ class GCPStorageClient:
     def __init__(self, logger: logging.Logger, bucket_name: str) -> None:
         self.logger = logger
 
-        credentials = service_account.Credentials.from_service_account_info(
-            {
-                "type": "service_account",
-                "project_id": settings.gcp_service_account_project_id,
-                "private_key_id": settings.gcp_service_account_private_key_id,
-                "private_key": settings.gcp_service_account_private_key.replace(
-                    "\\n", "\n"
-                ).strip(),
-                "client_email": settings.gcp_service_account_client_email,
-                "client_id": settings.gcp_service_account_client_id,
-                "auth_uri": settings.gcp_service_account_auth_uri,
-                "token_uri": settings.gcp_service_account_token_uri,
-                "auth_provider_x509_cert_url": settings.gcp_service_account_auth_provider_x509_cert_url,
-                "client_x509_cert_url": settings.gcp_service_account_client_x509_cert_url,
-            }
+        credentials = build_service_account_credentials(
+            project_id=settings.gcp_service_account_project_id,
+            private_key_id=settings.gcp_service_account_private_key_id,
+            private_key=settings.gcp_service_account_private_key,
+            client_email=settings.gcp_service_account_client_email,
+            client_id=settings.gcp_service_account_client_id,
+            auth_uri=settings.gcp_service_account_auth_uri,
+            token_uri=settings.gcp_service_account_token_uri,
+            auth_provider_x509_cert_url=settings.gcp_service_account_auth_provider_x509_cert_url,
+            client_x509_cert_url=settings.gcp_service_account_client_x509_cert_url,
         )
         self.client = storage.Client(credentials=credentials)
         self.bucket = self.client.bucket(bucket_name)
@@ -53,16 +51,24 @@ class GCPStorageClient:
         filename: str,
         content_type: str,
         expiration_hours: int = 1,
+        key: str | None = None,
     ) -> UploadResult:
-        """Upload a file to GCS and return a signed URL"""
-        key = f"{uuid.uuid4()}-{filename}"
-        blob = self.bucket.blob(key)
+        """Upload a file to GCS and return a signed URL
+
+        :param key: Object key to write, instead of the default
+            ``<uuid>-<filename>``. User uploads must keep the default so two
+            people uploading ``photo.jpg`` don't collide. A caller that owns
+            its whole keyspace and wants writes to be repeatable — the seed
+            script, which would otherwise orphan a fresh copy of every image
+            on each run — passes one explicitly.
+        """
+        object_key = key if key is not None else f"{uuid.uuid4()}-{filename}"
+        blob = self.bucket.blob(object_key)
         try:
             blob.upload_from_string(contents, content_type=content_type)
 
-            url = blob.generate_signed_url(
-                expiration=timedelta(hours=expiration_hours),
-                method="GET",
+            url = self.generate_signed_url(
+                object_key, expiration_hours=expiration_hours
             )
         except gcp_exceptions.Forbidden as e:
             raise GCSStorageError("Storage upload failed: permission denied.") from e
@@ -77,11 +83,35 @@ class GCPStorageClient:
             ) from e
 
         return UploadResult(
-            filename=key,
+            filename=object_key,
             url=url,
             content_type=content_type,
             size_bytes=len(contents),
         )
+
+    def generate_signed_url(self, filename: str, expiration_hours: int = 24) -> str:
+        """Mint a time-limited GET URL for an existing object.
+
+        Upload stores these URLs on notes, but they expire (default upload
+        expiry is 1h). Callers that *read* notes should re-sign from
+        ``filename`` so thumbnails keep working after the stored URL dies.
+        """
+        try:
+            return str(
+                self.bucket.blob(filename).generate_signed_url(
+                    expiration=timedelta(hours=expiration_hours),
+                    method="GET",
+                )
+            )
+        except gcp_exceptions.Forbidden as e:
+            raise GCSStorageError(
+                "Storage signed URL failed: permission denied."
+            ) from e
+        except Exception as e:
+            self.logger.exception("Unexpected error generating signed URL.")
+            raise GCSStorageError(
+                "Storage signed URL failed due to an unexpected error."
+            ) from e
 
     def delete_file(self, filename: str) -> None:
         """Delete a file from GCS"""

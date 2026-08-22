@@ -9,6 +9,7 @@ from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient, FirebaseRestError
 
 if TYPE_CHECKING:
+    from app.services.implementations.admin_service import AdminService
     from app.services.implementations.driver_service import DriverService
     from app.services.implementations.email_service import EmailService
     from app.services.implementations.user_service import UserService
@@ -46,6 +47,7 @@ class AuthService:
         logger: Logger,
         user_service: "UserService",
         driver_service: "DriverService",
+        admin_service: "AdminService",
         email_service: "EmailService | None" = None,
     ) -> None:
         """
@@ -55,12 +57,15 @@ class AuthService:
         :type logger: Logger
         :param user_service: a user_service instance
         :type user_service: IUserService
+        :param driver_service: a driver_service instance
+        :param admin_service: an admin_service instance
         :param email_service: an email_service instance
         :type email_service: Optional[IEmailService]
         """
         self.logger: Logger = logger
         self.user_service: UserService = user_service
         self.driver_service: DriverService = driver_service
+        self.admin_service: AdminService = admin_service
         self.email_service: EmailService | None = email_service
         self.firebase_rest_client: FirebaseRestClient = FirebaseRestClient(logger)
 
@@ -81,6 +86,16 @@ class AuthService:
                 raise ValueError("Invalid email or password")
 
             # Create AuthResponse with all required fields (refresh_token excluded - it goes in httpOnly cookie)
+            driver_id = None
+            if user.role.lower() == "driver" and user.auth_id:
+                driver_id = await self.driver_service.get_driver_id_by_auth_id(
+                    session, user.auth_id
+                )
+            admin_id = None
+            if user.role.lower() == "admin" and user.auth_id:
+                admin_id = await self.admin_service.get_admin_id_by_auth_id(
+                    session, user.auth_id
+                )
             auth_response = AuthResponse(
                 access_token=token.access_token,
                 id=user.user_id,
@@ -89,6 +104,8 @@ class AuthService:
                 email=user.email,
                 role=user.role,
                 remember_me=remember_me,
+                driver_id=driver_id,
+                admin_id=admin_id,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -160,6 +177,16 @@ class AuthService:
                 f"No user in the database for Firebase auth_id {auth_id}"
             )
 
+        driver_id = None
+        if user.role.lower() == "driver" and auth_id:
+            driver_id = await self.driver_service.get_driver_id_by_auth_id(
+                session, auth_id
+            )
+        admin_id = None
+        if user.role.lower() == "admin" and auth_id:
+            admin_id = await self.admin_service.get_admin_id_by_auth_id(
+                session, auth_id
+            )
         auth_response = AuthResponse(
             access_token=new_access_token,
             id=user.user_id,
@@ -168,5 +195,7 @@ class AuthService:
             email=user.email,
             role=user.role,
             remember_me=remember_me,
+            driver_id=driver_id,
+            admin_id=admin_id,
         )
         return auth_response, token_response.refresh_token

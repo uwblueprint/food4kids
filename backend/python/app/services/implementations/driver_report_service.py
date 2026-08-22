@@ -1,14 +1,16 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func
+from sqlalchemy import extract, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from app.config import settings
 from app.models.driver import Driver
+from app.models.route import Route
 from app.models.route_group import RouteGroup
+from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.user import User
 from app.services.implementations.driver_history_service import (
@@ -17,10 +19,80 @@ from app.services.implementations.driver_history_service import (
 )
 
 
+def month_span(end_year: int, end_month: int, months: int) -> list[tuple[int, int]]:
+    """The `months` consecutive (year, month) pairs ending at end_year/end_month.
+
+    Oldest first, so the caller can render it left-to-right without reversing.
+    """
+    ordinals = range(
+        end_year * 12 + (end_month - 1) - (months - 1), end_year * 12 + end_month
+    )
+    return [(ordinal // 12, ordinal % 12 + 1) for ordinal in ordinals]
+
+
 class DriverReportService:
     def __init__(self, logger: logging.Logger) -> None:
         self.logger = logger
         self.timezone = ZoneInfo(settings.scheduler_timezone)
+
+    async def get_monthly_series(
+        self, session: AsyncSession, end_year: int, end_month: int, months: int
+    ) -> list[dict]:
+        """Per-month km and deliveries for the `months` window ending at
+        end_year/end_month, oldest first.
+
+        Two grouped queries rather than one round trip per month, then months
+        with no activity are filled back in as zeroes so the caller always
+        gets a dense series it can chart directly.
+        """
+        try:
+            span = month_span(end_year, end_month, months)
+            start_year, start_month = span[0]
+            bounds = (
+                date(start_year, start_month, 1),
+                month_bounds(end_year, end_month)[1],
+            )
+
+            events = mileage_events(bounds=bounds)
+            km_statement = select(
+                events.c.year,
+                events.c.month,
+                func.coalesce(func.sum(events.c.km), 0.0).label("km"),
+            ).group_by(events.c.year, events.c.month)
+            km_rows = (await session.execute(km_statement)).all()
+            km_by_month = {(int(r.year), int(r.month)): float(r.km) for r in km_rows}
+
+            drive_year = extract("year", col(RouteGroup.drive_date)).label("year")
+            drive_month = extract("month", col(RouteGroup.drive_date)).label("month")
+            deliveries_statement = (
+                select(drive_year, drive_month, func.count().label("deliveries"))
+                .select_from(RouteStopSnapshot)
+                .join(RouteStop)
+                .join(Route)
+                .join(RouteGroup)
+                .where(
+                    col(RouteGroup.drive_date) >= bounds[0],
+                    col(RouteGroup.drive_date) < bounds[1],
+                )
+                .group_by(drive_year, drive_month)
+            )
+            delivery_rows = (await session.execute(deliveries_statement)).all()
+            deliveries_by_month = {
+                (int(r.year), int(r.month)): int(r.deliveries) for r in delivery_rows
+            }
+
+            return [
+                {
+                    "year": year,
+                    "month": month,
+                    "total_km": km_by_month.get((year, month), 0.0),
+                    "total_deliveries": deliveries_by_month.get((year, month), 0),
+                }
+                for year, month in span
+            ]
+        except Exception:
+            self.logger.exception("Failed to compute monthly series")
+            raise
 
     async def get_monthly_km_ranking(
         self, session: AsyncSession, year: int, month: int
@@ -89,9 +161,6 @@ class DriverReportService:
             end_d = end_dt.date()
 
             # Join route_stop_snapshots -> route_stops -> routes -> route_groups
-            from app.models.route import Route
-            from app.models.route_stop import RouteStop
-
             # Use model-based joins so sqlalchemy resolves FK-based ON clauses
             stmt = (
                 select(func.count())

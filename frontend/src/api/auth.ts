@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { refreshSession } from '@/lib/axiosClient';
+
 import { useAuthStore } from './authStore';
 import {
   completeDriverRegistration,
@@ -34,9 +36,6 @@ export function useRegisterDriver() {
     onSuccess: (data) => {
       setAuthFromRegister(data);
     },
-    onError: (error) => {
-      console.error('Registration error:', error);
-    },
   });
 }
 
@@ -54,28 +53,20 @@ export function useLogin() {
     onSuccess: (data) => {
       setAuth(data);
     },
-    onError: (error) => {
-      console.error('Login error:', error);
-    },
   });
 }
 
 export function useRefresh() {
-  const setAuth = useAuthStore((state) => state.setAuth);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
   return useQuery({
     queryKey: ['session-refresh'],
     queryFn: async () => {
       try {
-        const { data } = await refresh({
-          throwOnError: true,
-        });
-
-        setAuth(data);
-        return data;
+        // The same exchange the 401 handler runs mid-session, so a reload and a
+        // token that aged out under an open tab restore the session identically.
+        return await refreshSession();
       } catch (error) {
-        console.error('Session auto-refresh failed:', error);
         clearAuth();
         throw error;
       }
@@ -150,9 +141,6 @@ export function useLogout() {
     onSettled: () => {
       clearAuth();
       queryClient.clear();
-    },
-    onError: (error) => {
-      console.error('Logout error:', error);
     },
   });
 }

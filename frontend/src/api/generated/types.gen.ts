@@ -155,6 +155,14 @@ export type AuthResponse = {
    */
   access_token: string;
   /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -182,6 +190,56 @@ export type AuthResponse = {
    * Role
    */
   role: string;
+};
+
+/**
+ * BillingCostsResponse
+ */
+export type BillingCostsResponse = {
+  /**
+   * Budget Amount
+   */
+  budget_amount: number | null;
+  /**
+   * Budget Currency
+   */
+  budget_currency: string | null;
+  /**
+   * Budget Display Name
+   */
+  budget_display_name: string | null;
+  /**
+   * Budget Scope
+   */
+  budget_scope: string | null;
+  /**
+   * Credits
+   */
+  credits: number;
+  /**
+   * Currency
+   */
+  currency: string;
+  /**
+   * Data As Of
+   */
+  data_as_of: string | null;
+  /**
+   * Gross Cost
+   */
+  gross_cost: number;
+  /**
+   * Invoice Month
+   */
+  invoice_month: string;
+  /**
+   * Month To Date Cost
+   */
+  month_to_date_cost: number;
+  /**
+   * Project Id
+   */
+  project_id: string;
 };
 
 /**
@@ -697,6 +755,10 @@ export type JobEnqueueResponse = {
  */
 export type JobRead = {
   /**
+   * Error Message
+   */
+  error_message?: string | null;
+  /**
    * Job Id
    */
   job_id: string;
@@ -705,6 +767,22 @@ export type JobRead = {
    * Route Group Id
    */
   route_group_id?: string | null;
+  /**
+   * Routes Created
+   */
+  routes_created?: number | null;
+  /**
+   * Total Distance Km
+   */
+  total_distance_km?: number | null;
+  /**
+   * Total Families
+   */
+  total_families?: number | null;
+  /**
+   * Total Stops
+   */
+  total_stops?: number | null;
 };
 
 /**
@@ -1395,6 +1473,10 @@ export type NoteRead = {
    */
   attachments?: Array<Attachment>;
   /**
+   * Author Name
+   */
+  author_name?: string | null;
+  /**
    * Created At
    */
   created_at?: string | null;
@@ -1434,6 +1516,23 @@ export type NoteUpdate = {
    * Message
    */
   message: string;
+};
+
+/**
+ * OrgContactRead
+ *
+ * Smaller response object for callers that shouldn't see all settings
+ * (driver screens, error pages).
+ */
+export type OrgContactRead = {
+  /**
+   * Contact Name
+   */
+  contact_name: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone: string | null;
 };
 
 /**
@@ -2313,6 +2412,14 @@ export type AuthResponseWritable = {
    */
   access_token: string;
   /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -2937,6 +3044,23 @@ export type ValidateResetTokenResponses = {
 
 export type ValidateResetTokenResponse =
   ValidateResetTokenResponses[keyof ValidateResetTokenResponses];
+
+export type GetBillingCostsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/billing/costs';
+};
+
+export type GetBillingCostsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BillingCostsResponse;
+};
+
+export type GetBillingCostsResponse =
+  GetBillingCostsResponses[keyof GetBillingCostsResponses];
 
 export type GetDriversData = {
   body?: never;
@@ -4067,6 +4191,54 @@ export type GetTotalDeliveriesBetweenResponses = {
 export type GetTotalDeliveriesBetweenResponse =
   GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
 
+export type GetMonthlySeriesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Months
+     *
+     * How many months to return, counting back from the end month
+     */
+    months?: number;
+    /**
+     * End Year
+     *
+     * Year of the newest month; defaults to the current month
+     */
+    end_year?: number | null;
+    /**
+     * End Month
+     *
+     * Month of the newest month (1-12)
+     */
+    end_month?: number | null;
+  };
+  url: '/reports/monthly-series';
+};
+
+export type GetMonthlySeriesErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetMonthlySeriesError =
+  GetMonthlySeriesErrors[keyof GetMonthlySeriesErrors];
+
+export type GetMonthlySeriesResponses = {
+  /**
+   * Response Get Monthly Series
+   *
+   * Successful Response
+   */
+  200: Array<MonthlyTotalsResponse>;
+};
+
+export type GetMonthlySeriesResponse =
+  GetMonthlySeriesResponses[keyof GetMonthlySeriesResponses];
+
 export type GetMonthlyRankingData = {
   body?: never;
   path: {
@@ -4629,11 +4801,9 @@ export type GetSystemSettingsData = {
 
 export type GetSystemSettingsResponses = {
   /**
-   * Response Get System Settings
-   *
    * Successful Response
    */
-  200: SystemSettingsRead | null;
+  200: SystemSettingsRead;
 };
 
 export type GetSystemSettingsResponse =
@@ -4665,6 +4835,23 @@ export type PatchSystemSettingsResponses = {
 
 export type PatchSystemSettingsResponse =
   PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
+
+export type GetOrgContactData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/system-settings/contact';
+};
+
+export type GetOrgContactResponses = {
+  /**
+   * Successful Response
+   */
+  200: OrgContactRead;
+};
+
+export type GetOrgContactResponse =
+  GetOrgContactResponses[keyof GetOrgContactResponses];
 
 export type RenameDeliveryTypeData = {
   body: DeliveryTypeRename;

@@ -10,17 +10,24 @@ Tests cover:
 """
 
 import json
+from collections.abc import AsyncGenerator
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
+from app import create_app
+from app.dependencies.auth import (
+    DriverAccess,
+    require_admin,
+    require_self_driver_or_admin,
+)
 from app.dependencies.services import get_google_maps_client
+from app.models import get_session
 from app.models.enum import ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -135,7 +142,7 @@ class TestDriverRoutes:
             )
             assert response.status_code == 201
             data = response.json()
-            assert data["phone"] == sample_driver_data["phone"]
+            assert data["phone"] == "tel:+1-212-555-1234"
             assert data["license_plate"] == sample_driver_data["license_plate"]
             assert data["role"] == "driver"
             assert data["email"] == "newdriver@example.com"
@@ -218,7 +225,7 @@ class TestDriverRoutes:
             )
             assert response.status_code == 201
             data = response.json()
-            assert data["driver"]["phone"] == sample_driver_data["phone"]
+            assert data["driver"]["phone"] == "tel:+1-212-555-1234"
             assert (
                 data["driver"]["license_plate"] == sample_driver_data["license_plate"]
             )
@@ -319,14 +326,14 @@ class TestDriverRoutes:
         data = response.json()
         assert data["first_name"] == "Updated"
         assert data["last_name"] == "Driver"
-        assert data["phone"] == "+14165550123"
+        assert data["phone"] == "tel:+1-416-555-0123"
 
         await test_session.refresh(test_driver)
         user = await test_session.get(User, test_driver.user_id)
         assert user is not None
         assert user.first_name == "Updated"
         assert user.last_name == "Driver"
-        assert test_driver.phone == "+14165550123"
+        assert test_driver.phone == "tel:+1-416-555-0123"
         mock_update_user.assert_called_once_with(
             user.auth_id,
             display_name="Updated Driver",
@@ -611,7 +618,7 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Central Elementary",
                 "contact_name": "School Contact",
-                "phone_primary": "(555) 111-1111",
+                "phone_primary": "tel:+1-519-576-1101",
                 "delivery_type": "School",
             },
         )
@@ -622,7 +629,7 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Family Contact",
                 "contact_name": "Family Contact",
-                "phone_primary": "(555) 222-2222",
+                "phone_primary": "tel:+1-519-576-1103",
                 "delivery_type": "Family",
             },
         )
@@ -661,7 +668,7 @@ class TestLocationRoutes:
             name="Maple Fam",
             contact_name="Maple Fam",
             address="123 Maple Street, Riverview, ON, T0T 0T0",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
         )
         oak = Location(
@@ -669,7 +676,7 @@ class TestLocationRoutes:
             name="Oak Fam",
             contact_name="Oak Fam",
             address="9 Oak Avenue, Elmira, ON, N3B 1A1",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="Family",
         )
         test_session.add_all([maple, oak])
@@ -715,7 +722,7 @@ class TestLocationRoutes:
             name="Target Family",
             contact_name="Target Family",
             address="1 Target St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="Family",
             in_roster=True,
         )
@@ -724,7 +731,7 @@ class TestLocationRoutes:
             name="Other Family",
             contact_name="Other Family",
             address="1 Other St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -759,7 +766,7 @@ class TestLocationRoutes:
             name="First Group Family",
             contact_name="First Group Family",
             address="1 First St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="Family",
             in_roster=True,
         )
@@ -768,7 +775,7 @@ class TestLocationRoutes:
             name="Second Group Family",
             contact_name="Second Group Family",
             address="1 Second St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -777,7 +784,7 @@ class TestLocationRoutes:
             name="Third Group Family",
             contact_name="Third Group Family",
             address="1 Third St",
-            phone_primary="5553333333",
+            phone_primary="tel:+1-519-576-0007",
             delivery_type="Family",
             in_roster=True,
         )
@@ -815,7 +822,7 @@ class TestLocationRoutes:
             name="Scheduled Family",
             contact_name="Scheduled Family",
             address="1 Scheduled St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="Family",
             in_roster=True,
         )
@@ -824,7 +831,7 @@ class TestLocationRoutes:
             name="Unscheduled Family",
             contact_name="Unscheduled Family",
             address="2 Unscheduled St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -833,7 +840,7 @@ class TestLocationRoutes:
             name="Inactive Family",
             contact_name="Inactive Family",
             address="3 Inactive St",
-            phone_primary="5553333333",
+            phone_primary="tel:+1-519-576-0007",
             delivery_type="Family",
             in_roster=False,
         )
@@ -842,7 +849,7 @@ class TestLocationRoutes:
             name="Archived Scheduled Family",
             contact_name="Archived Scheduled Family",
             address="4 Archived Scheduled St",
-            phone_primary="5554444444",
+            phone_primary="tel:+1-519-576-4444",
             delivery_type="Family",
             in_roster=False,
         )
@@ -942,7 +949,7 @@ class TestLocationRoutes:
             name="Central Elementary",
             contact_name="Active School",
             address="1 School St",
-            phone_primary="5555555555",
+            phone_primary="tel:+1-519-576-5555",
             delivery_type="School",
             in_roster=True,
         )
@@ -951,7 +958,7 @@ class TestLocationRoutes:
             name="Active Family",
             contact_name="Active Family",
             address="1 Family St",
-            phone_primary="5556666666",
+            phone_primary="tel:+1-519-576-6666",
             delivery_type="Family",
             in_roster=True,
         )
@@ -960,7 +967,7 @@ class TestLocationRoutes:
             name="Unscheduled Elementary",
             contact_name="Unscheduled School",
             address="2 School St",
-            phone_primary="5557777777",
+            phone_primary="tel:+1-519-576-7777",
             delivery_type="School",
             in_roster=True,
         )
@@ -1036,7 +1043,7 @@ class TestLocationRoutes:
             name="Matching School",
             contact_name="Matching School",
             address="1 Matching St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="School",
             in_roster=True,
         )
@@ -1045,7 +1052,7 @@ class TestLocationRoutes:
             name="Wrong Type Family",
             contact_name="Wrong Type Family",
             address="1 Wrong Type St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -1054,7 +1061,7 @@ class TestLocationRoutes:
             name="Wrong Group School",
             contact_name="Wrong Group School",
             address="1 Wrong Group St",
-            phone_primary="5553333333",
+            phone_primary="tel:+1-519-576-0007",
             delivery_type="School",
             in_roster=True,
         )
@@ -1063,7 +1070,7 @@ class TestLocationRoutes:
             name="Inactive School",
             contact_name="Inactive School",
             address="1 Inactive St",
-            phone_primary="5554444444",
+            phone_primary="tel:+1-519-576-4444",
             delivery_type="School",
             in_roster=False,
         )
@@ -1113,7 +1120,7 @@ class TestLocationRoutes:
                 name=f"Paged Family {index}",
                 contact_name=f"Paged Family {index}",
                 address=f"{index} Paged St",
-                phone_primary=f"555111111{index}",
+                phone_primary=f"tel:+1-519-576-111{index}",
                 delivery_type="Family",
                 in_roster=True,
             )
@@ -1124,7 +1131,7 @@ class TestLocationRoutes:
             name="Excluded Paged Family",
             contact_name="Excluded Paged Family",
             address="1 Excluded Paged St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -1261,7 +1268,7 @@ class TestLocationRoutes:
             "/locations/",
             json={
                 **sample_location_data,
-                "phone_secondary": "555-222-3333",
+                "phone_secondary": "tel:+1-519-576-1105",
                 "location_group_id": str(test_location_group.location_group_id),
             },
         )
@@ -1400,7 +1407,7 @@ class TestLocationRoutes:
             name="Noted Family",
             contact_name="Noted Family",
             address="7 Note St",
-            phone_primary="5550000000",
+            phone_primary="tel:+1-519-576-0000",
             delivery_type="Family",
             note_chain_id=chain.note_chain_id,
         )
@@ -1413,22 +1420,22 @@ class TestLocationRoutes:
                     note_chain_id=chain.note_chain_id,
                     message="Old note",
                     is_system=False,
-                    created_at=datetime(2026, 1, 1),
-                    updated_at=datetime(2026, 1, 1),
+                    created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="Gate code 2736",
                     is_system=False,
-                    created_at=datetime(2026, 2, 1),
-                    updated_at=datetime(2026, 2, 1),
+                    created_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="System event",
                     is_system=True,
-                    created_at=datetime(2026, 3, 1),
-                    updated_at=datetime(2026, 3, 1),
+                    created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
                 ),
             ]
         )
@@ -1481,7 +1488,7 @@ class TestLocationRoutes:
             name="Delivered Family",
             contact_name="Delivered Family",
             address="10 Delivered St",
-            phone_primary="5559999999",
+            phone_primary="tel:+1-519-576-0011",
             delivery_type="Family",
             in_roster=True,
         )
@@ -1511,7 +1518,7 @@ class TestLocationRoutes:
             route_stop_id=stop.route_stop_id,
             address="10 Delivered St",
             contact_name="Delivered Family",
-            phone_primary="5559999999",
+            phone_primary="tel:+1-519-576-0011",
             num_children=2,
             latitude=0.0,
             longitude=0.0,
@@ -1540,7 +1547,7 @@ class TestLocationRoutes:
             name="Upcoming Family",
             contact_name="Upcoming Family",
             address="20 Upcoming St",
-            phone_primary="5558888888",
+            phone_primary="tel:+1-519-576-0010",
             delivery_type="Family",
             in_roster=True,
         )
@@ -1590,7 +1597,7 @@ class TestLocationRoutes:
             name="Multi Route Family",
             contact_name="Multi Route Family",
             address="30 Multi St",
-            phone_primary="5557777777",
+            phone_primary="tel:+1-519-576-7777",
             delivery_type="Family",
             in_roster=True,
         )
@@ -1984,8 +1991,8 @@ class TestLocationImportRoutes:
             "old_value": "Formatted Old Address",
         }
         assert changed_by_name["Phone Change Family"]["phone_primary"] == {
-            "new_value": "+15195550123",
-            "old_value": "+14164164170",
+            "new_value": "tel:+1-519-555-0123",
+            "old_value": "tel:+1-416-416-4170",
         }
 
     @pytest.mark.asyncio
@@ -2076,9 +2083,9 @@ class TestLocationImportRoutes:
         await test_session.refresh(stale_family)
         await test_session.refresh(untouched_school)
         assert family_match.in_roster is True
-        assert family_match.phone_primary == "+15195550123"
+        assert family_match.phone_primary == "tel:+1-519-555-0123"
         assert school_same_identity.in_roster is True
-        assert school_same_identity.phone_primary == "+14164164168"
+        assert school_same_identity.phone_primary == "tel:+1-416-416-4168"
         assert stale_family.in_roster is False
         assert untouched_school.in_roster is True
 
@@ -2632,7 +2639,7 @@ class TestLocationImportRoutes:
         assert address_change.in_roster is False
         assert stale.in_roster is False
         assert phone_change.in_roster is True
-        assert phone_change.phone_primary == "+15195550123"
+        assert phone_change.phone_primary == "tel:+1-519-555-0123"
 
         result = await test_session.execute(
             select(Location).where(Location.contact_name == "Address Change Family")
@@ -2999,7 +3006,7 @@ class TestRouteRoutes:
             name="Route Stop A",
             contact_name="Route Stop A",
             address="1 Route St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             num_children=6,
             delivery_type="Family",
         )
@@ -3008,7 +3015,7 @@ class TestRouteRoutes:
             name="Route Stop B",
             contact_name="Route Stop B",
             address="2 Route St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             num_children=10,
             delivery_type="Family",
         )
@@ -3135,7 +3142,7 @@ class TestRouteRoutes:
             name="Derived",
             contact_name="Derived",
             address="1 Derived St",
-            phone_primary="5550000009",
+            phone_primary="tel:+1-519-576-0009",
             delivery_type="School",
             num_children=3,
         )
@@ -3276,7 +3283,7 @@ class TestRouteRoutes:
             name="Fam",
             contact_name="Fam",
             address="1 Fam St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
             num_children=2,
         )
@@ -3285,7 +3292,7 @@ class TestRouteRoutes:
             name="Sch",
             contact_name="Sch",
             address="2 Sch St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="School",
             num_children=2,
         )
@@ -3348,7 +3355,7 @@ class TestRouteRoutes:
             name="Frozen Stop",
             contact_name="Frozen Stop",
             address="1 Frozen St",
-            phone_primary="5550000009",
+            phone_primary="tel:+1-519-576-0009",
             num_children=6,
             delivery_type="Family",
         )
@@ -3444,8 +3451,8 @@ class TestRouteRoutes:
             name="Stop A",
             contact_name="Alice",
             address="1 A St",
-            phone_primary="5550000001",
-            phone_secondary="5559999991",
+            phone_primary="tel:+1-519-576-0001",
+            phone_secondary="tel:+1-519-576-9991",
             num_children=6,
             delivery_type="Family",
             latitude=43.4643,
@@ -3458,7 +3465,7 @@ class TestRouteRoutes:
             name="Stop B",
             contact_name="Bob",
             address="2 B St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             num_children=10,
             delivery_type="Family",
         )
@@ -3503,13 +3510,13 @@ class TestRouteRoutes:
         # Stop 1 -> loc_b
         assert first["address"] == "2 B St"
         assert first["contact_name"] == "Bob"
-        assert first["phone_primary"] == "5550000002"
+        assert first["phone_primary"] == "tel:+1-519-576-0002"
         assert first["phone_secondary"] is None
         assert first["boxes"] == 5  # ceil(10 / 2)
         assert first["note_chain_id"] == str(chain_b.note_chain_id)
         # Stop 2 -> loc_a
         assert second["address"] == "1 A St"
-        assert second["phone_secondary"] == "5559999991"
+        assert second["phone_secondary"] == "tel:+1-519-576-9991"
         assert second["boxes"] == 3  # ceil(6 / 2)
         assert second["note_chain_id"] == str(chain_a.note_chain_id)
         # Coordinates feed the route map; live Location for an upcoming route,
@@ -3535,8 +3542,8 @@ class TestRouteRoutes:
             name="Frozen Fam",
             contact_name="Live Name",
             address="Live Addr",
-            phone_primary="5550000000",
-            phone_secondary="5551112222",
+            phone_primary="tel:+1-519-576-0000",
+            phone_secondary="tel:+1-519-576-0005",
             num_children=2,
             delivery_type="Family",
         )
@@ -3573,8 +3580,8 @@ class TestRouteRoutes:
                 route_stop_id=stop.route_stop_id,
                 address="Frozen Addr",
                 contact_name="Frozen Name",
-                phone_primary="5557778888",
-                phone_secondary="5557779999",
+                phone_primary="tel:+1-519-576-8888",
+                phone_secondary="tel:+1-519-576-0008",
                 num_children=8,
                 latitude=43.4643,
                 longitude=-80.5204,
@@ -3586,7 +3593,7 @@ class TestRouteRoutes:
         # for snapshotted fields (including phone_secondary and coordinates).
         loc.address = "Changed Addr"
         loc.num_children = 1
-        loc.phone_secondary = "5550009999"
+        loc.phone_secondary = "tel:+1-519-576-9999"
         loc.latitude = 1.0
         loc.longitude = 2.0
         await test_session.commit()
@@ -3598,9 +3605,9 @@ class TestRouteRoutes:
         stop_body = stops[0]
         assert stop_body["address"] == "Frozen Addr"
         assert stop_body["contact_name"] == "Frozen Name"
-        assert stop_body["phone_primary"] == "5557778888"
+        assert stop_body["phone_primary"] == "tel:+1-519-576-8888"
         # Secondary phone is snapshotted -> frozen value, not the mutated live one.
-        assert stop_body["phone_secondary"] == "5557779999"
+        assert stop_body["phone_secondary"] == "tel:+1-519-576-0008"
         # Ditto the coordinates: a past route maps where it actually went.
         assert stop_body["latitude"] == 43.4643
         assert stop_body["longitude"] == -80.5204
@@ -3821,7 +3828,7 @@ class TestRouteRoutes:
             name="Live Fam",
             contact_name="Live Fam",
             address="10 Live Ave",
-            phone_primary="5550001111",
+            phone_primary="tel:+1-519-576-0003",
             delivery_type="Family",
             latitude=44.0,
             longitude=-79.0,
@@ -3880,7 +3887,7 @@ class TestRouteRoutes:
             name="Moved Fam",
             contact_name="Moved Fam",
             address="999 New Address",
-            phone_primary="5550002222",
+            phone_primary="tel:+1-519-576-2222",
             delivery_type="Family",
             latitude=2.0,
             longitude=2.0,
@@ -3912,7 +3919,7 @@ class TestRouteRoutes:
                     route_stop_id=stop.route_stop_id,
                     address="123 Old Address",
                     contact_name="Old Fam",
-                    phone_primary="5550002222",
+                    phone_primary="tel:+1-519-576-2222",
                     num_children=3,
                     notes="",
                     latitude=44.0,
@@ -3954,7 +3961,7 @@ class TestRouteRoutes:
             name="Unsnapped Fam",
             contact_name="Unsnapped Fam",
             address="55 Fallback Rd",
-            phone_primary="5550003333",
+            phone_primary="tel:+1-519-576-3333",
             delivery_type="Family",
             latitude=45.0,
             longitude=-80.0,
@@ -4012,7 +4019,7 @@ class TestRouteRoutes:
             name="Fam A",
             contact_name="Fam A",
             address="1 A St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
         )
         loc_b = Location(
@@ -4020,7 +4027,7 @@ class TestRouteRoutes:
             name="Fam B",
             contact_name="Fam B",
             address="2 B St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="Family",
         )
         user = User(
@@ -4118,7 +4125,7 @@ class TestRouteStopConstraints:
             name=f"Constraint Family {n}",
             contact_name=f"Constraint Family {n}",
             address=f"{n} Constraint St",
-            phone_primary=f"555000{n:04d}",
+            phone_primary=f"tel:+1-519-576-{n:04d}",
             delivery_type="Family",
             in_roster=True,
         )
@@ -4306,7 +4313,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="A",
             address="1 Main St",
-            phone_primary="555-0001",
+            phone_primary="tel:+1-519-576-1106",
             num_children=2,
         )
         loc_b = Location(
@@ -4315,7 +4322,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="B",
             address="2 Main St",
-            phone_primary="555-0002",
+            phone_primary="tel:+1-519-576-1107",
             num_children=4,
         )
         test_session.add_all([loc_a, loc_b])
@@ -4529,7 +4536,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="Delete",
             address="3 Main St",
-            phone_primary="555-0003",
+            phone_primary="tel:+1-519-576-1108",
             num_children=2,
         )
         test_session.add(location)
@@ -4563,7 +4570,7 @@ class TestRouteGroupRoutes:
                     route_stop_id=route_stop.route_stop_id,
                     address="Snapshot Address",
                     contact_name="Snapshot Contact",
-                    phone_primary="555-0100",
+                    phone_primary="tel:+1-519-576-1109",
                     num_children=2,
                     latitude=43.1,
                     longitude=-80.1,
@@ -4794,7 +4801,7 @@ class TestRouteGroupRoutes:
             name="Fam",
             contact_name="Fam",
             address="1 Fam St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
             num_children=2,
         )
@@ -4803,7 +4810,7 @@ class TestRouteGroupRoutes:
             name="Sch",
             contact_name="Sch",
             address="2 Sch St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="School",
             num_children=2,
         )
@@ -4914,7 +4921,7 @@ class TestRouteGroupRoutes:
             delivery_type="School",
             contact_name="Jane",
             address="123 Main St",
-            phone_primary="555-1234",
+            phone_primary="tel:+1-519-576-1110",
             num_children=10,
         )
         test_session.add(location)
@@ -4959,7 +4966,7 @@ class TestRouteGroupRoutes:
             delivery_type="Pantry",
             contact_name="Pantry Contact",
             address="123 Main St",
-            phone_primary="555-1234",
+            phone_primary="tel:+1-519-576-1110",
             num_children=10,
         )
         test_session.add(location)
@@ -5018,7 +5025,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="A",
             address="1 St",
-            phone_primary="555-0001",
+            phone_primary="tel:+1-519-576-1106",
             num_children=3,
         )
         loc_b = Location(
@@ -5027,7 +5034,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="B",
             address="2 St",
-            phone_primary="555-0002",
+            phone_primary="tel:+1-519-576-1107",
             num_children=5,
         )
         test_session.add_all([loc_a, loc_b])
@@ -5124,12 +5131,16 @@ class TestNoteChainRoutes:
             json={"message": "Hello"},
         )
         assert note_resp.status_code == 201
-        note_id = note_resp.json()["note_id"]
+        note_body = note_resp.json()
+        note_id = note_body["note_id"]
+        assert note_body["author_name"] is not None
+        assert note_body["author_name"].strip() != ""
 
         # List notes
         list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
         assert list_resp.status_code == 200
         assert len(list_resp.json()) == 1
+        assert list_resp.json()[0]["author_name"] == note_body["author_name"]
 
         # Update
         patch_resp = await authed_async_client.patch(
@@ -5138,12 +5149,70 @@ class TestNoteChainRoutes:
         )
         assert patch_resp.status_code == 200
         assert patch_resp.json()["message"] == "Edited"
+        assert patch_resp.json()["author_name"] == note_body["author_name"]
 
         # Delete
         delete_note_resp = await authed_async_client.delete(
             f"/note-chains/{chain_id}/notes/{note_id}"
         )
         assert delete_note_resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_list_notes_includes_mixed_author_names(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """GET /note-chains/{id}/notes returns each author's real name.
+
+        Mirrors seeded All Stops data where a location chain has notes from
+        more than one person (admin + driver).
+        """
+        from app.models.note import Note
+        from app.models.user import User
+
+        chain_id = await self._create_chain(test_session)
+
+        other_author = User(
+            first_name="Casey",
+            last_name="Driver",
+            email="casey.driver@example.com",
+            role="driver",
+            auth_id="auth-casey-driver",
+        )
+        test_session.add(other_author)
+        await test_session.flush()
+
+        # One note from the authed admin (created via API)...
+        mine = await authed_async_client.post(
+            f"/note-chains/{chain_id}/notes",
+            json={"message": "Left boxes by the door"},
+        )
+        assert mine.status_code == 201
+
+        # ...and one from a different seeded-style author.
+        other_note = Note(
+            note_chain_id=UUID(chain_id),
+            user_id=other_author.user_id,
+            message="Gate code is 4821",
+            is_system=False,
+        )
+        test_session.add(other_note)
+        await test_session.commit()
+
+        list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
+        assert list_resp.status_code == 200
+        notes = list_resp.json()
+        assert len(notes) == 2
+
+        by_message = {note["message"]: note for note in notes}
+        assert (
+            by_message["Left boxes by the door"]["author_name"]
+            == mine.json()["author_name"]
+        )
+        assert by_message["Gate code is 4821"]["author_name"] == "Casey Driver"
+        assert (
+            by_message["Left boxes by the door"]["author_name"]
+            != by_message["Gate code is 4821"]["author_name"]
+        )
 
     @pytest.mark.asyncio
     async def test_get_note_chain(
@@ -5198,7 +5267,7 @@ class TestNoteFeedRoutes:
             name=location_name,
             contact_name=location_name,
             address=f"{location_name} Address",
-            phone_primary="555-1234",
+            phone_primary="tel:+1-519-576-1110",
             delivery_type="Family",
             note_chain_id=chain.note_chain_id,
         )
@@ -5225,14 +5294,14 @@ class TestNoteFeedRoutes:
             location_name="Beta Family",
             message="Older note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Family",
             message="Newer note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?page_size=1&sort=recent")
@@ -5268,7 +5337,7 @@ class TestNoteFeedRoutes:
             location_name="System Family",
             message="Automated note",
             user=None,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?sort=recent")
@@ -5306,21 +5375,21 @@ class TestNoteFeedRoutes:
             location_name="Charlie Location",
             message="Admin middle",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Location",
             message="Driver newest",
             user=driver_user,
-            created_at=datetime(2026, 1, 3, 9, 0),
+            created_at=datetime(2026, 1, 3, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Bravo Location",
             message="Admin oldest",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         oldest_response = await async_client.get("/notes?sort=oldest")
@@ -5622,6 +5691,49 @@ class TestJobRoutes:
         assert response.json()["job_id"] == str(job_id)
 
     @pytest.mark.asyncio
+    async def test_generate_job_persists_input_payload(
+        self, test_session: AsyncSession
+    ) -> None:
+        """JobService.generate_job stores the request so a worker can replay it later."""
+        from app.schemas.route_generation import (
+            RouteGenerationGroupInput,
+            RouteGenerationSettings,
+        )
+        from app.services.implementations.job_service import JobService
+
+        req = RouteGenerationGroupInput(
+            location_group=LocationGroup(name="Group", color="#FF5733"),
+            settings=RouteGenerationSettings(
+                route_start_time=datetime(2026, 6, 1, 8, 0), num_routes=2
+            ),
+        )
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job(req)
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is not None
+
+        rehydrated = RouteGenerationGroupInput.model_validate(job.input_payload)
+        assert rehydrated.location_group.name == "Group"
+        assert rehydrated.settings.num_routes == 2
+
+    @pytest.mark.asyncio
+    async def test_generate_job_with_no_request_leaves_payload_null(
+        self, test_session: AsyncSession
+    ) -> None:
+        """generate_job(None) is still valid and stores no payload."""
+        from app.services.implementations.job_service import JobService
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job()
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is None
+
+    @pytest.mark.asyncio
     async def test_cancel_pending_job(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
@@ -5692,7 +5804,7 @@ class TestJobRoutes:
     async def test_enqueue_cancelled_job_does_not_run(
         self, test_session: AsyncSession
     ) -> None:
-        """Queued work checks job state before moving to Running."""
+        """enqueue is only a doorbell: cancelled jobs stay cancelled."""
         from app.models.job import Job
         from app.services.implementations.job_service import JobService
 
@@ -5712,9 +5824,34 @@ class TestSystemSettingsRoutes:
 
     @pytest.mark.asyncio
     async def test_get_system_settings(self, async_client: AsyncClient) -> None:
-        """GET /system-settings returns 200 (null-safe when unset)."""
+        """GET /system-settings returns the singleton row, never null."""
         response = await async_client.get("/system-settings/")
         assert response.status_code == 200
+
+        body = response.json()
+        assert body is not None
+        assert body["system_settings_id"]
+        assert body["boxes_per_car"] == 10  # model defaults
+        assert body["delivery_types"] == ["Family", "School"]
+
+    @pytest.mark.asyncio
+    async def test_get_system_settings_without_a_row_is_a_server_error(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Built inline because async_client creates the row under test."""
+        app = create_app()
+
+        async def _session() -> AsyncGenerator[AsyncSession, None]:
+            yield test_session
+
+        app.dependency_overrides[get_session] = _session
+        app.dependency_overrides[require_admin] = lambda: True
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get("/system-settings/")
+
+        assert response.status_code == 500
 
     @pytest.mark.asyncio
     async def test_patch_system_settings(self, async_client: AsyncClient) -> None:
@@ -5734,7 +5871,7 @@ class TestSystemSettingsRoutes:
         assert response.status_code == 200
         body = response.json()
         assert body["boxes_per_car"] == 12
-        assert body["contact_phone"] == "+12125551234"
+        assert body["contact_phone"] == "tel:+1-212-555-1234"
         assert body["delivery_types"] == ["School", "Family", "Pantry"]
         assert body["email_reminders"] == [
             {"days_before": 1, "time": "09:00:00"},
@@ -5790,7 +5927,7 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="School",
             name="Central Elementary",
-            phone_primary="(555) 111-1111",
+            phone_primary="tel:+1-519-576-1101",
         )
 
         response = await async_client.patch(
@@ -5839,7 +5976,7 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="Pantry",
             name="Old Pantry",
-            phone_primary="(555) 333-3333",
+            phone_primary="tel:+1-519-576-1104",
         )
         # Take it off the roster -> Inactive.
         deactivate = await async_client.patch(
@@ -5868,7 +6005,7 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="School",
             name="Central Elementary",
-            phone_primary="(555) 111-1111",
+            phone_primary="tel:+1-519-576-1101",
         )
 
         response = await async_client.post(
@@ -5908,7 +6045,7 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="Pantry",
             name="Old Pantry",
-            phone_primary="(555) 333-3333",
+            phone_primary="tel:+1-519-576-1104",
         )
         deactivate = await async_client.patch(
             f"/locations/{location_id}", json={"in_roster": False}

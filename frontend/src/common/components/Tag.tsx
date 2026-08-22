@@ -10,6 +10,9 @@ const tagVariants = cva('inline-flex items-center gap-2.5', {
         'h-8 rounded-md border px-4 py-1.5 font-bold border-success-stroke bg-success-fill text-success-stroke',
       error:
         'h-8 rounded-md border px-4 py-1.5 font-bold bg-light-red border-red text-red',
+      /* Count badge beside a section title (dashboard "Unassigned"): a pill,
+       * not the bordered `error` banner chip. */
+      count: 'h-7 rounded-full px-3 text-p2 bg-light-red text-red',
       primary: 'rounded-[30px] px-2 py-0.5 text-p3 bg-blue-50 text-blue-300',
       secondary:
         'rounded-[30px] px-2 py-0.5 text-p3 bg-grey-100 text-grey-400 outline outline-1 outline-offset-[-1px] outline-grey-300',
@@ -20,7 +23,7 @@ const tagVariants = cva('inline-flex items-center gap-2.5', {
   },
 });
 
-type TagVariant = 'success' | 'error' | 'primary' | 'secondary';
+type TagVariant = 'success' | 'error' | 'count' | 'primary' | 'secondary';
 
 interface TagProps
   extends

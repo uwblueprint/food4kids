@@ -34,6 +34,7 @@ from app.models.driver import Driver
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
+from app.models.note import Note
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
@@ -44,11 +45,23 @@ EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "test_locations.csv")
 
+# Stands in for the real upload: same shape (stored object key + signed URL),
+# no bucket required.
+FAKE_NOTE_IMAGES: list[dict[str, str]] = [
+    {
+        "filename": f"seed/note-images/{index:02d}-placeholder.png",
+        "url": f"https://storage.example/signed/{index}",
+    }
+    for index in range(seed_module.SEED_NOTE_IMAGE_COUNT)
+]
+
 
 def _run_seed_script() -> None:
     """Run the synchronous seed script against the test database.
 
-    Firebase calls are mocked so tests don't need real credentials.
+    Firebase and GCS calls are mocked so tests don't need real credentials.
+    The image upload is patched to return the same attachment shape a real
+    upload would, so the notes still exercise the JSON attachments column.
     ``LOCATIONS_CSV_PATH`` is read at runtime inside ``main()``, so an env
     patch is fine for it.
     """
@@ -69,6 +82,10 @@ def _run_seed_script() -> None:
         patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
         patch("app.seed_database.initialize_firebase"),
         patch("app.seed_database.ensure_firebase_user"),
+        patch(
+            "app.seed_database.upload_seed_note_images",
+            return_value=FAKE_NOTE_IMAGES,
+        ),
     ):
         seed_module.main()
 
@@ -195,11 +212,11 @@ class TestDataValidation:
     """Seeded data satisfies business validation rules."""
 
     @pytest.mark.asyncio
-    async def test_phone_numbers_are_e164(self, test_session: AsyncSession) -> None:
+    async def test_phone_numbers_are_rfc3966(self, test_session: AsyncSession) -> None:
         drivers = (await test_session.execute(select(Driver))).scalars().all()
         for driver in drivers:
-            assert driver.phone.startswith("+"), (
-                f"Driver phone {driver.phone} should be E.164"
+            assert driver.phone.startswith("tel:+"), (
+                f"Driver phone {driver.phone} should be RFC 3966"
             )
             assert len(driver.availability) == 7
             assert phonenumbers.is_valid_number(
@@ -208,8 +225,8 @@ class TestDataValidation:
 
         locations = (await test_session.execute(select(Location))).scalars().all()
         for location in locations:
-            assert location.phone_primary.startswith("+"), (
-                f"Location phone {location.phone_primary} should be E.164"
+            assert location.phone_primary.startswith("tel:+"), (
+                f"Location phone {location.phone_primary} should be RFC 3966"
             )
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(location.phone_primary, None)
@@ -217,8 +234,8 @@ class TestDataValidation:
 
         admins = (await test_session.execute(select(Admin))).scalars().all()
         for admin in admins:
-            assert admin.admin_phone.startswith("+"), (
-                f"Admin phone {admin.admin_phone} should be E.164"
+            assert admin.admin_phone.startswith("tel:+"), (
+                f"Admin phone {admin.admin_phone} should be RFC 3966"
             )
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(admin.admin_phone, None)
@@ -382,3 +399,104 @@ class TestAnnouncements:
     async def _role_by_user_id(session: AsyncSession) -> dict[Any, str]:
         users = (await session.execute(select(User))).scalars().all()
         return {user.user_id: user.role for user in users}
+
+
+@pytest.mark.slow
+class TestNoteAttachments:
+    """Some seeded location notes carry image attachments.
+
+    Location notes are the ones the driver's route page renders, so they are
+    the only place a thumbnail is ever seen — and before this, every seeded
+    note was text-only, leaving the attachment layout untested against data.
+    """
+
+    @staticmethod
+    async def _location_notes(session: AsyncSession) -> "Sequence[Note]":
+        chain_ids = (
+            (
+                await session.execute(
+                    select(Location.note_chain_id).where(
+                        Location.note_chain_id.is_not(None)  # type: ignore[union-attr]
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return (
+            (
+                await session.execute(
+                    select(Note).where(Note.note_chain_id.in_(chain_ids))  # type: ignore[attr-defined]
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    @pytest.mark.asyncio
+    async def test_some_location_notes_have_attachments(
+        self, test_session: AsyncSession
+    ) -> None:
+        notes = await self._location_notes(test_session)
+        with_images = [note for note in notes if note.attachments]
+        assert with_images, (
+            "Expected at least one seeded location note to carry images; "
+            "the thumbnail layout has no data to render without them"
+        )
+
+    @pytest.mark.asyncio
+    async def test_not_every_note_has_attachments(
+        self, test_session: AsyncSession
+    ) -> None:
+        # Text-only notes are the common case in production, so the seed has to
+        # produce both shapes.
+        notes = await self._location_notes(test_session)
+        assert any(not note.attachments for note in notes), (
+            "Expected some seeded location notes to remain text-only"
+        )
+
+    @pytest.mark.asyncio
+    async def test_attachments_respect_the_frontend_cap(
+        self, test_session: AsyncSession
+    ) -> None:
+        for note in await self._location_notes(test_session):
+            assert len(note.attachments or []) <= seed_module.MAX_NOTE_IMAGES
+
+    @pytest.mark.asyncio
+    async def test_attachments_round_trip_through_the_json_column(
+        self, test_session: AsyncSession
+    ) -> None:
+        # Reading back from Postgres is the real assertion here: attachments are
+        # a JSON column, so a non-serializable value would only fail on write.
+        for note in await self._location_notes(test_session):
+            for attachment in note.attachments or []:
+                assert attachment.filename and attachment.url
+
+    @pytest.mark.asyncio
+    async def test_attachments_come_from_the_uploaded_pool(
+        self, test_session: AsyncSession
+    ) -> None:
+        known = {image["filename"] for image in FAKE_NOTE_IMAGES}
+        for note in await self._location_notes(test_session):
+            for attachment in note.attachments or []:
+                assert attachment.filename in known
+
+    @pytest.mark.asyncio
+    async def test_no_note_repeats_an_image(self, test_session: AsyncSession) -> None:
+        for note in await self._location_notes(test_session):
+            filenames = [attachment.filename for attachment in note.attachments or []]
+            assert len(set(filenames)) == len(filenames)
+
+    @pytest.mark.asyncio
+    async def test_route_and_driver_notes_stay_text_only(
+        self, test_session: AsyncSession
+    ) -> None:
+        # Only the location chain surfaces on a screen that renders thumbnails;
+        # attaching images elsewhere would be seed data nothing can display.
+        location_note_ids = {
+            note.note_id for note in await self._location_notes(test_session)
+        }
+        all_notes = (await test_session.execute(select(Note))).scalars().all()
+        for note in all_notes:
+            if note.note_id not in location_note_ids:
+                assert not note.attachments

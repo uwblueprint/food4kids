@@ -14,6 +14,7 @@ from app.config import settings
 from app.models import get_session
 from app.models.announcement import Announcement
 from app.models.route import Route
+from app.services.implementations.admin_service import AdminService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_service import EmailService
@@ -21,6 +22,7 @@ from app.services.implementations.user_service import UserService
 
 # Initialize services
 logger = logging.getLogger(__name__)
+admin_service = AdminService(logger)
 driver_service = DriverService(logger)
 user_service = UserService(logger)
 email_service = EmailService(
@@ -34,7 +36,9 @@ email_service = EmailService(
     settings.mailer_user,
     "Food4Kids",
 )
-auth_service = AuthService(logger, user_service, driver_service, email_service)
+auth_service = AuthService(
+    logger, user_service, driver_service, admin_service, email_service
+)
 
 # Security scheme
 security = HTTPBearer()
@@ -64,14 +68,10 @@ def _verified_token(access_token: str) -> dict[str, Any]:
     """
     Verify the Firebase ID token once and require a verified email.
 
-    ``email_verified`` is read from the token claim (it is part of the decoded
-    ID token), so this performs a single Firebase call — no separate ``get_user``
-    round-trip — and applies the same email-verification bar to every caller,
-    admins included.
-
-    ``clock_skew_seconds`` tolerates a client whose clock runs slightly ahead
-    of Google's, which would otherwise reject a freshly minted token as
-    issued in the future.
+    ``email_verified`` comes off the decoded token, so this is a single Firebase
+    call with no ``get_user`` round-trip. ``clock_skew_seconds`` tolerates a
+    client running slightly ahead of Google, which would otherwise see a
+    freshly minted token rejected as issued in the future.
 
     :raises HTTPException: 401 if the token is invalid/expired/revoked, 403 if
         the caller's email is not verified.
@@ -131,20 +131,9 @@ def require_authorization_by_role(roles: set[str]) -> Callable[..., Awaitable[bo
     """
     Create a dependency that checks if the user has one of the required roles
 
-    Verification and the role check are kept apart on purpose, because the
-    caller can only act on one of them. A token that cannot be verified —
-    expired, malformed, revoked because someone re-seeded — means "we don't
-    know who you are", and logging in again fixes it: 401. A verified token
-    whose role is not in ``roles`` means "we know exactly who you are, and this
-    is not for you", which logging in again will never fix: 403.
-
-    This used to run through ``auth_service.is_authorized_by_role``, which
-    wrapped verification in ``except Exception: return False``. Both cases —
-    plus a network blip reaching Firebase — arrived here as one boolean, so
-    every one of them became a 403. A client had no way to tell "your session
-    ended" from "you're not allowed", which is why the frontend could not send
-    an expired session to the login page without also trapping a driver who had
-    merely wandered into an admin route.
+    Verification failure and role failure stay separate so the client can tell
+    them apart: an unverifiable token is a 401 that logging in again fixes, a
+    wrong role is a 403 that it never will.
 
     :param roles: Set of authorized roles
     :return: FastAPI dependency function
@@ -303,21 +292,12 @@ async def resolve_route_list_driver_filter(
     access_token: str = Depends(get_access_token),
     session: AsyncSession = Depends(get_session),
 ) -> UUID | None:
-    """Sole auth dependency for GET /routes: gates access to drivers/admins AND
-    resolves the effective ``driver_id`` filter, so the token is verified
-    exactly once (mirroring ``require_route_assigned_or_admin`` for
-    GET /routes/{route_id}).
+    """Sole auth dependency for GET /routes: gate *and* ``driver_id`` filter, in
+    one place so the token is verified exactly once.
 
-    Without the ownership half, a plain ``require_driver_or_admin`` role gate
-    would let any authenticated driver read another driver's routes by passing
-    their id — so the scope is derived from the token, never the client value:
-
-    - admins may pass any ``driver_id`` (or omit it for all routes);
-    - drivers are always scoped to themselves — omitting ``driver_id`` returns
-      their own routes, and passing another driver's id is rejected with 403.
-
-    Returns the driver_id to filter by, or ``None`` for "all routes" (admins
-    only). ``email_verified`` is enforced for everyone, admins included.
+    The scope comes from the token, never the query value — a plain role gate
+    would let any driver read another driver's routes by passing their id.
+    Returns the driver_id to filter by, or ``None`` for all routes (admins only).
     """
     decoded_token = _verified_token(access_token)
     role = decoded_token.get("role")

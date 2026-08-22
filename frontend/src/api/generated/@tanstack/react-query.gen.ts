@@ -35,6 +35,7 @@ import {
   generateJob,
   getAnnouncement,
   getAnnouncements,
+  getBillingCosts,
   getDriver,
   getDriverHistory,
   getDriverHistorySummary,
@@ -47,10 +48,12 @@ import {
   getLocationGroups,
   getLocations,
   getMonthlyRanking,
+  getMonthlySeries,
   getMonthlyTotals,
   getNoteChain,
   getNotes,
   getNotesFeed,
+  getOrgContact,
   getRoute,
   getRouteGroups,
   getRoutes,
@@ -151,6 +154,8 @@ import type {
   GetAnnouncementResponse,
   GetAnnouncementsData,
   GetAnnouncementsResponse,
+  GetBillingCostsData,
+  GetBillingCostsResponse,
   GetDriverData,
   GetDriverError,
   GetDriverHistoryData,
@@ -186,6 +191,9 @@ import type {
   GetMonthlyRankingData,
   GetMonthlyRankingError,
   GetMonthlyRankingResponse,
+  GetMonthlySeriesData,
+  GetMonthlySeriesError,
+  GetMonthlySeriesResponse,
   GetMonthlyTotalsData,
   GetMonthlyTotalsError,
   GetMonthlyTotalsResponse,
@@ -198,6 +206,8 @@ import type {
   GetNotesFeedError,
   GetNotesFeedResponse,
   GetNotesResponse,
+  GetOrgContactData,
+  GetOrgContactResponse,
   GetRouteData,
   GetRouteError,
   GetRouteGroupsData,
@@ -754,6 +764,40 @@ export const validateResetTokenMutation = (
   return mutationOptions;
 };
 
+export const getBillingCostsQueryKey = (
+  options?: Options<GetBillingCostsData>
+) => createQueryKey('getBillingCosts', options);
+
+/**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Figures come from the Cloud Billing export and typically lag by several
+ * hours — see ``data_as_of``. Responses are cached for
+ * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
+ */
+export const getBillingCostsOptions = (
+  options?: Options<GetBillingCostsData>
+) =>
+  queryOptions<
+    GetBillingCostsResponse,
+    AxiosError<DefaultError>,
+    GetBillingCostsResponse,
+    ReturnType<typeof getBillingCostsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getBillingCosts({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getBillingCostsQueryKey(options),
+  });
+
 export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
   createQueryKey('getDrivers', options);
 
@@ -1089,6 +1133,8 @@ export const getJobsOptions = (options?: Options<GetJobsData>) =>
 
 /**
  * Generate Job
+ *
+ * Accept a generation request: persist it as PENDING and wake the worker.
  */
 export const generateJobMutation = (
   options?: Partial<Options<GenerateJobData>>
@@ -2022,6 +2068,39 @@ export const getTotalDeliveriesBetweenInfiniteOptions = (
     }
   );
 
+export const getMonthlySeriesQueryKey = (
+  options?: Options<GetMonthlySeriesData>
+) => createQueryKey('getMonthlySeries', options);
+
+/**
+ * Get Monthly Series
+ *
+ * Return km and deliveries per month for a trailing window, oldest first.
+ *
+ * Backs the homepage statistics bar charts, which need a whole series at
+ * once rather than one request per bar.
+ */
+export const getMonthlySeriesOptions = (
+  options?: Options<GetMonthlySeriesData>
+) =>
+  queryOptions<
+    GetMonthlySeriesResponse,
+    AxiosError<GetMonthlySeriesError>,
+    GetMonthlySeriesResponse,
+    ReturnType<typeof getMonthlySeriesQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getMonthlySeries({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getMonthlySeriesQueryKey(options),
+  });
+
 export const getMonthlyRankingQueryKey = (
   options: Options<GetMonthlyRankingData>
 ) => createQueryKey('getMonthlyRanking', options);
@@ -2572,7 +2651,8 @@ export const getSystemSettingsQueryKey = (
 /**
  * Get System Settings
  *
- * Return the singleton system settings row, or null if none has been created.
+ * Return the singleton settings row. Never null — PATCH already raises on
+ * a missing row, so a soft read here would mean an unsaveable blank form.
  */
 export const getSystemSettingsOptions = (
   options?: Options<GetSystemSettingsData>
@@ -2623,6 +2703,34 @@ export const patchSystemSettingsMutation = (
   };
   return mutationOptions;
 };
+
+export const getOrgContactQueryKey = (options?: Options<GetOrgContactData>) =>
+  createQueryKey('getOrgContact', options);
+
+/**
+ * Get Org Contact
+ *
+ * The org's name and phone. Unauthenticated — the error page renders for
+ * logged-out visitors, and these are published details, not member data.
+ */
+export const getOrgContactOptions = (options?: Options<GetOrgContactData>) =>
+  queryOptions<
+    GetOrgContactResponse,
+    AxiosError<DefaultError>,
+    GetOrgContactResponse,
+    ReturnType<typeof getOrgContactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getOrgContact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getOrgContactQueryKey(options),
+  });
 
 /**
  * Rename Delivery Type

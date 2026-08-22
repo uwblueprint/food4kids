@@ -6,7 +6,7 @@ export const buttonVariants = cva(
     'inline-flex items-center justify-center gap-2',
     'transition-colors duration-150 ease-in-out',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300',
-    'disabled:pointer-events-none disabled:bg-grey-400 disabled:text-grey-200 disabled:border-transparent',
+    'disabled:pointer-events-none disabled:opacity-50',
     'cursor-pointer',
     '[&_svg]:pointer-events-none [&_svg]:shrink-0',
   ],
@@ -42,11 +42,13 @@ export const buttonVariants = cva(
       },
     },
     compoundVariants: [
-      /* textLink doesn't need pill sizing — reset padding, width, and radius */
+      /* textLink doesn't need pill sizing — reset padding, width, and radius.
+       * `leading-6` matches Figma's Text Link (16/24); the pill's own 20 would
+       * leave the link shorter than the heading it sits beside. */
       {
         variant: 'textLink',
         shape: 'default',
-        className: 'min-w-0 px-0 rounded-none w-auto h-auto',
+        className: 'min-w-0 p-0 rounded-none w-auto h-auto leading-6',
       },
     ],
     defaultVariants: {

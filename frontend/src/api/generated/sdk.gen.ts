@@ -78,6 +78,8 @@ import type {
   GetAnnouncementResponses,
   GetAnnouncementsData,
   GetAnnouncementsResponses,
+  GetBillingCostsData,
+  GetBillingCostsResponses,
   GetDriverData,
   GetDriverErrors,
   GetDriverHistoryData,
@@ -113,6 +115,9 @@ import type {
   GetMonthlyRankingData,
   GetMonthlyRankingErrors,
   GetMonthlyRankingResponses,
+  GetMonthlySeriesData,
+  GetMonthlySeriesErrors,
+  GetMonthlySeriesResponses,
   GetMonthlyTotalsData,
   GetMonthlyTotalsErrors,
   GetMonthlyTotalsResponses,
@@ -125,6 +130,8 @@ import type {
   GetNotesFeedErrors,
   GetNotesFeedResponses,
   GetNotesResponses,
+  GetOrgContactData,
+  GetOrgContactResponses,
   GetRouteData,
   GetRouteErrors,
   GetRouteGroupsData,
@@ -511,6 +518,29 @@ export const validateResetToken = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Figures come from the Cloud Billing export and typically lag by several
+ * hours — see ``data_as_of``. Responses are cached for
+ * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
+ */
+export const getBillingCosts = <ThrowOnError extends boolean = false>(
+  options?: Options<GetBillingCostsData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetBillingCostsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/billing/costs',
+    ...options,
+  });
+
+/**
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
@@ -748,6 +778,8 @@ export const getJobs = <ThrowOnError extends boolean = false>(
 
 /**
  * Generate Job
+ *
+ * Accept a generation request: persist it as PENDING and wake the worker.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>
@@ -1240,6 +1272,28 @@ export const getTotalDeliveriesBetween = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get Monthly Series
+ *
+ * Return km and deliveries per month for a trailing window, oldest first.
+ *
+ * Backs the homepage statistics bar charts, which need a whole series at
+ * once rather than one request per bar.
+ */
+export const getMonthlySeries = <ThrowOnError extends boolean = false>(
+  options?: Options<GetMonthlySeriesData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetMonthlySeriesResponses,
+    GetMonthlySeriesErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/reports/monthly-series',
+    ...options,
+  });
+
+/**
  * Get Monthly Ranking
  *
  * Return monthly ranking list of drivers by km (descending).
@@ -1560,7 +1614,8 @@ export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
 /**
  * Get System Settings
  *
- * Return the singleton system settings row, or null if none has been created.
+ * Return the singleton settings row. Never null — PATCH already raises on
+ * a missing row, so a soft read here would mean an unsaveable blank form.
  */
 export const getSystemSettings = <ThrowOnError extends boolean = false>(
   options?: Options<GetSystemSettingsData, ThrowOnError>
@@ -1597,6 +1652,25 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Org Contact
+ *
+ * The org's name and phone. Unauthenticated — the error page renders for
+ * logged-out visitors, and these are published details, not member data.
+ */
+export const getOrgContact = <ThrowOnError extends boolean = false>(
+  options?: Options<GetOrgContactData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetOrgContactResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/system-settings/contact',
+    ...options,
   });
 
 /**
