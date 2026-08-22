@@ -2,6 +2,7 @@ import type { RouteStopDetailRead } from '@/api/generated';
 import { Button } from '@/common/components/Button';
 import { RouteMap } from '@/common/components/RouteMap';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
 
 export interface RouteCardProps {
   title: string;
@@ -11,6 +12,7 @@ export interface RouteCardProps {
   timeRemaining?: string;
   className?: string;
   isPast?: boolean;
+  routeId?: string;
 }
 
 export function RouteCard({
@@ -21,6 +23,7 @@ export function RouteCard({
   timeRemaining,
   className,
   isPast = false,
+  routeId,
 }: RouteCardProps) {
   // Transform RouteStopDetailRead to RouteMapStop format
   const mapStops = stops?.map((stop) => ({
@@ -70,9 +73,15 @@ export function RouteCard({
       </div>
 
       {/* Button */}
-      <Button variant="primary" shape="compact">
-        View route
-      </Button>
+      {routeId ? (
+        <Button asChild variant="primary" shape="compact">
+          <Link to={`/driver/route/${routeId}`}>View route</Link>
+        </Button>
+      ) : (
+        <Button variant="primary" shape="compact">
+          View route
+        </Button>
+      )}
     </div>
   );
 }

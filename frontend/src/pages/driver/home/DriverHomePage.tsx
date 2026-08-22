@@ -36,6 +36,7 @@ function RouteCardWithDetails({
   return (
     <RouteCard
       title={title}
+      routeId={routeId}
       date={date}
       encodedPolyline={routeDetails?.encoded_polyline || ''}
       stops={routeDetails?.stops}
