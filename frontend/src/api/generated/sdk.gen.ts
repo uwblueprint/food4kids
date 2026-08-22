@@ -191,6 +191,9 @@ import type {
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
+  UpdatePasswordAuthedData,
+  UpdatePasswordAuthedErrors,
+  UpdatePasswordAuthedResponses,
   UpdatePasswordData,
   UpdatePasswordErrors,
   UpdatePasswordResponses,
@@ -462,6 +465,30 @@ export const updatePassword = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/auth/update-password',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Password Authed
+ *
+ * Update an authenticated user's password after verifying their current password,
+ * revokes existing refresh tokens, and issues a fresh session with new tokens.
+ */
+export const updatePasswordAuthed = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePasswordAuthedData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    UpdatePasswordAuthedResponses,
+    UpdatePasswordAuthedErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/auth/update-password-authed',
     ...options,
     headers: {
       'Content-Type': 'application/json',

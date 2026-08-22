@@ -2276,6 +2276,20 @@ export type SystemSettingsUpdate = {
 };
 
 /**
+ * UpdatePasswordAuthedRequest
+ */
+export type UpdatePasswordAuthedRequest = {
+  /**
+   * Current Password
+   */
+  current_password: string;
+  /**
+   * New Password
+   */
+  new_password: string;
+};
+
+/**
  * UpdatePasswordRequest
  */
 export type UpdatePasswordRequest = {
@@ -2930,6 +2944,33 @@ export type UpdatePasswordResponses = {
 
 export type UpdatePasswordResponse =
   UpdatePasswordResponses[keyof UpdatePasswordResponses];
+
+export type UpdatePasswordAuthedData = {
+  body: UpdatePasswordAuthedRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/update-password-authed';
+};
+
+export type UpdatePasswordAuthedErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdatePasswordAuthedError =
+  UpdatePasswordAuthedErrors[keyof UpdatePasswordAuthedErrors];
+
+export type UpdatePasswordAuthedResponses = {
+  /**
+   * Successful Response
+   */
+  200: AuthResponse;
+};
+
+export type UpdatePasswordAuthedResponse =
+  UpdatePasswordAuthedResponses[keyof UpdatePasswordAuthedResponses];
 
 export type ValidateResetTokenData = {
   body: ValidateResetTokenRequest;
