@@ -10,7 +10,6 @@ import {
   login,
   type LoginRequest,
   logout,
-  refresh,
   resendOnboardingEmail,
   type ResendOnboardingEmailRequest,
   updatePassword,
