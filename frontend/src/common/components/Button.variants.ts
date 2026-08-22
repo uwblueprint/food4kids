@@ -38,7 +38,7 @@ export const buttonVariants = cva(
          * 16px sides and a 14/18 SemiBold body-font label, per the Routes
          * design frame. Sized to its label — it sits inside a cell, so it
          * neither reserves a minimum width nor goes full-width on mobile. */
-        compact: 'text-p2 h-[34px] rounded-full px-4 font-semibold',
+        compact: 'text-p2 h-[34px] rounded-full px-4 font-nunito font-medium',
       },
     },
     compoundVariants: [
