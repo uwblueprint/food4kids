@@ -550,6 +550,25 @@ describe('refreshing an aged-out token', () => {
     expect(refreshes()).toHaveLength(0);
     expect(useAuthStore.getState().accessToken).toBe('token-abc');
   });
+
+  /**
+   * The refresh is the one call that does not go through the generated
+   * client — it must not re-enter this interceptor — so nothing adds the
+   * /api prefix for it. Matching on `endsWith('/auth/refresh')` cannot tell
+   * a prefixed path from an unprefixed one, which is how a 404 on every
+   * session restore would slip through unnoticed.
+   */
+  it('sends the refresh to the prefixed path', async () => {
+    signedIn();
+    serve((config) =>
+      isRefresh(config) ? { status: 200, body: RENEWED } : { status: 401 }
+    );
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    const [refresh] = refreshes();
+    expect(refresh.url).toBe('/api/auth/refresh');
+  });
 });
 
 describe('errors reach callers without credentials', () => {

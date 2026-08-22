@@ -2,7 +2,9 @@ import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 
 import { Input } from '@/common/components/Input';
 
-const API_BASE = 'http://localhost:8080';
+// Routes carry the /api prefix (backend app/routers/__init__.py); this page
+// predates the generated client and still calls fetch directly.
+const API_BASE = 'http://localhost:8080/api';
 
 export const TestImageUpload = () => {
   const [status, setStatus] = useState<

@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import create_app
 from app.dependencies.services import get_gcp_storage_client
 from app.models import get_session
+from app.routers import API_PREFIX
 
 # ---------------------------------------------------------------------------
 # Policies and actors
@@ -377,7 +378,7 @@ async def auth_client(
     # test. This test only cares about the auth decision, and a 500 means auth
     # already let the request reach the handler.
     transport = ASGITransport(app=app, raise_app_exceptions=False)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
@@ -472,8 +473,11 @@ def test_every_exposed_route_is_classified() -> None:
     # the schema, which is exactly what we want (they carry no auth policy).
     http_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
     schema = app.openapi()
+    # ROUTE_POLICIES is keyed by the route's own path. Where the API is
+    # mounted is a deployment concern (API_PREFIX), and putting it in every
+    # key would mean rewriting the whole table if it ever moved.
     exposed = {
-        (method.upper(), path)
+        (method.upper(), path.removeprefix(API_PREFIX))
         for path, operations in schema["paths"].items()
         for method in operations
         if method.upper() in http_methods

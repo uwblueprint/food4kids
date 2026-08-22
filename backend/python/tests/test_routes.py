@@ -5848,7 +5848,7 @@ class TestSystemSettingsRoutes:
         app.dependency_overrides[require_admin] = lambda: True
 
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
             response = await ac.get("/system-settings/")
 
         assert response.status_code == 500
