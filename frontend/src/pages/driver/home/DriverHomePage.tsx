@@ -25,13 +25,7 @@ function RouteCardWithDetails({
 }) {
   const { data: routeDetails } = useRoute(routeId);
 
-  // Log for debugging - expand the object to see all fields
-  console.log(
-    'RouteCardWithDetails - routeId:',
-    routeId,
-    'routeDetails:',
-    JSON.stringify(routeDetails, null, 2)
-  );
+  // Debug logging removed: avoid console calls in production UI
 
   return (
     <RouteCard

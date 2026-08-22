@@ -33,12 +33,7 @@ export function RouteCard({
     longitude: stop.longitude,
   }));
 
-  console.log(
-    'RouteCard - encodedPolyline:',
-    encodedPolyline,
-    'stops:',
-    mapStops
-  );
+  // Debug logging removed: avoid console calls in production UI
 
   return (
     <div
