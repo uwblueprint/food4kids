@@ -193,6 +193,56 @@ export type AuthResponse = {
 };
 
 /**
+ * BillingCostsResponse
+ */
+export type BillingCostsResponse = {
+  /**
+   * Budget Amount
+   */
+  budget_amount: number | null;
+  /**
+   * Budget Currency
+   */
+  budget_currency: string | null;
+  /**
+   * Budget Display Name
+   */
+  budget_display_name: string | null;
+  /**
+   * Budget Scope
+   */
+  budget_scope: string | null;
+  /**
+   * Credits
+   */
+  credits: number;
+  /**
+   * Currency
+   */
+  currency: string;
+  /**
+   * Data As Of
+   */
+  data_as_of: string | null;
+  /**
+   * Gross Cost
+   */
+  gross_cost: number;
+  /**
+   * Invoice Month
+   */
+  invoice_month: string;
+  /**
+   * Month To Date Cost
+   */
+  month_to_date_cost: number;
+  /**
+   * Project Id
+   */
+  project_id: string;
+};
+
+/**
  * Body_apply_location_import
  */
 export type BodyApplyLocationImport = {
@@ -2957,6 +3007,23 @@ export type ValidateResetTokenResponses = {
 
 export type ValidateResetTokenResponse =
   ValidateResetTokenResponses[keyof ValidateResetTokenResponses];
+
+export type GetBillingCostsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/billing/costs';
+};
+
+export type GetBillingCostsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BillingCostsResponse;
+};
+
+export type GetBillingCostsResponse =
+  GetBillingCostsResponses[keyof GetBillingCostsResponses];
 
 export type GetDriversData = {
   body?: never;

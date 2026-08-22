@@ -4,10 +4,13 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from google.api_core import exceptions as gcp_exceptions
-from google.cloud import storage  # type: ignore[import-untyped]
-from google.oauth2 import service_account
+
+# google-cloud-bigquery ships py.typed, so mypy now resolves the google.cloud
+# namespace and reports the untyped storage package as a missing attribute.
+from google.cloud import storage  # type: ignore[attr-defined]
 
 from app.config import settings
+from app.utilities.gcp_credentials import build_service_account_credentials
 
 
 class GCSStorageError(Exception):
@@ -28,21 +31,16 @@ class GCPStorageClient:
     def __init__(self, logger: logging.Logger, bucket_name: str) -> None:
         self.logger = logger
 
-        credentials = service_account.Credentials.from_service_account_info(
-            {
-                "type": "service_account",
-                "project_id": settings.gcp_service_account_project_id,
-                "private_key_id": settings.gcp_service_account_private_key_id,
-                "private_key": settings.gcp_service_account_private_key.replace(
-                    "\\n", "\n"
-                ).strip(),
-                "client_email": settings.gcp_service_account_client_email,
-                "client_id": settings.gcp_service_account_client_id,
-                "auth_uri": settings.gcp_service_account_auth_uri,
-                "token_uri": settings.gcp_service_account_token_uri,
-                "auth_provider_x509_cert_url": settings.gcp_service_account_auth_provider_x509_cert_url,
-                "client_x509_cert_url": settings.gcp_service_account_client_x509_cert_url,
-            }
+        credentials = build_service_account_credentials(
+            project_id=settings.gcp_service_account_project_id,
+            private_key_id=settings.gcp_service_account_private_key_id,
+            private_key=settings.gcp_service_account_private_key,
+            client_email=settings.gcp_service_account_client_email,
+            client_id=settings.gcp_service_account_client_id,
+            auth_uri=settings.gcp_service_account_auth_uri,
+            token_uri=settings.gcp_service_account_token_uri,
+            auth_provider_x509_cert_url=settings.gcp_service_account_auth_provider_x509_cert_url,
+            client_x509_cert_url=settings.gcp_service_account_client_x509_cert_url,
         )
         self.client = storage.Client(credentials=credentials)
         self.bucket = self.client.bucket(bucket_name)
