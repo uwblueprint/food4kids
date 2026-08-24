@@ -28,7 +28,7 @@ export default function CheckLatestAnnouncementsEmail() {
           </Text>
         </Section>
         <Text className="text-[16px] text-grey-500 m-0">
-            Please check the driver board to read the full update.
+            Please check the announcements board to read the full update.
         </Text>
 
         <Section className="text-center mt-[32px] mb-[18px]">

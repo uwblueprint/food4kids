@@ -160,9 +160,12 @@ async def send_announcement_email(
     dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends),
     _auth: bool = Depends(require_admin),
 ) -> dict[str, int]:
-    """Send announcement notification emails to all active drivers (admin only)."""
+    """Email an announcement to the audiences enabled in system settings.
+
+    Admin only. Which audiences actually receive it -- admins, drivers, both,
+    or neither -- is configured under Settings > Route Reminders."""
     try:
-        return await announcement_service.send_announcement_emails_to_drivers(
+        return await announcement_service.send_announcement_emails(
             session,
             announcement_id,
             dispatcher,
