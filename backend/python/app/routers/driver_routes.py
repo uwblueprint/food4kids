@@ -303,7 +303,7 @@ async def test_event_email(
     """
      Testable options: 
      - account-creation (context params that need to be filled in: Driver_Name_To_Replace, Sign_Up_URL, Hours_Till_Expiry), 
-     - check-latest-announcement (context params that need to be filled in: Driver_Name_To_Replace, Announcement_Name, Announcement_Body, Announcement_URL), 
+     - check-latest-announcement (context params that need to be filled in: Recipient_Name_To_Replace, Announcement_Name, Announcement_Body, Announcement_URL), 
      - reset-password (context params that need to be filled in: Driver_Name_To_Replace, Reset_Password_URL, Days_Till_Expiry), 
      - view-upcoming-route (context params that need to be filled in: Driver_Name_To_Replace, Date_To_Replace, Time_To_Replace, Route_Duration_To_Replace,Upcoming_Route_URL)
     """

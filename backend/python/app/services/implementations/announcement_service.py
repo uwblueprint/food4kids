@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
+from app.models.admin import Admin
 from app.models.announcement import (
     Announcement,
     AnnouncementCreate,
@@ -14,6 +15,7 @@ from app.models.announcement import (
 )
 from app.models.announcement_last_read import AnnouncementLastRead
 from app.models.driver import Driver
+from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.utilities.datetime_utils import now_utc
@@ -153,36 +155,87 @@ class AnnouncementService:
             await session.rollback()
             raise error
 
-    async def send_announcement_emails_to_drivers(
+    async def _announcement_email_audiences(
+        self, session: AsyncSession
+    ) -> tuple[bool, bool]:
+        """The configured (admins, drivers) audience filters.
+
+        A settings row is always present in a provisioned database, but the
+        announcement path must not fall over if it is missing -- fall back to
+        the model defaults, which are both enabled.
+        """
+        result = await session.execute(select(SystemSettings).limit(1))
+        settings = result.scalars().first()
+        if settings is None:
+            return True, True
+        return (
+            settings.announcement_emails_to_admins,
+            settings.announcement_emails_to_drivers,
+        )
+
+    async def _announcement_recipients(
+        self, session: AsyncSession, to_admins: bool, to_drivers: bool
+    ) -> list[tuple[User, str]]:
+        """Users to email, each paired with the board their role lands on.
+
+        Only active drivers are included. Every admin is a recipient.
+        """
+        recipients: list[tuple[User, str]] = []
+
+        if to_drivers:
+            statement = (
+                select(User)
+                .join(Driver, col(Driver.user_id) == col(User.user_id))
+                .where(col(Driver.active).is_(True))
+            )
+            result = await session.execute(statement)
+            recipients.extend((user, "driver") for user in result.scalars().all())
+
+        if to_admins:
+            statement = select(User).join(
+                Admin, col(Admin.user_id) == col(User.user_id)
+            )
+            result = await session.execute(statement)
+            recipients.extend((user, "admin") for user in result.scalars().all())
+
+        return recipients
+
+    async def send_announcement_emails(
         self,
         session: AsyncSession,
         announcement_id: UUID,
         dispatcher: EmailDispatcher,
         frontend_base_url: str,
     ) -> dict[str, int]:
-        """Email all active drivers about an announcement."""
+        """Email an announcement to the audiences enabled in system settings.
+
+        The caller has already decided that this announcement should be
+        emailed; this method decides who receives it. With both audiences
+        disabled there is no one to email, so the send is a no-op rather than
+        an error, the poster's request is simply satisfied by sending nothing.
+        """
         announcement = await self.get_announcement(session, announcement_id)
         if announcement is None:
             raise ValueError(f"Announcement with id {announcement_id} not found")
 
-        statement = (
-            select(User)
-            .join(Driver, col(Driver.user_id) == col(User.user_id))
-            .where(col(Driver.active).is_(True))
+        to_admins, to_drivers = await self._announcement_email_audiences(session)
+        recipients = await self._announcement_recipients(
+            session, to_admins=to_admins, to_drivers=to_drivers
         )
-        result = await session.execute(statement)
-        drivers = list(result.scalars().all())
 
-        announcement_url = f"{frontend_base_url.rstrip('/')}/driver/home"
+        base = frontend_base_url.rstrip("/")
         sent_count = 0
         failed_count = 0
 
-        for user in drivers:
+        for user, role in recipients:
+            if user.user_id == announcement.user_id:
+                continue
+
             context = {
-                "Driver_Name_To_Replace": user.full_name,
+                "Recipient_Name_To_Replace": user.full_name,
                 "Announcement_Name": announcement.subject,
                 "Announcement_Body": announcement.message,
-                "Announcement_URL": announcement_url,
+                "Announcement_URL": f"{base}/{role}/home",
             }
             try:
                 await dispatcher.dispatch(

@@ -2172,6 +2172,14 @@ export type SuggestedDriverResponse = {
  */
 export type SystemSettingsRead = {
   /**
+   * Announcement Emails To Admins
+   */
+  announcement_emails_to_admins?: boolean;
+  /**
+   * Announcement Emails To Drivers
+   */
+  announcement_emails_to_drivers?: boolean;
+  /**
    * Boxes Per Car
    */
   boxes_per_car?: number;
@@ -2253,6 +2261,14 @@ export type SystemSettingsRead = {
  * Update request model - all optional
  */
 export type SystemSettingsUpdate = {
+  /**
+   * Announcement Emails To Admins
+   */
+  announcement_emails_to_admins?: boolean | null;
+  /**
+   * Announcement Emails To Drivers
+   */
+  announcement_emails_to_drivers?: boolean | null;
   /**
    * Boxes Per Car
    */

@@ -3743,6 +3743,16 @@
       "SystemSettingsRead": {
         "description": "Read response model",
         "properties": {
+          "announcement_emails_to_admins": {
+            "default": true,
+            "title": "Announcement Emails To Admins",
+            "type": "boolean"
+          },
+          "announcement_emails_to_drivers": {
+            "default": true,
+            "title": "Announcement Emails To Drivers",
+            "type": "boolean"
+          },
           "boxes_per_car": {
             "default": 10,
             "minimum": 0,
@@ -3940,6 +3950,28 @@
       "SystemSettingsUpdate": {
         "description": "Update request model - all optional",
         "properties": {
+          "announcement_emails_to_admins": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Announcement Emails To Admins"
+          },
+          "announcement_emails_to_drivers": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Announcement Emails To Drivers"
+          },
           "boxes_per_car": {
             "anyOf": [
               {
@@ -4546,7 +4578,7 @@
     },
     "/announcements/{announcement_id}/email": {
       "post": {
-        "description": "Send announcement notification emails to all active drivers (admin only).",
+        "description": "Email an announcement to the audiences enabled in system settings.\n\nAdmin only. Which audiences actually receive it -- admins, drivers, both,\nor neither -- is configured under Settings > Route Reminders.",
         "operationId": "send_announcement_email",
         "parameters": [
           {

@@ -5609,6 +5609,166 @@ class TestAnnouncementRoutes:
         assert response.json() == {"sent": 1, "failed": 0}
         assert test_driver.user_id is not None
 
+    @staticmethod
+    async def _set_announcement_audiences(
+        session: Any, *, to_admins: bool, to_drivers: bool
+    ) -> None:
+        """Point the singleton settings row at one audience combination."""
+        from sqlmodel import select
+
+        from app.models.system_settings import SystemSettings
+
+        result = await session.execute(select(SystemSettings).limit(1))
+        settings = result.scalars().first()
+        if settings is None:
+            settings = SystemSettings()
+        settings.announcement_emails_to_admins = to_admins
+        settings.announcement_emails_to_drivers = to_drivers
+        session.add(settings)
+        await session.commit()
+
+    @staticmethod
+    async def _add_admin(session: Any, email: str) -> Any:
+        """An admin the recipient query can actually find.
+
+        ``test_admin_user`` only creates a ``users`` row; the audience query
+        joins ``admin_info``, so an admin without that row is invisible to it.
+        """
+        from app.models.admin import Admin
+        from app.models.user import User
+
+        user = User(
+            first_name="Second",
+            last_name="Admin",
+            email=email,
+            auth_id=f"auth-{email}",
+            role="admin",
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        session.add(Admin(user_id=user.user_id, admin_phone="+15195763443"))
+        await session.commit()
+        return user
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_skips_disabled_driver_audience(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """Drivers are skipped when their audience flag is off."""
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        await self._set_announcement_audiences(
+            test_session, to_admins=False, to_drivers=False
+        )
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email"
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"sent": 0, "failed": 0}
+        dispatch.assert_not_called()
+        assert test_driver.user_id is not None
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_reaches_admins_only(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """With only the admin audience on, drivers get nothing and admins do."""
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        admin_user = await self._add_admin(test_session, "second.admin@food4kids.org")
+        await self._set_announcement_audiences(
+            test_session, to_admins=True, to_drivers=False
+        )
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email"
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"sent": 1, "failed": 0}
+        recipients = {call.kwargs["to"] for call in dispatch.call_args_list}
+        assert recipients == {admin_user.email}
+        # The driver exists and is active -- the audience flag is the only
+        # reason they were left out.
+        from app.models.user import User
+
+        driver_user = await test_session.get(User, test_driver.user_id)
+        assert driver_user.email not in recipients
+        # The admin board, not the driver one.
+        urls = {
+            call.kwargs["context"]["Announcement_URL"]
+            for call in dispatch.call_args_list
+        }
+        assert all(url.endswith("/admin/home") for url in urls)
+
+    @pytest.mark.asyncio
+    async def test_send_announcement_email_skips_the_author(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_admin_user: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """The admin who posted it is not mailed their own announcement."""
+        from app.models.admin import Admin
+
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        # Make the author discoverable by the admin audience query, so the only
+        # thing keeping them out of the recipient list is the author check.
+        test_session.add(
+            Admin(user_id=test_admin_user.user_id, admin_phone="+15195763443")
+        )
+        await test_session.commit()
+        other_admin = await self._add_admin(test_session, "third.admin@food4kids.org")
+        await self._set_announcement_audiences(
+            test_session, to_admins=True, to_drivers=False
+        )
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email"
+        )
+
+        assert response.status_code == 200
+        recipients = {call.kwargs["to"] for call in dispatch.call_args_list}
+        assert recipients == {other_admin.email}
+        assert test_admin_user.email not in recipients
+
 
 class TestJobRoutes:
     """Test suite for job API routes."""
@@ -5877,6 +6037,32 @@ class TestSystemSettingsRoutes:
             {"days_before": 1, "time": "09:00:00"},
             {"days_before": 0, "time": "11:00:00"},
         ]
+
+    @pytest.mark.asyncio
+    async def test_announcement_audience_flags_default_on(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Both audiences are enabled until an admin turns one off."""
+        response = await async_client.get("/system-settings/")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["announcement_emails_to_admins"] is True
+        assert body["announcement_emails_to_drivers"] is True
+
+    @pytest.mark.asyncio
+    async def test_patch_announcement_audience_flags(
+        self, async_client: AsyncClient
+    ) -> None:
+        """PATCH /system-settings toggles each audience independently."""
+        response = await async_client.patch(
+            "/system-settings/",
+            json={"announcement_emails_to_drivers": False},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["announcement_emails_to_drivers"] is False
+        # Untouched by this patch, so it keeps its value.
+        assert body["announcement_emails_to_admins"] is True
 
     @pytest.mark.asyncio
     async def test_patch_system_settings_rejects_empty_delivery_types(
