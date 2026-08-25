@@ -86,7 +86,10 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
     <div
       className={cn(
         // 18px: the only radius in the designs that is off the 8/16 scale.
-        'border-grey-300 w-full overflow-hidden rounded-[18px] border',
+        // `isolate` gives the map its own stacking context so Leaflet's
+        // internal z-indexes (panes/controls up to ~1000) stay contained and
+        // can't paint over root-level modals/menus (which sit at z-50).
+        'border-grey-300 isolate w-full overflow-hidden rounded-[18px] border',
         className
       )}
     >

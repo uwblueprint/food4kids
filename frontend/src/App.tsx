@@ -10,6 +10,7 @@ import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
   AdminHomePage,
+  AdminIndividualRoutePage,
   AdminRoutesGenerationLayout,
   AdminRoutesPage,
   AdminSettingsPage,
@@ -53,6 +54,9 @@ function App() {
           <Route path="configure" element={<ConfigureStep />} />
           <Route path="generate" element={<GenerateStep />} />
         </Route>
+        {/* Individual route detail — reached by clicking a row on the
+            Routes tab. Kept after the static routes/generation block. */}
+        <Route path="routes/:routeId" element={<AdminIndividualRoutePage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="test-image-upload" element={<TestImageUpload />} />
       </Route>

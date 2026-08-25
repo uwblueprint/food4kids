@@ -3415,6 +3415,11 @@
             ],
             "title": "Latitude"
           },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
           "longitude": {
             "anyOf": [
               {
@@ -3460,6 +3465,7 @@
         },
         "required": [
           "stop_number",
+          "location_id",
           "address",
           "contact_name",
           "phone_primary",

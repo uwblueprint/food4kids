@@ -3508,6 +3508,7 @@ class TestRouteRoutes:
 
         first, second = stops
         # Stop 1 -> loc_b
+        assert first["location_id"] == str(loc_b.location_id)
         assert first["address"] == "2 B St"
         assert first["contact_name"] == "Bob"
         assert first["phone_primary"] == "tel:+1-519-576-0002"
@@ -3515,6 +3516,7 @@ class TestRouteRoutes:
         assert first["boxes"] == 5  # ceil(10 / 2)
         assert first["note_chain_id"] == str(chain_b.note_chain_id)
         # Stop 2 -> loc_a
+        assert second["location_id"] == str(loc_a.location_id)
         assert second["address"] == "1 A St"
         assert second["phone_secondary"] == "tel:+1-519-576-9991"
         assert second["boxes"] == 3  # ceil(6 / 2)
@@ -3603,6 +3605,8 @@ class TestRouteRoutes:
         stops = response.json()["stops"]
         assert len(stops) == 1
         stop_body = stops[0]
+        # location_id is read from the live route_stop (not snapshotted).
+        assert stop_body["location_id"] == str(loc.location_id)
         assert stop_body["address"] == "Frozen Addr"
         assert stop_body["contact_name"] == "Frozen Name"
         assert stop_body["phone_primary"] == "tel:+1-519-576-8888"
