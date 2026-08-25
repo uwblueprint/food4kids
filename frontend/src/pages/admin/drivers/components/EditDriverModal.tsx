@@ -57,12 +57,15 @@ export function EditDriverModal({
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="max-h-[90vh] max-w-[560px] overflow-y-auto">
+      <ModalContent className="max-h-[90vh] max-w-[560px] overflow-y-auto bg-white">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <ModalHeader>
             <ModalTitle variant="confirmation">
               Edit Driver Information
             </ModalTitle>
+            <p className="text-p2 text-grey-400">
+              Edit the information of {driver.full_name}
+            </p>
           </ModalHeader>
           <div className="grid grid-cols-2 gap-4">
             <Field>

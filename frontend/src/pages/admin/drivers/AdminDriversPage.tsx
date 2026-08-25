@@ -138,54 +138,56 @@ export const AdminDriversPage = () => {
           </div>
         </div>
 
-        <Card>
-          <CardContent>
-            <TableToolbar
-              search={search}
-              searchPlaceholder="Search for a driver"
-              actions={
-                <Button
-                  variant="primary"
-                  shape="circular"
-                  aria-label="Add driver"
-                  onClick={() => setAddOpen(true)}
-                >
-                  <PlusIcon className="size-5" />
-                </Button>
-              }
-            />
-            <DataTable
-              className="rounded-none border-0 px-0"
-              columns={columns}
-              rows={rows}
-              getRowKey={(row) => row.driver_id}
-              sort={sort}
-              onSortChange={toggleSort}
-              onRowClick={setSelected}
-              getRowClassName={(row) =>
-                `cursor-pointer transition-colors hover:bg-blue-50 focus:bg-blue-50 focus:outline-none ${
-                  selected?.driver_id === row.driver_id ? 'bg-blue-50' : ''
-                }`
-              }
-              emptyState={
-                <EmptyState
-                  image={searchTerm ? 'girl-searching' : 'girl-confused'}
-                  title={searchTerm ? 'No drivers found' : 'No drivers yet'}
-                  description={
-                    searchTerm
-                      ? 'Try searching for a different name'
-                      : 'Add a driver to get started'
-                  }
-                />
-              }
-            />
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-            />
-          </CardContent>
-        </Card>
+        <div>
+          <TableToolbar
+            search={search}
+            searchPlaceholder="Search for a driver"
+            actions={
+              <Button
+                variant="primary"
+                shape="circular"
+                aria-label="Add driver"
+                onClick={() => setAddOpen(true)}
+              >
+                <PlusIcon className="size-5" />
+              </Button>
+            }
+          />
+          <Card>
+            <CardContent>
+              <DataTable
+                className="rounded-none border-0 px-0"
+                columns={columns}
+                rows={rows}
+                getRowKey={(row) => row.driver_id}
+                sort={sort}
+                onSortChange={toggleSort}
+                onRowClick={setSelected}
+                getRowClassName={(row) =>
+                  `cursor-pointer transition-colors hover:bg-blue-50 focus:bg-blue-50 focus:outline-none ${
+                    selected?.driver_id === row.driver_id ? 'bg-blue-50' : ''
+                  }`
+                }
+                emptyState={
+                  <EmptyState
+                    image={searchTerm ? 'girl-searching' : 'girl-confused'}
+                    title={searchTerm ? 'No drivers found' : 'No drivers yet'}
+                    description={
+                      searchTerm
+                        ? 'Try searching for a different name'
+                        : 'Add a driver to get started'
+                    }
+                  />
+                }
+              />
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <AddDriverModal open={addOpen} onOpenChange={setAddOpen} />

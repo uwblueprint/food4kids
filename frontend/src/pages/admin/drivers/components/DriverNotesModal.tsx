@@ -9,6 +9,7 @@ import {
   FieldLabel,
   Modal,
   ModalContent,
+  ModalDescription,
   ModalFooter,
   ModalHeader,
   ModalTitle,
@@ -16,6 +17,7 @@ import {
 } from '@/common/components';
 
 interface DriverNotesModalProps {
+  driverName: string;
   noteChainId: string;
   notes: NoteRead[];
   open: boolean;
@@ -23,6 +25,7 @@ interface DriverNotesModalProps {
 }
 
 export function DriverNotesModal({
+  driverName,
   noteChainId,
   notes,
   open,
@@ -31,6 +34,16 @@ export function DriverNotesModal({
   const create = useCreateNote(noteChainId);
   const remove = useDeleteNote(noteChainId);
   const [message, setMessage] = useState('');
+
+  const formatTimestamp = (value: string | null | undefined) => {
+    if (!value) return '';
+    return new Date(value).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   const save = async () => {
     if (message.trim()) {
@@ -45,14 +58,23 @@ export function DriverNotesModal({
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="max-w-[560px]">
+      <ModalContent className="max-w-[560px] bg-white">
         <ModalHeader>
           <ModalTitle variant="confirmation">Edit Driver Notes</ModalTitle>
+          <ModalDescription>Edit the notes of {driverName}</ModalDescription>
         </ModalHeader>
-        <div className="divide-grey-200 divide-y">
+        <div className="flex flex-col gap-3">
           {notes.map((note) => (
-            <div key={note.note_id} className="flex items-start gap-3 py-3">
-              <p className="text-p2 text-grey-500 flex-1">{note.message}</p>
+            <div
+              key={note.note_id}
+              className="border-grey-200 flex items-start gap-3 rounded-lg border p-3"
+            >
+              <div className="flex-1">
+                <p className="text-p2 text-grey-500">{note.message}</p>
+                <p className="text-p3 text-grey-400 mt-1">
+                  {formatTimestamp(note.created_at)}
+                </p>
+              </div>
               <button
                 type="button"
                 aria-label="Delete note"
@@ -64,7 +86,7 @@ export function DriverNotesModal({
                     },
                   })
                 }
-                className="text-grey-400 hover:text-red"
+                className="border-grey-300 text-grey-400 hover:text-red flex size-8 shrink-0 items-center justify-center rounded-full border"
               >
                 <TrashIcon className="size-4" />
               </button>

@@ -7,8 +7,10 @@ import { useNotes } from '@/api/notes';
 import { useRoutes } from '@/api/routes';
 import EditIcon from '@/assets/icons/edit.svg?react';
 import MailIcon from '@/assets/icons/mail.svg?react';
+import ClosePanelIcon from '@/assets/icons/right-panel-close.svg?react';
 import TrashIcon from '@/assets/icons/trash.svg?react';
-import XIcon from '@/assets/icons/x.svg?react';
+import boyIllustration from '@/assets/illustrations/boy.png';
+import girlIllustration from '@/assets/illustrations/girl-catching.png';
 import { Button } from '@/common/components';
 import { formatPhone } from '@/common/utils';
 
@@ -41,6 +43,32 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
+function formatTime(value: string | null | undefined) {
+  if (!value) return '—';
+  const [hours = 0, minutes = 0] = value.split(':').map(Number);
+  return new Date(2000, 0, 1, hours, minutes)
+    .toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+    .replace(' ', '');
+}
+
+function ordinal(day: number) {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  return `${day}${day % 10 === 1 ? 'st' : day % 10 === 2 ? 'nd' : day % 10 === 3 ? 'rd' : 'th'}`;
+}
+
+function formatNoteDate(value: string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  const time = date
+    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    .replace(' ', '');
+  return `${month} ${ordinal(date.getDate())}, ${time}`;
+}
+
 interface DriverPanelProps {
   selected: DriverListRead;
   onClose: () => void;
@@ -68,13 +96,9 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
     page_size: 4,
   });
   const { data: notes = [] } = useNotes(driver.note_chain_id, true);
-  const vehicle = [driver.car_make_model, driver.license_plate]
-    .filter(Boolean)
-    .join(' · ');
-
   return (
     <aside className="border-grey-300 bg-grey-100 shadow-harsh fixed top-0 right-0 z-40 h-screen w-[430px] overflow-y-auto border-l">
-      <div className="flex flex-col gap-5 p-6">
+      <div className="flex flex-col gap-4 p-6">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-h2 text-grey-500 font-bold">
@@ -84,17 +108,28 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
               Last Driven: {formatDate(selected.last_delivery)}
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Close driver panel"
-            onClick={onClose}
-          >
-            <XIcon className="text-grey-400 size-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Delete driver"
+              onClick={() => setDeleteOpen(true)}
+              className="border-grey-300 text-grey-400 hover:text-red flex size-9 items-center justify-center rounded-full border"
+            >
+              <TrashIcon className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Close driver panel"
+              onClick={onClose}
+              className="border-grey-300 text-grey-400 flex size-9 items-center justify-center rounded-full border"
+            >
+              <ClosePanelIcon className="size-4" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-blue-300 p-4 text-white">
+          <div className="relative min-h-[92px] overflow-hidden rounded-xl bg-blue-300 p-4 text-white">
             <p className="text-h2 font-bold">
               {Math.round(
                 summary?.current_year_km ?? selected.current_year_km ?? 0
@@ -102,16 +137,26 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
               km
             </p>
             <p className="text-p3 mt-1">This Year</p>
+            <img
+              src={boyIllustration}
+              alt=""
+              className="absolute -right-4 -bottom-8 w-28"
+            />
           </div>
-          <div className="rounded-xl bg-purple-400 p-4 text-white">
+          <div className="relative min-h-[92px] overflow-hidden rounded-xl bg-purple-400 p-4 text-white">
             <p className="text-h2 font-bold">
               {Math.round(summary?.lifetime_km ?? 0).toLocaleString()} km
             </p>
             <p className="text-p3 mt-1">Lifetime</p>
+            <img
+              src={girlIllustration}
+              alt=""
+              className="absolute -right-4 -bottom-8 w-28"
+            />
           </div>
         </div>
 
-        <section className="rounded-xl bg-white p-4">
+        <section className="border-grey-200 rounded-xl border bg-white p-4">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-h3 text-grey-500 font-bold">
               Driver Information
@@ -119,17 +164,6 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
             <div className="flex gap-2">
               <Button
                 variant="primary"
-                shape="circular"
-                asChild
-                aria-label="Email driver"
-                className="size-8"
-              >
-                <a href={`mailto:${driver.email}`}>
-                  <MailIcon className="size-4" />
-                </a>
-              </Button>
-              <Button
-                variant="tertiary"
                 shape="circular"
                 aria-label="Edit driver"
                 className="size-8"
@@ -140,11 +174,13 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
               <Button
                 variant="tertiary"
                 shape="circular"
-                aria-label="Delete driver"
+                asChild
+                aria-label="Email driver"
                 className="size-8"
-                onClick={() => setDeleteOpen(true)}
               >
-                <TrashIcon className="size-4" />
+                <a href={`mailto:${driver.email}`}>
+                  <MailIcon className="size-4" />
+                </a>
               </Button>
             </div>
           </div>
@@ -163,12 +199,17 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
             </div>
             <div>
               <dt className="text-grey-400">Vehicle</dt>
-              <dd>{vehicle || '—'}</dd>
+              <dd className="flex flex-col">
+                <span>{driver.car_make_model || '—'}</span>
+                {driver.license_plate && (
+                  <span className="text-grey-400">{driver.license_plate}</span>
+                )}
+              </dd>
             </div>
           </dl>
           <div className="mt-4">
             <p className="text-p3 text-grey-400 mb-2">Availability</p>
-            <div className="flex justify-between">
+            <div className="border-grey-200 flex justify-between rounded-lg border px-2 py-1">
               {DAYS.map((day, index) => (
                 <span
                   key={day}
@@ -195,12 +236,15 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
             </div>
             {notes.length ? (
               notes.slice(-3).map((note) => (
-                <p
+                <div
                   key={note.note_id}
-                  className="text-p3 border-grey-200 border-t py-2 first:border-0"
+                  className="border-grey-200 mb-2 rounded-lg border px-3 py-2 last:mb-0"
                 >
-                  {note.message}
-                </p>
+                  <p className="text-p3 text-grey-500">{note.message}</p>
+                  <p className="text-grey-400 mt-1 text-[10px]">
+                    {formatNoteDate(note.created_at)}
+                  </p>
+                </div>
               ))
             ) : (
               <p className="text-p3 text-grey-400">No notes</p>
@@ -208,7 +252,7 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
           </div>
         </section>
 
-        <section className="rounded-xl bg-white p-4">
+        <section className="border-grey-200 rounded-xl border bg-white p-4">
           <h3 className="text-h3 text-grey-500 mb-3 font-bold">
             Assigned Routes
           </h3>
@@ -217,11 +261,12 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
               {assigned.items.map((route) => (
                 <Link
                   key={route.route_id}
-                  to={`/admin/routes/groups/${route.route_group_id}`}
-                  className="text-p3 flex justify-between py-2 hover:text-blue-300"
+                  to={`/driver/route/${route.route_id}`}
+                  className="text-p3 grid grid-cols-[1fr_auto_auto] items-start gap-3 py-2 hover:text-blue-300"
                 >
                   <span>{route.name}</span>
                   <span>{formatDate(route.drive_date)}</span>
+                  <span className="text-grey-400">{route.num_stops} stops</span>
                 </Link>
               ))}
             </div>
@@ -230,24 +275,34 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
               No Assigned Routes
             </p>
           )}
-          <Button variant="primary" className="mt-3 w-full">
-            Assign
-          </Button>
+          {assigned?.items.length ? (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Button variant="tertiary">Edit</Button>
+              <Button variant="primary">Assign</Button>
+            </div>
+          ) : (
+            <Button variant="primary" className="mt-3 w-full">
+              Assign
+            </Button>
+          )}
         </section>
 
-        <section className="rounded-xl bg-white p-4">
+        <section className="border-grey-200 rounded-xl border bg-white p-4">
           <h3 className="text-h3 text-grey-500 mb-3 font-bold">Past Routes</h3>
           {past?.items.length ? (
             past.items.map((route) => (
               <Link
                 key={route.route_id}
-                to={`/admin/routes/groups/${route.route_group_id}`}
-                className="text-p3 grid grid-cols-[1fr_auto] gap-2 py-2 hover:text-blue-300"
+                to={`/driver/route/${route.route_id}`}
+                className="text-p3 grid grid-cols-[1fr_auto] gap-x-2 py-2 hover:text-blue-300"
               >
-                <span>{route.name}</span>
-                <span>{route.length.toFixed(1)} km</span>
-                <span className="text-grey-400 col-span-2">
+                <span className="text-blue-300 underline">{route.name}</span>
+                <span>{formatTime(route.start_time)}</span>
+                <span className="text-grey-400">
                   {formatDate(route.drive_date)}
+                </span>
+                <span className="text-grey-400 text-right">
+                  {route.length.toFixed(1)} km
                 </span>
               </Link>
             ))
@@ -270,6 +325,7 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
       />
       {driver.note_chain_id && (
         <DriverNotesModal
+          driverName={driver.full_name}
           noteChainId={driver.note_chain_id}
           notes={notes}
           open={notesOpen}

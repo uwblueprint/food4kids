@@ -57,7 +57,7 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
 
   return (
     <Modal open={open} onOpenChange={handleOpenChange}>
-      <ModalContent className="max-w-[520px]">
+      <ModalContent className="max-w-[520px] bg-white" showCloseButton={false}>
         {sent ? (
           <div className="flex flex-col items-center gap-5 py-5 text-center">
             <span className="flex size-12 items-center justify-center rounded-full bg-blue-50 text-blue-300">
