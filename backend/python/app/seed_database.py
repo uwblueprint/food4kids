@@ -1419,6 +1419,7 @@ def main(*, reset_passwords: bool = False) -> None:
                 contact_phone=generate_valid_phone(with_extension=True),
                 f4k_wr_instagram="https://instagram.com/food4kidswr",
                 f4k_wr_facebook="https://facebook.com/food4kidswr",
+                f4k_wr_twitter="https://twitter.com/food4kidswr",
                 f4k_wr_email="hello@food4kidswr.ca",
                 f4k_wr_website="https://food4kidswr.ca",
                 f4k_wr_address=WAREHOUSE_ADDRESS,

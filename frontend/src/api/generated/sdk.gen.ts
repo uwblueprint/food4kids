@@ -367,7 +367,10 @@ export const updateAnnouncement = <ThrowOnError extends boolean = false>(
 /**
  * Send Announcement Email
  *
- * Send announcement notification emails to all active drivers (admin only).
+ * Email an announcement to the audiences enabled in system settings.
+ *
+ * Admin only. Which audiences actually receive it -- admins, drivers, both,
+ * or neither -- is configured under Settings > Route Reminders.
  */
 export const sendAnnouncementEmail = <ThrowOnError extends boolean = false>(
   options: Options<SendAnnouncementEmailData, ThrowOnError>

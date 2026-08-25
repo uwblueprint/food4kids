@@ -79,6 +79,7 @@ class SystemSettingsBase(SQLModel):
     contact_phone: str | None = Field(default=None, min_length=1, max_length=100)
     f4k_wr_instagram: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_facebook: str | None = Field(default=None, min_length=1, max_length=255)
+    f4k_wr_twitter: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_email: EmailStr | None = Field(default=None)
     f4k_wr_website: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
@@ -98,6 +99,12 @@ class SystemSettingsBase(SQLModel):
         default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
     )
+    # Audience filters for announcement emails. Both are ANDed with the
+    # per-announcement "send email" choice: an announcement only reaches an
+    # audience when the poster asked for email AND that audience is enabled
+    # here. Default True so enabling the setting changes nothing on its own.
+    announcement_emails_to_admins: bool = Field(default=True, nullable=False)
+    announcement_emails_to_drivers: bool = Field(default=True, nullable=False)
 
     @field_validator("contact_phone")
     @classmethod
@@ -171,11 +178,14 @@ class SystemSettingsUpdate(SQLModel):
     contact_phone: str | None = Field(default=None, min_length=1, max_length=100)
     f4k_wr_instagram: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_facebook: str | None = Field(default=None, min_length=1, max_length=255)
+    f4k_wr_twitter: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_email: EmailStr | None = Field(default=None)
     f4k_wr_website: str | None = Field(default=None, min_length=1, max_length=255)
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
     email_reminders: list[EmailReminder] | None = Field(default=None)
     delivery_types: list[str] | None = Field(default=None)
+    announcement_emails_to_admins: bool | None = Field(default=None)
+    announcement_emails_to_drivers: bool | None = Field(default=None)
 
     @field_validator("contact_phone")
     @classmethod

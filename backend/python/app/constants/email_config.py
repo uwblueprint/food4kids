@@ -25,7 +25,7 @@ EMAIL_TEMPLATES: dict[str, EmailTemplateConfig] = {
         "filename": "check-latest-announcement.html",
         "default_subject": "New Announcement",
         "required_context": [
-            "Driver_Name_To_Replace",
+            "Recipient_Name_To_Replace",
             "Announcement_Name",
             "Announcement_Body",
             "Announcement_URL",
