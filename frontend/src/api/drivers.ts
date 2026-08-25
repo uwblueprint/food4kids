@@ -12,12 +12,13 @@ export function useDrivers() {
 }
 
 /** Fetch a single driver by ID. */
-export function useDriver(driverId: string) {
-  return useQuery(
-    getDriverOptions({
+export function useDriver(driverId: string, enabled = true) {
+  return useQuery({
+    ...getDriverOptions({
       path: { driver_id: driverId },
-    })
-  );
+    }),
+    enabled,
+  });
 }
 
 /** Fetch driver's lifetime and current year KM summary. */

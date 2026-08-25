@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.dependencies.auth import get_verified_token
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -17,6 +19,7 @@ from app.schemas.auth import (
     AuthResponse,
     ForgotPasswordRequest,
     LoginRequest,
+    UpdatePasswordAuthedRequest,
     UpdatePasswordRequest,
     ValidateResetTokenRequest,
 )
@@ -27,6 +30,7 @@ from app.services.implementations.password_reset_token_service import (
 )
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import clear_auth_cookies, set_refresh_token_cookie
+from app.utilities.firebase_rest_client import FirebaseRestError
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -244,3 +248,51 @@ async def update_password(
             update_password_request.password_reset_token,
         )
         return
+
+
+@router.post("/update-password-authed", response_model=AuthResponse)
+async def update_password_authed(
+    update_password_request: UpdatePasswordAuthedRequest,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    decoded_token: dict[str, Any] = Depends(get_verified_token),
+    auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service),
+) -> AuthResponse:
+    """
+    Update an authenticated user's password after verifying their current password,
+    revokes existing refresh tokens, and issues a fresh session with new tokens.
+    """
+    email = decoded_token.get("email")
+    auth_id = decoded_token.get("uid")
+
+    # 1. Verify that the current password is correct, raise 400 if incorrect
+    try:
+        auth_service.firebase_rest_client.sign_in_with_password(
+            email, update_password_request.current_password
+        )
+    except FirebaseRestError as e:
+        if e.code == "INVALID_LOGIN_CREDENTIALS":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect current password.",
+            ) from e
+        raise
+
+    # 2. Update the password on firebase
+    await user_service.update_password(auth_id, update_password_request.new_password)
+
+    # 3. Revoke existing refresh tokens
+    try:
+        await auth_service.revoke_tokens(auth_id)
+    except Exception:
+        logger.exception(
+            f"Failed to revoke tokens for user {auth_id} after password update"
+        )
+
+    # 4. Generate new session / tokens
+    auth_dto, refresh_token = await auth_service.generate_token(
+        session, email, update_password_request.new_password, remember_me=False
+    )
+    set_refresh_token_cookie(response, refresh_token, remember_me=False)
+    return auth_dto

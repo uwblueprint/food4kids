@@ -22,6 +22,7 @@ import pytest
 from fastapi import HTTPException
 from httpx import AsyncClient, Response
 
+from app.dependencies.auth import get_verified_token
 from app.dependencies.services import (
     get_auth_service,
     get_password_reset_token_service,
@@ -395,3 +396,57 @@ class TestLogout:
         )
 
         assert response.status_code == 204
+
+
+class TestUpdatePasswordAuthed:
+    @pytest.mark.asyncio
+    async def test_invalid_password_returns_400(
+        self, client_with_overrides: Any
+    ) -> None:
+        service = MagicMock()
+        service.firebase_rest_client.sign_in_with_password.side_effect = FirebaseRestError("INVALID_LOGIN_CREDENTIALS")
+
+        client = await client_with_overrides(
+            {
+                get_auth_service: lambda: service,
+                get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
+            }
+        )
+
+        response = await client.post(
+            "/auth/update-password-authed",
+            json={"current_password": "wrong", "new_password": "Newpassword123!"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Incorrect current password."
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(FirebaseRestError("USER_DISABLED"), id="firebase-user-disabled"),
+            pytest.param(RuntimeError("database on fire"), id="runtime-error"),
+        ],
+    )
+    async def test_other_errors_return_500(
+        self, client_with_overrides: Any, error: Exception
+    ) -> None:
+        service = MagicMock()
+        service.firebase_rest_client.sign_in_with_password.side_effect = error
+
+        client = await client_with_overrides(
+            {
+                get_auth_service: lambda: service,
+                get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
+            }
+        )
+
+        response = await client.post(
+            "/auth/update-password-authed",
+            json={"current_password": "password", "new_password": "Newpassword123!"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        assert response.status_code == 500
