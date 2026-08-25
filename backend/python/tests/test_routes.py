@@ -5631,10 +5631,11 @@ class TestAnnouncementRoutes:
     async def _add_admin(session: Any, email: str) -> Any:
         """An admin the recipient query can actually find.
 
-        ``test_admin_user`` only creates a ``users`` row; the audience query
-        joins ``admin_info``, so an admin without that row is invisible to it.
+        Deliberately creates only a ``users`` row with ``role="admin"`` and no
+        ``admin_info``: nothing outside the seed script writes that table, so
+        this is the shape a real admin has. The audience query must match on
+        role for this user to be reachable.
         """
-        from app.models.admin import Admin
         from app.models.user import User
 
         user = User(
@@ -5647,8 +5648,6 @@ class TestAnnouncementRoutes:
         session.add(user)
         await session.commit()
         await session.refresh(user)
-        session.add(Admin(user_id=user.user_id, admin_phone="+15195763443"))
-        await session.commit()
         return user
 
     @pytest.mark.asyncio
@@ -5739,18 +5738,22 @@ class TestAnnouncementRoutes:
     ) -> None:
         """A user who is both a driver and an admin is emailed once.
 
-        Nothing in the schema forbids one user owning rows in both `drivers`
-        and `admin_info`, and the two audience queries run independently -- so
-        without deduplication this user would get one email per audience.
+        Nothing stops a user with role="admin" from also owning a `drivers`
+        row, and the two audience queries run independently -- so without
+        deduplication this user would get one email per audience.
         """
-        from app.models.admin import Admin
         from app.models.user import User
 
         dispatch = mocker.patch(
             "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
             new_callable=mocker.AsyncMock,
         )
-        test_session.add(Admin(user_id=test_driver.user_id, admin_phone="+15195763443"))
+        # Promote the active driver to also be an admin. Admins are matched on
+        # role, so this user now satisfies both queries: the driver join and
+        # the role filter.
+        dual_role = await test_session.get(User, test_driver.user_id)
+        dual_role.role = "admin"
+        test_session.add(dual_role)
         await test_session.commit()
         await self._set_announcement_audiences(
             test_session, to_admins=True, to_drivers=True
