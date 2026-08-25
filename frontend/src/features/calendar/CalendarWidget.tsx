@@ -133,7 +133,7 @@ export function CalendarWidget() {
           </button>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex min-h-0 flex-col gap-4">
         <div className="flex justify-between gap-3">
           {weekDays.map(({ dayName, dayNumber, dateKey }) => {
             const isSelected = selectedDateKey === dateKey;
@@ -154,7 +154,7 @@ export function CalendarWidget() {
             );
           })}
         </div>
-        <div>
+        <div className="flex min-h-0">
           <DataTable
             columns={COLUMNS}
             rows={selectedRoutes}
@@ -164,6 +164,7 @@ export function CalendarWidget() {
                 No routes scheduled for this day.
               </div>
             }
+            className="flex-1 overflow-y-auto"
           />
         </div>
       </CardContent>
