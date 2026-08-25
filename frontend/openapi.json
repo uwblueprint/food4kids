@@ -3917,6 +3917,19 @@
             ],
             "title": "F4K Wr Instagram"
           },
+          "f4k_wr_twitter": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Twitter"
+          },
           "f4k_wr_website": {
             "anyOf": [
               {
@@ -4167,6 +4180,19 @@
               }
             ],
             "title": "F4K Wr Instagram"
+          },
+          "f4k_wr_twitter": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F4K Wr Twitter"
           },
           "f4k_wr_website": {
             "anyOf": [
