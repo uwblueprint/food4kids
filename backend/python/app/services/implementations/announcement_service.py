@@ -2,12 +2,12 @@ import logging
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.models.admin import Admin
 from app.models.announcement import (
     Announcement,
     AnnouncementCreate,
@@ -193,9 +193,13 @@ class AnnouncementService:
                 recipients[user.user_id] = (user, "driver")
 
         if to_admins:
-            statement = select(User).join(
-                Admin, col(Admin.user_id) == col(User.user_id)
-            )
+            # Admins are identified by their role, not by an ``admin_info`` row.
+            # That is what the rest of the app keys off (``require_admin`` is
+            # ``require_authorization_by_role({"admin"})``), and ``admin_info``
+            # rows are only ever written by the seed script -- so joining that
+            # table would silently skip any admin provisioned another way.
+            # Lowered to match the service's own role comparisons elsewhere.
+            statement = select(User).where(func.lower(col(User.role)) == "admin")
             result = await session.execute(statement)
             for user in result.scalars().all():
                 recipients[user.user_id] = (user, "admin")
