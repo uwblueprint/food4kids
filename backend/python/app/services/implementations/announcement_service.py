@@ -180,7 +180,7 @@ class AnnouncementService:
 
         Only active drivers are included. Every admin is a recipient.
         """
-        recipients: list[tuple[User, str]] = []
+        recipients: dict[UUID, tuple[User, str]] = {}
 
         if to_drivers:
             statement = (
@@ -189,16 +189,18 @@ class AnnouncementService:
                 .where(col(Driver.active).is_(True))
             )
             result = await session.execute(statement)
-            recipients.extend((user, "driver") for user in result.scalars().all())
+            for user in result.scalars().all():
+                recipients[user.user_id] = (user, "driver")
 
         if to_admins:
             statement = select(User).join(
                 Admin, col(Admin.user_id) == col(User.user_id)
             )
             result = await session.execute(statement)
-            recipients.extend((user, "admin") for user in result.scalars().all())
+            for user in result.scalars().all():
+                recipients[user.user_id] = (user, "admin")
 
-        return recipients
+        return list(recipients.values())
 
     async def send_announcement_emails(
         self,

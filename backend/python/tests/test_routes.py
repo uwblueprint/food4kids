@@ -5729,6 +5729,55 @@ class TestAnnouncementRoutes:
         assert all(url.endswith("/admin/home") for url in urls)
 
     @pytest.mark.asyncio
+    async def test_send_announcement_email_deduplicates_dual_role_user(
+        self,
+        authed_async_client: AsyncClient,
+        test_session: Any,
+        test_driver: Any,
+        sample_announcement_data: dict[str, Any],
+        mocker: Any,
+    ) -> None:
+        """A user who is both a driver and an admin is emailed once.
+
+        Nothing in the schema forbids one user owning rows in both `drivers`
+        and `admin_info`, and the two audience queries run independently -- so
+        without deduplication this user would get one email per audience.
+        """
+        from app.models.admin import Admin
+        from app.models.user import User
+
+        dispatch = mocker.patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=mocker.AsyncMock,
+        )
+        test_session.add(Admin(user_id=test_driver.user_id, admin_phone="+15195763443"))
+        await test_session.commit()
+        await self._set_announcement_audiences(
+            test_session, to_admins=True, to_drivers=True
+        )
+
+        create_response = await authed_async_client.post(
+            "/announcements/", json=sample_announcement_data
+        )
+        announcement_id = create_response.json()["announcement_id"]
+
+        response = await authed_async_client.post(
+            f"/announcements/{announcement_id}/email"
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"sent": 1, "failed": 0}
+
+        dual_role_user = await test_session.get(User, test_driver.user_id)
+        sends = [
+            call
+            for call in dispatch.call_args_list
+            if call.kwargs["to"] == dual_role_user.email
+        ]
+        assert len(sends) == 1
+        assert sends[0].kwargs["context"]["Announcement_URL"].endswith("/admin/home")
+
+    @pytest.mark.asyncio
     async def test_send_announcement_email_skips_the_author(
         self,
         authed_async_client: AsyncClient,
