@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
+import { useAuthStore } from './api/authStore';
 import {
   CatchAllErrorPage,
   ForbiddenPage,
@@ -30,11 +31,26 @@ import { DriverHomePage, IndividualRoutePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
 import { TestImageUpload } from './pages/TestImageUpload';
 
+function RootRedirect() {
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.role === 'driver') {
+    return <Navigate to="/driver/home" replace />;
+  }
+
+  return <Navigate to="/admin/home" replace />;
+}
+
 function App() {
   return (
     <Routes>
-      {/* Redirect root to admin home */}
-      <Route path="/" element={<Navigate to="/admin/home" replace />} />
+      {/* Redirect root based on user role */}
+      <Route path="/" element={<RootRedirect />} />
 
       {/* Admin Routes */}
       <Route path="/admin" element={<AdminLayout />}>
