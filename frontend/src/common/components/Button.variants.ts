@@ -38,15 +38,17 @@ export const buttonVariants = cva(
          * 16px sides and a 14/18 SemiBold body-font label, per the Routes
          * design frame. Sized to its label — it sits inside a cell, so it
          * neither reserves a minimum width nor goes full-width on mobile. */
-        compact: 'text-p2 h-[34px] rounded-full px-4 font-semibold',
+        compact: 'text-p2 h-[34px] rounded-full px-4 font-nunito font-medium',
       },
     },
     compoundVariants: [
-      /* textLink doesn't need pill sizing — reset padding, width, and radius */
+      /* textLink doesn't need pill sizing — reset padding, width, and radius.
+       * `leading-6` matches Figma's Text Link (16/24); the pill's own 20 would
+       * leave the link shorter than the heading it sits beside. */
       {
         variant: 'textLink',
         shape: 'default',
-        className: 'min-w-0 px-0 rounded-none w-auto h-auto',
+        className: 'min-w-0 p-0 rounded-none w-auto h-auto leading-6',
       },
     ],
     defaultVariants: {

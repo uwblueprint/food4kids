@@ -80,6 +80,32 @@ class Settings(BaseSettings):
     gcp_service_account_token_uri: str = Field(default="")
     gcp_service_account_auth_provider_x509_cert_url: str = Field(default="")
     gcp_service_account_client_x509_cert_url: str = Field(default="")
+
+    # Billing — dedicated service account, kept separate from the storage and
+    # Fleet Routing accounts because billing.viewer is granted on the *billing
+    # account* and so spans every project on it.
+    billing_service_account_private_key_id: str = Field(default="")
+    billing_service_account_private_key: str = Field(default="")
+    billing_service_account_client_email: str = Field(default="")
+    billing_service_account_client_id: str = Field(default="")
+    billing_service_account_auth_uri: str = Field(default="")
+    billing_service_account_token_uri: str = Field(default="")
+    billing_service_account_auth_provider_x509_cert_url: str = Field(default="")
+    # Non-secret billing config. billing_account_id is the Cloud Billing account
+    # ("012345-6789AB-CDEF01"); billing_target_project_id scopes spend to one
+    # project. The export dataset must live in billing_target_project_id.
+    billing_account_id: str = Field(default="")
+    billing_target_project_id: str = Field(default="")
+    billing_export_dataset: str = Field(default="")
+    billing_export_table: str = Field(default="")
+    # Cost data only refreshes every few hours, so a short TTL costs no accuracy
+    # while protecting against a polling caller running up BigQuery scans.
+    # Set to 0 to query live on every request.
+    billing_cache_ttl_seconds: int = Field(default=300)
+    # Hard ceiling per query. BigQuery kills the job rather than billing beyond
+    # this, so a runaway caller fails loudly instead of quietly costing money.
+    billing_max_bytes_billed: int = Field(default=1024**3)
+
     # Preview deploy
     preview_deploy: bool = Field(default=False)
 

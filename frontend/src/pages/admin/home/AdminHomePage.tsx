@@ -4,6 +4,8 @@ import { formatDisplayDate } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
 import { StatisticsWidget } from '@/features/statistics';
 
+import { UnassignedRoutesCard } from './components';
+
 const today = formatDisplayDate(new Date());
 
 /** Every bento tile: 28px corners and the soft admin-page shadow. */
@@ -27,10 +29,10 @@ export const AdminHomePage = () => {
           <Account />
         </div>
       </div>
-      {/* The bento: a 331px right rail with the calendar and unassigned-routes
-          tiles taking the rest, on 468px and 376px rows. Only the right rail is
+      {/* The bento: a 363px right rail with the calendar and unassigned-routes
+          tiles taking the rest, on 468px and 380px rows. Only the right rail is
           fixed — the left tiles grow with the viewport. */}
-      <div className="grid grid-cols-[1fr_331px] grid-rows-[468px_376px] gap-5">
+      <div className="grid grid-cols-[1fr_363px] grid-rows-[468px_380px] gap-5">
         <Card className={TILE}>
           <CardContent>TODO: Calendar</CardContent>
         </Card>
@@ -40,9 +42,7 @@ export const AdminHomePage = () => {
           </Card>
           <StatisticsWidget />
         </div>
-        <Card className={TILE}>
-          <CardContent>TODO: Unassigned Routes</CardContent>
-        </Card>
+        <UnassignedRoutesCard />
         <Card className={TILE}>
           <CardContent>TODO: Recent Notes</CardContent>
         </Card>

@@ -42,6 +42,10 @@ export interface RouteMapProps {
   encodedPolyline: string | null | undefined;
   stops?: RouteMapStop[];
   className?: string;
+  /** When true, render the polyline and stops in a muted/grey style. */
+  muted?: boolean;
+  /** Choose the basemap tileset. 'default' = color OSM, 'grey' = desaturated basemap. */
+  basemap?: 'default' | 'grey';
 }
 
 /** Fits the map to the polyline bounds on mount / when coords change. */
@@ -55,7 +59,24 @@ function FitToPolyline({ coords }: { coords: [number, number][] }) {
   return null;
 }
 
-export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
+/** Fits the map to the stop bounds when there are no polyline coordinates. */
+function FitToStops({ stopPositions }: { stopPositions: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (stopPositions.length > 0) {
+      map.fitBounds(stopPositions, { padding: [24, 24] });
+    }
+  }, [stopPositions, map]);
+  return null;
+}
+
+export function RouteMap({
+  encodedPolyline,
+  stops,
+  className,
+  muted,
+  basemap = 'default',
+}: RouteMapProps) {
   const coords = useMemo<[number, number][]>(() => {
     if (!encodedPolyline) return [];
     try {
@@ -80,7 +101,12 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
     [stops]
   );
 
-  const center = coords[0] ?? stopPoints[0]?.position ?? DEFAULT_CENTER;
+  const stopPositions = useMemo(
+    () => stopPoints.map((p) => p.position),
+    [stopPoints]
+  );
+
+  const center = coords[0] ?? stopPositions[0] ?? DEFAULT_CENTER;
 
   return (
     <div
@@ -98,17 +124,34 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
         zoom={DEFAULT_ZOOM}
         scrollWheelZoom
         className="h-full w-full"
+        style={
+          basemap === 'grey'
+            ? { filter: 'grayscale(100%) brightness(0.9)' }
+            : undefined
+        }
       >
+        {/* Choose a basemap: default OSM color or a greyscale tileset for muted previews */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={
+            basemap === 'grey'
+              ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
+              : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }
+          url={
+            basemap === 'grey'
+              ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+              : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+          }
+          subdomains={
+            basemap === 'grey' ? ['a', 'b', 'c', 'd'] : ['a', 'b', 'c']
+          }
         />
         {coords.length > 0 && (
           <>
             <Polyline
               positions={coords}
               pathOptions={{
-                color: POLYLINE_COLOR,
+                color: muted ? '#A8A8A8' : POLYLINE_COLOR,
                 weight: POLYLINE_WEIGHT,
                 opacity: 1,
                 lineCap: 'round',
@@ -118,6 +161,9 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
             <FitToPolyline coords={coords} />
           </>
         )}
+        {coords.length === 0 && stopPositions.length > 0 && (
+          <FitToStops stopPositions={stopPositions} />
+        )}
         {stopPoints.map(({ key, position }) => (
           <CircleMarker
             key={key}
@@ -126,7 +172,7 @@ export function RouteMap({ encodedPolyline, stops, className }: RouteMapProps) {
             pathOptions={{
               color: STOP_RING_COLOR,
               weight: STOP_RING_WEIGHT,
-              fillColor: POLYLINE_COLOR,
+              fillColor: muted ? '#A8A8A8' : POLYLINE_COLOR,
               fillOpacity: 1,
               opacity: 1,
             }}
