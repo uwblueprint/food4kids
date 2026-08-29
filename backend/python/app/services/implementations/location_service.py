@@ -63,6 +63,7 @@ from app.services.implementations.location_import_validation import (
 )
 from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
 from app.utilities.pagination import paginate_query
+from app.utilities.search import phone_match, text_match
 
 if TYPE_CHECKING:
     from app.services.implementations.system_settings_service import (
@@ -218,8 +219,10 @@ class LocationService:
         route. Callers can narrow via the optional ``status_filter`` and
         ``delivery_type`` and ``location_group_id`` query params.
 
-        ``search`` filters (case-insensitive substring) on the delivery
-        address, which carries the postal code, applied before pagination.
+        ``search`` filters (case-insensitive substring) on every text column
+        the Addresses table shows — address/postal code, location and contact
+        and guardian names, food restrictions, and delivery group — plus the
+        phone numbers by digits. Applied before pagination.
         """
         try:
             statement = (
@@ -239,9 +242,35 @@ class LocationService:
                 )
 
             if search and search.strip():
-                statement = statement.where(
-                    col(Location.address).ilike(f"%{search.strip()}%")
+                term = search.strip()
+                # Every text column the Addresses table shows, so what a reader
+                # sees in a cell is something they can type into the box. The
+                # delivery group is matched via a correlated subquery rather
+                # than a join, so the outer query stays one row per location.
+                group_name = (
+                    select(LocationGroup.name)
+                    .where(
+                        LocationGroup.location_group_id == Location.location_group_id
+                    )
+                    .scalar_subquery()
                 )
+                predicates = [
+                    text_match(
+                        term,
+                        col(Location.address),
+                        col(Location.name),
+                        col(Location.contact_name),
+                        col(Location.guardian_name),
+                        col(Location.dietary_restrictions),
+                        group_name,
+                    )
+                ]
+                phones = phone_match(
+                    term, col(Location.phone_primary), col(Location.phone_secondary)
+                )
+                if phones is not None:
+                    predicates.append(phones)
+                statement = statement.where(or_(*predicates))
 
             if status_filter:
                 today = self._today()

@@ -46,7 +46,12 @@ async def get_locations(
         None, description="Filter by one or more location groups"
     ),
     search: str | None = Query(
-        None, description="Case-insensitive filter on the delivery address/postal code"
+        None,
+        description=(
+            "Case-insensitive filter across the address/postal code, location, "
+            "contact and guardian names, food restrictions, delivery group, "
+            "and phone numbers"
+        ),
     ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),

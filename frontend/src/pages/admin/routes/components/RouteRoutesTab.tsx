@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
-import { useRoutes } from '@/api/routes';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -12,18 +11,10 @@ import {
   Pagination,
   TableToolbar,
 } from '@/common/components';
-import {
-  clampPage,
-  TABLE_PAGE_SIZE,
-  useDebouncedValue,
-  usePagination,
-  useRowHighlight,
-  useSearch,
-  useTableSort,
-} from '@/common/hooks';
+import { useRowHighlight, useTableSort } from '@/common/hooks';
 import { orDash } from '@/common/utils';
 
-import { routeFiltersToQuery, useRouteFilters } from '../hooks';
+import type { RoutesTabState } from '../hooks';
 import { AssignDriverCell } from './AssignDriverCell';
 import { DriveDateCell } from './DriveDateCell';
 import { EmptyState } from './EmptyState';
@@ -73,26 +64,30 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
   },
 ];
 
-export function RouteRoutesTab() {
-  const search = useSearch();
-  // Debounced so the driver-name search hits the server once typing pauses.
-  const searchTerm = useDebouncedValue(search.value).trim();
-  const filters = useRouteFilters();
-  const query = {
-    search: searchTerm || undefined,
-    ...routeFiltersToQuery(filters.appliedFilters),
-  };
-  const { page: requestedPage, setPage } = usePagination(JSON.stringify(query));
-  const { data } = useRoutes({
-    ...query,
-    page: requestedPage,
-    page_size: TABLE_PAGE_SIZE,
-  });
-  const rows = useMemo(() => data?.items ?? [], [data]);
-  const totalPages = data?.total_pages ?? 0;
-  const page = clampPage(requestedPage, totalPages, setPage);
+type RouteRoutesTabProps = RoutesTabState;
+
+export function RouteRoutesTab({
+  rows,
+  page,
+  setPage,
+  totalPages,
+  deliveryTypes,
+  search,
+  searchTerm,
+  unassignedCount,
+  bannerDismissed,
+  dismissBanner,
+  filterOpen,
+  setFilterOpen,
+  draftFilters,
+  hasActiveFilters,
+  openFilters,
+  toggleDraft,
+  draftHasSelections,
+  clearDraft,
+  handleApply,
+}: RouteRoutesTabProps) {
   const { sort, toggleSort } = useTableSort();
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   // Highlight + scroll a row after a date edit (re-sorts it) or a driver
   // reassignment (updates it in place).
   const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
@@ -153,27 +148,10 @@ export function RouteRoutesTab() {
     [handleRowChanged, searchTerm]
   );
 
-  // Counted server-side rather than from `rows`: the banner is about the whole
-  // filtered result set and `rows` is one page of it. page_size 1 because only
-  // the total is wanted — the item itself is thrown away. The driver-assignment
-  // chip is deliberately overridden: the banner answers "how many routes still
-  // need a driver", which is the same question whichever side of that filter
-  // you are currently looking at.
-  const { data: unassigned } = useRoutes({
-    ...query,
-    driver_assignment_status: ['Unassigned'],
-    page_size: 1,
-  });
-  const unassignedCount = unassigned?.total ?? 0;
-
   return (
     <>
       {unassignedCount > 0 && !bannerDismissed && (
-        <Banner
-          variant="error"
-          className="mb-6 py-4"
-          onDismiss={() => setBannerDismissed(true)}
-        >
+        <Banner variant="error" className="mb-6 py-4" onDismiss={dismissBanner}>
           <span className="text-red font-bold">{unassignedCount}</span> route
           {unassignedCount === 1 ? '' : 's'} missing assigned driver
           {unassignedCount === 1 ? '' : 's'}
@@ -183,8 +161,8 @@ export function RouteRoutesTab() {
       <TableToolbar
         search={search}
         showFilter
-        onFilterClick={filters.openFilters}
-        hasActiveFilters={filters.hasActiveFilters}
+        onFilterClick={openFilters}
+        hasActiveFilters={hasActiveFilters}
         actions={
           <Button variant="primary" asChild>
             <Link to="/admin/routes/generation">Generate routes</Link>
@@ -212,15 +190,15 @@ export function RouteRoutesTab() {
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <RouteFilterModal
-        open={filters.filterOpen}
-        onOpenChange={filters.setFilterOpen}
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
         subtitle="Routes"
-        deliveryTypes={filters.deliveryTypes}
-        draftFilters={filters.draftFilters}
-        toggleDraft={filters.toggleDraft}
-        draftHasSelections={filters.draftHasSelections}
-        clearDraft={filters.clearDraft}
-        handleApply={filters.handleApply}
+        deliveryTypes={deliveryTypes}
+        draftFilters={draftFilters}
+        toggleDraft={toggleDraft}
+        draftHasSelections={draftHasSelections}
+        clearDraft={clearDraft}
+        handleApply={handleApply}
       />
     </>
   );

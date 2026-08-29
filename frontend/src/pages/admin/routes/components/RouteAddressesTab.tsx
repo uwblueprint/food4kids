@@ -108,6 +108,15 @@ const COLUMNS: Column<LocationRead>[] = [
   },
 ];
 
+// Every text column the server's `search` matches gets the highlight, so a hit
+// is visible wherever it landed rather than only in the address.
+const HIGHLIGHTED: Record<string, (row: LocationRead) => string> = {
+  contact_name: (row) => row.contact_name,
+  address: (row) => row.address,
+  delivery_group: (row) => row.location_group_name,
+  dietary_restrictions: (row) => row.dietary_restrictions,
+};
+
 type RouteAddressesTabProps = AddressesTabState;
 
 export function RouteAddressesTab({
@@ -133,11 +142,12 @@ export function RouteAddressesTab({
   const columns = useMemo<Column<LocationRead>[]>(
     () =>
       COLUMNS.map((col) => {
-        if (col.key === 'address') {
+        const text = HIGHLIGHTED[col.key];
+        if (text) {
           return {
             ...col,
             render: (row: LocationRead) => (
-              <HighlightText text={row.address} query={searchTerm} />
+              <HighlightText text={orDash(text(row))} query={searchTerm} />
             ),
           };
         }

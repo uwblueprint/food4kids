@@ -44,6 +44,7 @@ from app.utilities.google_maps_link import (
 )
 from app.utilities.pagination import paginate_query
 from app.utilities.routes_utils import fetch_route_polyline
+from app.utilities.search import text_match
 
 
 class RoutingConfigurationError(Exception):
@@ -85,7 +86,8 @@ class RouteService:
             driver_id: Only routes assigned to this driver.
             start_date / end_date: Range over the group's drive_date.
             search: Case-insensitive substring of the assigned driver's full
-                name, applied before pagination.
+                name, the route's name, or its group's name, applied before
+                pagination.
             order: drive_date ordering — "asc" for the upcoming feed, "desc"
                 for the past feed.
             weekday, delivery_type, route_status, driver_assignment_status:
@@ -188,9 +190,15 @@ class RouteService:
             statement = statement.where(Route.driver_id == driver_id)
 
         if search and search.strip():
+            # Driver full name, the route's own name, and its group's name.
+            # User is outer-joined, so concat() is NULL for an unassigned route
+            # and its group name is what can still match.
             statement = statement.where(
-                func.concat(User.first_name, " ", User.last_name).ilike(
-                    f"%{search.strip()}%"
+                text_match(
+                    search.strip(),
+                    func.concat(User.first_name, " ", User.last_name),
+                    col(Route.name),
+                    col(RouteGroup.name),
                 )
             )
 
