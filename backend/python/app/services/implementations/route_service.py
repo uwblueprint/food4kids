@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
 from app.config import settings
+from app.models.api_usage import ApiSku
 from app.models.driver import Driver
 from app.models.enum import (
     DriveDaysOfWeekEnum,
@@ -33,6 +34,9 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.services.implementations.quota_service import (
+    record_usage_out_of_band,
+)
 from app.utilities.boxes import (
     box_count_expr,
     compute_boxes,
@@ -517,6 +521,10 @@ class RouteService:
                     warehouse_lon=warehouse_lon,
                     ends_at_warehouse=route.ends_at_warehouse,
                 )
+                # Route edits spend the same Routes API allowance as the
+                # single-vehicle generation tier; unrecorded, they would leave
+                # the counter reporting room that is already gone.
+                await record_usage_out_of_band(ApiSku.ROUTES_COMPUTE, 1)
 
                 # Delete existing route stops
                 existing_stops_result = await session.execute(

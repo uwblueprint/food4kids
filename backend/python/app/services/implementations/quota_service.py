@@ -12,16 +12,16 @@ than sailing into paid usage on a miscount.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from app.config import settings
 from app.models.api_usage import ApiSku
 from app.utilities.datetime_utils import current_billing_month
 
 if TYPE_CHECKING:
-    import logging
-
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.config import Settings
@@ -51,6 +51,42 @@ def fleet_routing_units(num_locations: int, num_vehicles: int) -> int:
 
 class QuotaExhaustedError(Exception):
     """Raised when a SKU has no free room left for the requested units."""
+
+
+async def record_usage_out_of_band(sku: ApiSku, units: int) -> None:
+    """Record usage from a call that had no session to hand.
+
+    For ungated Google calls made deep in a request — route polylines, say —
+    which spend a SKU's allowance without going through the cascade. Left
+    unrecorded, the counter under-reports, and the cascade would offer a tier
+    room it no longer has. Undercounting is the direction that costs money.
+
+    Opens its own session and commits: Google billed the call regardless of
+    what the surrounding transaction eventually does. Never raises, because
+    losing count is a smaller problem than failing the work that prompted it.
+    """
+    if units <= 0:
+        return
+
+    from app import models as app_models
+
+    session_maker = app_models.async_session_maker_instance
+    if session_maker is None:
+        return
+
+    try:
+        service = QuotaService(logging.getLogger(__name__), settings)
+        async with session_maker() as session:
+            await service.record(session, sku, units)
+            await session.commit()
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Could not record %d %s against %s; the counter will under-report",
+            units,
+            SKU_UNITS[sku.value],
+            sku.value,
+            exc_info=True,
+        )
 
 
 class QuotaService:
