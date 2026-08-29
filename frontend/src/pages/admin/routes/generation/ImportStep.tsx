@@ -146,7 +146,7 @@ export function ImportStep() {
         // imported data, and the frames set them 16/500.
         <span className="text-p1 text-grey-500">
           {row.label}
-          {row.required && <span className="text-red ml-0.5">*</span>}
+          {row.required && <span className="text-red">{' *'}</span>}
         </span>
       ),
     },

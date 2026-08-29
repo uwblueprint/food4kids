@@ -8,6 +8,7 @@ import noPast from '@/assets/illustrations/girl-confused.png';
 import logo from '@/assets/logos/logo_mobile_one_line.svg';
 import { StatisticsCard } from '@/common/components/StatisticsCard';
 import { AnnouncementsBoard } from '@/features/announcements';
+import { cn } from '@/lib/utils';
 
 import { RouteCard } from './components';
 
@@ -119,25 +120,28 @@ export const DriverHomePage = () => {
       <div className="mb-2 w-full">
         <div className="bg-grey-150 w-full rounded-full p-1">
           <div className="flex w-full rounded-full">
+            {/* The selected pill sits on a light ground, so per the stroke
+             * rule it carries a 1px stroke — same treatment as the active
+             * sidebar item. */}
             <button
               onClick={() => setTab('upcoming')}
-              className={
-                (tab === 'upcoming'
-                  ? 'bg-blue-50 text-blue-300'
-                  : 'text-grey-500') +
-                ' text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold'
-              }
+              className={cn(
+                'text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold',
+                tab === 'upcoming'
+                  ? 'bg-blue-50 text-blue-300 outline outline-1 outline-offset-[-1px] outline-blue-100'
+                  : 'text-grey-500'
+              )}
             >
               Upcoming
             </button>
             <button
               onClick={() => setTab('past')}
-              className={
-                (tab === 'past'
-                  ? 'bg-blue-50 text-blue-300'
-                  : 'text-grey-500') +
-                ' text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold'
-              }
+              className={cn(
+                'text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold',
+                tab === 'past'
+                  ? 'bg-blue-50 text-blue-300 outline outline-1 outline-offset-[-1px] outline-blue-100'
+                  : 'text-grey-500'
+              )}
             >
               Past
             </button>
