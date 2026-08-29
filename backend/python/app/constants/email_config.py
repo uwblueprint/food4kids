@@ -11,6 +11,23 @@ class EmailTemplateConfig(TypedDict):
     required_context: list[str]
 
 
+# Footer variables shared by every template through the F4KEmailLayout wrapper.
+#
+# Deliberately NOT part of any template's ``required_context``: callers never
+# supply these. ``EmailDispatcher`` reads them off the system settings row and
+# merges them into the render context, so every email gets the org's current
+# contact details without each sender having to remember them. They are listed
+# here so the template/config drift tests know these names are legitimate.
+FOOTER_CONTEXT_KEYS: frozenset[str] = frozenset(
+    {
+        "Org_Website",
+        "Org_Address",
+        "Org_Facebook_URL",
+        "Org_Instagram_URL",
+        "Org_Twitter_URL",
+    }
+)
+
 EMAIL_TEMPLATES: dict[str, EmailTemplateConfig] = {
     "account-creation": {
         "filename": "account-creation.html",
