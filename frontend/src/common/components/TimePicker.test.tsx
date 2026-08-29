@@ -2,6 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { TimePicker } from './TimePicker';
+import {
+  type TimePickerPadding,
+  timePickerPaddingClasses,
+} from './TimePicker.padding';
 
 // The closed trigger is the whole surface these tests care about, so static
 // markup is enough — no DOM, no interaction. `data-slot` is how the rest of
@@ -86,4 +90,62 @@ describe('TimePicker display', () => {
   it('falls back to 8:00 AM when uncontrolled with no value', () => {
     expect(renderTrigger(<TimePicker />)).toContain('8:00 AM');
   });
+});
+
+/**
+ * The panel renders through a Radix portal, which needs a `document` and so
+ * renders nothing under `renderToStaticMarkup`. Its padding is therefore tested
+ * on the function that decides it — the same one the component calls.
+ */
+describe('timePickerPaddingClasses', () => {
+  /** Tailwind's spacing scale is 4px per step. */
+  function pxOf(className: string): number {
+    const step = Number(className.replace('px-', ''));
+    expect(Number.isFinite(step)).toBe(true);
+    return step * 4;
+  }
+
+  it('pairs the 12px trigger with a panel that adds nothing', () => {
+    expect(timePickerPaddingClasses(12)).toEqual({
+      trigger: 'px-3',
+      panel: 'px-0',
+    });
+  });
+
+  it('pairs the 24px trigger with a panel that adds the remainder', () => {
+    expect(timePickerPaddingClasses(24)).toEqual({
+      trigger: 'px-6',
+      panel: 'px-3',
+    });
+  });
+
+  it.each([12, 24] as const)(
+    'lands an option on the trigger text x for padding=%i',
+    (padding: TimePickerPadding) => {
+      const { trigger, panel } = timePickerPaddingClasses(padding);
+      // The option pill's own px-3 completes the inset, so panel + 12 has to
+      // land exactly on the trigger's padding. That is the whole alignment
+      // contract: move one side without the other and it breaks here.
+      expect(pxOf(panel) + 12).toBe(pxOf(trigger));
+      expect(pxOf(trigger)).toBe(padding);
+    }
+  );
+
+  it('refuses a padding with no Tailwind class rather than dropping it', () => {
+    expect(() => timePickerPaddingClasses(20 as TimePickerPadding)).toThrow(
+      /No Tailwind padding class/
+    );
+  });
+});
+
+describe('TimePicker trigger padding', () => {
+  it.each([12, 24] as const)(
+    'renders %i as the class the padding module chose',
+    (padding: TimePickerPadding) => {
+      const { trigger } = timePickerPaddingClasses(padding);
+      expect(renderTrigger(<TimePicker padding={padding} />)).toContain(
+        trigger
+      );
+    }
+  );
 });

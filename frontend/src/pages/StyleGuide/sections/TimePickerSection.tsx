@@ -62,6 +62,12 @@ export function TimePickerSection() {
           <code className="text-p2 bg-grey-150 rounded px-1">24</code> in
           Settings.
         </SpecNote>
+        <SpecNote title="Alignment">
+          The padding applies to the panel as well as the trigger, so an
+          option&apos;s text lands on exactly the same x as the time shown in
+          the trigger above it. The option pill supplies 12px of that inset
+          itself, so the panel adds only the remainder.
+        </SpecNote>
       </div>
 
       <SectionLabel>Usage</SectionLabel>
@@ -73,21 +79,30 @@ export function TimePickerSection() {
           </div>
         </ComponentPreview>
 
-        <ComponentPreview title="Padding" code={TIME_PICKER_PADDING_CODE}>
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex flex-col items-center gap-2">
-              <TimePicker value={settingsTime} onChange={setSettingsTime} />
+        <ComponentPreview
+          title="Padding"
+          code={TIME_PICKER_PADDING_CODE}
+          previewClassName="min-h-[360px] items-start"
+        >
+          <div className="flex gap-20">
+            <div className="flex flex-col items-start gap-2">
               <p className="text-p3 text-grey-400">
                 padding=12 — route generation
               </p>
+              <TimePicker
+                value={settingsTime}
+                onChange={setSettingsTime}
+                open
+              />
             </div>
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-p3 text-grey-400">padding=24 — Settings</p>
               <TimePicker
                 value={settingsTime}
                 onChange={setSettingsTime}
                 padding={24}
+                open
               />
-              <p className="text-p3 text-grey-400">padding=24 — Settings</p>
             </div>
           </div>
         </ComponentPreview>

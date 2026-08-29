@@ -4,14 +4,12 @@ import ClockIcon from '@/assets/icons/clock.svg?react';
 import { cn } from '@/lib/utils';
 
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
+import {
+  type TimePickerPadding,
+  timePickerPaddingClasses,
+} from './TimePicker.padding';
 
-/** The side-padding values the design system uses for dropdown triggers. */
-export type TimePickerPadding = 12 | 24;
-
-const PADDING_CLASSES: Record<TimePickerPadding, string> = {
-  12: 'px-3',
-  24: 'px-6',
-};
+export type { TimePickerPadding };
 
 interface TimePickerProps {
   /** Time as a 24-hour "HH:MM" string. */
@@ -24,6 +22,13 @@ interface TimePickerProps {
    * table, 24 in Settings.
    */
   padding?: TimePickerPadding;
+  /**
+   * Forces the panel open or closed. Left undefined the picker manages its own
+   * open state; the style guide pins it so both padding variants can show
+   * their panel at once, which Radix would otherwise not allow — a non-modal
+   * popover closes as soon as focus lands in the other one.
+   */
+  open?: boolean;
   className?: string;
 }
 
@@ -60,9 +65,13 @@ export function TimePicker({
   onChange,
   disabled,
   padding = 12,
+  open,
   className,
 }: TimePickerProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = open ?? internalOpen;
+  const { trigger: triggerPadding, panel: panelPadding } =
+    timePickerPaddingClasses(padding);
   const [internalValue, setInternalValue] = useState(value ?? '08:00');
   const currentValue = value ?? internalValue;
   const { hour, minute, period } = parseTime(currentValue);
@@ -82,7 +91,7 @@ export function TimePicker({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={isOpen} onOpenChange={setInternalOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -90,10 +99,10 @@ export function TimePicker({
           disabled={disabled}
           className={cn(
             'inline-flex w-40 cursor-pointer items-center justify-between rounded-sm py-2',
-            PADDING_CLASSES[padding],
+            triggerPadding,
             'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
             'transition-colors',
-            open
+            isOpen
               ? 'outline-2 outline-blue-300'
               : 'focus-visible:outline-2 focus-visible:outline-blue-300',
             disabled && 'bg-grey-150 cursor-not-allowed opacity-60',
@@ -110,7 +119,11 @@ export function TimePicker({
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent
+        data-slot="time-picker-panel"
+        className={cn('w-auto py-0', panelPadding)}
+        align="start"
+      >
         <div className="flex">
           <Column
             items={HOURS}
@@ -153,7 +166,7 @@ function Column<T extends string | number>({
   return (
     <div
       className={cn(
-        'flex max-h-[200px] flex-col items-center gap-0.5 overflow-y-auto p-1',
+        'flex max-h-[200px] flex-col items-start gap-0.5 overflow-y-auto py-1',
         !noBorder && 'border-grey-300 border-r'
       )}
     >
@@ -163,7 +176,10 @@ function Column<T extends string | number>({
           type="button"
           onClick={() => onSelect(item)}
           className={cn(
-            'text-p2 flex h-10 min-w-12 shrink-0 cursor-pointer items-center justify-center rounded-full px-3 transition-colors',
+            // Hugs its label rather than a fixed min-width: the pill's own
+            // px-3 is what puts the label at the panel's inset, so a wider
+            // pill would push a short label off its own centre.
+            'text-p2 flex h-10 shrink-0 cursor-pointer items-center justify-start rounded-full px-3 transition-colors',
             item === selected
               ? 'bg-blue-300 text-white'
               : 'text-grey-500 hover:bg-blue-50'
