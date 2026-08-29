@@ -5,11 +5,25 @@ import { cn } from '@/lib/utils';
 
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
 
+/** The side-padding values the design system uses for dropdown triggers. */
+export type TimePickerPadding = 12 | 24;
+
+const PADDING_CLASSES: Record<TimePickerPadding, string> = {
+  12: 'px-3',
+  24: 'px-6',
+};
+
 interface TimePickerProps {
   /** Time as a 24-hour "HH:MM" string. */
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
+  /**
+   * Side padding of the trigger, in px. A dropdown's left padding follows the
+   * button it opens from, which differs by context: 12 in the route-generation
+   * table, 24 in Settings.
+   */
+  padding?: TimePickerPadding;
   className?: string;
 }
 
@@ -45,6 +59,7 @@ export function TimePicker({
   value,
   onChange,
   disabled,
+  padding = 12,
   className,
 }: TimePickerProps) {
   const [open, setOpen] = useState(false);
@@ -71,9 +86,11 @@ export function TimePicker({
       <PopoverTrigger asChild>
         <button
           type="button"
+          data-slot="time-picker-trigger"
           disabled={disabled}
           className={cn(
-            'inline-flex w-40 cursor-pointer items-center justify-between rounded-sm px-3 py-2',
+            'inline-flex w-40 cursor-pointer items-center justify-between rounded-sm py-2',
+            PADDING_CLASSES[padding],
             'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
             'transition-colors',
             open
@@ -86,7 +103,10 @@ export function TimePicker({
           <span className="text-p2 text-grey-500">
             {formatDisplay(currentValue)}
           </span>
-          <ClockIcon className="text-grey-400 size-4 shrink-0" />
+          <ClockIcon
+            data-slot="time-picker-icon"
+            className="text-grey-400 size-4 shrink-0"
+          />
         </button>
       </PopoverTrigger>
 

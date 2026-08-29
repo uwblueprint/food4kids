@@ -73,5 +73,6 @@ export { TableToolbar } from './TableToolbar';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
 export { Textarea } from './Textarea';
+export type { TimePickerPadding } from './TimePicker';
 export { TimePicker } from './TimePicker';
 export { Tooltip, TooltipContent, TooltipTrigger } from './Tooltip';
