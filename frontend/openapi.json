@@ -3093,8 +3093,13 @@
         "type": "object"
       },
       "RouteGroupDuplicate": {
-        "description": "Duplicate request model - overrides for the copied group.\n\nBoth optional so the endpoint also works with no body: name falls back to\n\"Copy of {original}\" and drive_date to the original's date.",
+        "description": "Duplicate request model - overrides for the copied group.\n\nEvery field has a default so the endpoint also works with no body: name\nfalls back to \"Copy of {original}\", drive_date to the original's date, and\ndriver assignments carry over.",
         "properties": {
+          "copy_drivers": {
+            "default": true,
+            "title": "Copy Drivers",
+            "type": "boolean"
+          },
           "drive_date": {
             "anyOf": [
               {
