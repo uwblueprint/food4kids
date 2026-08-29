@@ -73,6 +73,8 @@ import type {
   GenerateJobData,
   GenerateJobErrors,
   GenerateJobResponses,
+  GetAllTimeTotalsData,
+  GetAllTimeTotalsResponses,
   GetAnnouncementData,
   GetAnnouncementErrors,
   GetAnnouncementResponses,
@@ -1229,8 +1231,12 @@ export const getNotesFeed = <ThrowOnError extends boolean = false>(
 /**
  * Get Total Deliveries Between
  *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
+ * Return total deliveries (route stop snapshots) in [start, end).
+ *
+ * Query params are treated as EST if no timezone is provided, then reduced
+ * to calendar days — a drive date is a day, not an instant. The range is
+ * half-open like every other range in the reports, so consecutive windows
+ * tile instead of double-counting their shared boundary day.
  */
 export const getTotalDeliveriesBetween = <ThrowOnError extends boolean = false>(
   options: Options<GetTotalDeliveriesBetweenData, ThrowOnError>
@@ -1303,6 +1309,29 @@ export const getMonthlyTotals = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/reports/monthly/{year}/{month}/totals',
+    ...options,
+  });
+
+/**
+ * Get All Time Totals
+ *
+ * Return all-time km driven and deliveries made, across every driven route.
+ *
+ * Separate from /monthly-series on purpose: the homepage's headline totals
+ * mean "since we started", and deriving them from the chart's window would
+ * silently make them a trailing-N-month figure instead.
+ */
+export const getAllTimeTotals = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAllTimeTotalsData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetAllTimeTotalsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/reports/totals',
     ...options,
   });
 

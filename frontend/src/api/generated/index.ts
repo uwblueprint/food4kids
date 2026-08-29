@@ -23,6 +23,7 @@ export {
   exportAllDriversHistory,
   forgotPassword,
   generateJob,
+  getAllTimeTotals,
   getAnnouncement,
   getAnnouncements,
   getBillingCosts,
@@ -75,6 +76,7 @@ export {
 } from './sdk.gen';
 export type {
   AlertCode,
+  AllTimeTotalsResponse,
   AnnouncementCreate,
   AnnouncementLastReadResponse,
   AnnouncementRead,
@@ -216,6 +218,9 @@ export type {
   GenerateJobErrors,
   GenerateJobResponse,
   GenerateJobResponses,
+  GetAllTimeTotalsData,
+  GetAllTimeTotalsResponse,
+  GetAllTimeTotalsResponses,
   GetAnnouncementData,
   GetAnnouncementError,
   GetAnnouncementErrors,

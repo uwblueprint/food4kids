@@ -1,12 +1,12 @@
 import logging
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
+from datetime import date
+from typing import Any
 
 from sqlalchemy import extract, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.selectable import Subquery
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.driver import Driver
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -30,10 +30,42 @@ def month_span(end_year: int, end_month: int, months: int) -> list[tuple[int, in
     return [(ordinal // 12, ordinal % 12 + 1) for ordinal in ordinals]
 
 
+def delivery_events(bounds: tuple[date, date] | None = None) -> Subquery:
+    """Deliveries as (year, month) rows — one row per delivery.
+
+    A delivery is one stop on one drive date: a route_stop_snapshots row,
+    which exists only once the route has been driven and frozen. The
+    driver_id filter mirrors `mileage_events`, so km and deliveries are
+    measured over the same routes — a route nobody drove delivered nothing.
+
+    `bounds` is a half-open [start, end) drive_date range, applied to the raw
+    column so it stays index-friendly. None means all time.
+    """
+    events: Any = (
+        select(
+            extract("year", col(RouteGroup.drive_date)).label("year"),
+            extract("month", col(RouteGroup.drive_date)).label("month"),
+        )
+        .select_from(RouteStopSnapshot)
+        .join(RouteStop)
+        .join(Route)
+        .join(RouteGroup)
+        .where(col(Route.driver_id).isnot(None))
+    )
+
+    if bounds is not None:
+        start, end = bounds
+        events = events.where(
+            col(RouteGroup.drive_date) >= start, col(RouteGroup.drive_date) < end
+        )
+
+    subquery: Subquery = events.subquery()
+    return subquery
+
+
 class DriverReportService:
     def __init__(self, logger: logging.Logger) -> None:
         self.logger = logger
-        self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     async def get_monthly_series(
         self, session: AsyncSession, end_year: int, end_month: int, months: int
@@ -62,20 +94,12 @@ class DriverReportService:
             km_rows = (await session.execute(km_statement)).all()
             km_by_month = {(int(r.year), int(r.month)): float(r.km) for r in km_rows}
 
-            drive_year = extract("year", col(RouteGroup.drive_date)).label("year")
-            drive_month = extract("month", col(RouteGroup.drive_date)).label("month")
-            deliveries_statement = (
-                select(drive_year, drive_month, func.count().label("deliveries"))
-                .select_from(RouteStopSnapshot)
-                .join(RouteStop)
-                .join(Route)
-                .join(RouteGroup)
-                .where(
-                    col(RouteGroup.drive_date) >= bounds[0],
-                    col(RouteGroup.drive_date) < bounds[1],
-                )
-                .group_by(drive_year, drive_month)
-            )
+            deliveries = delivery_events(bounds)
+            deliveries_statement = select(
+                deliveries.c.year,
+                deliveries.c.month,
+                func.count().label("deliveries"),
+            ).group_by(deliveries.c.year, deliveries.c.month)
             delivery_rows = (await session.execute(deliveries_statement)).all()
             deliveries_by_month = {
                 (int(r.year), int(r.month)): int(r.deliveries) for r in delivery_rows
@@ -129,63 +153,35 @@ class DriverReportService:
             self.logger.exception("Failed to compute monthly km ranking")
             raise
 
-    async def get_total_km_for_month(
-        self, session: AsyncSession, year: int, month: int
+    async def get_total_km(
+        self, session: AsyncSession, bounds: tuple[date, date] | None = None
     ) -> float:
+        """Total km driven over a half-open [start, end) drive_date range, or
+        over all time when `bounds` is None."""
         try:
-            events = mileage_events(bounds=month_bounds(year, month))
+            events = mileage_events(bounds=bounds)
             statement = select(func.coalesce(func.sum(events.c.km), 0.0))
             result = await session.execute(statement)
-            total = result.scalar_one()
-            return float(total or 0.0)
+            return float(result.scalar_one() or 0.0)
         except Exception:
-            self.logger.exception("Failed to compute total km for month")
+            self.logger.exception("Failed to compute total km")
             raise
 
-    async def get_total_deliveries_between(
-        self, session: AsyncSession, start_dt: datetime, end_dt: datetime
+    async def get_total_deliveries(
+        self, session: AsyncSession, bounds: tuple[date, date] | None = None
     ) -> int:
-        """Count RouteStopSnapshot rows whose parent RouteGroup.drive_date
-        falls between start_dt and end_dt.
-        start_dt and end_dt should be timezone-aware datetimes.
+        """Total deliveries over a half-open [start, end) drive_date range, or
+        over all time when `bounds` is None.
+
+        The all-time figure is aggregated in SQL rather than by summing a
+        series, so it neither grows a round trip per month of history nor ties
+        a headline total to whatever window a chart happens to plot.
         """
         try:
-            # Land in the scheduler timezone before taking the calendar day —
-            # the same instant is a different date either side of midnight.
-            if start_dt.tzinfo is not None:
-                start_dt = start_dt.astimezone(self.timezone)
-            if end_dt.tzinfo is not None:
-                end_dt = end_dt.astimezone(self.timezone)
-
-            start_d = start_dt.date()
-            end_d = end_dt.date()
-
-            # Join route_stop_snapshots -> route_stops -> routes -> route_groups
-            # Use model-based joins so sqlalchemy resolves FK-based ON clauses
-            stmt = (
-                select(func.count())
-                .select_from(RouteStopSnapshot)
-                .join(RouteStop)
-                .join(Route)
-                .join(RouteGroup)
-                .where(RouteGroup.drive_date >= start_d, RouteGroup.drive_date <= end_d)
-            )
-
-            result = await session.execute(stmt)
-            count = result.scalar_one()
-            return int(count or 0)
+            events = delivery_events(bounds)
+            statement = select(func.count()).select_from(events)
+            result = await session.execute(statement)
+            return int(result.scalar_one() or 0)
         except Exception:
-            self.logger.exception("Failed to count deliveries between dates")
+            self.logger.exception("Failed to count deliveries")
             raise
-
-    async def get_total_deliveries_for_month(
-        self, session: AsyncSession, year: int, month: int
-    ) -> int:
-        # Build month boundaries in scheduler timezone and pass them through
-        start = datetime(year, month, 1, 0, 0, tzinfo=self.timezone)
-        if month == 12:
-            end = datetime(year + 1, 1, 1, 0, 0, tzinfo=self.timezone)
-        else:
-            end = datetime(year, month + 1, 1, 0, 0, tzinfo=self.timezone)
-
-        return await self.get_total_deliveries_between(session, start, end)

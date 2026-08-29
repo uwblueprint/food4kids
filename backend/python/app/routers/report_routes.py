@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.dependencies.auth import require_admin
 from app.models import get_session
+from app.services.implementations.driver_history_service import month_bounds
 from app.services.implementations.driver_report_service import DriverReportService
 from app.utilities.datetime_utils import now_utc
 
@@ -34,6 +35,11 @@ class MonthlyTotalsResponse(BaseModel):
     total_deliveries: int
 
 
+class AllTimeTotalsResponse(BaseModel):
+    total_km: float
+    total_deliveries: int
+
+
 MIN_SERIES_MONTHS = 1
 MAX_SERIES_MONTHS = 24
 
@@ -47,21 +53,44 @@ def _ensure_est(dt: datetime) -> datetime:
 
 @router.get("/deliveries/count", response_model=DeliveriesCountResponse)
 async def get_total_deliveries_between(
-    start: datetime = Query(..., description="Start datetime (assumed EST if no tz)"),
-    end: datetime = Query(..., description="End datetime (assumed EST if no tz)"),
+    start: datetime = Query(
+        ..., description="Start datetime, inclusive (assumed EST if no tz)"
+    ),
+    end: datetime = Query(
+        ..., description="End datetime, exclusive (assumed EST if no tz)"
+    ),
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
 ) -> DeliveriesCountResponse:
-    """Return total deliveries (route stop snapshots) between start and end.
-    Query params are treated as EST if no timezone is provided.
-    """
-    start_est = _ensure_est(start)
-    end_est = _ensure_est(end)
+    """Return total deliveries (route stop snapshots) in [start, end).
 
-    # Pass scheduler-timezone-aware datetimes to the service. The service
-    # will normalize them to naive scheduler-local datetimes to match DB.
-    total = await service.get_total_deliveries_between(session, start_est, end_est)
+    Query params are treated as EST if no timezone is provided, then reduced
+    to calendar days — a drive date is a day, not an instant. The range is
+    half-open like every other range in the reports, so consecutive windows
+    tile instead of double-counting their shared boundary day.
+    """
+    start_date = _ensure_est(start).date()
+    end_date = _ensure_est(end).date()
+
+    total = await service.get_total_deliveries(session, (start_date, end_date))
     return DeliveriesCountResponse(total_deliveries=total)
+
+
+@router.get("/totals", response_model=AllTimeTotalsResponse)
+async def get_all_time_totals(
+    session: AsyncSession = Depends(get_session),
+    _auth: bool = Depends(require_admin),
+) -> AllTimeTotalsResponse:
+    """Return all-time km driven and deliveries made, across every driven route.
+
+    Separate from /monthly-series on purpose: the homepage's headline totals
+    mean "since we started", and deriving them from the chart's window would
+    silently make them a trailing-N-month figure instead.
+    """
+    return AllTimeTotalsResponse(
+        total_km=await service.get_total_km(session),
+        total_deliveries=await service.get_total_deliveries(session),
+    )
 
 
 @router.get("/monthly-series", response_model=list[MonthlyTotalsResponse])
@@ -131,13 +160,10 @@ async def get_monthly_totals(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
         )
-    total_km = await service.get_total_km_for_month(session, year, month)
-    total_deliveries = await service.get_total_deliveries_for_month(
-        session, year, month
-    )
+    bounds = month_bounds(year, month)
     return MonthlyTotalsResponse(
         year=year,
         month=month,
-        total_km=total_km,
-        total_deliveries=total_deliveries,
+        total_km=await service.get_total_km(session, bounds),
+        total_deliveries=await service.get_total_deliveries(session, bounds),
     )

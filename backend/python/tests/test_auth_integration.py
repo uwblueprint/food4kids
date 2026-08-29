@@ -130,6 +130,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/system-settings/contact"): Policy.PUBLIC,
     # --- reports ---
     ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,
+    ("GET", "/reports/totals"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly-series"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/ranking"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/totals"): Policy.ADMIN_ONLY,
