@@ -79,6 +79,14 @@ class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
 
 
+class GeocodingError(ValueError):
+    """Raised when an address can't be resolved to a house we can deliver to.
+
+    Its own type so the router can answer 400 with the reason — an address we
+    can't route to is the caller's input, not a server fault, and as a bare
+    ValueError it surfaced as a 500."""
+
+
 @dataclass
 class ImportPlan:
     """What a given import file would do to the roster.
@@ -1168,10 +1176,10 @@ class LocationService:
             geocode_result = await self.google_maps_service.geocode_address(address)
 
             if not geocode_result:
-                raise ValueError(f"Geocoding failed for address: {address}")
+                raise GeocodingError(f"Geocoding failed for address: {address}")
 
             if not geocode_result.is_precise:
-                raise ValueError(
+                raise GeocodingError(
                     f"Address is not specific enough to deliver to: {address} "
                     f"(resolved to {geocode_result.formatted_address}). "
                     "Include a street number."

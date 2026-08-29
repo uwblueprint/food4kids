@@ -3,7 +3,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from pydantic import computed_field, field_validator
+from pydantic import ConfigDict, computed_field, field_validator
 from sqlmodel import Field, Relationship, SQLModel, String
 
 from app.utilities.utils import validate_phone
@@ -292,20 +292,29 @@ class LocationRead(LocationBase):
 
 
 class LocationUpdate(SQLModel):
-    """Update request model with all fields optional"""
+    """Update request model with all fields optional.
+
+    Deliberately has no address/latitude/longitude/place_id: a household's
+    address is set once, by geocoding, and thereafter changes only through the
+    roster import — which retires the old row and creates a replacement rather
+    than moving a house. Accepting an address here writes the new string over
+    coordinates still pointing at the old house, which is silent: the admin
+    sees the address they typed and the driver is routed to the previous one.
+    Leaving the fields off makes that state unrepresentable, and extra="forbid"
+    makes an attempt a 422 instead of a quietly ignored edit.
+    """
+
+    # ignore: SQLModel types model_config as its own SQLModelConfig subclass.
+    model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
 
     location_group_id: UUID | None = None
     name: str | None = None
     contact_name: str | None = None
     guardian_name: str | None = None
-    address: str | None = None
     phone_primary: str | None = None
     phone_secondary: str | None = None
-    longitude: float | None = None
-    latitude: float | None = None
     halal: bool | None = None
     dietary_restrictions: str | None = None
-    place_id: str | None = None
     num_children: int | None = None
     delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
     in_roster: bool | None = None

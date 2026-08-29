@@ -26,6 +26,7 @@ from app.models.location import (
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
+    GeocodingError,
     InvalidDeliveryTypeError,
     LocationInUseError,
     LocationService,
@@ -109,7 +110,7 @@ async def create_location(
     try:
         created_location = await location_service.create_location(session, location)
         return LocationRead.model_validate(created_location)
-    except InvalidDeliveryTypeError as ve:
+    except (InvalidDeliveryTypeError, GeocodingError) as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),

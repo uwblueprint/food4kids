@@ -2052,19 +2052,9 @@
         "type": "string"
       },
       "LocationUpdate": {
-        "description": "Update request model with all fields optional",
+        "additionalProperties": false,
+        "description": "Update request model with all fields optional.\n\nDeliberately has no address/latitude/longitude/place_id: a household's\naddress is set once, by geocoding, and thereafter changes only through the\nroster import — which retires the old row and creates a replacement rather\nthan moving a house. Accepting an address here writes the new string over\ncoordinates still pointing at the old house, which is silent: the admin\nsees the address they typed and the driver is routed to the previous one.\nLeaving the fields off makes that state unrepresentable, and extra=\"forbid\"\nmakes an attempt a 422 instead of a quietly ignored edit.",
         "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
           "contact_name": {
             "anyOf": [
               {
@@ -2133,17 +2123,6 @@
             ],
             "title": "In Roster"
           },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
           "location_group_id": {
             "anyOf": [
               {
@@ -2155,17 +2134,6 @@
               }
             ],
             "title": "Location Group Id"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
           },
           "name": {
             "anyOf": [
@@ -2222,17 +2190,6 @@
               }
             ],
             "title": "Phone Secondary"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
           }
         },
         "title": "LocationUpdate",

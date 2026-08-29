@@ -1244,6 +1244,129 @@ class TestLocationRoutes:
         assert "Unknown delivery_type" in response.json()["detail"]
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("address", "42 Somewhere Else St, Kitchener"),
+            ("latitude", 43.45),
+            ("longitude", -80.49),
+            ("place_id", "place-somewhere-else"),
+        ],
+    )
+    async def test_update_location_refuses_to_move_a_household(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+        field: str,
+        value: Any,
+    ) -> None:
+        """PATCH cannot touch the geocoded fields, and says so.
+
+        The address and the coordinates have to keep describing one place.
+        Editing either here would leave the other stale — the admin would see
+        the address they typed while the driver was routed to the old house —
+        so LocationUpdate doesn't carry them and rejects them outright rather
+        than ignoring them silently. Addresses change through the roster
+        import, which retires the row and creates a replacement.
+        """
+        create_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        assert create_response.status_code == 201
+        location_id = create_response.json()["location_id"]
+
+        response = await async_client.patch(
+            f"/locations/{location_id}", json={field: value}
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"][0]["loc"][-1] == field
+        stored = (await async_client.get(f"/locations/{location_id}")).json()
+        assert stored["address"] == sample_location_data["address"]
+        assert stored["latitude"] == sample_location_data["latitude"]
+        assert stored["longitude"] == sample_location_data["longitude"]
+
+    @pytest.mark.asyncio
+    async def test_update_location_still_edits_everything_else(
+        self,
+        async_client: AsyncClient,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+    ) -> None:
+        """The rest of the household's details stay editable."""
+        create_response = await async_client.post(
+            "/locations/",
+            json={
+                **sample_location_data,
+                "location_group_id": str(test_location_group.location_group_id),
+            },
+        )
+        location_id = create_response.json()["location_id"]
+
+        response = await async_client.patch(
+            f"/locations/{location_id}",
+            json={
+                "contact_name": "New Contact",
+                "phone_primary": "tel:+1-519-576-1103",
+                "num_children": 4,
+                "halal": True,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["contact_name"] == "New Contact"
+        assert data["phone_primary"] == "tel:+1-519-576-1103"
+        assert data["num_children"] == 4
+        assert data["halal"] is True
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("address", "expected_detail"),
+        [
+            ("99999 Imprecise Pkwy", "not specific enough"),
+            ("Invalid Address", "Geocoding failed"),
+        ],
+        ids=["imprecise centroid match", "no result at all"],
+    )
+    async def test_create_location_rejects_undeliverable_address(
+        self,
+        client_with_overrides: Any,
+        sample_location_data: dict[str, Any],
+        test_location_group: Any,
+        address: str,
+        expected_detail: str,
+    ) -> None:
+        """An address we can't route to is the caller's input, so 400 + reason.
+
+        It used to escape as a bare ValueError and surface as a 500 with no
+        indication of what was wrong with the address.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+
+        payload = {
+            **sample_location_data,
+            "location_group_id": str(test_location_group.location_group_id),
+            "address": address,
+        }
+        # Without coordinates in the payload, create geocodes the address.
+        del payload["latitude"]
+        del payload["longitude"]
+
+        response = await async_client.post("/locations/", json=payload)
+
+        assert response.status_code == 400
+        assert expected_detail in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_apply_import_rejects_unknown_delivery_type(
         self, async_client: AsyncClient
     ) -> None:

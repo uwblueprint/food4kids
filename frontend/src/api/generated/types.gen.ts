@@ -1197,13 +1197,18 @@ export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 /**
  * LocationUpdate
  *
- * Update request model with all fields optional
+ * Update request model with all fields optional.
+ *
+ * Deliberately has no address/latitude/longitude/place_id: a household's
+ * address is set once, by geocoding, and thereafter changes only through the
+ * roster import — which retires the old row and creates a replacement rather
+ * than moving a house. Accepting an address here writes the new string over
+ * coordinates still pointing at the old house, which is silent: the admin
+ * sees the address they typed and the driver is routed to the previous one.
+ * Leaving the fields off makes that state unrepresentable, and extra="forbid"
+ * makes an attempt a 422 instead of a quietly ignored edit.
  */
 export type LocationUpdate = {
-  /**
-   * Address
-   */
-  address?: string | null;
   /**
    * Contact Name
    */
@@ -1229,17 +1234,9 @@ export type LocationUpdate = {
    */
   in_roster?: boolean | null;
   /**
-   * Latitude
-   */
-  latitude?: number | null;
-  /**
    * Location Group Id
    */
   location_group_id?: string | null;
-  /**
-   * Longitude
-   */
-  longitude?: number | null;
   /**
    * Name
    */
@@ -1260,10 +1257,6 @@ export type LocationUpdate = {
    * Phone Secondary
    */
   phone_secondary?: string | null;
-  /**
-   * Place Id
-   */
-  place_id?: string | null;
 };
 
 /**
