@@ -80,7 +80,6 @@ interface SendLinkConfirmationProps {
     options?: { onError?: (error: unknown) => void }
   ) => void;
   isPending: boolean;
-  onTimerComplete?: () => void;
   resendError: string | null;
   clearError: () => void;
 }
@@ -89,7 +88,6 @@ export const SendLinkConfirmation = ({
   email,
   onResend,
   isPending,
-  onTimerComplete,
   resendError,
   clearError,
 }: SendLinkConfirmationProps) => {
@@ -98,7 +96,6 @@ export const SendLinkConfirmation = ({
 
   useEffect(() => {
     if (countdown === 0) {
-      onTimerComplete?.();
       return;
     }
 
@@ -107,7 +104,7 @@ export const SendLinkConfirmation = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [countdown, onTimerComplete]);
+  }, [countdown]);
 
   const handleResendClick = () => {
     clearError();

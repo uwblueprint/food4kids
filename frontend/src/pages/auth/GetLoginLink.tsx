@@ -14,7 +14,6 @@ type Step = 'FORM' | 'CONFIRMATION';
 export const GetLoginLink = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
-  const [hasTimerFinished, setHasTimerFinished] = useState(false);
   const [hasResent, setHasResent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -33,19 +32,19 @@ export const GetLoginLink = () => {
 
   const headerTitle = getHeaderTitle(step, hasResent);
 
-  const getSubheaderTitle = (currentStep: Step, timerFinished: boolean) => {
+  const getSubheaderTitle = (currentStep: Step, linkResent: boolean) => {
     if (currentStep === 'FORM') {
       return "Enter the email address your admin used to invite you. We'll send a new login link.";
     }
 
-    if (timerFinished) {
+    if (linkResent) {
       return "We've emailed you another setup link. It may take a few minutes to land in your inbox.\n\nIf nothing arrives after 15 minutes, please ask your admin.";
     }
 
     return "We've emailed your setup link. It may take a few minutes to land in your inbox.";
   };
 
-  const subheaderTitle = getSubheaderTitle(step, hasTimerFinished);
+  const subheaderTitle = getSubheaderTitle(step, hasResent);
 
   const resendOnboardingEmailMutation = useResendOnboardingEmail();
 
@@ -105,7 +104,6 @@ export const GetLoginLink = () => {
           isPending={resendOnboardingEmailMutation.isPending}
           resendError={resendError}
           clearError={() => setResendError(null)}
-          onTimerComplete={() => setHasTimerFinished(true)}
         />
       )}
     </WrapperWithLogo>
