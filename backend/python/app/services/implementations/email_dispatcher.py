@@ -14,22 +14,38 @@ from app.constants.email_config import (
     validate_email_context,
 )
 
+if TYPE_CHECKING:
+    import logging
+
+    from app.services.implementations.email_service import EmailService
+    from app.templates.email_renderer import TemplateRenderer
+
+
+_ALLOWED_URL_SCHEMES = ("http://", "https://")
+
 
 def _absolute_url(url: str | None) -> str:
     """Make a stored social link safe to put in an `href`.
 
-    Nothing validates these on the way in -- the column is a plain string and
-    the admin form never runs native validation -- so an admin can save
-    `facebook.com/Food4KidsWR`. A mail client resolves that relative to
-    nothing, giving a dead link: exactly what the `{% if %}` guards exist to
-    avoid. Assume https when no scheme was typed.
+    Two problems to fix, both because nothing validates these on the way in --
+    the column is a plain string and the admin form never runs native
+    validation, since saving goes through a button handler rather than a form
+    submit:
+
+    * `facebook.com/Food4KidsWR` has no scheme, so a mail client resolves it
+      relative to nothing and the link is dead. Assume https.
+    * anything else with a scheme (`javascript:`, `data:`) has no business in
+      an href we generate. Drop it, so the `{% if %}` guard omits the icon
+      rather than embedding it.
     """
     if not url:
         return ""
     stripped = url.strip()
-    if "://" in stripped:
+    if "://" not in stripped:
+        return f"https://{stripped}"
+    if stripped.lower().startswith(_ALLOWED_URL_SCHEMES):
         return stripped
-    return f"https://{stripped}"
+    return ""
 
 
 def _strip_scheme(url: str | None) -> str:
@@ -37,13 +53,6 @@ def _strip_scheme(url: str | None) -> str:
     if not url:
         return ""
     return url.removeprefix("https://").removeprefix("http://").rstrip("/")
-
-
-if TYPE_CHECKING:
-    import logging
-
-    from app.services.implementations.email_service import EmailService
-    from app.templates.email_renderer import TemplateRenderer
 
 
 class EmailDispatcher:
@@ -64,7 +73,7 @@ class EmailDispatcher:
         self.template_renderer = template_renderer
         self.logger = logger
 
-    async def _org_contact_context(self) -> dict[str, str]:
+    async def org_contact_context(self) -> dict[str, str]:
         """The org's contact details, as the footer's template variables.
 
         Injected into every email rather than asked of callers: the footer is
@@ -72,12 +81,17 @@ class EmailDispatcher:
         would mean every future sender has to remember them, and forgetting
         would silently render an email with no footer.
 
-        Read fresh every send, deliberately. ``get_email_dispatcher`` is
+        Never memoized on the instance. ``get_email_dispatcher`` is
         ``@lru_cache``d, so there is exactly one dispatcher per process and any
-        memoization here would last until restart -- an admin correcting the
-        address in Settings would never see it take effect, and a single
-        transient database fault would pin an empty footer forever. One
-        single-row select is nothing next to the SMTP round trip it precedes.
+        cache here would last until restart -- an admin correcting the address
+        in Settings would never see it take effect, and a single transient
+        database fault would pin an empty footer forever.
+
+        A caller sending to many recipients should call this once and hand the
+        result to each ``dispatch`` via ``org_contact``, rather than paying a
+        query per email. That is a within-batch optimization and does not
+        reintroduce the staleness problem above, which is about *between*
+        sends.
         """
         from app.models import async_session_maker_instance
         from app.models.system_settings import SystemSettings
@@ -121,6 +135,7 @@ class EmailDispatcher:
         to: str | list[str],
         context: dict[str, Any],
         subject: str | None = None,
+        org_contact: dict[str, str] | None = None,
     ) -> None:
         """Send email(s) from template with variable substitution.
         Works for both one-off and batch sends, treating single-recipient strings and lists uniformly.
@@ -141,8 +156,13 @@ class EmailDispatcher:
         )
 
         # The footer's values are ours, not the caller's, and must not be
-        # overridden by a stray key of the same name.
-        render_context = {**context, **(await self._org_contact_context())}
+        # overridden by a stray key of the same name. Batch senders pass
+        # `org_contact` so the lookup happens once for the run instead of once
+        # per recipient; omitting it is correct, just chattier.
+        footer = (
+            org_contact if org_contact is not None else await self.org_contact_context()
+        )
+        render_context = {**context, **footer}
 
         # Render template with context
         try:

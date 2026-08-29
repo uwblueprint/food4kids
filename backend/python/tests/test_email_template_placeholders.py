@@ -156,19 +156,25 @@ async def test_footer_lookup_failure_does_not_fail_the_send(mocker: object) -> N
         template_renderer=mocker.MagicMock(),  # type: ignore[attr-defined]
         logger=logging.getLogger("test"),
     )
-    mocker.patch(  # type: ignore[attr-defined]
+    session_maker = mocker.patch(  # type: ignore[attr-defined]
         "app.models.async_session_maker_instance",
         side_effect=RuntimeError("database is down"),
     )
 
-    context = await dispatcher._org_contact_context()
-
+    context = await dispatcher.org_contact_context()
     assert context == dict.fromkeys(FOOTER_CONTEXT_KEYS, "")
 
-    # Emphatically NOT cached. get_email_dispatcher is @lru_cache'd, so there is
-    # one dispatcher per process: caching the failure would leave every email
-    # footerless until restart, long after the database recovered.
-    assert getattr(dispatcher, "_org_contact", None) is None
+    # Emphatically NOT cached, by any mechanism. get_email_dispatcher is
+    # @lru_cache'd, so there is one dispatcher per process: remembering the
+    # failure would leave every email footerless until restart, long after the
+    # database recovered. Asserting the lookup is genuinely retried catches
+    # that however it might be cached -- an attribute, an lru_cache, a
+    # module-level dict -- rather than trusting one attribute name to be absent.
+    again = await dispatcher.org_contact_context()
+    assert again == context
+    assert session_maker.call_count == 2, (
+        "the settings lookup must be retried on the next send, not remembered"
+    )
 
 
 @pytest.mark.parametrize(
@@ -182,6 +188,11 @@ async def test_footer_lookup_failure_does_not_fail_the_send(mocker: object) -> N
         ("  facebook.com/F4K  ", "https://facebook.com/F4K"),
         (None, ""),
         ("", ""),
+        # A scheme we would never want to emit into an href. Dropped entirely,
+        # so the {% if %} guard omits the icon rather than embedding it.
+        ("javascript://alert(1)", ""),
+        ("JavaScript://alert(1)", ""),
+        ("data://text/html;base64,x", ""),
     ],
 )
 def test_social_urls_are_absolute(stored: str | None, expected: str) -> None:
@@ -194,3 +205,43 @@ def test_social_urls_are_absolute(stored: str | None, expected: str) -> None:
     from app.services.implementations.email_dispatcher import _absolute_url
 
     assert _absolute_url(stored) == expected
+
+
+@pytest.mark.asyncio
+async def test_dispatch_reuses_a_prefetched_footer(mocker: object) -> None:
+    """A batch sender pays one settings lookup, not one per recipient.
+
+    `dispatch` is called inside per-recipient loops in `send_route_reminders`
+    and `send_announcement_emails`, so a per-send lookup would mean an extra
+    query and session for every driver in the batch.
+    """
+    from app.services.implementations.email_dispatcher import EmailDispatcher
+
+    dispatcher = EmailDispatcher(
+        email_service=mocker.MagicMock(),  # type: ignore[attr-defined]
+        template_renderer=mocker.MagicMock(),  # type: ignore[attr-defined]
+        logger=logging.getLogger("test"),
+    )
+    lookup = mocker.patch.object(  # type: ignore[attr-defined]
+        dispatcher,
+        "org_contact_context",
+        new_callable=mocker.AsyncMock,  # type: ignore[attr-defined]
+    )
+    prefetched = dict.fromkeys(FOOTER_CONTEXT_KEYS, "x")
+    context = dict.fromkeys(
+        EMAIL_TEMPLATES["view-upcoming-route"]["required_context"], "v"
+    )
+
+    for _ in range(3):
+        await dispatcher.dispatch(
+            email_type="view-upcoming-route",
+            to="driver@example.com",
+            context=context,
+            org_contact=prefetched,
+        )
+
+    lookup.assert_not_called()
+    # The prefetched values still reach the template.
+    render = dispatcher.template_renderer.render
+    for call in render.call_args_list:  # type: ignore[attr-defined]
+        assert prefetched.items() <= call.args[1].items()
