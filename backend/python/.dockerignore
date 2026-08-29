@@ -1,2 +1,21 @@
 venv
 **/__pycache__
+
+# Tool caches. These are gitignored, so `gcloud run deploy --source` already
+# skips them, but `docker build` does not -- .mypy_cache alone reached 600MB
+# and was being baked into the local image by `COPY . ./`, taking it to 4GB.
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+**/*.egg-info
+**/.coverage
+**/htmlcov
+
+# Local env and credentials must never enter an image layer.
+.env
+*.env
+**/*service-account*.json
+**/*secrets*.json
+
+# Real location data (gitignored); seeding in CI uses tests/data/ instead.
+app/data/

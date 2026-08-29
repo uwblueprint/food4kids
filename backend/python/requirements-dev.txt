@@ -1,0 +1,55 @@
+# Development, test and lint dependencies.
+#
+# Installed on CI runners, in the devcontainer, and in the local compose image
+# (docker-compose.yml passes INSTALL_DEV=true). NOT installed in the deployed
+# image -- see requirements.txt.
+#
+# Everything below was previously in requirements.txt and shipped to Cloud Run,
+# where none of it is imported: ~200MB of type stubs, a type checker, a test
+# runner, plotting libraries used only by backend/python/scripts/, and a
+# fake-data generator used only by seeding.
+
+-r requirements.txt
+
+# Lint / type-check / test tooling
+# Pinned exactly: an unbounded `>=` lets CI resolve whatever is newest, and a
+# linter/checker bump silently adds rules (ruff 0.16.0 stabilized RUF036 and
+# started formatting markdown code blocks, turning lint red tree-wide). Bump
+# these deliberately and re-run CI rather than float. Versions below are the
+# current CI-verified-green set.
+mypy==2.3.0
+mypy-extensions==1.1.0
+ruff==0.16.0
+pytest==9.1.1
+pytest-mock==3.15.1
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+
+# Test HTTP client and in-memory DB driver, imported only from tests/.
+# httpx is declared here because tests import it directly, but note it also
+# arrives in production transitively via firebase-admin -- moving it here does
+# not remove it from the deployed image.
+httpx>=0.24.0
+aiosqlite>=0.21.0
+
+# Type stubs
+# Pinned exactly: stub releases feed the mypy step, so a new stub version can
+# introduce type errors and break lint the same way a mypy bump does. Bump
+# deliberately alongside mypy.
+google-api-python-client-stubs==1.39.0
+types-requests==2.33.0.20260712
+types-PyYAML==6.0.12.20260518
+types-setuptools==83.0.0.20260716
+types-firebase-admin==0.1.1
+pandas-stubs==3.0.3.260530
+types-seaborn==0.13.2.20260518
+
+# Fake data generation. Imported only by app/seed_database.py, which is run as
+# a script (`python -m app.seed_database`) during local setup and the CI boot
+# smoke -- never by the running server.
+faker>=20.0.0
+
+# Plotting. Imported only by backend/python/scripts/k_means_test.py and
+# scripts/sweep_algorithm_test.py, the manual developer scripts.
+seaborn==0.13.2
+matplotlib>=3.10.8
