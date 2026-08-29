@@ -519,6 +519,10 @@ export const getBillingCosts = <ThrowOnError extends boolean = false>(
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
+ *
+ * Admin-only: the full list exposes every volunteer's phone, home address,
+ * licence plate and car, which no driver-facing screen needs. A driver reads
+ * their own record through GET /drivers/{driver_id}.
  */
 export const getDrivers = <ThrowOnError extends boolean = false>(
   options?: Options<GetDriversData, ThrowOnError>
@@ -755,6 +759,8 @@ export const getJobs = <ThrowOnError extends boolean = false>(
  * Generate Job
  *
  * Accept a generation request: persist it as PENDING and wake the worker.
+ *
+ * Admin-only — route generation is an admin workflow, and it burns Maps quota.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>

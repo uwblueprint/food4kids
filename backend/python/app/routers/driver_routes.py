@@ -9,7 +9,6 @@ from app.config import settings
 from app.dependencies.auth import (
     DriverAccess,
     require_admin,
-    require_driver_or_admin,
     require_self_driver_or_admin,
 )
 from app.dependencies.services import (
@@ -49,10 +48,14 @@ async def get_drivers(
     session: AsyncSession = Depends(get_session),
     driver_id: UUID | None = Query(None, description="Filter by driver ID"),
     email: str | None = Query(None, description="Filter by email"),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> list[DriverRead]:
     """
     Get all drivers, optionally filter by driver_id or email
+
+    Admin-only: the full list exposes every volunteer's phone, home address,
+    licence plate and car, which no driver-facing screen needs. A driver reads
+    their own record through GET /drivers/{driver_id}.
     """
     if driver_id and email:
         raise HTTPException(

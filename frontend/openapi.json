@@ -4810,7 +4810,7 @@
     },
     "/drivers/": {
       "get": {
-        "description": "Get all drivers, optionally filter by driver_id or email",
+        "description": "Get all drivers, optionally filter by driver_id or email\n\nAdmin-only: the full list exposes every volunteer's phone, home address,\nlicence plate and car, which no driver-facing screen needs. A driver reads\ntheir own record through GET /drivers/{driver_id}.",
         "operationId": "get_drivers",
         "parameters": [
           {
@@ -5421,7 +5421,7 @@
     },
     "/jobs/generate": {
       "post": {
-        "description": "Accept a generation request: persist it as PENDING and wake the worker.",
+        "description": "Accept a generation request: persist it as PENDING and wake the worker.\n\nAdmin-only — route generation is an admin workflow, and it burns Maps quota.",
         "operationId": "generate_job",
         "requestBody": {
           "content": {

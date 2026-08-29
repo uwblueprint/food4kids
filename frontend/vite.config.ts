@@ -17,8 +17,10 @@ export default defineConfig({
     host: true, // Important for Docker
   },
   test: {
-    // Node 20+ supplies File/FormData/Blob, so these request-shape tests need
-    // no DOM. Add jsdom here if we ever test components.
+    // Node 20+ supplies File/FormData/Blob, so the request-shape tests need no
+    // DOM, and node is much cheaper to start. Component tests opt into jsdom
+    // per file with a `// @vitest-environment jsdom` docblock — see
+    // src/App.roleGuards.test.tsx.
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
   }
