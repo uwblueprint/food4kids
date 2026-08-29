@@ -2,7 +2,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
 
-from app.models.driver import DriverRead
 from app.utilities.utils import validate_password_complexity
 
 
@@ -49,13 +48,6 @@ class AuthResponse(BaseModel):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}"
-
-
-class DriverRegisterResponse(BaseModel):
-    """Driver registration response - contains Driver object and AuthResponse"""
-
-    driver: DriverRead
-    auth: AuthResponse
 
 
 class TokenResponse(BaseModel):
