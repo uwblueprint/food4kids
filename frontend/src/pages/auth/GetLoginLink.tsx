@@ -38,10 +38,10 @@ export const GetLoginLink = () => {
     }
 
     if (linkResent) {
-      return "We've emailed you another setup link. It may take a few minutes to land in your inbox.\n\nIf nothing arrives after 15 minutes, please ask your admin.";
+      return "We've emailed you another login link. It may take a few minutes to land in your inbox.\n\nPlease check your spam/junk folders too. If you still don’t see anything after 10 minutes, please reach out to your admin for help.";
     }
 
-    return "We've emailed your setup link. It may take a few minutes to land in your inbox.";
+    return "We've emailed your login link. It may take a few minutes to land in your inbox.";
   };
 
   const subheaderTitle = getSubheaderTitle(step, hasResent);
