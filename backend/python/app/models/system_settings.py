@@ -11,6 +11,15 @@ from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
+# The only place these numbers are written down. They seed a settings row the
+# first time one is created; from then on the row is the source of truth and
+# every consumer (route generation, the seed data, the dev clustering scripts)
+# reads through to it. Nothing downstream may substitute a default of its own —
+# a request that omits a capacity is rejected, not quietly filled in.
+DEFAULT_BOXES_PER_CAR = 10
+DEFAULT_DROPOFF_MINUTES = 3
+DEFAULT_CHILDREN_PER_BOX = 2
+
 
 def _validate_delivery_types(v: list[str]) -> list[str]:
     """Delivery types must be non-empty, unique, and not blank."""
@@ -70,11 +79,11 @@ class SystemSettingsBase(SQLModel):
     import_column_map: dict[str, str] | None = Field(
         default=None, sa_column=Column(JSON, nullable=True)
     )
-    boxes_per_car: int = Field(default=10, ge=0)
-    dropoff_minutes: int = Field(default=3, ge=0)
+    boxes_per_car: int = Field(default=DEFAULT_BOXES_PER_CAR, ge=0)
+    dropoff_minutes: int = Field(default=DEFAULT_DROPOFF_MINUTES, ge=0)
     # Must be >= 1: box counts are derived as ceil(num_children / children_per_box),
     # so a zero divisor is invalid (see app.utilities.boxes.compute_boxes).
-    children_per_box: int = Field(default=2, ge=1)
+    children_per_box: int = Field(default=DEFAULT_CHILDREN_PER_BOX, ge=1)
     contact_name: str | None = Field(default=None, min_length=1, max_length=255)
     contact_phone: str | None = Field(default=None, min_length=1, max_length=100)
     f4k_wr_instagram: str | None = Field(default=None, min_length=1, max_length=255)

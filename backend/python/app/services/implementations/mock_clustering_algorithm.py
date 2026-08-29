@@ -26,7 +26,7 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_boxes_per_cluster: int | None = None,
+        max_boxes_per_cluster: int,
         timeout_seconds: float | None = None,  # noqa: ARG002
     ) -> list[list[Location]]:
         """Split locations into clusters while respecting box constraints.
@@ -34,9 +34,9 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
         Args:
             locations: List of locations to cluster
             num_clusters: Target number of clusters to create
-            max_boxes_per_cluster: Optional maximum number of boxes per cluster.
-                If provided, validates that the clustering is possible and
-                raises an error if violated.
+            max_boxes_per_cluster: Maximum number of boxes per cluster, from
+                SystemSettings.boxes_per_car. Clustering that would violate it
+                raises.
             timeout_seconds: Optional timeout in seconds. Not enforced in this
                 mock implementation.
 
@@ -74,12 +74,7 @@ class MockClusteringAlgorithm(ClusteringAlgorithmProtocol):
             # Find next cluster that can accommodate this location
             attempts = 0
             while attempts < num_clusters:
-                boxes_ok = (
-                    max_boxes_per_cluster is None
-                    or cluster_boxes[cluster_idx] + location_boxes
-                    <= max_boxes_per_cluster
-                )
-                if boxes_ok:
+                if cluster_boxes[cluster_idx] + location_boxes <= max_boxes_per_cluster:
                     break
                 cluster_idx = (cluster_idx + 1) % num_clusters
                 attempts += 1

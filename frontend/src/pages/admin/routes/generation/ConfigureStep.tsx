@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { GenerationFooter } from './GenerationFooter';
+import { routeCapacity } from './routeCapacity';
 
 interface RouteFormEntry {
   name: string;
@@ -135,12 +136,19 @@ export function ConfigureStep() {
   const navigate = useNavigate();
   const { file, reviewResult, selectedDeliveryType, setRouteGenerationInputs } =
     useOutletContext<GenerationOutletContext>();
-  const { data: systemSettings } = useSystemSettings();
+  const {
+    data: systemSettings,
+    isPending: settingsPending,
+    isError: settingsError,
+  } = useSystemSettings();
   const {
     data: locationGroups,
     isPending: groupsPending,
     isError: groupsError,
   } = useLocationGroups();
+
+  const capacity = routeCapacity(systemSettings);
+  const pending = groupsPending || settingsPending;
 
   const [formData, setFormData] = useState<FormState>({});
   const [deselectedGroups, setDeselectedGroups] = useState<Set<string>>(
@@ -173,16 +181,14 @@ export function ConfigureStep() {
 
   const defaultEntry = (groupName: string): RouteFormEntry => {
     const stops = importedGroupCounts.get(groupName) ?? 0;
-    const boxesPerCar = systemSettings?.boxes_per_car;
     const routeDate = nextRouteDate(groupName);
     return {
       name: defaultRouteName(groupName, routeDate),
       routeDate,
       startTime: normalizeTime(systemSettings?.route_start_time),
-      routeCount:
-        boxesPerCar && boxesPerCar > 0
-          ? Math.max(1, Math.ceil(stops / boxesPerCar))
-          : 1,
+      routeCount: capacity
+        ? Math.max(1, Math.ceil(stops / capacity.max_boxes_per_driver))
+        : 1,
       returnToWarehouse: false,
     };
   };
@@ -231,6 +237,7 @@ export function ConfigureStep() {
     (name) => !importedGroups.some((group) => group.name === name)
   );
   const canContinue =
+    capacity !== null &&
     selectedRows.length > 0 &&
     missingGroups.length === 0 &&
     selectedRows.every(
@@ -244,7 +251,7 @@ export function ConfigureStep() {
     );
 
   const handleConfirm = () => {
-    if (!canContinue) return;
+    if (!canContinue || !capacity) return;
 
     setRouteGenerationInputs(
       selectedRows.map((row) => {
@@ -269,9 +276,7 @@ export function ConfigureStep() {
             ),
             num_routes: row.form.routeCount,
             return_to_warehouse: row.form.returnToWarehouse,
-            max_boxes_per_driver: systemSettings?.boxes_per_car,
-            children_per_box: systemSettings?.children_per_box,
-            service_time_minutes: systemSettings?.dropoff_minutes,
+            ...capacity,
           },
         };
       })
@@ -431,13 +436,25 @@ export function ConfigureStep() {
             Could not load the imported route groups. Please try again.
           </Banner>
         )}
-        {missingGroups.length > 0 && !groupsPending && (
+        {settingsError && (
+          <Banner variant="error">
+            Could not load system settings, so routes cannot be sized. Please
+            try again.
+          </Banner>
+        )}
+        {!pending && !settingsError && capacity === null && (
+          <Banner variant="error">
+            System settings have no usable per-car capacity. Set boxes per car
+            to at least 1 in Settings before generating routes.
+          </Banner>
+        )}
+        {missingGroups.length > 0 && !pending && (
           <Banner variant="error">
             Some imported route groups could not be loaded. Go back and apply
             the import again.
           </Banner>
         )}
-        {groupsPending ? (
+        {pending ? (
           <div className="flex justify-center py-16">
             <Spinner size="lg" />
           </div>

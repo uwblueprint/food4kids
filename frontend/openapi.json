@@ -3023,16 +3023,14 @@
         "type": "object"
       },
       "RouteGenerationSettings": {
-        "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.",
+        "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.\n\nThe three configured numbers below — ``max_boxes_per_driver``,\n``children_per_box`` and ``service_time_minutes`` — are required, with no\nschema-level defaults. They come from the ``system_settings`` row (see\n``SystemSettings.boxes_per_car`` / ``children_per_box`` /\n``dropoff_minutes``), and a default here would silently outrank whatever the\norg configured whenever a caller dropped the key. Omitting one is a 422.",
         "properties": {
           "children_per_box": {
-            "default": 2,
             "minimum": 1,
             "title": "Children Per Box",
             "type": "integer"
           },
           "max_boxes_per_driver": {
-            "default": 14,
             "exclusiveMinimum": 0,
             "title": "Max Boxes Per Driver",
             "type": "integer"
@@ -3052,15 +3050,17 @@
             "type": "string"
           },
           "service_time_minutes": {
-            "default": 15,
-            "exclusiveMinimum": 0,
+            "minimum": 0,
             "title": "Service Time Minutes",
             "type": "integer"
           }
         },
         "required": [
           "route_start_time",
-          "num_routes"
+          "num_routes",
+          "max_boxes_per_driver",
+          "children_per_box",
+          "service_time_minutes"
         ],
         "title": "RouteGenerationSettings",
         "type": "object"

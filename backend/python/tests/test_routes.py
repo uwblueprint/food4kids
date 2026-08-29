@@ -5684,7 +5684,13 @@ class TestJobRoutes:
         client = await client_with_overrides({get_job_service: _FakeJobService})
         body = {
             "location_group": {"name": "Group", "color": "#FF5733", "notes": ""},
-            "settings": {"route_start_time": "2026-06-01T08:00:00", "num_routes": 2},
+            "settings": {
+                "route_start_time": "2026-06-01T08:00:00",
+                "num_routes": 2,
+                "max_boxes_per_driver": 10,
+                "children_per_box": 2,
+                "service_time_minutes": 3,
+            },
         }
         response = await client.post("/jobs/generate", json=body)
         assert response.status_code == 202
@@ -5704,7 +5710,11 @@ class TestJobRoutes:
         req = RouteGenerationGroupInput(
             location_group=LocationGroup(name="Group", color="#FF5733"),
             settings=RouteGenerationSettings(
-                route_start_time=datetime(2026, 6, 1, 8, 0), num_routes=2
+                route_start_time=datetime(2026, 6, 1, 8, 0),
+                num_routes=2,
+                max_boxes_per_driver=10,
+                children_per_box=2,
+                service_time_minutes=3,
             ),
         )
 
