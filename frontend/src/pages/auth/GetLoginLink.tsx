@@ -15,11 +15,23 @@ export const GetLoginLink = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
   const [hasTimerFinished, setHasTimerFinished] = useState(false);
+  const [hasResent, setHasResent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
 
-  const headerTitle =
-    step === 'FORM' ? 'Didn’t get a link?' : 'Login link sent';
+  const getHeaderTitle = (currentStep: Step, linkResent: boolean) => {
+    if (currentStep === 'FORM') {
+      return 'Didn’t get a link?';
+    }
+
+    if (linkResent) {
+      return 'Login link resent';
+    }
+
+    return 'Login link sent';
+  };
+
+  const headerTitle = getHeaderTitle(step, hasResent);
 
   const getSubheaderTitle = (currentStep: Step, timerFinished: boolean) => {
     if (currentStep === 'FORM') {
@@ -60,6 +72,9 @@ export const GetLoginLink = () => {
     resendOnboardingEmailMutation.mutate(
       { email: submittedEmail },
       {
+        onSuccess: () => {
+          setHasResent(true);
+        },
         onError: (error) => {
           setResendError(sendFailureMessage(error));
           options?.onError?.(error);
