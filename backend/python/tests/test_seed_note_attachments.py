@@ -14,6 +14,7 @@ import pytest
 
 import app.seed_database as seed_module
 from app.utilities.gcp_client import GCPStorageClient
+from app.utilities.seed_images import render_seed_image
 
 
 @pytest.fixture
@@ -131,6 +132,9 @@ class TestUploadSeedNoteImages:
 
         client = MagicMock()
         client.upload_file.side_effect = upload_file
+        # The uploads run concurrently, so `calls` arrives in whatever order
+        # the pool finishes in. Assert on what each key was given, never on
+        # the order the recorder saw them.
         return client, calls
 
     def test_uploads_one_object_per_configured_image(self) -> None:
@@ -155,7 +159,7 @@ class TestUploadSeedNoteImages:
         client2, calls2 = self._client()
         with patch.object(seed_module, "GCPStorageClient", return_value=client2):
             seed_module.upload_seed_note_images()
-        assert [call["key"] for call in calls2] == keys, (
+        assert sorted(call["key"] for call in calls2) == sorted(keys), (
             "keys must be stable across runs"
         )
 
@@ -167,7 +171,25 @@ class TestUploadSeedNoteImages:
         with patch.object(seed_module, "GCPStorageClient", return_value=client2):
             seed_module.upload_seed_note_images()
 
-        assert [c["contents"] for c in calls] == [c["contents"] for c in calls2]
+        assert {c["key"]: c["contents"] for c in calls} == {
+            c["key"]: c["contents"] for c in calls2
+        }
+
+    def test_the_returned_attachments_keep_their_order(self) -> None:
+        """Notes sample from this list, so a run-to-run reshuffle would move
+        every image even though the objects in the bucket are identical."""
+        client, _ = self._client()
+        with patch.object(seed_module, "GCPStorageClient", return_value=client):
+            first = seed_module.upload_seed_note_images()
+        client2, _ = self._client()
+        with patch.object(seed_module, "GCPStorageClient", return_value=client2):
+            second = seed_module.upload_seed_note_images()
+
+        assert first == second
+        assert [a["filename"] for a in first] == [
+            f"{seed_module.SEED_NOTE_IMAGE_PREFIX}/{i:02d}-{render_seed_image(i)[0]}"
+            for i in range(seed_module.SEED_NOTE_IMAGE_COUNT)
+        ]
 
     def test_uploads_real_png_bytes(self) -> None:
         client, calls = self._client()
