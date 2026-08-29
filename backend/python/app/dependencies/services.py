@@ -40,6 +40,9 @@ from app.services.implementations.password_reset_token_service import (
 )
 from app.services.implementations.quota_service import QuotaService
 from app.services.implementations.route_group_service import RouteGroupService
+from app.services.implementations.routes_api_routing_service import (
+    RoutesApiSingleVehicleAlgorithm,
+)
 from app.services.implementations.scheduler_service import SchedulerService
 from app.services.implementations.sweep_algorithm import SweepAlgorithm
 from app.services.implementations.system_settings_service import SystemSettingsService
@@ -208,6 +211,11 @@ def build_routing_algorithm(
     and a shared instance would race between concurrent jobs.
     """
     fleet_routing = GoogleMapsFleetRoutingAlgorithm()
+    single_vehicle = RoutesApiSingleVehicleAlgorithm(
+        warehouse_lat=warehouse_lat,
+        warehouse_lon=warehouse_lon,
+        children_per_box=children_per_box,
+    )
     cluster_sweep = SweepAlgorithm(
         warehouse_lat=warehouse_lat,
         warehouse_lon=warehouse_lon,
@@ -216,19 +224,17 @@ def build_routing_algorithm(
 
     if method == RouteGenerationMethod.FLEET_ROUTING:
         return fleet_routing
-    if method == RouteGenerationMethod.CLUSTER_SWEEP:
-        return cluster_sweep
     if method == RouteGenerationMethod.SINGLE_VEHICLE:
-        # Not yet implemented — see F4KRP. Falling back to the free engine
-        # rather than the paid one: an unbuilt tier should not quietly start
-        # spending money.
-        get_logger().warning(
-            "Single-vehicle routing is not implemented yet; using cluster+sweep."
-        )
+        return single_vehicle
+    if method == RouteGenerationMethod.CLUSTER_SWEEP:
         return cluster_sweep
 
     return build_default_cascade(
-        get_quota_service(), session_maker, fleet_routing, cluster_sweep
+        get_quota_service(),
+        session_maker,
+        fleet_routing,
+        single_vehicle,
+        cluster_sweep,
     )
 
 

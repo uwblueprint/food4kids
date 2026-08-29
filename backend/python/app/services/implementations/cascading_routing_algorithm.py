@@ -171,16 +171,15 @@ def build_default_cascade(
     quota_service: QuotaService,
     session_maker: async_sessionmaker[AsyncSession],
     fleet_routing: RoutingAlgorithmProtocol,
+    single_vehicle: RoutingAlgorithmProtocol,
     cluster_sweep: RoutingAlgorithmProtocol,
 ) -> CascadingRoutingAlgorithm:
     """The Auto cascade: best quality first, free in-house engine last.
 
-    The single-vehicle tier is not wired yet — see F4KRP: the ticket's
-    "single-vehicle Routes API" resolves to either Route Optimization's Single
-    Vehicle Routing SKU (per shipment, ~1k/month) or Routes API computeRoutes
-    (per request, 5-10k/month), which differ by roughly three orders of
-    magnitude in usable free room. ``Tier`` takes any number of rungs, so it
-    slots in between these two once that is settled.
+    The rungs degrade by who decides what. Fleet Routing assigns stops to
+    drivers *and* orders them, weighing every stop against every vehicle at
+    once. The middle rung keeps Google's ordering but inherits our clustering's
+    assignment. The floor does both in-house.
     """
     return CascadingRoutingAlgorithm(
         logger,
@@ -192,6 +191,12 @@ def build_default_cascade(
                 algorithm=fleet_routing,
                 sku=ApiSku.FLEET_ROUTING,
                 units_for=fleet_routing_units,
+            ),
+            Tier(
+                name="single_vehicle",
+                algorithm=single_vehicle,
+                sku=ApiSku.ROUTES_COMPUTE,
+                units_for=routes_compute_units,
             ),
             Tier(name="cluster_sweep", algorithm=cluster_sweep),
         ],
