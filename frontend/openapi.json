@@ -3155,6 +3155,10 @@
             "title": "Drive Date",
             "type": "string"
           },
+          "frozen": {
+            "title": "Frozen",
+            "type": "boolean"
+          },
           "name": {
             "maxLength": 255,
             "minLength": 1,
@@ -3219,7 +3223,8 @@
           "drive_date",
           "route_group_id",
           "num_routes",
-          "status"
+          "status",
+          "frozen"
         ],
         "title": "RouteGroupRead",
         "type": "object"
@@ -7231,7 +7236,7 @@
         ]
       },
       "patch": {
-        "description": "Update an existing route group",
+        "description": "Update an existing route group.\n\nMoving the drive date of a group whose routes are already frozen is\nrejected with 409: that date is part of the frozen delivery record.",
         "operationId": "update_route_group",
         "parameters": [
           {

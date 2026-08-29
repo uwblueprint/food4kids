@@ -78,6 +78,11 @@ class RouteGroupRead(RouteGroupBase):
     # type is whatever it delivers. None until the group has stops.
     delivery_type: str | None = None
     status: RouteStatusEnum
+    # True once any of the group's routes has been frozen (has a RouteSnapshot).
+    # A frozen group's drive_date is part of the delivery record and can no
+    # longer be moved, so the UI renders its date read-only. Required, not
+    # defaulted: a client that can't tell would offer an edit the API rejects.
+    frozen: bool
     routes: list[RouteReadSummary] = []
 
 
