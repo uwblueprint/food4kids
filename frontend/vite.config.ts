@@ -18,13 +18,12 @@ export default defineConfig({
   },
   test: {
     // Node 20+ supplies File/FormData/Blob, so the request-shape tests need no
-    // DOM and this stays the cheap default. Component tests opt in per file
-    // with a `// @vitest-environment jsdom` docblock.
-    //
-    // jsdom is held at v26: from v27 it pulls html-encoding-sniffer 6, which
-    // `require()`s an ES module. CI pins Node 20.11.1 (lint.yml), and
-    // require(esm) only landed in 20.19 -- so a newer jsdom passes locally on
-    // Node 24 and dies in CI. Raise CI's Node before raising jsdom.
+    // DOM. Component tests opt in per file with a
+    // `// @vitest-environment happy-dom` docblock, so they don't pay for it
+    // here. happy-dom rather than jsdom because Radix's Select hangs under
+    // user-event on jsdom 26 — and 26/27 are the newest jsdom that CI's Node
+    // 20.11.1 can run, since jsdom 28 pulls html-encoding-sniffer@6, which
+    // require()s an ES module and so needs the support added in Node 20.19.
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
   }
