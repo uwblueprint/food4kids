@@ -7,6 +7,7 @@ import {
   getRouteQueryKey,
   getRoutesOptions,
   getRoutesQueryKey,
+  getSuggestedDriverOptions,
   updateRouteMutation,
 } from './generated/@tanstack/react-query.gen';
 import type { GetRoutesData } from './generated/types.gen';
@@ -84,5 +85,25 @@ export function useDeleteRoute() {
         queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() }),
       ]),
+  });
+}
+
+/**
+ * GET /routes/{route_id}/suggested-driver — the active driver most familiar
+ * with this route's stops, for the assign-driver dialog's hint. Only fetched
+ * while `enabled` (the dialog is open), since it is a per-open suggestion
+ * rather than something any list needs.
+ */
+export function useSuggestedDriver(
+  routeId: string,
+  routeGroupId: string,
+  enabled = true
+) {
+  return useQuery({
+    ...getSuggestedDriverOptions({
+      path: { route_id: routeId },
+      query: { route_group_id: routeGroupId },
+    }),
+    enabled,
   });
 }

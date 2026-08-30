@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import DownloadIcon from '@/assets/icons/download.svg?react';
 import PlusIcon from '@/assets/icons/plus.svg?react';
 import SearchIcon from '@/assets/icons/search.svg?react';
@@ -13,11 +11,8 @@ import {
 import { useSearch } from '@/common/hooks';
 import { AnnouncementsBoard } from '@/features/announcements';
 
-import { AssignRouteModal } from './components';
-
 export const AdminDriversPage = () => {
   const search = useSearch();
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-8">
@@ -43,11 +38,7 @@ export const AdminDriversPage = () => {
               wrapperClassName="w-64"
             />
             <div className="flex items-center gap-4">
-              <Button
-                variant="primary"
-                shape="circular"
-                onClick={() => setAssignDialogOpen(true)}
-              >
+              <Button variant="primary" shape="circular">
                 <PlusIcon className="size-5" />
               </Button>
               <Button variant="primary" shape="circular">
@@ -58,11 +49,6 @@ export const AdminDriversPage = () => {
           <div>TODO</div>
         </CardContent>
       </Card>
-
-      <AssignRouteModal
-        open={assignDialogOpen}
-        onOpenChange={setAssignDialogOpen}
-      />
     </div>
   );
 };

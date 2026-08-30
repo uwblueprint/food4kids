@@ -107,7 +107,9 @@ export function UnassignedRoutePreviewCard({
         open={assignOpen}
         onOpenChange={setAssignOpen}
         routeId={route.route_id}
+        routeGroupId={route.route_group_id}
         currentDriverName={route.driver_name}
+        startTime={route.start_time}
         contextLabel={
           <>
             {route.name} • {route.group_name} •{' '}

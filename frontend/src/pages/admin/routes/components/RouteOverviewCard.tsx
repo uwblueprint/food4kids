@@ -182,8 +182,11 @@ function DriverControl({ route }: { route: RouteDetailRead }) {
         open={modalOpen}
         onOpenChange={setModalOpen}
         routeId={route.route_id}
+        routeGroupId={route.route_group_id}
         currentDriverName={driverName}
+        startTime={route.start_time}
         contextLabel={contextLabel}
+        showViewRoute={false}
       />
     </>
   );
