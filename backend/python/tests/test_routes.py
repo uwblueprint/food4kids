@@ -3733,6 +3733,33 @@ class TestRouteRoutes:
         unassigned_again = await async_client.get("/routes?unassigned_only=true")
         assert route_id in {r["route_id"] for r in unassigned_again.json()["items"]}
 
+    @pytest.mark.asyncio
+    async def test_assigning_driver_without_start_time_is_rejected(
+        self,
+        async_client: AsyncClient,
+        test_route: Any,
+        test_driver: Any,
+    ) -> None:
+        """PATCH with driver_id alone is a 400: generated routes have no start
+        time, so the assigned-route invariant needs both fields in one request.
+        This is what a driver-only PATCH from the admin UI hit in production."""
+        # Read the id up front: the rejected PATCH rolls its session back, which
+        # expires the fixture's attributes and turns a later read into a
+        # lazy-load outside the async context.
+        route_id = str(test_route.route_id)
+
+        response = await async_client.patch(
+            f"/routes/{route_id}",
+            json={"driver_id": str(test_driver.driver_id)},
+        )
+        assert response.status_code == 400
+        assert "start_time" in response.json()["detail"]
+
+        # The route is untouched — no half-applied assignment.
+        after = await async_client.get(f"/routes/{route_id}")
+        assert after.json()["driver_id"] is None
+        assert after.json()["start_time"] is None
+
     # NOTE: the GET /routes driver_id filter is ownership-scoped (a driver can
     # only see their own routes; admins may scope to any). Because that rule is
     # enforced by an auth dependency, it's exercised end-to-end against the real
