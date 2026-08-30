@@ -12,12 +12,11 @@ crashed run self-heals the next night. Each route gets its own transaction.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
+    from datetime import date
     from uuid import UUID
 
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -25,7 +24,6 @@ if TYPE_CHECKING:
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.dependencies.services import get_logger
 from app.models import async_session_maker_instance
 from app.models.route import Route
@@ -34,6 +32,7 @@ from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
+from app.utilities.datetime_utils import today_local
 
 
 class FreezeOutcome(StrEnum):
@@ -139,10 +138,10 @@ async def process_daily_driver_history() -> None:
         logger.error("Database session maker not initialized")
         return
 
-    # Resolve "today" in the scheduler's timezone, not the process's. The
-    # container runs UTC, so date.today() at 23:59 local is already
-    # tomorrow — which would freeze tomorrow's routes a day early.
-    today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
+    # Resolve "today" on the organization's clock, not the process's: the
+    # container runs UTC, so at 23:59 local it is already tomorrow — which
+    # would freeze tomorrow's routes a day early.
+    today = today_local()
 
     try:
         # --------------------------------------------------------------

@@ -37,6 +37,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GeocodeResult
 
 IMPORT_COLUMN_MAP = {
@@ -3343,7 +3344,7 @@ class TestRouteRoutes:
         # Both routes share a group, so they share its drive_date and status.
         expected_status = (
             RouteStatusEnum.UPCOMING
-            if test_route_group.drive_date >= date.today()
+            if test_route_group.drive_date >= today_local()
             else RouteStatusEnum.COMPLETED
         )
         assert served_row["status"] == expected_status.value
@@ -3496,7 +3497,7 @@ class TestRouteRoutes:
         past_group = RouteGroup(
             name="Past Route Group",
             notes="",
-            drive_date=date.today() - timedelta(days=7),
+            drive_date=today_local() - timedelta(days=7),
         )
         loc = Location(
             location_group_id=test_location_group.location_group_id,

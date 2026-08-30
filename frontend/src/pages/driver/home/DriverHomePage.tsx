@@ -7,6 +7,7 @@ import noUpcoming from '@/assets/illustrations/boy-edge-case-with-questions.png'
 import noPast from '@/assets/illustrations/girl-confused.png';
 import logo from '@/assets/logos/logo_mobile_one_line.svg';
 import { StatisticsCard } from '@/common/components/StatisticsCard';
+import { parseDateOnly } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
 
 import { RouteCard } from './components';
@@ -50,23 +51,24 @@ export const DriverHomePage = () => {
   );
   const { data: routesData } = useDriverRoutes();
 
-  // Filter routes into upcoming vs past based on drive_date
+  // Filter routes into upcoming vs past based on drive_date. drive_date is
+  // date-only, and new Date('YYYY-MM-DD') reads it as UTC midnight -- which
+  // is the previous evening here, so today's route sorted as past and
+  // displayed a day early. parseDateOnly reads it as local midnight.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const routes = routesData?.items || [];
-  const upcomingRoutes = routes.filter((route) => {
-    const driveDate = new Date(route.drive_date);
-    return driveDate >= today;
-  });
-  const pastRoutes = routes.filter((route) => {
-    const driveDate = new Date(route.drive_date);
-    return driveDate < today;
-  });
+  const upcomingRoutes = routes.filter(
+    (route) => parseDateOnly(route.drive_date) >= today
+  );
+  const pastRoutes = routes.filter(
+    (route) => parseDateOnly(route.drive_date) < today
+  );
 
   // Format date for display
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseDateOnly(dateString);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',

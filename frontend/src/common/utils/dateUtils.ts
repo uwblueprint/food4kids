@@ -32,3 +32,14 @@ export const parseDateOnly = (isoDate: string): Date => {
   const [year, month, day] = datePart.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
+
+/**
+ * Format a drive date as "Aug 31" — the form the driver and admin views show
+ * beside a route. Goes through `parseDateOnly`, so the day it names is the day
+ * the backend sent rather than the one the host clock lands on.
+ */
+export const formatDriveDate = (isoDate: string): string => {
+  const date = parseDateOnly(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};

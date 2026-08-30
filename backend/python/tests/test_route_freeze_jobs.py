@@ -9,7 +9,6 @@ separate sessions can see.
 
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -27,19 +26,10 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.services.jobs import route_freeze_jobs
+from app.utilities import datetime_utils
+from app.utilities.datetime_utils import today_local
 
 ROUTE_KM = 12.5
-
-
-def _today() -> date:
-    """Today in the scheduler's timezone — the job's own notion of "due".
-
-    Deliberately not date.today(), which reads the process timezone (UTC in
-    CI and in the container) and straddles a different midnight than the
-    scheduler's. Seeding against the process date makes these tests pass or
-    fail depending on the hour CI happens to run.
-    """
-    return datetime.now(ZoneInfo(app_settings.scheduler_timezone)).date()
 
 
 async def _seed(
@@ -51,7 +41,7 @@ async def _seed(
     """Seed (committed) an active driver + a freezable route on the given
     drive_date (default today), visiting one geocoded location, with
     warehouse coords set. Reuses shared rows if called more than once."""
-    the_date = drive_date or _today()
+    the_date = drive_date or today_local()
     async with maker() as s:
         settings = (await s.execute(select(SystemSettings))).scalars().first()
         if settings is None:
@@ -179,7 +169,7 @@ async def test_catch_up_freezes_missed_past_dates(
     maker = _maker(test_db_engine)
     monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
-    seeded = await _seed(maker, drive_date=_today() - timedelta(days=3))
+    seeded = await _seed(maker, drive_date=today_local() - timedelta(days=3))
 
     await route_freeze_jobs.process_daily_driver_history()
 
@@ -195,7 +185,7 @@ async def test_future_routes_not_frozen(
     maker = _maker(test_db_engine)
     monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
-    await _seed(maker, drive_date=_today() + timedelta(days=2))
+    await _seed(maker, drive_date=today_local() + timedelta(days=2))
 
     await route_freeze_jobs.process_daily_driver_history()
     after = await _counts(maker)
@@ -216,19 +206,16 @@ async def test_due_window_follows_scheduler_timezone(
     """
     maker = _maker(test_db_engine)
     monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
+    monkeypatch.setattr(app_settings, "scheduler_timezone", "America/New_York")
+
+    # 2026-07-25 23:59 in New York is 2026-07-26 03:59 UTC. Pin now_utc, so
+    # the real now_utc -> now_local -> today_local chain runs; a stub on the
+    # job'''s own today_local would only test the stub.
     monkeypatch.setattr(
-        route_freeze_jobs.settings, "scheduler_timezone", "America/New_York"
+        datetime_utils,
+        "now_utc",
+        lambda: datetime(2026, 7, 26, 3, 59, tzinfo=timezone.utc),
     )
-
-    # 2026-07-25 23:59 in New York is 2026-07-26 03:59 UTC.
-    instant = datetime(2026, 7, 26, 3, 59, tzinfo=timezone.utc)
-
-    class _PinnedClock(datetime):
-        @classmethod
-        def now(cls, tz: Any = None) -> Any:
-            return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
-
-    monkeypatch.setattr(route_freeze_jobs, "datetime", _PinnedClock)
 
     today_in_ny = await _seed(maker, drive_date=date(2026, 7, 25))
     await _seed(maker, drive_date=date(2026, 7, 26))
@@ -339,7 +326,7 @@ async def test_failing_route_does_not_poison_the_run(
     maker = _maker(test_db_engine)
     monkeypatch.setattr(route_freeze_jobs, "async_session_maker_instance", maker)
 
-    poisoned = await _seed(maker, drive_date=_today() - timedelta(days=1))
+    poisoned = await _seed(maker, drive_date=today_local() - timedelta(days=1))
     healthy = await _seed(maker)
 
     real_freeze = route_freeze_jobs._freeze_route

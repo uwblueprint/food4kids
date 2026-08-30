@@ -21,7 +21,7 @@ import {
   useSearch,
   useTableSort,
 } from '@/common/hooks';
-import { orDash } from '@/common/utils';
+import { orDash, parseDateOnly } from '@/common/utils';
 
 import { routeFiltersToQuery, useRouteFilters } from '../hooks';
 import { AssignDriverCell } from './AssignDriverCell';
@@ -107,7 +107,7 @@ export function RouteRoutesTab() {
         key: 'drive_date',
         header: 'Delivery Date',
         sortable: true,
-        sortValue: (row: RouteWithDateRead) => new Date(row.drive_date),
+        sortValue: (row: RouteWithDateRead) => parseDateOnly(row.drive_date),
         render: (row) => (
           <DriveDateCell
             routeGroupId={row.route_group_id}
