@@ -3162,7 +3162,9 @@ class TestRouteRoutes:
 
         Route.name is editable, so nothing guarantees the "Route {n}" shape.
         Sorting on the number alone would put "3rd shift" between "Route 2"
-        and "Route 4"; the text before the number orders these first.
+        and "Route 4"; the text before the number orders these first. Case is
+        ignored, so a lowercase "route 1" still sorts with the numbered
+        routes rather than after every capitalised name.
         """
         names = [
             "Zebra loop",
@@ -3170,7 +3172,7 @@ class TestRouteRoutes:
             "Cambridge",
             "Route 2",
             "3rd shift",
-            "Route 1",
+            "route 1",
             "Airport run",
         ]
         test_session.add_all(
@@ -3191,11 +3193,49 @@ class TestRouteRoutes:
             "3rd shift",
             "Airport run",
             "Cambridge",
-            "Route 1",
+            "route 1",
             "Route 2",
             "Route 10",
             "Zebra loop",
         ]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_orders_case_variants_adjacently_and_stably(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """Names differing only in case tie on the lowered key.
+
+        The raw name breaks that tie, so the pair is adjacent and the order
+        repeats. Which of the two comes first is the database collation's
+        call, so it isn't asserted here.
+        """
+        names = ["route 1", "Route 1", "Cambridge", "Route 2"]
+        test_session.add_all(
+            [
+                Route(
+                    name=name,
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                )
+                for name in names
+            ]
+        )
+        await test_session.commit()
+
+        first = await async_client.get("/routes")
+        assert first.status_code == 200
+        ordered = [item["name"] for item in first.json()["items"]]
+        assert ordered[0] == "Cambridge"
+        assert set(ordered[1:3]) == {"Route 1", "route 1"}
+        assert ordered[3] == "Route 2"
+
+        # Same order on a second read: the tie is broken by the name, not left
+        # to the database to resolve differently each time.
+        second = await async_client.get("/routes")
+        assert [item["name"] for item in second.json()["items"]] == ordered
 
     @pytest.mark.asyncio
     async def test_get_routes_tolerates_an_oversized_number_in_a_name(
