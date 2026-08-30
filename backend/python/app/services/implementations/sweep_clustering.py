@@ -98,8 +98,6 @@ class SweepClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self._warehouse_lat = warehouse_lat
         self._warehouse_lon = warehouse_lon
         self._children_per_box = children_per_box
-        # SystemSettings.dropoff_minutes. Required for the same reason the box
-        # cap is: guessing it plans far routes against the wrong time budget.
         self._service_minutes_per_stop = service_minutes_per_stop
 
     async def cluster_locations(
