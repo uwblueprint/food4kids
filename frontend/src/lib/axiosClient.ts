@@ -1,4 +1,8 @@
-import axios, { type InternalAxiosRequestConfig, isAxiosError } from 'axios';
+import axios, {
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+  isAxiosError,
+} from 'axios';
 
 import { useAuthStore } from '@/api/authStore';
 import type { AuthResponse } from '@/api/generated';
@@ -30,6 +34,16 @@ axiosClient.interceptors.request.use((config) => {
 });
 
 const REFRESH_PATH = '/auth/refresh';
+
+/**
+ * The server answered, and what it said was "no". A request that never got an
+ * answer at all — a dropped connection, a timeout — reports nothing about the
+ * session, and neither does a 5xx: the credentials were never judged. Only the
+ * first kind may end a session.
+ */
+export function isAuthRefusal(error: unknown): error is AxiosError {
+  return isAxiosError(error) && error.response?.status === 401;
+}
 
 interface SessionRequestConfig extends InternalAxiosRequestConfig {
   /**
@@ -89,7 +103,7 @@ function isRefreshRequest(config: InternalAxiosRequestConfig): boolean {
 // A 403 is left alone: the server knows exactly who we are and this isn't
 // ours, so logging in again would just repeat the same 403.
 axiosClient.interceptors.response.use(undefined, async (error: unknown) => {
-  if (!isAxiosError(error) || error.response?.status !== 401) {
+  if (!isAuthRefusal(error)) {
     return Promise.reject(error);
   }
 
