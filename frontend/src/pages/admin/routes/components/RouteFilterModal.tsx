@@ -79,17 +79,21 @@ export function RouteFilterModal({
             ))}
           </FilterChipGroup>
 
-          <FilterChipGroup label="Delivery Type">
-            {deliveryTypes.map((type) => (
-              <FilterChip
-                key={type}
-                selected={draftFilters.deliveryTypes.has(type)}
-                onClick={() => toggleDraft('deliveryTypes', type)}
-              >
-                {type}
-              </FilterChip>
-            ))}
-          </FilterChipGroup>
+          {/* Nothing to narrow by unless there are at least two types —
+              one type matches everything, and none renders an empty group. */}
+          {deliveryTypes.length > 1 && (
+            <FilterChipGroup label="Delivery Type">
+              {deliveryTypes.map((type) => (
+                <FilterChip
+                  key={type}
+                  selected={draftFilters.deliveryTypes.has(type)}
+                  onClick={() => toggleDraft('deliveryTypes', type)}
+                >
+                  {type}
+                </FilterChip>
+              ))}
+            </FilterChipGroup>
+          )}
 
           <FilterChipGroup label="Route Status">
             {ROUTE_STATUSES.map((status) => (

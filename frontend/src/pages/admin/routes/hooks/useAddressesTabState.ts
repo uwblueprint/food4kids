@@ -5,10 +5,7 @@ import type {
   LocationRead,
   LocationStatusEnum,
 } from '@/api/generated/types.gen';
-import {
-  getConfiguredDeliveryTypes,
-  useSystemSettings,
-} from '@/api/system-settings';
+import { useSystemSettings } from '@/api/system-settings';
 import type { UsePaginationReturn, UseSearchReturn } from '@/common/hooks';
 import {
   clampPage,
@@ -68,7 +65,8 @@ export function useAddressesTabState(): AddressesTabState {
   const [draftFilters, setDraftFilters] =
     useState<AddressesFilterState>(emptyFilters());
   const { data: systemSettings } = useSystemSettings();
-  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
+  // Empty until settings load; the filter dialog hides the group either way.
+  const deliveryTypes = systemSettings?.delivery_types ?? [];
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0

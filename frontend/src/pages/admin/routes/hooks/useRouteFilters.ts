@@ -5,10 +5,7 @@ import type {
   DriverAssignmentStatusEnum,
   RouteStatusEnum,
 } from '@/api/generated/types.gen';
-import {
-  getConfiguredDeliveryTypes,
-  useSystemSettings,
-} from '@/api/system-settings';
+import { useSystemSettings } from '@/api/system-settings';
 
 /**
  * The filter set shared by the Groups and Routes tabs: weekday, delivery type,
@@ -80,7 +77,8 @@ export function useRouteFilters(): UseRouteFiltersReturn {
   const [draftFilters, setDraftFilters] =
     useState<RouteFilterState>(emptyFilters());
   const { data: systemSettings } = useSystemSettings();
-  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
+  // Empty until settings load; the filter dialog hides the group either way.
+  const deliveryTypes = systemSettings?.delivery_types ?? [];
 
   const hasActiveFilters = Object.values(appliedFilters).some(
     (s) => s.size > 0

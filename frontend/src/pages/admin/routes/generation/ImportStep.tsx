@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
-import {
-  getConfiguredDeliveryTypes,
-  usePreviewLocationImport,
-  useSystemSettings,
-} from '@/api';
+import { usePreviewLocationImport, useSystemSettings } from '@/api';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -18,9 +14,11 @@ import {
   DropdownTrigger,
   DropdownValue,
   FileInput,
+  Spinner,
 } from '@/common/components';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
+import { deliveryTypeSelection } from './deliveryTypeSelection';
 import { GenerationFooter } from './GenerationFooter';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
@@ -90,8 +88,10 @@ export function ImportStep() {
 
   const { mutateAsync: previewImport, isPending: isReviewing } =
     usePreviewLocationImport();
-  const { data: systemSettings } = useSystemSettings();
-  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
+  const { data: systemSettings, isError: settingsError } = useSystemSettings();
+  // The layout has already applied the one type when there is only one, so
+  // this step shows the picker only when there is a choice to make.
+  const selection = deliveryTypeSelection(systemSettings);
 
   const [formatError, setFormatError] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -220,39 +220,65 @@ export function ImportStep() {
         </Banner>
       )}
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-grey-500">Select Delivery Type</h2>
-          <p className="text-p1 text-grey-500">
-            Choose the type of spreadsheet you'll be uploading:
-          </p>
+      {settingsError && (
+        <Banner variant="error">
+          Could not load the configured delivery types. Please refresh and try
+          again.
+        </Banner>
+      )}
+
+      {selection.kind === 'pending' && !settingsError && (
+        <div className="flex justify-center py-16">
+          <Spinner size="lg" />
         </div>
-        {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
-        <div className="flex flex-col gap-1">
-          {deliveryTypes.map((deliveryType) => (
-            <label
-              key={deliveryType}
-              className="text-p1 flex cursor-pointer items-center gap-2"
-            >
-              <input
-                type="radio"
-                name="delivery-type"
-                value={deliveryType}
-                checked={selectedDeliveryType === deliveryType}
-                onChange={() => {
-                  setSelectedDeliveryType(deliveryType);
-                  setFile(null);
-                  setFileHeaders([]);
-                  setReviewResult(null);
-                  setFormatError(null);
-                }}
-                className="size-5 cursor-pointer accent-blue-300"
-              />
-              {deliveryType}
-            </label>
-          ))}
-        </div>
-      </section>
+      )}
+
+      {selection.kind === 'unconfigured' && (
+        <Banner variant="error">
+          No delivery types are configured, so imported addresses could not be
+          labelled. Add one on the{' '}
+          <Link to="/admin/settings" className="underline">
+            Settings
+          </Link>{' '}
+          page before importing.
+        </Banner>
+      )}
+
+      {selection.kind === 'choice' && (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-grey-500">Select Delivery Type</h2>
+            <p className="text-p1 text-grey-500">
+              Choose the type of spreadsheet you'll be uploading:
+            </p>
+          </div>
+          {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
+          <div className="flex flex-col gap-1">
+            {selection.deliveryTypes.map((deliveryType) => (
+              <label
+                key={deliveryType}
+                className="text-p1 flex cursor-pointer items-center gap-2"
+              >
+                <input
+                  type="radio"
+                  name="delivery-type"
+                  value={deliveryType}
+                  checked={selectedDeliveryType === deliveryType}
+                  onChange={() => {
+                    setSelectedDeliveryType(deliveryType);
+                    setFile(null);
+                    setFileHeaders([]);
+                    setReviewResult(null);
+                    setFormatError(null);
+                  }}
+                  className="size-5 cursor-pointer accent-blue-300"
+                />
+                {deliveryType}
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
 
       {selectedDeliveryType && (
         <section className="flex max-w-[700px] flex-col gap-4">
@@ -261,6 +287,14 @@ export function ImportStep() {
             <p className="text-p1 text-grey-500">
               Upload an Excel file (.xlsx) with delivery information
             </p>
+            {/* With one configured type there is nothing to pick, but the
+                admin should still see what the import will be labelled. */}
+            {selection.kind === 'only' && (
+              <p className="text-p1 text-grey-500">
+                Delivery type:{' '}
+                <span className="font-semibold">{selection.deliveryType}</span>
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-4">
             <FileInput
