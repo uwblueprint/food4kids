@@ -85,7 +85,7 @@ export function AnnouncementsPanel({
       >
         <header
           className={cn(
-            'border-grey-300 bg-grey-100 desktop:bg-grey-150 flex shrink-0 items-center justify-between border-b',
+            'border-grey-300 bg-grey-100 desktop:bg-grey-200 flex shrink-0 items-center justify-between border-b',
             PANEL_PADDING_X,
             PANEL_PADDING_TOP,
             'pb-4'
@@ -155,7 +155,7 @@ export function AnnouncementsPanel({
         {hasAnnouncements && (
           <footer
             className={cn(
-              'border-grey-300 bg-grey-100 desktop:bg-grey-150 shrink-0 border-t',
+              'border-grey-300 bg-grey-100 desktop:bg-grey-200 shrink-0 border-t',
               PANEL_PADDING_X,
               'pt-4',
               PANEL_PADDING_BOTTOM

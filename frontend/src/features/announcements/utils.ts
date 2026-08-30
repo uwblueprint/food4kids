@@ -22,9 +22,10 @@ export function sheetHeightStyle(): Record<string, string> {
 export const SHEET_PANEL_LAYOUT =
   'bg-grey-100 inset-x-0 top-auto right-auto bottom-0 h-[var(--announcements-sheet-height)] w-full max-w-none translate-none rounded-none rounded-t-xl';
 
-/** Desktop: right side panel. */
+/** Desktop: right side panel. Ground is grey-200 per Figma — grey-150 would
+ * match AnnouncementCard's hover fill and swallow it. */
 export const DESKTOP_PANEL_LAYOUT =
-  'desktop:inset-x-auto desktop:bottom-auto desktop:top-0 desktop:right-0 desktop:left-auto desktop:bg-grey-150 desktop:h-dvh desktop:w-[var(--announcements-panel-width)] desktop:max-w-[var(--announcements-panel-width)] desktop:rounded-none desktop:rounded-l-xl';
+  'desktop:inset-x-auto desktop:bottom-auto desktop:top-0 desktop:right-0 desktop:left-auto desktop:bg-grey-200 desktop:h-dvh desktop:w-[var(--announcements-panel-width)] desktop:max-w-[var(--announcements-panel-width)] desktop:rounded-none desktop:rounded-l-xl';
 
 /** Bottom sheet layout for modal content (mobile + tablet). */
 export const SHEET_MODAL_LAYOUT =
