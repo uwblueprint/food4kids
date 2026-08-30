@@ -36,7 +36,6 @@ from app.models.location import (
     LocationImportResult,
     LocationImportRow,
     LocationRead,
-    LocationUpdate,
     NetNewEntry,
     StaleEntry,
     ValidatedLocationImportEntry,
@@ -510,36 +509,6 @@ class LocationService:
             return await self.get_location_by_id(session, location.location_id)
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def update_location_by_id(
-        self,
-        session: AsyncSession,
-        location_id: UUID,
-        updated_location_data: LocationUpdate,
-    ) -> Location:
-        """Update location by ID"""
-        try:
-            # Get the existing location by ID
-            location = await self.get_location_by_id(session, location_id)
-
-            # Update existing location with new data
-            updated_data = updated_location_data.model_dump(exclude_unset=True)
-            if "delivery_type" in updated_data:
-                await self.validate_delivery_type(
-                    session, updated_data["delivery_type"]
-                )
-            for field, value in updated_data.items():
-                setattr(location, field, value)
-
-            await session.commit()
-            # Reload with location_group eager-loaded so serializing to
-            # LocationRead (location_group_name) doesn't lazy-load post-commit.
-            return await self.get_location_by_id(session, location_id)
-
-        except Exception as e:
-            self.logger.error(f"Failed to update location by id: {e!s}")
             await session.rollback()
             raise e
 

@@ -1,9 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from pydantic import ConfigDict, computed_field, field_validator
+from pydantic import computed_field, field_validator
 from sqlmodel import Field, Relationship, SQLModel, String
 
 from app.utilities.utils import validate_phone
@@ -64,8 +64,8 @@ class LocationBase(SQLModel):
     @field_validator("phone_primary", "phone_secondary")
     @classmethod
     def validate_phones(cls, v: str | None) -> str | None:
-        """Normalize to RFC 3966, as Driver and Admin do — POST/PATCH
-        /locations would otherwise store whatever the client sent.
+        """Normalize to RFC 3966, as Driver and Admin do — POST /locations
+        would otherwise store whatever the client sent.
 
         Not the import's validation gate: LocationImportEntry deliberately
         doesn't inherit this, so it can report an INVALID_PHONE_NUMBER alert.
@@ -289,55 +289,6 @@ class LocationRead(LocationBase):
         if self.in_roster:
             return LocationStatusEnum.UNSCHEDULED
         return LocationStatusEnum.INACTIVE
-
-
-class LocationUpdate(SQLModel):
-    """Update request model with all fields optional.
-
-    Deliberately has no address/latitude/longitude/place_id: a household's
-    address is set once, by geocoding, and thereafter changes only through the
-    roster import — which retires the old row and creates a replacement rather
-    than moving a house. Accepting an address here writes the new string over
-    coordinates still pointing at the old house, which is silent: the admin
-    sees the address they typed and the driver is routed to the previous one.
-    Leaving the fields off makes that state unrepresentable, and extra="forbid"
-    makes an attempt a 422 instead of a quietly ignored edit.
-    """
-
-    # ignore: SQLModel types model_config as its own SQLModelConfig subclass.
-    model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
-
-    location_group_id: UUID | None = None
-    name: str | None = None
-    contact_name: str | None = None
-    guardian_name: str | None = None
-    phone_primary: str | None = None
-    phone_secondary: str | None = None
-    halal: bool | None = None
-    dietary_restrictions: str | None = None
-    num_children: int | None = None
-    delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
-    in_roster: bool | None = None
-    note_chain_id: UUID | None = None
-
-    @field_validator("phone_primary", mode="before")
-    @classmethod
-    def reject_explicit_null_primary(cls, v: Any) -> Any:
-        """``locations.phone_primary`` is NOT NULL, so an explicit ``null`` has
-        to fail here as a 422 rather than as an IntegrityError at commit.
-        ``phone_secondary`` is nullable — null there legitimately clears it."""
-        if v is None:
-            raise ValueError("cannot be null; omit the field to leave it unchanged")
-        return v
-
-    @field_validator("phone_primary", "phone_secondary")
-    @classmethod
-    def validate_phones(cls, v: str | None) -> str | None:
-        """Normalize on update too — the service assigns onto the row, and
-        SQLModel table instances don't re-run validators on assignment."""
-        if v is None:
-            return None
-        return validate_phone(v)
 
 
 class LocationImportResult(SQLModel):

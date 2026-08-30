@@ -74,7 +74,6 @@ import {
   testEventEmail,
   updateAnnouncement,
   updateDriver,
-  updateLocation,
   updateLocationGroup,
   updateNote,
   updatePassword,
@@ -259,12 +258,9 @@ import type {
   UpdateDriverData,
   UpdateDriverError,
   UpdateDriverResponse,
-  UpdateLocationData,
-  UpdateLocationError,
   UpdateLocationGroupData,
   UpdateLocationGroupError,
   UpdateLocationGroupResponse,
-  UpdateLocationResponse,
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
@@ -1622,35 +1618,6 @@ export const getLocationOptions = (options: Options<GetLocationData>) =>
     },
     queryKey: getLocationQueryKey(options),
   });
-
-/**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocationMutation = (
-  options?: Partial<Options<UpdateLocationData>>
-): UseMutationOptions<
-  UpdateLocationResponse,
-  AxiosError<UpdateLocationError>,
-  Options<UpdateLocationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateLocationResponse,
-    AxiosError<UpdateLocationError>,
-    Options<UpdateLocationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateLocation({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 /**
  * Delete Note Chain

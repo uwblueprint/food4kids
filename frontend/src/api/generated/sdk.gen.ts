@@ -184,12 +184,9 @@ import type {
   UpdateDriverData,
   UpdateDriverErrors,
   UpdateDriverResponses,
-  UpdateLocationData,
-  UpdateLocationErrors,
   UpdateLocationGroupData,
   UpdateLocationGroupErrors,
   UpdateLocationGroupResponses,
-  UpdateLocationResponses,
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
@@ -1062,29 +1059,6 @@ export const getLocation = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/{location_id}',
     ...options,
-  });
-
-/**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocation = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateLocationData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateLocationResponses,
-    UpdateLocationErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/{location_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**

@@ -1195,71 +1195,6 @@ export type LocationRead = {
 export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 
 /**
- * LocationUpdate
- *
- * Update request model with all fields optional.
- *
- * Deliberately has no address/latitude/longitude/place_id: a household's
- * address is set once, by geocoding, and thereafter changes only through the
- * roster import — which retires the old row and creates a replacement rather
- * than moving a house. Accepting an address here writes the new string over
- * coordinates still pointing at the old house, which is silent: the admin
- * sees the address they typed and the driver is routed to the previous one.
- * Leaving the fields off makes that state unrepresentable, and extra="forbid"
- * makes an attempt a 422 instead of a quietly ignored edit.
- */
-export type LocationUpdate = {
-  /**
-   * Contact Name
-   */
-  contact_name?: string | null;
-  /**
-   * Delivery Type
-   */
-  delivery_type?: string | null;
-  /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string | null;
-  /**
-   * Guardian Name
-   */
-  guardian_name?: string | null;
-  /**
-   * Halal
-   */
-  halal?: boolean | null;
-  /**
-   * In Roster
-   */
-  in_roster?: boolean | null;
-  /**
-   * Location Group Id
-   */
-  location_group_id?: string | null;
-  /**
-   * Name
-   */
-  name?: string | null;
-  /**
-   * Note Chain Id
-   */
-  note_chain_id?: string | null;
-  /**
-   * Num Children
-   */
-  num_children?: number | null;
-  /**
-   * Phone Primary
-   */
-  phone_primary?: string | null;
-  /**
-   * Phone Secondary
-   */
-  phone_secondary?: string | null;
-};
-
-/**
  * LoginRequest
  *
  * Login request
@@ -3833,38 +3768,6 @@ export type GetLocationResponses = {
 
 export type GetLocationResponse =
   GetLocationResponses[keyof GetLocationResponses];
-
-export type UpdateLocationData = {
-  body: LocationUpdate;
-  path: {
-    /**
-     * Location Id
-     */
-    location_id: string;
-  };
-  query?: never;
-  url: '/locations/{location_id}';
-};
-
-export type UpdateLocationErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateLocationError =
-  UpdateLocationErrors[keyof UpdateLocationErrors];
-
-export type UpdateLocationResponses = {
-  /**
-   * Successful Response
-   */
-  200: LocationRead;
-};
-
-export type UpdateLocationResponse =
-  UpdateLocationResponses[keyof UpdateLocationResponses];
 
 export type DeleteNoteChainData = {
   body?: never;
