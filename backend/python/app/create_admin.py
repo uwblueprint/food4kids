@@ -4,8 +4,9 @@
 Run by a Blueprint developer with database access; there is deliberately no
 in-app way to mint an admin. Usage:
 
-    python -m app.create_admin --email jane@food4kids.ca --name "Jane Doe" \\
-        --phone "519-576-3443"
+    python -m app.create_admin --email jane@food4kids.ca --name "Jane Doe"
+
+``--phone`` is accepted too, and optional.
 
 It inserts three rows — ``users`` (role=admin, ``auth_id`` still NULL),
 ``admin_info``, and a ``user_invites`` row — in one transaction, then prints
@@ -52,7 +53,7 @@ async def create_admin_account(
     email: str,
     first_name: str,
     last_name: str,
-    phone: str,
+    phone: str | None = None,
 ) -> UserInvite:
     """Insert the admin user, its ``admin_info`` row, and its invite.
 
@@ -71,6 +72,11 @@ async def create_admin_account(
             "delete the existing user first."
         )
 
+    # Build all three rows before adding any of them: constructing them is what
+    # runs the validators (a bad email, an unparseable phone), and doing that
+    # up front means a rejected input never reaches the session at all. The
+    # user_id is a client-side uuid4, so the children can reference it without
+    # a flush first.
     user = User(
         first_name=first_name,
         last_name=last_name,
@@ -78,11 +84,13 @@ async def create_admin_account(
         auth_id=None,
         role="admin",
     )
+    admin = Admin(user_id=user.user_id, admin_phone=phone)
+    invite = UserInvite(user_id=user.user_id)
+
+    # The user row has to land before the two that carry an FK to it.
     session.add(user)
     await session.flush()
-
-    session.add(Admin(user_id=user.user_id, admin_phone=phone))
-    invite = UserInvite(user_id=user.user_id)
+    session.add(admin)
     session.add(invite)
     await session.flush()
 
@@ -104,7 +112,7 @@ def split_name(name: str) -> tuple[str, str]:
     return parts[0], " ".join(parts[1:])
 
 
-async def _run(email: str, name: str, phone: str) -> UUID:
+async def _run(email: str, name: str, phone: str | None) -> UUID:
     """Open a session against the configured database and create the account."""
     first_name, last_name = split_name(name)
 
@@ -147,10 +155,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--phone",
-        required=True,
+        default=None,
         help=(
-            "Contact phone. Required because admin_info.admin_phone is NOT "
-            "NULL; normalized to RFC 3966 on the way in."
+            "Optional contact phone, normalized to RFC 3966 on the way in. "
+            "Omit it if you don't have one — the account is created without."
         ),
     )
     args = parser.parse_args(argv)

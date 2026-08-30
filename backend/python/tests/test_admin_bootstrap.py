@@ -133,11 +133,45 @@ class TestCreateAdminCli:
     async def test_invalid_phone_is_rejected_before_any_write(
         self, test_session: AsyncSession
     ) -> None:
-        """admin_info.admin_phone is NOT NULL and validated — fail, don't guess."""
+        """Optional does not mean unvalidated — a malformed number still fails."""
         with pytest.raises(ValidationError):
             await create_admin_account(
                 test_session, **{**ADMIN_ARGS, "phone": "555-1234"}
             )
+        assert await _count(test_session, User) == 0
+        assert await _count(test_session, Admin) == 0
+
+    @pytest.mark.asyncio
+    async def test_phone_is_optional(self, test_session: AsyncSession) -> None:
+        """``--phone`` omitted: a real account, with NULL where the number goes.
+
+        The point of making the column nullable — the operator bootstrapping an
+        admin often doesn't have their number, and a placeholder would be worse
+        than nothing.
+        """
+        args = {k: v for k, v in ADMIN_ARGS.items() if k != "phone"}
+        invite = await create_admin_account(test_session, **args)
+
+        admin = await test_session.scalar(
+            select(Admin).join(User).where(User.email == ADMIN_ARGS["email"])
+        )
+        assert admin is not None
+        assert admin.admin_phone is None
+        # Still a fully usable invite — nothing about the link depends on phone.
+        assert invite.is_used is False
+
+    @pytest.mark.asyncio
+    async def test_empty_phone_stores_null_not_blank(
+        self, test_session: AsyncSession
+    ) -> None:
+        """An empty string is absence, never a phone that passed validation."""
+        await create_admin_account(test_session, **{**ADMIN_ARGS, "phone": ""})
+
+        admin = await test_session.scalar(
+            select(Admin).join(User).where(User.email == ADMIN_ARGS["email"])
+        )
+        assert admin is not None
+        assert admin.admin_phone is None
 
     @pytest.mark.asyncio
     async def test_invalid_email_is_rejected(self, test_session: AsyncSession) -> None:

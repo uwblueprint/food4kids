@@ -157,6 +157,10 @@ The CLI never sees or prints a password.
 ```bash
 # Locally
 docker-compose exec backend python -m app.create_admin \
+  --email jane@food4kids.ca --name "Jane Doe"
+
+# --phone is optional; pass it if you have a number on file
+docker-compose exec backend python -m app.create_admin \
   --email jane@food4kids.ca --name "Jane Doe" --phone "519-576-3443"
 ```
 
@@ -193,6 +197,8 @@ Notes for whoever runs this:
   sending.
 - **The email must be unused.** `users.email` is unique across drivers and
   admins alike; the CLI refuses up front rather than writing a partial account.
+- **`--phone` is optional**, but validated when given: a malformed number is
+  rejected rather than stored. Omitting it stores NULL, not an empty string.
 - **48 hours.** If the link lapses, delete the unfinished user row and run the
   CLI again.
 - **Running against production**: exec into the deployed backend the same way,
