@@ -1,6 +1,9 @@
 import re
+from uuid import UUID
 
 import phonenumbers
+
+from app.config import settings
 
 # The narrowest phone column in the schema (drivers.phone). Enforced here, on
 # the *normalized* value, because that is the string that reaches the database.
@@ -46,3 +49,12 @@ def validate_password_complexity(password: str) -> str:
     if not re.search(r"[^A-Za-z0-9]", password):
         raise ValueError("Password must contain at least one special character.")
     return password
+
+
+def build_invite_url(user_invite_id: UUID) -> str:
+    """The create-password link an invited user follows to finish their account.
+
+    Shared by every path that hands out an invite (the driver invite email, the
+    admin bootstrap CLI) so the URL can only be wrong in one place.
+    """
+    return f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite_id}"

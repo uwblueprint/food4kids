@@ -9,8 +9,9 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-# Initialize all models to ensure proper relationship resolution
-from app.models import init_app
+# Register every model so SQLAlchemy resolves the relationship strings. These
+# tests build model objects in memory and never query, so no database is needed.
+from app.models import register_models
 from app.models.admin import Admin
 from app.models.announcement import (
     Announcement,
@@ -52,7 +53,7 @@ from app.models.route_stop import RouteStop
 from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User, UserFinalize
 
-init_app()
+register_models()
 
 
 class TestCoreBusinessValidation:
@@ -92,6 +93,12 @@ class TestCoreBusinessValidation:
             admin_phone=valid_phone,
         )
         assert admin.admin_phone == "tel:+1-212-555-1234"
+
+        # Optional: an admin created without a number stores NULL, and so does
+        # one handed an empty string. Absence is allowed; a bad number is not.
+        assert Admin(user_id=admin_user.user_id).admin_phone is None
+        assert Admin(user_id=admin_user.user_id, admin_phone=None).admin_phone is None
+        assert Admin(user_id=admin_user.user_id, admin_phone="").admin_phone is None
 
         # Test invalid phone numbers
         invalid_phones = ["invalid-phone", "123", "abc-def-ghij", "(555) 123-4567"]
@@ -754,18 +761,16 @@ class TestModelValidation:
             )
         assert "first_name" in str(exc_info.value)
 
-        with pytest.raises(ValidationError) as exc_info:
-            user = User(
-                first_name="Test",
-                last_name="Admin",
-                email="admin@example.com",
-                auth_id="test-123",
-            )
-            Admin(
-                user_id=user.user_id,
-                admin_phone="",  # Empty phone fails
-            )
-        assert "admin_phone" in str(exc_info.value)
+        # admin_phone is nullable, so an empty string means "no number" and
+        # normalizes to NULL rather than being stored as ''. A *malformed*
+        # number is still rejected — see test_admin_phone_optional below.
+        user = User(
+            first_name="Test",
+            last_name="Admin",
+            email="admin@example.com",
+            auth_id="test-123",
+        )
+        assert Admin(user_id=user.user_id, admin_phone="").admin_phone is None
 
         with pytest.raises(ValidationError) as exc_info:
             Driver(

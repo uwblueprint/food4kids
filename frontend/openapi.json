@@ -1231,23 +1231,6 @@
         "title": "DriverRegister",
         "type": "object"
       },
-      "DriverRegisterResponse": {
-        "description": "Driver registration response - contains Driver object and AuthResponse",
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/AuthResponse"
-          },
-          "driver": {
-            "$ref": "#/components/schemas/DriverRead"
-          }
-        },
-        "required": [
-          "driver",
-          "auth"
-        ],
-        "title": "DriverRegisterResponse",
-        "type": "object"
-      },
       "DriverUpdate": {
         "properties": {
           "active": {
@@ -4514,34 +4497,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/admins/test": {
-      "get": {
-        "description": "Admin only route example",
-        "operationId": "test",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "title": "Response Test",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Test",
-        "tags": [
-          "admins"
-        ]
-      }
-    },
     "/announcements/": {
       "get": {
         "description": "Retrieve all announcements with is_read status for the authenticated user.",
@@ -4958,6 +4913,48 @@
         ]
       }
     },
+    "/auth/register": {
+      "post": {
+        "description": "Finish an invited account: create the Firebase user, stamp its role claim,\nfill in ``users.auth_id``, burn the invite, and log the caller in.\n\nDeliberately role-agnostic. ``UserInvite`` doesn't distinguish a driver from\nan admin and ``link_firebase_to_user`` reads the role off the user row, so\none endpoint serves both — a driver invited by an admin and an admin created\nby ``python -m app.create_admin`` follow the identical link and page.\n\nUnauthenticated by necessity: the caller has no account yet. The invite id\nin the body *is* the credential — a single-use, 48-hour, unguessable UUID\nbound to one pre-created user row. It grants exactly the role that row\nalready carries, so possession of a link can never escalate anyone.",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserFinalize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
     "/auth/update-password": {
       "post": {
         "description": "Update an existing user's password if provided a valid password reset token",
@@ -5211,95 +5208,6 @@
           }
         ],
         "summary": "Initialize Driver",
-        "tags": [
-          "drivers"
-        ]
-      }
-    },
-    "/drivers/register": {
-      "post": {
-        "description": "Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse",
-        "operationId": "complete_driver_registration",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserFinalize"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverRegisterResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Complete Driver Registration",
-        "tags": [
-          "drivers"
-        ]
-      }
-    },
-    "/drivers/test-event-email": {
-      "post": {
-        "description": "Temporary endpoint to test event-driven emails.\nDelete this after testing!",
-        "operationId": "test_event_email",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "test_email",
-            "required": true,
-            "schema": {
-              "title": "Test Email",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Test Event Email",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Test Event Email",
         "tags": [
           "drivers"
         ]

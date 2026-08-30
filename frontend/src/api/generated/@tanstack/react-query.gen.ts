@@ -13,7 +13,6 @@ import { client } from '../client.gen';
 import {
   applyLocationImport,
   cancelJob,
-  completeDriverRegistration,
   createAnnouncement,
   createLocation,
   createLocationGroup,
@@ -68,10 +67,9 @@ import {
   patchSystemSettings,
   previewLocationImport,
   refresh,
+  register,
   renameDeliveryType,
   sendAnnouncementEmail,
-  test,
-  testEventEmail,
   updateAnnouncement,
   updateDriver,
   updateLocation,
@@ -90,9 +88,6 @@ import type {
   CancelJobData,
   CancelJobError,
   CancelJobResponse,
-  CompleteDriverRegistrationData,
-  CompleteDriverRegistrationError,
-  CompleteDriverRegistrationResponse,
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
@@ -242,17 +237,15 @@ import type {
   PreviewLocationImportResponse,
   RefreshData,
   RefreshResponse,
+  RegisterData,
+  RegisterError,
+  RegisterResponse,
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
-  TestData,
-  TestEventEmailData,
-  TestEventEmailError,
-  TestEventEmailResponse,
-  TestResponse,
   UpdateAnnouncementData,
   UpdateAnnouncementError,
   UpdateAnnouncementResponse,
@@ -324,33 +317,6 @@ const createQueryKey = <TOptions extends Options>(
   }
   return [params];
 };
-
-export const testQueryKey = (options?: Options<TestData>) =>
-  createQueryKey('test', options);
-
-/**
- * Test
- *
- * Admin only route example
- */
-export const testOptions = (options?: Options<TestData>) =>
-  queryOptions<
-    TestResponse,
-    AxiosError<DefaultError>,
-    TestResponse,
-    ReturnType<typeof testQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await test({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: testQueryKey(options),
-  });
 
 export const getAnnouncementsQueryKey = (
   options?: Options<GetAnnouncementsData>
@@ -673,6 +639,46 @@ export const refreshMutation = (
 };
 
 /**
+ * Register
+ *
+ * Finish an invited account: create the Firebase user, stamp its role claim,
+ * fill in ``users.auth_id``, burn the invite, and log the caller in.
+ *
+ * Deliberately role-agnostic. ``UserInvite`` doesn't distinguish a driver from
+ * an admin and ``link_firebase_to_user`` reads the role off the user row, so
+ * one endpoint serves both — a driver invited by an admin and an admin created
+ * by ``python -m app.create_admin`` follow the identical link and page.
+ *
+ * Unauthenticated by necessity: the caller has no account yet. The invite id
+ * in the body *is* the credential — a single-use, 48-hour, unguessable UUID
+ * bound to one pre-created user row. It grants exactly the role that row
+ * already carries, so possession of a link can never escalate anyone.
+ */
+export const registerMutation = (
+  options?: Partial<Options<RegisterData>>
+): UseMutationOptions<
+  RegisterResponse,
+  AxiosError<RegisterError>,
+  Options<RegisterData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RegisterResponse,
+    AxiosError<RegisterError>,
+    Options<RegisterData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await register({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Update Password
  *
  * Update an existing user's password if provided a valid password reset token
@@ -896,65 +902,6 @@ export const initializeDriverMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await initializeDriver({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Complete Driver Registration
- *
- * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
- */
-export const completeDriverRegistrationMutation = (
-  options?: Partial<Options<CompleteDriverRegistrationData>>
-): UseMutationOptions<
-  CompleteDriverRegistrationResponse,
-  AxiosError<CompleteDriverRegistrationError>,
-  Options<CompleteDriverRegistrationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CompleteDriverRegistrationResponse,
-    AxiosError<CompleteDriverRegistrationError>,
-    Options<CompleteDriverRegistrationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await completeDriverRegistration({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Test Event Email
- *
- * Temporary endpoint to test event-driven emails.
- * Delete this after testing!
- */
-export const testEventEmailMutation = (
-  options?: Partial<Options<TestEventEmailData>>
-): UseMutationOptions<
-  TestEventEmailResponse,
-  AxiosError<TestEventEmailError>,
-  Options<TestEventEmailData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    TestEventEmailResponse,
-    AxiosError<TestEventEmailError>,
-    Options<TestEventEmailData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await testEventEmail({
         ...options,
         ...fnOptions,
         throwOnError: true,

@@ -1,12 +1,10 @@
 import logging
-from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.dependencies.auth import (
     DriverAccess,
     require_admin,
@@ -14,7 +12,6 @@ from app.dependencies.auth import (
     require_self_driver_or_admin,
 )
 from app.dependencies.services import (
-    get_auth_service,
     get_email_dispatcher_depends,
     get_note_chain_service,
     get_user_invite_service,
@@ -28,17 +25,15 @@ from app.models.driver import (
     DriverRegister,
     DriverUpdate,
 )
-from app.models.user import UserBase, UserFinalize
+from app.models.user import UserBase
 from app.models.user_invite import UserInviteCreate
-from app.schemas.auth import DriverRegisterResponse
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
-from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
-from app.utilities.cookies import set_refresh_token_cookie
+from app.utilities.utils import build_invite_url
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -126,7 +121,7 @@ async def initialize_driver(
     await session.refresh(created_driver)
 
     # Send invitation email
-    driver_signup_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite.user_invite_id}"
+    driver_signup_url = build_invite_url(user_invite.user_invite_id)
     driver_name = f"{register_request.first_name} {register_request.last_name}".strip()
 
     await email_dispatcher.dispatch(
@@ -140,62 +135,6 @@ async def initialize_driver(
     )
 
     return DriverRead.model_validate(created_driver)
-
-
-@router.post(
-    "/register",
-    response_model=DriverRegisterResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def complete_driver_registration(
-    registration_data: UserFinalize,
-    response: Response,
-    session: AsyncSession = Depends(get_session),
-    auth_service: AuthService = Depends(get_auth_service),
-    user_service: UserService = Depends(get_user_service),
-    user_invite_service: UserInviteService = Depends(get_user_invite_service),
-) -> DriverRegisterResponse:
-    """
-    Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
-    """
-    async with session.begin_nested():
-        # Validate invite token and lock the row to prevent race conditions
-        user_invite_id = registration_data.user_invite_id
-        user_invite = await user_invite_service.get_user_invite_by_id(
-            session, user_invite_id, for_update=True
-        )
-
-        if (
-            not user_invite
-            or user_invite.is_used
-            or user_invite.expires_at < datetime.now(timezone.utc)
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid or expired registration link.",
-            )
-
-        # Create Firebase account for user
-        user = user_invite.user
-        await user_service.link_firebase_to_user(
-            session, user, registration_data.password
-        )
-
-        user_invite.is_used = True
-
-    await session.commit()
-
-    # Generate authentication tokens
-    auth_dto, refresh_token = await auth_service.generate_token(
-        session, user.email, registration_data.password, remember_me=False
-    )
-
-    # Set refresh token as httpOnly cookie
-    set_refresh_token_cookie(response, refresh_token, remember_me=False)
-
-    return DriverRegisterResponse(
-        driver=DriverRead.model_validate(user.driver), auth=auth_dto
-    )
 
 
 @router.put("/{driver_id}", response_model=DriverRead)
@@ -267,37 +206,3 @@ async def delete_driver(
         await note_chain_service.delete_note_chain_rows(session, driver.note_chain_id)
 
     await user_service.delete_user_by_id(session, driver.user_id)
-
-
-@router.post("/test-event-email")
-async def test_event_email(
-    test_email: str, dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends)
-) -> dict[str, str]:
-    """
-    Temporary endpoint to test event-driven emails.
-    Delete this after testing!
-    """
-    simulated_db_info = {
-        "first_name": "Test-Driver-Bob",
-        "url": "https://food4kids.ca/fake-link-123",
-    }
-
-    # Test email sending (feel free to change with provided params, etc. as needed!)
-    """
-     Testable options: 
-     - account-creation (context params that need to be filled in: Driver_Name_To_Replace, Sign_Up_URL, Hours_Till_Expiry), 
-     - check-latest-announcement (context params that need to be filled in: Driver_Name_To_Replace, Announcement_Name, Announcement_Body, Announcement_URL), 
-     - reset-password (context params that need to be filled in: Driver_Name_To_Replace, Reset_Password_URL, Days_Till_Expiry), 
-     - view-upcoming-route (context params that need to be filled in: Driver_Name_To_Replace, Date_To_Replace, Time_To_Replace, Route_Duration_To_Replace,Upcoming_Route_URL)
-    """
-    await dispatcher.dispatch(
-        email_type="reset-password",
-        to=test_email,
-        context={
-            "Driver_Name_To_Replace": simulated_db_info["first_name"],
-            "Reset_Password_URL": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "Days_Till_Expiry": 10000,
-        },
-    )
-
-    return {"message": f"Test email dispatched to {test_email}!"}
