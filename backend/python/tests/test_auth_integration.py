@@ -92,7 +92,10 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/auth/forgot-password"): Policy.PUBLIC,
     ("POST", "/auth/update-password"): Policy.PUBLIC,
     # --- drivers ---
-    ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
+    # The full list carries every volunteer's phone, home address, licence plate
+    # and car; no driver-facing screen consumes it. Drivers read themselves via
+    # GET /drivers/{driver_id}.
+    ("GET", "/drivers/"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
@@ -105,7 +108,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/drivers/register"): Policy.PUBLIC,
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
+    ("POST", "/jobs/generate"): Policy.ADMIN_ONLY,
     ("GET", "/jobs/{job_id}"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/{job_id}/cancel"): Policy.ADMIN_ONLY,
     # --- location groups ---

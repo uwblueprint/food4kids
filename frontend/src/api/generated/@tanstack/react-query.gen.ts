@@ -767,6 +767,10 @@ export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
+ *
+ * Admin-only: the full list exposes every volunteer's phone, home address,
+ * licence plate and car, which no driver-facing screen needs. A driver reads
+ * their own record through GET /drivers/{driver_id}.
  */
 export const getDriversOptions = (options?: Options<GetDriversData>) =>
   queryOptions<
@@ -1067,6 +1071,8 @@ export const getJobsOptions = (options?: Options<GetJobsData>) =>
  * Generate Job
  *
  * Accept a generation request: persist it as PENDING and wake the worker.
+ *
+ * Admin-only — route generation is an admin workflow, and it burns Maps quota.
  */
 export const generateJobMutation = (
   options?: Partial<Options<GenerateJobData>>

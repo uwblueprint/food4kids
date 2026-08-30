@@ -7,6 +7,8 @@ import {
   NotFoundPage,
   ServiceUnavailablePage,
 } from './common/components';
+import { homePathForRole } from './common/utils';
+import { RequireRole } from './contexts/RequireRole';
 import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
@@ -37,11 +39,7 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role === 'driver') {
-    return <Navigate to="/driver/home" replace />;
-  }
-
-  return <Navigate to="/admin/home" replace />;
+  return <Navigate to={homePathForRole(user?.role)} replace />;
 }
 
 function App() {
@@ -51,32 +49,36 @@ function App() {
       <Route path="/" element={<RootRedirect />} />
 
       {/* Admin Routes */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Navigate to="/admin/home" replace />} />
-        <Route path="home" element={<AdminHomePage />} />
-        <Route path="drivers" element={<AdminDriversPage />} />
-        <Route path="routes" element={<AdminRoutesPage />} />
-        {/* Route Generation */}
-        <Route
-          path="routes/generation"
-          element={<AdminRoutesGenerationLayout />}
-        >
-          <Route index element={<Navigate to="import" replace />} />
-          <Route path="import" element={<ImportStep />} />
-          <Route path="validate" element={<ValidateStep />} />
-          <Route path="review" element={<ReviewStep />} />
-          <Route path="configure" element={<ConfigureStep />} />
-          <Route path="generate" element={<GenerateStep />} />
+      <Route element={<RequireRole requiredRole="admin" />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/home" replace />} />
+          <Route path="home" element={<AdminHomePage />} />
+          <Route path="drivers" element={<AdminDriversPage />} />
+          <Route path="routes" element={<AdminRoutesPage />} />
+          {/* Route Generation */}
+          <Route
+            path="routes/generation"
+            element={<AdminRoutesGenerationLayout />}
+          >
+            <Route index element={<Navigate to="import" replace />} />
+            <Route path="import" element={<ImportStep />} />
+            <Route path="validate" element={<ValidateStep />} />
+            <Route path="review" element={<ReviewStep />} />
+            <Route path="configure" element={<ConfigureStep />} />
+            <Route path="generate" element={<GenerateStep />} />
+          </Route>
+          <Route path="settings" element={<AdminSettingsPage />} />
         </Route>
-        <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
 
       {/* Driver Routes */}
-      <Route path="/driver" element={<DriverLayout />}>
-        <Route index element={<Navigate to="/driver/home" replace />} />
-        <Route path="home" element={<DriverHomePage />} />
-        <Route path="route" element={<IndividualRoutePage />} />
-        <Route path="route/:routeId" element={<IndividualRoutePage />} />
+      <Route element={<RequireRole requiredRole="driver" />}>
+        <Route path="/driver" element={<DriverLayout />}>
+          <Route index element={<Navigate to="/driver/home" replace />} />
+          <Route path="home" element={<DriverHomePage />} />
+          <Route path="route" element={<IndividualRoutePage />} />
+          <Route path="route/:routeId" element={<IndividualRoutePage />} />
+        </Route>
       </Route>
 
       {/* Auth Routes */}
