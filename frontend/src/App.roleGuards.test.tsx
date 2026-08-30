@@ -54,9 +54,6 @@ vi.mock('./pages/auth', () => ({
 }));
 
 vi.mock('./pages/StyleGuide', () => ({ StyleGuidePage: stub('style-guide') }));
-vi.mock('./pages/TestImageUpload', () => ({
-  TestImageUpload: stub('test-image-upload'),
-}));
 
 // Imported after the mocks so App picks up the stubbed modules.
 const { default: App } = await import('./App');
@@ -110,7 +107,6 @@ const ADMIN_PATHS = [
   '/admin/routes/generation/configure',
   '/admin/routes/generation/generate',
   '/admin/settings',
-  '/admin/test-image-upload',
 ];
 
 const DRIVER_PATHS = [
