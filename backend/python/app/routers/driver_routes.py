@@ -284,37 +284,3 @@ async def delete_driver(
         await note_chain_service.delete_note_chain_rows(session, driver.note_chain_id)
 
     await user_service.delete_user_by_id(session, driver.user_id)
-
-
-@router.post("/test-event-email")
-async def test_event_email(
-    test_email: str, dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends)
-) -> dict[str, str]:
-    """
-    Temporary endpoint to test event-driven emails.
-    Delete this after testing!
-    """
-    simulated_db_info = {
-        "first_name": "Test-Driver-Bob",
-        "url": "https://food4kids.ca/fake-link-123",
-    }
-
-    # Test email sending (feel free to change with provided params, etc. as needed!)
-    """
-     Testable options: 
-     - account-creation (context params that need to be filled in: Driver_Name_To_Replace, Sign_Up_URL, Hours_Till_Expiry), 
-     - check-latest-announcement (context params that need to be filled in: Driver_Name_To_Replace, Announcement_Name, Announcement_Body, Announcement_URL), 
-     - reset-password (context params that need to be filled in: Driver_Name_To_Replace, Reset_Password_URL, Days_Till_Expiry), 
-     - view-upcoming-route (context params that need to be filled in: Driver_Name_To_Replace, Date_To_Replace, Time_To_Replace, Route_Duration_To_Replace,Upcoming_Route_URL)
-    """
-    await dispatcher.dispatch(
-        email_type="reset-password",
-        to=test_email,
-        context={
-            "Driver_Name_To_Replace": simulated_db_info["first_name"],
-            "Reset_Password_URL": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "Days_Till_Expiry": 10000,
-        },
-    )
-
-    return {"message": f"Test email dispatched to {test_email}!"}
