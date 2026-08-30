@@ -5,6 +5,7 @@ import { TimePicker } from './TimePicker';
 import {
   centeredScrollTop,
   formatDisplayTime,
+  parseTypedTime,
   timeOptions,
 } from './TimePicker.options';
 import {
@@ -247,5 +248,134 @@ describe('centeredScrollTop', () => {
       expect(top).toBeGreaterThanOrEqual(0);
       expect(top).toBeLessThanOrEqual(furthest);
     }
+  });
+});
+
+describe('parseTypedTime', () => {
+  it.each([
+    // The shapes a user actually types for nine in the morning.
+    ['9', '09:00'],
+    ['09', '09:00'],
+    ['9:00', '09:00'],
+    ['09:00', '09:00'],
+    ['9am', '09:00'],
+    ['9 am', '09:00'],
+    ['9AM', '09:00'],
+    ['9 AM', '09:00'],
+    ['9a', '09:00'],
+    ['9 a.m.', '09:00'],
+    ['9:00 AM', '09:00'],
+    ['  9:00 am  ', '09:00'],
+  ])('reads %o as %s', (raw, expected) => {
+    expect(parseTypedTime(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['9pm', '21:00'],
+    ['9 PM', '21:00'],
+    ['9 p.m.', '21:00'],
+    ['12am', '00:00'],
+    ['12:30 am', '00:30'],
+    ['12pm', '12:00'],
+    ['12:30 pm', '12:30'],
+    ['1pm', '13:00'],
+    ['11:59 pm', '23:59'],
+  ])('applies the meridiem in %o to give %s', (raw, expected) => {
+    expect(parseTypedTime(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['0', '00:00'],
+    ['00:00', '00:00'],
+    ['13', '13:00'],
+    ['13:05', '13:05'],
+    ['23:59', '23:59'],
+    ['1', '01:00'],
+  ])('reads %o as a 24-hour clock, giving %s', (raw, expected) => {
+    // Without a meridiem there is nothing to disambiguate on, so the number is
+    // taken at face value: "1" is 1 AM, and "1pm" is how you say 1 PM.
+    expect(parseTypedTime(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['9:7', '09:07'],
+    ['9:07', '09:07'],
+    ['10:5', '10:05'],
+  ])('reads a one-digit minute in %o as %s', (raw, expected) => {
+    // "9:7" can only mean seven minutes past — "9:70" is not a time — so
+    // reading it is forgiving rather than a silent coercion.
+    expect(parseTypedTime(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['08:45', '08:45'],
+    ['10:05', '10:05'],
+    ['9:45 am', '09:45'],
+  ])('accepts the staggered route time %o', (raw, expected) => {
+    // Typed times are not restricted to the half-hour step the list offers.
+    expect(parseTypedTime(raw)).toBe(expected);
+  });
+
+  it.each([
+    '',
+    '   ',
+    'banana',
+    'noon',
+    '25:00',
+    '24:00',
+    '24',
+    '12:60',
+    '9:99',
+    '13pm',
+    '0pm',
+    '0am',
+    '13 a.m.',
+    '9:',
+    ':30',
+    '-1:00',
+    '9:00 xm',
+    '9::00',
+    '900',
+    '9.00',
+    '9 10',
+    'am',
+  ])('refuses %o', (raw) => {
+    expect(parseTypedTime(raw)).toBeNull();
+  });
+
+  it('round-trips every option through its own display form', () => {
+    // Whatever the list shows has to be re-typeable exactly as shown.
+    for (const option of timeOptions()) {
+      expect(parseTypedTime(formatDisplayTime(option))).toBe(option);
+    }
+  });
+
+  it('feeds a typed off-step time straight into the list, in order', () => {
+    const typed = parseTypedTime('10:05');
+    expect(typed).toBe('10:05');
+    const options = timeOptions(typed as string);
+    expect(options[20]).toBe('10:00');
+    expect(options[21]).toBe('10:05');
+    expect(options[22]).toBe('10:30');
+  });
+});
+
+describe('TimePicker typed trigger', () => {
+  it('shows the value in an editable field rather than static text', () => {
+    const markup = renderTrigger(<TimePicker value="13:05" />);
+    expect(markup).toContain('data-slot="time-picker-input"');
+    expect(markup).toContain('value="1:05 PM"');
+  });
+
+  it('disables the field and the clock button together', () => {
+    const markup = renderTrigger(<TimePicker disabled />);
+    // The attribute, not the `disabled:` variants in the class names.
+    expect(markup.match(/disabled=""/g)).toHaveLength(2);
+  });
+
+  it('is not marked invalid before anything has been typed', () => {
+    expect(renderTrigger(<TimePicker value="09:30" />)).not.toContain(
+      'aria-invalid'
+    );
   });
 });

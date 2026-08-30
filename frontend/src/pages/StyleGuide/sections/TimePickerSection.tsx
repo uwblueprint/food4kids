@@ -48,6 +48,20 @@ export function TimePickerSection() {
           route generation staggers start times, so 8:45 and 10:05 are real — is
           added to the list so it stays visible as the selection.
         </SpecNote>
+        <SpecNote title="Typing">
+          The trigger is a text field as well as a dropdown, which is how a
+          staggered time like 8:45 gets entered. Entry is forgiving wherever the
+          intent is unambiguous — <code>9</code>, <code>9:00</code>,{' '}
+          <code>9am</code>, <code>9 AM</code> and <code>09:00</code> all mean
+          the same thing. Without an AM/PM the number is read as a 24-hour
+          clock, so <code>13</code> is 1 PM and <code>1</code> is 1 AM.
+        </SpecNote>
+        <SpecNote title="Unreadable Entry">
+          Marked in red as you type and reverted to the last good value when you
+          leave the field — never silently kept and never silently coerced.
+          Clearing the field is treated as unfinished rather than wrong, so it
+          reverts without being marked.
+        </SpecNote>
         <SpecNote title="Default Value">
           When no value is provided the picker defaults to 08:00 AM.
         </SpecNote>

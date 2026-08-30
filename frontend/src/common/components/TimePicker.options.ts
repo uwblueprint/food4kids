@@ -58,6 +58,49 @@ export function formatDisplayTime(value: string): string {
   return `${hour}:${minutes} ${period}`;
 }
 
+/**
+ * A time as typed into the trigger. Deliberately forgiving wherever the intent
+ * is unambiguous — `9`, `09`, `9:00`, `9am`, `9 AM`, `9 a.m.` are all 09:00 —
+ * because the field displays "9:00 AM" and never tells the user which shapes
+ * it accepts. Hour and minute may each be one or two digits, the separator and
+ * the meridiem are optional, and the meridiem may be spaced, capitalised or
+ * dotted however the user likes.
+ */
+const TYPED = /^(\d{1,2})(?::(\d{1,2}))?\s*(?:([ap])\.?\s*(?:m\.?)?)?$/i;
+
+/**
+ * Reads a typed time, or null when it cannot be read.
+ *
+ * **Without a meridiem the number is read as a 24-hour clock**, so `13` is 1 PM
+ * and `1` is 1 AM. Some rule has to break that tie; this one is total and
+ * predictable, and the trigger immediately redisplays what was understood, so a
+ * wrong guess is visible rather than silent.
+ *
+ * Any time of day is accepted, not only times on the half-hour step — route
+ * start times are staggered, and the designs show 8:45 and 10:05 sitting in
+ * this very field.
+ */
+export function parseTypedTime(raw: string): string | null {
+  const match = TYPED.exec(raw.trim());
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = match[2] === undefined ? 0 : Number(match[2]);
+  const meridiem = match[3]?.toLowerCase();
+
+  if (minute > 59) return null;
+
+  if (meridiem === undefined) {
+    if (hour > 23) return null;
+    return toHhMm(hour * 60 + minute);
+  }
+  // With a meridiem the hour is a 12-hour clock, so "13pm" and "0am" are not
+  // times the user could have meant.
+  if (hour < 1 || hour > 12) return null;
+  const base = hour % 12;
+  return toHhMm((meridiem === 'p' ? base + 12 : base) * 60 + minute);
+}
+
 interface CenteredScrollArgs {
   /** Offset of the selected option from the top of the scrolling content. */
   optionTop: number;
