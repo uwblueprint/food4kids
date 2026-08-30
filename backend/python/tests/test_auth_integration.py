@@ -105,7 +105,6 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # Two-step registration (#117): an admin creates the invite/initial user,
     # who then finishes at the role-agnostic POST /auth/register above.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
-    ("POST", "/drivers/test-event-email"): Policy.PUBLIC,
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
