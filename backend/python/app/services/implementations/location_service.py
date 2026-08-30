@@ -63,6 +63,7 @@ from app.services.implementations.location_import_validation import (
 )
 from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_order_by
 
 if TYPE_CHECKING:
     from app.services.implementations.system_settings_service import (
@@ -378,7 +379,9 @@ class LocationService:
         """Return a mapping of location_id → route name for the soonest
         upcoming unfrozen route group each location appears in.
 
-        One query rather than per-location N+1.
+        A location on two routes the same day reports the lower-numbered one,
+        so the column doesn't flip between loads. One query rather than
+        per-location N+1.
         """
         ids = list(location_ids)
         if not ids:
@@ -395,7 +398,10 @@ class LocationService:
             .where(col(RouteStop.location_id).in_(ids))
             .where(RouteGroup.drive_date >= today)
             .where(col(RouteSnapshot.route_id).is_(None))
-            .order_by(col(RouteGroup.drive_date).asc())
+            .order_by(
+                col(RouteGroup.drive_date).asc(),
+                *route_name_order_by(col(Route.name)),
+            )
         )
         result = await session.execute(statement)
         assigned: dict[UUID, str] = {}
