@@ -9,8 +9,9 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-# Initialize all models to ensure proper relationship resolution
-from app.models import init_app
+# Register every model so SQLAlchemy resolves the relationship strings. These
+# tests build model objects in memory and never query, so no database is needed.
+from app.models import register_models
 from app.models.admin import Admin
 from app.models.announcement import (
     Announcement,
@@ -52,7 +53,7 @@ from app.models.route_stop import RouteStop
 from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User, UserFinalize
 
-init_app()
+register_models()
 
 
 class TestCoreBusinessValidation:
