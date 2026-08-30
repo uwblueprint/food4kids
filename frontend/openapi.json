@@ -3745,7 +3745,7 @@
         "properties": {
           "boxes_per_car": {
             "default": 10,
-            "minimum": 0,
+            "minimum": 1,
             "title": "Boxes Per Car",
             "type": "integer"
           },
@@ -3943,7 +3943,7 @@
           "boxes_per_car": {
             "anyOf": [
               {
-                "minimum": 0,
+                "minimum": 1,
                 "type": "integer"
               },
               {
