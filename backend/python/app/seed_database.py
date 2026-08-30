@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
 Comprehensive database seeding script with advanced features.
+
+Every primary key here is a client-generated UUID (``default_factory=uuid4``),
+so a child row can reference its parent the moment the parent is constructed.
+Nothing flushes to obtain an id: the pending rows go out in a handful of
+batched statements at commit instead of one round trip apiece.
 """
 
 import argparse
@@ -8,8 +13,12 @@ import csv
 import logging
 import os
 import random
+import time as time_module
 import uuid
 import zlib
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from itertools import pairwise
 from typing import cast
@@ -55,6 +64,10 @@ from app.utilities.seed_images import render_seed_image
 
 # Initialize Faker
 fake = faker.Faker()
+# A second, separately-seeded generator, so deriving a stable name from an
+# account uid can't perturb the random stream every other seeded field draws
+# from.
+_name_fake = faker.Faker()
 
 # Configuration constants
 # Average number of stops per route (used to calculate number of clusters)
@@ -127,6 +140,16 @@ MIN_DRIVERS = 5
 NUM_SEED_ADMINS = 2
 # Shared password for all seeded Firebase accounts
 SEED_PASSWORD = "test123"
+# Concurrent Firebase writes. Each one is an HTTPS round trip, so the wall
+# clock is latency, not CPU; well past this the admin API starts rate limiting
+# rather than going faster.
+FIREBASE_SYNC_WORKERS = 8
+# Attempts per account write, and the first backoff, doubling from there. The
+# admin API rate-limits account writes per project, so a run that has to write
+# every account at once — a first seed, or one after the names changed shape —
+# expects to be told to slow down.
+FIREBASE_WRITE_ATTEMPTS = 5
+FIREBASE_WRITE_BACKOFF_SECONDS = 1.0
 
 # A richer announcement feed, posted by different admins and drivers over the
 # past few weeks so the list looks like a real, lived-in noticeboard. Each
@@ -284,8 +307,7 @@ def upload_seed_note_images() -> list[dict[str, str]]:
 
     client = GCPStorageClient(logging.getLogger(__name__), settings.gcp_bucket_name)
 
-    attachments: list[dict[str, str]] = []
-    for index in range(SEED_NOTE_IMAGE_COUNT):
+    def upload(index: int) -> dict[str, str]:
         filename, contents = render_seed_image(index)
         result = client.upload_file(
             contents,
@@ -294,9 +316,13 @@ def upload_seed_note_images() -> list[dict[str, str]]:
             expiration_hours=SEED_NOTE_IMAGE_URL_HOURS,
             key=f"{SEED_NOTE_IMAGE_PREFIX}/{index:02d}-{filename}",
         )
-        attachments.append({"filename": result.filename, "url": result.url})
+        return {"filename": result.filename, "url": result.url}
 
-    return attachments
+    # Uploads are network-bound and independent, so pay for one round trip
+    # rather than SEED_NOTE_IMAGE_COUNT of them. map() preserves order and
+    # re-raises the first failure.
+    with ThreadPoolExecutor(max_workers=SEED_NOTE_IMAGE_COUNT) as pool:
+        return list(pool.map(upload, range(SEED_NOTE_IMAGE_COUNT)))
 
 
 def pick_note_attachments(pool: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -312,17 +338,110 @@ def pick_note_attachments(pool: list[dict[str, str]]) -> list[dict[str, str]]:
     return [dict(attachment) for attachment in random.sample(pool, count)]
 
 
-def ensure_firebase_user(
-    uid: str,
-    email: str,
-    password: str,
-    role: str,
-    first_name: str,
-    last_name: str,
+@dataclass(frozen=True)
+class SeedAccount:
+    """One Firebase account the seed owns, and everything it should hold."""
+
+    uid: str
+    email: str
+    role: str
+    first_name: str
+    last_name: str
+
+    @property
+    def display_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
+
+    @property
+    def claims(self) -> dict[str, str]:
+        return {
+            "role": self.role,
+            "given_name": self.first_name,
+            "family_name": self.last_name,
+        }
+
+
+def seed_account_name(uid: str) -> tuple[str, str]:
+    """The first and last name for a seed account, derived from its uid.
+
+    Deterministic on purpose: a fresh random name every run meant every
+    re-seed rewrote every account's ``display_name`` in Firebase, one blocking
+    HTTPS round trip each. With the name pinned to the uid, a re-seed finds
+    every account already correct and writes nothing.
+    """
+    _name_fake.seed_instance(zlib.crc32(uid.encode()))
+    return _name_fake.first_name(), _name_fake.last_name()
+
+
+def make_seed_account(*, uid: str, email: str, role: str) -> SeedAccount:
+    """A seed account with its name derived from the uid, so it stays put."""
+    first_name, last_name = seed_account_name(uid)
+    return SeedAccount(
+        uid=uid, email=email, role=role, first_name=first_name, last_name=last_name
+    )
+
+
+@dataclass(frozen=True)
+class _AccountWrite:
+    """One account's pending Firebase write, resolved from the sweep."""
+
+    account: SeedAccount
+    create: bool = False
+    # Fields that drifted on an existing account. Empty when only the claims did.
+    changes: dict[str, object] = field(default_factory=dict)
+    set_claims: bool = False
+
+    def steps(self) -> list[Callable[[], None]]:
+        """This write as separately retryable Firebase calls, in order.
+
+        Create and set-claims are two round trips and are not idempotent as a
+        pair: retrying the write as a whole after the claims call hit the rate
+        limit would re-create a uid that by then exists, raising
+        ``UidAlreadyExistsError``. Per step, only what has not landed is
+        repeated.
+        """
+        steps: list[Callable[[], None]] = []
+        if self.create:
+            steps.append(self._create)
+        elif self.changes:
+            steps.append(self._update)
+        if self.set_claims:
+            steps.append(self._set_claims)
+        return steps
+
+    def _create(self) -> None:
+        auth.create_user(
+            uid=self.account.uid,
+            email=self.account.email,
+            password=SEED_PASSWORD,
+            email_verified=True,
+            display_name=self.account.display_name,
+        )
+
+    def _update(self) -> None:
+        auth.update_user(self.account.uid, **self.changes)
+
+    def _set_claims(self) -> None:
+        auth.set_custom_user_claims(self.account.uid, self.account.claims)
+
+
+def firebase_account_snapshot() -> dict[str, auth.UserRecord]:
+    """Every Firebase account in the project, keyed by uid.
+
+    One paged sweep for the whole run, rather than a ``get_user`` per seeded
+    account: at ~90 accounts that was 90 blocking HTTPS round trips to learn
+    what a single request already says.
+    """
+    return {record.uid: record for record in auth.list_users().iterate_all()}
+
+
+def sync_firebase_accounts(
+    accounts: list[SeedAccount],
+    existing: dict[str, auth.UserRecord],
     *,
-    reset_password: bool = False,
-) -> str:
-    """Create or update a Firebase user so it is always loginable.
+    reset_passwords: bool = False,
+) -> None:
+    """Create or reconcile every seeded Firebase account, in parallel.
 
     An existing account's password is deliberately not rewritten. Firebase
     treats a password write as a credential change and moves
@@ -331,44 +450,72 @@ def ensure_firebase_user(
     re-seeding would log developers out. Other fields don't do this and are
     still written when they differ.
 
-    :param reset_password: Write the password anyway, for an account that has
+    ``firebase_admin`` is synchronous and every call is an HTTPS round trip, so
+    the writes go over a thread pool rather than being gathered with asyncio.
+
+    :param existing: The project's accounts, from ``firebase_account_snapshot``.
+    :param reset_passwords: Write passwords anyway, for accounts that have
         genuinely drifted. Signs everyone out, so it has to be asked for.
     """
-    full_name = f"{first_name} {last_name}"
-    claims = {"role": role, "given_name": first_name, "family_name": last_name}
+    writes: list[_AccountWrite] = []
+    for account in accounts:
+        record = existing.get(account.uid)
 
-    try:
-        existing = auth.get_user(uid)
-    except auth.UserNotFoundError:
-        auth.create_user(
-            uid=uid,
-            email=email,
-            password=password,
-            email_verified=True,
-            display_name=full_name,
-        )
-        auth.set_custom_user_claims(uid, claims)
-        print(f"  Firebase user {uid} ({email}) created")
-        return uid
+        if record is None:
+            writes.append(_AccountWrite(account, create=True, set_claims=True))
+            continue
 
-    changes: dict[str, object] = {}
-    if existing.email != email:
-        changes["email"] = email
-    if existing.display_name != full_name:
-        changes["display_name"] = full_name
-    if not existing.email_verified:
-        changes["email_verified"] = True
-    if reset_password:
-        changes["password"] = password
+        changes: dict[str, object] = {}
+        if record.email != account.email:
+            changes["email"] = account.email
+        if record.display_name != account.display_name:
+            changes["display_name"] = account.display_name
+        if not record.email_verified:
+            changes["email_verified"] = True
+        if reset_passwords:
+            changes["password"] = SEED_PASSWORD
+        set_claims = (record.custom_claims or {}) != account.claims
 
-    if changes:
-        auth.update_user(uid, **changes)
-    if (existing.custom_claims or {}) != claims:
-        auth.set_custom_user_claims(uid, claims)
+        if changes or set_claims:
+            writes.append(
+                _AccountWrite(account, changes=changes, set_claims=set_claims)
+            )
 
-    updated = ", ".join(sorted(changes)) if changes else "nothing to change"
-    print(f"  Firebase user {uid} ({email}) already exists, {updated}")
-    return uid
+    if writes:
+        with ThreadPoolExecutor(max_workers=FIREBASE_SYNC_WORKERS) as pool:
+            # list() drains the iterator, so a failed write raises here rather
+            # than being swallowed.
+            list(pool.map(_apply_account_write, writes))
+
+    created = sum(1 for write in writes if write.create)
+    print(
+        f"  Firebase accounts: {created} created, {len(writes) - created} updated, "
+        f"{len(accounts) - len(writes)} already in sync"
+    )
+
+
+def _apply_account_write(write: _AccountWrite) -> None:
+    """Apply one pending write, a resumable step at a time."""
+    for step in write.steps():
+        _with_quota_backoff(step)
+
+
+def _with_quota_backoff(step: Callable[[], None]) -> None:
+    """Make one Firebase call, backing off when Firebase says to slow down.
+
+    Account writes are rate-limited per project, and a run that has to touch
+    every account at once will hit that limit, so it is a wait rather than a
+    failure. Every other Firebase error fails the seed immediately.
+    """
+    for attempt in range(FIREBASE_WRITE_ATTEMPTS):
+        try:
+            step()
+            return
+        except firebase_admin.exceptions.FirebaseError as exc:
+            last_attempt = attempt == FIREBASE_WRITE_ATTEMPTS - 1
+            if last_attempt or "QUOTA_EXCEEDED" not in str(exc):
+                raise
+            time_module.sleep(FIREBASE_WRITE_BACKOFF_SECONDS * 2**attempt)
 
 
 def generate_valid_phone(*, with_extension: bool = False) -> str:
@@ -704,7 +851,6 @@ def materialize_route_for_group(
     )
     set_timestamps(route)
     session.add(route)
-    session.flush()  # need route_id for stops
 
     created_stops: list[RouteStop] = []
     for stop_num, location_id in enumerate(plan.ordered_location_ids, start=1):
@@ -716,7 +862,6 @@ def materialize_route_for_group(
         set_timestamps(stop)
         session.add(stop)
         created_stops.append(stop)
-    session.flush()  # need route_stop_ids for snapshots
 
     # Freeze past routes so historical reads work without first running the cron.
     if drive_date < today:
@@ -756,18 +901,22 @@ def main(*, reset_passwords: bool = False) -> None:
     :param reset_passwords: Rewrite every seeded account's password to
         ``SEED_PASSWORD``, signing out everyone currently holding a token. Off
         by default so a routine re-seed leaves open sessions alone; see
-        ``ensure_firebase_user``.
+        ``sync_firebase_accounts``.
     """
     print("Starting final database seeding...")
 
     if not firebase_admin._apps:  # type: ignore[attr-defined]
         initialize_firebase()
     print("Firebase initialized")
+    firebase_accounts = firebase_account_snapshot()
 
     # Create database connection
     engine = create_engine(get_database_url(), echo=False)
 
-    with Session(engine) as session:
+    # Nothing here re-reads a row after writing it, so let the objects stay
+    # usable across commits. Expiring them turned every later attribute read
+    # into its own SELECT.
+    with Session(engine, expire_on_commit=False) as session:
         try:
             # Clear existing data. Order matters: snapshots & stops first
             # (FK to routes), then routes (FK to route_groups), then
@@ -805,28 +954,24 @@ def main(*, reset_passwords: bool = False) -> None:
             print("Creating admin accounts...")
             admin_users: list[User] = []
 
-            for i in range(NUM_SEED_ADMINS):
-                admin_num = i + 1
-                uid = f"seed-admin-{admin_num}"
-                email = f"admin{admin_num}@f4k.dev"
-                first_name = fake.first_name()
-                last_name = fake.last_name()
-
-                ensure_firebase_user(
-                    uid=uid,
-                    email=email,
-                    password=SEED_PASSWORD,
+            admin_accounts = [
+                make_seed_account(
+                    uid=f"seed-admin-{i + 1}",
+                    email=f"admin{i + 1}@f4k.dev",
                     role="admin",
-                    first_name=first_name,
-                    last_name=last_name,
-                    reset_password=reset_passwords,
                 )
+                for i in range(NUM_SEED_ADMINS)
+            ]
+            sync_firebase_accounts(
+                admin_accounts, firebase_accounts, reset_passwords=reset_passwords
+            )
 
+            for account in admin_accounts:
                 user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    auth_id=uid,
+                    first_name=account.first_name,
+                    last_name=account.last_name,
+                    email=account.email,
+                    auth_id=account.uid,
                     role="admin",
                 )
                 set_timestamps(user)
@@ -973,28 +1118,24 @@ def main(*, reset_passwords: bool = False) -> None:
             num_drivers = max(total_clusters, MIN_DRIVERS)
             driver_author_ids: list[uuid.UUID] = []
 
-            for i in range(num_drivers):
-                n = f"{i + 1:03d}"
-                uid = f"seed-driver-{n}"
-                email = f"driver{n}@f4k.dev"
-                first_name = fake.first_name()
-                last_name = fake.last_name()
-
-                ensure_firebase_user(
-                    uid=uid,
-                    email=email,
-                    password=SEED_PASSWORD,
+            driver_accounts = [
+                make_seed_account(
+                    uid=f"seed-driver-{i + 1:03d}",
+                    email=f"driver{i + 1:03d}@f4k.dev",
                     role="driver",
-                    first_name=first_name,
-                    last_name=last_name,
-                    reset_password=reset_passwords,
                 )
+                for i in range(num_drivers)
+            ]
+            sync_firebase_accounts(
+                driver_accounts, firebase_accounts, reset_passwords=reset_passwords
+            )
 
+            for i, account in enumerate(driver_accounts):
                 user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    auth_id=uid,
+                    first_name=account.first_name,
+                    last_name=account.last_name,
+                    email=account.email,
+                    auth_id=account.uid,
                     role="driver",
                 )
                 set_timestamps(user)
@@ -1015,7 +1156,6 @@ def main(*, reset_passwords: bool = False) -> None:
                 )
                 set_timestamps(note_chain)
                 session.add(note_chain)
-                session.flush()
 
                 driver = Driver(
                     user_id=user.user_id,
@@ -1091,7 +1231,6 @@ def main(*, reset_passwords: bool = False) -> None:
                     )
                     set_timestamps(route_group)
                     session.add(route_group)
-                    session.flush()  # need route_group_id
 
                     for plan in plans:
                         materialize_route_for_group(
@@ -1152,7 +1291,6 @@ def main(*, reset_passwords: bool = False) -> None:
             )
             set_timestamps(fixture_group)
             session.add(fixture_group)
-            session.flush()
 
             route_no_stops = Route(
                 name="TEST Route (no stops)",
@@ -1192,7 +1330,6 @@ def main(*, reset_passwords: bool = False) -> None:
             )
             set_timestamps(route_with_stops)
             session.add(route_with_stops)
-            session.flush()
 
             for stop_num, loc in enumerate(stop_locations, start=1):
                 stop = RouteStop(
@@ -1265,7 +1402,6 @@ def main(*, reset_passwords: bool = False) -> None:
                 )
                 set_timestamps(note_chain)
                 session.add(note_chain)
-                session.flush()
 
                 location.note_chain_id = note_chain.note_chain_id
                 location_chains_created += 1
@@ -1319,7 +1455,6 @@ def main(*, reset_passwords: bool = False) -> None:
                 )
                 set_timestamps(note_chain)
                 session.add(note_chain)
-                session.flush()
 
                 route.note_chain_id = note_chain.note_chain_id
                 route_chains_created += 1
