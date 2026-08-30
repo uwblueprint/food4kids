@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 /**
  * Role separation at the router level: a driver must not reach the admin app
  * and an admin must not reach the driver app, whichever URL they type.
