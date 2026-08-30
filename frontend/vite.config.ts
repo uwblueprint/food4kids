@@ -17,8 +17,10 @@ export default defineConfig({
     host: true, // Important for Docker
   },
   test: {
-    // Node supplies File/FormData/Blob, so these request-shape tests need no
-    // DOM. Add jsdom here if we ever test components.
+    // Node supplies File/FormData/Blob, so the request-shape tests need no
+    // DOM. Tests that touch a component opt in per file with a
+    // `// @vitest-environment happy-dom` docblock, so the rest don't pay for
+    // it here.
     //
     // Keep frontend/Dockerfile and the CI workflows on the SAME Node (24.13.0
     // today). When they drift, a dep whose engines.node outruns CI's passes

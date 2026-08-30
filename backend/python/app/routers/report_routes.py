@@ -1,16 +1,14 @@
 import logging
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.dependencies.auth import require_admin
 from app.models import get_session
 from app.services.implementations.driver_report_service import DriverReportService
-from app.utilities.datetime_utils import now_local
+from app.utilities.datetime_utils import app_timezone, now_local
 
 logger = logging.getLogger(__name__)
 service = DriverReportService(logger)
@@ -39,7 +37,7 @@ MAX_SERIES_MONTHS = 24
 
 
 def _ensure_est(dt: datetime) -> datetime:
-    tz = ZoneInfo(settings.scheduler_timezone)
+    tz = app_timezone()
     if dt.tzinfo is None:
         return dt.replace(tzinfo=tz)
     return dt.astimezone(tz)

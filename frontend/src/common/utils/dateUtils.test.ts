@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { parseDateOnly, toNaiveDateString } from './dateUtils';
+import { formatDriveDate, parseDateOnly, toNaiveDateString } from './dateUtils';
 
 /**
  * The backend sends drive dates as date-only strings ("YYYY-MM-DD"). The
@@ -89,5 +89,44 @@ describe('toNaiveDateString', () => {
     ]) {
       expect(toNaiveDateString(parseDateOnly(iso))).toBe(iso);
     }
+  });
+});
+
+describe('formatDriveDate', () => {
+  const HOST_TIMEZONE = process.env.TZ;
+
+  afterEach(() => {
+    process.env.TZ = HOST_TIMEZONE;
+  });
+
+  // Spans the offset range: UTC-11 through UTC+14. Only the negative offsets
+  // can catch the UTC-midnight bug, but a host in a positive one would
+  // otherwise pass a broken implementation without noticing.
+  it.each([
+    'Pacific/Niue',
+    'Pacific/Honolulu',
+    'America/Los_Angeles',
+    'America/Toronto',
+    'UTC',
+    'Europe/Berlin',
+    'Asia/Tokyo',
+    'Pacific/Kiritimati',
+  ])('names the date the backend sent, on a clock in %s', (zone) => {
+    process.env.TZ = zone;
+    expect(formatDriveDate('2026-08-31')).toBe('Aug 31');
+  });
+
+  it('holds where the UTC reading crosses a month and a year', () => {
+    process.env.TZ = 'America/Toronto';
+    expect(formatDriveDate('2026-01-01')).toBe('Jan 1');
+  });
+
+  it('takes the date part of a datetime string', () => {
+    process.env.TZ = 'America/Toronto';
+    expect(formatDriveDate('2026-08-31T00:00:00')).toBe('Aug 31');
+  });
+
+  it('returns the input unchanged when it is not a date', () => {
+    expect(formatDriveDate('not a date')).toBe('not a date');
   });
 });
