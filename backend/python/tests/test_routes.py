@@ -3152,17 +3152,27 @@ class TestRouteRoutes:
         ]
 
     @pytest.mark.asyncio
-    async def test_get_routes_orders_renamed_routes_after_numbered_ones(
+    async def test_get_routes_orders_renamed_routes_naturally(
         self,
         async_client: AsyncClient,
         test_session: AsyncSession,
         test_route_group: Any,
     ) -> None:
-        """A name with no number sorts last by name, rather than erroring.
+        """A renamed route sorts among the names, not among the numbers.
 
         Route.name is editable, so nothing guarantees the "Route {n}" shape.
+        Sorting on the number alone would put "3rd shift" between "Route 2"
+        and "Route 4"; the text before the number orders these first.
         """
-        names = ["Zebra loop", "Route 10", "Airport run", "Route 2", "3rd shift"]
+        names = [
+            "Zebra loop",
+            "Route 10",
+            "Cambridge",
+            "Route 2",
+            "3rd shift",
+            "Route 1",
+            "Airport run",
+        ]
         test_session.add_all(
             [
                 Route(
@@ -3178,10 +3188,12 @@ class TestRouteRoutes:
         response = await async_client.get("/routes")
         assert response.status_code == 200
         assert [item["name"] for item in response.json()["items"]] == [
-            "Route 2",
             "3rd shift",
-            "Route 10",
             "Airport run",
+            "Cambridge",
+            "Route 1",
+            "Route 2",
+            "Route 10",
             "Zebra loop",
         ]
 
