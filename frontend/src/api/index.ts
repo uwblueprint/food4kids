@@ -9,8 +9,4 @@ export {
 export { useLocationGroups } from './location-groups';
 export { useApplyLocationImport, usePreviewLocationImport } from './locations';
 export { useRouteGroups } from './route-groups';
-export {
-  getConfiguredDeliveryTypes,
-  useOrgContact,
-  useSystemSettings,
-} from './system-settings';
+export { useOrgContact, useSystemSettings } from './system-settings';

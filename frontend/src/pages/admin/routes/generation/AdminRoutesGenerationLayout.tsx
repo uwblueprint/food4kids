@@ -9,6 +9,7 @@ import type {
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
 import { ProgressStepper } from '../components';
+import { deliveryTypeSelection } from './deliveryTypeSelection';
 
 const STEP_PATHS = [
   'import',
@@ -58,7 +59,7 @@ export function AdminRoutesGenerationLayout() {
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
   const [selectedDeliveryType, setSelectedDeliveryType] = useState('');
-  const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
+  const [hasSeededFromSettings, setHasSeededFromSettings] = useState(false);
   const [reviewResult, setReviewResult] =
     useState<LocationImportPreview | null>(null);
   const [routeGenerationInputs, setRouteGenerationInputs] = useState<
@@ -66,9 +67,15 @@ export function AdminRoutesGenerationLayout() {
   >([]);
   const [currentStepComplete, setCurrentStepComplete] = useState(false);
 
-  if (!hasSeededColumnMap && settingsLoaded) {
-    setHasSeededColumnMap(true);
+  if (!hasSeededFromSettings && settingsLoaded) {
+    setHasSeededFromSettings(true);
     setColumnMap(systemSettings?.import_column_map ?? {});
+    // A single configured delivery type is not a choice, so apply it here and
+    // let the import step skip its picker entirely.
+    const selection = deliveryTypeSelection(systemSettings);
+    if (selection.kind === 'only') {
+      setSelectedDeliveryType(selection.deliveryType);
+    }
   }
 
   const context: GenerationOutletContext = {
