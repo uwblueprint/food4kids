@@ -3121,6 +3121,102 @@ class TestRouteRoutes:
         assert empty.json()["items"] == []
 
     @pytest.mark.asyncio
+    async def test_get_routes_orders_by_route_number(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """Routes sort by the number in their name, not by the name as text.
+
+        Names are generated as "Route {n}", so a text sort lists route 10
+        before route 2 as soon as a group has ten of them.
+        """
+        numbers = [7, 12, 1, 10, 3, 11, 2, 5, 9, 4, 8, 6]
+        test_session.add_all(
+            [
+                Route(
+                    name=f"Route {n}",
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                )
+                for n in numbers
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        assert [item["name"] for item in response.json()["items"]] == [
+            f"Route {n}" for n in range(1, 13)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_orders_renamed_routes_after_numbered_ones(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """A name with no number sorts last by name, rather than erroring.
+
+        Route.name is editable, so nothing guarantees the "Route {n}" shape.
+        """
+        names = ["Zebra loop", "Route 10", "Airport run", "Route 2", "3rd shift"]
+        test_session.add_all(
+            [
+                Route(
+                    name=name,
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                )
+                for name in names
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        assert [item["name"] for item in response.json()["items"]] == [
+            "Route 2",
+            "3rd shift",
+            "Route 10",
+            "Airport run",
+            "Zebra loop",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_tolerates_an_oversized_number_in_a_name(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """A digit run too long for an int must not blow up the listing."""
+        test_session.add_all(
+            [
+                Route(
+                    name="Route 999999999999999999999",
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                ),
+                Route(
+                    name="Route 1",
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        assert [item["name"] for item in response.json()["items"]] == [
+            "Route 1",
+            "Route 999999999999999999999",
+        ]
+
+    @pytest.mark.asyncio
     async def test_get_routes_returns_derived_row_values(
         self,
         async_client: AsyncClient,
@@ -4882,6 +4978,41 @@ class TestRouteGroupRoutes:
         )
         assert group["num_routes"] == 1
         assert [r["route_id"] for r in group["routes"]] == [str(route.route_id)]
+
+    @pytest.mark.asyncio
+    async def test_get_route_groups_include_routes_ordered_by_number(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """The embedded routes come back in route-number order."""
+        rg = RouteGroup(name="Numbered", drive_date=date(2026, 6, 2))
+        test_session.add(rg)
+        await test_session.commit()
+        await test_session.refresh(rg)
+
+        names = [f"Route {n}" for n in (11, 2, 1, 10, 3)] + ["Spare van"]
+        test_session.add_all(
+            [
+                Route(name=name, length=1.0, route_group_id=rg.route_group_id)
+                for name in names
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups?include_routes=true")
+        assert response.status_code == 200
+        group = next(
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert [r["name"] for r in group["routes"]] == [
+            "Route 1",
+            "Route 2",
+            "Route 3",
+            "Route 10",
+            "Route 11",
+            "Spare van",
+        ]
 
     @pytest.mark.asyncio
     async def test_get_route_groups_aggregate_defaults(
