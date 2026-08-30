@@ -68,13 +68,25 @@ export function formatDisplayTime(value: string): string {
  */
 const TYPED = /^(\d{1,2})(?::(\d{1,2}))?\s*(?:([ap])\.?\s*(?:m\.?)?)?$/i;
 
+/** The delivery day a bare hour is assumed to fall in: 08:00 to 19:59. */
+const DAY_START_HOUR = 8;
+
+/**
+ * Resolves a bare hour into the delivery day, which is when these times
+ * actually happen: 8 through 12 are morning, 1 through 7 are afternoon. 13 to
+ * 23 already say which half they mean, and 0 has only the one reading.
+ */
+function assumeDeliveryDay(hour: number): number {
+  return hour >= 1 && hour < DAY_START_HOUR ? hour + 12 : hour;
+}
+
 /**
  * Reads a typed time, or null when it cannot be read.
  *
- * **Without a meridiem the number is read as a 24-hour clock**, so `13` is 1 PM
- * and `1` is 1 AM. Some rule has to break that tie; this one is total and
- * predictable, and the trigger immediately redisplays what was understood, so a
- * wrong guess is visible rather than silent.
+ * **Without a meridiem the hour is taken to be in the delivery day**, 08:00 to
+ * 19:59, so `9` is 09:00 and `1` is 13:00. An explicit meridiem always wins, so
+ * `1am` is still 01:00, and the trigger redisplays what was understood either
+ * way.
  *
  * Any time of day is accepted, not only times on the half-hour step — route
  * start times are staggered, and the designs show 8:45 and 10:05 sitting in
@@ -92,7 +104,7 @@ export function parseTypedTime(raw: string): string | null {
 
   if (meridiem === undefined) {
     if (hour > 23) return null;
-    return toHhMm(hour * 60 + minute);
+    return toHhMm(assumeDeliveryDay(hour) * 60 + minute);
   }
   // With a meridiem the hour is a 12-hour clock, so "13pm" and "0am" are not
   // times the user could have meant.

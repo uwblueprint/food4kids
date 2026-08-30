@@ -285,17 +285,64 @@ describe('parseTypedTime', () => {
   });
 
   it.each([
+    // The morning half of the delivery day.
+    ['8', '08:00'],
+    ['9', '09:00'],
+    ['10', '10:00'],
+    ['11', '11:00'],
+    ['12', '12:00'],
+    // The afternoon half: 1 through 7 can only sensibly mean PM here.
+    ['1', '13:00'],
+    ['2', '14:00'],
+    ['5', '17:00'],
+    ['7', '19:00'],
+  ])(
+    'places the bare hour %o in the delivery day, giving %s',
+    (raw, expected) => {
+      expect(parseTypedTime(raw)).toBe(expected);
+    }
+  );
+
+  it.each([
+    ['1:30', '13:30'],
+    ['7:45', '19:45'],
+    ['9:45', '09:45'],
+    ['12:15', '12:15'],
+  ])(
+    'applies the delivery day to the hour of %o, giving %s',
+    (raw, expected) => {
+      // The minutes never move the hour into the other half.
+      expect(parseTypedTime(raw)).toBe(expected);
+    }
+  );
+
+  it.each([
     ['0', '00:00'],
     ['00:00', '00:00'],
+    ['0:30', '00:30'],
     ['13', '13:00'],
     ['13:05', '13:05'],
+    ['20', '20:00'],
     ['23:59', '23:59'],
-    ['1', '01:00'],
-  ])('reads %o as a 24-hour clock, giving %s', (raw, expected) => {
-    // Without a meridiem there is nothing to disambiguate on, so the number is
-    // taken at face value: "1" is 1 AM, and "1pm" is how you say 1 PM.
+  ])('leaves the already-unambiguous %o alone, giving %s', (raw, expected) => {
+    // 13-23 say which half they mean, and midnight has only one reading, even
+    // though it falls outside the delivery day.
     expect(parseTypedTime(raw)).toBe(expected);
   });
+
+  it.each([
+    ['1am', '01:00'],
+    ['7 am', '07:00'],
+    ['2 a.m.', '02:00'],
+    ['12am', '00:00'],
+    ['8pm', '20:00'],
+    ['11 pm', '23:00'],
+  ])(
+    'lets the explicit meridiem in %o beat the delivery day, giving %s',
+    (raw, expected) => {
+      expect(parseTypedTime(raw)).toBe(expected);
+    }
+  );
 
   it.each([
     ['9:7', '09:07'],

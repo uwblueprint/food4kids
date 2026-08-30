@@ -53,8 +53,10 @@ export function TimePickerSection() {
           staggered time like 8:45 gets entered. Entry is forgiving wherever the
           intent is unambiguous — <code>9</code>, <code>9:00</code>,{' '}
           <code>9am</code>, <code>9 AM</code> and <code>09:00</code> all mean
-          the same thing. Without an AM/PM the number is read as a 24-hour
-          clock, so <code>13</code> is 1 PM and <code>1</code> is 1 AM.
+          the same thing. Without an AM/PM the hour is assumed to fall in the
+          delivery day, 8:00 AM to 7:59 PM, so <code>9</code> is 9:00 AM and{' '}
+          <code>1</code> is 1:00 PM. An explicit AM/PM always wins:{' '}
+          <code>1am</code> is 1:00 AM.
         </SpecNote>
         <SpecNote title="Unreadable Entry">
           Marked in red as you type and reverted to the last good value when you
