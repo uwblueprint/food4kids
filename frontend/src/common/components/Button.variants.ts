@@ -12,7 +12,7 @@ export const buttonVariantClasses = {
   tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
   textLink: 'bg-transparent text-blue-300 hover:underline',
   ghost: 'bg-transparent text-grey-500 hover:bg-grey-200',
-  destructive: 'bg-red text-light-red hover:opacity-90',
+  destructive: 'bg-red text-grey-100 hover:opacity-90',
 } as const;
 
 export const buttonVariants = cva(

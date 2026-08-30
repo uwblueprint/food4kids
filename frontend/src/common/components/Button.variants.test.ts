@@ -91,3 +91,22 @@ describe('button stroke rule', () => {
     ).toEqual(['border', 'border-red']);
   });
 });
+
+/**
+ * Design rule: every filled button carries the same near-white label, so the
+ * destructive button reads as a peer of the primary one rather than a tinted
+ * special case.
+ */
+describe('filled button label colour', () => {
+  const filled = (
+    Object.keys(GROUND_BY_VARIANT) as (keyof typeof GROUND_BY_VARIANT)[]
+  ).filter((variant) => GROUND_BY_VARIANT[variant] === 'dark');
+
+  for (const variant of filled) {
+    it(`${variant}: label is grey-100`, () => {
+      expect(buttonVariantClasses[variant].split(/\s+/)).toContain(
+        'text-grey-100'
+      );
+    });
+  }
+});

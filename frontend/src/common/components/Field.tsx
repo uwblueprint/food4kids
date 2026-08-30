@@ -27,9 +27,8 @@ function FieldLabel({
       {...props}
     >
       {children}
-      {/* Design: a space, not a margin, separates the label from its
-       * mandatory-field asterisk. */}
-      {required && <span className="text-red">{' *'}</span>}
+      {/* The gap before the asterisk is a spacing token, not a character. */}
+      {required && <span className="text-red ml-1">*</span>}
     </label>
   );
 }
