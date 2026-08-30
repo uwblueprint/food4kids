@@ -3419,7 +3419,7 @@ class TestRouteRoutes:
 
     @pytest.mark.asyncio
     async def test_get_route_by_id(
-        self, async_client: AsyncClient, test_route: Any
+        self, async_client: AsyncClient, test_route: Any, test_route_group: Any
     ) -> None:
         """GET /routes/{id} returns the route with an (empty) stops list."""
         response = await async_client.get(f"/routes/{test_route.route_id}")
@@ -3427,10 +3427,31 @@ class TestRouteRoutes:
         body = response.json()
         assert body["route_id"] == str(test_route.route_id)
         assert body["stops"] == []
-        # drive_date is sourced from the route's group; with no stops there's no
-        # location to read a delivery_type from.
+        # drive_date and group_name are sourced from the route's group; with no
+        # stops there's no location to read a delivery_type from.
         assert body["drive_date"] is not None
+        assert body["group_name"] == test_route_group.name
         assert body["delivery_type"] is None
+
+    @pytest.mark.asyncio
+    async def test_driver_views_agree_on_the_group_name(
+        self, async_client: AsyncClient, test_route: Any, test_route_group: Any
+    ) -> None:
+        """The driver's home card reads the list endpoint and the route detail
+        page reads the single endpoint. Both label the route with its group, so
+        they have to report the same one."""
+        listed = await async_client.get("/routes")
+        detail = await async_client.get(f"/routes/{test_route.route_id}")
+
+        assert listed.status_code == 200
+        assert detail.status_code == 200
+        row = next(
+            item
+            for item in listed.json()["items"]
+            if item["route_id"] == str(test_route.route_id)
+        )
+        assert row["group_name"] == detail.json()["group_name"]
+        assert row["group_name"] == test_route_group.name
 
     @pytest.mark.asyncio
     async def test_get_route_by_id_embeds_ordered_stops(

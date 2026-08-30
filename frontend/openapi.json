@@ -2866,7 +2866,7 @@
         "type": "string"
       },
       "RouteDetailRead": {
-        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
+        "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date and group_name are sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
           "cloned_from_route_id": {
             "anyOf": [
@@ -2923,6 +2923,10 @@
             "default": false,
             "title": "Ends At Warehouse",
             "type": "boolean"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
           },
           "length": {
             "minimum": 0,
@@ -3000,7 +3004,8 @@
           "length",
           "route_group_id",
           "route_id",
-          "drive_date"
+          "drive_date",
+          "group_name"
         ],
         "title": "RouteDetailRead",
         "type": "object"

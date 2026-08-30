@@ -133,13 +133,16 @@ class RouteDetailRead(RouteRead):
     Stops are assembled with snapshot-over-live precedence. See
     RouteStopDetailRead.
 
-    drive_date is sourced from the route's RouteGroup (mirrors
+    drive_date and group_name are sourced from the route's RouteGroup (mirrors
     RouteWithDateRead). delivery_type is uniform across a route's locations, so
     it's read from the first stop's Location and is None when the route has no
     stops.
     """
 
     drive_date: date
+    # Route names are only unique within their group ("Route 1" restarts in
+    # every group), so the driver view shows the group alongside the name.
+    group_name: str
     delivery_type: str | None = None
     stops: list[RouteStopDetailRead] = Field(default_factory=list)
 

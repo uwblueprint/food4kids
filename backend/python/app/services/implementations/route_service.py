@@ -333,15 +333,15 @@ class RouteService:
 
             children_per_box = await resolve_children_per_box(session)
             rows = await self._fetch_ordered_stops(session, route_id)
-            # drive_date lives on the route's group (same source as the list
-            # endpoint's RouteWithDateRead).
-            drive_date = (
+            # drive_date and the group's name live on the route's group (same
+            # source as the list endpoint's RouteWithDateRead).
+            drive_date, group_name = (
                 await session.execute(
-                    select(col(RouteGroup.drive_date)).where(
+                    select(col(RouteGroup.drive_date), col(RouteGroup.name)).where(
                         RouteGroup.route_group_id == route.route_group_id
                     )
                 )
-            ).scalar_one()
+            ).one()
         except Exception:
             # Roll back so the caller's session is usable, then let the error
             # through: UnhandledExceptionMiddleware logs it and answers 500.
@@ -381,6 +381,7 @@ class RouteService:
         return RouteDetailRead(
             **route_read.model_dump(),
             drive_date=drive_date,
+            group_name=group_name,
             delivery_type=delivery_type,
             stops=stops,
         )

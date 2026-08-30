@@ -75,7 +75,10 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
 
   const stops = route.stops ?? [];
   const boxTotal = stops.reduce((sum, stop) => sum + stop.boxes, 0);
+  // The group leads: route names restart at "Route 1" in every group, so the
+  // name alone doesn't identify which route this is.
   const subtitle = [
+    route.group_name,
     formatDriveDate(route.drive_date),
     formatStartTime(route.start_time),
   ].filter(Boolean);

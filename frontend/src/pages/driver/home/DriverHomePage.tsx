@@ -64,15 +64,6 @@ export const DriverHomePage = () => {
     return driveDate < today;
   });
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   // Format time for display
   const formatTime = (timeString: string | null) => {
     if (!timeString) return '';
@@ -169,7 +160,7 @@ export const DriverHomePage = () => {
                   key={route.route_id}
                   routeId={route.route_id}
                   title={route.name}
-                  date={`${formatDate(route.drive_date)} · ${formatTime(route.start_time)} · ${route.num_stops} stops`}
+                  date={`${route.group_name} · ${formatTime(route.start_time)} · ${route.num_stops} stops`}
                   isPast={false}
                 />
               ))}
@@ -197,7 +188,7 @@ export const DriverHomePage = () => {
                   key={route.route_id}
                   routeId={route.route_id}
                   title={route.name}
-                  date={`${formatDate(route.drive_date)} · ${formatTime(route.start_time)} · ${route.num_stops} stops`}
+                  date={`${route.group_name} · ${formatTime(route.start_time)} · ${route.num_stops} stops`}
                   isPast={true}
                 />
               ))}

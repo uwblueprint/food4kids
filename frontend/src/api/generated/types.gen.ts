@@ -1657,7 +1657,7 @@ export type ProgressEnum =
  * Stops are assembled with snapshot-over-live precedence. See
  * RouteStopDetailRead.
  *
- * drive_date is sourced from the route's RouteGroup (mirrors
+ * drive_date and group_name are sourced from the route's RouteGroup (mirrors
  * RouteWithDateRead). delivery_type is uniform across a route's locations, so
  * it's read from the first stop's Location and is None when the route has no
  * stops.
@@ -1687,6 +1687,10 @@ export type RouteDetailRead = {
    * Ends At Warehouse
    */
   ends_at_warehouse?: boolean;
+  /**
+   * Group Name
+   */
+  group_name: string;
   /**
    * Length
    */
