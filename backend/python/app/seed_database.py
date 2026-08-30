@@ -16,6 +16,7 @@ import random
 import time as time_module
 import uuid
 import zlib
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
@@ -390,19 +391,38 @@ class _AccountWrite:
     changes: dict[str, object] = field(default_factory=dict)
     set_claims: bool = False
 
-    def apply(self) -> None:
+    def steps(self) -> list[Callable[[], None]]:
+        """This write as separately retryable Firebase calls, in order.
+
+        Create and set-claims are two round trips and are not idempotent as a
+        pair: retrying the write as a whole after the claims call hit the rate
+        limit would re-create a uid that by then exists, raising
+        ``UidAlreadyExistsError``. Per step, only what has not landed is
+        repeated.
+        """
+        steps: list[Callable[[], None]] = []
         if self.create:
-            auth.create_user(
-                uid=self.account.uid,
-                email=self.account.email,
-                password=SEED_PASSWORD,
-                email_verified=True,
-                display_name=self.account.display_name,
-            )
+            steps.append(self._create)
         elif self.changes:
-            auth.update_user(self.account.uid, **self.changes)
+            steps.append(self._update)
         if self.set_claims:
-            auth.set_custom_user_claims(self.account.uid, self.account.claims)
+            steps.append(self._set_claims)
+        return steps
+
+    def _create(self) -> None:
+        auth.create_user(
+            uid=self.account.uid,
+            email=self.account.email,
+            password=SEED_PASSWORD,
+            email_verified=True,
+            display_name=self.account.display_name,
+        )
+
+    def _update(self) -> None:
+        auth.update_user(self.account.uid, **self.changes)
+
+    def _set_claims(self) -> None:
+        auth.set_custom_user_claims(self.account.uid, self.account.claims)
 
 
 def firebase_account_snapshot() -> dict[str, auth.UserRecord]:
@@ -475,7 +495,13 @@ def sync_firebase_accounts(
 
 
 def _apply_account_write(write: _AccountWrite) -> None:
-    """Apply one pending write, backing off when Firebase says to slow down.
+    """Apply one pending write, a resumable step at a time."""
+    for step in write.steps():
+        _with_quota_backoff(step)
+
+
+def _with_quota_backoff(step: Callable[[], None]) -> None:
+    """Make one Firebase call, backing off when Firebase says to slow down.
 
     Account writes are rate-limited per project, and a run that has to touch
     every account at once will hit that limit, so it is a wait rather than a
@@ -483,7 +509,7 @@ def _apply_account_write(write: _AccountWrite) -> None:
     """
     for attempt in range(FIREBASE_WRITE_ATTEMPTS):
         try:
-            write.apply()
+            step()
             return
         except firebase_admin.exceptions.FirebaseError as exc:
             last_attempt = attempt == FIREBASE_WRITE_ATTEMPTS - 1

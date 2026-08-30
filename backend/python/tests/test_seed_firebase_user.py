@@ -403,6 +403,65 @@ class TestRateLimitedWritesAreRetried:
 
         assert auth_mock.create_user.call_count == 5
 
+    def test_the_create_retry_still_goes_on_to_set_the_claims(
+        self, auth_mock: Any
+    ) -> None:
+        """Waiting out the rate limit must not lose the rest of the write."""
+        auth_mock.list_users.return_value.iterate_all.return_value = []
+        auth_mock.create_user.side_effect = [self._quota_error(), None]
+
+        _run()
+
+        auth_mock.set_custom_user_claims.assert_called_once_with(UID, CLAIMS)
+
+    def test_a_quota_error_on_the_claims_call_does_not_re_create_the_account(
+        self, auth_mock: Any, _no_backoff_sleep: Any
+    ) -> None:
+        """The interleaving a cold seed actually hits: the account is created,
+        then the *claims* call is the one the rate limit lands on. Retrying the
+        create as well would call ``create_user`` for a uid that now exists,
+        which raises ``UidAlreadyExistsError`` — a ``FirebaseError`` carrying no
+        "QUOTA_EXCEEDED", so the backoff would re-raise it and fail the seed."""
+        auth_mock.list_users.return_value.iterate_all.return_value = []
+        auth_mock.set_custom_user_claims.side_effect = [self._quota_error(), None]
+
+        _run()
+
+        auth_mock.create_user.assert_called_once()
+        assert [c.args for c in auth_mock.set_custom_user_claims.call_args_list] == [
+            (UID, CLAIMS),
+            (UID, CLAIMS),
+        ]
+        _no_backoff_sleep.assert_called_once()
+
+    def test_a_quota_error_on_the_claims_call_does_not_rewrite_a_drifted_field(
+        self, auth_mock: Any
+    ) -> None:
+        """Same shape for an existing account: the ``update_user`` half has
+        landed, so only the claims call is retried."""
+        auth_mock.list_users.return_value.iterate_all.return_value = [
+            _existing_user(display_name="Stale Name", custom_claims=None)
+        ]
+        auth_mock.set_custom_user_claims.side_effect = [self._quota_error(), None]
+
+        _run()
+
+        auth_mock.update_user.assert_called_once_with(UID, display_name=FULL_NAME)
+        assert auth_mock.set_custom_user_claims.call_count == 2
+
+    def test_a_claims_quota_error_that_never_clears_fails_the_seed(
+        self, auth_mock: Any
+    ) -> None:
+        """Resuming is not the same as giving up on the failure."""
+        auth_mock.list_users.return_value.iterate_all.return_value = []
+        auth_mock.set_custom_user_claims.side_effect = self._quota_error()
+
+        with pytest.raises(firebase_admin.exceptions.FirebaseError):
+            _run()
+
+        auth_mock.create_user.assert_called_once()
+        assert auth_mock.set_custom_user_claims.call_count == 5
+
     def test_any_other_firebase_error_fails_immediately(self, auth_mock: Any) -> None:
         """Only the rate limit is a wait; everything else is a real failure."""
         auth_mock.list_users.return_value.iterate_all.return_value = []
