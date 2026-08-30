@@ -1,6 +1,7 @@
 import type * as React from 'react';
 
 import { Button } from './Button';
+import { FieldDescription } from './Field';
 import {
   Modal,
   ModalContent,
@@ -20,14 +21,17 @@ interface ConfirmModalProps {
   confirmLabel: string;
   confirmVariant?: 'primary' | 'destructive';
   cancelLabel?: string;
+  /** Disables both actions while the confirmed action is in flight. */
   isLoading?: boolean;
-  /** Shown above the footer when the confirmed action failed. */
-  error?: string | null;
+  /** Shown beside the actions when the confirmed action failed. */
+  error?: React.ReactNode;
 }
 
 /**
- * Yes/no dialog for an action worth a second look: a short title, a sentence
- * explaining the consequence, and Cancel / confirm.
+ * The confirmation dialog: a short title, one sentence on the consequence,
+ * and Cancel / confirm. Per the design system's modal specs, the actions are
+ * grouped on the right with a grey secondary Cancel, and the layout inherits
+ * ModalContent's 600px width.
  */
 export function ConfirmModal({
   open,
@@ -43,17 +47,13 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="max-w-[480px]">
+      <ModalContent>
         <ModalHeader>
           <ModalTitle variant="confirmation">{title}</ModalTitle>
           <ModalDescription>{description}</ModalDescription>
         </ModalHeader>
-        {error && (
-          <p className="text-p2 text-red" role="alert">
-            {error}
-          </p>
-        )}
-        <ModalFooter>
+        <ModalFooter className="items-center justify-end gap-4">
+          {error && <FieldDescription error>{error}</FieldDescription>}
           <Button
             type="button"
             variant="secondary"

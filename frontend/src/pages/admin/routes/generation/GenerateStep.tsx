@@ -22,12 +22,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
+  ConfirmModal,
   Spinner,
   StatisticsCard,
 } from '@/common/components';
@@ -338,46 +333,33 @@ export function GenerateStep() {
         )}
       </GenerationFooter>
 
-      <Modal open={cancelOpen} onOpenChange={setCancelOpen}>
-        <ModalContent showCloseButton={false}>
-          <ModalHeader>
-            {/* 20/28 per the frame; ModalTitle's shared default is the 32/44 h1. */}
-            <ModalTitle variant="confirmation">
-              Cancel Route Generation
-            </ModalTitle>
-            <ModalDescription>
-              If you go back to{' '}
-              <span className="text-blue-300">Configure Routes</span> now, the
-              current route generation will be cancelled and progress will be
-              lost. Do you still want to continue?
-            </ModalDescription>
-          </ModalHeader>
-          {cancelGeneration.isError && (
-            <Banner variant="error">
-              {describeApiFailure(cancelGeneration.error) ??
-                'Route generation could not be cancelled. Please try again.'}
-            </Banner>
-          )}
-          <ModalFooter className="justify-end">
-            <Button
-              variant="secondary"
-              disabled={cancelGeneration.isPending}
-              onClick={() => setCancelOpen(false)}
-            >
-              Keep generating
-            </Button>
-            <Button
-              variant="primary"
-              disabled={cancelGeneration.isPending}
-              onClick={() => void handleCancel()}
-            >
-              {cancelGeneration.isPending
-                ? 'Cancelling...'
-                : 'Cancel route generation'}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ConfirmModal
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        onConfirm={() => void handleCancel()}
+        title="Cancel Route Generation"
+        description={
+          <>
+            If you go back to{' '}
+            <span className="text-blue-300">Configure Routes</span> now, the
+            current route generation will be cancelled and progress will be
+            lost. Do you still want to continue?
+          </>
+        }
+        cancelLabel="Keep generating"
+        confirmLabel={
+          cancelGeneration.isPending
+            ? 'Cancelling...'
+            : 'Cancel route generation'
+        }
+        isLoading={cancelGeneration.isPending}
+        error={
+          cancelGeneration.isError
+            ? (describeApiFailure(cancelGeneration.error) ??
+              'Route generation could not be cancelled. Please try again.')
+            : null
+        }
+      />
     </>
   );
 }

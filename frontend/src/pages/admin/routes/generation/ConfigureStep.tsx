@@ -7,15 +7,10 @@ import type { Column } from '@/common/components';
 import {
   Banner,
   Button,
+  ConfirmModal,
   DataTable,
   DatePicker,
   Input,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
   Spinner,
   TimePicker,
 } from '@/common/components';
@@ -463,50 +458,24 @@ export function ConfigureStep() {
         </Button>
       </GenerationFooter>
 
-      <Modal open={leaveOpen} onOpenChange={setLeaveOpen}>
-        <ModalContent showCloseButton={false}>
-          <ModalHeader>
-            <ModalTitle variant="confirmation">Leave without Saving</ModalTitle>
-            <ModalDescription>
-              If you go back now, all the data you entered will be lost. Would
-              you still like to go back anyway?
-            </ModalDescription>
-          </ModalHeader>
-          <ModalFooter className="justify-end">
-            <Button variant="secondary" onClick={() => setLeaveOpen(false)}>
-              Stay on this page
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => navigate('/admin/routes/generation/review')}
-            >
-              Leave anyway
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ConfirmModal
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+        onConfirm={() => navigate('/admin/routes/generation/review')}
+        title="Leave without Saving"
+        description="If you go back now, all the data you entered will be lost. Would you still like to go back anyway?"
+        cancelLabel="Stay on this page"
+        confirmLabel="Leave anyway"
+      />
 
-      <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <ModalContent showCloseButton={false}>
-          <ModalHeader>
-            <ModalTitle variant="confirmation">
-              Continue to Generation
-            </ModalTitle>
-            <ModalDescription>
-              You're about to generate delivery routes for routes you have
-              selected. This action cannot be undone.
-            </ModalDescription>
-          </ModalHeader>
-          <ModalFooter className="justify-end">
-            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleConfirm}>
-              Generate routes
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ConfirmModal
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={handleConfirm}
+        title="Continue to Generation"
+        description="You're about to generate delivery routes for routes you have selected. This action cannot be undone."
+        confirmLabel="Generate routes"
+      />
     </>
   );
 }
