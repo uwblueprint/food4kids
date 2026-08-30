@@ -11,7 +11,7 @@ import {
   TableToolbar,
 } from '@/common/components';
 import { useRowHighlight, useTableSort } from '@/common/hooks';
-import { orDash } from '@/common/utils';
+import { orDash, parseDateOnly } from '@/common/utils';
 
 import type { GroupsTabState } from '../hooks';
 import { DriveDateCell } from './DriveDateCell';
@@ -26,7 +26,7 @@ const COLUMNS: Column<RouteGroupRead>[] = [
     key: 'drive_date',
     header: 'Date',
     sortable: true,
-    sortValue: (row) => new Date(row.drive_date),
+    sortValue: (row) => parseDateOnly(row.drive_date),
     render: (row) => (
       <DriveDateCell
         routeGroupId={row.route_group_id}

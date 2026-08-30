@@ -1,15 +1,13 @@
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.enum import (
     DriveDaysOfWeekEnum,
     DriverAssignmentStatusEnum,
@@ -28,6 +26,7 @@ from app.models.route_group import (
 from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
+from app.utilities.datetime_utils import today_local
 from app.utilities.pagination import paginate_query
 
 ROUTE_GROUP_COPY_PREFIX = "Copy of "
@@ -39,11 +38,6 @@ class RouteGroupService:
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-        self.timezone = ZoneInfo(settings.scheduler_timezone)
-
-    def _today(self) -> date:
-        """Today's date in the project's configured timezone."""
-        return datetime.now(self.timezone).date()
 
     async def create_route_group(
         self, session: AsyncSession, route_group_data: RouteGroupCreate
@@ -238,7 +232,7 @@ class RouteGroupService:
             .label("delivery_type")
         )
 
-        today = self._today()
+        today = today_local()
 
         status_expr = case(
             (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
@@ -351,7 +345,7 @@ class RouteGroupService:
             )
 
         if route_status:
-            today = self._today()
+            today = today_local()
             thirty_days_ago = today - timedelta(days=30)
 
             status_conditions: list[Any] = []

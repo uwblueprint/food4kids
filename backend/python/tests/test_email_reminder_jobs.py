@@ -1,7 +1,7 @@
 """Tests for the reminder email scheduled job."""
 
 import re
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from functools import partial
 from typing import Any, ClassVar
 
@@ -15,6 +15,7 @@ from app.models.route_group import RouteGroup
 from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User
 from app.services.jobs import email_jobs, refresh_daily_reminder_email_schedule
+from app.utilities.datetime_utils import today_local
 
 # Every name the view-upcoming-route template expects the backend to substitute.
 PLACEHOLDER_NAMES = (
@@ -64,7 +65,25 @@ async def _seed_driver_with_routes(
     offsets: tuple[int, ...],
     start_time: time = time(9, 30),
 ) -> None:
-    """Create one driver assigned to a route on each of the given day offsets."""
+    """Create one driver assigned to a route on each of the given day offsets.
+
+    Offsets count from the organization's today, which is what the job counts
+    its lead days from.
+    """
+    today = today_local()
+    await _seed_driver_with_routes_on(
+        maker,
+        dates=tuple(today + timedelta(days=offset) for offset in offsets),
+        start_time=start_time,
+    )
+
+
+async def _seed_driver_with_routes_on(
+    maker: async_sessionmaker[AsyncSession],
+    dates: tuple[date, ...],
+    start_time: time = time(9, 30),
+) -> None:
+    """Create one driver assigned to a route on each of the given drive dates."""
     async with maker() as session:
         user = User(
             first_name="Test",
@@ -83,18 +102,15 @@ async def _seed_driver_with_routes(
         await session.commit()
         await session.refresh(driver)
 
-        for offset in offsets:
-            group = RouteGroup(
-                name=f"Route {offset}",
-                drive_date=date.today() + timedelta(days=offset),
-            )
+        for index, drive_date in enumerate(dates):
+            group = RouteGroup(name=f"Route {drive_date}", drive_date=drive_date)
             session.add(group)
             await session.commit()
             await session.refresh(group)
             session.add(
                 Route(
-                    name=f"R{offset}",
-                    length=offset * 10.0,
+                    name=f"R{index}",
+                    length=(index + 1) * 10.0,
                     route_group_id=group.route_group_id,
                     driver_id=driver.driver_id,
                     start_time=start_time,
@@ -163,7 +179,7 @@ async def test_skips_days_inside_the_span_but_not_requested(
     await email_jobs.send_route_reminders([1, 3])
 
     assert len(captured_emails) == 2
-    day_two = (date.today() + timedelta(days=2)).strftime("%A, %B %d, %Y")
+    day_two = (today_local() + timedelta(days=2)).strftime("%A, %B %d, %Y")
     assert not any(day_two in item["body"] for item in captured_emails)
 
 
@@ -182,7 +198,7 @@ async def test_lead_day_zero_targets_today(
     await email_jobs.send_route_reminders([0])
 
     assert len(captured_emails) == 1
-    assert date.today().strftime("%A, %B %d, %Y") in captured_emails[0]["body"]
+    assert today_local().strftime("%A, %B %d, %Y") in captured_emails[0]["body"]
 
 
 @pytest.mark.asyncio
@@ -213,7 +229,7 @@ async def test_unassigned_routes_are_not_emailed(
     async with maker() as session:
         group = RouteGroup(
             name="Unassigned",
-            drive_date=date.today() + timedelta(days=1),
+            drive_date=today_local() + timedelta(days=1),
         )
         session.add(group)
         await session.commit()
@@ -261,7 +277,7 @@ async def test_rendered_body_has_no_leftover_placeholders(
 
     # And the real values actually landed.
     assert "Test Driver" in body
-    assert (date.today() + timedelta(days=1)).strftime("%A, %B %d, %Y") in body
+    assert (today_local() + timedelta(days=1)).strftime("%A, %B %d, %Y") in body
     assert "09:30 AM" in body
     assert email_jobs.UPCOMING_ROUTE_URL in body
 
@@ -459,3 +475,113 @@ async def test_refresh_falls_back_to_default_when_unset(
     job = scheduler.jobs["daily_reminder_emails_0900"]["func"]
     assert isinstance(job, partial)
     assert job.args == ([1],)
+
+
+# ----------------------------------------------------------------------
+# The timezone boundary.
+#
+# The lead days are counted from a calendar date, and which date that is
+# depends on whose clock you read. The container runs UTC; the deliveries,
+# the drive dates and this job's own cron all run on Waterloo time. For the
+# four or five hours between local evening and local midnight the two
+# disagree, and the job used to read the wrong one.
+# ----------------------------------------------------------------------
+
+# 23:30 EDT on Aug 31 == 03:30 UTC on Sep 1: local calendar still says
+# August, `date.today()` in the container already says September.
+LOCAL_EVENING = datetime(2026, 8, 31, 23, 30)
+LOCAL_DATE = date(2026, 8, 31)
+UTC_DATE = date(2026, 9, 1)
+
+
+@pytest.fixture
+def frozen_local_evening(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the wall clock to an instant where UTC and local dates differ.
+
+    Patches `now_utc` rather than the job's `today_local`, so the whole
+    real chain -- now_utc -> now_local -> today_local -> the job -- is
+    exercised. Patching the job's own helper would only test the stub.
+    """
+    from app.utilities import datetime_utils
+
+    instant = datetime_utils.from_local_wall_clock(LOCAL_EVENING)
+    monkeypatch.setattr(datetime_utils, "now_utc", lambda: instant)
+
+
+def test_the_boundary_is_real() -> None:
+    """Guard the guard: if these dates agreed, the tests below prove nothing."""
+    from app.utilities.datetime_utils import from_local_wall_clock
+
+    instant = from_local_wall_clock(LOCAL_EVENING)
+
+    assert instant.date() == UTC_DATE
+    assert instant.date() != LOCAL_DATE
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("frozen_local_evening")
+async def test_lead_days_count_from_the_local_date(
+    test_db_engine: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    captured_emails: list[dict[str, str]],
+) -> None:
+    """At 23:30 local, "tomorrow" is Sep 1 -- not Sep 2.
+
+    This is the bug: the job read `date.today()`, which in the container is
+    already Sep 1, so a lead day of 1 targeted Sep 2 and the Sep 1 drivers
+    -- the ones actually driving tomorrow -- were never emailed.
+    """
+    maker = _maker(test_db_engine)
+    monkeypatch.setattr("app.models.async_session_maker_instance", maker)
+
+    await _seed_driver_with_routes_on(
+        maker, dates=(LOCAL_DATE + timedelta(days=1), UTC_DATE + timedelta(days=1))
+    )
+
+    await email_jobs.send_route_reminders([1])
+
+    assert len(captured_emails) == 1
+    expected = (LOCAL_DATE + timedelta(days=1)).strftime("%A, %B %d, %Y")
+    assert expected in captured_emails[0]["body"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("frozen_local_evening")
+async def test_lead_day_zero_targets_the_local_today(
+    test_db_engine: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    captured_emails: list[dict[str, str]],
+) -> None:
+    """A same-day reminder at 23:30 local means today's routes, not tomorrow's.
+
+    The most damaging shape of the bug: a "day of" reminder sent late in the
+    evening emailed the *next* day's drivers, so the people driving that day
+    got nothing at all.
+    """
+    maker = _maker(test_db_engine)
+    monkeypatch.setattr("app.models.async_session_maker_instance", maker)
+
+    await _seed_driver_with_routes_on(maker, dates=(LOCAL_DATE, UTC_DATE))
+
+    await email_jobs.send_route_reminders([0])
+
+    assert len(captured_emails) == 1
+    assert LOCAL_DATE.strftime("%A, %B %d, %Y") in captured_emails[0]["body"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("frozen_local_evening")
+async def test_no_route_on_the_local_target_sends_nothing(
+    test_db_engine: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    captured_emails: list[dict[str, str]],
+) -> None:
+    """The UTC-dated route is not a near-miss the job can fall back onto."""
+    maker = _maker(test_db_engine)
+    monkeypatch.setattr("app.models.async_session_maker_instance", maker)
+
+    await _seed_driver_with_routes_on(maker, dates=(UTC_DATE + timedelta(days=1),))
+
+    await email_jobs.send_route_reminders([1])
+
+    assert captured_emails == []

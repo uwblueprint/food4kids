@@ -3,11 +3,10 @@ import logging
 import os
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, TypeGuard, TypeVar
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 from fastapi import UploadFile
@@ -16,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.enum import (
     LocationStatusEnum,
     NotePermission,
@@ -61,6 +59,7 @@ from app.services.implementations.location_import_validation import (
     present_str,
     try_normalize_phone,
 )
+from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
 from app.utilities.pagination import paginate_query
 
@@ -140,11 +139,6 @@ class LocationService:
         self.logger = logger
         self.google_maps_service = google_maps_client
         self.system_settings_service = system_settings_service
-        self.timezone = ZoneInfo(settings.scheduler_timezone)
-
-    def _today(self) -> date:
-        """Today's date in the project's configured timezone."""
-        return datetime.now(self.timezone).date()
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -244,7 +238,7 @@ class LocationService:
                 )
 
             if status_filter:
-                today = self._today()
+                today = today_local()
                 # Subquery: this location has a stop in a route whose group's
                 # drive_date is today/future AND the route isn't yet frozen.
                 is_scheduled = (
@@ -355,7 +349,7 @@ class LocationService:
         ids = list(location_ids)
         if not ids:
             return set()
-        today = self._today()
+        today = today_local()
         statement = (
             select(RouteStop.location_id)
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
@@ -383,7 +377,7 @@ class LocationService:
         ids = list(location_ids)
         if not ids:
             return {}
-        today = self._today()
+        today = today_local()
         statement = (
             select(RouteStop.location_id, Route.name, col(RouteGroup.drive_date))
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
