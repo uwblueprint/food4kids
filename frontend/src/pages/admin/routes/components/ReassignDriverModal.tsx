@@ -1,7 +1,8 @@
 import { type ReactNode, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { useDrivers } from '@/api/drivers';
-import { useUpdateRoute } from '@/api/routes';
+import { useSuggestedDriver, useUpdateRoute } from '@/api/routes';
 import {
   Button,
   Dropdown,
@@ -18,17 +19,37 @@ import {
   ModalFooter,
   ModalHeader,
   ModalTitle,
+  TimePicker,
 } from '@/common/components';
+
+/** The design's default start time for a route that has none yet. */
+const DEFAULT_START_TIME = '09:00';
+
+/**
+ * The API stores start_time as "HH:MM:SS"; TimePicker speaks "HH:MM". Convert
+ * at this boundary rather than teaching either side about the other's format.
+ */
+const toApiTime = (value: string): string => `${value}:00`;
+const fromApiTime = (value: string | null | undefined): string =>
+  value ? value.slice(0, 5) : DEFAULT_START_TIME;
 
 interface ReassignDriverModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Route being (re)assigned. */
   routeId: string;
+  /** Route group the assignment happens within — scopes the driver suggestion. */
+  routeGroupId: string;
   /** Currently assigned driver's name, if any — drives Assign vs Reassign copy. */
   currentDriverName?: string | null;
+  /** The route's start time as "HH:MM:SS", if it already has one. */
+  startTime?: string | null;
   /** Optional context line under the title, e.g. "Route A • Tuesday • Oct 18". */
   contextLabel?: ReactNode;
+  /**
+   * Omitted on the individual-route screen, which is already the destination.
+   */
+  showViewRoute?: boolean;
   /** Called once the (re)assignment saves, e.g. to highlight the row. */
   onUpdated?: () => void;
 }
@@ -39,23 +60,33 @@ interface ReassignDriverModalProps {
  * and the individual route screen. Callers pass the primitives it needs so it
  * works from any route shape; reached with a driver already set it reassigns,
  * reached from an unassigned route it assigns.
+ *
+ * Driver and start time are submitted together because the API rejects an
+ * assigned route with no start time (ck_routes_assigned_route_has_start_time),
+ * and generated routes start with start_time unset.
  */
 export function ReassignDriverModal({
   open,
   onOpenChange,
   routeId,
+  routeGroupId,
   currentDriverName,
+  startTime,
   contextLabel,
+  showViewRoute = true,
   onUpdated,
 }: ReassignDriverModalProps) {
   const [driverId, setDriverId] = useState('');
+  const [time, setTime] = useState(() => fromApiTime(startTime));
   const { data: drivers = [] } = useDrivers();
+  const { data: suggestion } = useSuggestedDriver(routeId, routeGroupId, open);
   const { mutate: updateRoute, isPending, isError, reset } = useUpdateRoute();
 
   const handleOpenChange = (next: boolean) => {
     onOpenChange(next);
     if (!next) {
       setDriverId('');
+      setTime(fromApiTime(startTime));
       reset();
     }
   };
@@ -65,7 +96,7 @@ export function ReassignDriverModal({
     updateRoute(
       {
         path: { route_id: routeId },
-        body: { driver_id: driverId },
+        body: { driver_id: driverId, start_time: toApiTime(time) },
       },
       {
         onSuccess: () => {
@@ -104,7 +135,7 @@ export function ReassignDriverModal({
           )}
 
           <Field>
-            <FieldLabel>New Driver</FieldLabel>
+            <FieldLabel required>Driver</FieldLabel>
             <Dropdown value={driverId} onValueChange={setDriverId}>
               <DropdownTrigger className="rounded-lg px-3">
                 <DropdownValue placeholder="Select a driver" />
@@ -117,6 +148,22 @@ export function ReassignDriverModal({
                 ))}
               </DropdownContent>
             </Dropdown>
+            {/* Absent when nobody has driven these stops before, or when every
+                candidate is already booked elsewhere in the group. */}
+            {suggestion && (
+              <FieldDescription>
+                Similar routes driven by {suggestion.driver_name}
+              </FieldDescription>
+            )}
+          </Field>
+
+          <Field>
+            <FieldLabel required>Start Time</FieldLabel>
+            <TimePicker
+              value={time}
+              onChange={setTime}
+              className="w-full rounded-xl"
+            />
           </Field>
         </div>
 
@@ -134,13 +181,20 @@ export function ReassignDriverModal({
           >
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            disabled={!driverId || isPending}
-            onClick={handleSubmit}
-          >
-            {isReassign ? 'Reassign' : 'Assign'}
-          </Button>
+          <div className="flex items-center gap-2.5">
+            {showViewRoute && (
+              <Button variant="secondary" asChild>
+                <Link to={`/admin/routes/${routeId}`}>View route</Link>
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              disabled={!driverId || isPending}
+              onClick={handleSubmit}
+            >
+              {isReassign ? 'Reassign' : 'Assign'}
+            </Button>
+          </div>
         </ModalFooter>
       </ModalContent>
     </Modal>
