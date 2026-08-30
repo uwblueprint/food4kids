@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import ClockIcon from '@/assets/icons/clock.svg?react';
 import { cn } from '@/lib/utils';
 
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
 import {
+  centeredScrollTop,
+  formatDisplayTime,
+  timeOptions,
+} from './TimePicker.options';
+import {
   type TimePickerPadding,
-  timePickerPaddingClasses,
+  timePickerPaddingClass,
 } from './TimePicker.padding';
 
 export type { TimePickerPadding };
@@ -17,9 +22,8 @@ interface TimePickerProps {
   onChange?: (value: string) => void;
   disabled?: boolean;
   /**
-   * Side padding of the trigger, in px. A dropdown's left padding follows the
-   * button it opens from, which differs by context: 12 in the route-generation
-   * table, 24 in Settings.
+   * Side padding of the trigger, in px, which the panel's options match: 12 in
+   * the route-generation table, 24 in Settings.
    */
   padding?: TimePickerPadding;
   /**
@@ -32,33 +36,7 @@ interface TimePickerProps {
   className?: string;
 }
 
-const HOURS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
-const PERIODS = ['AM', 'PM'] as const;
-type Period = (typeof PERIODS)[number];
-
-function parseTime(value: string): {
-  hour: number;
-  minute: number;
-  period: Period;
-} {
-  const [hRaw = 0, mRaw = 0] = value.split(':').map(Number);
-  const period: Period = hRaw >= 12 ? 'PM' : 'AM';
-  const hour = hRaw % 12 === 0 ? 12 : hRaw % 12;
-  const minute = (Math.round(mRaw / 5) * 5) % 60;
-  return { hour, minute, period };
-}
-
-function formatTime(hour: number, minute: number, period: Period): string {
-  let h = hour % 12;
-  if (period === 'PM') h += 12;
-  return `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
-function formatDisplay(value: string): string {
-  const { hour, minute, period } = parseTime(value);
-  return `${hour}:${String(minute).padStart(2, '0')} ${period}`;
-}
+const DEFAULT_VALUE = '08:00';
 
 export function TimePicker({
   value,
@@ -69,25 +47,34 @@ export function TimePicker({
   className,
 }: TimePickerProps) {
   const [internalOpen, setInternalOpen] = useState(false);
+  const [internalValue, setInternalValue] = useState(value ?? DEFAULT_VALUE);
   const isOpen = open ?? internalOpen;
-  const { trigger: triggerPadding, panel: panelPadding } =
-    timePickerPaddingClasses(padding);
-  const [internalValue, setInternalValue] = useState(value ?? '08:00');
   const currentValue = value ?? internalValue;
-  const { hour, minute, period } = parseTime(currentValue);
+  const paddingClass = timePickerPaddingClass(padding);
 
-  const handleSelect = (next: {
-    hour?: number;
-    minute?: number;
-    period?: Period;
-  }) => {
-    const newValue = formatTime(
-      next.hour ?? hour,
-      next.minute ?? minute,
-      next.period ?? period
-    );
-    setInternalValue(newValue);
-    onChange?.(newValue);
+  /**
+   * Centres the selection as the panel appears. This is a callback ref rather
+   * than an effect because the panel only mounts once the popover opens, so it
+   * runs exactly when the option and its scroll box first have a layout. It
+   * reads the list off the option rather than a ref of its own: React assigns
+   * a child's ref before its parent's, so a ref on the list would still be
+   * null here.
+   */
+  const selectedRef = useCallback((option: HTMLButtonElement | null) => {
+    const list = option?.parentElement;
+    if (!option || !list) return;
+    list.scrollTop = centeredScrollTop({
+      optionTop: option.offsetTop,
+      optionHeight: option.offsetHeight,
+      viewportHeight: list.clientHeight,
+      contentHeight: list.scrollHeight,
+    });
+  }, []);
+
+  const handleSelect = (next: string) => {
+    setInternalValue(next);
+    setInternalOpen(false);
+    onChange?.(next);
   };
 
   return (
@@ -98,8 +85,8 @@ export function TimePicker({
           data-slot="time-picker-trigger"
           disabled={disabled}
           className={cn(
-            'inline-flex w-40 cursor-pointer items-center justify-between rounded-sm py-2',
-            triggerPadding,
+            'inline-flex w-40 cursor-pointer items-center justify-between rounded-xl py-2',
+            paddingClass,
             'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
             'transition-colors',
             isOpen
@@ -110,7 +97,7 @@ export function TimePicker({
           )}
         >
           <span className="text-p2 text-grey-500">
-            {formatDisplay(currentValue)}
+            {formatDisplayTime(currentValue)}
           </span>
           <ClockIcon
             data-slot="time-picker-icon"
@@ -121,73 +108,35 @@ export function TimePicker({
 
       <PopoverContent
         data-slot="time-picker-panel"
-        className={cn('w-auto py-0', panelPadding)}
+        className="w-[var(--radix-popover-trigger-width)] overflow-hidden p-0"
         align="start"
       >
-        <div className="flex">
-          <Column
-            items={HOURS}
-            selected={hour}
-            onSelect={(v) => handleSelect({ hour: v })}
-          />
-          <Column
-            items={MINUTES}
-            selected={minute}
-            format={(v) => String(v).padStart(2, '0')}
-            onSelect={(v) => handleSelect({ minute: v })}
-          />
-          <Column
-            items={PERIODS}
-            selected={period}
-            onSelect={(v) => handleSelect({ period: v })}
-            noBorder
-          />
+        {/* `relative` makes this the offsetParent the scroll maths measures from. */}
+        <div role="listbox" className="relative max-h-32 overflow-y-auto">
+          {timeOptions(currentValue).map((option) => {
+            const selected = option === currentValue;
+            return (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                ref={selected ? selectedRef : undefined}
+                onClick={() => handleSelect(option)}
+                className={cn(
+                  'text-p2 flex w-full cursor-pointer items-center py-3 text-left transition-colors',
+                  paddingClass,
+                  selected
+                    ? 'bg-blue-50 font-semibold text-blue-300'
+                    : 'text-grey-500 hover:bg-blue-50'
+                )}
+              >
+                {formatDisplayTime(option)}
+              </button>
+            );
+          })}
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
-
-interface ColumnProps<T extends string | number> {
-  items: readonly T[];
-  selected: T;
-  format?: (v: T) => string;
-  onSelect: (v: T) => void;
-  noBorder?: boolean;
-}
-
-function Column<T extends string | number>({
-  items,
-  selected,
-  format,
-  onSelect,
-  noBorder,
-}: ColumnProps<T>) {
-  return (
-    <div
-      className={cn(
-        'flex max-h-[200px] flex-col items-start gap-0.5 overflow-y-auto py-1',
-        !noBorder && 'border-grey-300 border-r'
-      )}
-    >
-      {items.map((item) => (
-        <button
-          key={String(item)}
-          type="button"
-          onClick={() => onSelect(item)}
-          className={cn(
-            // Hugs its label rather than a fixed min-width: the pill's own
-            // px-3 is what puts the label at the panel's inset, so a wider
-            // pill would push a short label off its own centre.
-            'text-p2 flex h-10 shrink-0 cursor-pointer items-center justify-start rounded-full px-3 transition-colors',
-            item === selected
-              ? 'bg-blue-300 text-white'
-              : 'text-grey-500 hover:bg-blue-50'
-          )}
-        >
-          {format ? format(item) : item}
-        </button>
-      ))}
-    </div>
   );
 }

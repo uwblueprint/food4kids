@@ -29,26 +29,32 @@ const TIME_PICKER_DISABLED_CODE = `import { TimePicker } from '@/common/componen
 
 export function TimePickerSection() {
   const [time, setTime] = useState<string | undefined>('09:30');
-  const [settingsTime, setSettingsTime] = useState<string | undefined>('09:30');
+  const [paddingTime, setPaddingTime] = useState<string | undefined>('09:30');
 
   return (
     <section className="mb-16">
       <SectionHeader>Time Picker</SectionHeader>
       <SectionDescription>
         A single picker for every place a time is chosen. The trigger shows the
-        selected time in 12-hour form beside a clock icon, and opens a popover
-        with hour / minute / AM-PM columns. Built on{' '}
+        selected time in 12-hour form beside a clock icon, and opens one
+        scrollable list of whole times. Built on{' '}
         <code className="text-p2 bg-grey-150 rounded px-1">Popover</code> so it
         looks the same in every browser.
       </SectionDescription>
 
       <div className="mb-10 space-y-6">
+        <SpecNote title="Options">
+          Every half hour of the day. A value that does not fall on the step —
+          route generation staggers start times, so 8:45 and 10:05 are real — is
+          added to the list so it stays visible as the selection.
+        </SpecNote>
         <SpecNote title="Default Value">
           When no value is provided the picker defaults to 08:00 AM.
         </SpecNote>
         <SpecNote title="Format">
           Value is stored and emitted as HH:mm (24-hour) and displayed as h:mm
-          AM/PM. Minutes snap to five-minute increments.
+          AM/PM. A value in any other shape throws rather than rendering
+          something wrong.
         </SpecNote>
         <SpecNote title="Icon">
           Always a clock — never a dropdown arrow, even inside the
@@ -60,13 +66,13 @@ export function TimePickerSection() {
           <code className="text-p2 bg-grey-150 rounded px-1">12</code> (default)
           in route generation,{' '}
           <code className="text-p2 bg-grey-150 rounded px-1">24</code> in
-          Settings.
+          Settings. The trigger and the list options take the same inset, so an
+          option&apos;s text lands on the same x as the trigger&apos;s.
         </SpecNote>
-        <SpecNote title="Alignment">
-          The padding applies to the panel as well as the trigger, so an
-          option&apos;s text lands on exactly the same x as the time shown in
-          the trigger above it. The option pill supplies 12px of that inset
-          itself, so the panel adds only the remainder.
+        <SpecNote title="Scrolling">
+          Opening the picker scrolls the selected time to the middle of the
+          list. The first and last times settle flush at the top and bottom,
+          since there is nothing to scroll past.
         </SpecNote>
       </div>
 
@@ -82,24 +88,20 @@ export function TimePickerSection() {
         <ComponentPreview
           title="Padding"
           code={TIME_PICKER_PADDING_CODE}
-          previewClassName="min-h-[360px] items-start"
+          previewClassName="min-h-[300px] items-start"
         >
           <div className="flex gap-20">
             <div className="flex flex-col items-start gap-2">
               <p className="text-p3 text-grey-400">
                 padding=12 — route generation
               </p>
-              <TimePicker
-                value={settingsTime}
-                onChange={setSettingsTime}
-                open
-              />
+              <TimePicker value={paddingTime} onChange={setPaddingTime} open />
             </div>
             <div className="flex flex-col items-start gap-2">
               <p className="text-p3 text-grey-400">padding=24 — Settings</p>
               <TimePicker
-                value={settingsTime}
-                onChange={setSettingsTime}
+                value={paddingTime}
+                onChange={setPaddingTime}
                 padding={24}
                 open
               />

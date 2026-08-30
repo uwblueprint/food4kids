@@ -3,13 +3,19 @@ import { describe, expect, it } from 'vitest';
 
 import { TimePicker } from './TimePicker';
 import {
+  centeredScrollTop,
+  formatDisplayTime,
+  timeOptions,
+} from './TimePicker.options';
+import {
   type TimePickerPadding,
-  timePickerPaddingClasses,
+  timePickerPaddingClass,
 } from './TimePicker.padding';
 
-// The closed trigger is the whole surface these tests care about, so static
-// markup is enough — no DOM, no interaction. `data-slot` is how the rest of
-// the component library labels its parts.
+// The closed trigger is the whole surface these render tests care about, so
+// static markup is enough — no DOM, no interaction. The panel goes through a
+// Radix portal, which needs a `document` and so renders nothing here; the
+// panel's behaviour is covered on the pure modules that decide it.
 function renderTrigger(element: React.ReactElement): string {
   return renderToStaticMarkup(element);
 }
@@ -17,19 +23,13 @@ function renderTrigger(element: React.ReactElement): string {
 const CLOCK_ICON = /data-slot="time-picker-icon"/;
 
 describe('TimePicker padding', () => {
-  it('defaults to the 12px trigger padding used in route generation', () => {
+  it('defaults to the 12px padding used in route generation', () => {
     const markup = renderTrigger(<TimePicker value="09:30" />);
     expect(markup).toContain('px-3');
     expect(markup).not.toContain('px-6');
   });
 
-  it('renders the 12px padding when it is passed explicitly', () => {
-    const markup = renderTrigger(<TimePicker value="09:30" padding={12} />);
-    expect(markup).toContain('px-3');
-    expect(markup).not.toContain('px-6');
-  });
-
-  it('renders the 24px trigger padding used in Settings', () => {
+  it('renders the 24px padding used in Settings', () => {
     const markup = renderTrigger(<TimePicker value="09:30" padding={24} />);
     expect(markup).toContain('px-6');
     expect(markup).not.toContain('px-3');
@@ -56,9 +56,35 @@ describe('TimePicker padding', () => {
   });
 });
 
+describe('timePickerPaddingClass', () => {
+  it('maps each supported padding to its Tailwind class', () => {
+    expect(timePickerPaddingClass(12)).toBe('px-3');
+    expect(timePickerPaddingClass(24)).toBe('px-6');
+  });
+
+  it.each([12, 24] as const)(
+    'gives the trigger and the options one class at padding=%i',
+    (padding: TimePickerPadding) => {
+      // The alignment contract: options take the same inset as the trigger, so
+      // an option's text lands on the trigger's text. One class means the two
+      // cannot drift apart.
+      const className = timePickerPaddingClass(padding);
+      expect(renderTrigger(<TimePicker padding={padding} />)).toContain(
+        className
+      );
+    }
+  );
+
+  it('refuses a padding with no Tailwind class rather than dropping it', () => {
+    expect(() => timePickerPaddingClass(20 as TimePickerPadding)).toThrow(
+      /No Tailwind padding class/
+    );
+  });
+});
+
 describe('TimePicker icon', () => {
-  // Isabelle's resolution in #f4k-design: a clock everywhere, including the
-  // route-generation table where every other field carries a dropdown arrow.
+  // Isabelle's resolution in #f4k-design, and what the newer route-generation
+  // frames now show: a clock everywhere, never the dropdown arrow.
   it.each([undefined, 12, 24] as const)(
     'renders the clock icon at padding=%s',
     (padding) => {
@@ -75,16 +101,32 @@ describe('TimePicker icon', () => {
   });
 });
 
-describe('TimePicker display', () => {
+describe('formatDisplayTime', () => {
   it.each([
     ['00:00', '12:00 AM'],
+    ['00:30', '12:30 AM'],
     ['08:00', '8:00 AM'],
+    ['08:45', '8:45 AM'],
     ['09:30', '9:30 AM'],
+    ['11:59', '11:59 AM'],
     ['12:00', '12:00 PM'],
+    ['12:30', '12:30 PM'],
     ['13:05', '1:05 PM'],
-    ['23:55', '11:55 PM'],
-  ])('shows %s as %s', (value, expected) => {
-    expect(renderTrigger(<TimePicker value={value} />)).toContain(expected);
+    ['23:30', '11:30 PM'],
+    ['23:59', '11:59 PM'],
+  ])('renders %s as %s', (value, expected) => {
+    expect(formatDisplayTime(value)).toBe(expected);
+  });
+
+  it.each(['9:30', '24:00', '12:60', '', 'noon', '09:5', '0930'])(
+    'refuses %o rather than rendering something wrong',
+    (value) => {
+      expect(() => formatDisplayTime(value)).toThrow(/Expected a 24-hour/);
+    }
+  );
+
+  it('shows the value in the trigger', () => {
+    expect(renderTrigger(<TimePicker value="13:05" />)).toContain('1:05 PM');
   });
 
   it('falls back to 8:00 AM when uncontrolled with no value', () => {
@@ -92,60 +134,118 @@ describe('TimePicker display', () => {
   });
 });
 
-/**
- * The panel renders through a Radix portal, which needs a `document` and so
- * renders nothing under `renderToStaticMarkup`. Its padding is therefore tested
- * on the function that decides it — the same one the component calls.
- */
-describe('timePickerPaddingClasses', () => {
-  /** Tailwind's spacing scale is 4px per step. */
-  function pxOf(className: string): number {
-    const step = Number(className.replace('px-', ''));
-    expect(Number.isFinite(step)).toBe(true);
-    return step * 4;
-  }
-
-  it('pairs the 12px trigger with a panel that adds nothing', () => {
-    expect(timePickerPaddingClasses(12)).toEqual({
-      trigger: 'px-3',
-      panel: 'px-0',
-    });
+describe('timeOptions', () => {
+  it('covers the whole day on a half-hour step', () => {
+    const options = timeOptions();
+    expect(options).toHaveLength(48);
+    expect(options[0]).toBe('00:00');
+    expect(options[1]).toBe('00:30');
+    expect(options.at(-1)).toBe('23:30');
   });
 
-  it('pairs the 24px trigger with a panel that adds the remainder', () => {
-    expect(timePickerPaddingClasses(24)).toEqual({
-      trigger: 'px-6',
-      panel: 'px-3',
+  it('steps by exactly 30 minutes throughout', () => {
+    const minutes = timeOptions().map((o) => {
+      const [h, m] = o.split(':').map(Number);
+      return h * 60 + m;
     });
+    const steps = new Set(minutes.slice(1).map((m, i) => m - minutes[i]));
+    expect([...steps]).toEqual([30]);
   });
 
-  it.each([12, 24] as const)(
-    'lands an option on the trigger text x for padding=%i',
-    (padding: TimePickerPadding) => {
-      const { trigger, panel } = timePickerPaddingClasses(padding);
-      // The option pill's own px-3 completes the inset, so panel + 12 has to
-      // land exactly on the trigger's padding. That is the whole alignment
-      // contract: move one side without the other and it breaks here.
-      expect(pxOf(panel) + 12).toBe(pxOf(trigger));
-      expect(pxOf(trigger)).toBe(padding);
+  it('adds nothing when the value already falls on the step', () => {
+    expect(timeOptions('09:30')).toEqual(timeOptions());
+    expect(timeOptions('00:00')).toHaveLength(48);
+  });
+
+  it.each([
+    ['08:45', 18],
+    ['10:05', 21],
+    ['09:45', 20],
+  ])(
+    'keeps a staggered route-generation time like %s selectable',
+    (value, index) => {
+      // Route start times are staggered per route, so a stored value off the
+      // half-hour step still has to appear as the selection.
+      const options = timeOptions(value);
+      expect(options).toHaveLength(49);
+      expect(options).toContain(value);
+      expect(options[index]).toBe(value);
     }
   );
 
-  it('refuses a padding with no Tailwind class rather than dropping it', () => {
-    expect(() => timePickerPaddingClasses(20 as TimePickerPadding)).toThrow(
-      /No Tailwind padding class/
-    );
+  it('keeps an off-step value before midnight in order', () => {
+    const options = timeOptions('23:45');
+    expect(options.at(-1)).toBe('23:45');
+    expect(options.at(-2)).toBe('23:30');
+  });
+
+  it('keeps an off-step value after midnight in order', () => {
+    const options = timeOptions('00:05');
+    expect(options[0]).toBe('00:00');
+    expect(options[1]).toBe('00:05');
+    expect(options[2]).toBe('00:30');
+  });
+
+  it('stays chronological with the extra value inserted', () => {
+    const options = timeOptions('16:20');
+    expect([...options].sort()).toEqual(options);
+    expect(new Set(options).size).toBe(options.length);
+  });
+
+  it('refuses a malformed value rather than offering a broken list', () => {
+    expect(() => timeOptions('8:45')).toThrow(/Expected a 24-hour/);
   });
 });
 
-describe('TimePicker trigger padding', () => {
-  it.each([12, 24] as const)(
-    'renders %i as the class the padding module chose',
-    (padding: TimePickerPadding) => {
-      const { trigger } = timePickerPaddingClasses(padding);
-      expect(renderTrigger(<TimePicker padding={padding} />)).toContain(
-        trigger
-      );
+describe('centeredScrollTop', () => {
+  // A 48-option list of 42px rows in a 128px viewport, which is the real shape.
+  const list = {
+    optionHeight: 42,
+    viewportHeight: 128,
+    contentHeight: 48 * 42,
+  };
+
+  it('centres an option from the middle of the list', () => {
+    // 20th option: 840 - (128 - 42) / 2 = 797
+    expect(centeredScrollTop({ ...list, optionTop: 20 * 42 })).toBe(797);
+  });
+
+  it('stays at the top for the first option, with nothing to scroll past', () => {
+    expect(centeredScrollTop({ ...list, optionTop: 0 })).toBe(0);
+  });
+
+  it('stays at the top for any option that cannot be centred yet', () => {
+    // Option 1 would want -1, which would leave the list blank above.
+    expect(centeredScrollTop({ ...list, optionTop: 42 })).toBe(0);
+  });
+
+  it('stops at the bottom for the last option', () => {
+    const furthest = list.contentHeight - list.viewportHeight;
+    expect(centeredScrollTop({ ...list, optionTop: 47 * 42 })).toBe(furthest);
+  });
+
+  it('stops at the bottom for any option near the end', () => {
+    const furthest = list.contentHeight - list.viewportHeight;
+    expect(centeredScrollTop({ ...list, optionTop: 46 * 42 })).toBe(furthest);
+  });
+
+  it('does not scroll when everything already fits', () => {
+    expect(
+      centeredScrollTop({
+        optionTop: 84,
+        optionHeight: 42,
+        viewportHeight: 400,
+        contentHeight: 126,
+      })
+    ).toBe(0);
+  });
+
+  it('never returns a negative or past-the-end offset across the list', () => {
+    const furthest = list.contentHeight - list.viewportHeight;
+    for (let i = 0; i < 48; i++) {
+      const top = centeredScrollTop({ ...list, optionTop: i * 42 });
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(top).toBeLessThanOrEqual(furthest);
     }
-  );
+  });
 });
