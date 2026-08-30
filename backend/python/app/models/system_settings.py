@@ -11,11 +11,7 @@ from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 
-# The only place these numbers are written down. They seed a settings row the
-# first time one is created; from then on the row is the source of truth and
-# every consumer (route generation, the seed data, the dev clustering scripts)
-# reads through to it. Nothing downstream may substitute a default of its own —
-# a request that omits a capacity is rejected, not quietly filled in.
+# Default settings constants (should only be defined here)
 DEFAULT_BOXES_PER_CAR = 10
 DEFAULT_DROPOFF_MINUTES = 3
 DEFAULT_CHILDREN_PER_BOX = 2
