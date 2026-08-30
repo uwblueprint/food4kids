@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { cleanup, render, screen } from '@testing-library/react';
 import {
   MemoryRouter,
@@ -81,20 +81,12 @@ const uploadSection = () =>
 const selected = () =>
   screen.getByTestId('selected').getAttribute('data-value');
 
-// jsdom ships neither of these, and the stepper measures itself with both.
+// happy-dom has no FontFaceSet, and the stepper waits on document.fonts.ready.
 beforeAll(() => {
   Object.defineProperty(document, 'fonts', {
     configurable: true,
     value: { ready: Promise.resolve() },
   });
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-  );
 });
 
 afterEach(cleanup);
