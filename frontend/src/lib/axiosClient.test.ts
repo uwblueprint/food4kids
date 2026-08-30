@@ -416,6 +416,22 @@ describe('refreshing an aged-out token', () => {
     useAuthStore.getState().clearAuth();
   });
 
+  /**
+   * A bound on the refresh alone. What enforces `timeout` is the adapter, so
+   * this pins the wiring rather than the abort — including that it stays off
+   * ordinary requests, where an import geocodes every new address inside one
+   * round trip and would be cut off mid-write.
+   */
+  it('bounds the refresh, and only the refresh', async () => {
+    signedIn();
+    staleToken();
+
+    await attempt();
+
+    expect(refreshes()[0].timeout).toBeGreaterThan(0);
+    expect(calls().every((config) => !config.timeout)).toBe(true);
+  });
+
   it('refreshes and replays the request, so the caller never sees the 401', async () => {
     signedIn();
     staleToken();

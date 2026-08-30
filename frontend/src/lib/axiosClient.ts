@@ -36,14 +36,30 @@ axiosClient.interceptors.request.use((config) => {
 const REFRESH_PATH = '/auth/refresh';
 
 /**
- * The server answered, and what it said was "no". A request that never got an
- * answer at all — a dropped connection, a timeout — reports nothing about the
- * session, and neither does a 5xx: the credentials were never judged. Only the
- * first kind may end a session.
+ * The token we sent was refused, and a fresh one might not be. Only a 401 says
+ * that: a 403 is "not yours", which no amount of re-authenticating changes.
  */
 export function isAuthRefusal(error: unknown): error is AxiosError {
   return isAxiosError(error) && error.response?.status === 401;
 }
+
+/**
+ * `/auth/refresh` judged the cookie and said no. It reads nothing but that
+ * cookie, so every client error it returns is the same verdict — missing,
+ * malformed, or spent — and asking again cannot change it. A 5xx or a request
+ * that never got an answer judged nothing, and leaves the session standing.
+ */
+export function isRefreshRefusal(error: unknown): error is AxiosError {
+  const status = isAxiosError(error) ? error.response?.status : undefined;
+  return status !== undefined && status >= 400 && status < 500;
+}
+
+/**
+ * A refresh that is never answered has to end somewhere: the startup restore
+ * only offers a retry once the request errors. Generous, because a cold backend
+ * has to reach Google's token endpoint before it can answer at all.
+ */
+const REFRESH_TIMEOUT_MS = 20_000;
 
 interface SessionRequestConfig extends InternalAxiosRequestConfig {
   /**
@@ -67,7 +83,9 @@ export function refreshSession(): Promise<AuthResponse> {
   const pending =
     refreshInFlight ??
     axiosClient
-      .post<AuthResponse>(REFRESH_PATH)
+      .post<AuthResponse>(REFRESH_PATH, undefined, {
+        timeout: REFRESH_TIMEOUT_MS,
+      })
       .then(({ data }) => {
         useAuthStore.getState().setAuth(data);
         return data;

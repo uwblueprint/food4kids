@@ -28,7 +28,7 @@ const PUBLIC_ROUTES = [
  * lands well inside this window and the visitor sees nothing at all; only a
  * genuinely slow one is worth explaining.
  */
-const RESTORE_GRACE_MS = 300;
+export const RESTORE_GRACE_MS = 300;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const {

@@ -16,7 +16,7 @@ import { useAuthStore } from '@/api/authStore';
 import type { AuthResponse } from '@/api/generated';
 import axiosClient from '@/lib/axiosClient';
 
-import { AuthProvider } from './AuthProvider';
+import { AuthProvider, RESTORE_GRACE_MS } from './AuthProvider';
 
 /**
  * The startup session restore, end to end: what the visitor sees while it runs,
@@ -29,9 +29,6 @@ import { AuthProvider } from './AuthProvider';
  * that is a dropped connection, not a revoked session, exactly the distinction
  * `axiosClient` already draws mid-session.
  */
-
-/** Must match RESTORE_GRACE_MS in AuthProvider.tsx. */
-const GRACE_MS = 300;
 
 const SESSION: AuthResponse = {
   access_token: 'token-xyz',
@@ -160,7 +157,7 @@ describe('while the session is being restored', () => {
     expect(container.innerHTML).toBe('');
 
     // Still nothing well into the window — not merely a first-paint artifact.
-    await advance(GRACE_MS / 2);
+    await advance(RESTORE_GRACE_MS / 2);
     expect(container.innerHTML).toBe('');
     expect(screen.queryByText(/restoring your session/i)).toBeNull();
   });
@@ -182,17 +179,25 @@ describe('while the session is being restored', () => {
 });
 
 describe('when the refresh fails', () => {
-  it('sends a visitor with no session to the login page on a 401', async () => {
-    renderApp();
-    answer({ status: 401 });
+  /**
+   * `/auth/refresh` reads nothing but the refresh cookie, so every client error
+   * it returns is the same verdict on that cookie. Offering a retry on any of
+   * them would only reproduce it, so all of them end the restore.
+   */
+  it.each([400, 401, 403, 404])(
+    'sends a visitor with no session to the login page on a %i',
+    async (status) => {
+      renderApp();
+      answer({ status });
 
-    expect(await screen.findByText('Login page')).toBeTruthy();
+      expect(await screen.findByText('Login page')).toBeTruthy();
 
-    const state = useAuthStore.getState();
-    expect(state.isRestoringSession).toBe(false);
-    expect(state.isAuthenticated).toBe(false);
-    expect(state.accessToken).toBeNull();
-  });
+      const state = useAuthStore.getState();
+      expect(state.isRestoringSession).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.accessToken).toBeNull();
+    }
+  );
 
   /**
    * The bug this file was written for. A blip on the way to `/auth/refresh`
@@ -219,7 +224,7 @@ describe('when the refresh fails', () => {
     const { container } = renderApp();
     answer({ networkError: true });
 
-    await advance(GRACE_MS - 100);
+    await advance(RESTORE_GRACE_MS - 100);
     expect(container.innerHTML).toBe('');
 
     // Non-vacuous: the failure was already in hand, just not yet worth saying.
