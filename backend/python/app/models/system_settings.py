@@ -75,7 +75,9 @@ class SystemSettingsBase(SQLModel):
     import_column_map: dict[str, str] | None = Field(
         default=None, sa_column=Column(JSON, nullable=True)
     )
-    boxes_per_car: int = Field(default=DEFAULT_BOXES_PER_CAR, ge=0)
+    # Must be >= 1: a car that holds no boxes can't hold a route, so zero is
+    # rejected here rather than surfacing as an unusable capacity at generation.
+    boxes_per_car: int = Field(default=DEFAULT_BOXES_PER_CAR, ge=1)
     dropoff_minutes: int = Field(default=DEFAULT_DROPOFF_MINUTES, ge=0)
     # Must be >= 1: box counts are derived as ceil(num_children / children_per_box),
     # so a zero divisor is invalid (see app.utilities.boxes.compute_boxes).
@@ -169,7 +171,7 @@ class SystemSettingsUpdate(SQLModel):
     warehouse_longitude: float | None = None
     warehouse_latitude: float | None = None
     import_column_map: dict[str, str] | None = Field(default=None)
-    boxes_per_car: int | None = Field(default=None, ge=0)
+    boxes_per_car: int | None = Field(default=None, ge=1)
     dropoff_minutes: int | None = Field(default=None, ge=0)
     children_per_box: int | None = Field(default=None, ge=1)
     contact_name: str | None = Field(default=None, min_length=1, max_length=255)

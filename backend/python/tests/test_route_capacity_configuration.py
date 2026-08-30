@@ -271,6 +271,41 @@ def test_unusable_configured_numbers_are_rejected(field: str, expected: int) -> 
         RouteGenerationSettings(**values)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["boxes_per_car", "children_per_box"])
+async def test_patching_settings_to_zero_is_rejected(
+    async_client: AsyncClient, field: str
+) -> None:
+    """The same floor, one layer earlier: an unusable number can't be saved.
+
+    Rejecting it here is what keeps the configure screen from having to explain
+    a capacity that was already stored.
+    """
+    await _configure_settings(async_client)
+
+    response = await async_client.patch("/system-settings/", json={field: 0})
+
+    assert response.status_code == 422
+    assert field in response.text
+
+    unchanged = await async_client.get("/system-settings/")
+    assert unchanged.json()[field] != 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["boxes_per_car", "children_per_box"])
+async def test_patching_settings_to_one_is_accepted(
+    async_client: AsyncClient, field: str
+) -> None:
+    """The boundary: 1 is the smallest usable value, not the first rejected."""
+    await _configure_settings(async_client)
+
+    response = await async_client.patch("/system-settings/", json={field: 1})
+
+    assert response.status_code == 200
+    assert response.json()[field] == 1
+
+
 def test_settings_defaults_are_the_single_source() -> None:
     """The literal defaults live here and only here.
 
