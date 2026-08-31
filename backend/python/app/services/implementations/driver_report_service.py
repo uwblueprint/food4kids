@@ -34,9 +34,10 @@ def delivery_events(bounds: tuple[date, date] | None = None) -> Subquery:
     """Deliveries as (year, month) rows — one row per delivery.
 
     A delivery is one stop on one drive date: a route_stop_snapshots row,
-    which exists only once the route has been driven and frozen. The
-    driver_id filter mirrors `mileage_events`, so km and deliveries are
-    measured over the same routes — a route nobody drove delivered nothing.
+    which exists only once the route has been driven and frozen. Routes with
+    no driver are included, mirroring `mileage_events`: the column is nulled
+    when a driver is deleted, so excluding them would drop a departed
+    volunteer's deliveries out of the org's all-time total for good.
 
     `bounds` is a half-open [start, end) drive_date range, applied to the raw
     column so it stays index-friendly. None means all time.
@@ -50,7 +51,6 @@ def delivery_events(bounds: tuple[date, date] | None = None) -> Subquery:
         .join(RouteStop)
         .join(Route)
         .join(RouteGroup)
-        .where(col(Route.driver_id).isnot(None))
     )
 
     if bounds is not None:
@@ -123,7 +123,9 @@ class DriverReportService:
     ) -> list[dict]:
         """Return per-driver km for given year/month ordered desc by km.
 
-        Derived from frozen-route lengths."""
+        Derived from frozen-route lengths. The join to Driver is what drops
+        routes with no driver — they count towards the org's totals but have
+        nobody to rank."""
         try:
             events = mileage_events(bounds=month_bounds(year, month))
             km_sum = func.sum(events.c.km).label("km")

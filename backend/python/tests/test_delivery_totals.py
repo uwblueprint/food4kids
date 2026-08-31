@@ -1,12 +1,14 @@
 """Tests for report delivery totals.
 
-A delivery is one stop on one drive date — a route_stop_snapshots row — on a
-route someone actually drove. The invariants under test:
+A delivery is one stop on one drive date — a route_stop_snapshots row on a
+frozen route. The invariants under test:
 
 * the all-time total is all time, not the trailing window the homepage charts;
-* a route with no driver assigned delivered nothing, so it counts for neither
-  deliveries nor km (the two halves of the statistics widget must measure the
-  same population);
+* the org's totals count every frozen route, including routes with no driver.
+  `Route.driver_id` is nulled when a driver is deleted, so a total that skipped
+  NULL rows would shed a departed volunteer's whole history — and volunteers
+  come and go. NULL is excluded only where a driver is the unit being reported:
+  the Top Drivers ranking and the per-driver CSV export;
 * every drive_date range in the reports is half-open [start, end), so the 1st
   of the next month belongs to the next month.
 """
@@ -30,7 +32,10 @@ from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.user import User
-from app.services.implementations.driver_history_service import month_bounds
+from app.services.implementations.driver_history_service import (
+    DriverHistoryService,
+    month_bounds,
+)
 from app.services.implementations.driver_report_service import DriverReportService
 from app.utilities.datetime_utils import from_local_wall_clock
 
@@ -246,12 +251,12 @@ async def test_all_time_endpoint_returns_both_totals(
 
 
 # ---------------------------------------------------------------------------
-# A route nobody drove delivered nothing
+# Routes with no driver still count for the org
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_unassigned_routes_count_for_neither_deliveries_nor_km(
+async def test_driverless_routes_count_towards_deliveries_and_km(
     test_session: AsyncSession,
 ) -> None:
     driver = await _make_driver(test_session, "bob")
@@ -259,17 +264,85 @@ async def test_unassigned_routes_count_for_neither_deliveries_nor_km(
     drive_date = date(2026, 4, 15)
 
     await _add_route(test_session, drive_date, locations[:2], driver.driver_id)
-    # Frozen, three stops, but nobody was ever assigned to drive it.
+    # Frozen, three stops, no driver_id — either never assigned, or assigned
+    # to someone since deleted. The org drove it either way.
     await _add_route(test_session, drive_date, locations, None)
 
     bounds = month_bounds(drive_date.year, drive_date.month)
-    assert await service.get_total_deliveries(test_session) == 2
-    assert await service.get_total_deliveries(test_session, bounds) == 2
-    assert await service.get_total_km(test_session) == KM_PER_ROUTE
+    assert await service.get_total_deliveries(test_session) == 5
+    assert await service.get_total_deliveries(test_session, bounds) == 5
+    assert await service.get_total_km(test_session) == 2 * KM_PER_ROUTE
 
     series = await service.get_monthly_series(test_session, 2026, 4, 1)
-    assert series[0]["total_deliveries"] == 2
-    assert series[0]["total_km"] == KM_PER_ROUTE
+    assert series[0]["total_deliveries"] == 5
+    assert series[0]["total_km"] == 2 * KM_PER_ROUTE
+
+
+@pytest.mark.asyncio
+async def test_driverless_routes_are_absent_from_the_top_drivers_ranking(
+    test_session: AsyncSession,
+) -> None:
+    """The org counts the route; the ranking has nobody to credit for it."""
+    driver = await _make_driver(test_session, "frank")
+    locations = await _make_locations(test_session, 2)
+    drive_date = date(2026, 4, 15)
+
+    await _add_route(test_session, drive_date, locations, driver.driver_id)
+    await _add_route(test_session, drive_date, locations, None)
+
+    ranking = await service.get_monthly_km_ranking(test_session, 2026, 4)
+
+    assert [row["driver_id"] for row in ranking] == [str(driver.driver_id)]
+    assert ranking[0]["km"] == KM_PER_ROUTE
+    # The driverless route is in the org total but in nobody's row.
+    assert await service.get_total_km(test_session) == 2 * KM_PER_ROUTE
+
+
+@pytest.mark.asyncio
+async def test_driverless_routes_are_absent_from_the_per_driver_export(
+    test_session: AsyncSession,
+) -> None:
+    """The yearly CSV export is keyed by driver, so a NULL key is meaningless."""
+    history_service = DriverHistoryService(logger)
+    driver = await _make_driver(test_session, "grace")
+    locations = await _make_locations(test_session, 1)
+
+    await _add_route(test_session, date(2026, 4, 15), locations, driver.driver_id)
+    await _add_route(test_session, date(2026, 5, 15), locations, None)
+
+    totals = await history_service.get_yearly_totals_by_driver(test_session, 2026)
+
+    assert totals == {driver.driver_id: KM_PER_ROUTE}
+    assert None not in totals
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_driver_leaves_the_org_totals_unchanged(
+    async_client: AsyncClient, test_session: AsyncSession
+) -> None:
+    """The scenario this guards: ordinary volunteer churn.
+
+    Driver delete is a hard delete that nulls `Route.driver_id`, so a total
+    that counted only routes with a driver would drop everything the departed
+    volunteer ever delivered — silently, and for good.
+    """
+    driver = await _make_driver(test_session, "heidi")
+    locations = await _make_locations(test_session, 3)
+    await _add_route(test_session, date(2026, 4, 15), locations, driver.driver_id)
+    await _add_route(test_session, date(2026, 5, 15), locations, driver.driver_id)
+
+    before = await async_client.get("/reports/totals")
+    assert before.json() == {"total_km": 2 * KM_PER_ROUTE, "total_deliveries": 6}
+
+    with patch("firebase_admin.auth.delete_user"):
+        deleted = await async_client.delete(f"/drivers/{driver.driver_id}")
+    assert deleted.status_code == 204, deleted.text
+
+    after = await async_client.get("/reports/totals")
+    assert after.json() == before.json()
+
+    # ...but the routes really are unattributed now, so nobody is ranked.
+    assert await service.get_monthly_km_ranking(test_session, 2026, 4) == []
 
 
 @pytest.mark.asyncio

@@ -857,8 +857,9 @@ export const completeDriverRegistrationMutation = (
  *
  * A hard delete of the person: the user account and their Firebase login go
  * with the driver record, so a deleted driver can no longer sign in. Their
- * routes are detached (driver_id SET NULL) rather than deleted, so the
- * driver's km stop counting toward anyone.
+ * routes are detached (driver_id SET NULL) rather than deleted: the km and
+ * deliveries stay in the org's totals, they just stop being attributed to
+ * anyone in the per-driver ranking and export.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
