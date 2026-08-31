@@ -1,4 +1,8 @@
-import axios, { type InternalAxiosRequestConfig, isAxiosError } from 'axios';
+import axios, {
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+  isAxiosError,
+} from 'axios';
 
 import { useAuthStore } from '@/api/authStore';
 import type { AuthResponse } from '@/api/generated';
@@ -31,6 +35,32 @@ axiosClient.interceptors.request.use((config) => {
 
 const REFRESH_PATH = '/auth/refresh';
 
+/**
+ * The token we sent was refused, and a fresh one might not be. Only a 401 says
+ * that: a 403 is "not yours", which no amount of re-authenticating changes.
+ */
+export function isAuthRefusal(error: unknown): error is AxiosError {
+  return isAxiosError(error) && error.response?.status === 401;
+}
+
+/**
+ * `/auth/refresh` judged the cookie and said no. It reads nothing but that
+ * cookie, so every client error it returns is the same verdict — missing,
+ * malformed, or spent — and asking again cannot change it. A 5xx or a request
+ * that never got an answer judged nothing, and leaves the session standing.
+ */
+export function isRefreshRefusal(error: unknown): error is AxiosError {
+  const status = isAxiosError(error) ? error.response?.status : undefined;
+  return status !== undefined && status >= 400 && status < 500;
+}
+
+/**
+ * A refresh that is never answered has to end somewhere: the startup restore
+ * only offers a retry once the request errors. Generous, because a cold backend
+ * has to reach Google's token endpoint before it can answer at all.
+ */
+const REFRESH_TIMEOUT_MS = 20_000;
+
 interface SessionRequestConfig extends InternalAxiosRequestConfig {
   /**
    * Set on the request we re-send once a refresh has succeeded. If a token
@@ -53,7 +83,9 @@ export function refreshSession(): Promise<AuthResponse> {
   const pending =
     refreshInFlight ??
     axiosClient
-      .post<AuthResponse>(REFRESH_PATH)
+      .post<AuthResponse>(REFRESH_PATH, undefined, {
+        timeout: REFRESH_TIMEOUT_MS,
+      })
       .then(({ data }) => {
         useAuthStore.getState().setAuth(data);
         return data;
@@ -89,7 +121,7 @@ function isRefreshRequest(config: InternalAxiosRequestConfig): boolean {
 // A 403 is left alone: the server knows exactly who we are and this isn't
 // ours, so logging in again would just repeat the same 403.
 axiosClient.interceptors.response.use(undefined, async (error: unknown) => {
-  if (!isAxiosError(error) || error.response?.status !== 401) {
+  if (!isAuthRefusal(error)) {
     return Promise.reject(error);
   }
 
