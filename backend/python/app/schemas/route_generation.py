@@ -11,6 +11,13 @@ class RouteGenerationSettings(SQLModel):
     """Settings for route generation.
 
     These are not persisted to the database; used as inputs to services.
+
+    The three configured numbers below — ``max_boxes_per_driver``,
+    ``children_per_box`` and ``service_time_minutes`` — are required, with no
+    schema-level defaults. They come from the ``system_settings`` row (see
+    ``SystemSettings.boxes_per_car`` / ``children_per_box`` /
+    ``dropoff_minutes``), and a default here would silently outrank whatever the
+    org configured whenever a caller dropped the key. Omitting one is a 422.
     """
 
     return_to_warehouse: bool = False
@@ -21,11 +28,15 @@ class RouteGenerationSettings(SQLModel):
     # read as warehouse-local time (settings.scheduler_timezone).
     route_start_time: datetime
     num_routes: int
-    max_boxes_per_driver: int = Field(default=14, gt=0)
-    # From system settings; used to derive per-location box counts as
+    # SystemSettings.boxes_per_car — the per-car capacity, in boxes.
+    max_boxes_per_driver: int = Field(gt=0)
+    # SystemSettings.children_per_box; used to derive per-location box counts as
     # ceil(num_children / children_per_box). See app.utilities.boxes.
-    children_per_box: int = Field(default=2, ge=1)
-    service_time_minutes: int = Field(default=15, gt=0)
+    children_per_box: int = Field(ge=1)
+    # SystemSettings.dropoff_minutes — time spent at each stop. ``ge=0`` mirrors
+    # the settings bound: a request must not be rejected for a value the
+    # settings screen accepts.
+    service_time_minutes: int = Field(ge=0)
 
 
 class RouteGenerationGroupInput(SQLModel):

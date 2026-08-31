@@ -13,6 +13,11 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.models.system_settings import (
+    DEFAULT_BOXES_PER_CAR,
+    DEFAULT_CHILDREN_PER_BOX,
+    DEFAULT_DROPOFF_MINUTES,
+)
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GoogleMapsFleetRoutingAlgorithm,
@@ -62,6 +67,11 @@ async def test_fleet_routing_live() -> None:
         num_routes=2,
         route_start_time=tomorrow_at_nine,
         return_to_warehouse=True,
+        # This script has no database; the F4K-configured values live in
+        # app.models.system_settings and are the numbers worth mirroring here.
+        max_boxes_per_driver=DEFAULT_BOXES_PER_CAR,
+        children_per_box=DEFAULT_CHILDREN_PER_BOX,
+        service_time_minutes=DEFAULT_DROPOFF_MINUTES,
     )
 
     algo = GoogleMapsFleetRoutingAlgorithm()

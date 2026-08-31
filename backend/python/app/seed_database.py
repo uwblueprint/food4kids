@@ -1411,9 +1411,6 @@ def main(*, reset_passwords: bool = False) -> None:
                 warehouse_location=WAREHOUSE_ADDRESS,
                 warehouse_longitude=WAREHOUSE_LON,
                 warehouse_latitude=WAREHOUSE_LAT,
-                boxes_per_car=10,
-                dropoff_minutes=3,
-                children_per_box=2,
                 contact_name="Emily Loro",
                 # The real office number has an extension; keep the seed honest.
                 contact_phone=generate_valid_phone(with_extension=True),

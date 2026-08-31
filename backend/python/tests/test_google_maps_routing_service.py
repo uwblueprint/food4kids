@@ -57,12 +57,27 @@ def make_location() -> Any:
     return _make
 
 
+# The three configured numbers have no schema defaults, so every settings
+# object in this file states them. These stand in for a system_settings row.
+CONFIGURED_BOXES_PER_CAR = 10
+CONFIGURED_CHILDREN_PER_BOX = 2
+CONFIGURED_DROPOFF_MINUTES = 3
+
+
+def _settings(**overrides: Any) -> RouteGenerationSettings:
+    base: dict[str, Any] = {
+        "num_routes": 1,
+        "route_start_time": datetime(2025, 1, 1, 9, 0),
+        "max_boxes_per_driver": CONFIGURED_BOXES_PER_CAR,
+        "children_per_box": CONFIGURED_CHILDREN_PER_BOX,
+        "service_time_minutes": CONFIGURED_DROPOFF_MINUTES,
+    }
+    return RouteGenerationSettings(**{**base, **overrides})
+
+
 @pytest.fixture()
 def sample_settings() -> RouteGenerationSettings:
-    return RouteGenerationSettings(
-        num_routes=2,
-        route_start_time=datetime(2025, 1, 1, 9, 0),
-    )
+    return _settings(num_routes=2)
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +191,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """The horizon is wide enough that a long day can never overrun it."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2026, 7, 9, 8, 30),
         )
@@ -194,7 +209,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """A tz-aware start keeps its own offset on both ends of the window."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
         )
@@ -216,7 +231,7 @@ class TestBuildPayload:
         The optimizer plans against the timestamp's day, so a settings object
         built for July must not come out anchored to some other date.
         """
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2026, 7, 9, 8, 30),
         )
@@ -233,7 +248,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """A tz-aware route_start_time is passed through, not re-stamped."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
         )
@@ -248,7 +263,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """Deliveries include duration based on service_time_minutes."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 9, 0),
             service_time_minutes=10,
@@ -266,7 +281,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """When return_to_warehouse is True, vehicles get endLocation."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 9, 0),
             return_to_warehouse=True,
@@ -351,7 +366,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """Box derivation honours a non-default children_per_box."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 9, 0),
             children_per_box=3,
