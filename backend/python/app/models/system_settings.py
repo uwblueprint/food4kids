@@ -3,13 +3,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
-from sqlalchemy import JSON
+from sqlalchemy import JSON, String
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Column, Field, SQLModel
 
 from app.utilities.utils import validate_phone
 
 from .base import BaseModel
+from .enum import RouteGenerationMethod
 
 
 def _validate_delivery_types(v: list[str]) -> list[str]:
@@ -97,6 +98,14 @@ class SystemSettingsBase(SQLModel):
     delivery_types: list[str] = Field(
         default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
+    )
+    # Default Auto spends each routing API's free monthly allowance in quality
+    # order before falling back. The explicit values pin generation to one
+    # engine and ignore quota entirely, so forcing a paid engine past its free
+    # room is a deliberate choice to start paying.
+    route_generation_method: RouteGenerationMethod = Field(
+        default=RouteGenerationMethod.AUTO,
+        sa_column=Column(String(32), nullable=False, server_default="auto"),
     )
 
     @field_validator("contact_phone")

@@ -16,6 +16,20 @@ class ProgressEnum(str, Enum):
     FAILED = "Failed"
 
 
+class RouteGenerationMethod(str, Enum):
+    """Which engine route generation should use.
+
+    ``AUTO`` walks the tiers in quality order, spending each API's free monthly
+    allowance before moving on. The rest pin generation to one engine
+    regardless of remaining quota — including past it, into paid usage.
+    """
+
+    AUTO = "auto"
+    FLEET_ROUTING = "fleet_routing"
+    SINGLE_VEHICLE = "single_vehicle"
+    CLUSTER_SWEEP = "cluster_sweep"
+
+
 class NotePermission(str, Enum):
     """Controls who can read/write on a note chain"""
 

@@ -15,12 +15,17 @@ import logging
 from functools import lru_cache
 
 from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
+from app.models.enum import RouteGenerationMethod
 from app.services.implementations.admin_service import AdminService
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.billing_service import BillingService
+from app.services.implementations.cascading_routing_algorithm import (
+    build_default_cascade,
+)
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
@@ -33,8 +38,13 @@ from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
 )
+from app.services.implementations.quota_service import QuotaService
 from app.services.implementations.route_group_service import RouteGroupService
+from app.services.implementations.routes_api_routing_service import (
+    RoutesApiSingleVehicleAlgorithm,
+)
 from app.services.implementations.scheduler_service import SchedulerService
+from app.services.implementations.sweep_algorithm import SweepAlgorithm
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
@@ -167,13 +177,65 @@ def get_route_group_service() -> RouteGroupService:
 
 
 @lru_cache
+def get_quota_service() -> QuotaService:
+    """Get quota service instance"""
+    logger = get_logger()
+    return QuotaService(logger, settings)
+
+
+@lru_cache
 def get_routing_algorithm() -> RoutingAlgorithmProtocol:
-    """Select the routing algorithm to use for route generation.
+    """The routing engine used when no system settings are available.
 
-    Currently always returns the real Google Fleet Routing implementation.
-
+    Prefer ``build_routing_algorithm``, which honours the configured method and
+    can cascade. This remains for callers with no session to read settings on.
     """
     return GoogleMapsFleetRoutingAlgorithm()
+
+
+def build_routing_algorithm(
+    method: RouteGenerationMethod,
+    session_maker: async_sessionmaker[AsyncSession],
+    warehouse_lat: float,
+    warehouse_lon: float,
+    children_per_box: int,
+) -> RoutingAlgorithmProtocol:
+    """Build the routing engine for one generation job.
+
+    ``AUTO`` returns the cascade, which spends each API's free monthly
+    allowance in quality order before falling back. The explicit methods pin
+    generation to a single engine and skip the quota check entirely — forcing a
+    paid engine past its free room is a deliberate decision to start paying.
+
+    Built per job rather than cached: the cascade records which tier it used,
+    and a shared instance would race between concurrent jobs.
+    """
+    fleet_routing = GoogleMapsFleetRoutingAlgorithm()
+    single_vehicle = RoutesApiSingleVehicleAlgorithm(
+        warehouse_lat=warehouse_lat,
+        warehouse_lon=warehouse_lon,
+        children_per_box=children_per_box,
+    )
+    cluster_sweep = SweepAlgorithm(
+        warehouse_lat=warehouse_lat,
+        warehouse_lon=warehouse_lon,
+        children_per_box=children_per_box,
+    )
+
+    if method == RouteGenerationMethod.FLEET_ROUTING:
+        return fleet_routing
+    if method == RouteGenerationMethod.SINGLE_VEHICLE:
+        return single_vehicle
+    if method == RouteGenerationMethod.CLUSTER_SWEEP:
+        return cluster_sweep
+
+    return build_default_cascade(
+        get_quota_service(),
+        session_maker,
+        fleet_routing,
+        single_vehicle,
+        cluster_sweep,
+    )
 
 
 @lru_cache
