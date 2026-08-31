@@ -25,7 +25,7 @@ from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
 from app import initialize_firebase
-from app.config import settings
+from app.config import Environment, settings
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
@@ -254,7 +254,7 @@ def get_database_url() -> str:
     In production, reads DATABASE_URL directly (supports Neon/Supabase/etc.
     with SSL params). In development, builds from individual POSTGRES_* vars.
     """
-    if os.environ.get("APP_ENV") == "production":
+    if settings.environment is Environment.PRODUCTION:
         return os.environ["DATABASE_URL"]
     return "postgresql://{username}:{password}@{host}:5432/{db}".format(
         username=os.environ["POSTGRES_USER"],

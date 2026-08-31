@@ -16,6 +16,7 @@ from sqlmodel import SQLModel
 from alembic import context
 
 # Import all models to ensure they're registered with SQLModel
+from app.config import Environment, settings
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.driver import Driver
@@ -46,7 +47,7 @@ logger = logging.getLogger("alembic.env")
 
 # Set the database URL from environment
 def get_database_url() -> str:
-    if os.getenv("APP_ENV") == "production":
+    if settings.environment is Environment.PRODUCTION:
         return os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
     else:
         return "postgresql://{username}:{password}@{host}:5432/{db}".format(
@@ -55,7 +56,7 @@ def get_database_url() -> str:
             host=os.getenv("DB_HOST"),
             db=(
                 os.getenv("POSTGRES_DB_TEST")
-                if os.getenv("APP_ENV") == "testing"
+                if settings.environment is Environment.TESTING
                 else os.getenv("POSTGRES_DB_DEV")
             ),
         )
