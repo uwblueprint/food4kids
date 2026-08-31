@@ -16,6 +16,7 @@ from sqlmodel import SQLModel
 from alembic import context
 
 # Import all models to ensure they're registered with SQLModel
+from app.database_url import SYNC_DRIVER, get_database_url
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.driver import Driver
@@ -45,22 +46,7 @@ if config.config_file_name:
 logger = logging.getLogger("alembic.env")
 
 # Set the database URL from environment
-def get_database_url() -> str:
-    if os.getenv("APP_ENV") == "production":
-        return os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
-    else:
-        return "postgresql://{username}:{password}@{host}:5432/{db}".format(
-            username=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD"),
-            host=os.getenv("DB_HOST"),
-            db=(
-                os.getenv("POSTGRES_DB_TEST")
-                if os.getenv("APP_ENV") == "testing"
-                else os.getenv("POSTGRES_DB_DEV")
-            ),
-        )
-
-config.set_main_option("sqlalchemy.url", get_database_url())
+config.set_main_option("sqlalchemy.url", get_database_url(SYNC_DRIVER))
 target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -108,7 +94,7 @@ def run_migrations_online() -> None:
 
     from sqlalchemy import create_engine
     
-    connectable = create_engine(get_database_url())
+    connectable = create_engine(get_database_url(SYNC_DRIVER))
 
     with connectable.connect() as connection:
         context.configure(

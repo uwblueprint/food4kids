@@ -1,7 +1,20 @@
-import os
+from enum import StrEnum
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Environment(StrEnum):
+    """Which deployment this process is running as.
+
+    Set by APP_ENV, and the only thing that says so. Pydantic rejects any
+    other value, so a typo fails at startup rather than silently meaning
+    development.
+    """
+
+    DEVELOPMENT = "development"
+    TESTING = "testing"
+    PRODUCTION = "production"
 
 
 class Settings(BaseSettings):
@@ -10,13 +23,14 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        populate_by_name=True,
     )
 
     # Environment
-    environment: str = Field(default="development")
-    debug: bool = Field(default=True)
-    testing: bool = Field(default=False)
+    environment: Environment = Field(default=Environment.DEVELOPMENT, alias="APP_ENV")
 
     # Database
     postgres_user: str = Field(default="")
@@ -27,17 +41,19 @@ class Settings(BaseSettings):
     database_url: str = Field(default="")
 
     # CORS
-    cors_origins: list[str] = Field(
-        default=[
-            "http://localhost:3000",
-            "https://uw-blueprint-starter-code.firebaseapp.com",
-            "https://uw-blueprint-starter-code.web.app",
-        ]
-    )
+    # Empty by default: every deployed origin belongs to a specific
+    # deployment and is configured there. Development adds its own localhost
+    # entries in create_app(). An origin listed here is trusted with
+    # credentialed requests, so the default has to be nothing.
+    cors_origins: list[str] = Field(default=[])
     cors_supports_credentials: bool = Field(default=True)
 
     # Firebase
     firebase_project_id: str = Field(default="")
+    # Used for the Identity Toolkit REST sign-in/refresh calls. Has to be a
+    # Settings field, not an os.getenv read: on Cloud Run the config arrives
+    # as a mounted secrets file, which os.getenv cannot see.
+    firebase_web_api_key: str = Field(default="")
     firebase_svc_account_private_key_id: str = Field(default="")
     firebase_svc_account_private_key: str = Field(default="")
     firebase_svc_account_client_email: str = Field(default="")
@@ -113,100 +129,9 @@ class Settings(BaseSettings):
     frontend_base_url: str = Field(default="http://localhost:3000")
 
     @property
-    def is_development(self) -> bool:
-        return self.environment == "development"
-
-    @property
-    def is_production(self) -> bool:
-        return self.environment == "production"
-
-    @property
-    def is_testing(self) -> bool:
-        return self.environment == "testing"
-
-    @property
     def FRONTEND_BASE_URL(self) -> str:
         return self.frontend_base_url
 
 
-class DevelopmentSettings(Settings):
-    """Development-specific settings"""
-
-    debug: bool = True
-    testing: bool = False
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="password")
-    postgres_db_dev: str = Field(default="f4k")
-    postgres_db_test: str = Field(default="f4k_test")
-    db_host: str = Field(default="localhost")
-    firebase_project_id: str = Field(default="")
-    firebase_svc_account_private_key_id: str = Field(default="")
-    firebase_svc_account_private_key: str = Field(default="")
-    firebase_svc_account_client_email: str = Field(default="")
-    firebase_svc_account_client_id: str = Field(default="")
-    firebase_svc_account_auth_uri: str = Field(default="")
-    firebase_svc_account_token_uri: str = Field(default="")
-    firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
-    firebase_svc_account_client_x509_cert_url: str = Field(default="")
-    google_maps_api_key: str = Field(default="")
-
-
-class ProductionSettings(Settings):
-    """Production-specific settings"""
-
-    debug: bool = False
-    testing: bool = False
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="password")
-    postgres_db_dev: str = Field(default="f4k")
-    postgres_db_test: str = Field(default="f4k_test")
-    db_host: str = Field(default="localhost")
-    firebase_project_id: str = Field(default="")
-    firebase_svc_account_private_key_id: str = Field(default="")
-    firebase_svc_account_private_key: str = Field(default="")
-    firebase_svc_account_client_email: str = Field(default="")
-    firebase_svc_account_client_id: str = Field(default="")
-    firebase_svc_account_auth_uri: str = Field(default="")
-    firebase_svc_account_token_uri: str = Field(default="")
-    firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
-    firebase_svc_account_client_x509_cert_url: str = Field(default="")
-    google_maps_api_key: str = Field(default="")
-
-
-class TestingSettings(Settings):
-    """Testing-specific settings"""
-
-    debug: bool = False
-    testing: bool = True
-    mongodb_url: str = "mongomock://localhost"
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="password")
-    postgres_db_dev: str = Field(default="f4k")
-    postgres_db_test: str = Field(default="f4k_test")
-    db_host: str = Field(default="localhost")
-    firebase_project_id: str = Field(default="")
-    firebase_svc_account_private_key_id: str = Field(default="")
-    firebase_svc_account_private_key: str = Field(default="")
-    firebase_svc_account_client_email: str = Field(default="")
-    firebase_svc_account_client_id: str = Field(default="")
-    firebase_svc_account_auth_uri: str = Field(default="")
-    firebase_svc_account_token_uri: str = Field(default="")
-    firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
-    firebase_svc_account_client_x509_cert_url: str = Field(default="")
-    google_maps_api_key: str = Field(default="")
-
-
-def get_settings() -> Settings:
-    """Get settings based on environment"""
-    environment = os.getenv("APP_ENV", "development")
-
-    if environment == "production":
-        return ProductionSettings()
-    elif environment == "testing":
-        return TestingSettings()
-    else:
-        return DevelopmentSettings()
-
-
 # Global settings instance
-settings = get_settings()
+settings = Settings()
