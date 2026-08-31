@@ -24,7 +24,8 @@ backend/python/
 ├── pyproject.toml              # Ruff config + project metadata
 ├── mypy.ini                    # mypy type checking config
 ├── alembic.ini                 # Alembic migration config
-└── requirements.txt            # Python dependencies
+├── requirements.txt            # Production dependencies (ship in the image)
+└── requirements-dev.txt        # Lint/test/stubs/plotting (dev + CI only)
 ```
 
 ## Architecture

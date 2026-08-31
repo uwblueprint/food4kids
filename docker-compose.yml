@@ -17,6 +17,10 @@ services:
     build:
       context: ./backend/python
       dockerfile: Dockerfile
+      args:
+        # Local dev needs pytest/ruff/mypy, faker for seeding, and matplotlib
+        # for the scripts/. The deployed image builds without this.
+        INSTALL_DEV: "true"
     ports:
       - 8080:8080
     dns:
