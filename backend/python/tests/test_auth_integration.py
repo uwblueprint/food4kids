@@ -121,7 +121,6 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/locations/import/preview"): Policy.ADMIN_ONLY,
     ("POST", "/locations/import"): Policy.ADMIN_ONLY,
     ("GET", "/locations/{location_id}"): Policy.ADMIN_ONLY,
-    ("PATCH", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     ("DELETE", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     # --- system settings ---
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,

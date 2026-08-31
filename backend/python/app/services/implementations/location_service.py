@@ -36,7 +36,6 @@ from app.models.location import (
     LocationImportResult,
     LocationImportRow,
     LocationRead,
-    LocationUpdate,
     NetNewEntry,
     StaleEntry,
     ValidatedLocationImportEntry,
@@ -78,6 +77,14 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
+
+
+class GeocodingError(ValueError):
+    """Raised when an address can't be resolved to a house we can deliver to.
+
+    Its own type so the router can answer 400 with the reason — an address we
+    can't route to is the caller's input, not a server fault, and as a bare
+    ValueError it surfaced as a 500."""
 
 
 @dataclass
@@ -508,36 +515,6 @@ class LocationService:
             return await self.get_location_by_id(session, location.location_id)
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def update_location_by_id(
-        self,
-        session: AsyncSession,
-        location_id: UUID,
-        updated_location_data: LocationUpdate,
-    ) -> Location:
-        """Update location by ID"""
-        try:
-            # Get the existing location by ID
-            location = await self.get_location_by_id(session, location_id)
-
-            # Update existing location with new data
-            updated_data = updated_location_data.model_dump(exclude_unset=True)
-            if "delivery_type" in updated_data:
-                await self.validate_delivery_type(
-                    session, updated_data["delivery_type"]
-                )
-            for field, value in updated_data.items():
-                setattr(location, field, value)
-
-            await session.commit()
-            # Reload with location_group eager-loaded so serializing to
-            # LocationRead (location_group_name) doesn't lazy-load post-commit.
-            return await self.get_location_by_id(session, location_id)
-
-        except Exception as e:
-            self.logger.error(f"Failed to update location by id: {e!s}")
             await session.rollback()
             raise e
 
@@ -1174,10 +1151,10 @@ class LocationService:
             geocode_result = await self.google_maps_service.geocode_address(address)
 
             if not geocode_result:
-                raise ValueError(f"Geocoding failed for address: {address}")
+                raise GeocodingError(f"Geocoding failed for address: {address}")
 
             if not geocode_result.is_precise:
-                raise ValueError(
+                raise GeocodingError(
                     f"Address is not specific enough to deliver to: {address} "
                     f"(resolved to {geocode_result.formatted_address}). "
                     "Include a street number."

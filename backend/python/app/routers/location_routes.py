@@ -22,15 +22,22 @@ from app.models.location import (
     LocationImportPreview,
     LocationImportResult,
     LocationRead,
-    LocationUpdate,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
+    GeocodingError,
     InvalidDeliveryTypeError,
     LocationInUseError,
     LocationService,
 )
 
+# There is deliberately no PATCH /locations/{location_id}. A household is
+# created (geocoded once) and replaced, never edited in place: the roster
+# import owns changes, and it retires the old row and creates a new one rather
+# than moving a house — address is one of the three fields in its 2-of-3
+# identity rule. An update endpoint would let a new address be written over
+# coordinates still pointing at the old house, which is silent: the admin sees
+# the address they typed and the driver is routed to the previous one.
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
@@ -109,40 +116,9 @@ async def create_location(
     try:
         created_location = await location_service.create_location(session, location)
         return LocationRead.model_validate(created_location)
-    except InvalidDeliveryTypeError as ve:
+    except (InvalidDeliveryTypeError, GeocodingError) as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(ve),
-        ) from ve
-
-
-@router.patch(
-    "/{location_id}", response_model=LocationRead, status_code=status.HTTP_200_OK
-)
-async def update_location(
-    location_id: UUID,
-    updated_location_data: LocationUpdate,
-    session: AsyncSession = Depends(get_session),
-    location_service: LocationService = Depends(get_location_service),
-    _auth: bool = Depends(require_admin),
-) -> LocationRead:
-    """
-    Update a location by ID
-    """
-    try:
-        updated_location = await location_service.update_location_by_id(
-            session, location_id, updated_location_data
-        )
-        return LocationRead.model_validate(updated_location)
-
-    except InvalidDeliveryTypeError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(ve),
-        ) from ve
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
 

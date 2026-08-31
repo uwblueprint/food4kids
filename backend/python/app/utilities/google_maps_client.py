@@ -27,7 +27,14 @@ def is_precise_geocode_result(result: dict[str, Any]) -> bool:
     A house we can deliver to has both a street_number component and a
     location_type better than APPROXIMATE; neither alone is sufficient. Also
     rejects PO boxes and bare rural routes, which no driver can find.
+
+    ``partial_match`` is Google's own "this is not what you asked for" flag —
+    set when the geocoder had to drop or guess part of the query (a misspelled
+    street, an address that exists on a same-named street in another town). It
+    is omitted entirely on an exact match, so its absence means a clean hit.
     """
+    if result.get("partial_match", False):
+        return False
     component_types = {
         component_type
         for component in result["address_components"]
