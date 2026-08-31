@@ -1,6 +1,10 @@
 import { useState } from 'react';
 
-import { useMonthlyDriverRanking, useMonthlySeries } from '@/api/reports';
+import {
+  useAllTimeTotals,
+  useMonthlyDriverRanking,
+  useMonthlySeries,
+} from '@/api/reports';
 import ArrowDropDownIcon from '@/assets/icons/arrow-drop-down.svg?react';
 import {
   Card,
@@ -32,6 +36,10 @@ import {
  * The two bar-chart views read from a single six-month series request, so
  * toggling between them is instant and costs no extra fetch. "Top Drivers" is
  * a separate per-month request, issued only once that view is opened.
+ *
+ * The headline totals come from their own all-time request rather than from
+ * the series: the chart's window and a figure labelled "Total" mean different
+ * things, and deriving one from the other is what made them disagree.
  */
 export function StatisticsWidget() {
   const [view, setView] = useState<StatisticView>('distance');
@@ -41,7 +49,16 @@ export function StatisticsWidget() {
   // trusting the browser clock to agree with the backend's timezone.
   const [rankingMonth, setRankingMonth] = useState<CalendarMonth | null>(null);
 
-  const { data: series, isLoading, isError } = useMonthlySeries(SERIES_MONTHS);
+  const {
+    data: series,
+    isLoading: isSeriesLoading,
+    isError: isSeriesError,
+  } = useMonthlySeries(SERIES_MONTHS);
+  const {
+    data: totals,
+    isLoading: isTotalsLoading,
+    isError: isTotalsError,
+  } = useAllTimeTotals();
 
   const latest = series?.at(-1);
   const newestMonth: CalendarMonth | undefined = latest
@@ -54,6 +71,10 @@ export function StatisticsWidget() {
 
   const activeView = STATISTIC_VIEWS.find(({ id }) => id === view);
   const hasSeries = series !== undefined && series.length > 0;
+  // Both requests are issued together on mount, so the card resolves as one
+  // unit rather than flashing a half-populated state.
+  const isLoading = isSeriesLoading || isTotalsLoading;
+  const isError = isSeriesError || isTotalsError;
 
   const renderBody = () => {
     if (isLoading) {
@@ -64,7 +85,7 @@ export function StatisticsWidget() {
       );
     }
 
-    if (isError || !hasSeries || !selectedMonth) {
+    if (isError || !hasSeries || !selectedMonth || !totals) {
       return (
         <div className="flex flex-1 items-center justify-center">
           <p className="text-grey-400 text-p1 text-center">
@@ -92,6 +113,7 @@ export function StatisticsWidget() {
           month: point.month,
           value: isDistance ? point.total_km : point.total_deliveries,
         }))}
+        total={isDistance ? totals.total_km : totals.total_deliveries}
         totalLabel={isDistance ? 'Total Kilometers' : 'Total Deliveries'}
         formatValue={isDistance ? formatKilometres : formatCount}
       />

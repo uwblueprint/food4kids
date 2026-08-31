@@ -21,6 +21,20 @@ export type AlertCode =
   | 'LOCAL_DUPLICATE';
 
 /**
+ * AllTimeTotalsResponse
+ */
+export type AllTimeTotalsResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
+};
+
+/**
  * AnnouncementCreate
  *
  * Announcement creation request
@@ -4085,13 +4099,13 @@ export type GetTotalDeliveriesBetweenData = {
     /**
      * Start
      *
-     * Start datetime (assumed EST if no tz)
+     * Start datetime, inclusive (assumed EST if no tz)
      */
     start: string;
     /**
      * End
      *
-     * End datetime (assumed EST if no tz)
+     * End datetime, exclusive (assumed EST if no tz)
      */
     end: string;
   };
@@ -4239,6 +4253,23 @@ export type GetMonthlyTotalsResponses = {
 
 export type GetMonthlyTotalsResponse =
   GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
+
+export type GetAllTimeTotalsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/reports/totals';
+};
+
+export type GetAllTimeTotalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: AllTimeTotalsResponse;
+};
+
+export type GetAllTimeTotalsResponse =
+  GetAllTimeTotalsResponses[keyof GetAllTimeTotalsResponses];
 
 export type GetRouteGroupsData = {
   body?: never;

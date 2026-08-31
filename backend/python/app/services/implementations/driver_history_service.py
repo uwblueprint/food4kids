@@ -44,6 +44,11 @@ def mileage_events(
     A route counts once it's frozen (has a RouteSnapshot), bucketed by its
     group's drive_date month. `bounds` is a half-open [start, end)
     drive_date range, applied to the raw column so it stays index-friendly.
+
+    Rows with a NULL driver_id are included: driver deletion nulls the column
+    (ondelete=SET NULL), so filtering them out here would erase a departed
+    volunteer's kilometres from the org's history. Consumers that report
+    per-driver figures exclude NULL themselves.
     """
     events: Any = (
         select(
@@ -54,7 +59,6 @@ def mileage_events(
         )
         .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
         .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
-        .where(col(Route.driver_id).isnot(None))
     )
 
     if driver_id is not None:
@@ -141,10 +145,17 @@ class DriverHistoryService:
         """Per-driver km totals for one year (powers the CSV export)."""
         try:
             events = mileage_events(bounds=month_bounds(year))
-            statement = select(
-                events.c.driver_id,
-                func.sum(events.c.km).label("km"),
-            ).group_by(events.c.driver_id)
+            statement = (
+                select(
+                    events.c.driver_id,
+                    func.sum(events.c.km).label("km"),
+                )
+                # Routes whose driver was deleted (or never assigned) still
+                # count org-wide, but they have no driver to attribute a
+                # per-driver row to.
+                .where(col(events.c.driver_id).isnot(None))
+                .group_by(events.c.driver_id)
+            )
             result = await session.execute(statement)
             return {row.driver_id: float(row.km) for row in result.all()}
         except Exception as e:

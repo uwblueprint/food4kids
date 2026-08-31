@@ -33,6 +33,7 @@ import {
   exportAllDriversHistory,
   forgotPassword,
   generateJob,
+  getAllTimeTotals,
   getAnnouncement,
   getAnnouncements,
   getBillingCosts,
@@ -147,6 +148,8 @@ import type {
   GenerateJobData,
   GenerateJobError,
   GenerateJobResponse,
+  GetAllTimeTotalsData,
+  GetAllTimeTotalsResponse,
   GetAnnouncementData,
   GetAnnouncementError,
   GetAnnouncementResponse,
@@ -854,8 +857,9 @@ export const completeDriverRegistrationMutation = (
  *
  * A hard delete of the person: the user account and their Firebase login go
  * with the driver record, so a deleted driver can no longer sign in. Their
- * routes are detached (driver_id SET NULL) rather than deleted, so the
- * driver's km stop counting toward anyone.
+ * routes are detached (driver_id SET NULL) rather than deleted: the km and
+ * deliveries stay in the org's totals, they just stop being attributed to
+ * anyone in the per-driver ranking and export.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -1923,8 +1927,12 @@ export const getTotalDeliveriesBetweenQueryKey = (
 /**
  * Get Total Deliveries Between
  *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
+ * Return total deliveries (route stop snapshots) in [start, end).
+ *
+ * Query params are treated as EST if no timezone is provided, then reduced
+ * to calendar days — a drive date is a day, not an instant. The range is
+ * half-open like every other range in the reports, so consecutive windows
+ * tile instead of double-counting their shared boundary day.
  */
 export const getTotalDeliveriesBetweenOptions = (
   options: Options<GetTotalDeliveriesBetweenData>
@@ -1955,8 +1963,12 @@ export const getTotalDeliveriesBetweenInfiniteQueryKey = (
 /**
  * Get Total Deliveries Between
  *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
+ * Return total deliveries (route stop snapshots) in [start, end).
+ *
+ * Query params are treated as EST if no timezone is provided, then reduced
+ * to calendar days — a drive date is a day, not an instant. The range is
+ * half-open like every other range in the reports, so consecutive windows
+ * tile instead of double-counting their shared boundary day.
  */
 export const getTotalDeliveriesBetweenInfiniteOptions = (
   options: Options<GetTotalDeliveriesBetweenData>
@@ -2091,6 +2103,40 @@ export const getMonthlyTotalsOptions = (
       return data;
     },
     queryKey: getMonthlyTotalsQueryKey(options),
+  });
+
+export const getAllTimeTotalsQueryKey = (
+  options?: Options<GetAllTimeTotalsData>
+) => createQueryKey('getAllTimeTotals', options);
+
+/**
+ * Get All Time Totals
+ *
+ * Return all-time km driven and deliveries made, across every driven route.
+ *
+ * Separate from /monthly-series on purpose: the homepage's headline totals
+ * mean "since we started", and deriving them from the chart's window would
+ * silently make them a trailing-N-month figure instead.
+ */
+export const getAllTimeTotalsOptions = (
+  options?: Options<GetAllTimeTotalsData>
+) =>
+  queryOptions<
+    GetAllTimeTotalsResponse,
+    AxiosError<DefaultError>,
+    GetAllTimeTotalsResponse,
+    ReturnType<typeof getAllTimeTotalsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getAllTimeTotals({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getAllTimeTotalsQueryKey(options),
   });
 
 export const getRouteGroupsQueryKey = (options?: Options<GetRouteGroupsData>) =>
