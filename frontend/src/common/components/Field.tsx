@@ -27,7 +27,8 @@ function FieldLabel({
       {...props}
     >
       {children}
-      {required && <span className="text-red ml-0.5">*</span>}
+      {/* The gap before the asterisk is a spacing token, not a character. */}
+      {required && <span className="text-red ml-1">*</span>}
     </label>
   );
 }
