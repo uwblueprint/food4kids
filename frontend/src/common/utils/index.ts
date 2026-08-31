@@ -1,6 +1,7 @@
 export {
   formatDisplayDate,
   formatShortDate,
+  isPastDate,
   parseDateOnly,
   toNaiveDateString,
 } from './dateUtils';

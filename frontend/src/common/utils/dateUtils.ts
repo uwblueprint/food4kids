@@ -32,3 +32,11 @@ export const parseDateOnly = (isoDate: string): Date => {
   const [year, month, day] = datePart.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
+
+/**
+ * True when `date` falls on a calendar day before today. Compares the naive
+ * "YYYY-MM-DD" strings so the answer matches the day the admin sees in the
+ * calendar, whatever time of day it is.
+ */
+export const isPastDate = (date: Date): boolean =>
+  toNaiveDateString(date) < toNaiveDateString(new Date());

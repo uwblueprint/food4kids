@@ -4656,6 +4656,131 @@ class TestRouteGroupRoutes:
         assert body["delivery_type"] is None
 
     @pytest.mark.asyncio
+    async def test_duplicate_route_group_accepts_a_past_drive_date(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A backdated copy is allowed, and immediately reads as COMPLETED.
+
+        Deliberate: admins backfill deliveries that already happened, so the
+        guard is a confirmation in the UI rather than a rejection here. The
+        nightly freeze job will snapshot the copy into driver history, which
+        is what that confirmation warns about.
+        """
+        route_group = RouteGroup(
+            name="Tuesday A", notes="", drive_date=date(2026, 7, 9)
+        )
+        test_session.add(route_group)
+        await test_session.commit()
+
+        past = date.today() - timedelta(days=30)
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={"drive_date": past.isoformat()},
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["drive_date"] == past.isoformat()
+        assert body["status"] == RouteStatusEnum.COMPLETED.value
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_without_copying_drivers(
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
+    ) -> None:
+        """copy_drivers=false leaves every copied route unassigned.
+
+        The assigned route keeps its start_time, which the copy must too: a
+        route may carry a start time with no driver, but not the reverse.
+        """
+        from sqlmodel import select
+
+        route_group = RouteGroup(
+            name="Tuesday A - Cambridge North",
+            notes="",
+            drive_date=date(2026, 7, 9),
+        )
+        test_session.add(route_group)
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                Route(
+                    name="Assigned Route",
+                    length=8.0,
+                    route_group_id=route_group.route_group_id,
+                    driver_id=test_driver.driver_id,
+                    start_time=time(8, 30),
+                ),
+                Route(
+                    name="Unassigned Route",
+                    length=4.0,
+                    route_group_id=route_group.route_group_id,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={"name": "Cambridge North (Copy)", "copy_drivers": False},
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["num_routes"] == 2
+        assert body["num_drivers_assigned"] == 0
+
+        result = await test_session.execute(
+            select(Route)
+            .where(Route.route_group_id == UUID(body["route_group_id"]))
+            .order_by(Route.name)
+        )
+        copied_assigned, copied_unassigned = list(result.scalars().all())
+        assert copied_assigned.name == "Assigned Route"
+        assert copied_assigned.driver_id is None
+        assert copied_assigned.start_time == time(8, 30)
+        assert copied_unassigned.driver_id is None
+
+        # The original keeps its assignment — duplication never moves drivers.
+        await test_session.refresh(route_group)
+        original = await test_session.execute(
+            select(Route).where(
+                Route.route_group_id == route_group.route_group_id,
+                Route.name == "Assigned Route",
+            )
+        )
+        assert original.scalars().one().driver_id == test_driver.driver_id
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_copy_drivers_true_is_explicit_default(
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
+    ) -> None:
+        """Passing copy_drivers=true matches the no-body default: drivers carry over."""
+        route_group = RouteGroup(
+            name="Thursday B", notes="", drive_date=date(2026, 7, 9)
+        )
+        test_session.add(route_group)
+        await test_session.flush()
+        test_session.add(
+            Route(
+                name="Assigned Route",
+                length=8.0,
+                route_group_id=route_group.route_group_id,
+                driver_id=test_driver.driver_id,
+                start_time=time(8, 30),
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={"copy_drivers": True},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["num_drivers_assigned"] == 1
+
+    @pytest.mark.asyncio
     async def test_duplicate_route_group_not_found(
         self, async_client: AsyncClient
     ) -> None:

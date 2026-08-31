@@ -1,7 +1,6 @@
 import type { RouteGroupRead } from '@/api/generated/types.gen';
 import { useDeleteRouteGroup } from '@/api/route-groups';
-
-import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ConfirmModal } from '@/common/components';
 
 interface DeleteRouteGroupModalProps {
   open: boolean;
@@ -35,7 +34,7 @@ export function DeleteRouteGroupModal({
   };
 
   return (
-    <ConfirmDeleteModal
+    <ConfirmModal
       open={open}
       onOpenChange={handleOpenChange}
       title="Delete Route Group"
@@ -45,9 +44,14 @@ export function DeleteRouteGroupModal({
           action cannot be undone.
         </>
       }
-      isPending={isPending}
-      isError={isError}
-      errorMessage="Something went wrong deleting the group. Please try again."
+      confirmLabel="Delete"
+      confirmVariant="destructive"
+      isLoading={isPending}
+      error={
+        isError
+          ? 'Something went wrong deleting the group. Please try again.'
+          : null
+      }
       onConfirm={handleDelete}
     />
   );

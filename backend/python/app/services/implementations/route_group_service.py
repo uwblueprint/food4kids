@@ -87,8 +87,9 @@ class RouteGroupService:
     ) -> RouteGroupRead | None:
         """Duplicate a route group with fresh route/stop rows.
 
-        `overrides` supplies the new group's name and drive_date; either falls
-        back to the original ("Copy of {name}" / same date) when omitted.
+        `overrides` supplies the new group's name, drive_date and whether
+        driver assignments carry over; each falls back to the original
+        ("Copy of {name}" / same date / same drivers) when omitted.
 
         Route snapshots and note chains are intentionally not copied: they are
         historical records attached to the original route. New routes point
@@ -106,6 +107,7 @@ class RouteGroupService:
             self.logger.error(f"RouteGroup with id {route_group_id} not found")
             return None
 
+        copy_drivers = overrides.copy_drivers if overrides else True
         default_name = f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
             :ROUTE_GROUP_NAME_MAX_LENGTH
         ]
@@ -132,7 +134,7 @@ class RouteGroupService:
                 ends_at_warehouse=route.ends_at_warehouse,
                 start_time=route.start_time,
                 route_group_id=duplicated_group.route_group_id,
-                driver_id=route.driver_id,
+                driver_id=route.driver_id if copy_drivers else None,
                 cloned_from_route_id=route.route_id,
             )
             duplicated_group.routes.append(duplicated_route)

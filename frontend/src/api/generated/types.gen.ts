@@ -1794,10 +1794,15 @@ export type RouteGroupCreate = {
  *
  * Duplicate request model - overrides for the copied group.
  *
- * Both optional so the endpoint also works with no body: name falls back to
- * "Copy of {original}" and drive_date to the original's date.
+ * Every field has a default so the endpoint also works with no body: name
+ * falls back to "Copy of {original}", drive_date to the original's date, and
+ * driver assignments carry over.
  */
 export type RouteGroupDuplicate = {
+  /**
+   * Copy Drivers
+   */
+  copy_drivers?: boolean;
   /**
    * Drive Date
    */
