@@ -25,6 +25,7 @@ from app.models.route_group import (
     RouteGroupUpdate,
     RouteReadSummary,
 )
+from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
@@ -33,6 +34,18 @@ from app.utilities.route_ordering import route_name_sort_key
 
 ROUTE_GROUP_COPY_PREFIX = "Copy of "
 ROUTE_GROUP_NAME_MAX_LENGTH = 255
+
+
+class FrozenRouteGroupError(Exception):
+    """Raised when an edit would move an already-frozen group's drive date.
+
+    Freezing snapshots a route as delivered, and the group's drive_date is the
+    date that record is filed under. Moving it forward would leave the snapshot
+    behind: the group would read "Upcoming" while still counting as driven, and
+    the freeze job (which only scans due, un-frozen routes) would never revisit
+    it. Correcting a frozen group's date is a records question, not a
+    scheduling one, so it isn't offered here at all.
+    """
 
 
 class RouteGroupService:
@@ -73,11 +86,34 @@ class RouteGroupService:
             return None
 
         update_data = route_group_data.model_dump(exclude_unset=True)
+
+        # Re-sending the same date is a no-op, so only an actual move is blocked.
+        if (
+            "drive_date" in update_data
+            and update_data["drive_date"] != route_group.drive_date
+            and await self._is_frozen(session, route_group_id)
+        ):
+            raise FrozenRouteGroupError(
+                f"RouteGroup {route_group_id} has frozen routes; its drive date "
+                f"({route_group.drive_date.isoformat()}) is part of the delivery "
+                f"record and can no longer be changed."
+            )
+
         for field, value in update_data.items():
             setattr(route_group, field, value)
 
         await session.commit()
         return await self._read_back(session, route_group_id)
+
+    async def _is_frozen(self, session: AsyncSession, route_group_id: UUID) -> bool:
+        """Whether any route in the group has been frozen (has a RouteSnapshot)."""
+        result = await session.execute(
+            select(RouteSnapshot.route_id)
+            .join(Route, Route.route_id == RouteSnapshot.route_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == route_group_id)
+            .limit(1)
+        )
+        return result.first() is not None
 
     async def duplicate_route_group(
         self,
@@ -241,6 +277,18 @@ class RouteGroupService:
             .label("delivery_type")
         )
 
+        # Frozen is a property of the routes, not the group: one snapshotted
+        # route makes the group's drive date part of the delivery record.
+        frozen_expr = (
+            select(1)
+            .select_from(Route)
+            .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
+            .where(Route.route_group_id == RouteGroup.route_group_id)
+            .correlate(RouteGroup)
+            .exists()
+            .label("frozen")
+        )
+
         today = self._today()
 
         status_expr = case(
@@ -255,6 +303,7 @@ class RouteGroupService:
             num_drivers_subq,
             delivery_type_expr,
             status_expr,
+            frozen_expr,
         )
 
     @staticmethod
@@ -288,6 +337,7 @@ class RouteGroupService:
             num_drivers_assigned=row.num_drivers_assigned,
             delivery_type=row.delivery_type,
             status=row.status,
+            frozen=row.frozen,
             routes=routes,
         )
 

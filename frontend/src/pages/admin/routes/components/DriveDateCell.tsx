@@ -6,8 +6,15 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from '@/common/components';
-import { formatShortDate, parseDateOnly } from '@/common/utils';
+import {
+  formatShortDate,
+  parseDateOnly,
+  toNaiveDateString,
+} from '@/common/utils';
 
 /** How long the pointer must rest on the date before the popup opens. */
 const OPEN_DELAY_MS = 400;
@@ -17,21 +24,31 @@ const CLOSE_DELAY_MS = 150;
 interface DriveDateCellProps {
   /** The group whose drive_date the picked day is written to. */
   routeGroupId: string;
-  /** Current drive date as the API's naive ISO datetime string. */
+  /** Current drive date as the API's ISO date string. */
   driveDate: string;
+  /**
+   * True once any of the group's routes is frozen. The date is then part of
+   * the delivery record, so the cell drops to read-only rather than offering a
+   * calendar the API would reject (see RouteGroupRead.frozen).
+   */
+  frozen: boolean;
   /** Called once the new date saves, e.g. to highlight the updated row. */
   onUpdated?: () => void;
 }
 
 /**
- * Date cell for the routes-page tables: shows MM/DD/YY and opens a calendar
- * popup on hover that PATCHes the group's drive_date when a day is picked.
- * On the Routes tab this moves the whole group the route belongs to (the
- * date lives on the group, so sibling routes move with it).
+ * Editable Date cell for the routes page's Groups tab: shows MM/DD/YY and
+ * opens a calendar popup on hover that PATCHes the group's drive_date when a
+ * day is picked.
+ *
+ * Groups only. The date lives on RouteGroup, so editing it from the Routes tab
+ * silently moved every sibling route in the group — that tab shows the date as
+ * plain text instead.
  */
 export function DriveDateCell({
   routeGroupId,
   driveDate,
+  frozen,
   onUpdated,
 }: DriveDateCellProps) {
   const [open, setOpen] = useState(false);
@@ -54,23 +71,35 @@ export function DriveDateCell({
   };
 
   const selected = parseDateOnly(driveDate);
-  // drive_date is a naive datetime; keep its time-of-day, change only the day
-  const [, timePart = '00:00:00'] = driveDate.split('T');
 
   const handleSelect = (date: Date | undefined) => {
     if (!date) return;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
     updateRouteGroup(
       {
         path: { route_group_id: routeGroupId },
-        body: { drive_date: `${y}-${m}-${d}T${timePart}` },
+        body: { drive_date: toNaiveDateString(date) },
       },
       { onSuccess: () => onUpdated?.() }
     );
     setOpen(false);
   };
+
+  // Say why rather than let the admin find out by being rejected: the API
+  // returns 409 for this move, and a calendar that quietly fails is worse than
+  // no calendar.
+  if (frozen) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-default">{formatShortDate(driveDate)}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          These routes have been delivered — the date is part of the record and
+          can no longer be changed.
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

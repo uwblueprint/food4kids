@@ -25,13 +25,14 @@ import { orDash } from '@/common/utils';
 
 import { routeFiltersToQuery, useRouteFilters } from '../hooks';
 import { AssignDriverCell } from './AssignDriverCell';
-import { DriveDateCell } from './DriveDateCell';
+import { routeDriveDateColumn } from './driveDateColumns';
 import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
 import { RouteFilterModal } from './RouteFilterModal';
 import { StatusHeader } from './StatusHeader';
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
+  routeDriveDateColumn,
   {
     key: 'delivery_type',
     header: 'Delivery Type',
@@ -93,8 +94,7 @@ export function RouteRoutesTab() {
   const page = clampPage(requestedPage, totalPages, setPage);
   const { sort, toggleSort } = useTableSort();
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  // Highlight + scroll a row after a date edit (re-sorts it) or a driver
-  // reassignment (updates it in place).
+  // Highlight + scroll a row after a driver reassignment updates it in place.
   const { containerRef, highlightRow, getRowClassName } = useRowHighlight(rows);
   const handleRowChanged = useCallback(
     (routeId: string) => highlightRow(routeId),
@@ -102,21 +102,8 @@ export function RouteRoutesTab() {
   );
 
   const columns = useMemo<Column<RouteWithDateRead>[]>(
-    () => [
-      {
-        key: 'drive_date',
-        header: 'Delivery Date',
-        sortable: true,
-        sortValue: (row: RouteWithDateRead) => new Date(row.drive_date),
-        render: (row) => (
-          <DriveDateCell
-            routeGroupId={row.route_group_id}
-            driveDate={row.drive_date}
-            onUpdated={() => handleRowChanged(row.route_id)}
-          />
-        ),
-      },
-      ...COLUMNS.map((col) => {
+    () =>
+      COLUMNS.map((col) => {
         if (col.key === 'driver_name') {
           return {
             ...col,
@@ -149,7 +136,6 @@ export function RouteRoutesTab() {
         }
         return col;
       }),
-    ],
     [handleRowChanged, searchTerm]
   );
 

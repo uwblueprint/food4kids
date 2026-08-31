@@ -8,7 +8,7 @@ history automatically and can never drift.
 """
 
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import date, time, timedelta
 from typing import Any
 from unittest.mock import patch
 from uuid import UUID, uuid4
@@ -33,7 +33,10 @@ from app.services.implementations.location_service import (
     LocationInUseError,
     LocationService,
 )
-from app.services.implementations.route_group_service import RouteGroupService
+from app.services.implementations.route_group_service import (
+    FrozenRouteGroupError,
+    RouteGroupService,
+)
 from app.services.implementations.route_service import RouteService
 
 logger = logging.getLogger(__name__)
@@ -339,23 +342,41 @@ async def test_route_delete_removes_km(
 
 
 @pytest.mark.asyncio
+async def test_group_date_move_is_refused_once_frozen(
+    test_session: AsyncSession, frozen_world: dict[str, Any]
+) -> None:
+    """A frozen group's drive_date is the date its delivery record is filed
+    under, so the service refuses to move it. (Un-frozen groups are still just
+    a plan and move freely — see the route-group route tests.)"""
+    service = RouteGroupService(logger)
+    yesterday = frozen_world["yesterday"]
+
+    with pytest.raises(FrozenRouteGroupError):
+        await service.update_route_group(
+            test_session,
+            frozen_world["route_group"].route_group_id,
+            RouteGroupUpdate(drive_date=date(yesterday.year - 1, 3, 15)),
+        )
+
+
+@pytest.mark.asyncio
 async def test_group_date_correction_rebuckets(
     test_session: AsyncSession, frozen_world: dict[str, Any]
 ) -> None:
-    """Fixing a group's drive_date moves its routes' km to the right month
-    automatically — no guard needed, the derivation follows the data."""
-    service = RouteGroupService(logger)
+    """Should a frozen group's date ever be corrected (by a migration or a
+    hand-written fix, since the API now refuses it), the km follow the data:
+    the monthly buckets are derived from drive_date, never stored."""
     a = frozen_world["driver_a"].driver_id
     yesterday = frozen_world["yesterday"]
 
-    # Move the frozen group to a clearly different month.
-    new_date = datetime(yesterday.year - 1, 3, 15)
-    updated = await service.update_route_group(
-        test_session,
-        frozen_world["route_group"].route_group_id,
-        RouteGroupUpdate(drive_date=new_date),
+    # Move the frozen group to a clearly different month, at the model level.
+    new_date = date(yesterday.year - 1, 3, 15)
+    group = await test_session.get(
+        RouteGroup, frozen_world["route_group"].route_group_id
     )
-    assert updated is not None
+    assert group is not None
+    group.drive_date = new_date
+    await test_session.commit()
 
     monthly = await history_service.get_monthly_totals(test_session, a)
     by_bucket = {(t.year, t.month): t.km for t in monthly}

@@ -4444,6 +4444,127 @@ class TestRouteGroupRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("test_route")
+    async def test_update_route_group_accepts_a_date_move_when_unfrozen(
+        self, async_client: AsyncClient, test_route_group: Any
+    ) -> None:
+        """An un-frozen group is still just a plan — its date can be moved."""
+        response = await async_client.patch(
+            f"/route-groups/{test_route_group.route_group_id}",
+            json={"drive_date": "2024-02-20"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["drive_date"] == "2024-02-20"
+        assert body["frozen"] is False
+
+    @pytest.mark.asyncio
+    async def test_update_route_group_rejects_a_date_move_when_frozen(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """Freezing files the group's routes under its drive date. Moving it
+        would leave the snapshot behind — the group would read Upcoming while
+        still counting as driven, and the freeze job (which scans only due,
+        un-frozen routes) would never revisit it."""
+        test_session.add(
+            RouteSnapshot(
+                route_id=test_route.route_id,
+                start_address="Warehouse",
+                start_latitude=43.0,
+                start_longitude=-80.0,
+            )
+        )
+        await test_session.commit()
+
+        original = test_route_group.drive_date.isoformat()
+        response = await async_client.patch(
+            f"/route-groups/{test_route_group.route_group_id}",
+            json={"drive_date": "2024-02-20"},
+        )
+        assert response.status_code == 409
+        assert "frozen" in response.json()["detail"]
+
+        # Rejected, not silently swallowed: the stored date is untouched.
+        get_response = await async_client.get("/route-groups")
+        stored = next(
+            rg
+            for rg in get_response.json()["items"]
+            if rg["route_group_id"] == str(test_route_group.route_group_id)
+        )
+        assert stored["drive_date"] == original
+        assert stored["frozen"] is True
+
+    @pytest.mark.asyncio
+    async def test_update_route_group_allows_other_edits_when_frozen(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """Only the date is part of the frozen record; the name and notes are
+        labels and stay editable. Re-sending the same date is a no-op, so it
+        isn't a move and isn't blocked either."""
+        test_session.add(
+            RouteSnapshot(
+                route_id=test_route.route_id,
+                start_address="Warehouse",
+                start_latitude=43.0,
+                start_longitude=-80.0,
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.patch(
+            f"/route-groups/{test_route_group.route_group_id}",
+            json={
+                "name": "Renamed after delivery",
+                "drive_date": test_route_group.drive_date.isoformat(),
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == "Renamed after delivery"
+
+    @pytest.mark.asyncio
+    async def test_route_group_frozen_flag_tracks_its_routes(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route: Any,
+        test_route_group: Any,
+    ) -> None:
+        """`frozen` is derived from the routes' snapshots, not stored, so the
+        Groups tab can render a frozen date read-only instead of letting the
+        admin discover the rule by being rejected."""
+
+        async def frozen_flag() -> bool:
+            response = await async_client.get("/route-groups")
+            group = next(
+                rg
+                for rg in response.json()["items"]
+                if rg["route_group_id"] == str(test_route_group.route_group_id)
+            )
+            return bool(group["frozen"])
+
+        assert await frozen_flag() is False
+
+        test_session.add(
+            RouteSnapshot(
+                route_id=test_route.route_id,
+                start_address="Warehouse",
+                start_latitude=43.0,
+                start_longitude=-80.0,
+            )
+        )
+        await test_session.commit()
+
+        assert await frozen_flag() is True
+
+    @pytest.mark.asyncio
     async def test_duplicate_route_group_copies_routes_and_stops(
         self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
     ) -> None:

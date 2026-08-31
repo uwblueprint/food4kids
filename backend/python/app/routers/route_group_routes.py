@@ -23,7 +23,10 @@ from app.services.implementations.location_service import (
     InvalidDeliveryTypeError,
     LocationService,
 )
-from app.services.implementations.route_group_service import RouteGroupService
+from app.services.implementations.route_group_service import (
+    FrozenRouteGroupError,
+    RouteGroupService,
+)
 
 router = APIRouter(prefix="/route-groups", tags=["route-groups"])
 
@@ -105,11 +108,17 @@ async def update_route_group(
     _auth: bool = Depends(require_admin),
 ) -> RouteGroupRead:
     """
-    Update an existing route group
+    Update an existing route group.
+
+    Moving the drive date of a group whose routes are already frozen is
+    rejected with 409: that date is part of the frozen delivery record.
     """
-    updated_route_group = await route_group_service.update_route_group(
-        session, route_group_id, route_group
-    )
+    try:
+        updated_route_group = await route_group_service.update_route_group(
+            session, route_group_id, route_group
+        )
+    except FrozenRouteGroupError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     if not updated_route_group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

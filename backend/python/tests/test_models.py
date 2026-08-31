@@ -484,6 +484,7 @@ class TestCoreModels:
             drive_date=date(2024, 1, 15),
             num_routes=3,
             status="Completed",
+            frozen=False,
         )
         assert route_group_read.route_group_id is not None
 
