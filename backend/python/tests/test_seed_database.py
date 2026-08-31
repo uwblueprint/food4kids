@@ -215,10 +215,11 @@ class TestDataValidation:
     async def test_phone_numbers_are_rfc3966(self, test_session: AsyncSession) -> None:
         drivers = (await test_session.execute(select(Driver))).scalars().all()
         for driver in drivers:
+            assert driver.phone is not None
             assert driver.phone.startswith("tel:+"), (
                 f"Driver phone {driver.phone} should be RFC 3966"
             )
-            assert len(driver.availability) == 7
+            assert len(driver.availability) == 5
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(driver.phone, None)
             ), f"Driver phone {driver.phone} should parse as valid"

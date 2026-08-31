@@ -349,16 +349,12 @@ class TestCoreModels:
 
         None as a *default* means "not provided" and stays valid; only a null
         that the client actually sent is rejected. partner_driver_name is the
-        one nullable column, where explicit null legitimately clears the value.
+        nullable profile fields, where explicit null legitimately clears the value.
         """
         non_nullable_fields = [
             "first_name",
             "last_name",
-            "phone",
             "availability",
-            "address",
-            "license_plate",
-            "car_make_model",
             "active",
         ]
         for field in non_nullable_fields:
@@ -369,10 +365,16 @@ class TestCoreModels:
         empty_update = DriverUpdate.model_validate({})
         assert empty_update.model_fields_set == set()
 
-        # Explicit null still clears the nullable partner_driver_name
-        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
-        assert cleared.partner_driver_name is None
-        assert "partner_driver_name" in cleared.model_fields_set
+        for field in (
+            "phone",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "partner_driver_name",
+        ):
+            cleared = DriverUpdate.model_validate({field: None})
+            assert getattr(cleared, field) is None
+            assert field in cleared.model_fields_set
 
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""

@@ -171,6 +171,6 @@ class TestUpdateModelsRejectExplicitNull:
         """phone_secondary is nullable — null there legitimately clears it."""
         assert LocationUpdate(phone_secondary=None).phone_secondary is None
 
-    def test_driver_update_rejects_null_phone(self) -> None:
-        with pytest.raises(ValidationError):
-            DriverUpdate(phone=None)
+    def test_driver_update_allows_null_phone(self) -> None:
+        """Phone is optional for admin-created driver profiles."""
+        assert DriverUpdate(phone=None).phone is None
