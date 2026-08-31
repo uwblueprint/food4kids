@@ -12,6 +12,7 @@ import {
   Spinner,
   Tag,
 } from '@/common/components';
+import { SELECTED_BUTTON_STROKE } from '@/common/components/Button.variants';
 import { parseDateOnly, toNaiveDateString } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
@@ -49,9 +50,7 @@ function UnassignedRouteRow({
         onClick={onSelect}
         className={cn(
           'flex w-full cursor-pointer items-center justify-between self-stretch rounded-sm px-5 py-2 text-left',
-          // Light ground when selected, so it takes a 1px stroke.
-          isSelected &&
-            'bg-blue-50 outline outline-1 outline-offset-[-1px] outline-blue-100'
+          isSelected && `bg-blue-50 ${SELECTED_BUTTON_STROKE}`
         )}
       >
         <div className="flex min-w-0 flex-col">

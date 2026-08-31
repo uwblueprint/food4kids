@@ -20,33 +20,21 @@ function weekdayHeader(container: HTMLElement): string[] {
 }
 
 /**
- * `data-day` is `toLocaleDateString()`, so its shape follows the runner's
- * locale: `2026-01-15` under en-CA, `1/15/2026` under en-US. Parse both as a
- * LOCAL date — `new Date('2026-01-15')` would be read as UTC midnight and land
- * on the previous day west of Greenwich.
+ * `data-day` as the component writes it. Going through the same
+ * `toLocaleDateString()` call keeps the test's idea of the format from
+ * disagreeing with the component's under any runner locale.
  */
-function parseDataDay(raw: string): Date {
-  const parts = raw.match(/\d+/g);
-  if (!parts || parts.length !== 3) {
-    throw new Error(`unrecognised data-day: ${raw}`);
-  }
-  const [a, b, c] = parts.map(Number);
-  return parts[0].length === 4
-    ? new Date(a, b - 1, c) // year-first
-    : new Date(c, a - 1, b); // month-first
+function dataDay(year: number, month: number, day: number): string {
+  return new Date(year, month, day).toLocaleDateString();
 }
 
 /** Every day button in the grid, in DOM order, with the date it stands for. */
 function dayCells(container: HTMLElement) {
   return [...container.querySelectorAll<HTMLElement>('button[data-day]')].map(
     (el) => {
-      const raw = el.dataset.day;
-      if (!raw) throw new Error('day button without a data-day');
-      return {
-        el,
-        date: parseDataDay(raw),
-        label: el.textContent?.trim() ?? '',
-      };
+      const day = el.dataset.day;
+      if (!day) throw new Error('day button without a data-day');
+      return { el, day, label: el.textContent?.trim() ?? '' };
     }
   );
 }
@@ -81,16 +69,17 @@ describe('Calendar weekday order', () => {
     const { container } = render(
       <Calendar mode="single" defaultMonth={JANUARY_2026} />
     );
-    const rows = weekRows(container);
-    expect(rows.length).toBeGreaterThan(0);
+    // Fixture check: the grid's first cell, Dec 29 2025, is a Monday.
+    expect(new Date(2025, 11, 29).getDay()).toBe(1);
 
-    for (const row of rows) {
-      expect(row).toHaveLength(7);
-      // 1 = Monday … 0 = Sunday
-      expect(row.map((cell) => cell.date.getDay())).toEqual([
-        1, 2, 3, 4, 5, 6, 0,
-      ]);
-    }
+    const cells = dayCells(container);
+    expect(cells.length % 7).toBe(0);
+    // Seven-wide rows of consecutive days from a Monday: every row therefore
+    // runs Monday through Sunday.
+    expect(cells.map((cell) => cell.day)).toEqual(
+      cells.map((_, i) => dataDay(2025, 11, 29 + i))
+    );
+    for (const row of weekRows(container)) expect(row).toHaveLength(7);
   });
 
   it('opens January 2026 on Dec 29 (Monday), not Dec 28 (Sunday)', () => {
@@ -122,7 +111,7 @@ describe('Calendar weekday order', () => {
       'F',
       'S',
     ]);
-    expect(weekRows(container)[0][0].label).toBe('28');
+    expect(weekRows(container)[0][0].day).toBe(dataDay(2025, 11, 28));
   });
 });
 
@@ -132,22 +121,21 @@ describe('Calendar selection', () => {
    * which date a cell stands for by clicking cells at both ends of a row.
    */
   it.each([
-    ['15', 2026, 0, 15], // mid-month, a Thursday
-    ['5', 2026, 0, 5], // first column of its row, a Monday
-    ['4', 2026, 0, 4], // last column of its row, a Sunday
-    ['31', 2026, 0, 31], // last day of the month, a Saturday
-  ])('clicking %s selects the matching date', (label, year, month, day) => {
+    15, // mid-month, a Thursday
+    5, // first column of its row, a Monday
+    4, // last column of its row, a Sunday
+    31, // last day of the month, a Saturday
+  ])('clicking Jan %i selects that date', (day) => {
     const onSelect = vi.fn();
     const { container } = render(
       <Calendar mode="single" defaultMonth={JANUARY_2026} onSelect={onSelect} />
     );
 
-    // Restrict to in-month cells so outside-day duplicates (Dec 29–31) can't
-    // be picked up by the label match.
     const cell = dayCells(container).find(
-      (c) => c.label === label && c.date.getMonth() === month
+      (c) => c.day === dataDay(2026, 0, day)
     );
     expect(cell).toBeDefined();
+    expect(cell!.label).toBe(String(day));
 
     fireEvent.click(cell!.el);
 
@@ -157,19 +145,18 @@ describe('Calendar selection', () => {
       selected.getFullYear(),
       selected.getMonth(),
       selected.getDate(),
-    ]).toEqual([year, month, day]);
+    ]).toEqual([2026, 0, day]);
   });
 
   it('maps every in-month cell to its own date', () => {
     const { container } = render(
       <Calendar mode="single" defaultMonth={JANUARY_2026} />
     );
-    const inMonth = dayCells(container).filter(
-      (c) => c.date.getMonth() === 0 && c.date.getFullYear() === 2026
-    );
-    expect(inMonth).toHaveLength(31);
-    expect(inMonth.map((c) => c.label)).toEqual(
-      Array.from({ length: 31 }, (_, i) => String(i + 1))
-    );
+    const cells = dayCells(container);
+    for (let day = 1; day <= 31; day++) {
+      const matches = cells.filter((c) => c.day === dataDay(2026, 0, day));
+      expect(matches).toHaveLength(1);
+      expect(matches[0].label).toBe(String(day));
+    }
   });
 });

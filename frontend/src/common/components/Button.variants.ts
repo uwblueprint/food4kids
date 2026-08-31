@@ -15,6 +15,13 @@ export const buttonVariantClasses = {
   destructive: 'bg-red text-grey-100 hover:opacity-90',
 } as const;
 
+/* The same 1px light-ground stroke, for selected/active buttons outside this
+ * component (active sidebar item, driver-home segmented control, unassigned
+ * route row). Button treatment only — a selected calendar day is a flat
+ * ellipse with no stroke. Call sites are listed in Button.variants.test.ts. */
+export const SELECTED_BUTTON_STROKE =
+  'outline outline-1 outline-offset-[-1px] outline-blue-100';
+
 export const buttonVariants = cva(
   /* ---- shared base ---- */
   [
