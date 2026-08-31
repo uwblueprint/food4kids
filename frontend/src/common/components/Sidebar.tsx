@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 
+import { SELECTED_BUTTON_STROKE } from './Button.variants';
+
 function SidebarProvider({ children }: { children: React.ReactNode }) {
   return <div className="flex h-screen overflow-hidden">{children}</div>;
 }
@@ -106,7 +108,7 @@ function SidebarMenuItem({
           'flex w-20 flex-col items-center justify-center gap-1 rounded-xl px-4 py-3.5',
           'transition-colors',
           isActive
-            ? 'bg-blue-50 text-blue-400 shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] outline outline-1 outline-offset-[-1px] outline-blue-100'
+            ? `bg-blue-50 text-blue-400 shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] ${SELECTED_BUTTON_STROKE}`
             : 'text-grey-500 hover:bg-grey-150'
         )
       }
