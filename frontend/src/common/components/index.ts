@@ -74,4 +74,5 @@ export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 export { Tag } from './Tag';
 export { Textarea } from './Textarea';
 export { TimePicker } from './TimePicker';
+export { Toggle } from './Toggle';
 export { Tooltip, TooltipContent, TooltipTrigger } from './Tooltip';
