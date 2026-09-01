@@ -84,9 +84,7 @@ export const DriverProfile = () => {
           {/* 3. Email subheading on the left, followed by a field */}
           <div className="flex w-full flex-col gap-2">
             <h2>Email</h2>
-            <div className="bg-grey-150 text-p1 w-full rounded-[8px] p-3">
-              {email || 'No email specified'}
-            </div>
+            <div className="text-p2 w-full">{email}</div>
           </div>
 
           {/* 4. Phone number subheading on the left, followed by a field below it */}
