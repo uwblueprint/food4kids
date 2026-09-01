@@ -6,6 +6,7 @@ import { useLogout } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
 import { Button, Spinner } from '@/common/components';
+import { formatPhone } from '@/common/utils';
 
 import { LogoutConfirmModal } from './LogoutConfirmModal';
 
@@ -33,7 +34,9 @@ export const DriverProfile = () => {
   const firstName = user.firstName;
   const lastName = user.lastName;
   const email = user.email;
-  const phone = driverDetails?.phone || 'Not provided';
+  const phone = driverDetails?.phone
+    ? formatPhone(driverDetails.phone)
+    : 'Not provided';
   const address = driverDetails?.address || 'Not provided';
 
   const fullName = user.fullName;
@@ -99,7 +102,7 @@ export const DriverProfile = () => {
           <div className="flex w-full flex-col gap-2">
             <h2>Address</h2>
             <div className="bg-grey-150 text-p2 w-full rounded-[8px] p-3">
-              {'3245 Spruce Street West, Kitchener, ON, M1W 1X1' || address}
+              {address}
             </div>
           </div>
         </div>
