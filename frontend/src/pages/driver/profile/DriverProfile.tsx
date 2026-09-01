@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLogout } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
-import { Button, Spinner } from '@/common/components';
+import { Button, Spinner, Banner } from '@/common/components';
 import { formatPhone } from '@/common/utils';
 
 import { LogoutConfirmModal } from './LogoutConfirmModal';
@@ -31,13 +31,25 @@ export const DriverProfile = () => {
     );
   }
 
+  if (!driverDetails) {
+    return (
+      <main className="mx-auto flex w-full flex-1 flex-col gap-6">
+        <Link to="/driver/home" className="flex gap-1 self-start text-blue-400">
+          <ChevronLeftIcon className="size-6" />
+          <h2>Back to home</h2>
+        </Link>
+        <Banner variant="error">
+          Couldn't load your driver profile. Please refresh the page.
+        </Banner>
+      </main>
+    );
+  }
+
   const firstName = user.firstName;
   const lastName = user.lastName;
   const email = user.email;
-  const phone = driverDetails?.phone
-    ? formatPhone(driverDetails.phone)
-    : 'Not provided';
-  const address = driverDetails?.address || 'Not provided';
+  const phone = formatPhone(driverDetails.phone);
+  const address = driverDetails.address;
 
   const fullName = user.fullName;
 
