@@ -18,6 +18,10 @@ function Calendar({
   classNames,
   showOutsideDays = true,
   captionLayout = 'label',
+  /* Design: the week runs Monday-first (M T W T F S S), not Sunday-first.
+   * This only reorders the columns — react-day-picker still lays each date
+   * out under its own weekday, so a click maps to the same date as before. */
+  weekStartsOn = 1,
   formatters,
   components,
   ...props
@@ -27,6 +31,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      weekStartsOn={weekStartsOn}
       className={cn(
         'group/calendar bg-white p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
@@ -196,9 +201,9 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        // size-auto / border-0 also neutralize the Button variant's fixed
-        // circular size and border so cells track --cell-size with no outline
-        'tablet:size-auto flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center border-0 leading-none font-normal',
+        // size-auto neutralizes the Button variant's fixed circular size so
+        // cells track --cell-size instead
+        'tablet:size-auto flex aspect-square size-auto w-full min-w-(--cell-size) items-center justify-center leading-none font-normal',
         // Outside days: more faded
         modifiers.outside ? 'text-grey-300' : 'text-grey-500',
         // Default: transparent; hovering a day fills it dark blue

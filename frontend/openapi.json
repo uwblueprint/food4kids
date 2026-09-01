@@ -4983,53 +4983,6 @@
         ]
       }
     },
-    "/drivers/test-event-email": {
-      "post": {
-        "description": "Temporary endpoint to test event-driven emails.\nDelete this after testing!",
-        "operationId": "test_event_email",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "test_email",
-            "required": true,
-            "schema": {
-              "title": "Test Email",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Test Event Email",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Test Event Email",
-        "tags": [
-          "drivers"
-        ]
-      }
-    },
     "/drivers/{driver_id}": {
       "delete": {
         "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted, so the\ndriver's km stop counting toward anyone.",

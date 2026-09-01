@@ -29,7 +29,6 @@ import {
 } from './pages/auth';
 import { DriverHomePage, IndividualRoutePage } from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
-import { TestImageUpload } from './pages/TestImageUpload';
 
 function RootRedirect() {
   const user = useAuthStore((state) => state.user);
@@ -74,7 +73,6 @@ function App() {
             Routes tab. Kept after the static routes/generation block. */}
         <Route path="routes/:routeId" element={<AdminIndividualRoutePage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
-        <Route path="test-image-upload" element={<TestImageUpload />} />
       </Route>
 
       {/* Driver Routes */}
@@ -84,9 +82,6 @@ function App() {
         <Route path="route" element={<IndividualRoutePage />} />
         <Route path="route/:routeId" element={<IndividualRoutePage />} />
       </Route>
-
-      {/* Dev-only: test image upload route */}
-      <Route path="/test-image-upload" element={<TestImageUpload />} />
 
       {/* Auth Routes */}
       <Route path="/login" element={<LoginPage />} />

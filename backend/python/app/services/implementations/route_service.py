@@ -43,6 +43,7 @@ from app.utilities.google_maps_link import (
     build_google_maps_directions_url,
 )
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_order_by
 from app.utilities.routes_utils import fetch_route_polyline
 
 
@@ -250,7 +251,8 @@ class RouteService:
         # share a name, and paginate_query's count and page are separate
         # statements, so any remaining tie can shuffle a row between pages.
         statement = statement.order_by(
-            drive_date_order, col(Route.name), col(Route.route_id)
+            drive_date_order,
+            *route_name_order_by(col(Route.name), col(Route.route_id)),
         )
 
         if pagination is None:
