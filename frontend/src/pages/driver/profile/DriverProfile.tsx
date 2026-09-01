@@ -90,7 +90,7 @@ export const DriverProfile = () => {
           {/* 4. Phone number subheading on the left, followed by a field below it */}
           <div className="flex w-full flex-col gap-2">
             <h2>Phone number</h2>
-            <div className="bg-grey-150 text-p1 w-full rounded-[8px] p-3">
+            <div className="bg-grey-150 text-p2 w-full rounded-[8px] p-3">
               {phone}
             </div>
           </div>
@@ -98,8 +98,8 @@ export const DriverProfile = () => {
           {/* 5. Address subheading on the left, followed by a field below it */}
           <div className="flex w-full flex-col gap-2">
             <h2>Address</h2>
-            <div className="bg-grey-150 text-p1 w-full rounded-[8px] p-3">
-              {address}
+            <div className="bg-grey-150 text-p2 w-full rounded-[8px] p-3">
+              {'3245 Spruce Street West, Kitchener, ON, M1W 1X1' || address}
             </div>
           </div>
         </div>
