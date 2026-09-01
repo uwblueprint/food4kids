@@ -69,6 +69,7 @@ import {
   previewLocationImport,
   refresh,
   renameDeliveryType,
+  resendOnboardingEmail,
   sendAnnouncementEmail,
   test,
   updateAnnouncement,
@@ -244,6 +245,9 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
+  ResendOnboardingEmailData,
+  ResendOnboardingEmailError,
+  ResendOnboardingEmailResponse,
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
@@ -658,6 +662,36 @@ export const refreshMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await refresh({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Resend Onboarding Email
+ *
+ * Resends the onboarding/invite email to a pending user.
+ * Returns 204 regardless of input/status to prevent user enumeration attacks.
+ */
+export const resendOnboardingEmailMutation = (
+  options?: Partial<Options<ResendOnboardingEmailData>>
+): UseMutationOptions<
+  ResendOnboardingEmailResponse,
+  AxiosError<ResendOnboardingEmailError>,
+  Options<ResendOnboardingEmailData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ResendOnboardingEmailResponse,
+    AxiosError<ResendOnboardingEmailError>,
+    Options<ResendOnboardingEmailData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await resendOnboardingEmail({
         ...options,
         ...fnOptions,
         throwOnError: true,
