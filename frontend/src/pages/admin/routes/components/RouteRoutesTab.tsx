@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useRoutes } from '@/api/routes';
@@ -30,6 +30,25 @@ import { EmptyState } from './EmptyState';
 import { RouteActionsCell } from './RouteActionsCell';
 import { RouteFilterModal } from './RouteFilterModal';
 import { StatusHeader } from './StatusHeader';
+
+/**
+ * Wraps an interactive cell (inline editor, kebab, assign pill) so its clicks
+ * and keyboard activation (Enter/Space) don't bubble to the row and trigger
+ * navigation to the route detail page — the row is a keyboard-operable button,
+ * so a nested control's keydown would otherwise fire row navigation instead.
+ */
+function RowActionCell({ children }: { children: ReactNode }) {
+  return (
+    <span
+      className="inline-block"
+      role="presentation"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {children}
+    </span>
+  );
+}
 
 const COLUMNS: Column<RouteWithDateRead>[] = [
   {
@@ -74,6 +93,7 @@ const COLUMNS: Column<RouteWithDateRead>[] = [
 ];
 
 export function RouteRoutesTab() {
+  const navigate = useNavigate();
   const search = useSearch();
   // Debounced so the driver-name search hits the server once typing pauses.
   const searchTerm = useDebouncedValue(search.value).trim();
@@ -108,12 +128,15 @@ export function RouteRoutesTab() {
         header: 'Delivery Date',
         sortable: true,
         sortValue: (row: RouteWithDateRead) => new Date(row.drive_date),
+        // Inline date editor — kept from triggering row navigation.
         render: (row) => (
-          <DriveDateCell
-            routeGroupId={row.route_group_id}
-            driveDate={row.drive_date}
-            onUpdated={() => handleRowChanged(row.route_id)}
-          />
+          <RowActionCell>
+            <DriveDateCell
+              routeGroupId={row.route_group_id}
+              driveDate={row.drive_date}
+              onUpdated={() => handleRowChanged(row.route_id)}
+            />
+          </RowActionCell>
         ),
       },
       ...COLUMNS.map((col) => {
@@ -124,10 +147,12 @@ export function RouteRoutesTab() {
               row.driver_name ? (
                 <HighlightText text={row.driver_name} query={searchTerm} />
               ) : (
-                <AssignDriverCell
-                  row={row}
-                  onUpdated={() => handleRowChanged(row.route_id)}
-                />
+                <RowActionCell>
+                  <AssignDriverCell
+                    row={row}
+                    onUpdated={() => handleRowChanged(row.route_id)}
+                  />
+                </RowActionCell>
               ),
           };
         }
@@ -139,10 +164,13 @@ export function RouteRoutesTab() {
             render: (row: RouteWithDateRead) => (
               <div className="flex items-center justify-between gap-10">
                 <span>{row.status}</span>
-                <RouteActionsCell
-                  row={row}
-                  onUpdated={() => handleRowChanged(row.route_id)}
-                />
+                {/* Kebab actions — don't let their clicks navigate the row. */}
+                <RowActionCell>
+                  <RouteActionsCell
+                    row={row}
+                    onUpdated={() => handleRowChanged(row.route_id)}
+                  />
+                </RowActionCell>
               </div>
             ),
           };
@@ -199,6 +227,7 @@ export function RouteRoutesTab() {
           getRowKey={(r) => r.route_id}
           sort={sort}
           onSortChange={toggleSort}
+          onRowClick={(r) => navigate(`/admin/routes/${r.route_id}`)}
           getRowClassName={(r) => getRowClassName(r.route_id)}
           emptyState={
             <EmptyState

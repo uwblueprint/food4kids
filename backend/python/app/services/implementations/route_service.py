@@ -353,6 +353,7 @@ class RouteService:
         stops = [
             RouteStopDetailRead(
                 stop_number=stop.stop_number,
+                location_id=stop.location_id,
                 # Snapshot wins for frozen (past) stops; live Location otherwise.
                 address=snapshot.address if snapshot else location.address,
                 contact_name=(

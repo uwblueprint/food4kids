@@ -2,8 +2,16 @@ import { useState } from 'react';
 
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { Button } from '@/common/components';
+import { parseDateOnly } from '@/common/utils';
 
 import { ReassignDriverModal } from './ReassignDriverModal';
+
+/** "Oct 18" — short date for the dialog's context line. */
+const formatContextDate = (isoDate: string): string =>
+  parseDateOnly(isoDate).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
 
 interface AssignDriverCellProps {
   row: RouteWithDateRead;
@@ -28,7 +36,13 @@ export function AssignDriverCell({ row, onUpdated }: AssignDriverCellProps) {
       <ReassignDriverModal
         open={open}
         onOpenChange={setOpen}
-        route={row}
+        routeId={row.route_id}
+        currentDriverName={row.driver_name}
+        contextLabel={
+          <>
+            {row.name} • {row.group_name} • {formatContextDate(row.drive_date)}
+          </>
+        }
         onUpdated={onUpdated}
       />
     </>

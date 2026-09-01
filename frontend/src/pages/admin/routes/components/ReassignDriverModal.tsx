@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { useDrivers } from '@/api/drivers';
-import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useUpdateRoute } from '@/api/routes';
 import {
   Button,
@@ -20,27 +19,33 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/common/components';
-import { parseDateOnly } from '@/common/utils';
 
 interface ReassignDriverModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  route: RouteWithDateRead;
-  /** Called once the reassignment saves, e.g. to highlight the row. */
+  /** Route being (re)assigned. */
+  routeId: string;
+  /** Currently assigned driver's name, if any — drives Assign vs Reassign copy. */
+  currentDriverName?: string | null;
+  /** Optional context line under the title, e.g. "Route A • Tuesday • Oct 18". */
+  contextLabel?: ReactNode;
+  /** Called once the (re)assignment saves, e.g. to highlight the row. */
   onUpdated?: () => void;
 }
 
-/** "Oct 18" — short date for the dialog's context line. */
-const formatContextDate = (isoDate: string): string =>
-  parseDateOnly(isoDate).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-
+/**
+ * The driver (re)assignment dialog shared across the routes admin — the Routes
+ * list (the Driver column's "Assign" pill and the kebab's "Reassign Driver")
+ * and the individual route screen. Callers pass the primitives it needs so it
+ * works from any route shape; reached with a driver already set it reassigns,
+ * reached from an unassigned route it assigns.
+ */
 export function ReassignDriverModal({
   open,
   onOpenChange,
-  route,
+  routeId,
+  currentDriverName,
+  contextLabel,
   onUpdated,
 }: ReassignDriverModalProps) {
   const [driverId, setDriverId] = useState('');
@@ -59,7 +64,7 @@ export function ReassignDriverModal({
     if (!driverId) return;
     updateRoute(
       {
-        path: { route_id: route.route_id },
+        path: { route_id: routeId },
         body: { driver_id: driverId },
       },
       {
@@ -71,11 +76,10 @@ export function ReassignDriverModal({
     );
   };
 
-  // The same dialog serves the kebab's "Reassign Driver" and the Driver
-  // column's "Assign" pill. Reached from the pill there is nobody to reassign
-  // from, so it says Assign — the design's own word for that action — and
-  // drops the "Currently Assigned: Unassigned" line that only restates it.
-  const isReassign = Boolean(route.driver_name);
+  // Reached from the "Assign" pill there is nobody to reassign from, so it says
+  // Assign — the design's own word for that action — and drops the "Currently
+  // Assigned: Unassigned" line that only restates it.
+  const isReassign = Boolean(currentDriverName);
 
   return (
     <Modal open={open} onOpenChange={handleOpenChange}>
@@ -84,10 +88,7 @@ export function ReassignDriverModal({
           <ModalTitle variant="form">
             {isReassign ? 'Reassign Driver' : 'Assign Driver'}
           </ModalTitle>
-          <ModalDescription>
-            {route.name} • {route.group_name} •{' '}
-            {formatContextDate(route.drive_date)}
-          </ModalDescription>
+          {contextLabel && <ModalDescription>{contextLabel}</ModalDescription>}
         </ModalHeader>
 
         <div className="flex flex-col gap-4">
@@ -97,7 +98,7 @@ export function ReassignDriverModal({
                 Currently Assigned
               </p>
               <p className="border-grey-300 text-p2 text-grey-400 border-l-2 pl-4">
-                {route.driver_name}
+                {currentDriverName}
               </p>
             </div>
           )}
