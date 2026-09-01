@@ -18,8 +18,8 @@ import {
   ModalTitle,
   Spinner,
   TimePicker,
+  Toggle,
 } from '@/common/components';
-import { cn } from '@/lib/utils';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { GenerationFooter } from './GenerationFooter';
@@ -90,45 +90,6 @@ function defaultRouteName(groupName: string, routeDate: Date): string {
     day: 'numeric',
   });
   return `${date} - ${groupName}`;
-}
-
-function ReturnToggle({
-  checked,
-  disabled = false,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-2',
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-      )}
-    >
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'relative h-5 w-9 rounded-full transition-colors',
-          checked ? 'bg-blue-300' : 'bg-grey-300'
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 left-0 size-4 rounded-full bg-white transition-transform',
-            checked ? 'translate-x-[18px]' : 'translate-x-0.5'
-          )}
-        />
-      </button>
-      <span className="text-p2">{checked ? 'Yes' : 'No'}</span>
-    </div>
-  );
 }
 
 export function ConfigureStep() {
@@ -403,7 +364,7 @@ export function ConfigureStep() {
       key: 'return_to_warehouse',
       header: 'End at Warehouse',
       render: (row) => (
-        <ReturnToggle
+        <Toggle
           checked={row.form.returnToWarehouse}
           disabled={deselectedGroups.has(row.deliveryGroup)}
           onChange={(returnToWarehouse) =>

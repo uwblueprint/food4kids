@@ -16,7 +16,6 @@ const PUBLIC_ROUTES = [
   '/503',
   '/error',
   '/style-guide',
-  '/test-image-upload',
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
