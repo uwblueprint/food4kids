@@ -167,7 +167,7 @@ function DriverControl({ route }: { route: RouteDetailRead }) {
                   setModalOpen(true);
                 }}
               >
-                Reassign driver
+                Reassign Driver
               </button>
             </PopoverContent>
           </Popover>

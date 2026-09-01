@@ -33,8 +33,9 @@ import { StatusHeader } from './StatusHeader';
 
 /**
  * Wraps an interactive cell (inline editor, kebab, assign pill) so its clicks
- * don't bubble to the row's onClick and trigger navigation to the route detail
- * page.
+ * and keyboard activation (Enter/Space) don't bubble to the row and trigger
+ * navigation to the route detail page — the row is a keyboard-operable button,
+ * so a nested control's keydown would otherwise fire row navigation instead.
  */
 function RowActionCell({ children }: { children: ReactNode }) {
   return (
@@ -42,6 +43,7 @@ function RowActionCell({ children }: { children: ReactNode }) {
       className="inline-block"
       role="presentation"
       onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
     >
       {children}
     </span>

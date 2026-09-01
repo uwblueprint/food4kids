@@ -50,6 +50,7 @@ export function MoveStopModal({
 }: MoveStopModalProps) {
   const [targetRouteId, setTargetRouteId] = useState('');
   const [error, setError] = useState(false);
+  const [orphaned, setOrphaned] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { mutateAsync: updateRoute } = useUpdateRoute();
 
@@ -66,6 +67,7 @@ export function MoveStopModal({
     if (!next) {
       setTargetRouteId('');
       setError(false);
+      setOrphaned(false);
       setSubmitting(false);
     }
   };
@@ -73,7 +75,9 @@ export function MoveStopModal({
   const handleConfirm = async () => {
     if (!targetRouteId) return;
     setError(false);
+    setOrphaned(false);
     setSubmitting(true);
+    let removedFromSource = false;
     try {
       // Remove from the source first so the same location never sits on two
       // routes of the group at once (the backend guards against that).
@@ -83,6 +87,7 @@ export function MoveStopModal({
           location_ids: locationIds.filter((id) => id !== stopLocationId),
         },
       });
+      removedFromSource = true;
       // Append to the target, preserving its existing order.
       const { data: target } = await getRoute({
         path: { route_id: targetRouteId },
@@ -96,6 +101,7 @@ export function MoveStopModal({
       handleOpenChange(false);
     } catch {
       setError(true);
+      setOrphaned(removedFromSource);
       setSubmitting(false);
     }
   };
@@ -134,7 +140,9 @@ export function MoveStopModal({
         )}
         {error && (
           <FieldDescription error>
-            Something went wrong moving the stop. Please try again.
+            {orphaned
+              ? `${stopAddress} was removed from the source route but couldn't be added to the destination. Re-add it with the Add stop button.`
+              : 'Something went wrong moving the stop. Please try again.'}
           </FieldDescription>
         )}
 
