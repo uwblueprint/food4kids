@@ -222,7 +222,7 @@ async def update_driver(
     Update an existing driver
     """
     if access is not DriverAccess.ADMIN:
-        self_editable_fields = {"first_name", "last_name", "phone"}
+        self_editable_fields = {"first_name", "last_name", "phone", "address"}
         requested_fields = set(driver.model_fields_set)
         admin_only_fields = requested_fields - self_editable_fields
         if admin_only_fields:
