@@ -22,6 +22,7 @@ from pydantic import ValidationError
 from sqlalchemy import update
 from sqlmodel import col, select
 
+from app.models.api_usage import ApiSku
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
@@ -31,6 +32,9 @@ from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
 from app.schemas.route_generation import RouteGenerationGroupInput
+from app.services.implementations.quota_service import (
+    record_usage_out_of_band,
+)
 from app.services.implementations.route_group_service import (
     ROUTE_GROUP_NAME_MAX_LENGTH,
 )
@@ -350,6 +354,10 @@ async def _build_route_group(
             for cluster in filled
         )
     )
+    # Polylines draw on the same Routes API allowance the single-vehicle tier
+    # gates on, so they have to show up in the counter or that tier will be
+    # offered room it no longer has.
+    await record_usage_out_of_band(ApiSku.ROUTES_COMPUTE, len(filled))
 
     for number, (cluster, (encoded_polyline, distance_km)) in enumerate(
         zip(filled, polyline_results, strict=True),

@@ -323,6 +323,19 @@ class TestEnqueueDoorbell:
             await service.enqueue(job.job_id)
 
 
+def _fixed_algorithm(algorithm: Any) -> Any:
+    """Stand in for the worker's per-job algorithm builder.
+
+    The worker picks its engine from system settings on every job; these tests
+    care about the loop, not the choice, so they pin it to one fake.
+    """
+
+    async def _build(_session: Any, _session_maker: Any) -> Any:
+        return algorithm
+
+    return _build
+
+
 class TestWorkerLoop:
     @pytest.mark.asyncio
     async def test_worker_claims_and_completes_a_pending_job(
@@ -335,7 +348,11 @@ class TestWorkerLoop:
         job = await _queue_pending_job(maker, group)
 
         algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
-        monkeypatch.setattr(worker, "get_routing_algorithm", lambda: algorithm)
+        monkeypatch.setattr(
+            worker,
+            "_build_algorithm_for_job",
+            _fixed_algorithm(algorithm),
+        )
 
         start_route_generation_worker()
         wake_route_generation_worker()
@@ -381,7 +398,11 @@ class TestWorkerLoop:
         second = await _queue_pending_job(maker, group)
 
         algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
-        monkeypatch.setattr(worker, "get_routing_algorithm", lambda: algorithm)
+        monkeypatch.setattr(
+            worker,
+            "_build_algorithm_for_job",
+            _fixed_algorithm(algorithm),
+        )
 
         start_route_generation_worker()
         wake_route_generation_worker()

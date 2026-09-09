@@ -3022,6 +3022,17 @@
         "title": "RouteGenerationGroupInput",
         "type": "object"
       },
+      "RouteGenerationMethod": {
+        "description": "Which engine route generation should use.\n\n``AUTO`` walks the tiers in quality order, spending each API's free monthly\nallowance before moving on. The rest pin generation to one engine\nregardless of remaining quota — including past it, into paid usage.",
+        "enum": [
+          "auto",
+          "fleet_routing",
+          "single_vehicle",
+          "cluster_sweep"
+        ],
+        "title": "RouteGenerationMethod",
+        "type": "string"
+      },
       "RouteGenerationSettings": {
         "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.",
         "properties": {
@@ -3878,6 +3889,10 @@
               }
             ],
             "title": "Import Column Map"
+          },
+          "route_generation_method": {
+            "$ref": "#/components/schemas/RouteGenerationMethod",
+            "default": "auto"
           },
           "route_start_time": {
             "anyOf": [

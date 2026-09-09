@@ -20,6 +20,17 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def current_billing_month(now: datetime | None = None) -> str:
+    """The Google billing month as ``YYYYMM``.
+
+    Shared by the billing export query and the API quota counters so the two
+    always agree on which month usage belongs to. Drifting definitions here
+    would make a counter irreconcilable with the spend it is meant to predict.
+    """
+    moment = now or datetime.now(ZoneInfo(settings.scheduler_timezone))
+    return moment.strftime("%Y%m")
+
+
 def from_local_wall_clock(wall_clock: datetime) -> datetime:
     """Read a naive local wall-clock time as a real instant, in UTC.
 

@@ -410,6 +410,7 @@ export type {
   RenameDeliveryTypeResponses,
   RouteDetailRead,
   RouteGenerationGroupInput,
+  RouteGenerationMethod,
   RouteGenerationSettings,
   RouteGroupCreate,
   RouteGroupDuplicate,
