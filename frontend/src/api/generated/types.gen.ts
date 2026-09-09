@@ -1195,78 +1195,6 @@ export type LocationRead = {
 export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 
 /**
- * LocationUpdate
- *
- * Update request model with all fields optional
- */
-export type LocationUpdate = {
-  /**
-   * Address
-   */
-  address?: string | null;
-  /**
-   * Contact Name
-   */
-  contact_name?: string | null;
-  /**
-   * Delivery Type
-   */
-  delivery_type?: string | null;
-  /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string | null;
-  /**
-   * Guardian Name
-   */
-  guardian_name?: string | null;
-  /**
-   * Halal
-   */
-  halal?: boolean | null;
-  /**
-   * In Roster
-   */
-  in_roster?: boolean | null;
-  /**
-   * Latitude
-   */
-  latitude?: number | null;
-  /**
-   * Location Group Id
-   */
-  location_group_id?: string | null;
-  /**
-   * Longitude
-   */
-  longitude?: number | null;
-  /**
-   * Name
-   */
-  name?: string | null;
-  /**
-   * Note Chain Id
-   */
-  note_chain_id?: string | null;
-  /**
-   * Num Children
-   */
-  num_children?: number | null;
-  /**
-   * Phone Primary
-   */
-  phone_primary?: string | null;
-  /**
-   * Phone Secondary
-   */
-  phone_secondary?: string | null;
-  /**
-   * Place Id
-   */
-  place_id?: string | null;
-};
-
-/**
  * LoginRequest
  *
  * Login request
@@ -3804,38 +3732,6 @@ export type GetLocationResponses = {
 
 export type GetLocationResponse =
   GetLocationResponses[keyof GetLocationResponses];
-
-export type UpdateLocationData = {
-  body: LocationUpdate;
-  path: {
-    /**
-     * Location Id
-     */
-    location_id: string;
-  };
-  query?: never;
-  url: '/locations/{location_id}';
-};
-
-export type UpdateLocationErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateLocationError =
-  UpdateLocationErrors[keyof UpdateLocationErrors];
-
-export type UpdateLocationResponses = {
-  /**
-   * Successful Response
-   */
-  200: LocationRead;
-};
-
-export type UpdateLocationResponse =
-  UpdateLocationResponses[keyof UpdateLocationResponses];
 
 export type DeleteNoteChainData = {
   body?: never;
