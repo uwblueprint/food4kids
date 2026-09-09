@@ -71,10 +71,8 @@ import {
   renameDeliveryType,
   sendAnnouncementEmail,
   test,
-  testEventEmail,
   updateAnnouncement,
   updateDriver,
-  updateLocation,
   updateLocationGroup,
   updateNote,
   updatePassword,
@@ -249,9 +247,6 @@ import type {
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
   TestData,
-  TestEventEmailData,
-  TestEventEmailError,
-  TestEventEmailResponse,
   TestResponse,
   UpdateAnnouncementData,
   UpdateAnnouncementError,
@@ -259,12 +254,9 @@ import type {
   UpdateDriverData,
   UpdateDriverError,
   UpdateDriverResponse,
-  UpdateLocationData,
-  UpdateLocationError,
   UpdateLocationGroupData,
   UpdateLocationGroupError,
   UpdateLocationGroupResponse,
-  UpdateLocationResponse,
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
@@ -841,36 +833,6 @@ export const completeDriverRegistrationMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await completeDriverRegistration({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Test Event Email
- *
- * Temporary endpoint to test event-driven emails.
- * Delete this after testing!
- */
-export const testEventEmailMutation = (
-  options?: Partial<Options<TestEventEmailData>>
-): UseMutationOptions<
-  TestEventEmailResponse,
-  AxiosError<TestEventEmailError>,
-  Options<TestEventEmailData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    TestEventEmailResponse,
-    AxiosError<TestEventEmailError>,
-    Options<TestEventEmailData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await testEventEmail({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1622,35 +1584,6 @@ export const getLocationOptions = (options: Options<GetLocationData>) =>
     },
     queryKey: getLocationQueryKey(options),
   });
-
-/**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocationMutation = (
-  options?: Partial<Options<UpdateLocationData>>
-): UseMutationOptions<
-  UpdateLocationResponse,
-  AxiosError<UpdateLocationError>,
-  Options<UpdateLocationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateLocationResponse,
-    AxiosError<UpdateLocationError>,
-    Options<UpdateLocationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateLocation({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 /**
  * Delete Note Chain

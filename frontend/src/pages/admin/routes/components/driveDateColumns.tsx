@@ -3,7 +3,7 @@ import type {
   RouteWithDateRead,
 } from '@/api/generated/types.gen';
 import type { Column } from '@/common/components';
-import { formatShortDate } from '@/common/utils';
+import { formatShortDate, parseDateOnly } from '@/common/utils';
 
 import { DriveDateCell } from './DriveDateCell';
 
@@ -19,7 +19,7 @@ export const routeDriveDateColumn: Column<RouteWithDateRead> = {
   key: 'drive_date',
   header: 'Delivery Date',
   sortable: true,
-  sortValue: (row) => new Date(row.drive_date),
+  sortValue: (row) => parseDateOnly(row.drive_date),
   render: (row) => formatShortDate(row.drive_date),
 };
 
@@ -37,7 +37,7 @@ export const routeGroupDriveDateColumn = (
   key: 'drive_date',
   header: 'Date',
   sortable: true,
-  sortValue: (row) => new Date(row.drive_date),
+  sortValue: (row) => parseDateOnly(row.drive_date),
   render: (row) => (
     <DriveDateCell
       routeGroupId={row.route_group_id}

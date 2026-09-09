@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,7 @@ from app.services.implementations.password_reset_token_service import (
 )
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import clear_auth_cookies, set_refresh_token_cookie
+from app.utilities.datetime_utils import now_utc
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -182,7 +183,7 @@ async def validate_reset_token(
     Validate that a password reset token exists, isn't used, and hasn't expired.
     """
     token_obj = await token_service.read(session, request.password_reset_token)
-    current_time = datetime.now(timezone.utc)
+    current_time = now_utc()
 
     if (
         not token_obj
@@ -210,7 +211,7 @@ async def update_password(
     token_obj = await token_service.read(
         session, update_password_request.password_reset_token
     )
-    current_time = datetime.now(timezone.utc)
+    current_time = now_utc()
 
     if (
         not token_obj

@@ -74,10 +74,12 @@ describe('routeDriveDateColumn (Routes tab)', () => {
     }
   });
 
-  it('keeps the column sortable by date', () => {
+  it('keeps the column sortable by the local calendar day', () => {
     expect(routeDriveDateColumn.sortable).toBe(true);
+    // parseDateOnly, not new Date(): the latter reads UTC midnight, which
+    // sorts the row a day early on any clock west of Greenwich.
     expect(routeDriveDateColumn.sortValue!(route())).toEqual(
-      new Date('2025-10-14')
+      new Date(2025, 9, 14)
     );
   });
 });
@@ -116,5 +118,11 @@ describe('routeGroupDriveDateColumn (Groups tab)', () => {
 
   it('omits onUpdated when the caller supplies no handler', () => {
     expect(groupCell(group()).props.onUpdated).toBeUndefined();
+  });
+
+  it('keeps the column sortable by the local calendar day', () => {
+    const column = routeGroupDriveDateColumn();
+    expect(column.sortable).toBe(true);
+    expect(column.sortValue!(group())).toEqual(new Date(2025, 9, 14));
   });
 });
