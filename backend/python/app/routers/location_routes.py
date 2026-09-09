@@ -31,13 +31,6 @@ from app.services.implementations.location_service import (
     LocationService,
 )
 
-# There is deliberately no PATCH /locations/{location_id}. A household is
-# created (geocoded once) and replaced, never edited in place: the roster
-# import owns changes, and it retires the old row and creates a new one rather
-# than moving a house — address is one of the three fields in its 2-of-3
-# identity rule. An update endpoint would let a new address be written over
-# coordinates still pointing at the old house, which is silent: the admin sees
-# the address they typed and the driver is routed to the previous one.
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
