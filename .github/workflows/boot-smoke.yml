@@ -79,7 +79,9 @@ jobs:
           FIREBASE_SVC_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_ID }}
           FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_SVC_ACCOUNT_CLIENT_X509_CERT_URL }}
           FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          # Fake on purpose — CI must never hold a working Maps key; see
+          # .github/workflows/pytest.yml.
+          GOOGLE_MAPS_API_KEY: AIzaSyDUMMY-not-a-real-key-for-tests
         run: |
           if [ -n "$FIREBASE_PROJECT_ID" ]; then
             echo "Real Firebase credentials available — authed API smoke enabled."
