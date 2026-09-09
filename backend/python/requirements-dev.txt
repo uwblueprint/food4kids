@@ -4,10 +4,6 @@
 # (docker-compose.yml passes INSTALL_DEV=true). NOT installed in the deployed
 # image -- see requirements.txt.
 #
-# Everything below was previously in requirements.txt and shipped to Cloud Run,
-# where none of it is imported: ~200MB of type stubs, a type checker, a test
-# runner, plotting libraries used only by backend/python/scripts/, and a
-# fake-data generator used only by seeding.
 
 -r requirements.txt
 
