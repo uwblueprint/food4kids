@@ -1,16 +1,14 @@
 import logging
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.dependencies.auth import require_admin
 from app.models import get_session
 from app.services.implementations.driver_report_service import DriverReportService
-from app.utilities.datetime_utils import now_utc
+from app.utilities.datetime_utils import app_timezone, now_local
 
 logger = logging.getLogger(__name__)
 service = DriverReportService(logger)
@@ -39,7 +37,7 @@ MAX_SERIES_MONTHS = 24
 
 
 def _ensure_est(dt: datetime) -> datetime:
-    tz = ZoneInfo(settings.scheduler_timezone)
+    tz = app_timezone()
     if dt.tzinfo is None:
         return dt.replace(tzinfo=tz)
     return dt.astimezone(tz)
@@ -93,9 +91,10 @@ async def get_monthly_series(
         )
 
     if end_year is None or end_month is None:
-        # "The current month" is a calendar fact, so read the UTC instant in
-        # the scheduler's zone — near midnight the two disagree on the date.
-        today = now_utc().astimezone(ZoneInfo(settings.scheduler_timezone))
+        # "The current month" is a calendar fact, so it is read on the
+        # organization's clock — near midnight the two zones disagree on the
+        # date, and on the 1st and the 31st they disagree on the month.
+        today = now_local()
         end_year, end_month = today.year, today.month
 
     series = await service.get_monthly_series(session, end_year, end_month, months)

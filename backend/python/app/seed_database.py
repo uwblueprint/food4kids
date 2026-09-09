@@ -10,7 +10,7 @@ import os
 import random
 import uuid
 import zlib
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta
 from itertools import pairwise
 from typing import cast
 
@@ -49,7 +49,7 @@ from app.models.system_settings import (
 
 # Import all models to register them with SQLModel
 from app.models.user import User
-from app.utilities.datetime_utils import from_local_wall_clock, now_utc
+from app.utilities.datetime_utils import from_local_wall_clock, now_utc, today_local
 from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.seed_images import render_seed_image
 
@@ -698,9 +698,7 @@ def materialize_route_for_group(
         driver_id=driver_id,
         start_time=start_time,
         encoded_polyline=plan.encoded_polyline or None,
-        polyline_updated_at=(
-            datetime.now(timezone.utc) if plan.encoded_polyline else None
-        ),
+        polyline_updated_at=(now_utc() if plan.encoded_polyline else None),
     )
     set_timestamps(route)
     session.add(route)
@@ -1059,7 +1057,7 @@ def main(*, reset_passwords: bool = False) -> None:
             print("Creating route groups + per-day route instances...")
             route_groups_created = 0
             routes_created = 0
-            today = datetime.now().date()
+            today = today_local()
             start_date = today - timedelta(days=MONTHS_PAST * DAYS_PER_MONTH)
             end_date = today + timedelta(days=MONTHS_FUTURE * DAYS_PER_MONTH)
 
@@ -1186,9 +1184,7 @@ def main(*, reset_passwords: bool = False) -> None:
                 route_group_id=fixture_group.route_group_id,
                 driver_id=None,
                 encoded_polyline=fixture_polyline or None,
-                polyline_updated_at=(
-                    datetime.now(timezone.utc) if fixture_polyline else None
-                ),
+                polyline_updated_at=(now_utc() if fixture_polyline else None),
             )
             set_timestamps(route_with_stops)
             session.add(route_with_stops)
