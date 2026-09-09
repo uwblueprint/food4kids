@@ -1,15 +1,13 @@
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import extract, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import Subquery
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.driver import Driver
 from app.models.driver_mileage import (
     MAX_YEAR,
@@ -20,6 +18,7 @@ from app.models.driver_mileage import (
 from app.models.route import Route
 from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
+from app.utilities.datetime_utils import now_local
 
 
 def month_bounds(year: int, month: int | None = None) -> tuple[date, date]:
@@ -83,7 +82,6 @@ class DriverHistoryService:
     def __init__(self, logger: logging.Logger) -> None:
         """Initialize service"""
         self.logger = logger
-        self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     def validate_year(self, year: int) -> bool:
         return isinstance(year, int) and MIN_YEAR <= year <= MAX_YEAR
@@ -157,7 +155,7 @@ class DriverHistoryService:
         """Total km driven by the driver across all time, plus the current
         year's km (current year determined in the local timezone)."""
         try:
-            current_year = datetime.now(self.timezone).year
+            current_year = now_local().year
             monthly = await self.get_monthly_totals(session, driver_id)
 
             return DriverHistorySummary(
