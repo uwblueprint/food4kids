@@ -11,22 +11,24 @@ from app.dependencies.auth import (
     require_self_driver_or_admin,
 )
 from app.models import get_session
+from app.models.driver import DriverRead
 from app.models.driver_mileage import (
     MAX_YEAR,
     MIN_YEAR,
     DriverHistoryRead,
     DriverHistorySummary,
 )
-from app.routers.driver_routes import get_drivers
 from app.services.implementations.driver_history_csv_service import (
     DriverHistoryCSVGenerator,
 )
 from app.services.implementations.driver_history_service import DriverHistoryService
+from app.services.implementations.driver_service import DriverService
 from app.utilities.csv_utils import generate_csv_from_list
 
 # Initialize service
 logger = logging.getLogger(__name__)
 driver_history_service = DriverHistoryService(logger)
+driver_service = DriverService(logger)
 
 router = APIRouter(prefix="/drivers/{driver_id}/history", tags=["driver-history"])
 
@@ -78,7 +80,10 @@ async def export_all_drivers_history(
             detail=f"No driver history found for year {year} or {year - 1}",
         )
 
-    driver_data = await get_drivers(session, driver_id=None, email=None)
+    driver_data = [
+        DriverRead.model_validate(driver)
+        for driver in await driver_service.get_drivers(session)
+    ]
 
     generator = DriverHistoryCSVGenerator(
         current_year_totals, past_year_totals, driver_data

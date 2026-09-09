@@ -163,6 +163,7 @@ class DriverHistoryService:
             return DriverHistorySummary(
                 lifetime_km=sum(m.km for m in monthly),
                 current_year_km=sum(m.km for m in monthly if m.year == current_year),
+                last_year_km=sum(m.km for m in monthly if m.year == current_year - 1),
             )
         except Exception as e:
             self.logger.error(

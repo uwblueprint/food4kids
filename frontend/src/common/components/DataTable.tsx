@@ -44,6 +44,8 @@ export interface DataTableProps<T> {
   sort?: SortState | null;
   /** Called with a column key when its sortable header is clicked. */
   onSortChange?: (key: string) => void;
+  /** Optional row activation for master-detail tables. */
+  onRowClick?: (row: T) => void;
 }
 
 function compareSortValues(a: SortValue, b: SortValue): number {
@@ -107,6 +109,7 @@ function DataTable<T>({
   className,
   sort,
   onSortChange,
+  onRowClick,
 }: DataTableProps<T>) {
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
@@ -192,6 +195,17 @@ function DataTable<T>({
                   key={getRowKey(row)}
                   data-row-key={getRowKey(row)}
                   className={getRowClassName?.(row)}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onClick={() => onRowClick?.(row)}
+                  onKeyDown={(event) => {
+                    if (
+                      onRowClick &&
+                      (event.key === 'Enter' || event.key === ' ')
+                    ) {
+                      event.preventDefault();
+                      onRowClick(row);
+                    }
+                  }}
                 >
                   {columns.map((col) => (
                     <td
