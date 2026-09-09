@@ -26,6 +26,7 @@ import {
   Spinner,
   StatisticsCard,
 } from '@/common/components';
+import { parseDateOnly } from '@/common/utils';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { GenerationFooter } from './GenerationFooter';
@@ -42,9 +43,7 @@ const BAR_COLORS = [
 ] as const;
 
 function getWeekday(dateTime: string): (typeof WEEKDAYS)[number] {
-  const [date] = dateTime.split('T');
-  const localDate = new Date(`${date}T00:00:00`);
-  return localDate.toLocaleDateString('en-US', {
+  return parseDateOnly(dateTime).toLocaleDateString('en-US', {
     weekday: 'short',
   }) as (typeof WEEKDAYS)[number];
 }

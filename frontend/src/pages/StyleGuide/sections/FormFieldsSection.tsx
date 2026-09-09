@@ -4,6 +4,7 @@ import { Field, FieldLabel } from '@/common/components/Field';
 import { FilterChip, FilterChipGroup } from '@/common/components/FilterChip';
 import { Input } from '@/common/components/Input';
 import { SearchBar } from '@/common/components/SearchBar';
+import { Toggle } from '@/common/components/Toggle';
 
 import { ComponentPreview } from '../components/ComponentPreview';
 import { CompositionTree } from '../components/CompositionTree';
@@ -42,6 +43,12 @@ const FIELD_COMPOSED_CODE = `import { Field, FieldLabel, Input } from '@/common/
     description="Your API key is stored securely."
   />
 </Field>`;
+
+const TOGGLE_CODE = `import { Toggle } from '@/common/components';
+
+const [returnToWarehouse, setReturnToWarehouse] = useState(false);
+
+<Toggle checked={returnToWarehouse} onChange={setReturnToWarehouse} />`;
 
 const FIELD_ERROR_CODE = `import { Field, FieldLabel, Input } from '@/common/components';
 
@@ -94,6 +101,7 @@ export function FormFieldsSection() {
   const [filledText] = useState('Lorem Ipsum is simply dummy text of th...');
   const [searchValue, setSearchValue] = useState('');
   const [filledSearchValue, setFilledSearchValue] = useState('');
+  const [toggleOn, setToggleOn] = useState(true);
   const [selectedDays, setSelectedDays] = useState<Set<string>>(
     new Set(['Wed', 'Thu'])
   );
@@ -507,6 +515,32 @@ export function FormFieldsSection() {
             </FilterChipGroup>
           </div>
         </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* TOGGLE                                                            */}
+      {/* ================================================================ */}
+      <SectionHeader className="mt-10">Toggle</SectionHeader>
+      <SectionDescription>
+        Yes/No switch. The track is Blue/300 when on and Grey/300 when off; the
+        knob stays Grey/100 in both states, and sits 12px from its label.
+      </SectionDescription>
+
+      <SectionLabel>Usage</SectionLabel>
+      <div className="mb-8 space-y-6">
+        <ComponentPreview title="Toggle" code={TOGGLE_CODE}>
+          <div className="flex gap-8">
+            <FormFieldDemo label="On">
+              <Toggle checked={toggleOn} onChange={setToggleOn} />
+            </FormFieldDemo>
+            <FormFieldDemo label="Off">
+              <Toggle checked={false} onChange={() => {}} />
+            </FormFieldDemo>
+            <FormFieldDemo label="Disabled">
+              <Toggle checked disabled onChange={() => {}} />
+            </FormFieldDemo>
+          </div>
+        </ComponentPreview>
       </div>
     </section>
   );

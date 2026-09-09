@@ -174,9 +174,6 @@ import type {
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
   TestData,
-  TestEventEmailData,
-  TestEventEmailErrors,
-  TestEventEmailResponses,
   TestResponses,
   UpdateAnnouncementData,
   UpdateAnnouncementErrors,
@@ -184,12 +181,9 @@ import type {
   UpdateDriverData,
   UpdateDriverErrors,
   UpdateDriverResponses,
-  UpdateLocationData,
-  UpdateLocationErrors,
   UpdateLocationGroupData,
   UpdateLocationGroupErrors,
   UpdateLocationGroupResponses,
-  UpdateLocationResponses,
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
@@ -581,25 +575,6 @@ export const completeDriverRegistration = <
       'Content-Type': 'application/json',
       ...options.headers,
     },
-  });
-
-/**
- * Test Event Email
- *
- * Temporary endpoint to test event-driven emails.
- * Delete this after testing!
- */
-export const testEventEmail = <ThrowOnError extends boolean = false>(
-  options: Options<TestEventEmailData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    TestEventEmailResponses,
-    TestEventEmailErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/drivers/test-event-email',
-    ...options,
   });
 
 /**
@@ -1062,29 +1037,6 @@ export const getLocation = <ThrowOnError extends boolean = false>(
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/locations/{location_id}',
     ...options,
-  });
-
-/**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocation = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateLocationData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateLocationResponses,
-    UpdateLocationErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/{location_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**
