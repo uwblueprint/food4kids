@@ -18,9 +18,10 @@ export default defineConfig({
   },
   test: {
     // Node supplies File/FormData/Blob, so the request-shape tests need no
-    // DOM. Tests that touch a component opt in per file with a
-    // `// @vitest-environment happy-dom` docblock, so the rest don't pay for
-    // it here.
+    // DOM. Component tests opt in per file with a
+    // `// @vitest-environment happy-dom` docblock, so they don't pay for it
+    // here. happy-dom rather than jsdom because Radix's Select hangs under
+    // user-event on jsdom 26.
     //
     // Keep frontend/Dockerfile and the CI workflows on the SAME Node (24.13.0
     // today). When they drift, a dep whose engines.node outruns CI's passes
