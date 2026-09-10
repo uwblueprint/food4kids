@@ -11,9 +11,10 @@ vanished. This is the test that would not.
 """
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app import create_app
+from app import create_app, routers
 from app.routers import API_PREFIX
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
@@ -29,7 +30,9 @@ def schema_paths() -> list[str]:
 
 
 def test_the_prefix_is_what_hosting_rewrites() -> None:
-    """Hosting's rewrite is configured for this exact string."""
+    """Hosting's rewrite is configured for this exact string. The rewrite lives
+    in frontend/firebase.json on feat/deployment-setup (PR #210), not yet on
+    main; once it lands, parse it here instead of pinning the literal."""
     assert API_PREFIX == "/api"
 
 
@@ -41,9 +44,29 @@ def test_every_route_carries_the_prefix(schema_paths: list[str]) -> None:
     )
 
 
-def test_there_are_routes_to_check(schema_paths: list[str]) -> None:
-    """Guards the test above from passing vacuously on an empty schema."""
-    assert len(schema_paths) > 40
+@pytest.fixture(scope="module")
+def declared_paths() -> set[str]:
+    """Every path the router modules declare, mounted where init_app puts it.
+    Read off the routers rather than app.routes, which FastAPI 0.137 no longer
+    flattens."""
+    paths: set[str] = set()
+    for name in dir(routers):
+        if not name.endswith("_routes"):
+            continue
+        for route in getattr(routers, name).router.routes:
+            assert isinstance(route, APIRoute), f"{name} nests something: {route!r}"
+            if route.include_in_schema:
+                paths.add(f"{API_PREFIX}{route.path_format}")
+    return paths
+
+
+def test_the_schema_lists_every_declared_route(
+    schema_paths: list[str], declared_paths: set[str]
+) -> None:
+    """Guards the test above from passing vacuously: what it inspects is exactly
+    what the router modules declare, nothing dropped and nothing extra."""
+    assert declared_paths
+    assert set(schema_paths) == declared_paths
 
 
 @pytest.fixture(scope="module")
