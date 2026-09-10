@@ -13,9 +13,6 @@ interface MonthlyMetricViewProps {
   points: MetricPoint[];
   /**
    * The all-time figure, which the caller fetches separately.
-   *
-   * Not summed from `points`: the chart plots a trailing window, so summing
-   * it would quietly turn "Total" into "in the last six months".
    */
   total: number;
   /** Caption under the total, e.g. "Total Kilometers". */
