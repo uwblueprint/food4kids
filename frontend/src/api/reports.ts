@@ -3,7 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import {
   getMonthlyRankingOptions,
   getMonthlySeriesOptions,
+  getTotalsOptions,
 } from './generated/@tanstack/react-query.gen';
+
+/**
+ * GET /reports/totals — km driven and deliveries made, aggregated in SQL.
+ *
+ * Called with no bounds, so it answers for all time. The same endpoint takes
+ * a half-open `start`/`end` pair for a window.
+ */
+export function useAllTimeTotals() {
+  return useQuery(getTotalsOptions());
+}
 
 /**
  * GET /reports/monthly-series — km and deliveries per month for a trailing
