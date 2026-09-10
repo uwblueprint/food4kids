@@ -64,10 +64,8 @@ export function useRefresh() {
         // token that aged out under an open tab restore the session identically.
         return await refreshSession();
       } catch (error) {
-        // Only the server refusing the cookie means there is no session to
-        // restore. A dropped connection or a 5xx leaves it standing, and the
-        // caller shows a retry rather than signing out someone whose cookie is
-        // still good.
+        // Only a refused cookie means there is no session. A network error or
+        // a 5xx leaves it in place, and AuthProvider offers a retry.
         if (isRefreshRefusal(error)) {
           clearAuth();
         }

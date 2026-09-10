@@ -36,29 +36,17 @@ axiosClient.interceptors.request.use((config) => {
 const REFRESH_PATH = '/auth/refresh';
 
 /**
- * The token we sent was refused, and a fresh one might not be. Only a 401 says
- * that: a 403 is "not yours", which no amount of re-authenticating changes.
- */
-export function isAuthRefusal(error: unknown): error is AxiosError {
-  return isAxiosError(error) && error.response?.status === 401;
-}
-
-/**
- * `/auth/refresh` judged the cookie and said no. It reads nothing but that
- * cookie, so every client error it returns is the same verdict — missing,
- * malformed, or spent — and asking again cannot change it. A 5xx or a request
- * that never got an answer judged nothing, and leaves the session standing.
+ * Any 4xx from `/auth/refresh` means the server looked at the refresh cookie
+ * and rejected it, so retrying cannot help. A 5xx or a network error says
+ * nothing about the cookie.
  */
 export function isRefreshRefusal(error: unknown): error is AxiosError {
   const status = isAxiosError(error) ? error.response?.status : undefined;
   return status !== undefined && status >= 400 && status < 500;
 }
 
-/**
- * A refresh that is never answered has to end somewhere: the startup restore
- * only offers a retry once the request errors. Generous, because a cold backend
- * has to reach Google's token endpoint before it can answer at all.
- */
+// Without a timeout a hung refresh never errors, and the startup screen never
+// offers a retry. Generous because a cold backend has to reach Google first.
 const REFRESH_TIMEOUT_MS = 20_000;
 
 interface SessionRequestConfig extends InternalAxiosRequestConfig {
@@ -121,7 +109,7 @@ function isRefreshRequest(config: InternalAxiosRequestConfig): boolean {
 // A 403 is left alone: the server knows exactly who we are and this isn't
 // ours, so logging in again would just repeat the same 403.
 axiosClient.interceptors.response.use(undefined, async (error: unknown) => {
-  if (!isAuthRefusal(error)) {
+  if (!isAxiosError(error) || error.response?.status !== 401) {
     return Promise.reject(error);
   }
 

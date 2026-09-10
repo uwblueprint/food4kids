@@ -18,17 +18,8 @@ import axiosClient from '@/lib/axiosClient';
 
 import { AuthProvider, RESTORE_GRACE_MS } from './AuthProvider';
 
-/**
- * The startup session restore, end to end: what the visitor sees while it runs,
- * and which outcomes are allowed to end a session.
- *
- * The access token lives in memory only, so every load of a protected route
- * waits on `POST /auth/refresh` before anyone knows who is here. Two things
- * follow, and both are pinned below: the wait must be invisible when it is
- * short, and a refresh that never got an answer must not sign anyone out —
- * that is a dropped connection, not a revoked session, exactly the distinction
- * `axiosClient` already draws mid-session.
- */
+// The startup session restore, driven through the real axiosClient with a fake
+// adapter: what the visitor sees while it runs, and which failures end it.
 
 const SESSION: AuthResponse = {
   access_token: 'token-xyz',
@@ -48,10 +39,8 @@ type Reply =
 
 const realAdapter = axiosClient.defaults.adapter;
 
-/**
- * The refresh hangs until the test answers it, so a test can inspect the page
- * mid-flight — which is the whole subject here — and then decide the outcome.
- */
+// Each refresh hangs until the test calls `answer`, so a test can look at the
+// page mid-flight and then choose the outcome.
 let answer!: (reply: Reply) => void;
 let pendingReply: Promise<Reply>;
 
@@ -61,14 +50,39 @@ function armReply() {
   });
 }
 
-/**
- * Let real time pass — the grace window is a real timer — while React is free
- * to process whatever the refresh settled in the meantime.
- */
+/** Let `ms` of real time pass, with React free to apply whatever settled. */
 async function advance(ms: number) {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, ms));
   });
+}
+
+async function fakeAdapter(config: InternalAxiosRequestConfig) {
+  const reply = await pendingReply;
+
+  if ('networkError' in reply) {
+    throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
+  }
+
+  const status = 'session' in reply ? 200 : reply.status;
+  const response = {
+    data: 'session' in reply ? reply.session : { detail: 'nope' },
+    status,
+    statusText: '',
+    headers: {},
+    config,
+  } as AxiosResponse;
+
+  if (status >= 400) {
+    throw new AxiosError(
+      `Request failed with status code ${status}`,
+      AxiosError.ERR_BAD_REQUEST,
+      config,
+      null,
+      response
+    );
+  }
+  return response;
 }
 
 function renderApp() {
@@ -97,57 +111,17 @@ function renderApp() {
 
 beforeEach(() => {
   armReply();
-  useAuthStore.setState({
-    accessToken: null,
-    user: null,
-    isAuthenticated: false,
-    isRestoringSession: true,
-    sessionExpired: false,
-    rememberMe: false,
-  });
-
-  axiosClient.defaults.adapter = async (config: InternalAxiosRequestConfig) => {
-    const reply = await pendingReply;
-
-    if ('networkError' in reply) {
-      throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
-    }
-
-    if ('session' in reply) {
-      return {
-        data: reply.session,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config,
-      } as AxiosResponse;
-    }
-
-    const response = {
-      data: { detail: 'nope' },
-      status: reply.status,
-      statusText: 'Error',
-      headers: {},
-      config,
-    } as AxiosResponse;
-    throw new AxiosError(
-      `Request failed with status code ${reply.status}`,
-      AxiosError.ERR_BAD_REQUEST,
-      config,
-      null,
-      response
-    );
-  };
+  useAuthStore.getState().clearAuth();
+  useAuthStore.setState({ isRestoringSession: true });
+  axiosClient.defaults.adapter = fakeAdapter;
 });
 
 afterEach(async () => {
-  // Never leave a refresh in flight: axiosClient shares one across callers, and
-  // a hung one would still be there for the next test.
+  // axiosClient shares one in-flight refresh, so never leave it hanging.
   answer({ networkError: true });
   await advance(0);
   cleanup();
   axiosClient.defaults.adapter = realAdapter;
-  useAuthStore.getState().clearAuth();
 });
 
 describe('while the session is being restored', () => {
@@ -156,7 +130,6 @@ describe('while the session is being restored', () => {
 
     expect(container.innerHTML).toBe('');
 
-    // Still nothing well into the window — not merely a first-paint artifact.
     await advance(RESTORE_GRACE_MS / 2);
     expect(container.innerHTML).toBe('');
     expect(screen.queryByText(/restoring your session/i)).toBeNull();
@@ -179,11 +152,7 @@ describe('while the session is being restored', () => {
 });
 
 describe('when the refresh fails', () => {
-  /**
-   * `/auth/refresh` reads nothing but the refresh cookie, so every client error
-   * it returns is the same verdict on that cookie. Offering a retry on any of
-   * them would only reproduce it, so all of them end the restore.
-   */
+  // Every 4xx is the server rejecting the cookie, and a retry would repeat it.
   it.each([400, 401, 403, 404])(
     'sends a visitor with no session to the login page on a %i',
     async (status) => {
@@ -199,11 +168,8 @@ describe('when the refresh fails', () => {
     }
   );
 
-  /**
-   * The bug this file was written for. A blip on the way to `/auth/refresh`
-   * used to clear the store, signing out someone whose refresh cookie was
-   * still perfectly good and bouncing them to the login page.
-   */
+  // The bug this file was written for: a blip used to clear the store and
+  // sign out someone whose refresh cookie was still good.
   it.each([
     ['a connection that never landed', { networkError: true } as const],
     ['a 500 from the server', { status: 500 } as const],
@@ -227,7 +193,6 @@ describe('when the refresh fails', () => {
     await advance(RESTORE_GRACE_MS - 100);
     expect(container.innerHTML).toBe('');
 
-    // Non-vacuous: the failure was already in hand, just not yet worth saying.
     expect(
       await screen.findByRole('button', { name: /try again/i })
     ).toBeTruthy();

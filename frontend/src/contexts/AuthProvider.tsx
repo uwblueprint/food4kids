@@ -19,22 +19,14 @@ const PUBLIC_ROUTES = [
 ];
 
 /**
- * How long a session restore may run before it says anything about itself.
- *
- * The access token is held in memory only, so every load of a protected route
- * — including a logged-out visit to `/` on the way to the login page — waits on
- * a `/auth/refresh` round trip before anyone knows who is here. A warm one
- * lands well inside this window and the visitor sees nothing at all; only a
- * genuinely slow one is worth explaining.
+ * Every protected page starts with a `/auth/refresh` call to find out who is
+ * signed in. Render nothing for this long, so a quick refresh never flashes a
+ * "Restoring your session..." screen.
  */
 export const RESTORE_GRACE_MS = 300;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const {
-    isError: restoreFailed,
-    isFetching: restoreInFlight,
-    refetch: retryRestore,
-  } = useRefresh();
+  const { isError, isFetching, refetch } = useRefresh();
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
@@ -65,22 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   if (isRestoringSession) {
-    // Inside the grace window: say nothing rather than flash a gate that the
-    // page itself is about to replace.
     if (!graceElapsed) {
       return null;
     }
 
-    // A refusal ends the restore by clearing the store, so a failure that is
-    // still restoring never got an answer. The session is intact but unknown,
-    // and the only thing left to do is ask again.
-    if (restoreFailed && !restoreInFlight) {
+    // A refused refresh clears the store, so an error while still restoring
+    // means the request never got an answer. Offer to ask again.
+    if (isError && !isFetching) {
       return (
         <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-gray-50">
           <span className="text-sm font-medium text-gray-500">
             Couldn&apos;t reach the server to restore your session.
           </span>
-          <Button variant="primary" onClick={() => void retryRestore()}>
+          <Button variant="primary" onClick={() => void refetch()}>
             Try again
           </Button>
         </div>
@@ -89,11 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-2">
-          <span className="text-sm font-medium text-gray-500">
-            Restoring your session...
-          </span>
-        </div>
+        <span className="text-sm font-medium text-gray-500">
+          Restoring your session...
+        </span>
       </div>
     );
   }
