@@ -400,16 +400,6 @@ export type ChangedFieldStr = {
 };
 
 /**
- * DeliveriesCountResponse
- */
-export type DeliveriesCountResponse = {
-  /**
-   * Total Deliveries
-   */
-  total_deliveries: number;
-};
-
-/**
  * DeliveryTypeRename
  *
  * Request body for renaming a configured delivery type.
@@ -2259,6 +2249,20 @@ export type SystemSettingsUpdate = {
 };
 
 /**
+ * TotalsResponse
+ */
+export type TotalsResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
+};
+
+/**
  * UpdatePasswordRequest
  */
 export type UpdatePasswordRequest = {
@@ -3979,46 +3983,6 @@ export type GetNotesFeedResponses = {
 export type GetNotesFeedResponse =
   GetNotesFeedResponses[keyof GetNotesFeedResponses];
 
-export type GetTotalDeliveriesBetweenData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Start
-     *
-     * Start datetime (assumed EST if no tz)
-     */
-    start: string;
-    /**
-     * End
-     *
-     * End datetime (assumed EST if no tz)
-     */
-    end: string;
-  };
-  url: '/reports/deliveries/count';
-};
-
-export type GetTotalDeliveriesBetweenErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type GetTotalDeliveriesBetweenError =
-  GetTotalDeliveriesBetweenErrors[keyof GetTotalDeliveriesBetweenErrors];
-
-export type GetTotalDeliveriesBetweenResponses = {
-  /**
-   * Successful Response
-   */
-  200: DeliveriesCountResponse;
-};
-
-export type GetTotalDeliveriesBetweenResponse =
-  GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
-
 export type GetMonthlySeriesData = {
   body?: never;
   path?: never;
@@ -4105,41 +4069,43 @@ export type GetMonthlyRankingResponses = {
 export type GetMonthlyRankingResponse =
   GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
 
-export type GetMonthlyTotalsData = {
+export type GetTotalsData = {
   body?: never;
-  path: {
+  path?: never;
+  query?: {
     /**
-     * Year
+     * Start
+     *
+     * Start datetime, inclusive (assumed EST if no tz)
      */
-    year: number;
+    start?: string | null;
     /**
-     * Month
+     * End
+     *
+     * End datetime, exclusive (assumed EST if no tz)
      */
-    month: number;
+    end?: string | null;
   };
-  query?: never;
-  url: '/reports/monthly/{year}/{month}/totals';
+  url: '/reports/totals';
 };
 
-export type GetMonthlyTotalsErrors = {
+export type GetTotalsErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type GetMonthlyTotalsError =
-  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
+export type GetTotalsError = GetTotalsErrors[keyof GetTotalsErrors];
 
-export type GetMonthlyTotalsResponses = {
+export type GetTotalsResponses = {
   /**
    * Successful Response
    */
-  200: MonthlyTotalsResponse;
+  200: TotalsResponse;
 };
 
-export type GetMonthlyTotalsResponse =
-  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
+export type GetTotalsResponse = GetTotalsResponses[keyof GetTotalsResponses];
 
 export type GetRouteGroupsData = {
   body?: never;
