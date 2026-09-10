@@ -90,9 +90,12 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def init_app(_app: Any | None = None) -> None:
-    """Initialize database for the application"""
-    # Import models to register them with SQLModel
+def register_models() -> None:
+    """Import every model so SQLAlchemy can resolve relationships by name.
+
+    Pure imports, no connection: anything that only needs the mappers wired up
+    can call this without a database.
+    """
     from .admin import Admin  # noqa: F401
     from .announcement import Announcement  # noqa: F401
     from .announcement_last_read import AnnouncementLastRead  # noqa: F401
@@ -112,6 +115,10 @@ def init_app(_app: Any | None = None) -> None:
     from .user import User  # noqa: F401
     from .user_invite import UserInvite  # noqa: F401
 
+
+def init_app(_app: Any | None = None) -> None:
+    """Initialize database for the application"""
+    register_models()
     init_database()
 
     # Create tables if in testing mode

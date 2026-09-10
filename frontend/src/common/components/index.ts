@@ -12,6 +12,7 @@ export {
   CardHeader,
   CardTitle,
 } from './Card';
+export { ConfirmModal } from './ConfirmModal';
 export type { Column, DataTableProps, SortState } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
 export { DatePicker } from './DatePicker';
@@ -75,4 +76,5 @@ export { Tag } from './Tag';
 export { Textarea } from './Textarea';
 export type { TimePickerPadding } from './TimePicker';
 export { TimePicker } from './TimePicker';
+export { Toggle } from './Toggle';
 export { Tooltip, TooltipContent, TooltipTrigger } from './Tooltip';
