@@ -6,15 +6,18 @@ config arrives as a mounted secrets file, so anything read through
 ``os.getenv`` is invisible there even when it is present in the secret.
 """
 
+from typing import Final, Literal
+
 from sqlalchemy import URL, make_url
 
 from app.config import Environment, settings
 
-ASYNC_DRIVER = "postgresql+asyncpg"
-SYNC_DRIVER = "postgresql"
+Driver = Literal["postgresql+asyncpg", "postgresql"]
+ASYNC_DRIVER: Final[Driver] = "postgresql+asyncpg"
+SYNC_DRIVER: Final[Driver] = "postgresql"
 
 
-def get_database_url(driver: str = ASYNC_DRIVER) -> str:
+def get_database_url(driver: Driver = ASYNC_DRIVER) -> str:
     """Build the database URL for ``driver``.
 
     Raises if the credentials it needs are missing, rather than handing back a
@@ -41,6 +44,7 @@ def get_database_url(driver: str = ASYNC_DRIVER) -> str:
         name
         for name, value in (
             ("POSTGRES_USER", settings.postgres_user),
+            ("POSTGRES_PASSWORD", settings.postgres_password),
             ("DB_HOST", settings.db_host),
             (database_var, database),
         )
