@@ -9,7 +9,6 @@ import type {
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
 import { ProgressStepper } from '../components';
-import { deliveryTypeSelection } from './deliveryTypeSelection';
 
 const STEP_PATHS = [
   'import',
@@ -70,11 +69,11 @@ export function AdminRoutesGenerationLayout() {
   if (!hasSeededFromSettings && settingsLoaded) {
     setHasSeededFromSettings(true);
     setColumnMap(systemSettings?.import_column_map ?? {});
-    // A single configured delivery type is not a choice, so apply it here and
-    // let the import step skip its picker entirely.
-    const selection = deliveryTypeSelection(systemSettings);
-    if (selection.kind === 'only') {
-      setSelectedDeliveryType(selection.deliveryType);
+    // A single configured type is pre-selected so the import step opens with
+    // its radio already checked and the upload available.
+    const deliveryTypes = systemSettings?.delivery_types ?? [];
+    if (deliveryTypes.length === 1) {
+      setSelectedDeliveryType(deliveryTypes[0]);
     }
   }
 

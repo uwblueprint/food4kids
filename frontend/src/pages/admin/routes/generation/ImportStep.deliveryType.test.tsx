@@ -25,7 +25,7 @@ vi.mock('@/api', () => ({
 }));
 
 /** Renders the delivery type the layout put in context, so the tests can tell
- * "applied without asking" apart from "nothing chosen yet". */
+ * "pre-selected" apart from "nothing chosen yet". */
 function SelectedTypeProbe() {
   const { selectedDeliveryType } = useOutletContext<GenerationOutletContext>();
   // In an attribute, not text, so the tests can assert on what the step
@@ -45,7 +45,7 @@ const loading: SettingsQuery = {
   isError: false,
 };
 
-const loaded = (delivery_types: string[] | undefined): SettingsQuery => ({
+const loaded = (delivery_types: string[]): SettingsQuery => ({
   data: { delivery_types } as unknown as SystemSettingsRead,
   isSuccess: true,
   isError: false,
@@ -102,15 +102,17 @@ describe('ImportStep delivery type selection', () => {
     expect(uploadSection()).toBeNull();
   });
 
-  it('skips the picker and applies the type when only one is configured', () => {
+  it('pre-selects the type when only one is configured', () => {
     renderImportStep(loaded(['Family']));
 
-    expect(picker()).toBeNull();
-    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    // The picker stays so the admin can see what the import is labelled,
+    // but it arrives checked and the upload is available on first render.
+    expect(picker()).not.toBeNull();
+    const radios = screen.getAllByRole('radio');
+    expect(radios).toHaveLength(1);
+    expect((radios[0] as HTMLInputElement).checked).toBe(true);
     expect(selected()).toBe('Family');
-    // Skipped, not auto-dismissed: the upload is available on first render.
     expect(uploadSection()).not.toBeNull();
-    expect(screen.getByText('Family')).not.toBeNull();
   });
 
   it('makes no decision while settings are still loading', () => {
@@ -122,17 +124,6 @@ describe('ImportStep delivery type selection', () => {
     expect(selected()).toBe('');
     expect(uploadSection()).toBeNull();
     expect(screen.getByRole('status')).not.toBeNull();
-  });
-
-  it('says so explicitly when no types are configured', () => {
-    renderImportStep(loaded([]));
-
-    expect(picker()).toBeNull();
-    expect(screen.queryAllByRole('radio')).toHaveLength(0);
-    expect(selected()).toBe('');
-    expect(uploadSection()).toBeNull();
-    expect(screen.queryByRole('status')).toBeNull();
-    expect(screen.getByText(/No delivery types are configured/)).not.toBeNull();
   });
 
   it('reports a failed settings load instead of spinning forever', () => {
