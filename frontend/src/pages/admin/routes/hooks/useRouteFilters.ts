@@ -77,7 +77,7 @@ export function useRouteFilters(): UseRouteFiltersReturn {
   const [draftFilters, setDraftFilters] =
     useState<RouteFilterState>(emptyFilters());
   const { data: systemSettings } = useSystemSettings();
-  // Empty until settings load; the filter dialog hides the group either way.
+  // Empty until settings load.
   const deliveryTypes = systemSettings?.delivery_types ?? [];
 
   const hasActiveFilters = Object.values(appliedFilters).some(
