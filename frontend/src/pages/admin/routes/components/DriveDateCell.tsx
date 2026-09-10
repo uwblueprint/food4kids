@@ -137,7 +137,7 @@ export function DriveDateCell({
         title="Move to a past date?"
         description={
           pendingPastDate
-            ? `${formatShortDate(toNaiveDateString(pendingPastDate))} has already passed, so tonight's nightly job will record this group as a completed delivery and count it in driver history.`
+            ? `${formatShortDate(toNaiveDateString(pendingPastDate))} has already passed, so the route group will be considered a completed delivery and count towards monthly delivery reports and any assigned drivers' history.`
             : ''
         }
         confirmLabel="Move anyway"
