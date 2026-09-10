@@ -9,7 +9,10 @@ export const buttonVariantClasses = {
   primary: 'bg-blue-300 text-grey-100 hover:bg-blue-400',
   secondary:
     'bg-grey-200 text-grey-500 border border-grey-300 hover:bg-grey-300',
-  tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
+  /* Figma's Type=Tertiary, State=Hover keeps the fill and stroke and adds
+   * only a 0 0 10px rgba(0,0,0,.04) shadow — our `shadow-light` token. */
+  tertiary:
+    'bg-grey-100 text-grey-500 border border-grey-300 hover:shadow-light',
   textLink: 'bg-transparent text-blue-300 hover:underline',
   ghost: 'bg-transparent text-grey-500 hover:bg-grey-200',
   destructive: 'bg-red text-grey-100 hover:opacity-90',
