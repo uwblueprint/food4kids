@@ -17,6 +17,7 @@ from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GoogleMapsFleetRoutingAlgorithm,
 )
+from app.utilities.datetime_utils import today_local
 
 
 @dataclass
@@ -54,9 +55,7 @@ async def test_fleet_routing_live() -> None:
         pytest.skip("ROUTE_OPT_* env vars not configured")
 
     # Relative so the script doesn't rot — the API plans against the day given.
-    tomorrow_at_nine = datetime.combine(
-        datetime.now().date() + timedelta(days=1), time(9, 0)
-    )
+    tomorrow_at_nine = datetime.combine(today_local() + timedelta(days=1), time(9, 0))
 
     settings = RouteGenerationSettings(
         num_routes=2,

@@ -1,8 +1,7 @@
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any, Literal
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import case, func, or_
@@ -10,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.driver import Driver
 from app.models.enum import (
     DriveDaysOfWeekEnum,
@@ -38,11 +36,13 @@ from app.utilities.boxes import (
     compute_boxes,
     resolve_children_per_box,
 )
+from app.utilities.datetime_utils import now_utc, today_local
 from app.utilities.google_maps_link import (
     MapWaypoint,
     build_google_maps_directions_url,
 )
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_order_by
 from app.utilities.routes_utils import fetch_route_polyline
 
 
@@ -141,7 +141,7 @@ class RouteService:
         # in Eastern has already rolled over, so tomorrow's routes would show
         # as completed. Matches RouteGroupService, which reports the same
         # status for the group these routes belong to.
-        today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
+        today = today_local()
         status_expr = case(
             (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
             else_=RouteStatusEnum.COMPLETED.value,
@@ -250,7 +250,8 @@ class RouteService:
         # share a name, and paginate_query's count and page are separate
         # statements, so any remaining tie can shuffle a row between pages.
         statement = statement.order_by(
-            drive_date_order, col(Route.name), col(Route.route_id)
+            drive_date_order,
+            *route_name_order_by(col(Route.name), col(Route.route_id)),
         )
 
         if pagination is None:
@@ -547,7 +548,7 @@ class RouteService:
                 # "corrects the record": derived mileage picks up the new
                 # length automatically.
                 route.encoded_polyline = encoded_polyline
-                route.polyline_updated_at = datetime.now(timezone.utc)
+                route.polyline_updated_at = now_utc()
                 route.length = distance_km
 
                 # Amending a FROZEN route: rebuild the per-stop snapshots

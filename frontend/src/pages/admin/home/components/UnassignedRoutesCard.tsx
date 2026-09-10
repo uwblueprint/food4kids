@@ -12,6 +12,7 @@ import {
   Spinner,
   Tag,
 } from '@/common/components';
+import { SELECTED_BUTTON_STROKE } from '@/common/components/Button.variants';
 import { parseDateOnly, toNaiveDateString } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
@@ -49,22 +50,20 @@ function UnassignedRouteRow({
         onClick={onSelect}
         className={cn(
           'flex w-full cursor-pointer items-center justify-between self-stretch rounded-sm px-5 py-2 text-left',
-          isSelected && 'bg-blue-50'
+          isSelected && `bg-blue-50 ${SELECTED_BUTTON_STROKE}`
         )}
       >
         <div className="flex min-w-0 flex-col">
-          <p className="text-m-p2 text-grey-500 font-normal">{route.name}</p>
+          <p className="text-p1 text-grey-500">{route.name}</p>
           {route.group_name ? (
-            <p className="text-m-p3 text-grey-500 font-normal">
-              {route.group_name}
-            </p>
+            <p className="text-p2 text-grey-500">{route.group_name}</p>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col text-right">
-          <p className="text-m-p2 text-grey-500 font-normal">
+          <p className="text-p1 text-grey-500">
             {formatRouteDate(route.drive_date)}
           </p>
-          <p className="text-m-p3 text-grey-500 font-normal">{stopsLabel}</p>
+          <p className="text-p2 text-grey-500">{stopsLabel}</p>
         </div>
       </button>
     </li>
@@ -96,12 +95,12 @@ export function UnassignedRoutesCard() {
 
   return (
     <Card className="shadow-admin-bento min-h-0 rounded-4xl">
-      <CardHeader className="mb-2">
-        <div className="flex items-center justify-between gap-2">
+      <CardHeader className="mb-4">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <CardTitle className="text-h3">Unassigned</CardTitle>
+            <CardTitle className="text-h2">Unassigned</CardTitle>
             {total > 0 && (
-              <Tag variant="error" className="shrink-0">
+              <Tag variant="count" className="shrink-0">
                 {total} route{total === 1 ? '' : 's'}
               </Tag>
             )}
@@ -134,7 +133,7 @@ export function UnassignedRoutesCard() {
           <div className="flex min-h-0 gap-4">
             <UnassignedRoutePreviewCard
               route={selectedRoute}
-              className="min-w-0"
+              className="w-[375px] shrink-0"
             />
             <ul className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-y-auto">
               {routes.map((route) => {

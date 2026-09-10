@@ -7,10 +7,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration(),
-      // Automatically capture console.log, console.warn, and console.error calls as Sentry logs
-      Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
     ],
-    // Enable logs
     enableLogs: true,
 
     tracesSampleRate: 0.2,

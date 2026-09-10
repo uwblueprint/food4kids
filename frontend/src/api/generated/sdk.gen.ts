@@ -118,9 +118,6 @@ import type {
   GetMonthlySeriesData,
   GetMonthlySeriesErrors,
   GetMonthlySeriesResponses,
-  GetMonthlyTotalsData,
-  GetMonthlyTotalsErrors,
-  GetMonthlyTotalsResponses,
   GetNoteChainData,
   GetNoteChainErrors,
   GetNoteChainResponses,
@@ -146,9 +143,9 @@ import type {
   GetSuggestedDriverResponses,
   GetSystemSettingsData,
   GetSystemSettingsResponses,
-  GetTotalDeliveriesBetweenData,
-  GetTotalDeliveriesBetweenErrors,
-  GetTotalDeliveriesBetweenResponses,
+  GetTotalsData,
+  GetTotalsErrors,
+  GetTotalsResponses,
   InitializeDriverData,
   InitializeDriverErrors,
   InitializeDriverResponses,
@@ -174,9 +171,6 @@ import type {
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
   TestData,
-  TestEventEmailData,
-  TestEventEmailErrors,
-  TestEventEmailResponses,
   TestResponses,
   UpdateAnnouncementData,
   UpdateAnnouncementErrors,
@@ -184,12 +178,9 @@ import type {
   UpdateDriverData,
   UpdateDriverErrors,
   UpdateDriverResponses,
-  UpdateLocationData,
-  UpdateLocationErrors,
   UpdateLocationGroupData,
   UpdateLocationGroupErrors,
   UpdateLocationGroupResponses,
-  UpdateLocationResponses,
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
@@ -584,33 +575,15 @@ export const completeDriverRegistration = <
   });
 
 /**
- * Test Event Email
- *
- * Temporary endpoint to test event-driven emails.
- * Delete this after testing!
- */
-export const testEventEmail = <ThrowOnError extends boolean = false>(
-  options: Options<TestEventEmailData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    TestEventEmailResponses,
-    TestEventEmailErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/drivers/test-event-email',
-    ...options,
-  });
-
-/**
  * Delete Driver
  *
  * Delete a driver by ID.
  *
  * A hard delete of the person: the user account and their Firebase login go
  * with the driver record, so a deleted driver can no longer sign in. Their
- * routes are detached (driver_id SET NULL) rather than deleted, so the
- * driver's km stop counting toward anyone.
+ * routes are detached (driver_id SET NULL) rather than deleted: the km and
+ * deliveries stay in the org's totals, they just stop being attributed to
+ * anyone in the per-driver ranking and export.
  */
 export const deleteDriver = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDriverData, ThrowOnError>
@@ -1065,29 +1038,6 @@ export const getLocation = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocation = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateLocationData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateLocationResponses,
-    UpdateLocationErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/locations/{location_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
  * Delete Note Chain
  *
  * Delete a note chain and all its notes (admin only)
@@ -1227,26 +1177,6 @@ export const getNotesFeed = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
- */
-export const getTotalDeliveriesBetween = <ThrowOnError extends boolean = false>(
-  options: Options<GetTotalDeliveriesBetweenData, ThrowOnError>
-) =>
-  (options.client ?? client).get<
-    GetTotalDeliveriesBetweenResponses,
-    GetTotalDeliveriesBetweenErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/reports/deliveries/count',
-    ...options,
-  });
-
-/**
  * Get Monthly Series
  *
  * Return km and deliveries per month for a trailing window, oldest first.
@@ -1288,21 +1218,28 @@ export const getMonthlyRanking = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get Monthly Totals
+ * Get Totals
  *
- * Return total distance driven and total deliveries for the month.
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
  */
-export const getMonthlyTotals = <ThrowOnError extends boolean = false>(
-  options: Options<GetMonthlyTotalsData, ThrowOnError>
+export const getTotals = <ThrowOnError extends boolean = false>(
+  options?: Options<GetTotalsData, ThrowOnError>
 ) =>
-  (options.client ?? client).get<
-    GetMonthlyTotalsResponses,
-    GetMonthlyTotalsErrors,
+  (options?.client ?? client).get<
+    GetTotalsResponses,
+    GetTotalsErrors,
     ThrowOnError
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/reports/monthly/{year}/{month}/totals',
+    url: '/reports/totals',
     ...options,
   });
 

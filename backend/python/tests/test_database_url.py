@@ -117,6 +117,7 @@ class TestMissingCredentials:
         ("field", "expected"),
         [
             ("postgres_user", "POSTGRES_USER"),
+            ("postgres_password", "POSTGRES_PASSWORD"),
             ("db_host", "DB_HOST"),
             ("postgres_db_dev", "POSTGRES_DB_DEV"),
         ],
@@ -145,23 +146,22 @@ class TestMissingCredentials:
     ) -> None:
         """One round trip per missing variable is a miserable way to find out."""
         use(monkeypatch, Environment.DEVELOPMENT)
-        for field in ("postgres_user", "db_host", "postgres_db_dev"):
+        for field in (
+            "postgres_user",
+            "postgres_password",
+            "db_host",
+            "postgres_db_dev",
+        ):
             monkeypatch.setattr(settings, field, "")
         with pytest.raises(RuntimeError) as caught:
             get_database_url()
-        for expected in ("POSTGRES_USER", "DB_HOST", "POSTGRES_DB_DEV"):
+        for expected in (
+            "POSTGRES_USER",
+            "POSTGRES_PASSWORD",
+            "DB_HOST",
+            "POSTGRES_DB_DEV",
+        ):
             assert expected in str(caught.value)
-
-    def test_an_empty_password_is_allowed(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Trust auth on a local socket is legitimate; the others are not."""
-        use(monkeypatch, Environment.DEVELOPMENT)
-        monkeypatch.setattr(settings, "postgres_password", "")
-        url = make_url(get_database_url())
-        assert url.username == "postgres"
-        assert not url.password
-        assert url.host == "localhost"
 
     def test_production_without_database_url_fails_loudly(
         self, monkeypatch: pytest.MonkeyPatch
