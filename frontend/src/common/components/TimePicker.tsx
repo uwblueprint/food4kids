@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import ClockIcon from '@/assets/icons/clock.svg?react';
 import { cn } from '@/lib/utils';
@@ -53,6 +53,7 @@ export function TimePicker({
   className,
 }: TimePickerProps) {
   const [internalOpen, setInternalOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState(value ?? DEFAULT_VALUE);
   /** What is being typed, or null when the field is showing the value. */
   const [draft, setDraft] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export function TimePicker({
     <Popover open={isOpen} onOpenChange={setInternalOpen}>
       <PopoverAnchor asChild>
         <div
+          ref={triggerRef}
           data-slot="time-picker-trigger"
           className={cn(
             'inline-flex w-40 items-center justify-between gap-2 rounded-xl py-2',
@@ -181,6 +183,14 @@ export function TimePicker({
         align="start"
         // Keep the caret in the field so the list can be browsed while typing.
         onOpenAutoFocus={(event) => event.preventDefault()}
+        // Radix only exempts the trigger — here just the clock button — so the
+        // focus that opens the panel from the field counts as an interaction
+        // outside and dismisses it again. The whole row is one control.
+        onInteractOutside={(event) => {
+          if (triggerRef.current?.contains(event.target as Node)) {
+            event.preventDefault();
+          }
+        }}
       >
         {/* `relative` makes this the offsetParent the scroll maths measures from. */}
         <div role="listbox" className="relative max-h-32 overflow-y-auto">
