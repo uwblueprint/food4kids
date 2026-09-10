@@ -2,8 +2,13 @@
 Global test configuration and fixtures for the Food4Kids application.
 """
 
-import asyncio
 import os
+
+# app.config freezes `settings` at import time, so this must precede any
+# `app` import or the suite silently runs against the development database.
+os.environ["APP_ENV"] = "testing"
+
+import asyncio
 from collections.abc import AsyncGenerator, Generator
 from datetime import date
 from typing import Any, NoReturn
@@ -30,9 +35,6 @@ from app.dependencies.auth import (
 )
 from app.dependencies.services import get_gcp_storage_client
 from app.models import get_session
-
-# Set test environment
-os.environ["APP_ENV"] = "testing"
 
 
 @pytest.fixture(autouse=True)
