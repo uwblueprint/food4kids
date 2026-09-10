@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_admin
 from app.models import get_session
-from app.services.implementations.driver_history_service import month_bounds
 from app.services.implementations.driver_report_service import DriverReportService
 from app.utilities.datetime_utils import app_timezone, now_local
 
@@ -137,24 +136,3 @@ async def get_monthly_ranking(
     rankings = await service.get_monthly_km_ranking(session, year, month)
     items: list[DriverRankingItem] = [DriverRankingItem(**r) for r in rankings]
     return items
-
-
-@router.get("/monthly/{year}/{month}/totals", response_model=MonthlyTotalsResponse)
-async def get_monthly_totals(
-    year: int,
-    month: int,
-    session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_admin),
-) -> MonthlyTotalsResponse:
-    """Return total distance driven and total deliveries for the month."""
-    if month < 1 or month > 12:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
-        )
-    bounds = month_bounds(year, month)
-    return MonthlyTotalsResponse(
-        year=year,
-        month=month,
-        total_km=await service.get_total_km(session, bounds),
-        total_deliveries=await service.get_total_deliveries(session, bounds),
-    )

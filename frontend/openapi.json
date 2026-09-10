@@ -6520,63 +6520,6 @@
         ]
       }
     },
-    "/reports/monthly/{year}/{month}/totals": {
-      "get": {
-        "description": "Return total distance driven and total deliveries for the month.",
-        "operationId": "get_monthly_totals",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "year",
-            "required": true,
-            "schema": {
-              "title": "Year",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "month",
-            "required": true,
-            "schema": {
-              "title": "Month",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MonthlyTotalsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Monthly Totals",
-        "tags": [
-          "reports"
-        ]
-      }
-    },
     "/reports/totals": {
       "get": {
         "description": "Return km driven and deliveries made — all time, or over [start, end).\n\nOmit both bounds for the all-time figures the homepage's headline totals\nshow. Supply both for a window: the params are read as EST when they carry\nno timezone, then reduced to calendar days (a drive date is a day, not an\ninstant), and the range is half-open like every other range in the\nreports, so consecutive windows tile instead of double-counting their\nshared boundary day.",

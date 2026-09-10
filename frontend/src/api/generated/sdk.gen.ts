@@ -118,9 +118,6 @@ import type {
   GetMonthlySeriesData,
   GetMonthlySeriesErrors,
   GetMonthlySeriesResponses,
-  GetMonthlyTotalsData,
-  GetMonthlyTotalsErrors,
-  GetMonthlyTotalsResponses,
   GetNoteChainData,
   GetNoteChainErrors,
   GetNoteChainResponses,
@@ -1217,25 +1214,6 @@ export const getMonthlyRanking = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/reports/monthly/{year}/{month}/ranking',
-    ...options,
-  });
-
-/**
- * Get Monthly Totals
- *
- * Return total distance driven and total deliveries for the month.
- */
-export const getMonthlyTotals = <ThrowOnError extends boolean = false>(
-  options: Options<GetMonthlyTotalsData, ThrowOnError>
-) =>
-  (options.client ?? client).get<
-    GetMonthlyTotalsResponses,
-    GetMonthlyTotalsErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/reports/monthly/{year}/{month}/totals',
     ...options,
   });
 

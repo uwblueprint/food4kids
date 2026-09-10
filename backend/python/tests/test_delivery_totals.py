@@ -381,27 +381,22 @@ async def boundary_history(test_session: AsyncSession) -> Driver:
 
 @pytest.mark.usefixtures("boundary_history")
 @pytest.mark.asyncio
-async def test_monthly_totals_exclude_the_first_of_the_next_month(
+async def test_a_window_includes_its_own_start_day(
     async_client: AsyncClient,
 ) -> None:
-    response = await async_client.get("/reports/monthly/2026/4/totals")
+    """The start bound is inclusive, so the day a window opens on belongs to
+    it — May 1 counts in May, not only in whatever window ended at it."""
+    march = await async_client.get(
+        "/reports/totals",
+        params={"start": "2026-03-01T00:00:00", "end": "2026-04-01T00:00:00"},
+    )
+    may = await async_client.get(
+        "/reports/totals",
+        params={"start": "2026-05-01T00:00:00", "end": "2026-06-01T00:00:00"},
+    )
 
-    assert response.status_code == 200
-    # Apr 1 and Apr 30 — not May 1, and not Mar 31.
-    assert response.json()["total_deliveries"] == 2
-    assert response.json()["total_km"] == 2 * KM_PER_ROUTE
-
-
-@pytest.mark.usefixtures("boundary_history")
-@pytest.mark.asyncio
-async def test_monthly_totals_include_the_first_of_their_own_month(
-    async_client: AsyncClient,
-) -> None:
-    march = await async_client.get("/reports/monthly/2026/3/totals")
-    may = await async_client.get("/reports/monthly/2026/5/totals")
-
-    assert march.json()["total_deliveries"] == 1
-    assert may.json()["total_deliveries"] == 1
+    assert march.json()["total_deliveries"] == 1  # Mar 31
+    assert may.json()["total_deliveries"] == 1  # May 1
 
 
 @pytest.mark.asyncio

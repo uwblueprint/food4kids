@@ -4064,42 +4064,6 @@ export type GetMonthlyRankingResponses = {
 export type GetMonthlyRankingResponse =
   GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
 
-export type GetMonthlyTotalsData = {
-  body?: never;
-  path: {
-    /**
-     * Year
-     */
-    year: number;
-    /**
-     * Month
-     */
-    month: number;
-  };
-  query?: never;
-  url: '/reports/monthly/{year}/{month}/totals';
-};
-
-export type GetMonthlyTotalsErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type GetMonthlyTotalsError =
-  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
-
-export type GetMonthlyTotalsResponses = {
-  /**
-   * Successful Response
-   */
-  200: MonthlyTotalsResponse;
-};
-
-export type GetMonthlyTotalsResponse =
-  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
-
 export type GetTotalsData = {
   body?: never;
   path?: never;

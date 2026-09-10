@@ -49,7 +49,6 @@ import {
   getLocations,
   getMonthlyRanking,
   getMonthlySeries,
-  getMonthlyTotals,
   getNoteChain,
   getNotes,
   getNotesFeed,
@@ -191,9 +190,6 @@ import type {
   GetMonthlySeriesData,
   GetMonthlySeriesError,
   GetMonthlySeriesResponse,
-  GetMonthlyTotalsData,
-  GetMonthlyTotalsError,
-  GetMonthlyTotalsResponse,
   GetNoteChainData,
   GetNoteChainError,
   GetNoteChainResponse,
@@ -1945,36 +1941,6 @@ export const getMonthlyRankingOptions = (
       return data;
     },
     queryKey: getMonthlyRankingQueryKey(options),
-  });
-
-export const getMonthlyTotalsQueryKey = (
-  options: Options<GetMonthlyTotalsData>
-) => createQueryKey('getMonthlyTotals', options);
-
-/**
- * Get Monthly Totals
- *
- * Return total distance driven and total deliveries for the month.
- */
-export const getMonthlyTotalsOptions = (
-  options: Options<GetMonthlyTotalsData>
-) =>
-  queryOptions<
-    GetMonthlyTotalsResponse,
-    AxiosError<GetMonthlyTotalsError>,
-    GetMonthlyTotalsResponse,
-    ReturnType<typeof getMonthlyTotalsQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getMonthlyTotals({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getMonthlyTotalsQueryKey(options),
   });
 
 export const getTotalsQueryKey = (options?: Options<GetTotalsData>) =>

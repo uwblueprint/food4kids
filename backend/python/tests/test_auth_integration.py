@@ -130,7 +130,6 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/reports/totals"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly-series"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/ranking"): Policy.ADMIN_ONLY,
-    ("GET", "/reports/monthly/{year}/{month}/totals"): Policy.ADMIN_ONLY,
     # --- note chains (authenticated, any user) ---
     ("GET", "/note-chains/{note_chain_id}"): Policy.AUTHENTICATED,
     # Deletion is admin-gated inside note_chain_service (not via a dependency).
