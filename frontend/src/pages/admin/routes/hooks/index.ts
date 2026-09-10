@@ -10,3 +10,5 @@ export type {
   UseRouteFiltersReturn,
 } from './useRouteFilters';
 export { routeFiltersToQuery, useRouteFilters } from './useRouteFilters';
+export type { RoutesTabState } from './useRoutesTabState';
+export { useRoutesTabState } from './useRoutesTabState';
