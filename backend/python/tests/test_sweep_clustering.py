@@ -8,7 +8,6 @@ import pytest
 
 from app.models.location import Location
 from app.services.implementations.sweep_clustering import (
-    DEFAULT_MAX_BOXES_PER_CLUSTER,
     FAR_DISTANCE_KM_THRESHOLD,
     FAR_MAX_STOPS_PER_CLUSTER,
     SweepClusteringAlgorithm,
@@ -42,6 +41,18 @@ WAREHOUSE_LAT = 43.4516
 WAREHOUSE_LON = -80.4925
 # Boxes are derived as ceil(num_children / children_per_box); 2 children per box.
 CHILDREN_PER_BOX = 2
+# Minutes spent at each stop (SystemSettings.dropoff_minutes) — the algorithm
+# has no default of its own, so every test states one.
+SERVICE_MINUTES_PER_STOP = 15
+# Per-car box capacity these tests plan against. The algorithm takes it as a
+# required argument; there is no cap to fall back on.
+MAX_BOXES = 14
+
+
+def _algo() -> SweepClusteringAlgorithm:
+    return SweepClusteringAlgorithm(
+        WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX, SERVICE_MINUTES_PER_STOP
+    )
 
 
 @pytest.mark.parametrize(
@@ -64,7 +75,7 @@ def test_effective_boxes_ceil_children_per_box(
 
 @pytest.mark.asyncio
 async def test_cluster_locations_returns_exactly_num_drivers() -> None:
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     locations = [
         _location(lat=43.46 + i * 0.01, lon=-80.49, num_children=2) for i in range(12)
     ]
@@ -72,24 +83,46 @@ async def test_cluster_locations_returns_exactly_num_drivers() -> None:
     clusters = await algo.cluster_locations(
         locations=locations,
         num_clusters=num_drivers,
-        max_boxes_per_cluster=14,
+        max_boxes_per_cluster=MAX_BOXES,
     )
     assert len(clusters) == num_drivers
     assert sum(len(c) for c in clusters) == len(locations)
 
 
 @pytest.mark.asyncio
-async def test_max_boxes_per_cluster_defaults_to_14() -> None:
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
-    # 29 children -> ceil(29/2) = 15 boxes, above default cap of 14
-    locations = [_location(lat=43.46, lon=-80.49, num_children=29)]
-    with pytest.raises(ValueError, match="exceeds the per-driver maximum of 14"):
-        await algo.cluster_locations(locations=locations, num_clusters=1)
+async def test_capacity_must_be_passed_in() -> None:
+    """There is no fallback cap: omitting the capacity is a TypeError, not a
+    silent plan against some number nobody configured."""
+    algo = _algo()
+    locations = [_location(lat=43.46, lon=-80.49, num_children=4)]
+    with pytest.raises(TypeError, match="max_boxes_per_cluster"):
+        await algo.cluster_locations(locations=locations, num_clusters=1)  # type: ignore[call-arg]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("max_boxes", [4, 10, 14])
+async def test_oversized_location_is_rejected_against_the_given_cap(
+    max_boxes: int,
+) -> None:
+    """The cap in the error is the one passed in, not a module constant."""
+    algo = _algo()
+    # ceil(num_children / 2) boxes, one box over the cap under test.
+    locations = [
+        _location(
+            lat=43.46, lon=-80.49, num_children=(max_boxes + 1) * CHILDREN_PER_BOX
+        )
+    ]
+    with pytest.raises(
+        ValueError, match=f"exceeds the per-driver maximum of {max_boxes}"
+    ):
+        await algo.cluster_locations(
+            locations=locations, num_clusters=1, max_boxes_per_cluster=max_boxes
+        )
 
 
 @pytest.mark.asyncio
 async def test_each_cluster_respects_box_cap() -> None:
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     locations = [
         _location(lat=43.46 + i * 0.008, lon=-80.49 - i * 0.005, num_children=4)
         for i in range(10)
@@ -97,7 +130,7 @@ async def test_each_cluster_respects_box_cap() -> None:
     clusters = await algo.cluster_locations(
         locations=locations,
         num_clusters=3,
-        max_boxes_per_cluster=DEFAULT_MAX_BOXES_PER_CLUSTER,
+        max_boxes_per_cluster=MAX_BOXES,
     )
     for cluster in clusters:
         assert sum(effective_boxes(loc, CHILDREN_PER_BOX) for loc in cluster) <= 14
@@ -105,7 +138,7 @@ async def test_each_cluster_respects_box_cap() -> None:
 
 @pytest.mark.asyncio
 async def test_far_address_limits_stops_per_route() -> None:
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     near = [
         _location(lat=43.46, lon=-80.49, num_children=2, address="1 King St, Kitchener")
         for _ in range(6)
@@ -122,7 +155,7 @@ async def test_far_address_limits_stops_per_route() -> None:
     clusters = await algo.cluster_locations(
         locations=near + far,
         num_clusters=3,
-        max_boxes_per_cluster=14,
+        max_boxes_per_cluster=MAX_BOXES,
     )
     for cluster in clusters:
         has_far = any("elmira" in loc.address.lower() for loc in cluster)
@@ -132,14 +165,14 @@ async def test_far_address_limits_stops_per_route() -> None:
 
 @pytest.mark.asyncio
 async def test_load_spread_across_drivers() -> None:
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     locations = [
         _location(lat=43.45 + i * 0.01, lon=-80.50, num_children=2) for i in range(8)
     ]
     clusters = await algo.cluster_locations(
         locations=locations,
         num_clusters=4,
-        max_boxes_per_cluster=14,
+        max_boxes_per_cluster=MAX_BOXES,
     )
     sizes = [len(c) for c in clusters]
     assert max(sizes) - min(sizes) <= 1
@@ -148,7 +181,7 @@ async def test_load_spread_across_drivers() -> None:
 @pytest.mark.asyncio
 async def test_far_route_caps_at_five_stops_when_max_stops_omitted() -> None:
     """Far routes are capped at FAR_MAX_STOPS_PER_CLUSTER stops."""
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     far = [
         _location(
             lat=43.60,
@@ -161,7 +194,7 @@ async def test_far_route_caps_at_five_stops_when_max_stops_omitted() -> None:
     clusters = await algo.cluster_locations(
         locations=far,
         num_clusters=2,
-        max_boxes_per_cluster=14,
+        max_boxes_per_cluster=MAX_BOXES,
     )
     for cluster in clusters:
         assert len(cluster) <= FAR_MAX_STOPS_PER_CLUSTER
@@ -170,7 +203,7 @@ async def test_far_route_caps_at_five_stops_when_max_stops_omitted() -> None:
 @pytest.mark.asyncio
 async def test_far_by_haversine_distance_limits_stops() -> None:
     """Locations beyond FAR_DISTANCE_KM_THRESHOLD are far without a city keyword."""
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     # ~55 km north of warehouse; address has no far-city keyword.
     distant = [
         _location(
@@ -189,7 +222,7 @@ async def test_far_by_haversine_distance_limits_stops() -> None:
     clusters = await algo.cluster_locations(
         locations=distant,
         num_clusters=len(distant),
-        max_boxes_per_cluster=14,
+        max_boxes_per_cluster=MAX_BOXES,
     )
     for cluster in clusters:
         assert len(cluster) <= FAR_MAX_STOPS_PER_CLUSTER
@@ -197,14 +230,14 @@ async def test_far_by_haversine_distance_limits_stops() -> None:
 
 @pytest.mark.asyncio
 async def test_cluster_locations_by_constraints_flushes_on_box_cap() -> None:
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     # 4 boxes each (8 children); cap 14 -> at most 3 stops per cluster -> multiple clusters.
     locations = [
         _location(lat=43.46 + i * 0.005, lon=-80.49, num_children=8) for i in range(7)
     ]
     clusters = await algo.cluster_locations_by_constraints(
         locations=locations,
-        max_boxes_per_cluster=14,
+        max_boxes_per_cluster=MAX_BOXES,
     )
     assert len(clusters) >= 2
     assert sum(len(c) for c in clusters) == len(locations)
@@ -214,16 +247,18 @@ async def test_cluster_locations_by_constraints_flushes_on_box_cap() -> None:
 
 @pytest.mark.asyncio
 async def test_cluster_locations_by_constraints_rejects_oversized_location() -> None:
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     locations = [_location(lat=43.46, lon=-80.49, num_children=29)]
     with pytest.raises(ValueError, match="Cannot pack location"):
-        await algo.cluster_locations_by_constraints(locations=locations)
+        await algo.cluster_locations_by_constraints(
+            locations=locations, max_boxes_per_cluster=MAX_BOXES
+        )
 
 
 @pytest.mark.asyncio
 async def test_cluster_locations_raises_when_no_feasible_driver() -> None:
     """Greedy assignment fails when every route is full (empty feasible_indices)."""
-    algo = SweepClusteringAlgorithm(WAREHOUSE_LAT, WAREHOUSE_LON, CHILDREN_PER_BOX)
+    algo = _algo()
     # 11 far stops, 2 drivers -> max 5 stops per far route -> capacity 10 total.
     far = [
         _location(
@@ -238,5 +273,5 @@ async def test_cluster_locations_raises_when_no_feasible_driver() -> None:
         await algo.cluster_locations(
             locations=far,
             num_clusters=2,
-            max_boxes_per_cluster=14,
+            max_boxes_per_cluster=MAX_BOXES,
         )

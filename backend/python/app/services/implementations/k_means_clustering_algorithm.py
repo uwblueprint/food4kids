@@ -30,7 +30,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_boxes_per_cluster: int | None = None,
+        max_boxes_per_cluster: int,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
         return await asyncio.to_thread(
@@ -45,11 +45,11 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_boxes_per_cluster: int | None = None,
+        max_boxes_per_cluster: int,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
         # If either num_clusters or max_boxes_per_cluster is negative (or equal to 0) raise an error
-        if num_clusters <= 0 or (max_boxes_per_cluster and max_boxes_per_cluster <= 0):
+        if num_clusters <= 0 or max_boxes_per_cluster <= 0:
             raise ValueError(
                 "One of the given num_clusters and max_boxes_per_cluster param values given to the algorithm is <= 0 (invalid)"
             )
@@ -63,20 +63,17 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             [[location.latitude, location.longitude] for location in locations]
         )
 
-        # Check that clustering is possible for the given locations
-        if max_boxes_per_cluster is not None:
-            # Check if it is mathematically possible to meet the constraints on num of clusters + max boxes per cluster
-            total_boxes = sum(
-                compute_boxes(loc.num_children, self._children_per_box)
-                for loc in locations
+        # Check if it is mathematically possible to meet the constraints on num of clusters + max boxes per cluster
+        total_boxes = sum(
+            compute_boxes(loc.num_children, self._children_per_box) for loc in locations
+        )
+
+        max_possible = num_clusters * max_boxes_per_cluster
+
+        if total_boxes > max_possible:
+            raise ValueError(
+                "Max boxes per cluster + number of clusters clustering parameters cannot be simultaneously satisfied"
             )
-
-            max_possible = num_clusters * max_boxes_per_cluster
-
-            if total_boxes > max_possible:
-                raise ValueError(
-                    "Max boxes per cluster + number of clusters clustering parameters cannot be simultaneously satisfied"
-                )
 
         try:
             # Run with timeout
@@ -90,26 +87,16 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             )
             kmeans.fit(coordinates)
 
-            if max_boxes_per_cluster is not None:
-                # Distance matrix representing the distance from each point to each centroid
-                distances = kmeans.transform(coordinates)
-                clusters = self._assign_with_constraints(
-                    locations,
-                    distances,
-                    num_clusters,
-                    max_boxes_per_cluster,
-                    start_time,
-                    timeout_seconds,
-                )
-            else:
-                # No constraints
-                cluster_labels = kmeans.predict(coordinates)
-
-                # Build result lists (each list corresponds to locations in a different cluster)
-                clusters = [[] for _ in range(num_clusters)]
-                for i, location in enumerate(locations):
-                    cluster_id = int(cluster_labels[i])
-                    clusters[cluster_id].append(location)
+            # Distance matrix representing the distance from each point to each centroid
+            distances = kmeans.transform(coordinates)
+            clusters = self._assign_with_constraints(
+                locations,
+                distances,
+                num_clusters,
+                max_boxes_per_cluster,
+                start_time,
+                timeout_seconds,
+            )
 
             # Check time elapsed
             elapsed = time.time() - start_time
