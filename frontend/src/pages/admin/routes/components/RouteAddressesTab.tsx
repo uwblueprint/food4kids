@@ -110,7 +110,10 @@ const COLUMNS: Column<LocationRead>[] = [
 
 // Every text column the server's `search` matches gets the highlight, so a hit
 // is visible wherever it landed rather than only in the address.
-const HIGHLIGHTED: Record<string, (row: LocationRead) => string> = {
+const HIGHLIGHTED: Record<
+  string,
+  (row: LocationRead) => string | null | undefined
+> = {
   contact_name: (row) => row.contact_name,
   address: (row) => row.address,
   delivery_group: (row) => row.location_group_name,
