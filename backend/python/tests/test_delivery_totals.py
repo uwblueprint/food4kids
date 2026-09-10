@@ -37,7 +37,7 @@ from app.services.implementations.driver_history_service import (
     month_bounds,
 )
 from app.services.implementations.driver_report_service import DriverReportService
-from app.utilities.datetime_utils import from_local_wall_clock
+from app.utilities.datetime_utils import app_timezone, from_local_wall_clock
 
 logger = logging.getLogger(__name__)
 service = DriverReportService(logger)
@@ -435,21 +435,25 @@ async def test_consecutive_month_totals_tile_without_double_counting(
 
 @pytest.mark.usefixtures("boundary_history")
 @pytest.mark.asyncio
-async def test_deliveries_count_range_is_half_open(
+async def test_bounded_totals_range_is_half_open(
     async_client: AsyncClient,
 ) -> None:
     response = await async_client.get(
-        "/reports/deliveries/count",
+        "/reports/totals",
         params={"start": "2026-04-01T00:00:00", "end": "2026-05-01T00:00:00"},
     )
 
     assert response.status_code == 200
-    assert response.json() == {"total_deliveries": 2}
+    # Apr 1 and Apr 30 — not May 1, and not Mar 31.
+    assert response.json() == {
+        "total_km": 2 * KM_PER_ROUTE,
+        "total_deliveries": 2,
+    }
 
 
 @pytest.mark.usefixtures("boundary_history")
 @pytest.mark.asyncio
-async def test_deliveries_count_reads_naive_bounds_as_local_time(
+async def test_bounded_totals_read_naive_bounds_as_local_time(
     async_client: AsyncClient,
 ) -> None:
     """The end bound is a wall-clock time in F4K's zone, not UTC.
@@ -458,11 +462,11 @@ async def test_deliveries_count_reads_naive_bounds_as_local_time(
     Apr 30 locally, pulling that day out of the window.
     """
     naive = await async_client.get(
-        "/reports/deliveries/count",
+        "/reports/totals",
         params={"start": "2026-04-01T00:00:00", "end": "2026-05-01T00:00:00"},
     )
     explicit = await async_client.get(
-        "/reports/deliveries/count",
+        "/reports/totals",
         params={
             # The same two wall-clock instants, sent as explicit UTC offsets.
             "start": from_local_wall_clock(datetime(2026, 4, 1, 0, 0)).isoformat(),
@@ -470,7 +474,51 @@ async def test_deliveries_count_reads_naive_bounds_as_local_time(
         },
     )
 
-    assert naive.json() == explicit.json() == {"total_deliveries": 2}
+    assert naive.json() == explicit.json()
+    assert naive.json()["total_deliveries"] == 2
+
+
+@pytest.mark.usefixtures("boundary_history")
+@pytest.mark.asyncio
+async def test_consecutive_windows_tile_to_the_all_time_total(
+    async_client: AsyncClient,
+) -> None:
+    """The same endpoint, bounded and unbounded, must agree with itself."""
+    windows = [
+        ("2026-03-01T00:00:00", "2026-04-01T00:00:00"),
+        ("2026-04-01T00:00:00", "2026-05-01T00:00:00"),
+        ("2026-05-01T00:00:00", "2026-06-01T00:00:00"),
+    ]
+    tiled = 0
+    for start, end in windows:
+        response = await async_client.get(
+            "/reports/totals", params={"start": start, "end": end}
+        )
+        tiled += response.json()["total_deliveries"]
+
+    all_time = await async_client.get("/reports/totals")
+    assert tiled == all_time.json()["total_deliveries"] == 4
+
+
+@pytest.mark.usefixtures("boundary_history")
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"start": "2026-04-01T00:00:00"},
+        {"end": "2026-05-01T00:00:00"},
+    ],
+    ids=["start-only", "end-only"],
+)
+async def test_half_supplied_range_is_rejected_not_read_as_all_time(
+    async_client: AsyncClient, params: dict[str, str]
+) -> None:
+    """Silently widening half a range to all time would answer a question
+    nobody asked, with a number far larger than the caller expected."""
+    response = await async_client.get("/reports/totals", params=params)
+
+    assert response.status_code == 400
+    assert "together" in response.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
@@ -487,7 +535,12 @@ async def test_default_series_window_follows_local_month_not_utc(
     late_august = from_local_wall_clock(datetime(2026, 8, 31, 23, 30))
     assert late_august.month == 9  # the trap: UTC has already rolled over
 
-    with patch("app.routers.report_routes.now_utc", return_value=late_august):
+    # The router reads the month off the organization's clock, where the same
+    # instant is still August.
+    with patch(
+        "app.routers.report_routes.now_local",
+        return_value=late_august.astimezone(app_timezone()),
+    ):
         response = await async_client.get(
             "/reports/monthly-series", params={"months": 6}
         )

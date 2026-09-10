@@ -16,10 +16,6 @@ service = DriverReportService(logger)
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-class DeliveriesCountResponse(BaseModel):
-    total_deliveries: int
-
-
 class DriverRankingItem(BaseModel):
     driver_id: str
     driver_name: str
@@ -33,7 +29,7 @@ class MonthlyTotalsResponse(BaseModel):
     total_deliveries: int
 
 
-class AllTimeTotalsResponse(BaseModel):
+class TotalsResponse(BaseModel):
     total_km: float
     total_deliveries: int
 
@@ -49,45 +45,41 @@ def _ensure_est(dt: datetime) -> datetime:
     return dt.astimezone(tz)
 
 
-@router.get("/deliveries/count", response_model=DeliveriesCountResponse)
-async def get_total_deliveries_between(
-    start: datetime = Query(
-        ..., description="Start datetime, inclusive (assumed EST if no tz)"
+@router.get("/totals", response_model=TotalsResponse)
+async def get_totals(
+    start: datetime | None = Query(
+        None, description="Start datetime, inclusive (assumed EST if no tz)"
     ),
-    end: datetime = Query(
-        ..., description="End datetime, exclusive (assumed EST if no tz)"
+    end: datetime | None = Query(
+        None, description="End datetime, exclusive (assumed EST if no tz)"
     ),
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
-) -> DeliveriesCountResponse:
-    """Return total deliveries (route stop snapshots) in [start, end).
+) -> TotalsResponse:
+    """Return km driven and deliveries made — all time, or over [start, end).
 
-    Query params are treated as EST if no timezone is provided, then reduced
-    to calendar days — a drive date is a day, not an instant. The range is
-    half-open like every other range in the reports, so consecutive windows
-    tile instead of double-counting their shared boundary day.
+    Omit both bounds for the all-time figures the homepage's headline totals
+    show. Supply both for a window: the params are read as EST when they carry
+    no timezone, then reduced to calendar days (a drive date is a day, not an
+    instant), and the range is half-open like every other range in the
+    reports, so consecutive windows tile instead of double-counting their
+    shared boundary day.
     """
-    start_date = _ensure_est(start).date()
-    end_date = _ensure_est(end).date()
+    if (start is None) != (end is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start and end must be provided together",
+        )
 
-    total = await service.get_total_deliveries(session, (start_date, end_date))
-    return DeliveriesCountResponse(total_deliveries=total)
+    bounds = (
+        (_ensure_est(start).date(), _ensure_est(end).date())
+        if start is not None and end is not None
+        else None
+    )
 
-
-@router.get("/totals", response_model=AllTimeTotalsResponse)
-async def get_all_time_totals(
-    session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_admin),
-) -> AllTimeTotalsResponse:
-    """Return all-time km driven and deliveries made, across every driven route.
-
-    Separate from /monthly-series on purpose: the homepage's headline totals
-    mean "since we started", and deriving them from the chart's window would
-    silently make them a trailing-N-month figure instead.
-    """
-    return AllTimeTotalsResponse(
-        total_km=await service.get_total_km(session),
-        total_deliveries=await service.get_total_deliveries(session),
+    return TotalsResponse(
+        total_km=await service.get_total_km(session, bounds),
+        total_deliveries=await service.get_total_deliveries(session, bounds),
     )
 
 

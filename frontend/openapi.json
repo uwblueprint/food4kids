@@ -17,24 +17,6 @@
         "title": "AlertCode",
         "type": "string"
       },
-      "AllTimeTotalsResponse": {
-        "properties": {
-          "total_deliveries": {
-            "title": "Total Deliveries",
-            "type": "integer"
-          },
-          "total_km": {
-            "title": "Total Km",
-            "type": "number"
-          }
-        },
-        "required": [
-          "total_km",
-          "total_deliveries"
-        ],
-        "title": "AllTimeTotalsResponse",
-        "type": "object"
-      },
       "AnnouncementCreate": {
         "description": "Announcement creation request",
         "properties": {
@@ -706,19 +688,6 @@
           "old_value"
         ],
         "title": "ChangedFieldStr",
-        "type": "object"
-      },
-      "DeliveriesCountResponse": {
-        "properties": {
-          "total_deliveries": {
-            "title": "Total Deliveries",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "total_deliveries"
-        ],
-        "title": "DeliveriesCountResponse",
         "type": "object"
       },
       "DeliveryTypeRename": {
@@ -3989,6 +3958,24 @@
         "title": "SystemSettingsUpdate",
         "type": "object"
       },
+      "TotalsResponse": {
+        "properties": {
+          "total_deliveries": {
+            "title": "Total Deliveries",
+            "type": "integer"
+          },
+          "total_km": {
+            "title": "Total Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_km",
+          "total_deliveries"
+        ],
+        "title": "TotalsResponse",
+        "type": "object"
+      },
       "UpdatePasswordRequest": {
         "properties": {
           "new_password": {
@@ -6377,69 +6364,6 @@
         ]
       }
     },
-    "/reports/deliveries/count": {
-      "get": {
-        "description": "Return total deliveries (route stop snapshots) in [start, end).\n\nQuery params are treated as EST if no timezone is provided, then reduced\nto calendar days — a drive date is a day, not an instant. The range is\nhalf-open like every other range in the reports, so consecutive windows\ntile instead of double-counting their shared boundary day.",
-        "operationId": "get_total_deliveries_between",
-        "parameters": [
-          {
-            "description": "Start datetime, inclusive (assumed EST if no tz)",
-            "in": "query",
-            "name": "start",
-            "required": true,
-            "schema": {
-              "description": "Start datetime, inclusive (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "Start",
-              "type": "string"
-            }
-          },
-          {
-            "description": "End datetime, exclusive (assumed EST if no tz)",
-            "in": "query",
-            "name": "end",
-            "required": true,
-            "schema": {
-              "description": "End datetime, exclusive (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "End",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeliveriesCountResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Total Deliveries Between",
-        "tags": [
-          "reports"
-        ]
-      }
-    },
     "/reports/monthly-series": {
       "get": {
         "description": "Return km and deliveries per month for a trailing window, oldest first.\n\nBacks the homepage statistics bar charts, which need a whole series at\nonce rather than one request per bar.",
@@ -6655,18 +6579,68 @@
     },
     "/reports/totals": {
       "get": {
-        "description": "Return all-time km driven and deliveries made, across every driven route.\n\nSeparate from /monthly-series on purpose: the homepage's headline totals\nmean \"since we started\", and deriving them from the chart's window would\nsilently make them a trailing-N-month figure instead.",
-        "operationId": "get_all_time_totals",
+        "description": "Return km driven and deliveries made — all time, or over [start, end).\n\nOmit both bounds for the all-time figures the homepage's headline totals\nshow. Supply both for a window: the params are read as EST when they carry\nno timezone, then reduced to calendar days (a drive date is a day, not an\ninstant), and the range is half-open like every other range in the\nreports, so consecutive windows tile instead of double-counting their\nshared boundary day.",
+        "operationId": "get_totals",
+        "parameters": [
+          {
+            "description": "Start datetime, inclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start datetime, inclusive (assumed EST if no tz)",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "End datetime, exclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End datetime, exclusive (assumed EST if no tz)",
+              "title": "End"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AllTimeTotalsResponse"
+                  "$ref": "#/components/schemas/TotalsResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -6674,7 +6648,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get All Time Totals",
+        "summary": "Get Totals",
         "tags": [
           "reports"
         ]

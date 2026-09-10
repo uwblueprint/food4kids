@@ -33,7 +33,6 @@ import {
   exportAllDriversHistory,
   forgotPassword,
   generateJob,
-  getAllTimeTotals,
   getAnnouncement,
   getAnnouncements,
   getBillingCosts,
@@ -60,7 +59,7 @@ import {
   getRoutes,
   getSuggestedDriver,
   getSystemSettings,
-  getTotalDeliveriesBetween,
+  getTotals,
   initializeDriver,
   login,
   logout,
@@ -147,8 +146,6 @@ import type {
   GenerateJobData,
   GenerateJobError,
   GenerateJobResponse,
-  GetAllTimeTotalsData,
-  GetAllTimeTotalsResponse,
   GetAnnouncementData,
   GetAnnouncementError,
   GetAnnouncementResponse,
@@ -222,9 +219,9 @@ import type {
   GetSuggestedDriverResponse,
   GetSystemSettingsData,
   GetSystemSettingsResponse,
-  GetTotalDeliveriesBetweenData,
-  GetTotalDeliveriesBetweenError,
-  GetTotalDeliveriesBetweenResponse,
+  GetTotalsData,
+  GetTotalsError,
+  GetTotalsResponse,
   InitializeDriverData,
   InitializeDriverError,
   InitializeDriverResponse,
@@ -1887,98 +1884,6 @@ export const getNotesFeedInfiniteOptions = (
     }
   );
 
-export const getTotalDeliveriesBetweenQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) => createQueryKey('getTotalDeliveriesBetween', options);
-
-/**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) in [start, end).
- *
- * Query params are treated as EST if no timezone is provided, then reduced
- * to calendar days — a drive date is a day, not an instant. The range is
- * half-open like every other range in the reports, so consecutive windows
- * tile instead of double-counting their shared boundary day.
- */
-export const getTotalDeliveriesBetweenOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) =>
-  queryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    GetTotalDeliveriesBetweenResponse,
-    ReturnType<typeof getTotalDeliveriesBetweenQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getTotalDeliveriesBetween({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getTotalDeliveriesBetweenQueryKey(options),
-  });
-
-export const getTotalDeliveriesBetweenInfiniteQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-): QueryKey<Options<GetTotalDeliveriesBetweenData>> =>
-  createQueryKey('getTotalDeliveriesBetween', options, true);
-
-/**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) in [start, end).
- *
- * Query params are treated as EST if no timezone is provided, then reduced
- * to calendar days — a drive date is a day, not an instant. The range is
- * half-open like every other range in the reports, so consecutive windows
- * tile instead of double-counting their shared boundary day.
- */
-export const getTotalDeliveriesBetweenInfiniteOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) =>
-  infiniteQueryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    InfiniteData<GetTotalDeliveriesBetweenResponse>,
-    QueryKey<Options<GetTotalDeliveriesBetweenData>>,
-    | string
-    | Pick<
-        QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-        'body' | 'headers' | 'path' | 'query'
-      >
-  >(
-    // @ts-ignore
-    {
-      queryFn: async ({ pageParam, queryKey, signal }) => {
-        // @ts-ignore
-        const page: Pick<
-          QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-          'body' | 'headers' | 'path' | 'query'
-        > =
-          typeof pageParam === 'object'
-            ? pageParam
-            : {
-                query: {
-                  start: pageParam,
-                },
-              };
-        const params = createInfiniteParams(queryKey, page);
-        const { data } = await getTotalDeliveriesBetween({
-          ...options,
-          ...params,
-          signal,
-          throwOnError: true,
-        });
-        return data;
-      },
-      queryKey: getTotalDeliveriesBetweenInfiniteQueryKey(options),
-    }
-  );
-
 export const getMonthlySeriesQueryKey = (
   options?: Options<GetMonthlySeriesData>
 ) => createQueryKey('getMonthlySeries', options);
@@ -2072,30 +1977,30 @@ export const getMonthlyTotalsOptions = (
     queryKey: getMonthlyTotalsQueryKey(options),
   });
 
-export const getAllTimeTotalsQueryKey = (
-  options?: Options<GetAllTimeTotalsData>
-) => createQueryKey('getAllTimeTotals', options);
+export const getTotalsQueryKey = (options?: Options<GetTotalsData>) =>
+  createQueryKey('getTotals', options);
 
 /**
- * Get All Time Totals
+ * Get Totals
  *
- * Return all-time km driven and deliveries made, across every driven route.
+ * Return km driven and deliveries made — all time, or over [start, end).
  *
- * Separate from /monthly-series on purpose: the homepage's headline totals
- * mean "since we started", and deriving them from the chart's window would
- * silently make them a trailing-N-month figure instead.
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
  */
-export const getAllTimeTotalsOptions = (
-  options?: Options<GetAllTimeTotalsData>
-) =>
+export const getTotalsOptions = (options?: Options<GetTotalsData>) =>
   queryOptions<
-    GetAllTimeTotalsResponse,
-    AxiosError<DefaultError>,
-    GetAllTimeTotalsResponse,
-    ReturnType<typeof getAllTimeTotalsQueryKey>
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    GetTotalsResponse,
+    ReturnType<typeof getTotalsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getAllTimeTotals({
+      const { data } = await getTotals({
         ...options,
         ...queryKey[0],
         signal,
@@ -2103,8 +2008,66 @@ export const getAllTimeTotalsOptions = (
       });
       return data;
     },
-    queryKey: getAllTimeTotalsQueryKey(options),
+    queryKey: getTotalsQueryKey(options),
   });
+
+export const getTotalsInfiniteQueryKey = (
+  options?: Options<GetTotalsData>
+): QueryKey<Options<GetTotalsData>> =>
+  createQueryKey('getTotals', options, true);
+
+/**
+ * Get Totals
+ *
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
+ */
+export const getTotalsInfiniteOptions = (options?: Options<GetTotalsData>) =>
+  infiniteQueryOptions<
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    InfiniteData<GetTotalsResponse>,
+    QueryKey<Options<GetTotalsData>>,
+    | string
+    | null
+    | Pick<
+        QueryKey<Options<GetTotalsData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetTotalsData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  start: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getTotals({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getTotalsInfiniteQueryKey(options),
+    }
+  );
 
 export const getRouteGroupsQueryKey = (options?: Options<GetRouteGroupsData>) =>
   createQueryKey('getRouteGroups', options);

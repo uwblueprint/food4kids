@@ -1,21 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 
 import {
-  getAllTimeTotalsOptions,
   getMonthlyRankingOptions,
   getMonthlySeriesOptions,
+  getTotalsOptions,
 } from './generated/@tanstack/react-query.gen';
 
 /**
- * GET /reports/deliveries/total — km driven and deliveries made across all
- * time, aggregated in SQL.
+ * GET /reports/totals — km driven and deliveries made, aggregated in SQL.
  *
- * Deliberately not derived from the series: summing the chart's bars would
- * make a headline "total" mean whatever window the chart happens to plot, and
- * widening that window to cover all history grows without bound.
+ * Called with no bounds, so it answers for all time. The same endpoint takes
+ * a half-open `start`/`end` pair for a window.
  */
 export function useAllTimeTotals() {
-  return useQuery(getAllTimeTotalsOptions());
+  return useQuery(getTotalsOptions());
 }
 
 /**
