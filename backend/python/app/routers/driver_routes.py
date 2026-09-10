@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -36,6 +35,7 @@ from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import set_refresh_token_cookie
+from app.utilities.datetime_utils import now_utc
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -182,11 +182,7 @@ async def complete_driver_registration(
             session, user_invite_id, for_update=True
         )
 
-        if (
-            not user_invite
-            or user_invite.is_used
-            or user_invite.expires_at < datetime.now(timezone.utc)
-        ):
+        if not user_invite or user_invite.is_used or user_invite.expires_at < now_utc():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid or expired registration link.",

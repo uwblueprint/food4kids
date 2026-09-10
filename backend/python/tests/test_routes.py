@@ -37,6 +37,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GeocodeResult
 
 IMPORT_COLUMN_MAP = {
@@ -1192,56 +1193,45 @@ class TestLocationRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_update_location(
+    @pytest.mark.parametrize(
+        ("address", "expected_detail"),
+        [
+            ("99999 Imprecise Pkwy", "not specific enough"),
+            ("Invalid Address", "Geocoding failed"),
+        ],
+        ids=["imprecise centroid match", "no result at all"],
+    )
+    async def test_create_location_rejects_undeliverable_address(
         self,
-        async_client: AsyncClient,
+        client_with_overrides: Any,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
+        address: str,
+        expected_detail: str,
     ) -> None:
-        """Test PATCH /locations/{location_id} updates a location."""
-        # Create a location first
-        create_response = await async_client.post(
-            "/locations/",
-            json={
-                **sample_location_data,
-                "location_group_id": str(test_location_group.location_group_id),
-            },
-        )
-        location_id = create_response.json()["location_id"]
+        """An address we can't route to is the caller's input, so 400 + reason.
 
-        # Update the location
-        update_data = {"dietary_restrictions": "No shellfish"}
-        response = await async_client.patch(
-            f"/locations/{location_id}", json=update_data
+        It used to escape as a bare ValueError and surface as a 500 with no
+        indication of what was wrong with the address.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
         )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["dietary_restrictions"] == "No shellfish"
 
-    @pytest.mark.asyncio
-    async def test_update_location_rejects_unknown_delivery_type(
-        self,
-        async_client: AsyncClient,
-        sample_location_data: dict[str, Any],
-        test_location_group: Any,
-    ) -> None:
-        """PATCH /locations/{id} validates delivery_type against settings."""
-        create_response = await async_client.post(
-            "/locations/",
-            json={
-                **sample_location_data,
-                "location_group_id": str(test_location_group.location_group_id),
-            },
-        )
-        assert create_response.status_code == 201
-        location_id = create_response.json()["location_id"]
+        payload = {
+            **sample_location_data,
+            "location_group_id": str(test_location_group.location_group_id),
+            "address": address,
+        }
+        # Without coordinates in the payload, create geocodes the address.
+        del payload["latitude"]
+        del payload["longitude"]
 
-        response = await async_client.patch(
-            f"/locations/{location_id}", json={"delivery_type": "Unknown"}
-        )
+        response = await async_client.post("/locations/", json=payload)
 
         assert response.status_code == 400
-        assert "Unknown delivery_type" in response.json()["detail"]
+        assert expected_detail in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_apply_import_rejects_unknown_delivery_type(
@@ -1255,31 +1245,6 @@ class TestLocationRoutes:
 
         assert response.status_code == 400
         assert "Unknown delivery_type" in response.json()["detail"]
-
-    @pytest.mark.asyncio
-    async def test_update_location_clears_nullable_fields(
-        self,
-        async_client: AsyncClient,
-        sample_location_data: dict[str, Any],
-        test_location_group: Any,
-    ) -> None:
-        """Test PATCH /locations/{location_id} clears explicit null values."""
-        create_response = await async_client.post(
-            "/locations/",
-            json={
-                **sample_location_data,
-                "phone_secondary": "tel:+1-519-576-1105",
-                "location_group_id": str(test_location_group.location_group_id),
-            },
-        )
-        location_id = create_response.json()["location_id"]
-
-        response = await async_client.patch(
-            f"/locations/{location_id}", json={"phone_secondary": None}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["phone_secondary"] is None
 
     @pytest.mark.asyncio
     async def test_delete_location(
@@ -1644,6 +1609,72 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["assigned_route"] == "Sooner Route"
+
+    @pytest.mark.asyncio
+    async def test_location_assigned_route_breaks_same_day_tie_numerically(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """Two routes the same day: the lower-numbered one wins, not the one a
+        text sort would put first ("Route 10" < "Route 2" as strings)."""
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Same Day Family",
+            contact_name="Same Day Family",
+            address="40 SameDay St",
+            phone_primary="tel:+1-519-576-8888",
+            delivery_type="Family",
+            in_roster=True,
+        )
+        group = RouteGroup(name="Same Day Group", drive_date=date(2098, 6, 1))
+        test_session.add_all([loc, group])
+        await test_session.commit()
+        await test_session.refresh(loc)
+        await test_session.refresh(group)
+
+        # Inserted high-first so an unordered query would surface "Route 10".
+        route_ten = Route(
+            name="Route 10", length=1.0, route_group_id=group.route_group_id
+        )
+        route_two = Route(
+            name="Route 2", length=1.0, route_group_id=group.route_group_id
+        )
+        test_session.add_all([route_ten, route_two])
+        await test_session.commit()
+        await test_session.refresh(route_ten)
+        await test_session.refresh(route_two)
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=route_ten.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=route_two.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(f"/locations/{loc.location_id}")
+        assert response.status_code == 200
+        assert response.json()["assigned_route"] == "Route 2"
+
+        # The list endpoint reads through the same loader.
+        listed = await async_client.get("/locations/")
+        assert listed.status_code == 200
+        row = next(
+            item
+            for item in listed.json()["items"]
+            if item["location_id"] == str(loc.location_id)
+        )
+        assert row["assigned_route"] == "Route 2"
 
 
 class TestLocationImportRoutes:
@@ -3343,7 +3374,7 @@ class TestRouteRoutes:
         # Both routes share a group, so they share its drive_date and status.
         expected_status = (
             RouteStatusEnum.UPCOMING
-            if test_route_group.drive_date >= date.today()
+            if test_route_group.drive_date >= today_local()
             else RouteStatusEnum.COMPLETED
         )
         assert served_row["status"] == expected_status.value
@@ -3496,7 +3527,7 @@ class TestRouteRoutes:
         past_group = RouteGroup(
             name="Past Route Group",
             notes="",
-            drive_date=date.today() - timedelta(days=7),
+            drive_date=today_local() - timedelta(days=7),
         )
         loc = Location(
             location_group_id=test_location_group.location_group_id,
@@ -6096,6 +6127,20 @@ class TestSystemSettingsRoutes:
         assert response.status_code == 201, response.text
         return str(response.json()["location_id"])
 
+    async def _take_off_roster(
+        self, test_session: AsyncSession, location_id: str
+    ) -> None:
+        """Retire a location -> Inactive.
+
+        Writes the flag directly, the way the roster import does: locations
+        have no update endpoint, because a household is created and replaced
+        rather than edited in place.
+        """
+        location = await test_session.get(Location, UUID(location_id))
+        assert location is not None
+        location.in_roster = False
+        await test_session.commit()
+
     @pytest.mark.asyncio
     async def test_patch_blocks_removing_delivery_type_in_active_use(
         self,
@@ -6145,6 +6190,7 @@ class TestSystemSettingsRoutes:
     async def test_patch_allows_removing_type_used_only_by_inactive_location(
         self,
         async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
@@ -6161,11 +6207,7 @@ class TestSystemSettingsRoutes:
             name="Old Pantry",
             phone_primary="tel:+1-519-576-1104",
         )
-        # Take it off the roster -> Inactive.
-        deactivate = await async_client.patch(
-            f"/locations/{location_id}", json={"in_roster": False}
-        )
-        assert deactivate.status_code == 200
+        await self._take_off_roster(test_session, location_id)
 
         response = await async_client.patch(
             "/system-settings/", json={"delivery_types": ["School", "Family"]}
@@ -6214,6 +6256,7 @@ class TestSystemSettingsRoutes:
     async def test_rename_delivery_type_cascades_to_inactive_locations(
         self,
         async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
@@ -6230,10 +6273,7 @@ class TestSystemSettingsRoutes:
             name="Old Pantry",
             phone_primary="tel:+1-519-576-1104",
         )
-        deactivate = await async_client.patch(
-            f"/locations/{location_id}", json={"in_roster": False}
-        )
-        assert deactivate.status_code == 200
+        await self._take_off_roster(test_session, location_id)
 
         response = await async_client.post(
             "/system-settings/delivery-types/rename",
