@@ -7,9 +7,11 @@ import logging
 from typing import cast
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.models.enum import RouteGenerationMethod
 from app.models.system_settings import SystemSettings, SystemSettingsUpdate
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
@@ -188,3 +190,37 @@ async def test_update_settings_unrelated_patch_skips_geocoding(
     assert settings.dropoff_minutes == 5
     assert settings.warehouse_location is None
     assert maps.calls == []
+
+
+@pytest.mark.asyncio
+async def test_update_settings_sets_route_generation_method(
+    test_session: AsyncSession,
+) -> None:
+    """The routing engine is admin-configurable, not DB-edit-only.
+
+    The worker reads this per job, so a patch has to be able to reach it —
+    otherwise the setting is stuck at the migration default for good.
+    """
+    service = _service()
+    created = await service.ensure_settings(test_session)
+    assert created.route_generation_method == RouteGenerationMethod.AUTO
+
+    settings = await service.update_settings(
+        test_session,
+        SystemSettingsUpdate(
+            route_generation_method=RouteGenerationMethod.CLUSTER_SWEEP
+        ),
+    )
+    await test_session.commit()
+    test_session.expire_all()
+
+    stored = await service.require_settings(test_session)
+    assert settings.route_generation_method == RouteGenerationMethod.CLUSTER_SWEEP
+    # Round-tripped through the String column as the enum's value.
+    assert stored.route_generation_method == RouteGenerationMethod.CLUSTER_SWEEP
+
+
+def test_update_settings_rejects_an_unknown_generation_method() -> None:
+    """A typo must not reach the column: the worker parses it back to an enum."""
+    with pytest.raises(ValidationError):
+        SystemSettingsUpdate(route_generation_method="teleportation")

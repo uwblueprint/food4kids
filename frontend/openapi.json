@@ -4123,6 +4123,16 @@
             ],
             "title": "Import Column Map"
           },
+          "route_generation_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RouteGenerationMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "route_start_time": {
             "anyOf": [
               {

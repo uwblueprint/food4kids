@@ -7,6 +7,7 @@ stop while reordering, which would silently drop a delivery.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -132,6 +133,101 @@ class TestGenerateRoutes:
 
     async def test_no_locations_makes_no_calls(self) -> None:
         assert await _algorithm().generate_routes([], 43.4, -80.5, _settings()) == []
+
+
+class TestTierTimeout:
+    """A hanging Google call must stop at this tier, not at the job."""
+
+    async def test_slow_ordering_raises_timeout_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The cascade falls back on TimeoutError; anything else fails the job."""
+        algorithm = _algorithm()
+        locations = [FakeLocation(address=str(i)) for i in range(4)]
+        cancelled = False
+
+        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
+            return [kwargs["locations"]]
+
+        async def hanging_order(*_args: Any, **_kwargs: Any) -> list[int]:
+            nonlocal cancelled
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                cancelled = True
+                raise
+            return [0, 1, 2, 3]
+
+        monkeypatch.setattr(
+            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
+        )
+        monkeypatch.setattr(algorithm, "_request_order", hanging_order)
+
+        with pytest.raises(TimeoutError):
+            await algorithm.generate_routes(
+                locations,  # type: ignore[arg-type]
+                43.4,
+                -80.5,
+                _settings(num_routes=1),
+                timeout_seconds=0.05,
+            )
+
+        # The in-flight request is dropped rather than left running behind the
+        # job that gave up on it.
+        assert cancelled
+
+    async def test_a_budget_spent_by_clustering_leaves_none_for_ordering(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Remaining time is clamped at zero, not read as 'no timeout'."""
+        algorithm = _algorithm()
+
+        async def slow_cluster(**kwargs: Any) -> list[list[Any]]:
+            await asyncio.sleep(0.05)
+            return [kwargs["locations"]]
+
+        async def hanging_order(*_args: Any, **_kwargs: Any) -> list[int]:
+            await asyncio.sleep(30)
+            return [0, 1]
+
+        monkeypatch.setattr(
+            algorithm.clustering_algorithm, "cluster_locations", slow_cluster
+        )
+        monkeypatch.setattr(algorithm, "_request_order", hanging_order)
+
+        with pytest.raises(TimeoutError):
+            await algorithm.generate_routes(
+                [FakeLocation(), FakeLocation()],  # type: ignore[list-item]
+                43.4,
+                -80.5,
+                _settings(num_routes=1),
+                timeout_seconds=0.01,
+            )
+
+    async def test_no_timeout_means_no_deadline(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        algorithm = _algorithm()
+
+        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
+            return [kwargs["locations"]]
+
+        async def fake_order(cluster: list[Any], *_args: Any) -> list[int]:
+            return list(reversed(range(len(cluster))))
+
+        monkeypatch.setattr(
+            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
+        )
+        monkeypatch.setattr(algorithm, "_request_order", fake_order)
+
+        routes = await algorithm.generate_routes(
+            [FakeLocation(address="a"), FakeLocation(address="b")],  # type: ignore[list-item]
+            43.4,
+            -80.5,
+            _settings(num_routes=1),
+        )
+
+        assert [loc.address for loc in routes[0]] == ["b", "a"]
 
 
 class TestUnusableResponse:

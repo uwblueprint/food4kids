@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from google.api_core import exceptions as google_exceptions
@@ -51,6 +52,17 @@ class RoutesApiRoutingError(Exception):
     """Raised when the Routes API cannot order a cluster."""
 
 
+def _remaining(timeout_seconds: float | None, started: float) -> float | None:
+    """What is left of the tier's budget, or None when it is unbounded.
+
+    Clamped at zero rather than going negative, so a budget already spent by
+    clustering times out immediately instead of being read as "no timeout".
+    """
+    if timeout_seconds is None:
+        return None
+    return max(timeout_seconds - (time.monotonic() - started), 0.0)
+
+
 class RoutesApiSingleVehicleAlgorithm:
     """Clusters in-house, then orders each cluster with the Routes API."""
 
@@ -79,6 +91,7 @@ class RoutesApiSingleVehicleAlgorithm:
         if not locations:
             return []
 
+        started = time.monotonic()
         clusters = await self.clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
@@ -89,13 +102,24 @@ class RoutesApiSingleVehicleAlgorithm:
         # One request per non-empty cluster, issued together: they are
         # independent, and serialising them would multiply the wall-clock cost
         # of a tier that is meant to be the cheap one.
-        ordered = await asyncio.gather(
-            *(
-                self._order_cluster(
-                    cluster, warehouse_lat, warehouse_lon, settings.return_to_warehouse
+        #
+        # Bounded by whatever is left of this tier's budget after clustering.
+        # Without it a hanging Google response would only stop at the job-level
+        # timeout, which fails the whole job — the cascade needs a TimeoutError
+        # from *this* tier to fall back to the free cluster+sweep instead.
+        ordered = await asyncio.wait_for(
+            asyncio.gather(
+                *(
+                    self._order_cluster(
+                        cluster,
+                        warehouse_lat,
+                        warehouse_lon,
+                        settings.return_to_warehouse,
+                    )
+                    for cluster in clusters
                 )
-                for cluster in clusters
-            )
+            ),
+            timeout=_remaining(timeout_seconds, started),
         )
         return list(ordered)
 

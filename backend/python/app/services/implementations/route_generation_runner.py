@@ -126,7 +126,7 @@ async def run_generation_job(
         await _save_or_discard(session, job_id, route_group)
 
     except GenerationFailed as error:
-        await _fail(session, job_id, str(error))
+        await fail_job(session, job_id, str(error))
     except TimeoutError:
         logger.warning(
             "Job %s hit the %.0fs generation budget after %.1fs.",
@@ -134,7 +134,7 @@ async def run_generation_job(
             GENERATION_TIMEOUT_SECONDS,
             time.perf_counter() - started,
         )
-        await _fail(
+        await fail_job(
             session,
             job_id,
             "Route generation took too long and was stopped. Try again with "
@@ -147,14 +147,14 @@ async def run_generation_job(
             time.perf_counter() - started,
             error.detail,
         )
-        await _fail(session, job_id, f"Routing API error: {error.detail}")
+        await fail_job(session, job_id, f"Routing API error: {error.detail}")
     except Exception as error:
         logger.exception(
             "Route generation job %s hit an unexpected error after %.1fs",
             job_id,
             time.perf_counter() - started,
         )
-        await _fail(session, job_id, f"Unexpected error: {error}")
+        await fail_job(session, job_id, f"Unexpected error: {error}")
 
 
 async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
@@ -443,11 +443,15 @@ async def _save_or_discard(
     )
 
 
-async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
+async def fail_job(session: AsyncSession, job_id: UUID, message: str) -> None:
     """Undo anything half-written, then record why the job failed.
 
     Guarded the same way `JobService.update_progress` is, so a job an admin
     already cancelled stays cancelled instead of resurfacing as a failure.
+
+    Public because the worker needs it too: a job can fail before this module
+    ever sees it — while its engine is being built — and it still has to reach
+    a terminal state rather than sit in Running forever.
     """
     logger.warning("Route generation job %s failed: %s", job_id, message)
 

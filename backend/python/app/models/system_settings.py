@@ -185,6 +185,10 @@ class SystemSettingsUpdate(SQLModel):
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
     email_reminders: list[EmailReminder] | None = Field(default=None)
     delivery_types: list[str] | None = Field(default=None)
+    # Patchable so an admin can pin generation to one engine (or hand it back
+    # to Auto) without a DB edit. The worker reads this per job, so a change
+    # takes effect on the next job rather than needing a restart.
+    route_generation_method: RouteGenerationMethod | None = Field(default=None)
 
     @field_validator("contact_phone")
     @classmethod

@@ -12,7 +12,7 @@ authoritative but lags hours, far too slow to gate a job that starts now.
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from .base import BaseModel
@@ -54,19 +54,12 @@ class ApiUsage(ApiUsageBase, BaseModel, table=True):
     __tablename__ = "api_usage"
     __table_args__ = (
         UniqueConstraint("sku", "billing_month", name="uq_api_usage_sku_month"),
+        # A negative count would silently hand back allowance we already spent.
+        # ``ge=0`` on the field only guards writes that go through the model,
+        # so the guarantee is repeated in the schema. Declared here and not
+        # only in the migration so metadata-created test databases carry it
+        # too, and so `alembic check` sees no drift.
+        CheckConstraint("units_used >= 0", name="ck_api_usage_units_nonnegative"),
     )
 
     api_usage_id: UUID = Field(default_factory=uuid4, primary_key=True)
-
-
-class ApiUsageRead(ApiUsageBase):
-    """A SKU's consumption this month, against its configured allowance."""
-
-    api_usage_id: UUID
-    # Carried alongside the count because the allowance lives in settings, not
-    # in the row — a caller comparing them needs both.
-    budget: int
-    remaining: int
-    # Units differ per SKU (shipments vs requests), so a bare number is
-    # ambiguous without this.
-    unit: str

@@ -2323,6 +2323,7 @@ export type SystemSettingsUpdate = {
   import_column_map?: {
     [key: string]: string;
   } | null;
+  route_generation_method?: RouteGenerationMethod | null;
   /**
    * Route Start Time
    */
