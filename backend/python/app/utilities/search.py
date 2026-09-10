@@ -6,7 +6,6 @@ pagination so a page is drawn from the matches.
 """
 
 import re
-
 from typing import Any
 
 from sqlalchemy import ColumnElement, SQLColumnExpression, String, cast, func, or_

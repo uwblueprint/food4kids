@@ -6,7 +6,7 @@ Jobs use the unified EmailDispatcher to render and send emails.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 from sqlalchemy import and_
 from sqlmodel import col, select
@@ -16,6 +16,7 @@ from app.models.driver import Driver
 from app.models.route import ASSIGNED_ROUTE_HAS_START_TIME_CONSTRAINT, Route
 from app.models.route_group import RouteGroup
 from app.models.user import User
+from app.utilities.datetime_utils import today_local
 
 # Placeholder until there is a deployment to link at. The template still needs
 # some value for Upcoming_Route_URL, and dispatch would raise without it.
@@ -50,7 +51,12 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
 
     try:
         async with async_session_maker_instance() as session:
-            target_dates = {date.today() + timedelta(days=day) for day in reminder_days}
+            # Lead days count from the organization's today, not the process's.
+            # The job's own cron fires on the local clock, so an 8 PM reminder
+            # read date.today() (UTC, already tomorrow) and emailed the wrong
+            # day's drivers — silently, since every date involved still lined up.
+            today = today_local()
+            target_dates = {today + timedelta(days=day) for day in reminder_days}
 
             # Narrow in SQL to the span the lead days cover, then match the exact
             # dates below. The span is only a prefilter: non-contiguous lead days

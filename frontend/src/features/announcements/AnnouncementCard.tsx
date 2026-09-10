@@ -86,7 +86,7 @@ export function AnnouncementCard({
                 type="button"
                 variant="ghost"
                 shape="circular"
-                className="size-9 shrink-0"
+                className="data-[state=open]:bg-grey-200 size-9 shrink-0"
                 aria-label="Announcement actions"
               >
                 <MoreVerticalIcon className="text-grey-400 size-5" />
