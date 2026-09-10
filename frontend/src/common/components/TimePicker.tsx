@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { RemoveScroll } from 'react-remove-scroll';
 
 import ClockIcon from '@/assets/icons/clock.svg?react';
 import { cn } from '@/lib/utils';
@@ -192,43 +193,52 @@ export function TimePicker({
           }
         }}
       >
-        {/* `relative` makes this the offsetParent the scroll maths measures from. */}
-        <div role="listbox" className="relative max-h-32 overflow-y-auto">
-          {timeOptions(listValue).map((option) => {
-            const selected = option === listValue;
-            return (
-              <button
-                key={option}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                ref={selected ? selectedRef : undefined}
-                // onMouseDown, because the input's blur would otherwise revert
-                // the draft and move the list out from under the click.
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  commit(option);
-                  setInternalOpen(false);
-                }}
-                // A pointer never reaches this — mousedown already closed the
-                // panel — but Enter and Space on a focused option do.
-                onClick={() => {
-                  commit(option);
-                  setInternalOpen(false);
-                }}
-                className={cn(
-                  'text-p2 flex w-full cursor-pointer items-center py-3 text-left transition-colors',
-                  paddingClass,
-                  selected
-                    ? 'bg-blue-50 font-semibold text-blue-300'
-                    : 'text-grey-500 hover:bg-blue-50'
-                )}
-              >
-                {formatDisplayTime(option)}
-              </button>
-            );
-          })}
-        </div>
+        {/* Locks page scrolling while the panel is open — the same
+            react-remove-scroll mechanism as Radix Select's modal dropdowns,
+            without Popover's `modal` prop, whose focus trap and pointer-events
+            lockout would make the input untypable. `forwardProps` keeps the
+            list itself scrollable; a style-guide picker pinned open via the
+            `open` prop must not lock its page, so only a self-managed picker
+            engages it. */}
+        <RemoveScroll forwardProps enabled={open === undefined} allowPinchZoom>
+          {/* `relative` makes this the offsetParent the scroll maths measures from. */}
+          <div role="listbox" className="relative max-h-32 overflow-y-auto">
+            {timeOptions(listValue).map((option) => {
+              const selected = option === listValue;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  ref={selected ? selectedRef : undefined}
+                  // onMouseDown, because the input's blur would otherwise revert
+                  // the draft and move the list out from under the click.
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    commit(option);
+                    setInternalOpen(false);
+                  }}
+                  // A pointer never reaches this — mousedown already closed the
+                  // panel — but Enter and Space on a focused option do.
+                  onClick={() => {
+                    commit(option);
+                    setInternalOpen(false);
+                  }}
+                  className={cn(
+                    'text-p2 flex w-full cursor-pointer items-center py-3 text-left transition-colors',
+                    paddingClass,
+                    selected
+                      ? 'bg-blue-50 font-semibold text-blue-300'
+                      : 'text-grey-500 hover:bg-blue-50'
+                  )}
+                >
+                  {formatDisplayTime(option)}
+                </button>
+              );
+            })}
+          </div>
+        </RemoveScroll>
       </PopoverContent>
     </Popover>
   );
