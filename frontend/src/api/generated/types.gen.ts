@@ -1755,10 +1755,6 @@ export type RouteGroupRead = {
    */
   drive_date: string;
   /**
-   * Frozen
-   */
-  frozen: boolean;
-  /**
    * Name
    */
   name: string;

@@ -26,7 +26,6 @@ const group = (overrides: Partial<RouteGroupRead> = {}): RouteGroupRead => ({
   num_drivers_assigned: 3,
   delivery_type: 'Regular',
   status: 'Upcoming',
-  frozen: false,
   routes: [],
   ...overrides,
 });
@@ -97,14 +96,6 @@ describe('routeGroupDriveDateColumn (Groups tab)', () => {
     );
     expect(node.props.routeGroupId).toBe('group-9');
     expect(node.props.driveDate).toBe('2026-02-03');
-  });
-
-  it('marks a frozen group so the cell drops the calendar', () => {
-    expect(groupCell(group({ frozen: true })).props.frozen).toBe(true);
-  });
-
-  it('leaves an unfrozen group editable', () => {
-    expect(groupCell(group({ frozen: false })).props.frozen).toBe(false);
   });
 
   it('reports the edited group back so the tab can highlight the row', () => {

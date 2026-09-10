@@ -6,9 +6,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from '@/common/components';
 import {
   formatShortDate,
@@ -26,12 +23,6 @@ interface DriveDateCellProps {
   routeGroupId: string;
   /** Current drive date as the API's ISO date string. */
   driveDate: string;
-  /**
-   * True once any of the group's routes is frozen. The date is then part of
-   * the delivery record, so the cell drops to read-only rather than offering a
-   * calendar the API would reject (see RouteGroupRead.frozen).
-   */
-  frozen: boolean;
   /** Called once the new date saves, e.g. to highlight the updated row. */
   onUpdated?: () => void;
 }
@@ -48,7 +39,6 @@ interface DriveDateCellProps {
 export function DriveDateCell({
   routeGroupId,
   driveDate,
-  frozen,
   onUpdated,
 }: DriveDateCellProps) {
   const [open, setOpen] = useState(false);
@@ -83,23 +73,6 @@ export function DriveDateCell({
     );
     setOpen(false);
   };
-
-  // Say why rather than let the admin find out by being rejected: the API
-  // returns 409 for this move, and a calendar that quietly fails is worse than
-  // no calendar.
-  if (frozen) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="cursor-default">{formatShortDate(driveDate)}</span>
-        </TooltipTrigger>
-        <TooltipContent>
-          These routes have been delivered — the date is part of the record and
-          can no longer be changed.
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

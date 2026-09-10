@@ -1322,10 +1322,7 @@ export const deleteRouteGroup = <ThrowOnError extends boolean = false>(
 /**
  * Update Route Group
  *
- * Update an existing route group.
- *
- * Moving the drive date of a group whose routes are already frozen is
- * rejected with 409: that date is part of the frozen delivery record.
+ * Update an existing route group
  */
 export const updateRouteGroup = <ThrowOnError extends boolean = false>(
   options: Options<UpdateRouteGroupData, ThrowOnError>

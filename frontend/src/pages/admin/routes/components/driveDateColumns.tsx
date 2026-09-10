@@ -24,9 +24,7 @@ export const routeDriveDateColumn: Column<RouteWithDateRead> = {
 };
 
 /**
- * Date column for the Groups tab — editable via the hover calendar, except on
- * frozen groups (DriveDateCell drops to read-only there; the API rejects the
- * move with 409 regardless).
+ * Date column for the Groups tab — editable via the hover calendar.
  *
  * `onUpdated` receives the group id, so the tab can highlight the row the
  * re-sort just moved.
@@ -42,7 +40,6 @@ export const routeGroupDriveDateColumn = (
     <DriveDateCell
       routeGroupId={row.route_group_id}
       driveDate={row.drive_date}
-      frozen={row.frozen}
       onUpdated={onUpdated ? () => onUpdated(row.route_group_id) : undefined}
     />
   ),
