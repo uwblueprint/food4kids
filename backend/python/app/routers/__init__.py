@@ -23,9 +23,8 @@ from . import (
 # /api/** to this service and the browser sees a single origin — which is what
 # lets the refresh cookie stay SameSite=strict. Hosting forwards the matched
 # path verbatim rather than stripping the prefix, so the routes carry it.
-# The rewrite itself (source "/api/**") lives in frontend/firebase.json on
-# feat/deployment-setup (PR #210), not yet on main; tests/test_api_prefix.py
-# pins the literal until it lands.
+# The rewrite (source "/api/**") is deployed Hosting config not yet checked in;
+# tests/test_api_prefix.py pins the literal until frontend/firebase.json lands.
 API_PREFIX = "/api"
 
 

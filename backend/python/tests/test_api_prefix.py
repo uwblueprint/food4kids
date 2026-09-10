@@ -30,9 +30,9 @@ def schema_paths() -> list[str]:
 
 
 def test_the_prefix_is_what_hosting_rewrites() -> None:
-    """Hosting's rewrite is configured for this exact string. The rewrite lives
-    in frontend/firebase.json on feat/deployment-setup (PR #210), not yet on
-    main; once it lands, parse it here instead of pinning the literal."""
+    """Hosting's rewrite is configured for this exact string. It is deployed
+    config not yet checked in; once frontend/firebase.json lands on main, parse
+    it here instead of pinning the literal."""
     assert API_PREFIX == "/api"
 
 
