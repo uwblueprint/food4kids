@@ -91,6 +91,8 @@ gcloud secrets versions access latest --secret="f4k-development-backend-env" --p
 
 This writes `.env` to the repo root. You still need `frontend/.env` from the PL.
 
+> **If containers are already running,** re-pulling `.env` is not enough. Use `docker compose up -d --force-recreate` instead.
+
 ### Git hooks
 
 The repo ships a pre-commit hook that keeps the frontend OpenAPI client in sync with the backend automatically — when a commit touches the API contract it regenerates `frontend/openapi.json` and `frontend/src/api/generated/` (no running backend needed) and stages the result.
@@ -132,7 +134,7 @@ docker-compose exec backend alembic upgrade head
 # Connect to DB
 docker-compose exec db psql -U postgres -d f4k
 
-# Seed with test data
+# Seed with test data (needs app/data/locations.csv from our Google Drive)
 docker-compose exec backend python -m app.seed_database
 
 # ...and restore every seed account's password, if one has drifted.
@@ -214,9 +216,58 @@ docker-compose up --build
 </details>
 
 <details>
+<summary>db container exits: "database files are incompatible with server"</summary>
+
+```
+FATAL:  database files are incompatible with server
+DETAIL: The data directory was initialized by PostgreSQL version 12,
+        which is not compatible with this version 17.x
+```
+
+Your `postgres_data` volume predates the Postgres 12 → 17 upgrade (#177). Postgres will not
+start on a data directory from an older major version, and the backend fails with it because
+it waits on `db` being healthy.
+
+The volume has to be recreated. **This destroys your local dev database**, which is fine if
+it is just seed data — back it up first if not.
+
+```bash
+docker compose down
+docker volume rm food4kids_postgres_data
+docker compose up -d
+docker compose exec backend alembic upgrade head
+# then re-seed (see Database above)
+```
+
+</details>
+
+<details>
+<summary>`GET /billing/costs` returns 503</summary>
+
+Re-pull secrets (they were updated August 19, 2026).
+
+</details>
+
+<details>
+<summary>Frontend loads a blank page / "Failed to resolve import"</summary>
+
+Vite logs something like `Failed to resolve import "zustand" from "src/api/authStore.ts"`
+and the page renders empty. The `frontend_node_modules` volume is stale — it persists across
+rebuilds, so dependencies added since you last installed are missing.
+
+```bash
+docker compose exec -e CI=true frontend pnpm install
+docker compose restart frontend
+```
+
+`CI=true` matters: without it pnpm prompts "The modules directory will be removed and
+reinstalled from scratch. Proceed?" and hangs, because `exec` has no interactive stdin.
+
+</details>
+
+<details>
 <summary>Firebase authentication issues</summary>
 
 - Verify Firebase config in your env files
 - Ensure Firebase Admin SDK credentials are properly formatted
-
 </details>

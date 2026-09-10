@@ -400,16 +400,6 @@ export type ChangedFieldStr = {
 };
 
 /**
- * DeliveriesCountResponse
- */
-export type DeliveriesCountResponse = {
-  /**
-   * Total Deliveries
-   */
-  total_deliveries: number;
-};
-
-/**
  * DeliveryTypeRename
  *
  * Request body for renaming a configured delivery type.
@@ -1195,78 +1185,6 @@ export type LocationRead = {
 export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 
 /**
- * LocationUpdate
- *
- * Update request model with all fields optional
- */
-export type LocationUpdate = {
-  /**
-   * Address
-   */
-  address?: string | null;
-  /**
-   * Contact Name
-   */
-  contact_name?: string | null;
-  /**
-   * Delivery Type
-   */
-  delivery_type?: string | null;
-  /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string | null;
-  /**
-   * Guardian Name
-   */
-  guardian_name?: string | null;
-  /**
-   * Halal
-   */
-  halal?: boolean | null;
-  /**
-   * In Roster
-   */
-  in_roster?: boolean | null;
-  /**
-   * Latitude
-   */
-  latitude?: number | null;
-  /**
-   * Location Group Id
-   */
-  location_group_id?: string | null;
-  /**
-   * Longitude
-   */
-  longitude?: number | null;
-  /**
-   * Name
-   */
-  name?: string | null;
-  /**
-   * Note Chain Id
-   */
-  note_chain_id?: string | null;
-  /**
-   * Num Children
-   */
-  num_children?: number | null;
-  /**
-   * Phone Primary
-   */
-  phone_primary?: string | null;
-  /**
-   * Phone Secondary
-   */
-  phone_secondary?: string | null;
-  /**
-   * Place Id
-   */
-  place_id?: string | null;
-};
-
-/**
  * LoginRequest
  *
  * Login request
@@ -1794,10 +1712,15 @@ export type RouteGroupCreate = {
  *
  * Duplicate request model - overrides for the copied group.
  *
- * Both optional so the endpoint also works with no body: name falls back to
- * "Copy of {original}" and drive_date to the original's date.
+ * Every field has a default so the endpoint also works with no body: name
+ * falls back to "Copy of {original}", drive_date to the original's date, and
+ * driver assignments carry over.
  */
 export type RouteGroupDuplicate = {
+  /**
+   * Copy Drivers
+   */
+  copy_drivers?: boolean;
   /**
    * Drive Date
    */
@@ -2323,6 +2246,20 @@ export type SystemSettingsUpdate = {
    * Warehouse Longitude
    */
   warehouse_longitude?: number | null;
+};
+
+/**
+ * TotalsResponse
+ */
+export type TotalsResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
 };
 
 /**
@@ -3119,42 +3056,6 @@ export type CompleteDriverRegistrationResponses = {
 export type CompleteDriverRegistrationResponse =
   CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
 
-export type TestEventEmailData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Test Email
-     */
-    test_email: string;
-  };
-  url: '/api/drivers/test-event-email';
-};
-
-export type TestEventEmailErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type TestEventEmailError =
-  TestEventEmailErrors[keyof TestEventEmailErrors];
-
-export type TestEventEmailResponses = {
-  /**
-   * Response Test Event Email
-   *
-   * Successful Response
-   */
-  200: {
-    [key: string]: string;
-  };
-};
-
-export type TestEventEmailResponse =
-  TestEventEmailResponses[keyof TestEventEmailResponses];
-
 export type DeleteDriverData = {
   body?: never;
   path: {
@@ -3841,38 +3742,6 @@ export type GetLocationResponses = {
 export type GetLocationResponse =
   GetLocationResponses[keyof GetLocationResponses];
 
-export type UpdateLocationData = {
-  body: LocationUpdate;
-  path: {
-    /**
-     * Location Id
-     */
-    location_id: string;
-  };
-  query?: never;
-  url: '/api/locations/{location_id}';
-};
-
-export type UpdateLocationErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateLocationError =
-  UpdateLocationErrors[keyof UpdateLocationErrors];
-
-export type UpdateLocationResponses = {
-  /**
-   * Successful Response
-   */
-  200: LocationRead;
-};
-
-export type UpdateLocationResponse =
-  UpdateLocationResponses[keyof UpdateLocationResponses];
-
 export type DeleteNoteChainData = {
   body?: never;
   path: {
@@ -4114,46 +3983,6 @@ export type GetNotesFeedResponses = {
 export type GetNotesFeedResponse =
   GetNotesFeedResponses[keyof GetNotesFeedResponses];
 
-export type GetTotalDeliveriesBetweenData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Start
-     *
-     * Start datetime (assumed EST if no tz)
-     */
-    start: string;
-    /**
-     * End
-     *
-     * End datetime (assumed EST if no tz)
-     */
-    end: string;
-  };
-  url: '/api/reports/deliveries/count';
-};
-
-export type GetTotalDeliveriesBetweenErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type GetTotalDeliveriesBetweenError =
-  GetTotalDeliveriesBetweenErrors[keyof GetTotalDeliveriesBetweenErrors];
-
-export type GetTotalDeliveriesBetweenResponses = {
-  /**
-   * Successful Response
-   */
-  200: DeliveriesCountResponse;
-};
-
-export type GetTotalDeliveriesBetweenResponse =
-  GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
-
 export type GetMonthlySeriesData = {
   body?: never;
   path?: never;
@@ -4240,41 +4069,43 @@ export type GetMonthlyRankingResponses = {
 export type GetMonthlyRankingResponse =
   GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
 
-export type GetMonthlyTotalsData = {
+export type GetTotalsData = {
   body?: never;
-  path: {
+  path?: never;
+  query?: {
     /**
-     * Year
+     * Start
+     *
+     * Start datetime, inclusive (assumed EST if no tz)
      */
-    year: number;
+    start?: string | null;
     /**
-     * Month
+     * End
+     *
+     * End datetime, exclusive (assumed EST if no tz)
      */
-    month: number;
+    end?: string | null;
   };
-  query?: never;
-  url: '/api/reports/monthly/{year}/{month}/totals';
+  url: '/api/reports/totals';
 };
 
-export type GetMonthlyTotalsErrors = {
+export type GetTotalsErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type GetMonthlyTotalsError =
-  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
+export type GetTotalsError = GetTotalsErrors[keyof GetTotalsErrors];
 
-export type GetMonthlyTotalsResponses = {
+export type GetTotalsResponses = {
   /**
    * Successful Response
    */
-  200: MonthlyTotalsResponse;
+  200: TotalsResponse;
 };
 
-export type GetMonthlyTotalsResponse =
-  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
+export type GetTotalsResponse = GetTotalsResponses[keyof GetTotalsResponses];
 
 export type GetRouteGroupsData = {
   body?: never;

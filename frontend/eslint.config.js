@@ -58,6 +58,10 @@ export default [
       ],
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
+      // Console output can leave the device via Sentry, and an error object
+      // drags the request body with it (a login's is the password). Report
+      // through reportError() in src/lib/telemetry.ts.
+      'no-console': 'error',
       'import/first': 'error',
       'import/newline-after-import': 'error',
       'import/no-duplicates': 'error',
@@ -97,6 +101,12 @@ export default [
             'text-h1/h2/h3 and text-p1/p2/p3 are already responsive — don\'t add a tablet:/desktop: variant (it won\'t compose, since the utility has its own internal breakpoint). Use the bare utility, or a static text-m-* for a constant (non-responsive) size.',
         },
       ],
+    },
+  },
+  {
+    files: ['**/*.test.{ts,tsx}', 'emails/**/*.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
   prettier, // Must be last

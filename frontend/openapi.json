@@ -690,19 +690,6 @@
         "title": "ChangedFieldStr",
         "type": "object"
       },
-      "DeliveriesCountResponse": {
-        "properties": {
-          "total_deliveries": {
-            "title": "Total Deliveries",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "total_deliveries"
-        ],
-        "title": "DeliveriesCountResponse",
-        "type": "object"
-      },
       "DeliveryTypeRename": {
         "description": "Request body for renaming a configured delivery type.\n\nRename is a distinct operation from the list-replacing PATCH: it preserves\nthe type's identity, cascading the new name onto every location (active or\nnot) that references the old one. A plain PATCH that swaps a name looks like\na remove + add and is blocked by the in-use guard, so renames must come\nthrough here.",
         "properties": {
@@ -2051,193 +2038,6 @@
         "title": "LocationStatusEnum",
         "type": "string"
       },
-      "LocationUpdate": {
-        "description": "Update request model with all fields optional",
-        "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "contact_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contact Name"
-          },
-          "delivery_type": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Delivery Type"
-          },
-          "dietary_restrictions": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dietary Restrictions"
-          },
-          "guardian_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Guardian Name"
-          },
-          "halal": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Halal"
-          },
-          "in_roster": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "In Roster"
-          },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
-          "location_group_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Group Id"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "note_chain_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Chain Id"
-          },
-          "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
-          },
-          "phone_primary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Primary"
-          },
-          "phone_secondary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Secondary"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
-          }
-        },
-        "title": "LocationUpdate",
-        "type": "object"
-      },
       "LoginRequest": {
         "description": "Login request",
         "properties": {
@@ -3093,8 +2893,13 @@
         "type": "object"
       },
       "RouteGroupDuplicate": {
-        "description": "Duplicate request model - overrides for the copied group.\n\nBoth optional so the endpoint also works with no body: name falls back to\n\"Copy of {original}\" and drive_date to the original's date.",
+        "description": "Duplicate request model - overrides for the copied group.\n\nEvery field has a default so the endpoint also works with no body: name\nfalls back to \"Copy of {original}\", drive_date to the original's date, and\ndriver assignments carry over.",
         "properties": {
+          "copy_drivers": {
+            "default": true,
+            "title": "Copy Drivers",
+            "type": "boolean"
+          },
           "drive_date": {
             "anyOf": [
               {
@@ -4158,6 +3963,24 @@
         "title": "SystemSettingsUpdate",
         "type": "object"
       },
+      "TotalsResponse": {
+        "properties": {
+          "total_deliveries": {
+            "title": "Total Deliveries",
+            "type": "integer"
+          },
+          "total_km": {
+            "title": "Total Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_km",
+          "total_deliveries"
+        ],
+        "title": "TotalsResponse",
+        "type": "object"
+      },
       "UpdatePasswordRequest": {
         "properties": {
           "new_password": {
@@ -4977,56 +4800,9 @@
         ]
       }
     },
-    "/api/drivers/test-event-email": {
-      "post": {
-        "description": "Temporary endpoint to test event-driven emails.\nDelete this after testing!",
-        "operationId": "test_event_email",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "test_email",
-            "required": true,
-            "schema": {
-              "title": "Test Email",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Test Event Email",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Test Event Email",
-        "tags": [
-          "drivers"
-        ]
-      }
-    },
     "/api/drivers/{driver_id}": {
       "delete": {
-        "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted, so the\ndriver's km stop counting toward anyone.",
+        "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted: the km and\ndeliveries stay in the org's totals, they just stop being attributed to\nanyone in the per-driver ranking and export.",
         "operationId": "delete_driver",
         "parameters": [
           {
@@ -6177,63 +5953,6 @@
         "tags": [
           "locations"
         ]
-      },
-      "patch": {
-        "description": "Update a location by ID",
-        "operationId": "update_location",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "location_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Location Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LocationUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LocationRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Update Location",
-        "tags": [
-          "locations"
-        ]
       }
     },
     "/api/note-chains/{note_chain_id}": {
@@ -6650,69 +6369,6 @@
         ]
       }
     },
-    "/api/reports/deliveries/count": {
-      "get": {
-        "description": "Return total deliveries (route stop snapshots) between start and end.\nQuery params are treated as EST if no timezone is provided.",
-        "operationId": "get_total_deliveries_between",
-        "parameters": [
-          {
-            "description": "Start datetime (assumed EST if no tz)",
-            "in": "query",
-            "name": "start",
-            "required": true,
-            "schema": {
-              "description": "Start datetime (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "Start",
-              "type": "string"
-            }
-          },
-          {
-            "description": "End datetime (assumed EST if no tz)",
-            "in": "query",
-            "name": "end",
-            "required": true,
-            "schema": {
-              "description": "End datetime (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "End",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeliveriesCountResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Total Deliveries Between",
-        "tags": [
-          "reports"
-        ]
-      }
-    },
     "/api/reports/monthly-series": {
       "get": {
         "description": "Return km and deliveries per month for a trailing window, oldest first.\n\nBacks the homepage statistics bar charts, which need a whole series at\nonce rather than one request per bar.",
@@ -6869,27 +6525,47 @@
         ]
       }
     },
-    "/api/reports/monthly/{year}/{month}/totals": {
+    "/api/reports/totals": {
       "get": {
-        "description": "Return total distance driven and total deliveries for the month.",
-        "operationId": "get_monthly_totals",
+        "description": "Return km driven and deliveries made — all time, or over [start, end).\n\nOmit both bounds for the all-time figures the homepage's headline totals\nshow. Supply both for a window: the params are read as EST when they carry\nno timezone, then reduced to calendar days (a drive date is a day, not an\ninstant), and the range is half-open like every other range in the\nreports, so consecutive windows tile instead of double-counting their\nshared boundary day.",
+        "operationId": "get_totals",
         "parameters": [
           {
-            "in": "path",
-            "name": "year",
-            "required": true,
+            "description": "Start datetime, inclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "start",
+            "required": false,
             "schema": {
-              "title": "Year",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start datetime, inclusive (assumed EST if no tz)",
+              "title": "Start"
             }
           },
           {
-            "in": "path",
-            "name": "month",
-            "required": true,
+            "description": "End datetime, exclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "end",
+            "required": false,
             "schema": {
-              "title": "Month",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End datetime, exclusive (assumed EST if no tz)",
+              "title": "End"
             }
           }
         ],
@@ -6898,7 +6574,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MonthlyTotalsResponse"
+                  "$ref": "#/components/schemas/TotalsResponse"
                 }
               }
             },
@@ -6920,7 +6596,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Monthly Totals",
+        "summary": "Get Totals",
         "tags": [
           "reports"
         ]

@@ -104,7 +104,6 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # /register is auth'd by the invite token in the body, not a bearer token.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
     ("POST", "/drivers/register"): Policy.PUBLIC,
-    ("POST", "/drivers/test-event-email"): Policy.PUBLIC,
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
@@ -123,17 +122,15 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/locations/import/preview"): Policy.ADMIN_ONLY,
     ("POST", "/locations/import"): Policy.ADMIN_ONLY,
     ("GET", "/locations/{location_id}"): Policy.ADMIN_ONLY,
-    ("PATCH", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     ("DELETE", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     # --- system settings ---
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,
     # Public by design; scoped to name/phone by OrgContactRead.
     ("GET", "/system-settings/contact"): Policy.PUBLIC,
     # --- reports ---
-    ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,
+    ("GET", "/reports/totals"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly-series"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/ranking"): Policy.ADMIN_ONLY,
-    ("GET", "/reports/monthly/{year}/{month}/totals"): Policy.ADMIN_ONLY,
     # --- note chains (authenticated, any user) ---
     ("GET", "/note-chains/{note_chain_id}"): Policy.AUTHENTICATED,
     # Deletion is admin-gated inside note_chain_service (not via a dependency).
