@@ -5,7 +5,7 @@ import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { Button, Spinner } from '@/common/components';
 import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
-import { parseDateOnly } from '@/common/utils';
+import { formatDriveDate } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { ReassignDriverModal } from '../../routes/components/ReassignDriverModal';
@@ -13,13 +13,6 @@ import { ReassignDriverModal } from '../../routes/components/ReassignDriverModal
 interface UnassignedRoutePreviewCardProps {
   route: RouteWithDateRead;
   className?: string;
-}
-
-function formatPreviewDate(driveDate: string): string {
-  return parseDateOnly(driveDate).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 function formatStartTime(value: string | null | undefined): string | null {
@@ -35,14 +28,12 @@ function formatStartTime(value: string | null | undefined): string | null {
 
 function PreviewMetadata({ route }: { route: RouteWithDateRead }) {
   const parts = [
-    formatPreviewDate(route.drive_date),
+    formatDriveDate(route.drive_date),
     formatStartTime(route.start_time),
     `${route.num_stops} stop${route.num_stops === 1 ? '' : 's'}`,
   ].filter(Boolean);
 
-  return (
-    <p className="text-m-p3 text-grey-400 font-normal">{parts.join(' • ')}</p>
-  );
+  return <p className="text-p2 text-grey-400">{parts.join(' • ')}</p>;
 }
 
 export function UnassignedRoutePreviewCard({
@@ -56,12 +47,12 @@ export function UnassignedRoutePreviewCard({
     <>
       <div
         className={cn(
-          'isolate z-0 flex min-w-0 flex-[1_0_0] flex-col items-start self-stretch',
+          'isolate z-0 flex min-w-0 flex-col items-start self-stretch',
           className
         )}
       >
-        <div className="border-grey-300 flex w-full flex-col overflow-hidden rounded-xl border bg-white">
-          <div className="bg-grey-150 relative isolate z-0 h-40 w-full shrink-0 overflow-hidden [&_.leaflet-bottom]:z-0 [&_.leaflet-container]:z-0 [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-0">
+        <div className="outline-grey-300 flex w-full flex-col overflow-hidden rounded-xl bg-white outline outline-1 outline-offset-[-1px]">
+          <div className="bg-grey-150 relative isolate z-0 h-[162px] w-full shrink-0 overflow-hidden [&_.leaflet-bottom]:z-0 [&_.leaflet-container]:z-0 [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-0">
             {isLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <Spinner size="sm" />
@@ -84,23 +75,17 @@ export function UnassignedRoutePreviewCard({
             )}
           </div>
 
-          <div className="flex flex-col items-start gap-4 self-stretch p-4">
-            <div className="flex flex-col gap-0.5">
-              <p className="text-m-p1 text-grey-500 font-bold">{route.name}</p>
+          <div className="flex flex-col gap-4 self-stretch px-4 pt-2 pb-4">
+            <div className="flex flex-col gap-1">
+              <p className="text-h3 text-grey-500 font-bold">{route.name}</p>
               <PreviewMetadata route={route} />
             </div>
             <div className="flex items-center gap-4 self-stretch">
-              <Button
-                variant="secondary"
-                shape="compact"
-                asChild
-                className="min-w-0 flex-1"
-              >
+              <Button variant="secondary" asChild className="min-w-0 flex-1">
                 <Link to="/admin/routes?tab=routes">View route</Link>
               </Button>
               <Button
                 variant="primary"
-                shape="compact"
                 className="min-w-0 flex-1"
                 onClick={() => setAssignOpen(true)}
               >

@@ -1,15 +1,13 @@
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, case, distinct, exists, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.enum import (
     DriveDaysOfWeekEnum,
     DriverAssignmentStatusEnum,
@@ -28,7 +26,9 @@ from app.models.route_group import (
 from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
+from app.utilities.datetime_utils import today_local
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_sort_key
 
 ROUTE_GROUP_COPY_PREFIX = "Copy of "
 ROUTE_GROUP_NAME_MAX_LENGTH = 255
@@ -39,11 +39,6 @@ class RouteGroupService:
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-        self.timezone = ZoneInfo(settings.scheduler_timezone)
-
-    def _today(self) -> date:
-        """Today's date in the project's configured timezone."""
-        return datetime.now(self.timezone).date()
 
     async def create_route_group(
         self, session: AsyncSession, route_group_data: RouteGroupCreate
@@ -86,8 +81,9 @@ class RouteGroupService:
     ) -> RouteGroupRead | None:
         """Duplicate a route group with fresh route/stop rows.
 
-        `overrides` supplies the new group's name and drive_date; either falls
-        back to the original ("Copy of {name}" / same date) when omitted.
+        `overrides` supplies the new group's name, drive_date and whether
+        driver assignments carry over; each falls back to the original
+        ("Copy of {name}" / same date / same drivers) when omitted.
 
         Route snapshots and note chains are intentionally not copied: they are
         historical records attached to the original route. New routes point
@@ -105,6 +101,7 @@ class RouteGroupService:
             self.logger.error(f"RouteGroup with id {route_group_id} not found")
             return None
 
+        copy_drivers = overrides.copy_drivers if overrides else True
         default_name = f"{ROUTE_GROUP_COPY_PREFIX}{route_group.name}"[
             :ROUTE_GROUP_NAME_MAX_LENGTH
         ]
@@ -119,7 +116,9 @@ class RouteGroupService:
         )
         session.add(duplicated_group)
 
-        for route in sorted(route_group.routes, key=lambda item: item.name):
+        for route in sorted(
+            route_group.routes, key=lambda r: route_name_sort_key(r.name)
+        ):
             duplicated_route = Route(
                 name=route.name,
                 notes=route.notes,
@@ -129,7 +128,7 @@ class RouteGroupService:
                 ends_at_warehouse=route.ends_at_warehouse,
                 start_time=route.start_time,
                 route_group_id=duplicated_group.route_group_id,
-                driver_id=route.driver_id,
+                driver_id=route.driver_id if copy_drivers else None,
                 cloned_from_route_id=route.route_id,
             )
             duplicated_group.routes.append(duplicated_route)
@@ -238,7 +237,7 @@ class RouteGroupService:
             .label("delivery_type")
         )
 
-        today = self._today()
+        today = today_local()
 
         status_expr = case(
             (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
@@ -261,7 +260,8 @@ class RouteGroupService:
 
         routes: list[RouteReadSummary] = []
         if include_routes:
-            for route in rg.routes:
+            # The relationship load has no order of its own.
+            for route in sorted(rg.routes, key=lambda r: route_name_sort_key(r.name)):
                 routes.append(
                     RouteReadSummary(
                         route_id=route.route_id,
@@ -351,7 +351,7 @@ class RouteGroupService:
             )
 
         if route_status:
-            today = self._today()
+            today = today_local()
             thirty_days_ago = today - timedelta(days=30)
 
             status_conditions: list[Any] = []

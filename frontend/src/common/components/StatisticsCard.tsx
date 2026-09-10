@@ -5,10 +5,11 @@ import grannyImg from '@/assets/illustrations/granny.png';
 import { cn } from '@/lib/utils';
 
 const CHARACTERS = {
-  granny: { src: grannyImg, size: 159, right: -20, top: -23 },
-  boy: { src: boyImg, size: 139, right: -15, top: -13 },
-  boyPointing: { src: boyPointingImg, size: 164, right: -23, top: -14 },
-  girlSearching: { src: girlSearchingImg, size: 179, right: -34, top: -24 },
+  // Further reduce sizes and push illustrations more to bottom-right so they don't overlap the numbers
+  granny: { src: grannyImg, size: 100, right: -22, bottom: -18 },
+  boy: { src: boyImg, size: 90, right: -18, bottom: -14 },
+  boyPointing: { src: boyPointingImg, size: 110, right: -20, bottom: -16 },
+  girlSearching: { src: girlSearchingImg, size: 110, right: -20, bottom: -16 },
 } as const;
 
 const COLOR_MAP = {
@@ -42,7 +43,8 @@ function StatisticsCard({
     >
       <div
         className={cn(
-          'shadow-card relative h-25 w-full overflow-hidden rounded-xl px-4',
+          // reduced height and horizontal padding to tighten vertical spacing
+          'shadow-card relative h-20 w-full overflow-hidden rounded-xl px-3',
           COLOR_MAP[color]
         )}
       >
@@ -56,8 +58,8 @@ function StatisticsCard({
 
         {/* Text */}
         <div className="relative flex h-full flex-col justify-center">
-          <p className="text-h3 text-grey-100 font-bold">{label}</p>
-          <p className="text-h1 text-grey-100 font-bold">{value}</p>
+          <p className="text-h4 text-grey-100 font-sans">{label}</p>
+          <p className="text-h2 text-grey-100 font-nunito font-bold">{value}</p>
         </div>
       </div>
 
@@ -71,7 +73,7 @@ function StatisticsCard({
           width: CHARACTERS[character].size,
           height: CHARACTERS[character].size,
           right: CHARACTERS[character].right,
-          top: CHARACTERS[character].top,
+          bottom: CHARACTERS[character].bottom,
         }}
       />
     </div>
