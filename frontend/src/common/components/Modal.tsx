@@ -4,8 +4,6 @@ import * as React from 'react';
 import XIcon from '@/assets/icons/x.svg?react';
 import { cn } from '@/lib/utils';
 
-import { PopupHost } from './PopupHost';
-
 const Modal = DialogPrimitive.Root;
 const ModalTrigger = DialogPrimitive.Trigger;
 const ModalPortal = DialogPrimitive.Portal;
@@ -52,9 +50,7 @@ function ModalContent({
         )}
         {...props}
       >
-        {/* Its own PopupHost, so panels opened here stack above the dialog
-            rather than portalling into the page behind the overlay. */}
-        <PopupHost>{children}</PopupHost>
+        {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             aria-label="Close"

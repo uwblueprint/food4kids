@@ -3,8 +3,6 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-import { PopupContainerContext } from './PopupHost.context';
-
 function Popover({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
@@ -23,11 +21,8 @@ function PopoverContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
-  // Portalling into the nearest PopupHost keeps the panel pinned to its
-  // trigger during scroll; see PopupHost for the mechanism.
-  const container = React.useContext(PopupContainerContext);
   return (
-    <PopoverPrimitive.Portal container={container ?? undefined}>
+    <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

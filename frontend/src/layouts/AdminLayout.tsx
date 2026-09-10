@@ -5,7 +5,6 @@ import MapIcon from '@/assets/icons/map.svg?react';
 import SettingsIcon from '@/assets/icons/settings.svg?react';
 import UsersIcon from '@/assets/icons/users.svg?react';
 import logoImg from '@/assets/logos/logo_desktop_two_lines.png';
-import { PopupHost } from '@/common/components/PopupHost';
 import {
   Sidebar,
   SidebarContent,
@@ -55,11 +54,9 @@ export const AdminLayout = () => {
       </Sidebar>
 
       <SidebarInset>
-        <PopupHost>
-          <div className="admin-page-margins">
-            <Outlet />
-          </div>
-        </PopupHost>
+        <div className="admin-page-margins">
+          <Outlet />
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

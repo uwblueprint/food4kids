@@ -54,7 +54,6 @@ export {
   PopoverContent,
   PopoverTrigger,
 } from './Popover';
-export { PopupHost } from './PopupHost';
 export { Progress } from './Progress';
 export { SearchBar } from './SearchBar';
 export {
