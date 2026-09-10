@@ -12,6 +12,7 @@ export {
   CardHeader,
   CardTitle,
 } from './Card';
+export { ConfirmModal } from './ConfirmModal';
 export type { Column, DataTableProps, SortState } from './DataTable';
 export { AlertCell, DataTable } from './DataTable';
 export { DatePicker } from './DatePicker';

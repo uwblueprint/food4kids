@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   formatDriveDate,
   formatShortDate,
+  isPastDate,
   parseDateOnly,
   toNaiveDateString,
 } from './dateUtils';
@@ -159,6 +160,30 @@ describe('formatDriveDate', () => {
 
   it('returns the input unchanged when it is not a date', () => {
     expect(formatDriveDate('not a date')).toBe('not a date');
+  });
+});
+
+describe('isPastDate', () => {
+  const today = new Date();
+  const dayOffset = (days: number) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + days);
+    return d;
+  };
+
+  it('is false for today, whatever time of day it is', () => {
+    expect(isPastDate(new Date(today.setHours(0, 0, 0, 0)))).toBe(false);
+    expect(isPastDate(new Date(today.setHours(23, 59, 59, 999)))).toBe(false);
+  });
+
+  it('is true for yesterday and earlier', () => {
+    expect(isPastDate(dayOffset(-1))).toBe(true);
+    expect(isPastDate(dayOffset(-400))).toBe(true);
+  });
+
+  it('is false for tomorrow and later', () => {
+    expect(isPastDate(dayOffset(1))).toBe(false);
+    expect(isPastDate(dayOffset(400))).toBe(false);
   });
 });
 
