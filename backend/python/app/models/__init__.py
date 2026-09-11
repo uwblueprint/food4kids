@@ -1,4 +1,3 @@
-import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -12,6 +11,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlmodel import SQLModel, create_engine
 
 from app.config import Environment, settings
+from app.database_url import SYNC_DRIVER, get_database_url
 
 # Database engines
 engine: Engine | None = None
@@ -19,31 +19,12 @@ async_engine: AsyncEngine | None = None
 async_session_maker_instance: async_sessionmaker[AsyncSession] | None = None
 
 
-def get_database_url() -> str:
-    """Get database URL based on environment"""
-    if settings.environment is Environment.PRODUCTION:
-        return os.getenv("DATABASE_URL", "").replace(
-            "postgresql://", "postgresql+asyncpg://"
-        )
-    else:
-        return "postgresql+asyncpg://{username}:{password}@{host}:5432/{db}".format(
-            username=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD"),
-            host=os.getenv("DB_HOST"),
-            db=(
-                os.getenv("POSTGRES_DB_TEST")
-                if settings.environment is Environment.TESTING
-                else os.getenv("POSTGRES_DB_DEV")
-            ),
-        )
-
-
 def init_database() -> None:
     """Initialize database engines and session makers"""
     global engine, async_engine, async_session_maker_instance
 
     database_url = get_database_url()
-    sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    sync_database_url = get_database_url(SYNC_DRIVER)
 
     # Set echo based on environment
     echo_sql = settings.environment in (Environment.DEVELOPMENT, Environment.TESTING)

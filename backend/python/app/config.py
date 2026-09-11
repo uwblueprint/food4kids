@@ -52,6 +52,10 @@ class Settings(BaseSettings):
 
     # Firebase
     firebase_project_id: str = Field(default="")
+    # Used for the Identity Toolkit REST sign-in/refresh calls. Has to be a
+    # Settings field, not an os.getenv read: on Cloud Run the config arrives
+    # as a mounted secrets file, which os.getenv cannot see.
+    firebase_web_api_key: str = Field(default="")
     firebase_svc_account_private_key_id: str = Field(default="")
     firebase_svc_account_private_key: str = Field(default="")
     firebase_svc_account_client_email: str = Field(default="")
