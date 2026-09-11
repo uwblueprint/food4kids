@@ -10,11 +10,27 @@ from pathlib import Path
 
 import pytest
 
-from app.config import CLOUD_RUN_SECRETS_FILE, Environment, Settings
+from app.config import (
+    CLOUD_RUN_SECRETS_FILE,
+    REQUIRED_IN_PRODUCTION,
+    Environment,
+    Settings,
+    require_the_secret_mount,
+)
 
 # Keys the tests set themselves; cleared from the process environment first so
-# conftest's APP_ENV=testing and CI's POSTGRES_* cannot mask a source.
-KEYS = ("APP_ENV", "DB_HOST", "POSTGRES_USER", "PREVIEW_DEPLOY", "FRONTEND_BASE_URL")
+# conftest's APP_ENV=testing and the container's real .env cannot mask a source.
+KEYS = (
+    "APP_ENV",
+    "DB_HOST",
+    "POSTGRES_USER",
+    "PREVIEW_DEPLOY",
+    *(name.upper() for name in REQUIRED_IN_PRODUCTION),
+)
+
+COMPLETE_PRODUCTION = {name.upper(): f"{name}-value" for name in REQUIRED_IN_PRODUCTION}
+COMPLETE_PRODUCTION["APP_ENV"] = "production"
+COMPLETE_PRODUCTION["DATABASE_URL"] = "postgresql://u:p@db.neon.tech:5432/prod"
 
 
 @pytest.fixture
@@ -44,7 +60,7 @@ class TestJsonFile:
         assert settings.db_host == "db.example"
 
     def test_app_env_reaches_the_aliased_field(self, isolated: Path) -> None:
-        write_json(isolated, APP_ENV="production")
+        write_json(isolated, **COMPLETE_PRODUCTION)
         assert Settings().environment is Environment.PRODUCTION
 
     def test_a_bad_app_env_still_fails_at_startup(self, isolated: Path) -> None:
@@ -65,6 +81,68 @@ class TestJsonFile:
         settings = Settings()
         assert settings.environment is Environment.DEVELOPMENT
         assert settings.db_host == ""
+
+
+class TestProductionRefusesToStartHalfConfigured:
+    def test_a_complete_secret_starts(self, isolated: Path) -> None:
+        write_json(isolated, **COMPLETE_PRODUCTION)
+        assert Settings().environment is Environment.PRODUCTION
+
+    @pytest.mark.parametrize("name", REQUIRED_IN_PRODUCTION)
+    def test_each_required_key_is_named_when_absent(
+        self, isolated: Path, name: str
+    ) -> None:
+        """A typo'd key (POSTGRES_USR) reads as absent, so this is the typo
+        case too."""
+        values = dict(COMPLETE_PRODUCTION)
+        del values[name.upper()]
+        write_json(isolated, **values)
+        with pytest.raises(ValueError, match=name.upper()):
+            Settings()
+
+    def test_an_empty_value_counts_as_missing(self, isolated: Path) -> None:
+        write_json(isolated, **{**COMPLETE_PRODUCTION, "GOOGLE_MAPS_API_KEY": ""})
+        with pytest.raises(ValueError, match="GOOGLE_MAPS_API_KEY"):
+            Settings()
+
+    def test_every_gap_is_reported_at_once(self, isolated: Path) -> None:
+        values = dict(COMPLETE_PRODUCTION)
+        del values["MAILER_USER"]
+        del values["GCP_BUCKET_NAME"]
+        write_json(isolated, **values)
+        with pytest.raises(ValueError, match="MAILER_USER, GCP_BUCKET_NAME"):
+            Settings()
+
+    @pytest.mark.parametrize(
+        "environment", [Environment.DEVELOPMENT, Environment.TESTING]
+    )
+    def test_other_environments_do_not_require_them(
+        self, isolated: Path, environment: Environment
+    ) -> None:
+        write_json(isolated, APP_ENV=environment.value)
+        assert Settings().environment is environment
+
+
+class TestTheCloudRunMount:
+    @pytest.fixture
+    def on_cloud_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("K_SERVICE", "backend-service")
+
+    @pytest.mark.usefixtures("on_cloud_run")
+    def test_a_missing_mount_refuses_to_start(self, tmp_path: Path) -> None:
+        with pytest.raises(RuntimeError, match="not mounted"):
+            require_the_secret_mount(tmp_path / "config.json")
+
+    @pytest.mark.usefixtures("on_cloud_run")
+    def test_a_present_mount_is_fine(self, tmp_path: Path) -> None:
+        (tmp_path / "config.json").write_text("{}")
+        require_the_secret_mount(tmp_path / "config.json")
+
+    def test_off_cloud_run_nothing_is_required(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.delenv("K_SERVICE", raising=False)
+        require_the_secret_mount(tmp_path / "config.json")
 
 
 class TestPrecedence:

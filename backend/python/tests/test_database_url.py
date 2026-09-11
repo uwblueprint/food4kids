@@ -163,13 +163,6 @@ class TestMissingCredentials:
         ):
             assert expected in str(caught.value)
 
-    def test_production_without_database_url_fails_loudly(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        use(monkeypatch, Environment.PRODUCTION)
-        with pytest.raises(RuntimeError, match="DATABASE_URL"):
-            get_database_url()
-
 
 class TestPasswordEscaping:
     @pytest.mark.parametrize("password", ["p@ss:word", "p/w?x", "p#w", "p%w", "p w"])

@@ -175,8 +175,10 @@ the browser sees one origin and the refresh cookie stays `SameSite=strict`.
 
 **Backend** (Cloud Run, `backend-service`, `us-east1`). Its config is the Secret Manager
 secret `food4kids-config-dev`, a JSON object of `UPPER_CASE` keys mounted at
-`/secrets/config.json`; `Settings` reads it directly. Keep the service's own environment
-variables empty so nothing shadows the secret:
+`/secrets/config.json`; `Settings` reads it directly and refuses to start in production
+unless every key in `REQUIRED_IN_PRODUCTION` (`app/config.py`) is present, so a typo in
+the secret fails the deploy rather than the first request. Keep the service's own
+environment variables empty so nothing shadows the secret:
 
 ```bash
 gcloud run deploy backend-service --source backend/python --region us-east1 \

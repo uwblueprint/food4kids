@@ -1,6 +1,8 @@
+import os
 from enum import StrEnum
+from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import (
     BaseSettings,
     JsonConfigSettingsSource,
@@ -11,6 +13,30 @@ from pydantic_settings import (
 # Cloud Run mounts the Secret Manager secret (a JSON object of UPPER_CASE keys)
 # here; see README "Deployment". Absent locally, where .env plays that role.
 CLOUD_RUN_SECRETS_FILE = "/secrets/config.json"
+
+# Everything a deployed backend reads unconditionally. Listed by hand so a
+# typo'd key in the secret fails at startup, not at first use.
+REQUIRED_IN_PRODUCTION = (
+    "database_url",
+    "firebase_project_id",
+    "firebase_web_api_key",
+    "firebase_svc_account_private_key_id",
+    "firebase_svc_account_private_key",
+    "firebase_svc_account_client_email",
+    "firebase_svc_account_client_id",
+    "firebase_svc_account_auth_uri",
+    "firebase_svc_account_token_uri",
+    "firebase_svc_account_auth_provider_x509_cert_url",
+    "firebase_svc_account_client_x509_cert_url",
+    "mailer_refresh_token",
+    "mailer_client_id",
+    "mailer_client_secret",
+    "mailer_user",
+    "google_maps_api_key",
+    "gcp_bucket_name",
+    "route_opt_project_id",
+    "frontend_base_url",
+)
 
 
 class Environment(StrEnum):
@@ -164,6 +190,28 @@ class Settings(BaseSettings):
     def FRONTEND_BASE_URL(self) -> str:
         return self.frontend_base_url
 
+    @model_validator(mode="after")
+    def _production_is_fully_configured(self) -> "Settings":
+        if self.environment is not Environment.PRODUCTION:
+            return self
+        # "Set" rather than "truthy": frontend_base_url defaults to localhost,
+        # and production emails must not link there.
+        missing = [
+            name.upper()
+            for name in REQUIRED_IN_PRODUCTION
+            if name not in self.model_fields_set or not getattr(self, name)
+        ]
+        if missing:
+            raise ValueError(f"production config is missing {', '.join(missing)}")
+        return self
 
-# Global settings instance
+
+def require_the_secret_mount(path: Path = Path(CLOUD_RUN_SECRETS_FILE)) -> None:
+    """Cloud Run sets K_SERVICE on every instance. Without this check a failed
+    mount would start the service in development mode with empty credentials."""
+    if "K_SERVICE" in os.environ and not path.is_file():
+        raise RuntimeError(f"Running on Cloud Run but {path} is not mounted")
+
+
+require_the_secret_mount()
 settings = Settings()
