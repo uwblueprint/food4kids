@@ -567,9 +567,13 @@ class TestEnsureCredentials:
             return_value=(credentials, "f4k-test-project"),
         )
 
-        assert algorithm._ensure_credentials() is credentials
+        result = algorithm._ensure_credentials()
+
+        # Mock assertions first: `assert x is credentials` narrows the Mock to
+        # the real Credentials type, after which mypy rejects .assert_called_*.
         default.assert_called_once_with(scopes=SCOPES)
         credentials.refresh.assert_called_once()
+        assert result is credentials
 
     def test_caches_while_valid(
         self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
@@ -585,10 +589,10 @@ class TestEnsureCredentials:
         first = algorithm._ensure_credentials()
         second = algorithm._ensure_credentials()
 
-        assert first is second is credentials
         default.assert_called_once()
         # Refreshed once on creation; the cached hit is free.
         credentials.refresh.assert_called_once()
+        assert first is second is credentials
 
     def test_refreshes_expired_without_refetching(
         self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
