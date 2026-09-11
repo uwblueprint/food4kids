@@ -24,12 +24,7 @@ def get_database_url(driver: Driver = ASYNC_DRIVER) -> str:
     URL with "None" where the host should be and failing at connect time.
     """
     if settings.environment is Environment.PRODUCTION:
-        if not settings.database_url:
-            raise RuntimeError(
-                "DATABASE_URL must be set in production. It is the only source "
-                "for the deployed database; the POSTGRES_* fields describe the "
-                "local container."
-            )
+        # Settings refuses to start in production without DATABASE_URL.
         return (
             make_url(settings.database_url)
             .set(drivername=driver)

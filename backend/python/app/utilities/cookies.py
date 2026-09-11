@@ -16,7 +16,10 @@ def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
     return {
         "httponly": True,
         "samesite": samesite,
-        "secure": settings.environment is Environment.PRODUCTION,
+        # Browsers drop a SameSite=None cookie that is not also Secure, so a
+        # preview deploy needs it as much as production does.
+        "secure": settings.preview_deploy
+        or settings.environment is Environment.PRODUCTION,
     }
 
 

@@ -169,6 +169,31 @@ After changing a template, regenerate both copies with one command from the repo
 
 Commit both directories together; CI fails if they drift. To preview while editing, run `pnpm run email:dev` from `frontend/`.
 
+## Deployment
+
+Both halves live in the `food4kids-473501` GCP project. Firebase Hosting serves the
+frontend and rewrites `/api/**` to the Cloud Run backend (`frontend/firebase.json`), so
+the browser sees one origin and the refresh cookie stays `SameSite=strict`.
+
+**Backend** (Cloud Run, `backend-service`, `us-east1`). Its config is the Secret Manager
+secret `food4kids-config-dev`, a JSON object of `UPPER_CASE` keys mounted at
+`/secrets/config.json`; `Settings` reads it directly and refuses to start in production
+unless every key in `REQUIRED_IN_PRODUCTION` (`app/config.py`) is present, so a typo in
+the secret fails the deploy rather than the first request. Keep the service's own
+environment variables empty so nothing shadows the secret:
+
+```bash
+gcloud run deploy backend-service --source backend/python --region us-east1 \
+  --project food4kids-473501 --clear-env-vars
+```
+
+**Frontend** (Firebase Hosting, site `food4kids-473501`). Production builds talk to their
+own origin, so no `VITE_API_BASE_URL` is needed:
+
+```bash
+cd frontend && pnpm build && npx firebase-tools deploy --only hosting
+```
+
 ## Docker Commands
 
 ```bash
