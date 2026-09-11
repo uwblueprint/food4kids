@@ -5649,7 +5649,7 @@
             }
           },
           {
-            "description": "Case-insensitive filter on the delivery address/postal code",
+            "description": "Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers",
             "in": "query",
             "name": "search",
             "required": false,
@@ -5662,7 +5662,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Case-insensitive filter on the delivery address/postal code",
+              "description": "Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers",
               "title": "Search"
             }
           },
@@ -7102,7 +7102,7 @@
             }
           },
           {
-            "description": "Case-insensitive filter on the assigned driver's name",
+            "description": "Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name",
             "in": "query",
             "name": "search",
             "required": false,
@@ -7115,7 +7115,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Case-insensitive filter on the assigned driver's name",
+              "description": "Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name",
               "title": "Search"
             }
           },

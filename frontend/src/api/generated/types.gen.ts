@@ -3560,7 +3560,7 @@ export type GetLocationsData = {
     /**
      * Search
      *
-     * Case-insensitive filter on the delivery address/postal code
+     * Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers
      */
     search?: string | null;
     /**
@@ -4352,7 +4352,7 @@ export type GetRoutesData = {
     /**
      * Search
      *
-     * Case-insensitive filter on the assigned driver's name
+     * Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name
      */
     search?: string | null;
     /**
