@@ -29,7 +29,10 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
-const REFRESH_PATH = '/auth/refresh';
+// Carries the /api prefix by hand: this is the one call that does not go
+// through the generated client (it must not re-enter the 401 interceptor), so
+// nothing else adds it. Backend mounts every route under API_PREFIX.
+const REFRESH_PATH = '/api/auth/refresh';
 
 interface SessionRequestConfig extends InternalAxiosRequestConfig {
   /**
