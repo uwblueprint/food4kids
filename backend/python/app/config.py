@@ -1,7 +1,16 @@
 from enum import StrEnum
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    JsonConfigSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+
+# Cloud Run mounts the Secret Manager secret (a JSON object of UPPER_CASE keys)
+# here; see README "Deployment". Absent locally, where .env plays that role.
+CLOUD_RUN_SECRETS_FILE = "/secrets/config.json"
 
 
 class Environment(StrEnum):
@@ -25,9 +34,32 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        json_file=CLOUD_RUN_SECRETS_FILE,
         case_sensitive=False,
         populate_by_name=True,
+        # The secret is shared with scripts, so it carries keys that are not
+        # settings; skip them the way unknown environment variables are skipped.
+        extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Environment variables still win, so a value can be overridden per
+        # revision without editing the secret.
+        return (
+            init_settings,
+            env_settings,
+            JsonConfigSettingsSource(settings_cls),
+            dotenv_settings,
+            file_secret_settings,
+        )
 
     # Environment
     environment: Environment = Field(default=Environment.DEVELOPMENT, alias="APP_ENV")

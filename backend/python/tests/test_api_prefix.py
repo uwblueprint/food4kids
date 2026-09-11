@@ -10,6 +10,9 @@ prefix before comparing, which means it would stay green if the prefix
 vanished. This is the test that would not.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
@@ -29,11 +32,20 @@ def schema_paths() -> list[str]:
     ]
 
 
+FIREBASE_JSON = Path(__file__).resolve().parents[3] / "frontend" / "firebase.json"
+
+
 def test_the_prefix_is_what_hosting_rewrites() -> None:
-    """Hosting's rewrite is configured for this exact string. It is deployed
-    config not yet checked in; once frontend/firebase.json lands on main, parse
-    it here instead of pinning the literal."""
-    assert API_PREFIX == "/api"
+    """The Hosting rewrite and the router prefix have to agree, or every request
+    404s through the rewrite. Skipped (visibly) when only backend/python is
+    mounted, as in the compose container; CI checks out the whole repo."""
+    if not FIREBASE_JSON.exists():
+        pytest.skip(f"{FIREBASE_JSON} is not mounted here")
+    rewrites = json.loads(FIREBASE_JSON.read_text())["hosting"]["rewrites"]
+    to_backend = [r for r in rewrites if "run" in r]
+    assert len(to_backend) == 1, rewrites
+    assert to_backend[0]["source"] == f"{API_PREFIX}/**"
+    assert to_backend[0]["run"]["serviceId"] == "backend-service"
 
 
 def test_every_route_carries_the_prefix(schema_paths: list[str]) -> None:
