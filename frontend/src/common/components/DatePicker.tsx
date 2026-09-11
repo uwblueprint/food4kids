@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 import CalendarIcon from '@/assets/icons/calendar.svg?react';
+import { parseDateOnly } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { Calendar } from './Calendar';
@@ -29,7 +30,7 @@ function toInputValue(date: Date | undefined): string {
 
 function parseInputValue(raw: string): Date | undefined {
   if (!raw) return undefined;
-  const parsed = new Date(raw + 'T00:00:00');
+  const parsed = parseDateOnly(raw);
   return isNaN(parsed.getTime()) ? undefined : parsed;
 }
 

@@ -19,6 +19,7 @@ from fastapi.responses import StreamingResponse
 from httpx import ASGITransport, AsyncClient
 
 from app import create_app
+from app.config import settings
 
 SECRET = "connection to 10.0.0.7 refused: password authentication failed"
 
@@ -57,12 +58,17 @@ async def probe_stream_boom() -> StreamingResponse:
 
 
 @pytest.fixture
-def probe_client() -> AsyncClient:
+def probe_client(monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """A client for the real app, with routes that fail on demand bolted on.
 
     Built from ``create_app`` rather than a hand-rolled FastAPI instance so the
     middleware *ordering* is the one the app actually ships.
+
+    ALLOWED_ORIGIN is configured here rather than inherited from the default
+    list, so the CORS assertions below test middleware ordering and not which
+    origins happen to ship enabled.
     """
+    monkeypatch.setattr(settings, "cors_origins", [ALLOWED_ORIGIN])
     app = create_app()
     app.include_router(probe_router)
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

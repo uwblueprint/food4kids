@@ -5,10 +5,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLogout } from '@/api/auth';
 import { useAuthStore } from '@/api/authStore';
 import { useDriver } from '@/api/drivers';
-import { Button, Spinner, Banner } from '@/common/components';
+import { Banner, Button, ConfirmModal, Spinner } from '@/common/components';
 import { formatPhone } from '@/common/utils';
-
-import { LogoutConfirmModal } from './LogoutConfirmModal';
 
 export const DriverProfile = () => {
   const navigate = useNavigate();
@@ -133,10 +131,14 @@ export const DriverProfile = () => {
           </Button>
         </div>
 
-        <LogoutConfirmModal
+        <ConfirmModal
           open={isLogoutModalOpen}
           onOpenChange={setIsLogoutModalOpen}
           onConfirm={handleConfirmLogout}
+          title="Log out"
+          description="Are you sure you would like to log out of your account?"
+          confirmLabel="Log out"
+          cancelLabel="Go back"
           isLoading={logoutMutation.isPending}
         />
       </main>

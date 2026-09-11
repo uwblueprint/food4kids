@@ -5,7 +5,7 @@ import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { Button, Spinner } from '@/common/components';
 import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
-import { parseDateOnly } from '@/common/utils';
+import { formatDriveDate } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { ReassignDriverModal } from '../../routes/components/ReassignDriverModal';
@@ -13,13 +13,6 @@ import { ReassignDriverModal } from '../../routes/components/ReassignDriverModal
 interface UnassignedRoutePreviewCardProps {
   route: RouteWithDateRead;
   className?: string;
-}
-
-function formatPreviewDate(driveDate: string): string {
-  return parseDateOnly(driveDate).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 function formatStartTime(value: string | null | undefined): string | null {
@@ -35,7 +28,7 @@ function formatStartTime(value: string | null | undefined): string | null {
 
 function PreviewMetadata({ route }: { route: RouteWithDateRead }) {
   const parts = [
-    formatPreviewDate(route.drive_date),
+    formatDriveDate(route.drive_date),
     formatStartTime(route.start_time),
     `${route.num_stops} stop${route.num_stops === 1 ? '' : 's'}`,
   ].filter(Boolean);

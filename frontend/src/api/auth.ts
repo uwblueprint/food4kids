@@ -129,9 +129,6 @@ export function useUpdatePasswordAuthed() {
     onSuccess: (data) => {
       setAuth(data);
     },
-    onError: (error) => {
-      console.error('Update password error:', error);
-    },
   });
 }
 

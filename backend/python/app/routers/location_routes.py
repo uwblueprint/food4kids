@@ -22,10 +22,10 @@ from app.models.location import (
     LocationImportPreview,
     LocationImportResult,
     LocationRead,
-    LocationUpdate,
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.location_service import (
+    GeocodingError,
     InvalidDeliveryTypeError,
     LocationInUseError,
     LocationService,
@@ -46,7 +46,12 @@ async def get_locations(
         None, description="Filter by one or more location groups"
     ),
     search: str | None = Query(
-        None, description="Case-insensitive filter on the delivery address/postal code"
+        None,
+        description=(
+            "Case-insensitive filter across the address/postal code, location, "
+            "contact and guardian names, food restrictions, delivery group, "
+            "and phone numbers"
+        ),
     ),
     pagination: PaginationParams = Depends(get_pagination),
     session: AsyncSession = Depends(get_session),
@@ -109,40 +114,9 @@ async def create_location(
     try:
         created_location = await location_service.create_location(session, location)
         return LocationRead.model_validate(created_location)
-    except InvalidDeliveryTypeError as ve:
+    except (InvalidDeliveryTypeError, GeocodingError) as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(ve),
-        ) from ve
-
-
-@router.patch(
-    "/{location_id}", response_model=LocationRead, status_code=status.HTTP_200_OK
-)
-async def update_location(
-    location_id: UUID,
-    updated_location_data: LocationUpdate,
-    session: AsyncSession = Depends(get_session),
-    location_service: LocationService = Depends(get_location_service),
-    _auth: bool = Depends(require_admin),
-) -> LocationRead:
-    """
-    Update a location by ID
-    """
-    try:
-        updated_location = await location_service.update_location_by_id(
-            session, location_id, updated_location_data
-        )
-        return LocationRead.model_validate(updated_location)
-
-    except InvalidDeliveryTypeError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(ve),
-        ) from ve
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(ve),
         ) from ve
 

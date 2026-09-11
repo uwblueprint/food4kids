@@ -49,7 +49,6 @@ import {
   getLocations,
   getMonthlyRanking,
   getMonthlySeries,
-  getMonthlyTotals,
   getNoteChain,
   getNotes,
   getNotesFeed,
@@ -59,7 +58,7 @@ import {
   getRoutes,
   getSuggestedDriver,
   getSystemSettings,
-  getTotalDeliveriesBetween,
+  getTotals,
   initializeDriver,
   login,
   logout,
@@ -73,7 +72,6 @@ import {
   test,
   updateAnnouncement,
   updateDriver,
-  updateLocation,
   updateLocationGroup,
   updateNote,
   updatePassword,
@@ -193,9 +191,6 @@ import type {
   GetMonthlySeriesData,
   GetMonthlySeriesError,
   GetMonthlySeriesResponse,
-  GetMonthlyTotalsData,
-  GetMonthlyTotalsError,
-  GetMonthlyTotalsResponse,
   GetNoteChainData,
   GetNoteChainError,
   GetNoteChainResponse,
@@ -221,9 +216,9 @@ import type {
   GetSuggestedDriverResponse,
   GetSystemSettingsData,
   GetSystemSettingsResponse,
-  GetTotalDeliveriesBetweenData,
-  GetTotalDeliveriesBetweenError,
-  GetTotalDeliveriesBetweenResponse,
+  GetTotalsData,
+  GetTotalsError,
+  GetTotalsResponse,
   InitializeDriverData,
   InitializeDriverError,
   InitializeDriverResponse,
@@ -256,12 +251,9 @@ import type {
   UpdateDriverData,
   UpdateDriverError,
   UpdateDriverResponse,
-  UpdateLocationData,
-  UpdateLocationError,
   UpdateLocationGroupData,
   UpdateLocationGroupError,
   UpdateLocationGroupResponse,
-  UpdateLocationResponse,
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
@@ -888,8 +880,9 @@ export const completeDriverRegistrationMutation = (
  *
  * A hard delete of the person: the user account and their Firebase login go
  * with the driver record, so a deleted driver can no longer sign in. Their
- * routes are detached (driver_id SET NULL) rather than deleted, so the
- * driver's km stop counting toward anyone.
+ * routes are detached (driver_id SET NULL) rather than deleted: the km and
+ * deliveries stay in the org's totals, they just stop being attributed to
+ * anyone in the per-driver ranking and export.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -1624,35 +1617,6 @@ export const getLocationOptions = (options: Options<GetLocationData>) =>
   });
 
 /**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocationMutation = (
-  options?: Partial<Options<UpdateLocationData>>
-): UseMutationOptions<
-  UpdateLocationResponse,
-  AxiosError<UpdateLocationError>,
-  Options<UpdateLocationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateLocationResponse,
-    AxiosError<UpdateLocationError>,
-    Options<UpdateLocationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateLocation({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
  * Delete Note Chain
  *
  * Delete a note chain and all its notes (admin only)
@@ -1950,90 +1914,6 @@ export const getNotesFeedInfiniteOptions = (
     }
   );
 
-export const getTotalDeliveriesBetweenQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) => createQueryKey('getTotalDeliveriesBetween', options);
-
-/**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
- */
-export const getTotalDeliveriesBetweenOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) =>
-  queryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    GetTotalDeliveriesBetweenResponse,
-    ReturnType<typeof getTotalDeliveriesBetweenQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getTotalDeliveriesBetween({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getTotalDeliveriesBetweenQueryKey(options),
-  });
-
-export const getTotalDeliveriesBetweenInfiniteQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-): QueryKey<Options<GetTotalDeliveriesBetweenData>> =>
-  createQueryKey('getTotalDeliveriesBetween', options, true);
-
-/**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
- */
-export const getTotalDeliveriesBetweenInfiniteOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) =>
-  infiniteQueryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    InfiniteData<GetTotalDeliveriesBetweenResponse>,
-    QueryKey<Options<GetTotalDeliveriesBetweenData>>,
-    | string
-    | Pick<
-        QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-        'body' | 'headers' | 'path' | 'query'
-      >
-  >(
-    // @ts-ignore
-    {
-      queryFn: async ({ pageParam, queryKey, signal }) => {
-        // @ts-ignore
-        const page: Pick<
-          QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-          'body' | 'headers' | 'path' | 'query'
-        > =
-          typeof pageParam === 'object'
-            ? pageParam
-            : {
-                query: {
-                  start: pageParam,
-                },
-              };
-        const params = createInfiniteParams(queryKey, page);
-        const { data } = await getTotalDeliveriesBetween({
-          ...options,
-          ...params,
-          signal,
-          throwOnError: true,
-        });
-        return data;
-      },
-      queryKey: getTotalDeliveriesBetweenInfiniteQueryKey(options),
-    }
-  );
-
 export const getMonthlySeriesQueryKey = (
   options?: Options<GetMonthlySeriesData>
 ) => createQueryKey('getMonthlySeries', options);
@@ -2097,26 +1977,30 @@ export const getMonthlyRankingOptions = (
     queryKey: getMonthlyRankingQueryKey(options),
   });
 
-export const getMonthlyTotalsQueryKey = (
-  options: Options<GetMonthlyTotalsData>
-) => createQueryKey('getMonthlyTotals', options);
+export const getTotalsQueryKey = (options?: Options<GetTotalsData>) =>
+  createQueryKey('getTotals', options);
 
 /**
- * Get Monthly Totals
+ * Get Totals
  *
- * Return total distance driven and total deliveries for the month.
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
  */
-export const getMonthlyTotalsOptions = (
-  options: Options<GetMonthlyTotalsData>
-) =>
+export const getTotalsOptions = (options?: Options<GetTotalsData>) =>
   queryOptions<
-    GetMonthlyTotalsResponse,
-    AxiosError<GetMonthlyTotalsError>,
-    GetMonthlyTotalsResponse,
-    ReturnType<typeof getMonthlyTotalsQueryKey>
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    GetTotalsResponse,
+    ReturnType<typeof getTotalsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getMonthlyTotals({
+      const { data } = await getTotals({
         ...options,
         ...queryKey[0],
         signal,
@@ -2124,8 +2008,66 @@ export const getMonthlyTotalsOptions = (
       });
       return data;
     },
-    queryKey: getMonthlyTotalsQueryKey(options),
+    queryKey: getTotalsQueryKey(options),
   });
+
+export const getTotalsInfiniteQueryKey = (
+  options?: Options<GetTotalsData>
+): QueryKey<Options<GetTotalsData>> =>
+  createQueryKey('getTotals', options, true);
+
+/**
+ * Get Totals
+ *
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
+ */
+export const getTotalsInfiniteOptions = (options?: Options<GetTotalsData>) =>
+  infiniteQueryOptions<
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    InfiniteData<GetTotalsResponse>,
+    QueryKey<Options<GetTotalsData>>,
+    | string
+    | null
+    | Pick<
+        QueryKey<Options<GetTotalsData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetTotalsData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  start: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getTotals({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getTotalsInfiniteQueryKey(options),
+    }
+  );
 
 export const getRouteGroupsQueryKey = (options?: Options<GetRouteGroupsData>) =>
   createQueryKey('getRouteGroups', options);

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -30,6 +30,7 @@ from app.services.implementations.password_reset_token_service import (
 )
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import clear_auth_cookies, set_refresh_token_cookie
+from app.utilities.datetime_utils import now_utc
 from app.utilities.firebase_rest_client import FirebaseRestError
 
 # Initialize logger
@@ -186,7 +187,7 @@ async def validate_reset_token(
     Validate that a password reset token exists, isn't used, and hasn't expired.
     """
     token_obj = await token_service.read(session, request.password_reset_token)
-    current_time = datetime.now(timezone.utc)
+    current_time = now_utc()
 
     if (
         not token_obj
@@ -214,7 +215,7 @@ async def update_password(
     token_obj = await token_service.read(
         session, update_password_request.password_reset_token
     )
-    current_time = datetime.now(timezone.utc)
+    current_time = now_utc()
 
     if (
         not token_obj
@@ -263,8 +264,8 @@ async def update_password_authed(
     Update an authenticated user's password after verifying their current password,
     revokes existing refresh tokens, and issues a fresh session with new tokens.
     """
-    email = decoded_token.get("email")
-    auth_id = decoded_token.get("uid")
+    email = decoded_token["email"]
+    auth_id = decoded_token["uid"]
 
     # 1. Verify that the current password is correct, raise 400 if incorrect
     try:

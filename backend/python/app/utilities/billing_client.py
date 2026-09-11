@@ -16,18 +16,18 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+import google.auth
+import google.auth.credentials
 from google.api_core import exceptions as gcp_exceptions
 from google.cloud import bigquery
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from app.config import settings
-from app.utilities.gcp_credentials import build_service_account_credentials
 
 if TYPE_CHECKING:
     import logging
     from collections.abc import Mapping, Sequence
-
-    from google.oauth2 import service_account
 
 SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
@@ -123,7 +123,7 @@ class BillingClient:
 
     def __init__(self, logger: logging.Logger) -> None:
         self.logger = logger
-        self._credentials: service_account.Credentials | None = None
+        self._credentials: google.auth.credentials.Credentials | None = None
         self._bq_client: bigquery.Client | None = None
         # Reentrant: _ensure_bq_client holds this while calling
         # _ensure_credentials, which takes it again.
@@ -135,29 +135,17 @@ class BillingClient:
         self._cost_cache: _TimedCache[CostInfo] = _TimedCache()
         self._budget_cache: _TimedCache[BudgetInfo | None] = _TimedCache()
 
-    def _ensure_credentials(self) -> service_account.Credentials:
-        """Build (once) the dedicated billing service account credentials."""
+    def _ensure_credentials(self) -> google.auth.credentials.Credentials:
+        """Resolve (once) Application Default Credentials.
+
+        Same identity as storage and routing. It needs roles/billing.viewer on
+        the billing account, roles/bigquery.jobUser on the target project, and
+        roles/bigquery.dataViewer on the export dataset. The BigQuery and
+        discovery clients refresh the token themselves.
+        """
         with self._credentials_lock:
-            if self._credentials is not None:
-                return self._credentials
-
-            if not settings.billing_service_account_client_email:
-                raise BillingNotConfiguredError(
-                    "Billing integration is not configured. "
-                    "Set the BILLING_* environment variables."
-                )
-
-            self._credentials = build_service_account_credentials(
-                project_id=settings.billing_target_project_id,
-                private_key_id=settings.billing_service_account_private_key_id,
-                private_key=settings.billing_service_account_private_key,
-                client_email=settings.billing_service_account_client_email,
-                client_id=settings.billing_service_account_client_id,
-                auth_uri=settings.billing_service_account_auth_uri,
-                token_uri=settings.billing_service_account_token_uri,
-                auth_provider_x509_cert_url=settings.billing_service_account_auth_provider_x509_cert_url,
-                scopes=SCOPES,
-            )
+            if self._credentials is None:
+                self._credentials, _ = google.auth.default(scopes=SCOPES)
             return self._credentials
 
     def _ensure_bq_client(self) -> bigquery.Client:
@@ -208,14 +196,21 @@ class BillingClient:
                     .list(parent=f"billingAccounts/{settings.billing_account_id}")
                     .execute()
                 )
-        except gcp_exceptions.Forbidden as e:
-            raise BillingPermissionDeniedError(
-                "Budget lookup failed: permission denied. The service account "
-                "needs roles/billing.viewer on the billing account."
-            ) from e
-        except gcp_exceptions.NotFound as e:
+        # The discovery client raises its own HttpError, not api_core's typed
+        # exceptions, so the status code has to be read off the response.
+        except HttpError as e:
+            if e.resp.status == 403:
+                raise BillingPermissionDeniedError(
+                    "Budget lookup failed: permission denied. The runtime "
+                    "identity needs roles/billing.viewer on the billing account."
+                ) from e
+            if e.resp.status == 404:
+                raise BillingError(
+                    "Budget lookup failed: billing account not found."
+                ) from e
+            self.logger.exception("Unexpected error fetching budget")
             raise BillingError(
-                "Budget lookup failed: billing account not found."
+                "Budget lookup failed due to an unexpected error."
             ) from e
         except Exception as e:
             self.logger.exception("Unexpected error fetching budget")

@@ -404,7 +404,9 @@ class TestUpdatePasswordAuthed:
         self, client_with_overrides: Any
     ) -> None:
         service = MagicMock()
-        service.firebase_rest_client.sign_in_with_password.side_effect = FirebaseRestError("INVALID_LOGIN_CREDENTIALS")
+        service.firebase_rest_client.sign_in_with_password.side_effect = (
+            FirebaseRestError("INVALID_LOGIN_CREDENTIALS")
+        )
 
         client = await client_with_overrides(
             {
@@ -426,7 +428,9 @@ class TestUpdatePasswordAuthed:
     @pytest.mark.parametrize(
         "error",
         [
-            pytest.param(FirebaseRestError("USER_DISABLED"), id="firebase-user-disabled"),
+            pytest.param(
+                FirebaseRestError("USER_DISABLED"), id="firebase-user-disabled"
+            ),
             pytest.param(RuntimeError("database on fire"), id="runtime-error"),
         ],
     )
