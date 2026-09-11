@@ -79,35 +79,17 @@ class Settings(BaseSettings):
     # Google Maps
     google_maps_api_key: str = Field(default="")
 
-    # Route Optimization (service account for Fleet Routing API)
+    # Route Optimization (Fleet Routing API). Credentials come from Application
+    # Default Credentials, not settings — only the billed project is named here.
     route_opt_project_id: str = Field(default="")
-    route_opt_private_key_id: str = Field(default="")
-    route_opt_private_key: str = Field(default="")
-    route_opt_client_email: str = Field(default="")
 
-    # GCP
+    # GCP. Storage credentials come from Application Default Credentials, not
+    # settings — only the bucket is named here.
     gcp_bucket_name: str = Field(default="")
-    gcp_service_account_project_id: str = Field(default="")
-    gcp_service_account_private_key_id: str = Field(default="")
-    gcp_service_account_private_key: str = Field(default="")
-    gcp_service_account_client_email: str = Field(default="")
-    gcp_service_account_client_id: str = Field(default="")
-    gcp_service_account_auth_uri: str = Field(default="")
-    gcp_service_account_token_uri: str = Field(default="")
-    gcp_service_account_auth_provider_x509_cert_url: str = Field(default="")
-    gcp_service_account_client_x509_cert_url: str = Field(default="")
 
-    # Billing — dedicated service account, kept separate from the storage and
-    # Fleet Routing accounts because billing.viewer is granted on the *billing
-    # account* and so spans every project on it.
-    billing_service_account_private_key_id: str = Field(default="")
-    billing_service_account_private_key: str = Field(default="")
-    billing_service_account_client_email: str = Field(default="")
-    billing_service_account_client_id: str = Field(default="")
-    billing_service_account_auth_uri: str = Field(default="")
-    billing_service_account_token_uri: str = Field(default="")
-    billing_service_account_auth_provider_x509_cert_url: str = Field(default="")
-    # Non-secret billing config. billing_account_id is the Cloud Billing account
+    # Billing. Credentials come from Application Default Credentials like the
+    # rest; leave billing_account_id blank to disable the integration.
+    # billing_account_id is the Cloud Billing account
     # ("012345-6789AB-CDEF01"); billing_target_project_id scopes spend to one
     # project. The export dataset must live in billing_target_project_id.
     billing_account_id: str = Field(default="")
