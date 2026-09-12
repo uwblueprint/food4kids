@@ -58,7 +58,7 @@ export function AdminRoutesGenerationLayout() {
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
   const [selectedDeliveryType, setSelectedDeliveryType] = useState('');
-  const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
+  const [hasSeededFromSettings, setHasSeededFromSettings] = useState(false);
   const [reviewResult, setReviewResult] =
     useState<LocationImportPreview | null>(null);
   const [routeGenerationInputs, setRouteGenerationInputs] = useState<
@@ -66,9 +66,15 @@ export function AdminRoutesGenerationLayout() {
   >([]);
   const [currentStepComplete, setCurrentStepComplete] = useState(false);
 
-  if (!hasSeededColumnMap && settingsLoaded) {
-    setHasSeededColumnMap(true);
+  if (!hasSeededFromSettings && settingsLoaded) {
+    setHasSeededFromSettings(true);
     setColumnMap(systemSettings?.import_column_map ?? {});
+    // A single configured type is pre-selected so the import step opens with
+    // its radio already checked and the upload available.
+    const deliveryTypes = systemSettings?.delivery_types ?? [];
+    if (deliveryTypes.length === 1) {
+      setSelectedDeliveryType(deliveryTypes[0]);
+    }
   }
 
   const context: GenerationOutletContext = {

@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
-import {
-  getConfiguredDeliveryTypes,
-  usePreviewLocationImport,
-  useSystemSettings,
-} from '@/api';
+import { usePreviewLocationImport, useSystemSettings } from '@/api';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -18,6 +14,7 @@ import {
   DropdownTrigger,
   DropdownValue,
   FileInput,
+  Spinner,
 } from '@/common/components';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
@@ -90,8 +87,10 @@ export function ImportStep() {
 
   const { mutateAsync: previewImport, isPending: isReviewing } =
     usePreviewLocationImport();
-  const { data: systemSettings } = useSystemSettings();
-  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
+  const { data: systemSettings, isError: settingsError } = useSystemSettings();
+  // Undefined until settings load. The layout pre-selects the type when there
+  // is exactly one, so the picker then renders with its radio already checked.
+  const deliveryTypes = systemSettings?.delivery_types;
 
   const [formatError, setFormatError] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -220,39 +219,54 @@ export function ImportStep() {
         </Banner>
       )}
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-grey-500">Select Delivery Type</h2>
-          <p className="text-p1 text-grey-500">
-            Choose the type of spreadsheet you'll be uploading:
-          </p>
+      {settingsError && (
+        <Banner variant="error">
+          Could not load the configured delivery types. Please refresh and try
+          again.
+        </Banner>
+      )}
+
+      {deliveryTypes === undefined && !settingsError && (
+        <div className="flex justify-center py-16">
+          <Spinner size="lg" />
         </div>
-        {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
-        <div className="flex flex-col gap-1">
-          {deliveryTypes.map((deliveryType) => (
-            <label
-              key={deliveryType}
-              className="text-p1 flex cursor-pointer items-center gap-2"
-            >
-              <input
-                type="radio"
-                name="delivery-type"
-                value={deliveryType}
-                checked={selectedDeliveryType === deliveryType}
-                onChange={() => {
-                  setSelectedDeliveryType(deliveryType);
-                  setFile(null);
-                  setFileHeaders([]);
-                  setReviewResult(null);
-                  setFormatError(null);
-                }}
-                className="size-5 cursor-pointer accent-blue-300"
-              />
-              {deliveryType}
-            </label>
-          ))}
-        </div>
-      </section>
+      )}
+
+      {deliveryTypes && (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-grey-500">Select Delivery Type</h2>
+            <p className="text-p1 text-grey-500">
+              Choose the type of spreadsheet you'll be uploading:
+            </p>
+          </div>
+          {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
+          <div className="flex flex-col gap-1">
+            {deliveryTypes.map((deliveryType) => (
+              <label
+                key={deliveryType}
+                className="text-p1 flex cursor-pointer items-center gap-2"
+              >
+                <input
+                  type="radio"
+                  name="delivery-type"
+                  value={deliveryType}
+                  checked={selectedDeliveryType === deliveryType}
+                  onChange={() => {
+                    setSelectedDeliveryType(deliveryType);
+                    setFile(null);
+                    setFileHeaders([]);
+                    setReviewResult(null);
+                    setFormatError(null);
+                  }}
+                  className="size-5 cursor-pointer accent-blue-300"
+                />
+                {deliveryType}
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
 
       {selectedDeliveryType && (
         <section className="flex max-w-[700px] flex-col gap-4">
