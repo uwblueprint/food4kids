@@ -4,6 +4,7 @@ import {
   deleteRouteMutation,
   getRouteGroupsQueryKey,
   getRouteOptions,
+  getRouteQueryKey,
   getRoutesOptions,
   getRoutesQueryKey,
   updateRouteMutation,
@@ -46,18 +47,26 @@ export function useRoute(routeId: string) {
 }
 
 /**
- * PATCH /routes/{route_id} (e.g. driver reassignment). Invalidates
- * GET /routes plus GET /route-groups since group aggregates (driver counts)
- * derive from their routes.
+ * PATCH /routes/{route_id} — driver reassignment or stop edits (the
+ * `location_ids` field replaces the route's stops and re-runs routing).
+ *
+ * Invalidates GET /routes plus GET /route-groups since group aggregates
+ * (driver counts) derive from their routes, and the single-route detail
+ * (GET /routes/{route_id}) so the individual-route screen reflects the edit.
  */
 export function useUpdateRoute() {
   const queryClient = useQueryClient();
   return useMutation({
     ...updateRouteMutation(),
-    onSuccess: () =>
+    onSuccess: (_data, variables) =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: getRoutesQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getRouteGroupsQueryKey() }),
+        queryClient.invalidateQueries({
+          queryKey: getRouteQueryKey({
+            path: { route_id: variables.path.route_id },
+          }),
+        }),
       ]),
   });
 }

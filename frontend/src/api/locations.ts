@@ -1,11 +1,28 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getSystemSettingsQueryKey } from './generated/@tanstack/react-query.gen';
+import {
+  getLocationsOptions,
+  getSystemSettingsQueryKey,
+} from './generated/@tanstack/react-query.gen';
 import {
   applyLocationImport,
   previewLocationImport,
 } from './generated/sdk.gen';
+import type { GetLocationsData } from './generated/types.gen';
+
+/**
+ * GET /locations for pickers (e.g. adding a stop to a route). The `search`
+ * query filters case-insensitively on the address server-side, before
+ * pagination; `placeholderData` keeps the previous page visible while a new
+ * search refetches so the list doesn't flash empty.
+ */
+export function useLocations(query?: GetLocationsData['query']) {
+  return useQuery({
+    ...getLocationsOptions({ query }),
+    placeholderData: (prev) => prev,
+  });
+}
 
 /**
  * Preview and apply take the same input on purpose: the backend plans the
