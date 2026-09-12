@@ -3,11 +3,10 @@ import logging
 import os
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, TypeGuard, TypeVar
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 from fastapi import UploadFile
@@ -16,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.enum import (
     LocationStatusEnum,
     NotePermission,
@@ -36,7 +34,6 @@ from app.models.location import (
     LocationImportResult,
     LocationImportRow,
     LocationRead,
-    LocationUpdate,
     NetNewEntry,
     StaleEntry,
     ValidatedLocationImportEntry,
@@ -61,9 +58,11 @@ from app.services.implementations.location_import_validation import (
     present_str,
     try_normalize_phone,
 )
+from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
 from app.utilities.pagination import paginate_query
 from app.utilities.route_ordering import route_name_order_by
+from app.utilities.search import phone_match, text_match
 
 if TYPE_CHECKING:
     from app.services.implementations.system_settings_service import (
@@ -78,6 +77,14 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
+
+
+class GeocodingError(ValueError):
+    """Raised when an address can't be resolved to a house we can deliver to.
+
+    Its own type so the router can answer 400 with the reason — an address we
+    can't route to is the caller's input, not a server fault, and as a bare
+    ValueError it surfaced as a 500."""
 
 
 @dataclass
@@ -141,11 +148,6 @@ class LocationService:
         self.logger = logger
         self.google_maps_service = google_maps_client
         self.system_settings_service = system_settings_service
-        self.timezone = ZoneInfo(settings.scheduler_timezone)
-
-    def _today(self) -> date:
-        """Today's date in the project's configured timezone."""
-        return datetime.now(self.timezone).date()
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -219,8 +221,10 @@ class LocationService:
         route. Callers can narrow via the optional ``status_filter`` and
         ``delivery_type`` and ``location_group_id`` query params.
 
-        ``search`` filters (case-insensitive substring) on the delivery
-        address, which carries the postal code, applied before pagination.
+        ``search`` filters (case-insensitive substring) on every text column
+        the Addresses table shows — address/postal code, location and contact
+        and guardian names, food restrictions, and delivery group — plus the
+        phone numbers by digits. Applied before pagination.
         """
         try:
             statement = (
@@ -240,12 +244,38 @@ class LocationService:
                 )
 
             if search and search.strip():
-                statement = statement.where(
-                    col(Location.address).ilike(f"%{search.strip()}%")
+                term = search.strip()
+                # Every text column the Addresses table shows, so what a reader
+                # sees in a cell is something they can type into the box. The
+                # delivery group is matched via a correlated subquery rather
+                # than a join, so the outer query stays one row per location.
+                group_name = (
+                    select(LocationGroup.name)
+                    .where(
+                        LocationGroup.location_group_id == Location.location_group_id
+                    )
+                    .scalar_subquery()
                 )
+                predicates = [
+                    text_match(
+                        term,
+                        col(Location.address),
+                        col(Location.name),
+                        col(Location.contact_name),
+                        col(Location.guardian_name),
+                        col(Location.dietary_restrictions),
+                        group_name,
+                    )
+                ]
+                phones = phone_match(
+                    term, col(Location.phone_primary), col(Location.phone_secondary)
+                )
+                if phones is not None:
+                    predicates.append(phones)
+                statement = statement.where(or_(*predicates))
 
             if status_filter:
-                today = self._today()
+                today = today_local()
                 # Subquery: this location has a stop in a route whose group's
                 # drive_date is today/future AND the route isn't yet frozen.
                 is_scheduled = (
@@ -356,7 +386,7 @@ class LocationService:
         ids = list(location_ids)
         if not ids:
             return set()
-        today = self._today()
+        today = today_local()
         statement = (
             select(RouteStop.location_id)
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
@@ -386,7 +416,7 @@ class LocationService:
         ids = list(location_ids)
         if not ids:
             return {}
-        today = self._today()
+        today = today_local()
         statement = (
             select(RouteStop.location_id, Route.name, col(RouteGroup.drive_date))
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
@@ -508,36 +538,6 @@ class LocationService:
             return await self.get_location_by_id(session, location.location_id)
         except Exception as e:
             self.logger.error(f"Failed to create location: {e!s}")
-            await session.rollback()
-            raise e
-
-    async def update_location_by_id(
-        self,
-        session: AsyncSession,
-        location_id: UUID,
-        updated_location_data: LocationUpdate,
-    ) -> Location:
-        """Update location by ID"""
-        try:
-            # Get the existing location by ID
-            location = await self.get_location_by_id(session, location_id)
-
-            # Update existing location with new data
-            updated_data = updated_location_data.model_dump(exclude_unset=True)
-            if "delivery_type" in updated_data:
-                await self.validate_delivery_type(
-                    session, updated_data["delivery_type"]
-                )
-            for field, value in updated_data.items():
-                setattr(location, field, value)
-
-            await session.commit()
-            # Reload with location_group eager-loaded so serializing to
-            # LocationRead (location_group_name) doesn't lazy-load post-commit.
-            return await self.get_location_by_id(session, location_id)
-
-        except Exception as e:
-            self.logger.error(f"Failed to update location by id: {e!s}")
             await session.rollback()
             raise e
 
@@ -1174,10 +1174,10 @@ class LocationService:
             geocode_result = await self.google_maps_service.geocode_address(address)
 
             if not geocode_result:
-                raise ValueError(f"Geocoding failed for address: {address}")
+                raise GeocodingError(f"Geocoding failed for address: {address}")
 
             if not geocode_result.is_precise:
-                raise ValueError(
+                raise GeocodingError(
                     f"Address is not specific enough to deliver to: {address} "
                     f"(resolved to {geocode_result.formatted_address}). "
                     "Include a street number."

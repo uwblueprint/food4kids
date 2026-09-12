@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -36,6 +35,7 @@ from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import set_refresh_token_cookie
+from app.utilities.datetime_utils import now_utc
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -182,11 +182,7 @@ async def complete_driver_registration(
             session, user_invite_id, for_update=True
         )
 
-        if (
-            not user_invite
-            or user_invite.is_used
-            or user_invite.expires_at < datetime.now(timezone.utc)
-        ):
+        if not user_invite or user_invite.is_used or user_invite.expires_at < now_utc():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid or expired registration link.",
@@ -259,8 +255,9 @@ async def delete_driver(
 
     A hard delete of the person: the user account and their Firebase login go
     with the driver record, so a deleted driver can no longer sign in. Their
-    routes are detached (driver_id SET NULL) rather than deleted, so the
-    driver's km stop counting toward anyone.
+    routes are detached (driver_id SET NULL) rather than deleted: the km and
+    deliveries stay in the org's totals, they just stop being attributed to
+    anyone in the per-driver ranking and export.
     """
     # Deleting the `users` row cascades to `drivers`, `user_invites`,
     # `password_reset_tokens`, `announcement_last_reads` and `announcements`. A

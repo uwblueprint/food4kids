@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buttonVariantClasses,
   buttonVariants,
+  SELECTED_BUTTON_STROKE,
 } from '@/common/components/Button.variants';
 
 /**
@@ -109,4 +110,57 @@ describe('filled button label colour', () => {
       );
     });
   }
+});
+
+/**
+ * The same stroke, applied by hand outside the Button component. The ledger is
+ * the guard: a new call site fails until it's listed, and a call site that
+ * drops the constant fails too.
+ */
+describe('SELECTED_BUTTON_STROKE', () => {
+  const DEFINITION = '/src/common/components/Button.variants.ts';
+  const THIS_TEST = '/src/common/components/Button.variants.test.ts';
+
+  const CALL_SITES = [
+    '/src/common/components/Sidebar.tsx',
+    '/src/pages/admin/home/components/UnassignedRoutesCard.tsx',
+    '/src/pages/driver/home/DriverHomePage.tsx',
+  ];
+
+  const sources = Object.entries(
+    import.meta.glob<string>('/src/**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    })
+  )
+    .filter(([file]) => file !== DEFINITION && file !== THIS_TEST)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  it('is a 1px stroke in the light-ground blue', () => {
+    expect(SELECTED_BUTTON_STROKE.split(/\s+/)).toEqual([
+      'outline',
+      'outline-1',
+      'outline-offset-[-1px]',
+      'outline-blue-100',
+    ]);
+  });
+
+  it('finds the source tree to scan', () => {
+    expect(sources.length).toBeGreaterThan(50);
+  });
+
+  it('is used by exactly the call sites listed here', () => {
+    const users = sources
+      .filter(([, code]) => code.includes('SELECTED_BUTTON_STROKE'))
+      .map(([file]) => file);
+    expect(users).toEqual([...CALL_SITES].sort());
+  });
+
+  it('is never written out as a literal instead', () => {
+    const inlined = sources
+      .filter(([, code]) => code.includes('outline-blue-100'))
+      .map(([file]) => file);
+    expect(inlined).toEqual([]);
+  });
 });

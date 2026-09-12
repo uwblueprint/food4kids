@@ -1,6 +1,5 @@
 import { useUpdateRoute } from '@/api/routes';
-
-import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ConfirmModal } from '@/common/components';
 
 interface RemoveStopModalProps {
   open: boolean;
@@ -49,7 +48,7 @@ export function RemoveStopModal({
   };
 
   return (
-    <ConfirmDeleteModal
+    <ConfirmModal
       open={open}
       onOpenChange={handleOpenChange}
       title="Delete Stop"
@@ -61,9 +60,14 @@ export function RemoveStopModal({
           again later with the Add Stop button.
         </span>
       }
-      isPending={isPending}
-      isError={isError}
-      errorMessage="Something went wrong removing the stop. Please try again."
+      confirmLabel="Delete"
+      confirmVariant="destructive"
+      isLoading={isPending}
+      error={
+        isError
+          ? 'Something went wrong removing the stop. Please try again.'
+          : null
+      }
       onConfirm={handleConfirm}
     />
   );
