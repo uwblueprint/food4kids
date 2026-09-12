@@ -1,4 +1,8 @@
-import axios, { type InternalAxiosRequestConfig, isAxiosError } from 'axios';
+import axios, {
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+  isAxiosError,
+} from 'axios';
 
 import { useAuthStore } from '@/api/authStore';
 import type { AuthResponse } from '@/api/generated';
@@ -34,6 +38,20 @@ axiosClient.interceptors.request.use((config) => {
 // nothing else adds it. Backend mounts every route under API_PREFIX.
 const REFRESH_PATH = '/api/auth/refresh';
 
+/**
+ * Any 4xx from `/auth/refresh` means the server looked at the refresh cookie
+ * and rejected it, so retrying cannot help. A 5xx or a network error says
+ * nothing about the cookie.
+ */
+export function isRefreshRefusal(error: unknown): error is AxiosError {
+  const status = isAxiosError(error) ? error.response?.status : undefined;
+  return status !== undefined && status >= 400 && status < 500;
+}
+
+// Without a timeout a hung refresh never errors, and the startup screen never
+// offers a retry. Generous because a cold backend has to reach Google first.
+const REFRESH_TIMEOUT_MS = 20_000;
+
 interface SessionRequestConfig extends InternalAxiosRequestConfig {
   /**
    * Set on the request we re-send once a refresh has succeeded. If a token
@@ -56,7 +74,9 @@ export function refreshSession(): Promise<AuthResponse> {
   const pending =
     refreshInFlight ??
     axiosClient
-      .post<AuthResponse>(REFRESH_PATH)
+      .post<AuthResponse>(REFRESH_PATH, undefined, {
+        timeout: REFRESH_TIMEOUT_MS,
+      })
       .then(({ data }) => {
         useAuthStore.getState().setAuth(data);
         return data;
