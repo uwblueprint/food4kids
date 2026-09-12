@@ -36,9 +36,12 @@ async def get_jobs(
 async def generate_job(
     req: RouteGenerationGroupInput,
     service: JobService = Depends(get_job_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> JobEnqueueResponse:
-    """Accept a generation request: persist it as PENDING and wake the worker."""
+    """Accept a generation request: persist it as PENDING and wake the worker.
+
+    Admin-only — route generation is an admin workflow, and it burns Maps quota.
+    """
     job_id = await service.generate_job(req)
     await service.enqueue(job_id)
     return JobEnqueueResponse(job_id=job_id)
