@@ -64,6 +64,7 @@ export function AdminIndividualRoutePage() {
             </h2>
             <RouteMap
               encodedPolyline={route.encoded_polyline}
+              stops={route.stops}
               className="desktop:h-[408px] tablet:h-[320px] h-[240px]"
             />
           </section>

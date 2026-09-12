@@ -1,10 +1,11 @@
 import 'leaflet/dist/leaflet.css';
 
 import polyline from '@mapbox/polyline';
+import L from 'leaflet';
 import { useEffect, useMemo } from 'react';
 import {
-  CircleMarker,
   MapContainer,
+  Marker,
   Polyline,
   TileLayer,
   useMap,
@@ -19,15 +20,26 @@ const DEFAULT_ZOOM = 12;
 // caps. No white casing — the frames draw the line bare over the map.
 const POLYLINE_COLOR = '#195586'; // --color-blue-400
 const POLYLINE_WEIGHT = 5;
-/*
- * Stop dots: a 14px blue-400 disc inside a 5px white ring, per the frames.
- * Leaflet centres a stroke on the path, so the radius is the 7px disc plus
- * half the ring — that puts the white between 7px and 12px out, and the fill
- * shows through as a 7px disc underneath it.
- */
-const STOP_RADIUS = 9.5;
-const STOP_RING_WEIGHT = 5;
+// Stop markers: a blue-400 disc in a white ring carrying the stop number,
+// sized to the numbered badge in the route's StopsTable. A divIcon rather
+// than a CircleMarker because an SVG circle cannot hold a label.
+const STOP_DIAMETER = 21;
+const STOP_RING_WEIGHT = 3;
 const STOP_RING_COLOR = '#ffffff'; // --color-grey-100
+const MUTED_COLOR = '#A8A8A8';
+
+function stopIcon(stopNumber: number, muted?: boolean) {
+  const fill = muted ? MUTED_COLOR : POLYLINE_COLOR;
+  return L.divIcon({
+    // Leaflet's default .leaflet-div-icon paints a white box with a border;
+    // blanking the class leaves only the disc below.
+    className: '',
+    html: `<span style="display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:${STOP_DIAMETER}px;height:${STOP_DIAMETER}px;border-radius:9999px;background:${fill};border:${STOP_RING_WEIGHT}px solid ${STOP_RING_COLOR};color:#fff;font-size:11px;font-weight:700;line-height:1">${stopNumber}</span>`,
+    iconSize: [STOP_DIAMETER, STOP_DIAMETER],
+    // Centre the disc on the coordinate; the default anchors it by its top-left.
+    iconAnchor: [STOP_DIAMETER / 2, STOP_DIAMETER / 2],
+  });
+}
 
 /** A stop to mark on the line. Coordinates are nullable upstream — a location
  *  that has not been geocoded yet simply isn't drawn. */
@@ -95,10 +107,11 @@ export function RouteMap({
               {
                 key: stop.stop_number,
                 position: [stop.latitude, stop.longitude] as [number, number],
+                icon: stopIcon(stop.stop_number, muted),
               },
             ]
       ),
-    [stops]
+    [stops, muted]
   );
 
   const stopPositions = useMemo(
@@ -151,7 +164,7 @@ export function RouteMap({
             <Polyline
               positions={coords}
               pathOptions={{
-                color: muted ? '#A8A8A8' : POLYLINE_COLOR,
+                color: muted ? MUTED_COLOR : POLYLINE_COLOR,
                 weight: POLYLINE_WEIGHT,
                 opacity: 1,
                 lineCap: 'round',
@@ -164,18 +177,12 @@ export function RouteMap({
         {coords.length === 0 && stopPositions.length > 0 && (
           <FitToStops stopPositions={stopPositions} />
         )}
-        {stopPoints.map(({ key, position }) => (
-          <CircleMarker
+        {stopPoints.map(({ key, position, icon }) => (
+          <Marker
             key={key}
-            center={position}
-            radius={STOP_RADIUS}
-            pathOptions={{
-              color: STOP_RING_COLOR,
-              weight: STOP_RING_WEIGHT,
-              fillColor: muted ? '#A8A8A8' : POLYLINE_COLOR,
-              fillOpacity: 1,
-              opacity: 1,
-            }}
+            position={position}
+            icon={icon}
+            alt={`Stop ${key}`}
           />
         ))}
       </MapContainer>
