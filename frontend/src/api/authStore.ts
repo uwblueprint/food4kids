@@ -2,18 +2,20 @@ import { create } from 'zustand';
 
 import { type AuthResponse, type DriverRegisterResponse } from './generated';
 
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  fullName: string;
+  role: string;
+  driverId: string | null; // Populated if they are a driver
+  adminId: string | null; // Populated if they are an admin
+}
+
 interface AuthState {
   accessToken: string | null;
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    fullName: string;
-    role: string;
-    driverId: string | null; // Populated if they are a driver
-    adminId: string | null; // Populated if they are an admin
-  } | null;
+  user: User | null;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
   /**
