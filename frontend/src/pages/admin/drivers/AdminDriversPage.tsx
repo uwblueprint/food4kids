@@ -192,7 +192,11 @@ export const AdminDriversPage = () => {
 
       <AddDriverModal open={addOpen} onOpenChange={setAddOpen} />
       {selected && (
-        <DriverPanel selected={selected} onClose={() => setSelected(null)} />
+        <DriverPanel
+          key={selected.driver_id}
+          selected={selected}
+          onClose={() => setSelected(null)}
+        />
       )}
     </>
   );

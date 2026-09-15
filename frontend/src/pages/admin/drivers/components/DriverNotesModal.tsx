@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { describeApiFailure } from '@/api/errors';
 import type { NoteRead } from '@/api/generated/types.gen';
 import { useCreateNote, useDeleteNote } from '@/api/notes';
 import TrashIcon from '@/assets/icons/trash.svg?react';
@@ -45,15 +46,23 @@ export function DriverNotesModal({
     });
   };
 
-  const save = async () => {
-    if (message.trim()) {
-      await create.mutateAsync({
+  const save = () => {
+    if (!message.trim()) {
+      onOpenChange(false);
+      return;
+    }
+    create.mutate(
+      {
         path: { note_chain_id: noteChainId },
         body: { message: message.trim(), attachments: [] },
-      });
-    }
-    setMessage('');
-    onOpenChange(false);
+      },
+      {
+        onSuccess: () => {
+          setMessage('');
+          onOpenChange(false);
+        },
+      }
+    );
   };
 
   return (
@@ -101,15 +110,19 @@ export function DriverNotesModal({
             placeholder="Enter text here"
           />
         </Field>
+        {(create.isError || remove.isError) && (
+          <p role="alert" className="text-p2 text-red">
+            {describeApiFailure(create.error ?? remove.error) ??
+              (create.isError
+                ? "Couldn't save this note. Please try again."
+                : "Couldn't delete this note. Please try again.")}
+          </p>
+        )}
         <ModalFooter className="pt-2">
           <Button variant="tertiary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => void save()}
-            disabled={create.isPending}
-          >
+          <Button variant="primary" onClick={save} disabled={create.isPending}>
             Save
           </Button>
         </ModalFooter>

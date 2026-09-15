@@ -1,15 +1,17 @@
 import logging
-from datetime import date
+from datetime import datetime
 from typing import Any, ClassVar, Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import firebase_admin.auth
-from sqlalchemy import and_, case, func, or_
+from sqlalchemy import case, func, or_
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import contains_eager, selectinload
 from sqlmodel import col, select
 
+from app.config import settings
 from app.models.driver import (
     Driver,
     DriverCreate,
@@ -21,9 +23,9 @@ from app.models.enum import NotePermission
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
-from app.models.route_snapshot import RouteSnapshot
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
+from app.services.implementations.driver_history_service import mileage_events
 from app.utilities.pagination import paginate_query
 
 
@@ -34,6 +36,7 @@ class DriverService:
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+        self.timezone = ZoneInfo(settings.scheduler_timezone)
 
     async def get_driver_by_id(
         self, session: AsyncSession, driver_id: UUID
@@ -125,43 +128,20 @@ class DriverService:
         order: Literal["asc", "desc"] = "asc",
     ) -> PaginatedResponse[DriverListRead]:
         """Return a page of driver rows with list-level activity aggregates."""
-        today = date.today()
-        current_year_start = date(today.year, 1, 1)
-        last_year_start = date(today.year - 1, 1, 1)
-
+        today = datetime.now(self.timezone).date()
+        events = mileage_events()
         mileage = (
             select(
-                col(Route.driver_id).label("driver_id"),
+                events.c.driver_id,
                 func.sum(
-                    case(
-                        (
-                            col(RouteGroup.drive_date) >= current_year_start,
-                            col(Route.length),
-                        ),
-                        else_=0,
-                    )
+                    case((events.c.year == today.year, events.c.km), else_=0)
                 ).label("current_year_km"),
                 func.sum(
-                    case(
-                        (
-                            and_(
-                                col(RouteGroup.drive_date) >= last_year_start,
-                                col(RouteGroup.drive_date) < current_year_start,
-                            ),
-                            col(Route.length),
-                        ),
-                        else_=0,
-                    )
+                    case((events.c.year == today.year - 1, events.c.km), else_=0)
                 ).label("last_year_km"),
-                func.max(col(RouteGroup.drive_date)).label("last_delivery"),
+                func.max(events.c.drive_date).label("last_delivery"),
             )
-            .join(
-                RouteGroup,
-                col(RouteGroup.route_group_id) == col(Route.route_group_id),
-            )
-            .join(RouteSnapshot, col(RouteSnapshot.route_id) == col(Route.route_id))
-            .where(col(Route.driver_id).is_not(None))
-            .group_by(col(Route.driver_id))
+            .group_by(events.c.driver_id)
             .subquery()
         )
         activity = (
@@ -188,7 +168,7 @@ class DriverService:
                 mileage.c.last_delivery,
                 activity.c.driver_id.is_not(None).label("is_active"),
             )
-            .options(selectinload(Driver.user))  # type: ignore[arg-type]
+            .options(contains_eager(Driver.user))  # type: ignore[arg-type]
             .join(User, col(User.user_id) == col(Driver.user_id))
             .outerjoin(mileage, mileage.c.driver_id == col(Driver.driver_id))
             .outerjoin(activity, activity.c.driver_id == col(Driver.driver_id))

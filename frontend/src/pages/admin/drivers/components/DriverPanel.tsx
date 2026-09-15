@@ -12,17 +12,13 @@ import TrashIcon from '@/assets/icons/trash.svg?react';
 import boyIllustration from '@/assets/illustrations/boy.png';
 import girlIllustration from '@/assets/illustrations/girl-catching.png';
 import { Button } from '@/common/components';
-import { formatPhone } from '@/common/utils';
+import { formatPhone, toNaiveDateString } from '@/common/utils';
 
 import { DeleteDriverModal } from './DeleteDriverModal';
 import { DriverNotesModal } from './DriverNotesModal';
 import { EditDriverModal } from './EditDriverModal';
 
 const DAYS = ['M', 'Tu', 'W', 'Th', 'F'];
-
-function isoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
 
 function currentWeek() {
   const now = new Date();
@@ -31,7 +27,10 @@ function currentWeek() {
   monday.setDate(now.getDate() - day + 1);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return { start: isoDate(monday), end: isoDate(sunday) };
+  return {
+    start: toNaiveDateString(monday),
+    end: toNaiveDateString(sunday),
+  };
 }
 
 function formatDate(value: string | null | undefined) {
@@ -223,7 +222,7 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-p3 text-grey-400">Driver Notes</p>
-              {driver.note_chain_id && (
+              {notesOpen && driver.note_chain_id && (
                 <button
                   type="button"
                   aria-label="Edit driver notes"
@@ -312,19 +311,22 @@ export function DriverPanel({ selected, onClose }: DriverPanelProps) {
         </section>
       </div>
 
-      <EditDriverModal
-        driver={driver}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      {editOpen && (
+        <EditDriverModal
+          driver={driver}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+        />
+      )}
       <DeleteDriverModal
         driver={driver}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         onDeleted={onClose}
       />
-      {driver.note_chain_id && (
+      {notesOpen && driver.note_chain_id && (
         <DriverNotesModal
+          key={driver.note_chain_id}
           driverName={driver.full_name}
           noteChainId={driver.note_chain_id}
           notes={notes}

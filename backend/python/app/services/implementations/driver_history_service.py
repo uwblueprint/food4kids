@@ -5,6 +5,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import extract, func
+from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import Subquery
 from sqlmodel import col, select
@@ -39,21 +40,22 @@ def mileage_events(
     driver_id: UUID | None = None,
     bounds: tuple[date, date] | None = None,
 ) -> Subquery:
-    """Frozen-route mileage as (driver_id, year, month, km) rows.
+    """Frozen-route mileage as (driver_id, drive_date, year, month, km) rows.
 
     A route counts once it's frozen (has a RouteSnapshot), bucketed by its
     group's drive_date month. `bounds` is a half-open [start, end)
     drive_date range, applied to the raw column so it stays index-friendly.
     """
     events: Any = (
-        select(
+        sa_select(
             col(Route.driver_id).label("driver_id"),
+            col(RouteGroup.drive_date).label("drive_date"),
             extract("year", col(RouteGroup.drive_date)).label("year"),
             extract("month", col(RouteGroup.drive_date)).label("month"),
             col(Route.length).label("km"),
         )
-        .join(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
-        .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
+        .join(RouteSnapshot, col(RouteSnapshot.route_id) == col(Route.route_id))
+        .join(RouteGroup, col(RouteGroup.route_group_id) == col(Route.route_group_id))
         .where(col(Route.driver_id).isnot(None))
     )
 

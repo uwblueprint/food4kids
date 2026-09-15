@@ -1,6 +1,8 @@
+import { isAxiosError } from 'axios';
 import { type FormEvent, useState } from 'react';
 
 import { useInitializeDriver } from '@/api/drivers';
+import { describeApiFailure } from '@/api/errors';
 import CheckIcon from '@/assets/icons/check.svg?react';
 import {
   Button,
@@ -24,11 +26,13 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
   const initialize = useInitializeDriver();
   const [sent, setSent] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setSent(false);
       setEmailError('');
+      setSubmitError('');
       initialize.reset();
     }
     onOpenChange(next);
@@ -38,6 +42,7 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     setEmailError('');
+    setSubmitError('');
     initialize.mutate(
       {
         body: {
@@ -49,8 +54,16 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
       },
       {
         onSuccess: () => setSent(true),
-        onError: () =>
-          setEmailError('A driver with this email already exists.'),
+        onError: (error) => {
+          if (isAxiosError(error) && error.response?.status === 409) {
+            setEmailError('An account with this email already exists.');
+          } else {
+            setSubmitError(
+              describeApiFailure(error) ??
+                "Couldn't invite this driver. Check the details and try again."
+            );
+          }
+        },
       }
     );
   };
@@ -107,6 +120,11 @@ export function AddDriverModal({ open, onOpenChange }: AddDriverModalProps) {
               <FieldLabel>Phone Number</FieldLabel>
               <Input name="phone" type="tel" placeholder="(555) 555-5555" />
             </Field>
+            {submitError && (
+              <p role="alert" className="text-p2 text-red">
+                {submitError}
+              </p>
+            )}
             <ModalFooter className="pt-2">
               <Button
                 type="button"
