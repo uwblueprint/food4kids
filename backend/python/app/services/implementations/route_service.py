@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.api_usage import ApiSku
 from app.models.driver import Driver
 from app.models.enum import (
