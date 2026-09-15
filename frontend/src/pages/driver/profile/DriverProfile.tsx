@@ -14,8 +14,6 @@ import {
   Spinner,
 } from '@/common/components';
 
-import { UnsavedChangesModal } from './UnsavedChangesModal';
-
 interface DriverProfileLoadedProps {
   driverDetails: DriverRead;
   driverId: string;
@@ -102,18 +100,11 @@ const DriverProfileLoaded = ({
   };
 
   const handleDiscardChanges = () => {
-    setPhoneInput(driverDetails.phone || '');
-    setAddressInput(driverDetails.address || '');
     setIsUnsavedModalOpen(false);
     if (pendingNavigation) {
       pendingNavigation();
       setPendingNavigation(null);
     }
-  };
-
-  const handleKeepEditing = () => {
-    setIsUnsavedModalOpen(false);
-    setPendingNavigation(null);
   };
 
   return (
@@ -210,11 +201,17 @@ const DriverProfileLoaded = ({
           isLoading={logoutMutation.isPending}
         />
 
-        <UnsavedChangesModal
+        <ConfirmModal
           open={isUnsavedModalOpen}
-          onOpenChange={setIsUnsavedModalOpen}
-          onDiscard={handleDiscardChanges}
-          onKeepEditing={handleKeepEditing}
+          onOpenChange={(open) => {
+            setIsUnsavedModalOpen(open);
+            if (!open) setPendingNavigation(null);
+          }}
+          onConfirm={handleDiscardChanges}
+          title="Unsaved changes"
+          description="Are you sure you want to go back to the home screen?"
+          confirmLabel="Discard changes"
+          cancelLabel="Keep editing"
         />
       </main>
     </>
