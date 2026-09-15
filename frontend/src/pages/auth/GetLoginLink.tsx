@@ -1,38 +1,56 @@
 import { useState } from 'react';
 
-import { describeApiFailure, useForgotPassword } from '@/api';
+import { describeApiFailure, useResendOnboardingEmail } from '@/api';
 
 import { RequestLinkForm, SendLinkConfirmation } from './RequestLinkForm';
 import { WrapperWithLogo } from './Wrapper';
 
-/**
- * The endpoint answers 204 whether or not the address exists, which is the
- * anti-enumeration design. A failure here is therefore never about the email the
- * user typed, and is never worth implying it was.
- */
 const sendFailureMessage = (error: unknown) =>
   describeApiFailure(error) ??
-  'We couldn’t send the reset link. Please try again in a moment.';
+  'We couldn’t send the login link. Please try again in a moment.';
 
 type Step = 'FORM' | 'CONFIRMATION';
 
-export const ForgotPassword = () => {
+export const GetLoginLink = () => {
   const [step, setStep] = useState<Step>('FORM');
   const [email, setEmail] = useState('');
+  const [hasResent, setHasResent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
 
-  const headerTitle = step === 'FORM' ? 'Forgot password?' : 'Reset link sent';
-  const subheaderTitle =
-    step === 'FORM'
-      ? 'What email did your admin use to sign you up?'
-      : 'If an account exists for that email, we’ve sent a link to reset your password. It may take a few minutes to arrive.';
+  const getHeaderTitle = (currentStep: Step, linkResent: boolean) => {
+    if (currentStep === 'FORM') {
+      return 'Didn’t get a link?';
+    }
 
-  const forgotPasswordMutation = useForgotPassword();
+    if (linkResent) {
+      return 'Login link resent';
+    }
+
+    return 'Login link sent';
+  };
+
+  const headerTitle = getHeaderTitle(step, hasResent);
+
+  const getSubheaderTitle = (currentStep: Step, linkResent: boolean) => {
+    if (currentStep === 'FORM') {
+      return "Enter the email address your admin used to invite you. We'll send a new login link.";
+    }
+
+    if (linkResent) {
+      return "We've emailed you another login link. It may take a few minutes to land in your inbox.\n\nPlease check your spam/junk folders too. If you still don’t see anything after 10 minutes, please reach out to your admin for help.";
+    }
+
+    return "We've emailed your login link. It may take a few minutes to land in your inbox.";
+  };
+
+  const subheaderTitle = getSubheaderTitle(step, hasResent);
+
+  const resendOnboardingEmailMutation = useResendOnboardingEmail();
 
   const handleSendLink = (submittedEmail: string) => {
     setSendError(null);
-    forgotPasswordMutation.mutate(
+    resendOnboardingEmailMutation.mutate(
       { email: submittedEmail },
       {
         onSuccess: () => {
@@ -50,9 +68,12 @@ export const ForgotPassword = () => {
     options?: { onError?: (error: unknown) => void }
   ) => {
     setResendError(null);
-    forgotPasswordMutation.mutate(
+    resendOnboardingEmailMutation.mutate(
       { email: submittedEmail },
       {
+        onSuccess: () => {
+          setHasResent(true);
+        },
         onError: (error) => {
           setResendError(sendFailureMessage(error));
           options?.onError?.(error);
@@ -65,14 +86,14 @@ export const ForgotPassword = () => {
     <WrapperWithLogo
       headerTitle={headerTitle}
       subheaderTitle={subheaderTitle}
-      className="desktop:max-w-[362px] desktop:gap-8 gap-4 pt-35"
+      className="desktop:max-w-[362px] desktop:gap-8 gap-4 pt-31"
     >
       {step === 'FORM' ? (
         <RequestLinkForm
           email={email}
           setEmail={setEmail}
           onSubmit={handleSendLink}
-          isPending={forgotPasswordMutation.isPending}
+          isPending={resendOnboardingEmailMutation.isPending}
           sendError={sendError}
           clearError={() => setSendError(null)}
         />
@@ -80,7 +101,7 @@ export const ForgotPassword = () => {
         <SendLinkConfirmation
           email={email}
           onResend={handleResendLink}
-          isPending={forgotPasswordMutation.isPending}
+          isPending={resendOnboardingEmailMutation.isPending}
           resendError={resendError}
           clearError={() => setResendError(null)}
         />

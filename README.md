@@ -61,6 +61,8 @@ The backend `.env` is stored in Google Secret Manager and pulled via a script. F
 
 Download the `food4kids-env-service-account.json` file from the Food4Kids Developers shared Google Drive in UW Blueprint. Save it to the **repo root** (it is gitignored automatically).
 
+It has to live at the repo root under that exact name: besides pulling `.env`, `docker-compose.yml` mounts it into the backend container as its Application Default Credentials, which is how local route generation authenticates to the Route Optimization API.
+
 **2. Authenticate with the service account**
 
 ```bash

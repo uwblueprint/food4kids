@@ -27,11 +27,24 @@ services:
       - 8.8.8.8
     volumes:
       - ./backend/python:/app
+      # Application Default Credentials for the Google APIs that use IAM rather
+      # than an API key (Route Optimization, Cloud Storage). Same key pull-env.sh
+      # already uses; on Cloud Run the attached runtime service account supplies
+      # these instead. create_host_path: false makes a missing file fail compose
+      # up loudly instead of Docker creating an empty directory in its place.
+      - type: bind
+        source: ./food4kids-env-service-account.json
+        target: /gcp/credentials.json
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - ./.env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/gcp/credentials.json
   db:
     container_name: f4k_db
     image: postgres:17-alpine

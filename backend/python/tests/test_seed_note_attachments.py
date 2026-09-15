@@ -102,11 +102,7 @@ class TestUploadSeedNoteImages:
         machine running them happens to have GCP credentials in its env — which
         is exactly the difference between a laptop and CI.
         """
-        with patch.multiple(
-            seed_module.settings,
-            gcp_bucket_name="test-bucket",
-            gcp_service_account_private_key="-----BEGIN PRIVATE KEY-----test",
-        ):
+        with patch.object(seed_module.settings, "gcp_bucket_name", "test-bucket"):
             yield
 
     def _client(self) -> tuple[MagicMock, list[dict[str, Any]]]:
@@ -230,29 +226,15 @@ class TestUploadSeedNoteImagesWithoutGCS:
     down with it.
     """
 
-    @pytest.mark.parametrize(
-        ("bucket", "private_key"),
-        [
-            ("", ""),
-            ("", "-----BEGIN PRIVATE KEY-----test"),
-            ("test-bucket", ""),
-        ],
-    )
-    def test_returns_nothing_when_settings_are_missing(
-        self, bucket: str, private_key: str
-    ) -> None:
+    def test_returns_nothing_when_no_bucket_is_configured(self) -> None:
         with (
-            patch.multiple(
-                seed_module.settings,
-                gcp_bucket_name=bucket,
-                gcp_service_account_private_key=private_key,
-            ),
+            patch.object(seed_module.settings, "gcp_bucket_name", ""),
             patch.object(seed_module, "GCPStorageClient") as client_class,
         ):
             assert seed_module.upload_seed_note_images() == []
 
-        # Never even constructed — building the client is what parses the key
-        # and raises on a malformed PEM.
+        # Never even constructed — building the client is what resolves
+        # Application Default Credentials and raises when there are none.
         client_class.assert_not_called()
 
     def test_an_empty_pool_seeds_notes_without_attachments(self) -> None:
@@ -268,6 +250,9 @@ class TestUploadFileKeyOverride:
     def _client_with_stub_bucket(self) -> tuple[GCPStorageClient, MagicMock]:
         client = GCPStorageClient.__new__(GCPStorageClient)
         client.logger = logging.getLogger(__name__)
+        # Bypassing __init__ skips ADC resolution, so supply the signing identity.
+        client._credentials = MagicMock(valid=True, token="ya29.test")
+        client._signer_email = "seed@f4k-test.iam.gserviceaccount.com"
         bucket = MagicMock()
         bucket.blob.return_value.generate_signed_url.return_value = "https://signed"
         client.bucket = bucket
