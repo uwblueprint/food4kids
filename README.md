@@ -194,6 +194,11 @@ own origin, so no `VITE_API_BASE_URL` is needed:
 cd frontend && pnpm build && npx firebase-tools deploy --only hosting
 ```
 
+**Preview deploys** (none exist yet). A frontend on a Hosting preview channel has no `/api`
+rewrite of its own, so it would call the Cloud Run URL cross-site; that revision needs
+`PREVIEW_DEPLOY=true` as a Cloud Run environment variable (which outranks the secret) so the
+refresh cookie is sent `SameSite=None; Secure`, plus its origin in `CORS_ORIGINS`.
+
 ## Docker Commands
 
 ```bash
