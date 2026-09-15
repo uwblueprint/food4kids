@@ -14,6 +14,7 @@ import pytest
 
 import app.seed_database as seed_module
 from app.utilities.gcp_client import GCPStorageClient
+from app.utilities.seed_images import render_seed_image
 
 
 @pytest.fixture
@@ -101,11 +102,7 @@ class TestUploadSeedNoteImages:
         machine running them happens to have GCP credentials in its env — which
         is exactly the difference between a laptop and CI.
         """
-        with patch.multiple(
-            seed_module.settings,
-            gcp_bucket_name="test-bucket",
-            gcp_service_account_private_key="-----BEGIN PRIVATE KEY-----test",
-        ):
+        with patch.object(seed_module.settings, "gcp_bucket_name", "test-bucket"):
             yield
 
     def _client(self) -> tuple[MagicMock, list[dict[str, Any]]]:
@@ -131,6 +128,9 @@ class TestUploadSeedNoteImages:
 
         client = MagicMock()
         client.upload_file.side_effect = upload_file
+        # The uploads run concurrently, so `calls` arrives in whatever order
+        # the pool finishes in. Assert on what each key was given, never on
+        # the order the recorder saw them.
         return client, calls
 
     def test_uploads_one_object_per_configured_image(self) -> None:
@@ -155,7 +155,7 @@ class TestUploadSeedNoteImages:
         client2, calls2 = self._client()
         with patch.object(seed_module, "GCPStorageClient", return_value=client2):
             seed_module.upload_seed_note_images()
-        assert [call["key"] for call in calls2] == keys, (
+        assert sorted(call["key"] for call in calls2) == sorted(keys), (
             "keys must be stable across runs"
         )
 
@@ -167,7 +167,25 @@ class TestUploadSeedNoteImages:
         with patch.object(seed_module, "GCPStorageClient", return_value=client2):
             seed_module.upload_seed_note_images()
 
-        assert [c["contents"] for c in calls] == [c["contents"] for c in calls2]
+        assert {c["key"]: c["contents"] for c in calls} == {
+            c["key"]: c["contents"] for c in calls2
+        }
+
+    def test_the_returned_attachments_keep_their_order(self) -> None:
+        """Notes sample from this list, so a run-to-run reshuffle would move
+        every image even though the objects in the bucket are identical."""
+        client, _ = self._client()
+        with patch.object(seed_module, "GCPStorageClient", return_value=client):
+            first = seed_module.upload_seed_note_images()
+        client2, _ = self._client()
+        with patch.object(seed_module, "GCPStorageClient", return_value=client2):
+            second = seed_module.upload_seed_note_images()
+
+        assert first == second
+        assert [a["filename"] for a in first] == [
+            f"{seed_module.SEED_NOTE_IMAGE_PREFIX}/{i:02d}-{render_seed_image(i)[0]}"
+            for i in range(seed_module.SEED_NOTE_IMAGE_COUNT)
+        ]
 
     def test_uploads_real_png_bytes(self) -> None:
         client, calls = self._client()
@@ -208,29 +226,15 @@ class TestUploadSeedNoteImagesWithoutGCS:
     down with it.
     """
 
-    @pytest.mark.parametrize(
-        ("bucket", "private_key"),
-        [
-            ("", ""),
-            ("", "-----BEGIN PRIVATE KEY-----test"),
-            ("test-bucket", ""),
-        ],
-    )
-    def test_returns_nothing_when_settings_are_missing(
-        self, bucket: str, private_key: str
-    ) -> None:
+    def test_returns_nothing_when_no_bucket_is_configured(self) -> None:
         with (
-            patch.multiple(
-                seed_module.settings,
-                gcp_bucket_name=bucket,
-                gcp_service_account_private_key=private_key,
-            ),
+            patch.object(seed_module.settings, "gcp_bucket_name", ""),
             patch.object(seed_module, "GCPStorageClient") as client_class,
         ):
             assert seed_module.upload_seed_note_images() == []
 
-        # Never even constructed — building the client is what parses the key
-        # and raises on a malformed PEM.
+        # Never even constructed — building the client is what resolves
+        # Application Default Credentials and raises when there are none.
         client_class.assert_not_called()
 
     def test_an_empty_pool_seeds_notes_without_attachments(self) -> None:
@@ -246,6 +250,9 @@ class TestUploadFileKeyOverride:
     def _client_with_stub_bucket(self) -> tuple[GCPStorageClient, MagicMock]:
         client = GCPStorageClient.__new__(GCPStorageClient)
         client.logger = logging.getLogger(__name__)
+        # Bypassing __init__ skips ADC resolution, so supply the signing identity.
+        client._credentials = MagicMock(valid=True, token="ya29.test")
+        client._signer_email = "seed@f4k-test.iam.gserviceaccount.com"
         bucket = MagicMock()
         bucket.blob.return_value.generate_signed_url.return_value = "https://signed"
         client.bucket = bucket

@@ -6,12 +6,14 @@ with nothing raised. F4K's office number has one and school locations routinely
 do, so the stored form is RFC 3966 (``tel:+1-519-576-3443;ext=1``).
 """
 
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 
 from app.models.admin import AdminUpdate
 from app.models.driver import DriverUpdate
-from app.models.location import LocationUpdate
+from app.models.location import LocationCreate
 from app.utilities.utils import MAX_STORED_PHONE_LENGTH, validate_phone
 
 # Every spelling of the same Kitchener number an admin might paste or a
@@ -103,13 +105,49 @@ class TestValidatePhone:
             DriverUpdate(phone="519 576 3443 ext 123456789012345")
 
 
+def _location(**overrides: object) -> LocationCreate:
+    return LocationCreate.model_validate(
+        {
+            "location_group_id": uuid4(),
+            "name": "Central Elementary",
+            "contact_name": "Jane Smith",
+            "address": "123 Main St, Kitchener",
+            "phone_primary": "(519) 576-3443",
+            "delivery_type": "School",
+            **overrides,
+        }
+    )
+
+
+class TestLocationCreateNormalizes:
+    """A household is created and replaced, never edited, so LocationCreate is
+    the only model that writes its phone numbers."""
+
+    def test_normalizes_both_numbers(self) -> None:
+        location = _location(phone_secondary="519.284.2498 ext. 12")
+        assert location.phone_primary == "tel:+1-519-576-3443"
+        assert location.phone_secondary == "tel:+1-519-284-2498;ext=12"
+
+    def test_leaves_secondary_none(self) -> None:
+        assert _location().phone_secondary is None
+
+    def test_rejects_invalid_primary(self) -> None:
+        with pytest.raises(ValidationError):
+            _location(phone_primary="nope")
+
+    def test_rejects_invalid_secondary(self) -> None:
+        with pytest.raises(ValidationError):
+            _location(phone_secondary="nope")
+
+
 class TestUpdateModelsNormalize:
     """Update models must normalize too.
 
     ``update_*_by_id`` assigns straight onto the ORM row, and SQLModel table
     instances don't re-run validators on assignment — so a missing validator
     here means an edit writes the raw client string and the value renders
-    unformatted next to properly stored ones.
+    unformatted next to properly stored ones. Locations have no update model:
+    a household is created and replaced, never edited in place.
     """
 
     def test_driver_update_normalizes(self) -> None:
@@ -130,22 +168,6 @@ class TestUpdateModelsNormalize:
         with pytest.raises(ValidationError):
             AdminUpdate(admin_phone="555-1234")
 
-    def test_location_update_normalizes_both_numbers(self) -> None:
-        update = LocationUpdate(
-            phone_primary="(519) 576-3443",
-            phone_secondary="519.284.2498 ext. 12",
-        )
-        assert update.phone_primary == "tel:+1-519-576-3443"
-        assert update.phone_secondary == "tel:+1-519-284-2498;ext=12"
-
-    def test_location_update_leaves_secondary_none(self) -> None:
-        update = LocationUpdate(phone_primary="(519) 576-3443")
-        assert update.phone_secondary is None
-
-    def test_location_update_rejects_invalid_secondary(self) -> None:
-        with pytest.raises(ValidationError):
-            LocationUpdate(phone_primary="(519) 576-3443", phone_secondary="nope")
-
 
 class TestUpdateModelsRejectExplicitNull:
     """A non-nullable phone column must reject an explicit ``null``.
@@ -162,14 +184,6 @@ class TestUpdateModelsRejectExplicitNull:
 
     def test_admin_update_still_allows_omitting_phone(self) -> None:
         assert AdminUpdate(first_name="Emily").admin_phone is None
-
-    def test_location_update_rejects_null_primary(self) -> None:
-        with pytest.raises(ValidationError):
-            LocationUpdate(phone_primary=None)
-
-    def test_location_update_allows_null_secondary(self) -> None:
-        """phone_secondary is nullable — null there legitimately clears it."""
-        assert LocationUpdate(phone_secondary=None).phone_secondary is None
 
     def test_driver_update_rejects_null_phone(self) -> None:
         with pytest.raises(ValidationError):

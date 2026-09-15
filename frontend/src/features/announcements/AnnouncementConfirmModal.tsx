@@ -1,12 +1,4 @@
-import {
-  Button,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
-} from '@/common/components';
+import { ConfirmModal } from '@/common/components';
 
 export type ConfirmModalVariant = 'delete' | 'save' | 'unsaved';
 
@@ -57,33 +49,15 @@ export function AnnouncementConfirmModal({
   const copy = COPY[variant];
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="max-w-[480px]">
-        <ModalHeader>
-          <ModalTitle variant="confirmation">{copy.title}</ModalTitle>
-          <ModalDescription>{copy.description}</ModalDescription>
-        </ModalHeader>
-        <ModalFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant={
-              copy.confirmVariant === 'destructive' ? 'destructive' : 'primary'
-            }
-            onClick={onConfirm}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Working…' : copy.confirm}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+    <ConfirmModal
+      open={open}
+      onOpenChange={onOpenChange}
+      onConfirm={onConfirm}
+      title={copy.title}
+      description={copy.description}
+      confirmLabel={isLoading ? 'Working\u2026' : copy.confirm}
+      confirmVariant={copy.confirmVariant}
+      isLoading={isLoading}
+    />
   );
 }

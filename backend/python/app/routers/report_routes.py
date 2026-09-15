@@ -1,24 +1,18 @@
 import logging
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.dependencies.auth import require_admin
 from app.models import get_session
 from app.services.implementations.driver_report_service import DriverReportService
-from app.utilities.datetime_utils import now_utc
+from app.utilities.datetime_utils import app_timezone, now_local
 
 logger = logging.getLogger(__name__)
 service = DriverReportService(logger)
 router = APIRouter(prefix="/reports", tags=["reports"])
-
-
-class DeliveriesCountResponse(BaseModel):
-    total_deliveries: int
 
 
 class DriverRankingItem(BaseModel):
@@ -34,34 +28,58 @@ class MonthlyTotalsResponse(BaseModel):
     total_deliveries: int
 
 
+class TotalsResponse(BaseModel):
+    total_km: float
+    total_deliveries: int
+
+
 MIN_SERIES_MONTHS = 1
 MAX_SERIES_MONTHS = 24
 
 
 def _ensure_est(dt: datetime) -> datetime:
-    tz = ZoneInfo(settings.scheduler_timezone)
+    tz = app_timezone()
     if dt.tzinfo is None:
         return dt.replace(tzinfo=tz)
     return dt.astimezone(tz)
 
 
-@router.get("/deliveries/count", response_model=DeliveriesCountResponse)
-async def get_total_deliveries_between(
-    start: datetime = Query(..., description="Start datetime (assumed EST if no tz)"),
-    end: datetime = Query(..., description="End datetime (assumed EST if no tz)"),
+@router.get("/totals", response_model=TotalsResponse)
+async def get_totals(
+    start: datetime | None = Query(
+        None, description="Start datetime, inclusive (assumed EST if no tz)"
+    ),
+    end: datetime | None = Query(
+        None, description="End datetime, exclusive (assumed EST if no tz)"
+    ),
     session: AsyncSession = Depends(get_session),
     _auth: bool = Depends(require_admin),
-) -> DeliveriesCountResponse:
-    """Return total deliveries (route stop snapshots) between start and end.
-    Query params are treated as EST if no timezone is provided.
-    """
-    start_est = _ensure_est(start)
-    end_est = _ensure_est(end)
+) -> TotalsResponse:
+    """Return km driven and deliveries made — all time, or over [start, end).
 
-    # Pass scheduler-timezone-aware datetimes to the service. The service
-    # will normalize them to naive scheduler-local datetimes to match DB.
-    total = await service.get_total_deliveries_between(session, start_est, end_est)
-    return DeliveriesCountResponse(total_deliveries=total)
+    Omit both bounds for the all-time figures the homepage's headline totals
+    show. Supply both for a window: the params are read as EST when they carry
+    no timezone, then reduced to calendar days (a drive date is a day, not an
+    instant), and the range is half-open like every other range in the
+    reports, so consecutive windows tile instead of double-counting their
+    shared boundary day.
+    """
+    if (start is None) != (end is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start and end must be provided together",
+        )
+
+    bounds = (
+        (_ensure_est(start).date(), _ensure_est(end).date())
+        if start is not None and end is not None
+        else None
+    )
+
+    return TotalsResponse(
+        total_km=await service.get_total_km(session, bounds),
+        total_deliveries=await service.get_total_deliveries(session, bounds),
+    )
 
 
 @router.get("/monthly-series", response_model=list[MonthlyTotalsResponse])
@@ -93,9 +111,10 @@ async def get_monthly_series(
         )
 
     if end_year is None or end_month is None:
-        # "The current month" is a calendar fact, so read the UTC instant in
-        # the scheduler's zone — near midnight the two disagree on the date.
-        today = now_utc().astimezone(ZoneInfo(settings.scheduler_timezone))
+        # "The current month" is a calendar fact, so it is read on the
+        # organization's clock — near midnight the two zones disagree on the
+        # date, and on the 1st and the 31st they disagree on the month.
+        today = now_local()
         end_year, end_month = today.year, today.month
 
     series = await service.get_monthly_series(session, end_year, end_month, months)
@@ -117,27 +136,3 @@ async def get_monthly_ranking(
     rankings = await service.get_monthly_km_ranking(session, year, month)
     items: list[DriverRankingItem] = [DriverRankingItem(**r) for r in rankings]
     return items
-
-
-@router.get("/monthly/{year}/{month}/totals", response_model=MonthlyTotalsResponse)
-async def get_monthly_totals(
-    year: int,
-    month: int,
-    session: AsyncSession = Depends(get_session),
-    _auth: bool = Depends(require_admin),
-) -> MonthlyTotalsResponse:
-    """Return total distance driven and total deliveries for the month."""
-    if month < 1 or month > 12:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month"
-        )
-    total_km = await service.get_total_km_for_month(session, year, month)
-    total_deliveries = await service.get_total_deliveries_for_month(
-        session, year, month
-    )
-    return MonthlyTotalsResponse(
-        year=year,
-        month=month,
-        total_km=total_km,
-        total_deliveries=total_deliveries,
-    )

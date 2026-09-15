@@ -14,7 +14,7 @@ import { useRowHighlight, useTableSort } from '@/common/hooks';
 import { orDash } from '@/common/utils';
 
 import type { GroupsTabState } from '../hooks';
-import { DriveDateCell } from './DriveDateCell';
+import { routeGroupDriveDateColumn } from './driveDateColumns';
 import { EmptyState } from './EmptyState';
 import { RouteFilterModal } from './RouteFilterModal';
 import { RouteGroupActionsCell } from './RouteGroupActionsCell';
@@ -22,18 +22,7 @@ import { StatusHeader } from './StatusHeader';
 
 const COLUMNS: Column<RouteGroupRead>[] = [
   { key: 'name', header: 'Name', render: (row) => row.name },
-  {
-    key: 'drive_date',
-    header: 'Date',
-    sortable: true,
-    sortValue: (row) => new Date(row.drive_date),
-    render: (row) => (
-      <DriveDateCell
-        routeGroupId={row.route_group_id}
-        driveDate={row.drive_date}
-      />
-    ),
-  },
+  routeGroupDriveDateColumn(),
   {
     key: 'delivery_type',
     header: 'Delivery Type',
@@ -128,16 +117,7 @@ export function RouteGroupsTab({
           };
         }
         if (col.key === 'drive_date') {
-          return {
-            ...col,
-            render: (row: RouteGroupRead) => (
-              <DriveDateCell
-                routeGroupId={row.route_group_id}
-                driveDate={row.drive_date}
-                onUpdated={() => highlightRow(row.route_group_id)}
-              />
-            ),
-          };
+          return routeGroupDriveDateColumn(highlightRow);
         }
         if (col.key === 'status') {
           return {

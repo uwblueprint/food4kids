@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
 
 from app.models.user import User
+from app.utilities.datetime_utils import now_utc
 
 from .base import BaseModel
 
@@ -18,8 +19,7 @@ class PasswordResetTokenBase(SQLModel):
     expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: (
-            datetime.now(timezone.utc)
-            + timedelta(days=PASSWORD_RESET_TOKEN_EXPIRY_DAYS)
+            now_utc() + timedelta(days=PASSWORD_RESET_TOKEN_EXPIRY_DAYS)
         ),
     )
     is_used: bool = Field(default=False)

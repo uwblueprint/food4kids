@@ -6,13 +6,18 @@ timestamp carries its offset, so it means the same instant to the code that
 writes it and the code that reads it back.
 """
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from app.config import settings
-from app.utilities.datetime_utils import from_local_wall_clock, now_utc
+from app.utilities.datetime_utils import (
+    from_local_wall_clock,
+    now_local,
+    now_utc,
+    today_local,
+)
 
 APP_ZONE = ZoneInfo(settings.scheduler_timezone)
 
@@ -110,3 +115,64 @@ class TestFromLocalWallClock:
         expected = ambiguous.replace(tzinfo=APP_ZONE, fold=0).astimezone(timezone.utc)
 
         assert result == expected
+
+
+class TestNowLocal:
+    """`now_local()` is the same instant as `now_utc()`, read on F4K's clock."""
+
+    def test_carries_the_app_zone_offset(self) -> None:
+        assert now_local().utcoffset() == datetime.now(APP_ZONE).utcoffset()
+
+    def test_is_the_same_instant_as_now_utc(self) -> None:
+        """Rendering in another zone must not move the point on the timeline."""
+        assert abs((now_local() - now_utc()).total_seconds()) < 5
+
+    def test_comparable_with_stored_utc_timestamps(self) -> None:
+        """It stays aware, so it compares against a `timestamptz` read."""
+        assert now_local() > datetime(2020, 1, 1, tzinfo=UTC)
+
+
+class TestTodayLocal:
+    """The boundary this helper exists for: local evening, once UTC has rolled."""
+
+    def test_matches_the_date_of_now_local(self) -> None:
+        assert today_local() == now_local().date()
+
+    def test_returns_a_plain_date(self) -> None:
+        assert type(today_local()) is date
+
+    @pytest.mark.parametrize(
+        ("local_wall_clock", "utc_date"),
+        [
+            # 23:30 EDT on Aug 31 is 03:30 UTC on Sep 1. A UTC `date.today()`
+            # has already rolled into September; the local calendar has not.
+            (datetime(2026, 8, 31, 23, 30), date(2026, 9, 1)),
+            # 23:59 EST on Dec 31 is 04:59 UTC on Jan 1 — the year rolls too.
+            (datetime(2026, 12, 31, 23, 59), date(2027, 1, 1)),
+            # 20:00 EDT is exactly midnight UTC: the first minute of the skew.
+            (datetime(2026, 6, 15, 20, 0), date(2026, 6, 16)),
+            # 19:00 EST (winter offset is an hour deeper) is midnight UTC.
+            (datetime(2026, 1, 20, 19, 0), date(2026, 1, 21)),
+        ],
+    )
+    def test_local_evening_is_already_the_next_utc_day(
+        self, local_wall_clock: datetime, utc_date: date
+    ) -> None:
+        """Pin the skew without freezing the clock.
+
+        `today_local()` reads the real time, so instead of faking it these
+        assert the property it relies on: at these instants the UTC date and
+        the local date genuinely differ, and the local one is what the drive
+        calendar means. If they ever agreed, the helper would be pointless.
+        """
+        instant = from_local_wall_clock(local_wall_clock)
+
+        assert instant.date() == utc_date
+        assert instant.astimezone(APP_ZONE).date() == local_wall_clock.date()
+        assert instant.date() != local_wall_clock.date()
+
+    def test_local_daytime_agrees_with_utc(self) -> None:
+        """Mid-day is the case that hides the bug: both notions match."""
+        instant = from_local_wall_clock(datetime(2026, 8, 31, 9, 0))
+
+        assert instant.date() == instant.astimezone(APP_ZONE).date()

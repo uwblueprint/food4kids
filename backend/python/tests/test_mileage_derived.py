@@ -35,6 +35,7 @@ from app.services.implementations.location_service import (
 )
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.route_service import RouteService
+from app.utilities.datetime_utils import today_local
 
 logger = logging.getLogger(__name__)
 
@@ -181,14 +182,14 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
     for loc in locations:
         await test_session.refresh(loc)
 
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = today_local() - timedelta(days=1)
     rg = RouteGroup(
         name="Frozen group",
         drive_date=yesterday,
     )
     future_rg = RouteGroup(
         name="Future group",
-        drive_date=date.today() + timedelta(days=7),
+        drive_date=today_local() + timedelta(days=7),
     )
     test_session.add_all([rg, future_rg])
     await test_session.commit()

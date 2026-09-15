@@ -55,7 +55,11 @@ async def get_routes(
         "upcoming feed, 'desc' (most-recent-first) for the past feed.",
     ),
     search: str | None = Query(
-        None, description="Case-insensitive filter on the assigned driver's name"
+        None,
+        description=(
+            "Case-insensitive filter on the assigned driver's name, the route's "
+            "name, or its route group's name"
+        ),
     ),
     weekday: list[DriveDaysOfWeekEnum] | None = Query(
         None, description="Filter by one or more weekdays of the drive date"

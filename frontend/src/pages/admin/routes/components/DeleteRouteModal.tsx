@@ -1,7 +1,6 @@
 import type { RouteWithDateRead } from '@/api/generated/types.gen';
 import { useDeleteRoute } from '@/api/routes';
-
-import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ConfirmModal } from '@/common/components';
 
 interface DeleteRouteModalProps {
   open: boolean;
@@ -30,7 +29,7 @@ export function DeleteRouteModal({
   };
 
   return (
-    <ConfirmDeleteModal
+    <ConfirmModal
       open={open}
       onOpenChange={handleOpenChange}
       title="Delete Route"
@@ -40,9 +39,14 @@ export function DeleteRouteModal({
           undone.
         </>
       }
-      isPending={isPending}
-      isError={isError}
-      errorMessage="Something went wrong deleting the route. Please try again."
+      confirmLabel="Delete"
+      confirmVariant="destructive"
+      isLoading={isPending}
+      error={
+        isError
+          ? 'Something went wrong deleting the route. Please try again.'
+          : null
+      }
       onConfirm={handleDelete}
     />
   );

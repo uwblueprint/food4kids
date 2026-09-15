@@ -7,6 +7,7 @@ import { getGoogleMapsLink } from '@/api/generated';
 import { Button, Spinner } from '@/common/components';
 import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
+import { formatDriveDate } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { DotSeparated } from './DotSeparated';
@@ -18,16 +19,6 @@ const statusWrapper =
 export interface RouteDetailViewProps {
   routeId: string;
   className?: string;
-}
-
-/** Format a date-time string as e.g. "Oct 18" (no year, per design). */
-function formatDriveDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 /** Format a time-of-day string ("08:00:00") as "8:00 AM".

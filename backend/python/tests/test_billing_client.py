@@ -9,8 +9,10 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import httplib2
 import pytest
 from google.api_core import exceptions as gcp_exceptions
+from googleapiclient.errors import HttpError
 
 from app.config import settings
 from app.utilities.billing_client import (
@@ -21,6 +23,11 @@ from app.utilities.billing_client import (
     BillingPermissionDeniedError,
     CostInfo,
 )
+
+
+def _http_error(status: int) -> HttpError:
+    """What the discovery client raises: an HttpError carrying the status."""
+    return HttpError(httplib2.Response({"status": str(status)}), b"denied")
 
 
 def _raise(error: Exception) -> Any:
@@ -202,14 +209,6 @@ class TestParseCostRow:
 class TestConfigurationGuards:
     """Missing configuration fails loudly and distinctly from a call failure."""
 
-    def test_missing_service_account_raises(
-        self, client: BillingClient, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(settings, "billing_service_account_client_email", "")
-
-        with pytest.raises(BillingNotConfiguredError, match="BILLING_"):
-            client._ensure_credentials()
-
     def test_missing_billing_account_raises(
         self, client: BillingClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -253,7 +252,6 @@ def configured(client: BillingClient, monkeypatch: pytest.MonkeyPatch) -> Billin
         "billing_export_dataset",
         "billing_export_table",
         "billing_target_project_id",
-        "billing_service_account_client_email",
     ):
         monkeypatch.setattr(settings, field, "set")
     monkeypatch.setattr(client, "_ensure_credentials", lambda: object())
@@ -274,23 +272,32 @@ class TestErrorMapping:
         self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "app.utilities.billing_client.build",
-            _raise(gcp_exceptions.Forbidden("nope")),
+            "app.utilities.billing_client.build", _raise(_http_error(403))
         )
 
-        with pytest.raises(BillingPermissionDeniedError, match="permission denied"):
+        with pytest.raises(BillingPermissionDeniedError, match=r"billing\.viewer"):
             configured.fetch_budget()
 
     def test_budget_not_found_is_reported_as_such(
         self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "app.utilities.billing_client.build",
-            _raise(gcp_exceptions.NotFound("gone")),
+            "app.utilities.billing_client.build", _raise(_http_error(404))
         )
 
         with pytest.raises(BillingError, match="not found"):
             configured.fetch_budget()
+
+    def test_other_http_status_is_unexpected(
+        self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "app.utilities.billing_client.build", _raise(_http_error(500))
+        )
+
+        with pytest.raises(BillingError, match="unexpected") as excinfo:
+            configured.fetch_budget()
+        assert not isinstance(excinfo.value, BillingPermissionDeniedError)
 
     def test_unexpected_budget_error_does_not_leak_detail(
         self, configured: BillingClient, monkeypatch: pytest.MonkeyPatch
@@ -576,3 +583,40 @@ class TestBudgetCaching:
         configured.fetch_budget()
 
         assert calls[0] == 2
+
+
+class TestEnsureCredentials:
+    """Identity comes from Application Default Credentials, resolved once."""
+
+    def test_resolves_adc_once_and_caches(
+        self, client: BillingClient, mocker: Any
+    ) -> None:
+        credentials = mocker.Mock()
+        default = mocker.patch(
+            "app.utilities.billing_client.google.auth.default",
+            return_value=(credentials, "f4k-test"),
+        )
+
+        first = client._ensure_credentials()
+        second = client._ensure_credentials()
+
+        default.assert_called_once_with(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        assert first is second is credentials
+
+    def test_bq_client_uses_adc_and_target_project(
+        self, client: BillingClient, mocker: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "billing_target_project_id", "f4k-target")
+        credentials = mocker.Mock()
+        mocker.patch(
+            "app.utilities.billing_client.google.auth.default",
+            return_value=(credentials, "adc-project"),
+        )
+        bq = mocker.patch("app.utilities.billing_client.bigquery.Client")
+
+        client._ensure_bq_client()
+        client._ensure_bq_client()
+
+        bq.assert_called_once_with(credentials=credentials, project="f4k-target")

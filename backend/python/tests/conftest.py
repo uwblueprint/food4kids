@@ -2,8 +2,13 @@
 Global test configuration and fixtures for the Food4Kids application.
 """
 
-import asyncio
 import os
+
+# app.config freezes `settings` at import time, so this must precede any
+# `app` import or the suite silently runs against the development database.
+os.environ["APP_ENV"] = "testing"
+
+import asyncio
 from collections.abc import AsyncGenerator, Generator
 from datetime import date
 from typing import Any, NoReturn
@@ -30,9 +35,6 @@ from app.dependencies.auth import (
 )
 from app.dependencies.services import get_gcp_storage_client
 from app.models import get_session
-
-# Set test environment
-os.environ["APP_ENV"] = "testing"
 
 
 @pytest.fixture(autouse=True)
@@ -206,7 +208,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
     _apply_auth_overrides(app)
     _apply_gcp_override(app)
 
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url="http://testserver/api") as test_client:
         yield test_client
 
 
@@ -230,7 +232,7 @@ async def async_client(
     from httpx import ASGITransport
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
@@ -265,7 +267,9 @@ async def client_with_overrides(
                 app.dependency_overrides[dep] = override
 
             return await stack.enter_async_context(
-                AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+                AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test/api"
+                )
             )
 
         yield _make
@@ -475,7 +479,7 @@ async def authed_async_client(
     _apply_gcp_override(app)
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
