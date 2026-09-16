@@ -129,6 +129,7 @@ async def initialize_driver(
         to=register_request.email,
         context={
             "Name_To_Replace": driver_name if driver_name else "Driver",
+            "Role_To_Replace": "driver",
             "Sign_Up_URL": driver_signup_url,
             "Hours_Till_Expiry": 48,
         },

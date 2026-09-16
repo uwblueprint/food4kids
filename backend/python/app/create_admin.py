@@ -119,6 +119,7 @@ async def create_admin_account(
         to=email,
         context={
             "Name_To_Replace": f"{first_name} {last_name}",
+            "Role_To_Replace": "admin",
             "Sign_Up_URL": build_invite_url(invite.user_invite_id),
             "Hours_Till_Expiry": INVITE_VALID_HOURS,
         },

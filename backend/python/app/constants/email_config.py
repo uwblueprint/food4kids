@@ -14,9 +14,10 @@ class EmailTemplateConfig(TypedDict):
 EMAIL_TEMPLATES: dict[str, EmailTemplateConfig] = {
     "account-creation": {
         "filename": "account-creation.html",
-        "default_subject": "Your Food4Kids Driver Account is Ready",
+        "default_subject": "Your Food4Kids {{ Role_To_Replace | capitalize }} Account is Ready",
         "required_context": [
             "Name_To_Replace",
+            "Role_To_Replace",
             "Sign_Up_URL",
             "Hours_Till_Expiry",
         ],
