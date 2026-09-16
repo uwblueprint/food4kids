@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { refreshSession } from '@/lib/axiosClient';
+import { isRefreshRefusal, refreshSession } from '@/lib/axiosClient';
 
 import { useAuthStore } from './authStore';
 import {
@@ -66,7 +66,11 @@ export function useRefresh() {
         // token that aged out under an open tab restore the session identically.
         return await refreshSession();
       } catch (error) {
-        clearAuth();
+        // Only a refused cookie means there is no session. A network error or
+        // a 5xx leaves it in place, and AuthProvider offers a retry.
+        if (isRefreshRefusal(error)) {
+          clearAuth();
+        }
         throw error;
       }
     },
