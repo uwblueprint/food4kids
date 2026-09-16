@@ -11,6 +11,7 @@ import {
 } from 'react-day-picker';
 
 import { Button } from '@/common/components/Button';
+import { toNaiveDateString } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 function Calendar({
@@ -190,7 +191,7 @@ function CalendarDayButton({
       ref={ref}
       variant="primary"
       shape="circular"
-      data-day={day.date.toLocaleDateString()}
+      data-day={toNaiveDateString(day.date)}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

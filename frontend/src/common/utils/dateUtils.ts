@@ -34,6 +34,14 @@ export const parseDateOnly = (isoDate: string): Date => {
 };
 
 /**
+ * True when `date` falls on a calendar day before today. Compares the naive
+ * "YYYY-MM-DD" strings so the answer matches the day the admin sees in the
+ * calendar, whatever time of day it is.
+ */
+export const isPastDate = (date: Date): boolean =>
+  toNaiveDateString(date) < toNaiveDateString(new Date());
+
+/**
  * Format a drive date as "Aug 31" — the form the driver and admin views show
  * beside a route. Goes through `parseDateOnly`, so the day it names is the day
  * the backend sent rather than the one the host clock lands on.

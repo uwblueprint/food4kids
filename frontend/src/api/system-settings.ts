@@ -4,14 +4,6 @@ import {
   getOrgContactOptions,
   getSystemSettingsOptions,
 } from './generated/@tanstack/react-query.gen';
-import type { SystemSettingsRead } from './generated/types.gen';
-
-// `undefined` only — the in-flight state. The API no longer answers null.
-export function getConfiguredDeliveryTypes(
-  settings: SystemSettingsRead | undefined
-) {
-  return settings?.delivery_types ?? [];
-}
 
 export function useSystemSettings() {
   return useQuery(getSystemSettingsOptions());

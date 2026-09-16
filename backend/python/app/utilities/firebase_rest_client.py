@@ -1,8 +1,8 @@
 import logging
-import os
 
 import requests
 
+from app.config import settings
 from app.schemas.auth import TokenResponse
 
 FIREBASE_SIGN_IN_URL = (
@@ -54,9 +54,7 @@ class FirebaseRestClient:
         # IMPORTANT: must convert data to string as otherwise the payload will get URL-encoded
         # e.g. "@" in the email address will get converted to "%40" which is incorrect
         response = requests.post(
-            "{base_url}?key={api_key}".format(
-                base_url=FIREBASE_SIGN_IN_URL, api_key=os.getenv("FIREBASE_WEB_API_KEY")
-            ),
+            f"{FIREBASE_SIGN_IN_URL}?key={settings.firebase_web_api_key}",
             headers=headers,
             data=str(data),
         )
@@ -95,10 +93,7 @@ class FirebaseRestClient:
         data = f"grant_type=refresh_token&refresh_token={ref_token}"
 
         response = requests.post(
-            "{base_url}?key={api_key}".format(
-                base_url=FIREBASE_REFRESH_TOKEN_URL,
-                api_key=os.getenv("FIREBASE_WEB_API_KEY"),
-            ),
+            f"{FIREBASE_REFRESH_TOKEN_URL}?key={settings.firebase_web_api_key}",
             headers=headers,
             data=data,
         )

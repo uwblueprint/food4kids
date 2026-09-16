@@ -18,7 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/common/components';
-import { formatShortDate, toNaiveDateString } from '@/common/utils';
+import { formatShortDate, isPastDate, toNaiveDateString } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 interface DuplicateRouteGroupModalProps {
@@ -29,6 +29,9 @@ interface DuplicateRouteGroupModalProps {
   /** Called with the copy's id so the table can highlight and scroll to it. */
   onDuplicated: (routeGroupId: string) => void;
 }
+
+const DUPLICATE_ERROR =
+  'Something went wrong duplicating the group. Please try again.';
 
 /** What the copy inherits from the original, shown in the summary block. */
 function CopiedField({ label, value }: { label: string; value: string }) {
@@ -49,6 +52,7 @@ export function DuplicateRouteGroupModal({
   const defaultName = `${routeGroup.name} (Copy)`;
   const [name, setName] = useState(defaultName);
   const [date, setDate] = useState<Date | undefined>(undefined);
+  const [copyDrivers, setCopyDrivers] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const {
     mutate: duplicateRouteGroup,
@@ -64,6 +68,7 @@ export function DuplicateRouteGroupModal({
     if (!next) {
       setName(defaultName);
       setDate(undefined);
+      setCopyDrivers(true);
       setCalendarOpen(false);
       reset();
     }
@@ -76,7 +81,8 @@ export function DuplicateRouteGroupModal({
         path: { route_group_id: routeGroup.route_group_id },
         body: {
           name: name.trim(),
-          drive_date: `${toNaiveDateString(date)}T00:00:00`,
+          drive_date: toNaiveDateString(date),
+          copy_drivers: copyDrivers,
         },
       },
       {
@@ -87,6 +93,12 @@ export function DuplicateRouteGroupModal({
       }
     );
   };
+
+  // A backdated copy is allowed on purpose (backfilling a delivery that
+  // already happened), but it gets frozen into driver history the same night.
+  // The warning sits under the date, where it can still be changed, and the
+  // action renames itself so confirming stays a deliberate act.
+  const isBackdated = !!date && isPastDate(date);
 
   return (
     <Modal open={open} onOpenChange={handleOpenChange}>
@@ -140,6 +152,31 @@ export function DuplicateRouteGroupModal({
                 />
               </PopoverContent>
             </Popover>
+            {isBackdated && date && (
+              <FieldDescription error>
+                {formatShortDate(toNaiveDateString(date))} has already passed,
+                so the route group will be considered a completed delivery and
+                count towards monthly delivery reports and any assigned
+                drivers&apos; history.
+              </FieldDescription>
+            )}
+          </Field>
+
+          <Field>
+            <label className="text-p2 text-grey-500 flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                checked={copyDrivers}
+                onChange={(e) => setCopyDrivers(e.target.checked)}
+                className="border-grey-300 size-4 cursor-pointer rounded-[4px] accent-blue-300"
+              />
+              Copy driver assignments
+            </label>
+            <FieldDescription>
+              {routeGroup.num_drivers_assigned ?? 0} of {routeGroup.num_routes}{' '}
+              {routeGroup.num_routes === 1 ? 'route has' : 'routes have'} a
+              driver. Uncheck to leave every copied route unassigned.
+            </FieldDescription>
           </Field>
 
           <div className="flex flex-col gap-3">
@@ -166,16 +203,14 @@ export function DuplicateRouteGroupModal({
 
         <div className="flex items-center justify-end gap-4">
           {isError && (
-            <FieldDescription error>
-              Something went wrong duplicating the group. Please try again.
-            </FieldDescription>
+            <FieldDescription error>{DUPLICATE_ERROR}</FieldDescription>
           )}
           <Button
             variant="primary"
             disabled={!isValid || isPending}
             onClick={handleSubmit}
           >
-            Duplicate group
+            {isBackdated ? 'Duplicate anyway' : 'Duplicate group'}
           </Button>
         </div>
       </ModalContent>

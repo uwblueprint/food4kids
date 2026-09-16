@@ -2,7 +2,7 @@ from typing import Literal, cast
 
 from fastapi import Response
 
-from app.config import settings
+from app.config import Environment, settings
 
 # Refresh tokens last 30 days
 REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60
@@ -16,7 +16,10 @@ def get_cookie_options() -> dict[str, bool | Literal["none", "strict", "lax"]]:
     return {
         "httponly": True,
         "samesite": samesite,
-        "secure": settings.is_production,
+        # Browsers drop a SameSite=None cookie that is not also Secure, so a
+        # preview deploy needs it as much as production does.
+        "secure": settings.preview_deploy
+        or settings.environment is Environment.PRODUCTION,
     }
 
 

@@ -14,7 +14,11 @@ import {
   RouteGroupsTab,
   RouteRoutesTab,
 } from './components';
-import { useAddressesTabState, useGroupsTabState } from './hooks';
+import {
+  useAddressesTabState,
+  useGroupsTabState,
+  useRoutesTabState,
+} from './hooks';
 
 const TABS = ['groups', 'routes', 'addresses'] as const;
 type RoutesTab = (typeof TABS)[number];
@@ -23,7 +27,11 @@ const isTab = (value: string | null): value is RoutesTab =>
   TABS.includes(value as RoutesTab);
 
 export const AdminRoutesPage = () => {
+  // Every tab's state is held here, not inside the tab: Radix unmounts the
+  // inactive panel, which would throw away a search, filters, and page each
+  // time the reader looked at another tab.
   const groupsState = useGroupsTabState();
+  const routesState = useRoutesTabState();
   const addressesState = useAddressesTabState();
 
   // The tab lives in the URL so a refresh, a bookmark, or a link keeps the
@@ -64,7 +72,7 @@ export const AdminRoutesPage = () => {
         <RouteGroupsTab {...groupsState} />
       </TabsContent>
       <TabsContent value="routes">
-        <RouteRoutesTab />
+        <RouteRoutesTab {...routesState} />
       </TabsContent>
       <TabsContent value="addresses">
         <RouteAddressesTab {...addressesState} />
