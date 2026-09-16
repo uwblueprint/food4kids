@@ -77,6 +77,9 @@ jobs:
           POSTGRES_DB_TEST: f4k_test
           DB_HOST: localhost
           TEST_DATABASE_URL: "postgresql+asyncpg://postgres:password@127.0.0.1:5432/f4k_test"
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          # Deliberately fake. The suite mocks every Maps call, so CI has no
+          # business holding a working key — a real one here means a green run
+          # can quietly spend the app's daily quota.
+          GOOGLE_MAPS_API_KEY: AIzaSyDUMMY-not-a-real-key-for-tests
         run: |
           pytest -q --disable-warnings -ra

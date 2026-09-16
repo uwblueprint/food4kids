@@ -13,7 +13,7 @@ export default function CheckLatestAnnouncementsEmail() {
         </Heading>
         
         <Text className="text-[16px] leading-[24px] text-grey-500 m-0 mb-[24px]">
-            Hi {"{{ Driver_Name_To_Replace }}"},
+            Hi {"{{ Name_To_Replace }}"},
         </Text>
         <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
             There's a new announcement from the Food4Kids team:

@@ -179,7 +179,7 @@ class AnnouncementService:
 
         for user in drivers:
             context = {
-                "Driver_Name_To_Replace": user.full_name,
+                "Name_To_Replace": user.full_name,
                 "Announcement_Name": announcement.subject,
                 "Announcement_Body": announcement.message,
                 "Announcement_URL": announcement_url,

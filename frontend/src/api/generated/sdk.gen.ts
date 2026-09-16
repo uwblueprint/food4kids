@@ -14,9 +14,6 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
-  CompleteDriverRegistrationData,
-  CompleteDriverRegistrationErrors,
-  CompleteDriverRegistrationResponses,
   CreateAnnouncementData,
   CreateAnnouncementErrors,
   CreateAnnouncementResponses,
@@ -167,17 +164,15 @@ import type {
   PreviewLocationImportResponses,
   RefreshData,
   RefreshResponses,
+  RegisterData,
+  RegisterErrors,
+  RegisterResponses,
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
-  TestData,
-  TestEventEmailData,
-  TestEventEmailErrors,
-  TestEventEmailResponses,
-  TestResponses,
   UpdateAnnouncementData,
   UpdateAnnouncementErrors,
   UpdateAnnouncementResponses,
@@ -227,21 +222,6 @@ export type Options<
    */
   meta?: Record<string, unknown>;
 };
-
-/**
- * Test
- *
- * Admin only route example
- */
-export const test = <ThrowOnError extends boolean = false>(
-  options?: Options<TestData, ThrowOnError>
-) =>
-  (options?.client ?? client).get<TestResponses, unknown, ThrowOnError>({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/admins/test',
-    ...options,
-  });
 
 /**
  * Get Announcements
@@ -451,6 +431,39 @@ export const refresh = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Register
+ *
+ * Finish an invited account: create the Firebase user, stamp its role claim,
+ * fill in ``users.auth_id``, burn the invite, and log the caller in.
+ *
+ * Deliberately role-agnostic. ``UserInvite`` doesn't distinguish a driver from
+ * an admin and ``link_firebase_to_user`` reads the role off the user row, so
+ * one endpoint serves both — a driver invited by an admin and an admin created
+ * by ``python -m app.create_admin`` follow the identical link and page.
+ *
+ * Unauthenticated by necessity: the caller has no account yet. The invite id
+ * in the body *is* the credential — a single-use, 48-hour, unguessable UUID
+ * bound to one pre-created user row. It grants exactly the role that row
+ * already carries, so possession of a link can never escalate anyone.
+ */
+export const register = <ThrowOnError extends boolean = false>(
+  options: Options<RegisterData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    RegisterResponses,
+    RegisterErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/auth/register',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Update Password
  *
  * Update an existing user's password if provided a valid password reset token
@@ -557,49 +570,6 @@ export const initializeDriver = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
-  });
-
-/**
- * Complete Driver Registration
- *
- * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
- */
-export const completeDriverRegistration = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<CompleteDriverRegistrationData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    CompleteDriverRegistrationResponses,
-    CompleteDriverRegistrationErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/drivers/register',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Test Event Email
- *
- * Temporary endpoint to test event-driven emails.
- * Delete this after testing!
- */
-export const testEventEmail = <ThrowOnError extends boolean = false>(
-  options: Options<TestEventEmailData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    TestEventEmailResponses,
-    TestEventEmailErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/drivers/test-event-email',
-    ...options,
   });
 
 /**

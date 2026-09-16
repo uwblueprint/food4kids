@@ -130,6 +130,13 @@ class TestUpdateModelsNormalize:
         with pytest.raises(ValidationError):
             AdminUpdate(admin_phone="555-1234")
 
+    def test_admin_update_clears_phone_on_explicit_null(self) -> None:
+        """Nullable column, so ``{"admin_phone": null}`` means "clear it"."""
+        assert AdminUpdate(admin_phone=None).admin_phone is None
+
+    def test_admin_update_omitting_phone_is_unchanged(self) -> None:
+        assert AdminUpdate(first_name="Emily").admin_phone is None
+
     def test_location_update_normalizes_both_numbers(self) -> None:
         update = LocationUpdate(
             phone_primary="(519) 576-3443",
@@ -151,17 +158,14 @@ class TestUpdateModelsRejectExplicitNull:
     """A non-nullable phone column must reject an explicit ``null``.
 
     The ``None`` default means "field omitted" and never reaches a validator,
-    so a client sending ``{"admin_phone": null}`` would otherwise assign None
+    so a client sending ``{"phone_primary": null}`` would otherwise assign None
     onto the row and fail as an IntegrityError at commit — a 500 — instead of
     a 422 naming the field.
+
+    ``admin_info.admin_phone`` is nullable, so it is deliberately *not* in this
+    class — an explicit ``null`` clears it. See
+    ``TestUpdateModelsNormalize.test_admin_update_clears_phone_on_explicit_null``.
     """
-
-    def test_admin_update_rejects_null_phone(self) -> None:
-        with pytest.raises(ValidationError):
-            AdminUpdate(admin_phone=None)
-
-    def test_admin_update_still_allows_omitting_phone(self) -> None:
-        assert AdminUpdate(first_name="Emily").admin_phone is None
 
     def test_location_update_rejects_null_primary(self) -> None:
         with pytest.raises(ValidationError):

@@ -714,16 +714,6 @@ export type DriverRegister = {
 };
 
 /**
- * DriverRegisterResponse
- *
- * Driver registration response - contains Driver object and AuthResponse
- */
-export type DriverRegisterResponse = {
-  auth: AuthResponse;
-  driver: DriverRead;
-};
-
-/**
  * DriverUpdate
  */
 export type DriverUpdate = {
@@ -2704,16 +2694,6 @@ export type DriverReadWritable = {
 };
 
 /**
- * DriverRegisterResponse
- *
- * Driver registration response - contains Driver object and AuthResponse
- */
-export type DriverRegisterResponseWritable = {
-  auth: AuthResponseWritable;
-  driver: DriverReadWritable;
-};
-
-/**
  * LocationImportResult
  *
  * What POST /locations/import returns: what it actually did.
@@ -2884,24 +2864,6 @@ export type PaginatedResponseLocationReadWritable = {
    */
   total_pages: number;
 };
-
-export type TestData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/admins/test';
-};
-
-export type TestResponses = {
-  /**
-   * Response Test
-   *
-   * Successful Response
-   */
-  200: string;
-};
-
-export type TestResponse = TestResponses[keyof TestResponses];
 
 export type GetAnnouncementsData = {
   body?: never;
@@ -3182,6 +3144,31 @@ export type RefreshResponses = {
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
 
+export type RegisterData = {
+  body: UserFinalize;
+  path?: never;
+  query?: never;
+  url: '/auth/register';
+};
+
+export type RegisterErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RegisterError = RegisterErrors[keyof RegisterErrors];
+
+export type RegisterResponses = {
+  /**
+   * Successful Response
+   */
+  201: AuthResponse;
+};
+
+export type RegisterResponse = RegisterResponses[keyof RegisterResponses];
+
 export type UpdatePasswordData = {
   body: UpdatePasswordRequest;
   path?: never;
@@ -3331,69 +3318,6 @@ export type InitializeDriverResponses = {
 
 export type InitializeDriverResponse =
   InitializeDriverResponses[keyof InitializeDriverResponses];
-
-export type CompleteDriverRegistrationData = {
-  body: UserFinalize;
-  path?: never;
-  query?: never;
-  url: '/drivers/register';
-};
-
-export type CompleteDriverRegistrationErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CompleteDriverRegistrationError =
-  CompleteDriverRegistrationErrors[keyof CompleteDriverRegistrationErrors];
-
-export type CompleteDriverRegistrationResponses = {
-  /**
-   * Successful Response
-   */
-  201: DriverRegisterResponse;
-};
-
-export type CompleteDriverRegistrationResponse =
-  CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
-
-export type TestEventEmailData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Test Email
-     */
-    test_email: string;
-  };
-  url: '/drivers/test-event-email';
-};
-
-export type TestEventEmailErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type TestEventEmailError =
-  TestEventEmailErrors[keyof TestEventEmailErrors];
-
-export type TestEventEmailResponses = {
-  /**
-   * Response Test Event Email
-   *
-   * Successful Response
-   */
-  200: {
-    [key: string]: string;
-  };
-};
-
-export type TestEventEmailResponse =
-  TestEventEmailResponses[keyof TestEventEmailResponses];
 
 export type DeleteDriverData = {
   body?: never;
