@@ -41,7 +41,8 @@ const REFRESH_PATH = '/auth/refresh';
  * nothing about the cookie.
  */
 export function isRefreshRefusal(error: unknown): error is AxiosError {
-  const status = isAxiosError(error) ? error.response?.status : undefined;
+  if (!isAxiosError(error)) return false;
+  const status = error.response?.status;
   return status !== undefined && status >= 400 && status < 500;
 }
 
