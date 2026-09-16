@@ -26,7 +26,7 @@ from app.models.driver import (
     DriverUpdate,
 )
 from app.models.user import UserBase
-from app.models.user_invite import UserInviteCreate
+from app.models.user_invite import INVITE_VALID_HOURS, UserInviteCreate
 from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
@@ -131,7 +131,7 @@ async def initialize_driver(
             "Name_To_Replace": driver_name if driver_name else "Driver",
             "Role_To_Replace": "driver",
             "Sign_Up_URL": driver_signup_url,
-            "Hours_Till_Expiry": 48,
+            "Hours_Till_Expiry": INVITE_VALID_HOURS,
         },
     )
 

@@ -27,7 +27,6 @@ from sqlmodel import func, select
 import app.models as models
 from app.config import settings
 from app.create_admin import (
-    INVITE_VALID_HOURS,
     MAILER_SETTINGS,
     EmailAlreadyRegisteredError,
     _run,
@@ -37,7 +36,7 @@ from app.create_admin import (
 from app.models.admin import Admin
 from app.models.driver import Driver
 from app.models.user import User
-from app.models.user_invite import UserInvite
+from app.models.user_invite import INVITE_VALID_HOURS, UserInvite
 from app.schemas.auth import AuthResponse
 from app.utilities.utils import build_invite_url
 
@@ -83,12 +82,11 @@ class TestCreateAdminCli:
 
         assert invite.user_id == user.user_id
         assert invite.is_used is False
-        assert invite.expires_at > datetime.now(timezone.utc)
-        # The 48h default is the product decision; pin it so a silent change to
-        # UserInviteBase can't quietly shorten or extend what the CLI promises.
-        assert invite.expires_at < datetime.now(timezone.utc) + timedelta(days=2)
-        assert invite.expires_at > datetime.now(timezone.utc) + timedelta(
-            days=2, minutes=-5
+        # Expires when the email says it does.
+        valid_for = timedelta(hours=INVITE_VALID_HOURS)
+        assert invite.expires_at < datetime.now(timezone.utc) + valid_for
+        assert invite.expires_at > datetime.now(timezone.utc) + valid_for - timedelta(
+            minutes=5
         )
 
         # The link reaches the person only through this email, so the context

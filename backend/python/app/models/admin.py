@@ -13,19 +13,13 @@ class AdminBase(SQLModel):
     """Shared fields between table and API models"""
 
     receive_email_notifications: bool = Field(default=True, nullable=False)
-    # Optional: an admin bootstrapped from the CLI may not have a number on
-    # file, and inventing a placeholder to satisfy a NOT NULL would be worse
-    # than storing nothing. Same treatment as the driver columns.
+    # Optional: an admin bootstrapped from the CLI may not have a number on file.
     admin_phone: str | None = Field(default=None, max_length=100)
 
     @field_validator("admin_phone")
     @classmethod
     def validate_phone(cls, v: str | None) -> str | None:
-        """Validate the number when there is one; absence is allowed.
-
-        An empty string means "no number", not "a phone that passes
-        validation" — it normalizes to NULL rather than being stored as ''.
-        """
+        """Validate when present; an empty string is absence and stores NULL."""
         return validate_phone(v) if v else None
 
 
@@ -72,9 +66,7 @@ class AdminUpdate(SQLModel):
     """Update request model - all optional"""
 
     # admin-specific
-    # The column is nullable now, so an explicit ``null`` is a legitimate
-    # "clear this number" rather than something to reject — the guard that used
-    # to turn it into a 422 is gone, matching how DriverUpdate treats phone.
+    # An explicit ``null`` clears the number, same as DriverUpdate's phone.
     admin_phone: str | None = Field(default=None, max_length=100)
 
     @field_validator("admin_phone")

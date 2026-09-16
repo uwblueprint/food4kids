@@ -43,13 +43,9 @@ from app.config import settings
 from app.dependencies.services import get_email_dispatcher
 from app.models.admin import Admin
 from app.models.user import User
-from app.models.user_invite import UserInvite
+from app.models.user_invite import INVITE_VALID_HOURS, UserInvite
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.utilities.utils import build_invite_url
-
-# Kept in sync with UserInviteBase.expires_at's default (48 hours); it is what
-# the email and the operator message both quote.
-INVITE_VALID_HOURS = 48
 
 MAILER_SETTINGS = (
     "mailer_user",
@@ -74,11 +70,8 @@ async def create_admin_account(
 ) -> UserInvite:
     """Insert the admin user, its ``admin_info`` row, and its invite, then email it.
 
-    Flushes but does not commit, so the caller owns the transaction and a
-    failure anywhere — the email not sending included — leaves no partial
-    account behind. Sending inside the transaction is what makes that true:
-    an invite that exists but was never delivered is unreachable, since the
-    link is not printed.
+    Flushes but does not commit: the caller owns the transaction, so a failed
+    send rolls the rows back with it.
 
     :raises EmailAlreadyRegisteredError: the address is already taken. Checked
         up front for a readable message; the unique index is still the real
@@ -207,9 +200,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         user_invite_id = asyncio.run(_run(args.email, args.name, args.phone))
-    # ValidationError subclasses ValueError, so it has to be caught first or the
-    # branch is dead. It reports a bad --email or --phone, and pydantic's own
-    # rendering names the offending field — worth keeping over a one-liner.
+    # ValidationError subclasses ValueError, so it must come first.
     except ValidationError as e:
         print(f"error: invalid input\n{e}", file=sys.stderr)
         return 1
