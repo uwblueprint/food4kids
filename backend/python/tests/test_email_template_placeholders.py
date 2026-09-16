@@ -137,3 +137,5 @@ def test_account_creation_copy_follows_the_role(
     assert f"not an F4K Waterloo {role}" in rendered
     assert greeting in rendered
     assert absent not in rendered
+    # The ``{% if %}`` around the greeting must resolve, not reach the inbox.
+    assert "{%" not in rendered and "%}" not in rendered
