@@ -49,6 +49,7 @@ vi.mock('./pages/driver', () => ({
 vi.mock('./pages/auth', () => ({
   CreatePassword: stub('create-password'),
   ForgotPassword: stub('forgot-password'),
+  GetLoginLink: stub('get-login-link'),
   LoginPage: stub('login'),
   ResetPassword: stub('reset-password'),
 }));
