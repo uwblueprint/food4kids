@@ -86,6 +86,7 @@ class RouteStopDetailRead(SQLModel):
     """
 
     stop_number: int
+    location_id: UUID
     address: str
     contact_name: str
     phone_primary: str

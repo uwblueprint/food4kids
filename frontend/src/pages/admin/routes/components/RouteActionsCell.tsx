@@ -10,10 +10,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/common/components';
+import { parseDateOnly } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { DeleteRouteModal } from './DeleteRouteModal';
 import { ReassignDriverModal } from './ReassignDriverModal';
+
+/** "Oct 18" — short date for the dialog's context line. */
+const formatContextDate = (isoDate: string): string =>
+  parseDateOnly(isoDate).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
 
 interface RouteActionsCellProps {
   row: RouteWithDateRead;
@@ -106,7 +114,13 @@ export function RouteActionsCell({ row, onUpdated }: RouteActionsCellProps) {
       <ReassignDriverModal
         open={reassignOpen}
         onOpenChange={setReassignOpen}
-        route={row}
+        routeId={row.route_id}
+        currentDriverName={row.driver_name}
+        contextLabel={
+          <>
+            {row.name} • {row.group_name} • {formatContextDate(row.drive_date)}
+          </>
+        }
         onUpdated={onUpdated}
       />
     </>

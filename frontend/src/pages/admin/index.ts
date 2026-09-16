@@ -1,5 +1,6 @@
 export { AdminDriversPage } from './drivers/AdminDriversPage';
 export { AdminHomePage } from './home/AdminHomePage';
+export { AdminIndividualRoutePage } from './routes/AdminIndividualRoutePage';
 export { AdminRoutesPage } from './routes/AdminRoutesPage';
 export {
   AdminRoutesGenerationLayout,
