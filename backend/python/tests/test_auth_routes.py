@@ -32,6 +32,7 @@ from app.dependencies.services import (
 from app.models.driver import Driver
 from app.models.user import User
 from app.models.user_invite import UserInvite
+from app.routers.auth_routes import RESEND_EMAIL_COOLDOWN_SECONDS
 from app.schemas.auth import TokenResponse
 from app.services.implementations.auth_service import (
     REAUTH_REQUIRED_FIREBASE_CODES,
@@ -475,7 +476,13 @@ class TestResendOnboardingEmail:
                 car_make_model="Honda Civic",
             )
         )
-        old_invite = UserInvite(user_id=user.user_id)
+        # Old enough to be past the resend cooldown, or the endpoint would
+        # (correctly) suppress the email instead of replacing the invite.
+        old_invite = UserInvite(
+            user_id=user.user_id,
+            created_at=datetime.now(timezone.utc)
+            - timedelta(seconds=RESEND_EMAIL_COOLDOWN_SECONDS + 1),
+        )
         test_session.add(old_invite)
         await test_session.commit()
         old_invite_id = old_invite.user_invite_id
