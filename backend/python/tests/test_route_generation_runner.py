@@ -42,6 +42,10 @@ WAREHOUSE_LAT = 43.6532
 WAREHOUSE_LON = -79.3832
 POLYLINE_KM = 12.5
 DRIVE_DATE = datetime(2026, 6, 1, 8, 0)
+# Stand-ins for the system_settings row; the schema has no defaults for these.
+CONFIGURED_BOXES_PER_CAR = 10
+CONFIGURED_CHILDREN_PER_BOX = 2
+CONFIGURED_DROPOFF_MINUTES = 3
 
 
 class FakeRoutingAlgorithm:
@@ -133,7 +137,11 @@ async def _queue_running_job(
     request = RouteGenerationGroupInput(
         location_group=requested_group,
         settings=RouteGenerationSettings(
-            route_start_time=DRIVE_DATE, num_routes=num_routes
+            route_start_time=DRIVE_DATE,
+            num_routes=num_routes,
+            max_boxes_per_driver=CONFIGURED_BOXES_PER_CAR,
+            children_per_box=CONFIGURED_CHILDREN_PER_BOX,
+            service_time_minutes=CONFIGURED_DROPOFF_MINUTES,
         ),
     )
     job = Job(

@@ -1669,16 +1669,23 @@ export type RouteGenerationGroupInput = {
  * Settings for route generation.
  *
  * These are not persisted to the database; used as inputs to services.
+ *
+ * The three configured numbers below — ``max_boxes_per_driver``,
+ * ``children_per_box`` and ``service_time_minutes`` — are required, with no
+ * schema-level defaults. They come from the ``system_settings`` row (see
+ * ``SystemSettings.boxes_per_car`` / ``children_per_box`` /
+ * ``dropoff_minutes``), and a default here would silently outrank whatever the
+ * org configured whenever a caller dropped the key. Omitting one is a 422.
  */
 export type RouteGenerationSettings = {
   /**
    * Children Per Box
    */
-  children_per_box?: number;
+  children_per_box: number;
   /**
    * Max Boxes Per Driver
    */
-  max_boxes_per_driver?: number;
+  max_boxes_per_driver: number;
   /**
    * Num Routes
    */
@@ -1694,7 +1701,7 @@ export type RouteGenerationSettings = {
   /**
    * Service Time Minutes
    */
-  service_time_minutes?: number;
+  service_time_minutes: number;
 };
 
 /**

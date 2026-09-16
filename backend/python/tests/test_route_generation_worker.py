@@ -126,7 +126,14 @@ async def _queue_pending_job(
 ) -> Job:
     request = RouteGenerationGroupInput(
         location_group=group,
-        settings=RouteGenerationSettings(route_start_time=DRIVE_DATE, num_routes=1),
+        settings=RouteGenerationSettings(
+            route_start_time=DRIVE_DATE,
+            num_routes=1,
+            # No schema defaults: the request carries what settings configured.
+            max_boxes_per_driver=10,
+            children_per_box=2,
+            service_time_minutes=3,
+        ),
     )
     async with maker() as session:
         job = Job(

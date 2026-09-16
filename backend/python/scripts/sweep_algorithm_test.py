@@ -42,22 +42,23 @@ from app.services.implementations.sweep_clustering import (
 # Use the same connection string as seed_database.py
 DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
 
-# Children-per-box divisor for box estimates in this dev script.
-CHILDREN_PER_BOX = 2
+# Capacity and box sizing are read from the system_settings row at run time —
+# this script plans against whatever the org has configured, never a copy.
 
 # Minimum drivers for exact-N mode; actual count scales up with total boxes.
-NUM_CLUSTERS = 10
-MAX_BOXES_PER_CLUSTER = 14
+MIN_CLUSTERS = 10
 CLUSTER_DETAIL_PRINT_LIMIT = 15
 
 OUTPUT_DIR = "./app/data"
 
 
-def _num_clusters_for_exact(total_boxes: int, far_count: int = 0) -> int:
+def _num_clusters_for_exact(
+    total_boxes: int, max_boxes_per_cluster: int, far_count: int = 0
+) -> int:
     """Enough drivers for the box cap; extra headroom when far routes hit time budget."""
-    box_floor = math.ceil(total_boxes / MAX_BOXES_PER_CLUSTER)
+    box_floor = math.ceil(total_boxes / max_boxes_per_cluster)
     # Distant far stops can fill the soft time cap before the box cap binds.
-    return max(NUM_CLUSTERS, box_floor + 2 * far_count)
+    return max(MIN_CLUSTERS, box_floor + 2 * far_count)
 
 
 def _unique_hex_palette(count: int) -> list[str]:
@@ -243,6 +244,7 @@ def _save_far_delivery_plot(
 def _print_and_collect_rows(
     clusters: list[list[Location]],
     algo: SweepClusteringAlgorithm,
+    children_per_box: int,
 ) -> list[dict[str, object]]:
     df_rows: list[dict[str, object]] = []
     print_details = len(clusters) <= CLUSTER_DETAIL_PRINT_LIMIT
@@ -254,7 +256,7 @@ def _print_and_collect_rows(
             far_label = _far_reason_label(algo, location)
             if far_label != "near":
                 cluster_has_far = True
-            cluster_boxes += effective_boxes(location, CHILDREN_PER_BOX)
+            cluster_boxes += effective_boxes(location, children_per_box)
             df_rows.append(
                 _location_plot_row(location, group=index, far_label=far_label)
             )
@@ -271,7 +273,7 @@ def _print_and_collect_rows(
                 print(f"  • {name}" + (" [FAR]" if far_label != "near" else ""))
                 print(f"    {location.address}")
                 print(
-                    f"    Boxes: {effective_boxes(location, CHILDREN_PER_BOX)} | {far_label}"
+                    f"    Boxes: {effective_boxes(location, children_per_box)} | {far_label}"
                 )
             far_note = " (includes far — max 5 stops/route)" if cluster_has_far else ""
             print(f"\n  Total boxes in cluster: {cluster_boxes}{far_note}")
@@ -388,6 +390,10 @@ async def main() -> None:
         warehouse_lat: float = warehouse_lat_opt
         warehouse_lon: float = warehouse_lon_opt
 
+        children_per_box = system_settings.children_per_box
+        max_boxes_per_cluster = system_settings.boxes_per_car
+        service_minutes_per_stop = system_settings.dropoff_minutes
+
         print(
             f"Using warehouse from system settings: ({warehouse_lat}, {warehouse_lon})\n"
         )
@@ -395,7 +401,8 @@ async def main() -> None:
         clustering_algo = SweepClusteringAlgorithm(
             warehouse_lat=warehouse_lat,
             warehouse_lon=warehouse_lon,
-            children_per_box=CHILDREN_PER_BOX,
+            children_per_box=children_per_box,
+            service_minutes_per_stop=service_minutes_per_stop,
         )
 
         _print_far_summary(locations, clustering_algo)
@@ -407,29 +414,33 @@ async def main() -> None:
         far_count = sum(
             1 for loc in locations if clustering_algo._location_metrics(loc).is_far
         )
-        total_boxes = sum(effective_boxes(loc, CHILDREN_PER_BOX) for loc in locations)
+        total_boxes = sum(effective_boxes(loc, children_per_box) for loc in locations)
 
-        num_clusters_exact = _num_clusters_for_exact(total_boxes, far_count)
+        num_clusters_exact = _num_clusters_for_exact(
+            total_boxes, max_boxes_per_cluster, far_count
+        )
 
         print(f"Total effective boxes: {total_boxes}")
         print(f"Total locations: {len(locations)}")
 
         print("\nRunning Sweep clustering (EXACT num_clusters):")
         print(f"  - Number of clusters: {num_clusters_exact}")
-        print(f"  - Max boxes per cluster: {MAX_BOXES_PER_CLUSTER}")
+        print(f"  - Max boxes per cluster: {max_boxes_per_cluster}")
         print("-" * 60)
 
         try:
             clusters_exact = await clustering_algo.cluster_locations(
                 locations=locations,
                 num_clusters=num_clusters_exact,
-                max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
+                max_boxes_per_cluster=max_boxes_per_cluster,
                 timeout_seconds=120.0,
             )
 
             print("\nClustering Results (EXACT num_clusters):")
             print("=" * 60)
-            rows_exact = _print_and_collect_rows(clusters_exact, clustering_algo)
+            rows_exact = _print_and_collect_rows(
+                clusters_exact, clustering_algo, children_per_box
+            )
 
             _save_cluster_plot(
                 rows_exact,
@@ -457,19 +468,21 @@ async def main() -> None:
             traceback.print_exc()
 
         print("\nRunning Sweep clustering (PACK until constraints hit):")
-        print(f"  - Max boxes per cluster: {MAX_BOXES_PER_CLUSTER}")
+        print(f"  - Max boxes per cluster: {max_boxes_per_cluster}")
         print("-" * 60)
 
         try:
             clusters_packed = await clustering_algo.cluster_locations_by_constraints(
                 locations=locations,
-                max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
+                max_boxes_per_cluster=max_boxes_per_cluster,
                 timeout_seconds=120.0,
             )
 
             print("\nClustering Results (PACKED):")
             print("=" * 60)
-            rows_packed = _print_and_collect_rows(clusters_packed, clustering_algo)
+            rows_packed = _print_and_collect_rows(
+                clusters_packed, clustering_algo, children_per_box
+            )
 
             _save_cluster_plot(
                 rows_packed,
