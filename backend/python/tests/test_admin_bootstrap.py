@@ -4,7 +4,7 @@ Two halves have to line up for an admin account to work at all, and only one of
 them lives in Postgres:
 
 * ``python -m app.create_admin`` writes the ``users``/``admin_info``/
-  ``user_invites`` rows and prints a create-password link;
+  ``user_invites`` rows and emails the create-password link;
 * ``POST /auth/register`` turns that link into a Firebase user carrying the
   ``role: admin`` custom claim, and writes ``auth_id`` back onto the row.
 
@@ -24,8 +24,13 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import func, select
 
+import app.models as models
+from app.config import settings
 from app.create_admin import (
+    INVITE_VALID_HOURS,
+    MAILER_SETTINGS,
     EmailAlreadyRegisteredError,
+    _run,
     create_admin_account,
     split_name,
 )
@@ -48,13 +53,18 @@ async def _count(session: AsyncSession, model: Any) -> int:
     return int(await session.scalar(select(func.count()).select_from(model)) or 0)
 
 
+def _dispatcher() -> MagicMock:
+    return MagicMock(dispatch=AsyncMock())
+
+
 class TestCreateAdminCli:
     """``app.create_admin`` — the non-destructive bootstrap tool."""
 
     @pytest.mark.asyncio
     async def test_creates_a_usable_invite(self, test_session: AsyncSession) -> None:
-        """One admin user, one admin_info row, one live invite — and a link."""
-        invite = await create_admin_account(test_session, **ADMIN_ARGS)
+        """One admin user, one admin_info row, one live invite — and the email."""
+        dispatcher = _dispatcher()
+        invite = await create_admin_account(test_session, dispatcher, **ADMIN_ARGS)
 
         user = await test_session.scalar(
             select(User).where(User.email == ADMIN_ARGS["email"])
@@ -81,6 +91,17 @@ class TestCreateAdminCli:
             days=2, minutes=-5
         )
 
+        # The link reaches the person only through this email, so the context
+        # is the whole contract: right template, right address, right link.
+        dispatcher.dispatch.assert_awaited_once_with(
+            email_type="account-creation",
+            to=ADMIN_ARGS["email"],
+            context={
+                "Name_To_Replace": "Jane Admin",
+                "Sign_Up_URL": build_invite_url(invite.user_invite_id),
+                "Hours_Till_Expiry": INVITE_VALID_HOURS,
+            },
+        )
         assert build_invite_url(invite.user_invite_id).endswith(
             f"/create-password/{invite.user_invite_id}"
         )
@@ -88,7 +109,7 @@ class TestCreateAdminCli:
     @pytest.mark.asyncio
     async def test_touches_no_other_table(self, test_session: AsyncSession) -> None:
         """Unlike seed_database, this deletes nothing and creates nothing else."""
-        await create_admin_account(test_session, **ADMIN_ARGS)
+        await create_admin_account(test_session, _dispatcher(), **ADMIN_ARGS)
 
         assert await _count(test_session, User) == 1
         assert await _count(test_session, Admin) == 1
@@ -98,11 +119,12 @@ class TestCreateAdminCli:
     @pytest.mark.asyncio
     async def test_duplicate_email_is_refused(self, test_session: AsyncSession) -> None:
         """``users.email`` is unique; the second run must not half-commit."""
-        await create_admin_account(test_session, **ADMIN_ARGS)
+        await create_admin_account(test_session, _dispatcher(), **ADMIN_ARGS)
 
         with pytest.raises(EmailAlreadyRegisteredError, match=ADMIN_ARGS["email"]):
             await create_admin_account(
                 test_session,
+                _dispatcher(),
                 **{**ADMIN_ARGS, "first_name": "Someone", "phone": "5195763443"},
             )
 
@@ -123,7 +145,7 @@ class TestCreateAdminCli:
 
         with pytest.raises(EmailAlreadyRegisteredError):
             await create_admin_account(
-                test_session, **{**ADMIN_ARGS, "email": existing_email}
+                test_session, _dispatcher(), **{**ADMIN_ARGS, "email": existing_email}
             )
 
         assert await _count(test_session, Admin) == 0
@@ -136,7 +158,7 @@ class TestCreateAdminCli:
         """Optional does not mean unvalidated — a malformed number still fails."""
         with pytest.raises(ValidationError):
             await create_admin_account(
-                test_session, **{**ADMIN_ARGS, "phone": "555-1234"}
+                test_session, _dispatcher(), **{**ADMIN_ARGS, "phone": "555-1234"}
             )
         assert await _count(test_session, User) == 0
         assert await _count(test_session, Admin) == 0
@@ -150,7 +172,7 @@ class TestCreateAdminCli:
         than nothing.
         """
         args = {k: v for k, v in ADMIN_ARGS.items() if k != "phone"}
-        invite = await create_admin_account(test_session, **args)
+        invite = await create_admin_account(test_session, _dispatcher(), **args)
 
         admin = await test_session.scalar(
             select(Admin).join(User).where(User.email == ADMIN_ARGS["email"])
@@ -165,7 +187,9 @@ class TestCreateAdminCli:
         self, test_session: AsyncSession
     ) -> None:
         """An empty string is absence, never a phone that passed validation."""
-        await create_admin_account(test_session, **{**ADMIN_ARGS, "phone": ""})
+        await create_admin_account(
+            test_session, _dispatcher(), **{**ADMIN_ARGS, "phone": ""}
+        )
 
         admin = await test_session.scalar(
             select(Admin).join(User).where(User.email == ADMIN_ARGS["email"])
@@ -177,9 +201,61 @@ class TestCreateAdminCli:
     async def test_invalid_email_is_rejected(self, test_session: AsyncSession) -> None:
         with pytest.raises(ValidationError):
             await create_admin_account(
-                test_session, **{**ADMIN_ARGS, "email": "not-an-email"}
+                test_session, _dispatcher(), **{**ADMIN_ARGS, "email": "not-an-email"}
             )
         assert await _count(test_session, User) == 0
+
+    @pytest.mark.asyncio
+    async def test_send_failure_creates_no_account(
+        self, test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A failed send must roll the inserts back, not leave an unreachable invite.
+
+        Goes through ``_run`` rather than ``create_admin_account`` because the
+        transaction is ``_run``'s; the rows are checked from a fresh session so
+        a rollback that only happened in-memory would still fail this.
+        """
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        for key in MAILER_SETTINGS:
+            monkeypatch.setattr(settings, key, "set")
+        monkeypatch.setattr(models, "init_database", lambda: None)
+        monkeypatch.setattr(
+            models,
+            "async_session_maker_instance",
+            async_sessionmaker(test_db_engine, class_=AsyncSession),
+        )
+        monkeypatch.setattr(models, "async_engine", test_db_engine)
+        failing = MagicMock(dispatch=AsyncMock(side_effect=RuntimeError("SMTP down")))
+
+        with (
+            patch("app.create_admin.get_email_dispatcher", return_value=failing),
+            pytest.raises(RuntimeError, match="SMTP down"),
+        ):
+            await _run(ADMIN_ARGS["email"], "Jane Admin", None)
+
+        async with AsyncSession(test_db_engine) as session:
+            assert await _count(session, User) == 0
+            assert await _count(session, Admin) == 0
+            assert await _count(session, UserInvite) == 0
+
+    @pytest.mark.asyncio
+    async def test_missing_mailer_settings_fail_before_the_database(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Name every missing credential up front; never open a connection."""
+        for key in MAILER_SETTINGS:
+            monkeypatch.setattr(settings, key, "set")
+        monkeypatch.setattr(settings, "mailer_user", "")
+        monkeypatch.setattr(settings, "mailer_refresh_token", "")
+
+        def _must_not_connect() -> None:
+            raise AssertionError("init_database was called")
+
+        monkeypatch.setattr(models, "init_database", _must_not_connect)
+
+        with pytest.raises(RuntimeError, match="MAILER_USER, MAILER_REFRESH_TOKEN"):
+            await _run(ADMIN_ARGS["email"], "Jane Admin", None)
 
     @pytest.mark.parametrize(
         ("name", "expected"),

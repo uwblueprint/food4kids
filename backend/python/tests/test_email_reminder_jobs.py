@@ -18,7 +18,7 @@ from app.services.jobs import email_jobs, refresh_daily_reminder_email_schedule
 
 # Every name the view-upcoming-route template expects the backend to substitute.
 PLACEHOLDER_NAMES = (
-    "Driver_Name_To_Replace",
+    "Name_To_Replace",
     "Date_To_Replace",
     "Time_To_Replace",
     "Route_Duration_To_Replace",

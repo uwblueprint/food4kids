@@ -220,7 +220,7 @@ async def forgot_password(
             email_type="reset-password",
             to=email,
             context={
-                "Driver_Name_To_Replace": user.first_name,
+                "Name_To_Replace": user.first_name,
                 "Reset_Password_URL": reset_link,
                 "Days_Till_Expiry": str(PASSWORD_RESET_TOKEN_EXPIRY_DAYS),
             },

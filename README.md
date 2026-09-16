@@ -151,8 +151,8 @@ otherwise, on each run.
 
 There is no in-app way to make someone an admin — an existing admin cannot
 invite another one. A Blueprint developer with database access runs a CLI, which
-prints a link; the F4K staff member opens that link and sets their own password.
-The CLI never sees or prints a password.
+emails the F4K staff member a link; they open it and set their own password.
+The CLI never sees or prints a password, and never prints the link either.
 
 ```bash
 # Locally
@@ -167,18 +167,14 @@ docker-compose exec backend python -m app.create_admin \
 It prints something like:
 
 ```
-Created admin account for jane@food4kids.ca.
-Send them this link to set their password:
-
-    https://app.food4kids.example/create-password/6f1c…-…-…
-
+Created admin account for jane@food4kids.ca and emailed them the link to set their password (invite 6f1c…-…-…).
 The link is single-use and expires in 48 hours.
 ```
 
-Send that link to the person. It opens the same **Create a password** page that
-invited drivers use; submitting it calls `POST /auth/register`, which creates
-their Firebase account, stamps the `role: admin` custom claim on it, and fills
-in `users.auth_id`.
+The email is the same `account-creation` message invited drivers get. Its link
+opens the **Create a password** page; submitting it calls `POST /auth/register`,
+which creates their Firebase account, stamps the `role: admin` custom claim on
+it, and fills in `users.auth_id`.
 
 **Both halves matter.** Authorization reads the Firebase custom claim, never
 `users.role` — see `require_authorization_by_role` in
@@ -192,9 +188,12 @@ Notes for whoever runs this:
   `DELETE`-ing every table. `create_admin` inserts three rows (`users`,
   `admin_info`, `user_invites`) in one transaction and touches nothing else.
 - **Set `FRONTEND_BASE_URL`** in the backend environment before running it
-  against a deployed database, or the link it prints will point at
-  `http://localhost:3000`. The URL is printed in full, so check it before
-  sending.
+  against a deployed database, or the emailed link will point at
+  `http://localhost:3000`.
+- **The mailer credentials must be set** (`MAILER_USER`, `MAILER_CLIENT_ID`,
+  `MAILER_CLIENT_SECRET`, `MAILER_REFRESH_TOKEN`). The email is sent inside the
+  same transaction as the inserts, so if it cannot be sent nothing is created —
+  fix the environment and re-run.
 - **The email must be unused.** `users.email` is unique across drivers and
   admins alike; the CLI refuses up front rather than writing a partial account.
 - **`--phone` is optional**, but validated when given: a malformed number is

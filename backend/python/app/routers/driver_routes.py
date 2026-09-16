@@ -128,7 +128,7 @@ async def initialize_driver(
         email_type="account-creation",
         to=register_request.email,
         context={
-            "Driver_Name_To_Replace": driver_name if driver_name else "Driver",
+            "Name_To_Replace": driver_name if driver_name else "Driver",
             "Sign_Up_URL": driver_signup_url,
             "Hours_Till_Expiry": 48,
         },

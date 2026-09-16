@@ -106,7 +106,7 @@ async def send_route_reminders(reminder_days: list[int]) -> None:
                         email_type="view-upcoming-route",
                         to=user.email,
                         context={
-                            "Driver_Name_To_Replace": user.full_name,
+                            "Name_To_Replace": user.full_name,
                             "Date_To_Replace": route_group.drive_date.strftime(
                                 "%A, %B %d, %Y"
                             ),

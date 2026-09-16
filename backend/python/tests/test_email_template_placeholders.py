@@ -6,7 +6,7 @@ render the placeholders as literal ``{{ Name }}`` text, so the export is
 idempotent -- but nothing in the frontend toolchain knows which names the
 backend actually substitutes. These tests are that link: if a regenerated
 template loses a placeholder, gains one, or renames it, the mismatch fails
-here instead of shipping an email that reads "Hi Driver_Name_To_Replace,".
+here instead of shipping an email that reads "Hi Name_To_Replace,".
 """
 
 import re
