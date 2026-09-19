@@ -3,17 +3,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from datetime import timedelta
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
+import google.auth
+import google.auth.credentials
 import google.auth.transport.requests
 import requests
-from google.oauth2 import service_account
 
 from app.config import settings as app_settings
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.utilities.boxes import compute_boxes
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
 
@@ -38,12 +43,37 @@ MANDATORY_DELIVERY_PENALTY = 1_000_000
 GLOBAL_DURATION_COST_PER_HOUR = 6
 VEHICLE_COST_PER_HOUR = 1
 
+# The plan's time horizon. A globalEndTime is mandatory, so this is wide
+# enough that it never binds — nothing else here constrains the plan either.
+GLOBAL_HORIZON_HOURS = 24
+
+
+def _localize(moment: datetime) -> datetime:
+    """Return `moment` as a timezone-aware datetime in warehouse-local time.
+
+    A naive input is warehouse-local, not UTC — every caller works in the
+    operating timezone, so assuming UTC would shift the plan by the offset.
+    """
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=ZoneInfo(app_settings.scheduler_timezone))
+    return moment
+
+
+def _to_rfc3339(moment: datetime) -> str:
+    """Format a moment as an RFC 3339 timestamp the optimizeTours API accepts.
+
+    Two things the API is strict about, and `strftime("%z")` gets wrong:
+    the offset needs a colon (``-05:00``, not ``-0500``), and the timestamp
+    must be unambiguous — a naive one is rejected.
+    """
+    return _localize(moment).isoformat()
+
 
 class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
     """Routes locations using the Google Cloud Fleet Routing (optimizeTours) API."""
 
     def __init__(self) -> None:
-        self._credentials: service_account.Credentials | None = None
+        self._credentials: google.auth.credentials.Credentials | None = None
         self._credentials_lock = threading.Lock()
 
     async def generate_routes(
@@ -154,47 +184,52 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 }
             )
 
-        # TODO: use settings.route_start_time to set
-        # globalStartTime / globalEndTime or per-shipment timeWindows
-
+        # globalStartTime anchors the whole plan: no vehicle departs and no
+        # delivery is scheduled before it. It belongs on the model, not on the
+        # vehicles — a Vehicle has no scalar start time, only startTimeWindows.
+        #
+        # route_start_time carries BOTH halves of the anchor: the day the group
+        # drives and the configured time of day. Both matter — a timestamp on
+        # the wrong date would have the API plan against the wrong day's
+        # traffic. See RouteGenerationSettings.route_start_time.
+        #
+        global_start = _localize(settings.route_start_time)
+        global_end = global_start + timedelta(hours=GLOBAL_HORIZON_HOURS)
         return {
             "model": {
                 "globalDurationCostPerHour": GLOBAL_DURATION_COST_PER_HOUR,
+                "globalStartTime": _to_rfc3339(global_start),
+                "globalEndTime": _to_rfc3339(global_end),
                 "vehicles": vehicles,
                 "shipments": forced_pickups + deliveries,
             }
         }
 
-    def _ensure_credentials(self) -> service_account.Credentials:
+    def _ensure_credentials(self) -> google.auth.credentials.Credentials:
         """Return cached credentials, refreshing only when expired.
+
+        Identity comes from Application Default Credentials, so no key material
+        lives in the environment: on Cloud Run the attached runtime service
+        account is read from the metadata server, and locally
+        GOOGLE_APPLICATION_CREDENTIALS (set by pull-env.sh) points at the shared
+        development service account.
 
         Thread-safe: _call_api runs in asyncio.to_thread, so concurrent
         requests could race here without the lock.
         """
         with self._credentials_lock:
-            if self._credentials is None or not self._credentials.valid:
-                if not app_settings.route_opt_client_email:
+            credentials = self._credentials
+            if credentials is None or not credentials.valid:
+                if not app_settings.route_opt_project_id:
                     raise RuntimeError(
-                        "Fleet Routing service account credentials are not configured. "
-                        "Set the ROUTE_OPT_* environment variables."
+                        "Fleet Routing is not configured. Set ROUTE_OPT_PROJECT_ID "
+                        "to the project that hosts the Route Optimization API."
                     )
-                info = {
-                    "type": "service_account",
-                    "project_id": app_settings.route_opt_project_id,
-                    "private_key_id": app_settings.route_opt_private_key_id,
-                    "private_key": app_settings.route_opt_private_key.replace(
-                        "\\n", "\n"
-                    ),
-                    "client_email": app_settings.route_opt_client_email,
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                }
-                self._credentials = (
-                    service_account.Credentials.from_service_account_info(
-                        info, scopes=SCOPES
-                    )
-                )
-                self._credentials.refresh(google.auth.transport.requests.Request())
-            return self._credentials
+                if credentials is None:
+                    credentials, _ = google.auth.default(scopes=SCOPES)
+                credentials.refresh(google.auth.transport.requests.Request())
+                self._credentials = credentials
+            return credentials
 
     def _call_api(self, payload: dict) -> dict:
         """Make the HTTP request to the Fleet Routing API (runs in a thread)."""

@@ -35,6 +35,7 @@ from app.services.implementations.location_service import (
 )
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.route_service import RouteService
+from app.utilities.datetime_utils import today_local
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ async def _add_frozen_route(
     thing that produces km, so this is how a test creates mileage."""
     rg = RouteGroup(
         name=f"G {drive_date.isoformat()}",
-        drive_date=datetime.combine(drive_date, datetime.min.time()),
+        drive_date=drive_date,
     )
     session.add(rg)
     await session.commit()
@@ -181,16 +182,14 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
     for loc in locations:
         await test_session.refresh(loc)
 
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = today_local() - timedelta(days=1)
     rg = RouteGroup(
         name="Frozen group",
-        drive_date=datetime.combine(yesterday, datetime.min.time()),
+        drive_date=yesterday,
     )
     future_rg = RouteGroup(
         name="Future group",
-        drive_date=datetime.combine(
-            date.today() + timedelta(days=7), datetime.min.time()
-        ),
+        drive_date=today_local() + timedelta(days=7),
     )
     test_session.add_all([rg, future_rg])
     await test_session.commit()

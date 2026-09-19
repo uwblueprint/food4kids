@@ -5,9 +5,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any, TypeGuard, TypeVar
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 from fastapi import UploadFile
@@ -16,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.enum import (
     LocationStatusEnum,
     NotePermission,
@@ -24,6 +22,7 @@ from app.models.enum import (
 from app.models.location import (
     AlertCode,
     ChangedEntry,
+    ChangedFieldBool,
     ChangedFieldOptInt,
     ChangedFieldOptStr,
     ChangedFieldStr,
@@ -35,7 +34,6 @@ from app.models.location import (
     LocationImportResult,
     LocationImportRow,
     LocationRead,
-    LocationUpdate,
     NetNewEntry,
     StaleEntry,
     ValidatedLocationImportEntry,
@@ -60,8 +58,11 @@ from app.services.implementations.location_import_validation import (
     present_str,
     try_normalize_phone,
 )
+from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GeocodeResult, GoogleMapsClient
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_order_by
+from app.utilities.search import phone_match, text_match
 
 if TYPE_CHECKING:
     from app.services.implementations.system_settings_service import (
@@ -76,6 +77,14 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 class InvalidDeliveryTypeError(ValueError):
     """Raised when a delivery type is not configured in system settings."""
+
+
+class GeocodingError(ValueError):
+    """Raised when an address can't be resolved to a house we can deliver to.
+
+    Its own type so the router can answer 400 with the reason — an address we
+    can't route to is the caller's input, not a server fault, and as a bare
+    ValueError it surfaced as a 500."""
 
 
 @dataclass
@@ -104,6 +113,20 @@ class ImportPlan:
 # How many referencing routes to name in a LocationInUseError message.
 IN_USE_SAMPLE_SIZE = 5
 
+T = TypeVar("T")
+
+
+def resolve_optional(new: T | None, current: T) -> T:
+    """The value an import row would leave on a field it may not speak to.
+
+    A blank cell parses to None, and so does a column the admin never mapped:
+    the two are indistinguishable, so neither can mean "clear this". None
+    therefore carries no information and the stored value stands. Change
+    detection and the applier both go through here so they cannot disagree
+    about what a blank cell means.
+    """
+    return current if new is None else new
+
 
 class LocationInUseError(Exception):
     """Raised when deleting a location that route stops still reference.
@@ -125,17 +148,6 @@ class LocationService:
         self.logger = logger
         self.google_maps_service = google_maps_client
         self.system_settings_service = system_settings_service
-        self.timezone = ZoneInfo(settings.scheduler_timezone)
-
-    def _today_start(self) -> datetime:
-        """Midnight at the start of today in the project's configured timezone.
-
-        Naive datetime to match how drive_date is stored (drive_date columns
-        are naive — see RouteGroup).
-        """
-        return datetime.now(self.timezone).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-        )
 
     async def get_location_by_id(
         self, session: AsyncSession, location_id: UUID
@@ -209,8 +221,10 @@ class LocationService:
         route. Callers can narrow via the optional ``status_filter`` and
         ``delivery_type`` and ``location_group_id`` query params.
 
-        ``search`` filters (case-insensitive substring) on the delivery
-        address, which carries the postal code, applied before pagination.
+        ``search`` filters (case-insensitive substring) on every text column
+        the Addresses table shows — address/postal code, location and contact
+        and guardian names, food restrictions, and delivery group — plus the
+        phone numbers by digits. Applied before pagination.
         """
         try:
             statement = (
@@ -230,12 +244,38 @@ class LocationService:
                 )
 
             if search and search.strip():
-                statement = statement.where(
-                    col(Location.address).ilike(f"%{search.strip()}%")
+                term = search.strip()
+                # Every text column the Addresses table shows, so what a reader
+                # sees in a cell is something they can type into the box. The
+                # delivery group is matched via a correlated subquery rather
+                # than a join, so the outer query stays one row per location.
+                group_name = (
+                    select(LocationGroup.name)
+                    .where(
+                        LocationGroup.location_group_id == Location.location_group_id
+                    )
+                    .scalar_subquery()
                 )
+                predicates = [
+                    text_match(
+                        term,
+                        col(Location.address),
+                        col(Location.name),
+                        col(Location.contact_name),
+                        col(Location.guardian_name),
+                        col(Location.dietary_restrictions),
+                        group_name,
+                    )
+                ]
+                phones = phone_match(
+                    term, col(Location.phone_primary), col(Location.phone_secondary)
+                )
+                if phones is not None:
+                    predicates.append(phones)
+                statement = statement.where(or_(*predicates))
 
             if status_filter:
-                today_start = self._today_start()
+                today = today_local()
                 # Subquery: this location has a stop in a route whose group's
                 # drive_date is today/future AND the route isn't yet frozen.
                 is_scheduled = (
@@ -251,7 +291,7 @@ class LocationService:
                         RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
                     )
                     .where(RouteStop.location_id == Location.location_id)
-                    .where(RouteGroup.drive_date >= today_start)
+                    .where(RouteGroup.drive_date >= today)
                     .where(col(RouteSnapshot.route_id).is_(None))
                     .exists()
                 )
@@ -346,7 +386,7 @@ class LocationService:
         ids = list(location_ids)
         if not ids:
             return set()
-        today_start = self._today_start()
+        today = today_local()
         statement = (
             select(RouteStop.location_id)
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
@@ -356,7 +396,7 @@ class LocationService:
                 RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
             )
             .where(col(RouteStop.location_id).in_(ids))
-            .where(RouteGroup.drive_date >= today_start)
+            .where(RouteGroup.drive_date >= today)
             .where(col(RouteSnapshot.route_id).is_(None))
             .distinct()
         )
@@ -369,14 +409,16 @@ class LocationService:
         """Return a mapping of location_id → route name for the soonest
         upcoming unfrozen route group each location appears in.
 
-        One query rather than per-location N+1.
+        A location on two routes the same day reports the lower-numbered one,
+        so the column doesn't flip between loads. One query rather than
+        per-location N+1.
         """
         ids = list(location_ids)
         if not ids:
             return {}
-        today_start = self._today_start()
+        today = today_local()
         statement = (
-            select(RouteStop.location_id, Route.name, RouteGroup.drive_date)
+            select(RouteStop.location_id, Route.name, col(RouteGroup.drive_date))
             .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
             .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
             .outerjoin(
@@ -384,9 +426,12 @@ class LocationService:
                 RouteSnapshot.route_id == Route.route_id,  # type: ignore[arg-type]
             )
             .where(col(RouteStop.location_id).in_(ids))
-            .where(RouteGroup.drive_date >= today_start)
+            .where(RouteGroup.drive_date >= today)
             .where(col(RouteSnapshot.route_id).is_(None))
-            .order_by(col(RouteGroup.drive_date).asc())
+            .order_by(
+                col(RouteGroup.drive_date).asc(),
+                *route_name_order_by(col(Route.name)),
+            )
         )
         result = await session.execute(statement)
         assigned: dict[UUID, str] = {}
@@ -496,36 +541,6 @@ class LocationService:
             await session.rollback()
             raise e
 
-    async def update_location_by_id(
-        self,
-        session: AsyncSession,
-        location_id: UUID,
-        updated_location_data: LocationUpdate,
-    ) -> Location:
-        """Update location by ID"""
-        try:
-            # Get the existing location by ID
-            location = await self.get_location_by_id(session, location_id)
-
-            # Update existing location with new data
-            updated_data = updated_location_data.model_dump(exclude_unset=True)
-            if "delivery_type" in updated_data:
-                await self.validate_delivery_type(
-                    session, updated_data["delivery_type"]
-                )
-            for field, value in updated_data.items():
-                setattr(location, field, value)
-
-            await session.commit()
-            # Reload with location_group eager-loaded so serializing to
-            # LocationRead (location_group_name) doesn't lazy-load post-commit.
-            return await self.get_location_by_id(session, location_id)
-
-        except Exception as e:
-            self.logger.error(f"Failed to update location by id: {e!s}")
-            await session.rollback()
-            raise e
-
     async def delete_all_locations(self, session: AsyncSession) -> None:
         """Delete all locations"""
         try:
@@ -573,7 +588,7 @@ class LocationService:
             if total:
                 sample = (
                     await session.execute(
-                        select(Route.name, RouteGroup.drive_date)
+                        select(Route.name, col(RouteGroup.drive_date))
                         .select_from(RouteStop)
                         .join(Route, Route.route_id == RouteStop.route_id)  # type: ignore[arg-type]
                         .join(
@@ -586,7 +601,7 @@ class LocationService:
                     )
                 ).all()
                 routes_desc = ", ".join(
-                    f"'{name}' ({drive_date.date()})" for name, drive_date in sample
+                    f"'{name}' ({drive_date})" for name, drive_date in sample
                 )
                 more = f" and {total - len(sample)} more" if total > len(sample) else ""
                 raise LocationInUseError(
@@ -841,11 +856,16 @@ class LocationService:
             )
         )
         return {
+            # Already on the roster, so grandfathered as precise: these rows were
+            # accepted under whatever rules applied when they were created, and
+            # re-judging them here would block every future import on an address
+            # nobody is changing.
             address: GeocodeResult(
                 formatted_address=address,
                 place_id=place_id or "",
                 latitude=latitude,
                 longitude=longitude,
+                is_precise=True,
             )
             for address, latitude, longitude, place_id in result.all()
             if address in addresses
@@ -854,10 +874,23 @@ class LocationService:
     async def _geocode_import_address(
         self, address: str | None
     ) -> GeocodeResult | None:
-        """Geocode a non-blank import address; skip geocoding when address is missing."""
+        """Geocode a non-blank import address; skip geocoding when address is missing.
+
+        An imprecise match is reported as a geocoding failure so the row raises
+        INVALID_ADDRESS. Google answers almost anything with a successful result
+        — a town centroid for a nonexistent street, the city for a typo — and
+        those are no more deliverable than an address it could not find at all.
+        """
         if not present_str(address):
             return None
-        return await self.google_maps_service.geocode_address(address)
+        result = await self.google_maps_service.geocode_address(address)
+        if result is not None and not result.is_precise:
+            self.logger.info(
+                f"Rejecting imprecise geocode for import address {address!r}: "
+                f"resolved to {result.formatted_address!r}"
+            )
+            return None
+        return result
 
     async def _classify_import_rows(
         self,
@@ -972,8 +1005,13 @@ class LocationService:
             "phone_primary": entry_key.phone != location_key.phone,
             "phone_secondary": (entry.phone_secondary or None)
             != (location.phone_secondary or None),
-            "num_children": entry.num_children is not None
-            and entry.num_children != location.num_children,
+            "num_children": resolve_optional(entry.num_children, location.num_children)
+            != location.num_children,
+            "halal": resolve_optional(entry.halal, location.halal) != location.halal,
+            "dietary_restrictions": resolve_optional(
+                entry.dietary_restrictions, location.dietary_restrictions
+            )
+            != location.dietary_restrictions,
             "in_roster": not location.in_roster,
         }
 
@@ -1031,6 +1069,20 @@ class LocationService:
             )
             if num_children_changed
             else location.num_children,
+            halal=ChangedFieldBool(
+                new_value=resolve_optional(entry.halal, location.halal),
+                old_value=location.halal,
+            )
+            if changes["halal"]
+            else location.halal,
+            dietary_restrictions=ChangedFieldStr(
+                new_value=resolve_optional(
+                    entry.dietary_restrictions, location.dietary_restrictions
+                ),
+                old_value=location.dietary_restrictions,
+            )
+            if changes["dietary_restrictions"]
+            else location.dietary_restrictions,
         )
 
     async def _read_upload_file(self, file: UploadFile) -> pd.DataFrame:
@@ -1122,7 +1174,14 @@ class LocationService:
             geocode_result = await self.google_maps_service.geocode_address(address)
 
             if not geocode_result:
-                raise ValueError(f"Geocoding failed for address: {address}")
+                raise GeocodingError(f"Geocoding failed for address: {address}")
+
+            if not geocode_result.is_precise:
+                raise GeocodingError(
+                    f"Address is not specific enough to deliver to: {address} "
+                    f"(resolved to {geocode_result.formatted_address}). "
+                    "Include a street number."
+                )
 
             location_data.address = geocode_result.formatted_address
             location_data.longitude = geocode_result.longitude
@@ -1226,7 +1285,13 @@ class LocationService:
                     location.guardian_name = entry.guardian_name
                     location.phone_primary = entry.phone_primary
                     location.phone_secondary = entry.phone_secondary
-                    location.num_children = entry.num_children or 0
+                    location.num_children = resolve_optional(
+                        entry.num_children, location.num_children
+                    )
+                    location.halal = resolve_optional(entry.halal, location.halal)
+                    location.dietary_restrictions = resolve_optional(
+                        entry.dietary_restrictions, location.dietary_restrictions
+                    )
                     location.location_group_id = group_id
                     continue
 
@@ -1250,9 +1315,13 @@ class LocationService:
                         longitude=geocode_result.longitude,
                         latitude=geocode_result.latitude,
                         place_id=geocode_result.place_id,
-                        halal=location.halal,
-                        dietary_restrictions=location.dietary_restrictions,
-                        num_children=entry.num_children or 0,
+                        halal=resolve_optional(entry.halal, location.halal),
+                        dietary_restrictions=resolve_optional(
+                            entry.dietary_restrictions, location.dietary_restrictions
+                        ),
+                        num_children=resolve_optional(
+                            entry.num_children, location.num_children
+                        ),
                         delivery_type=delivery_type,
                         in_roster=True,
                         note_chain_id=note_chain_id,

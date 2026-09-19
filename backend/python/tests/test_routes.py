@@ -10,17 +10,24 @@ Tests cover:
 """
 
 import json
+from collections.abc import AsyncGenerator
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import DriverAccess, require_self_driver_or_admin
+from app import create_app
+from app.dependencies.auth import (
+    DriverAccess,
+    require_admin,
+    require_self_driver_or_admin,
+)
 from app.dependencies.services import get_google_maps_client
+from app.models import get_session
 from app.models.enum import ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
@@ -30,6 +37,7 @@ from app.models.route_group import RouteGroup
 from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
+from app.utilities.datetime_utils import today_local
 from app.utilities.google_maps_client import GeocodeResult
 
 IMPORT_COLUMN_MAP = {
@@ -40,6 +48,8 @@ IMPORT_COLUMN_MAP = {
     "phone_primary": "Phone",
     "phone_secondary": "Secondary Phone",
     "num_children": "Children",
+    "halal": "Halal",
+    "dietary_restrictions": "Food Restrictions",
 }
 
 
@@ -59,6 +69,9 @@ class FakeGoogleMapsClient:
             place_id=f"place-{address}",
             latitude=43.0,
             longitude=-80.0,
+            # "Imprecise" stands in for the real failure mode: Google answers
+            # with a town or township centroid instead of a house.
+            is_precise="Imprecise" not in address,
         )
 
 
@@ -73,6 +86,8 @@ def import_review_request(
         "Phone",
         "Secondary Phone",
         "Children",
+        "Halal",
+        "Food Restrictions",
     ]
     lines = [",".join(headers)]
     for row in rows:
@@ -104,18 +119,13 @@ class TestDriverRoutes:
     ) -> None:
         """Test POST /drivers creates a new driver."""
 
-        # We don't want to actually to send an email so we mock the call
-        with (
-            patch(
-                "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
-                new_callable=AsyncMock,
-                return_value=None,
-            ),
-            patch(
-                "app.dependencies.auth.auth_service.is_authorized_by_role",
-                new_callable=AsyncMock,
-                return_value=True,
-            ),
+        # We don't want to actually to send an email so we mock the call.
+        # Authorization needs no patching: conftest overrides the role
+        # dependencies outright.
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+            return_value=None,
         ):
             driver_register_data = {
                 "first_name": sample_driver_data["first_name"],
@@ -133,7 +143,7 @@ class TestDriverRoutes:
             )
             assert response.status_code == 201
             data = response.json()
-            assert data["phone"] == sample_driver_data["phone"]
+            assert data["phone"] == "tel:+1-212-555-1234"
             assert data["license_plate"] == sample_driver_data["license_plate"]
             assert data["role"] == "driver"
             assert data["email"] == "newdriver@example.com"
@@ -187,6 +197,7 @@ class TestDriverRoutes:
             "id": str(uuid4()),
             "email": "newdriver@example.com",
             "role": "driver",
+            "remember_me": False,
         }
         # We don't want to actually call firebase so we mock the call
         with (
@@ -215,7 +226,7 @@ class TestDriverRoutes:
             )
             assert response.status_code == 201
             data = response.json()
-            assert data["driver"]["phone"] == sample_driver_data["phone"]
+            assert data["driver"]["phone"] == "tel:+1-212-555-1234"
             assert (
                 data["driver"]["license_plate"] == sample_driver_data["license_plate"]
             )
@@ -316,14 +327,14 @@ class TestDriverRoutes:
         data = response.json()
         assert data["first_name"] == "Updated"
         assert data["last_name"] == "Driver"
-        assert data["phone"] == "+14165550123"
+        assert data["phone"] == "tel:+1-416-555-0123"
 
         await test_session.refresh(test_driver)
         user = await test_session.get(User, test_driver.user_id)
         assert user is not None
         assert user.first_name == "Updated"
         assert user.last_name == "Driver"
-        assert test_driver.phone == "+14165550123"
+        assert test_driver.phone == "tel:+1-416-555-0123"
         mock_update_user.assert_called_once_with(
             user.auth_id,
             display_name="Updated Driver",
@@ -608,7 +619,7 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Central Elementary",
                 "contact_name": "School Contact",
-                "phone_primary": "(555) 111-1111",
+                "phone_primary": "tel:+1-519-576-1101",
                 "delivery_type": "School",
             },
         )
@@ -619,7 +630,7 @@ class TestLocationRoutes:
                 "location_group_id": str(test_location_group.location_group_id),
                 "name": "Family Contact",
                 "contact_name": "Family Contact",
-                "phone_primary": "(555) 222-2222",
+                "phone_primary": "tel:+1-519-576-1103",
                 "delivery_type": "Family",
             },
         )
@@ -658,7 +669,7 @@ class TestLocationRoutes:
             name="Maple Fam",
             contact_name="Maple Fam",
             address="123 Maple Street, Riverview, ON, T0T 0T0",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
         )
         oak = Location(
@@ -666,7 +677,7 @@ class TestLocationRoutes:
             name="Oak Fam",
             contact_name="Oak Fam",
             address="9 Oak Avenue, Elmira, ON, N3B 1A1",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="Family",
         )
         test_session.add_all([maple, oak])
@@ -685,6 +696,85 @@ class TestLocationRoutes:
         assert {loc["location_id"] for loc in by_postal.json()["items"]} == {
             str(maple.location_id)
         }
+
+    @pytest.mark.asyncio
+    async def test_get_locations_search_covers_every_shown_column(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """GET /locations?search spans each searchable column, and only it.
+
+        The Addresses table's search box is one box over many columns, so each
+        assertion types what a reader would see in a cell and expects exactly
+        the row that shows it.
+        """
+        from app.models.location_group import LocationGroup
+
+        schools = LocationGroup(name="Schools North", color="#123456", notes="")
+        test_session.add(schools)
+        await test_session.commit()
+        await test_session.refresh(schools)
+
+        target = Location(
+            location_group_id=schools.location_group_id,
+            name="Riverview Public School",
+            contact_name="Nakamura",
+            guardian_name="Priya Ramaswamy",
+            address="123 Maple Street, Riverview, ON, T0T 0T0",
+            phone_primary="tel:+1-519-576-1234",
+            dietary_restrictions="peanut allergy",
+            delivery_type="School",
+        )
+        other = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Oak Fam",
+            contact_name="Okonkwo",
+            guardian_name="Sam Delgado",
+            address="9 Oak Avenue, Elmira, ON, N3B 1A1",
+            phone_primary="tel:+1-519-576-9999",
+            dietary_restrictions="halal",
+            delivery_type="Family",
+        )
+        test_session.add_all([target, other])
+        await test_session.commit()
+        await test_session.refresh(target)
+
+        async def ids_for(term: str) -> set[str]:
+            response = await async_client.get("/locations/", params={"search": term})
+            assert response.status_code == 200
+            return {loc["location_id"] for loc in response.json()["items"]}
+
+        only_target = {str(target.location_id)}
+        # Location name, contact name, guardian name, food restrictions, and
+        # delivery group — none of which the old address-only search matched.
+        assert await ids_for("riverview public") == only_target
+        assert await ids_for("nakamura") == only_target
+        assert await ids_for("NAKAMURA") == only_target, "search is case-insensitive"
+        assert await ids_for("ramaswamy") == only_target
+        assert await ids_for("peanut") == only_target
+        assert await ids_for("schools north") == only_target
+        # The address (and the postal code it carries) still matches.
+        assert await ids_for("maple street") == only_target
+        assert await ids_for("T0T") == only_target
+        # Phones are stored RFC 3966 but typed in any shape, so they match on
+        # digits alone — none of these substrings appear literally in the
+        # stored "tel:+1-519-576-1234".
+        assert await ids_for("(519) 576-1234") == only_target
+        assert await ids_for("5195761234") == only_target
+        # A shared fragment matches both rows; a fragment of neither matches none.
+        assert await ids_for("519576") == {
+            str(target.location_id),
+            str(other.location_id),
+        }
+        assert await ids_for("zzz no such thing") == set()
+        # A query only counts as a phone if it reads as one, or a stray digit
+        # drags in every row. "T0T" would strip to "0" and match every phone
+        # containing a zero; "95" is too short to be even an area code, and
+        # appears in the target's phone digits but in neither address.
+        assert await ids_for("T0T") == only_target, "postal code, not phone"
+        assert await ids_for("95") == set(), "too few digits to be a phone"
 
     @pytest.mark.asyncio
     async def test_get_locations_rejects_unknown_delivery_type_filter(
@@ -712,7 +802,7 @@ class TestLocationRoutes:
             name="Target Family",
             contact_name="Target Family",
             address="1 Target St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="Family",
             in_roster=True,
         )
@@ -721,7 +811,7 @@ class TestLocationRoutes:
             name="Other Family",
             contact_name="Other Family",
             address="1 Other St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -756,7 +846,7 @@ class TestLocationRoutes:
             name="First Group Family",
             contact_name="First Group Family",
             address="1 First St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="Family",
             in_roster=True,
         )
@@ -765,7 +855,7 @@ class TestLocationRoutes:
             name="Second Group Family",
             contact_name="Second Group Family",
             address="1 Second St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -774,7 +864,7 @@ class TestLocationRoutes:
             name="Third Group Family",
             contact_name="Third Group Family",
             address="1 Third St",
-            phone_primary="5553333333",
+            phone_primary="tel:+1-519-576-0007",
             delivery_type="Family",
             in_roster=True,
         )
@@ -812,7 +902,7 @@ class TestLocationRoutes:
             name="Scheduled Family",
             contact_name="Scheduled Family",
             address="1 Scheduled St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="Family",
             in_roster=True,
         )
@@ -821,7 +911,7 @@ class TestLocationRoutes:
             name="Unscheduled Family",
             contact_name="Unscheduled Family",
             address="2 Unscheduled St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -830,7 +920,7 @@ class TestLocationRoutes:
             name="Inactive Family",
             contact_name="Inactive Family",
             address="3 Inactive St",
-            phone_primary="5553333333",
+            phone_primary="tel:+1-519-576-0007",
             delivery_type="Family",
             in_roster=False,
         )
@@ -839,15 +929,13 @@ class TestLocationRoutes:
             name="Archived Scheduled Family",
             contact_name="Archived Scheduled Family",
             address="4 Archived Scheduled St",
-            phone_primary="5554444444",
+            phone_primary="tel:+1-519-576-4444",
             delivery_type="Family",
             in_roster=False,
         )
         # RouteGroup must exist before Routes (Route.route_group_id is a
         # mandatory FK).
-        route_group = RouteGroup(
-            name="Future Route Group", drive_date=datetime(2099, 1, 1)
-        )
+        route_group = RouteGroup(name="Future Route Group", drive_date=date(2099, 1, 1))
         test_session.add(route_group)
         test_session.add_all(
             [
@@ -941,7 +1029,7 @@ class TestLocationRoutes:
             name="Central Elementary",
             contact_name="Active School",
             address="1 School St",
-            phone_primary="5555555555",
+            phone_primary="tel:+1-519-576-5555",
             delivery_type="School",
             in_roster=True,
         )
@@ -950,7 +1038,7 @@ class TestLocationRoutes:
             name="Active Family",
             contact_name="Active Family",
             address="1 Family St",
-            phone_primary="5556666666",
+            phone_primary="tel:+1-519-576-6666",
             delivery_type="Family",
             in_roster=True,
         )
@@ -959,12 +1047,12 @@ class TestLocationRoutes:
             name="Unscheduled Elementary",
             contact_name="Unscheduled School",
             address="2 School St",
-            phone_primary="5557777777",
+            phone_primary="tel:+1-519-576-7777",
             delivery_type="School",
             in_roster=True,
         )
         route_group = RouteGroup(
-            name="Future Combined Route Group", drive_date=datetime(2099, 1, 1)
+            name="Future Combined Route Group", drive_date=date(2099, 1, 1)
         )
         test_session.add(route_group)
         test_session.add_all(
@@ -1035,7 +1123,7 @@ class TestLocationRoutes:
             name="Matching School",
             contact_name="Matching School",
             address="1 Matching St",
-            phone_primary="5551111111",
+            phone_primary="tel:+1-519-576-0004",
             delivery_type="School",
             in_roster=True,
         )
@@ -1044,7 +1132,7 @@ class TestLocationRoutes:
             name="Wrong Type Family",
             contact_name="Wrong Type Family",
             address="1 Wrong Type St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -1053,7 +1141,7 @@ class TestLocationRoutes:
             name="Wrong Group School",
             contact_name="Wrong Group School",
             address="1 Wrong Group St",
-            phone_primary="5553333333",
+            phone_primary="tel:+1-519-576-0007",
             delivery_type="School",
             in_roster=True,
         )
@@ -1062,7 +1150,7 @@ class TestLocationRoutes:
             name="Inactive School",
             contact_name="Inactive School",
             address="1 Inactive St",
-            phone_primary="5554444444",
+            phone_primary="tel:+1-519-576-4444",
             delivery_type="School",
             in_roster=False,
         )
@@ -1112,7 +1200,7 @@ class TestLocationRoutes:
                 name=f"Paged Family {index}",
                 contact_name=f"Paged Family {index}",
                 address=f"{index} Paged St",
-                phone_primary=f"555111111{index}",
+                phone_primary=f"tel:+1-519-576-111{index}",
                 delivery_type="Family",
                 in_roster=True,
             )
@@ -1123,7 +1211,7 @@ class TestLocationRoutes:
             name="Excluded Paged Family",
             contact_name="Excluded Paged Family",
             address="1 Excluded Paged St",
-            phone_primary="5552222222",
+            phone_primary="tel:+1-519-576-0006",
             delivery_type="Family",
             in_roster=True,
         )
@@ -1184,56 +1272,45 @@ class TestLocationRoutes:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_update_location(
+    @pytest.mark.parametrize(
+        ("address", "expected_detail"),
+        [
+            ("99999 Imprecise Pkwy", "not specific enough"),
+            ("Invalid Address", "Geocoding failed"),
+        ],
+        ids=["imprecise centroid match", "no result at all"],
+    )
+    async def test_create_location_rejects_undeliverable_address(
         self,
-        async_client: AsyncClient,
+        client_with_overrides: Any,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
+        address: str,
+        expected_detail: str,
     ) -> None:
-        """Test PATCH /locations/{location_id} updates a location."""
-        # Create a location first
-        create_response = await async_client.post(
-            "/locations/",
-            json={
-                **sample_location_data,
-                "location_group_id": str(test_location_group.location_group_id),
-            },
-        )
-        location_id = create_response.json()["location_id"]
+        """An address we can't route to is the caller's input, so 400 + reason.
 
-        # Update the location
-        update_data = {"dietary_restrictions": "No shellfish"}
-        response = await async_client.patch(
-            f"/locations/{location_id}", json=update_data
+        It used to escape as a bare ValueError and surface as a 500 with no
+        indication of what was wrong with the address.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
         )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["dietary_restrictions"] == "No shellfish"
 
-    @pytest.mark.asyncio
-    async def test_update_location_rejects_unknown_delivery_type(
-        self,
-        async_client: AsyncClient,
-        sample_location_data: dict[str, Any],
-        test_location_group: Any,
-    ) -> None:
-        """PATCH /locations/{id} validates delivery_type against settings."""
-        create_response = await async_client.post(
-            "/locations/",
-            json={
-                **sample_location_data,
-                "location_group_id": str(test_location_group.location_group_id),
-            },
-        )
-        assert create_response.status_code == 201
-        location_id = create_response.json()["location_id"]
+        payload = {
+            **sample_location_data,
+            "location_group_id": str(test_location_group.location_group_id),
+            "address": address,
+        }
+        # Without coordinates in the payload, create geocodes the address.
+        del payload["latitude"]
+        del payload["longitude"]
 
-        response = await async_client.patch(
-            f"/locations/{location_id}", json={"delivery_type": "Unknown"}
-        )
+        response = await async_client.post("/locations/", json=payload)
 
         assert response.status_code == 400
-        assert "Unknown delivery_type" in response.json()["detail"]
+        assert expected_detail in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_apply_import_rejects_unknown_delivery_type(
@@ -1247,31 +1324,6 @@ class TestLocationRoutes:
 
         assert response.status_code == 400
         assert "Unknown delivery_type" in response.json()["detail"]
-
-    @pytest.mark.asyncio
-    async def test_update_location_clears_nullable_fields(
-        self,
-        async_client: AsyncClient,
-        sample_location_data: dict[str, Any],
-        test_location_group: Any,
-    ) -> None:
-        """Test PATCH /locations/{location_id} clears explicit null values."""
-        create_response = await async_client.post(
-            "/locations/",
-            json={
-                **sample_location_data,
-                "phone_secondary": "555-222-3333",
-                "location_group_id": str(test_location_group.location_group_id),
-            },
-        )
-        location_id = create_response.json()["location_id"]
-
-        response = await async_client.patch(
-            f"/locations/{location_id}", json={"phone_secondary": None}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["phone_secondary"] is None
 
     @pytest.mark.asyncio
     async def test_delete_location(
@@ -1399,7 +1451,7 @@ class TestLocationRoutes:
             name="Noted Family",
             contact_name="Noted Family",
             address="7 Note St",
-            phone_primary="5550000000",
+            phone_primary="tel:+1-519-576-0000",
             delivery_type="Family",
             note_chain_id=chain.note_chain_id,
         )
@@ -1412,22 +1464,22 @@ class TestLocationRoutes:
                     note_chain_id=chain.note_chain_id,
                     message="Old note",
                     is_system=False,
-                    created_at=datetime(2026, 1, 1),
-                    updated_at=datetime(2026, 1, 1),
+                    created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="Gate code 2736",
                     is_system=False,
-                    created_at=datetime(2026, 2, 1),
-                    updated_at=datetime(2026, 2, 1),
+                    created_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
                 ),
                 Note(
                     note_chain_id=chain.note_chain_id,
                     message="System event",
                     is_system=True,
-                    created_at=datetime(2026, 3, 1),
-                    updated_at=datetime(2026, 3, 1),
+                    created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
                 ),
             ]
         )
@@ -1480,13 +1532,11 @@ class TestLocationRoutes:
             name="Delivered Family",
             contact_name="Delivered Family",
             address="10 Delivered St",
-            phone_primary="5559999999",
+            phone_primary="tel:+1-519-576-0011",
             delivery_type="Family",
             in_roster=True,
         )
-        past_group = RouteGroup(
-            name="Past Route Group", drive_date=datetime(2024, 6, 1)
-        )
+        past_group = RouteGroup(name="Past Route Group", drive_date=date(2024, 6, 1))
         test_session.add_all([loc, past_group])
         await test_session.commit()
         await test_session.refresh(loc)
@@ -1512,7 +1562,7 @@ class TestLocationRoutes:
             route_stop_id=stop.route_stop_id,
             address="10 Delivered St",
             contact_name="Delivered Family",
-            phone_primary="5559999999",
+            phone_primary="tel:+1-519-576-0011",
             num_children=2,
             latitude=0.0,
             longitude=0.0,
@@ -1541,12 +1591,12 @@ class TestLocationRoutes:
             name="Upcoming Family",
             contact_name="Upcoming Family",
             address="20 Upcoming St",
-            phone_primary="5558888888",
+            phone_primary="tel:+1-519-576-0010",
             delivery_type="Family",
             in_roster=True,
         )
         future_group = RouteGroup(
-            name="Future Route Group", drive_date=datetime(2099, 7, 1)
+            name="Future Route Group", drive_date=date(2099, 7, 1)
         )
         test_session.add_all([loc, future_group])
         await test_session.commit()
@@ -1591,12 +1641,12 @@ class TestLocationRoutes:
             name="Multi Route Family",
             contact_name="Multi Route Family",
             address="30 Multi St",
-            phone_primary="5557777777",
+            phone_primary="tel:+1-519-576-7777",
             delivery_type="Family",
             in_roster=True,
         )
-        sooner_group = RouteGroup(name="Sooner Group", drive_date=datetime(2098, 1, 1))
-        later_group = RouteGroup(name="Later Group", drive_date=datetime(2099, 1, 1))
+        sooner_group = RouteGroup(name="Sooner Group", drive_date=date(2098, 1, 1))
+        later_group = RouteGroup(name="Later Group", drive_date=date(2099, 1, 1))
         test_session.add_all([loc, sooner_group, later_group])
         await test_session.commit()
         await test_session.refresh(loc)
@@ -1638,6 +1688,72 @@ class TestLocationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["assigned_route"] == "Sooner Route"
+
+    @pytest.mark.asyncio
+    async def test_location_assigned_route_breaks_same_day_tie_numerically(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """Two routes the same day: the lower-numbered one wins, not the one a
+        text sort would put first ("Route 10" < "Route 2" as strings)."""
+        loc = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Same Day Family",
+            contact_name="Same Day Family",
+            address="40 SameDay St",
+            phone_primary="tel:+1-519-576-8888",
+            delivery_type="Family",
+            in_roster=True,
+        )
+        group = RouteGroup(name="Same Day Group", drive_date=date(2098, 6, 1))
+        test_session.add_all([loc, group])
+        await test_session.commit()
+        await test_session.refresh(loc)
+        await test_session.refresh(group)
+
+        # Inserted high-first so an unordered query would surface "Route 10".
+        route_ten = Route(
+            name="Route 10", length=1.0, route_group_id=group.route_group_id
+        )
+        route_two = Route(
+            name="Route 2", length=1.0, route_group_id=group.route_group_id
+        )
+        test_session.add_all([route_ten, route_two])
+        await test_session.commit()
+        await test_session.refresh(route_ten)
+        await test_session.refresh(route_two)
+
+        test_session.add_all(
+            [
+                RouteStop(
+                    route_id=route_ten.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+                RouteStop(
+                    route_id=route_two.route_id,
+                    location_id=loc.location_id,
+                    stop_number=1,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get(f"/locations/{loc.location_id}")
+        assert response.status_code == 200
+        assert response.json()["assigned_route"] == "Route 2"
+
+        # The list endpoint reads through the same loader.
+        listed = await async_client.get("/locations/")
+        assert listed.status_code == 200
+        row = next(
+            item
+            for item in listed.json()["items"]
+            if item["location_id"] == str(loc.location_id)
+        )
+        assert row["assigned_route"] == "Route 2"
 
 
 class TestLocationImportRoutes:
@@ -1683,6 +1799,13 @@ class TestLocationImportRoutes:
                     "Delivery Group": "Monday",
                     "Phone": "not-a-phone",
                 },
+                {
+                    "Name": "Invalid Secondary Phone Family",
+                    "Address": "3 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164170",
+                    "Secondary Phone": "not-a-phone",
+                },
             ]
         )
 
@@ -1700,7 +1823,79 @@ class TestLocationImportRoutes:
         assert body["rows"][1]["alerts"] == ["INVALID_NAME"]
         assert body["rows"][2]["alerts"] == ["INVALID_ADDRESS"]
         assert body["rows"][3]["alerts"] == ["INVALID_PHONE_NUMBER"]
-        assert fake_maps.calls == ["1 Valid St", "Invalid Address", "2 Valid St"]
+        assert body["rows"][4]["alerts"] == ["INVALID_SECONDARY_PHONE_NUMBER"]
+        assert fake_maps.calls == [
+            "1 Valid St",
+            "Invalid Address",
+            "2 Valid St",
+            "3 Valid St",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_review_locations_rejects_imprecise_geocode(
+        self, client_with_overrides: Any
+    ) -> None:
+        """An address Google resolves to a town centroid is not deliverable.
+
+        Google answers a nonexistent street with the surrounding township, which
+        arrives as an ordinary successful result. Those rows must raise
+        INVALID_ADDRESS rather than importing as a stop in the middle of nowhere.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Precise Family",
+                    "Address": "1 Valid St",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164168",
+                },
+                {
+                    "Name": "Centroid Family",
+                    "Address": "99999 Imprecise Pkwy",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/import/preview", **request)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is False
+        assert body["rows"][0]["alerts"] == []
+        assert body["rows"][1]["alerts"] == ["INVALID_ADDRESS"]
+        # The imprecise row keeps the address the admin typed, so the review
+        # screen doesn't imply we accepted Google's fallback match.
+        assert body["rows"][1]["location"]["address"] == "99999 Imprecise Pkwy"
+
+    @pytest.mark.asyncio
+    async def test_apply_import_refuses_imprecise_address(
+        self, client_with_overrides: Any
+    ) -> None:
+        """Applying is blocked too, not just flagged in the preview."""
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        request = import_review_request(
+            [
+                {
+                    "Name": "Centroid Family",
+                    "Address": "99999 Imprecise Pkwy",
+                    "Delivery Group": "Monday",
+                    "Phone": "+14164164169",
+                },
+            ]
+        )
+
+        response = await async_client.post("/locations/import", **request)
+
+        assert response.status_code == 400
 
     @pytest.mark.asyncio
     async def test_review_locations_detects_duplicate_groups_by_two_of_three(
@@ -1906,8 +2101,8 @@ class TestLocationImportRoutes:
             "old_value": "Formatted Old Address",
         }
         assert changed_by_name["Phone Change Family"]["phone_primary"] == {
-            "new_value": "+15195550123",
-            "old_value": "+14164164170",
+            "new_value": "tel:+1-519-555-0123",
+            "old_value": "tel:+1-416-416-4170",
         }
 
     @pytest.mark.asyncio
@@ -1998,9 +2193,9 @@ class TestLocationImportRoutes:
         await test_session.refresh(stale_family)
         await test_session.refresh(untouched_school)
         assert family_match.in_roster is True
-        assert family_match.phone_primary == "+15195550123"
+        assert family_match.phone_primary == "tel:+1-519-555-0123"
         assert school_same_identity.in_roster is True
-        assert school_same_identity.phone_primary == "+14164164168"
+        assert school_same_identity.phone_primary == "tel:+1-416-416-4168"
         assert stale_family.in_roster is False
         assert untouched_school.in_roster is True
 
@@ -2155,6 +2350,198 @@ class TestLocationImportRoutes:
         assert body["changed"] == []
         assert body["net_new"] == []
         assert body["stale"] == []
+
+    @pytest.mark.asyncio
+    async def test_review_and_ingest_apply_halal_and_dietary_restrictions(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A row whose only edit is halal/restrictions must surface and apply.
+
+        Both fields are written by the import, so they have to take part in
+        change detection (or the row is never offered for review) and in the
+        applier (or the reviewed change is dropped on ingest).
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Halal Family",
+            contact_name="Halal Family",
+            address="Formatted 77 Main St",
+            phone_primary="+14164164171",
+            num_children=3,
+            halal=False,
+            dietary_restrictions="Peanut",
+            delivery_type="Family",
+        )
+        test_session.add(location)
+        await test_session.commit()
+        location_id = location.location_id
+
+        rows = [
+            {
+                "Name": "Halal Family",
+                "Address": "77 Main St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164171",
+                "Children": "3",
+                "Halal": "Yes",
+                "Food Restrictions": "Dairy",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import/preview", **import_review_request(rows)
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert len(body["changed"]) == 1
+        changed = body["changed"][0]
+        assert changed["halal"] == {"new_value": True, "old_value": False}
+        assert changed["dietary_restrictions"] == {
+            "new_value": "Dairy",
+            "old_value": "Peanut",
+        }
+        # Untouched fields stay plain values, not old/new pairs.
+        assert changed["num_children"] == 3
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+
+        await test_session.refresh(location)
+        assert location.location_id == location_id
+        assert location.halal is True
+        assert location.dietary_restrictions == "Dairy"
+
+    @pytest.mark.asyncio
+    async def test_ingest_blank_optional_cells_leave_stored_values(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A blank cell carries no information and must not clear the field.
+
+        A blank cell and an unmapped column both parse to None, so None cannot
+        mean "clear this" — the stored value has to survive the import.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        location = Location(
+            location_group_id=test_location_group.location_group_id,
+            name="Blank Optionals Family",
+            contact_name="Blank Optionals Family",
+            address="Formatted 88 Main St",
+            phone_primary="+14164164172",
+            num_children=5,
+            halal=True,
+            dietary_restrictions="Gluten",
+            in_roster=False,
+            delivery_type="Family",
+        )
+        test_session.add(location)
+        await test_session.commit()
+
+        # in_roster=False makes this a changed row even though every mapped
+        # field matches, so the applier actually runs over it.
+        rows = [
+            {
+                "Name": "Blank Optionals Family",
+                "Address": "88 Main St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164172",
+                "Children": "",
+                "Halal": "",
+                "Food Restrictions": "",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import/preview", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+        changed = response.json()["changed"]
+        assert len(changed) == 1
+        assert changed[0]["num_children"] == 5
+        assert changed[0]["halal"] is True
+        assert changed[0]["dietary_restrictions"] == "Gluten"
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+        assert response.status_code == 200
+
+        await test_session.refresh(location)
+        assert location.num_children == 5
+        assert location.halal is True
+        assert location.dietary_restrictions == "Gluten"
+        assert location.in_roster is True
+
+    @pytest.mark.asyncio
+    async def test_ingest_carries_optional_fields_through_an_address_change(
+        self,
+        client_with_overrides: Any,
+        test_session: AsyncSession,
+        test_location_group: Any,
+    ) -> None:
+        """A moved location keeps the import's values, not the old row's.
+
+        The move retires the old Location and builds a fresh one, which used to
+        copy halal/restrictions off the row being retired — silently discarding
+        the edit the admin had just reviewed.
+        """
+        fake_maps = FakeGoogleMapsClient()
+        async_client = await client_with_overrides(
+            {get_google_maps_client: lambda: fake_maps}
+        )
+        test_session.add(
+            Location(
+                location_group_id=test_location_group.location_group_id,
+                name="Moving Family",
+                contact_name="Moving Family",
+                address="Formatted 99 Old St",
+                phone_primary="+14164164173",
+                num_children=2,
+                halal=False,
+                dietary_restrictions="Peanut",
+                delivery_type="Family",
+            )
+        )
+        await test_session.commit()
+
+        rows = [
+            {
+                "Name": "Moving Family",
+                "Address": "100 New St",
+                "Delivery Group": test_location_group.name,
+                "Phone": "+14164164173",
+                "Children": "2",
+                "Halal": "Yes",
+                "Food Restrictions": "Dairy",
+            }
+        ]
+
+        response = await async_client.post(
+            "/locations/import", **import_review_request(rows)
+        )
+
+        assert response.status_code == 200
+        created = response.json()["created"]
+        assert len(created) == 1
+        assert created[0]["address"] == "Formatted 100 New St"
+        assert created[0]["halal"] is True
+        assert created[0]["dietary_restrictions"] == "Dairy"
 
     @pytest.mark.asyncio
     async def test_review_locations_claims_existing_matches_once(
@@ -2362,7 +2749,7 @@ class TestLocationImportRoutes:
         assert address_change.in_roster is False
         assert stale.in_roster is False
         assert phone_change.in_roster is True
-        assert phone_change.phone_primary == "+15195550123"
+        assert phone_change.phone_primary == "tel:+1-519-555-0123"
 
         result = await test_session.execute(
             select(Location).where(Location.contact_name == "Address Change Family")
@@ -2690,6 +3077,29 @@ class TestRouteRoutes:
         assert data["total_pages"] == 0
 
     @pytest.mark.asyncio
+    async def test_get_routes_date_filter_accepts_a_plain_date(
+        self, async_client: AsyncClient
+    ) -> None:
+        """drive_date is date-only, so the filters take a date."""
+        response = await async_client.get(
+            "/routes?start_date=2024-01-01&end_date=2024-12-31"
+        )
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_routes_rejects_an_unparseable_date(
+        self, async_client: AsyncClient
+    ) -> None:
+        """A bad date is a client error, not a 500.
+
+        These params were typed `str` and parsed by hand inside the service, so
+        anything the parser choked on surfaced as an unhandled ValueError.
+        Declaring them as dates moves the rejection into FastAPI's validation.
+        """
+        response = await async_client.get("/routes?start_date=not-a-date")
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_get_routes_with_data(
         self,
         async_client: AsyncClient,
@@ -2706,7 +3116,7 @@ class TestRouteRoutes:
             name="Route Stop A",
             contact_name="Route Stop A",
             address="1 Route St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             num_children=6,
             delivery_type="Family",
         )
@@ -2715,7 +3125,7 @@ class TestRouteRoutes:
             name="Route Stop B",
             contact_name="Route Stop B",
             address="2 Route St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             num_children=10,
             delivery_type="Family",
         )
@@ -2740,7 +3150,7 @@ class TestRouteRoutes:
         await test_session.commit()
 
         # A second route in a later-dated group, to exercise drive_date ordering.
-        later_group = RouteGroup(name="Later Group", drive_date=datetime(2024, 6, 1))
+        later_group = RouteGroup(name="Later Group", drive_date=date(2024, 6, 1))
         test_session.add(later_group)
         await test_session.commit()
         await test_session.refresh(later_group)
@@ -2790,7 +3200,7 @@ class TestRouteRoutes:
         test_route_group: Any,
         test_driver: Any,
     ) -> None:
-        """GET /routes?search filters (case-insensitive) on the driver's name."""
+        """GET /routes?search matches (case-insensitively) the driver's name."""
         assigned = Route(
             name="Assigned Route",
             length=1.0,
@@ -2821,6 +3231,204 @@ class TestRouteRoutes:
         assert empty.json()["items"] == []
 
     @pytest.mark.asyncio
+    @pytest.mark.asyncio
+    async def test_get_routes_search_by_route_and_group_name(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """GET /routes?search also matches the route's and its group's name.
+
+        Group name is the useful one on the Routes tab: routes are named
+        "Route {n}" per group, so the name alone never identifies one.
+        """
+        from app.models.route_group import RouteGroup
+
+        cambridge = RouteGroup(
+            name="Tuesday A - Cambridge North",
+            notes="",
+            drive_date=date(2024, 1, 16),
+        )
+        test_session.add(cambridge)
+        await test_session.commit()
+        await test_session.refresh(cambridge)
+
+        in_cambridge = Route(
+            name="Route 1", length=1.0, route_group_id=cambridge.route_group_id
+        )
+        elsewhere = Route(
+            name="Route 2",
+            length=1.0,
+            route_group_id=test_route_group.route_group_id,
+        )
+        test_session.add_all([in_cambridge, elsewhere])
+        await test_session.commit()
+        await test_session.refresh(in_cambridge)
+        await test_session.refresh(elsewhere)
+
+        async def ids_for(term: str) -> set[str]:
+            response = await async_client.get("/routes", params={"search": term})
+            assert response.status_code == 200
+            return {item["route_id"] for item in response.json()["items"]}
+
+        # Group name narrows to that group's routes — and an unassigned route
+        # matches, which a driver-name-only search could never do.
+        assert await ids_for("cambridge") == {str(in_cambridge.route_id)}
+        assert await ids_for("CAMBRIDGE") == {str(in_cambridge.route_id)}
+        # The route's own name matches too, but is only unique within a group.
+        assert await ids_for("Route 2") == {str(elsewhere.route_id)}
+        assert await ids_for("zzz no such thing") == set()
+
+    @pytest.mark.asyncio
+    async def test_get_routes_orders_by_route_number(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """Routes sort by the number in their name, not by the name as text.
+
+        Names are generated as "Route {n}", so a text sort lists route 10
+        before route 2 as soon as a group has ten of them.
+        """
+        numbers = [7, 12, 1, 10, 3, 11, 2, 5, 9, 4, 8, 6]
+        test_session.add_all(
+            [
+                Route(
+                    name=f"Route {n}",
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                )
+                for n in numbers
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        assert [item["name"] for item in response.json()["items"]] == [
+            f"Route {n}" for n in range(1, 13)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_orders_renamed_routes_naturally(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """A renamed route sorts among the names, not among the numbers.
+
+        Route.name is editable, so nothing guarantees the "Route {n}" shape.
+        Sorting on the number alone would put "3rd shift" between "Route 2"
+        and "Route 4"; the text before the number orders these first. Case is
+        ignored, so a lowercase "route 1" still sorts with the numbered
+        routes rather than after every capitalised name.
+        """
+        names = [
+            "Zebra loop",
+            "Route 10",
+            "Cambridge",
+            "Route 2",
+            "3rd shift",
+            "route 1",
+            "Airport run",
+        ]
+        test_session.add_all(
+            [
+                Route(
+                    name=name,
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                )
+                for name in names
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        assert [item["name"] for item in response.json()["items"]] == [
+            "3rd shift",
+            "Airport run",
+            "Cambridge",
+            "route 1",
+            "Route 2",
+            "Route 10",
+            "Zebra loop",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_get_routes_orders_case_variants_adjacently_and_stably(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """Names differing only in case tie on the lowered key.
+
+        The raw name breaks that tie, so the pair is adjacent and the order
+        repeats. Which of the two comes first is the database collation's
+        call, so it isn't asserted here.
+        """
+        names = ["route 1", "Route 1", "Cambridge", "Route 2"]
+        test_session.add_all(
+            [
+                Route(
+                    name=name,
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                )
+                for name in names
+            ]
+        )
+        await test_session.commit()
+
+        first = await async_client.get("/routes")
+        assert first.status_code == 200
+        ordered = [item["name"] for item in first.json()["items"]]
+        assert ordered[0] == "Cambridge"
+        assert set(ordered[1:3]) == {"Route 1", "route 1"}
+        assert ordered[3] == "Route 2"
+
+        # Same order on a second read: the tie is broken by the name, not left
+        # to the database to resolve differently each time.
+        second = await async_client.get("/routes")
+        assert [item["name"] for item in second.json()["items"]] == ordered
+
+    @pytest.mark.asyncio
+    async def test_get_routes_tolerates_an_oversized_number_in_a_name(
+        self,
+        async_client: AsyncClient,
+        test_session: AsyncSession,
+        test_route_group: Any,
+    ) -> None:
+        """A digit run too long for an int must not blow up the listing."""
+        test_session.add_all(
+            [
+                Route(
+                    name="Route 999999999999999999999",
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                ),
+                Route(
+                    name="Route 1",
+                    length=1.0,
+                    route_group_id=test_route_group.route_group_id,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/routes")
+        assert response.status_code == 200
+        assert [item["name"] for item in response.json()["items"]] == [
+            "Route 1",
+            "Route 999999999999999999999",
+        ]
+
+    @pytest.mark.asyncio
     async def test_get_routes_returns_derived_row_values(
         self,
         async_client: AsyncClient,
@@ -2842,7 +3450,7 @@ class TestRouteRoutes:
             name="Derived",
             contact_name="Derived",
             address="1 Derived St",
-            phone_primary="5550000009",
+            phone_primary="tel:+1-519-576-0009",
             delivery_type="School",
             num_children=3,
         )
@@ -2895,7 +3503,7 @@ class TestRouteRoutes:
         # Both routes share a group, so they share its drive_date and status.
         expected_status = (
             RouteStatusEnum.UPCOMING
-            if test_route_group.drive_date.date() >= date.today()
+            if test_route_group.drive_date >= today_local()
             else RouteStatusEnum.COMPLETED
         )
         assert served_row["status"] == expected_status.value
@@ -2944,8 +3552,8 @@ class TestRouteRoutes:
         test_session: AsyncSession,
     ) -> None:
         """Routes status filter: Upcoming = today or later, Completed = earlier."""
-        future_group = RouteGroup(name="Future", drive_date=datetime(2099, 1, 1))
-        past_group = RouteGroup(name="Past", drive_date=datetime(2020, 1, 1))
+        future_group = RouteGroup(name="Future", drive_date=date(2099, 1, 1))
+        past_group = RouteGroup(name="Past", drive_date=date(2020, 1, 1))
         test_session.add_all([future_group, past_group])
         await test_session.flush()
         upcoming = Route(
@@ -2983,7 +3591,7 @@ class TestRouteRoutes:
             name="Fam",
             contact_name="Fam",
             address="1 Fam St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
             num_children=2,
         )
@@ -2992,7 +3600,7 @@ class TestRouteRoutes:
             name="Sch",
             contact_name="Sch",
             address="2 Sch St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="School",
             num_children=2,
         )
@@ -3048,16 +3656,14 @@ class TestRouteRoutes:
         past_group = RouteGroup(
             name="Past Route Group",
             notes="",
-            drive_date=datetime.combine(
-                date.today() - timedelta(days=7), datetime.min.time()
-            ),
+            drive_date=today_local() - timedelta(days=7),
         )
         loc = Location(
             location_group_id=test_location_group.location_group_id,
             name="Frozen Stop",
             contact_name="Frozen Stop",
             address="1 Frozen St",
-            phone_primary="5550000009",
+            phone_primary="tel:+1-519-576-0009",
             num_children=6,
             delivery_type="Family",
         )
@@ -3153,8 +3759,8 @@ class TestRouteRoutes:
             name="Stop A",
             contact_name="Alice",
             address="1 A St",
-            phone_primary="5550000001",
-            phone_secondary="5559999991",
+            phone_primary="tel:+1-519-576-0001",
+            phone_secondary="tel:+1-519-576-9991",
             num_children=6,
             delivery_type="Family",
             latitude=43.4643,
@@ -3167,7 +3773,7 @@ class TestRouteRoutes:
             name="Stop B",
             contact_name="Bob",
             address="2 B St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             num_children=10,
             delivery_type="Family",
         )
@@ -3212,13 +3818,13 @@ class TestRouteRoutes:
         # Stop 1 -> loc_b
         assert first["address"] == "2 B St"
         assert first["contact_name"] == "Bob"
-        assert first["phone_primary"] == "5550000002"
+        assert first["phone_primary"] == "tel:+1-519-576-0002"
         assert first["phone_secondary"] is None
         assert first["boxes"] == 5  # ceil(10 / 2)
         assert first["note_chain_id"] == str(chain_b.note_chain_id)
         # Stop 2 -> loc_a
         assert second["address"] == "1 A St"
-        assert second["phone_secondary"] == "5559999991"
+        assert second["phone_secondary"] == "tel:+1-519-576-9991"
         assert second["boxes"] == 3  # ceil(6 / 2)
         assert second["note_chain_id"] == str(chain_a.note_chain_id)
         # Coordinates feed the route map; live Location for an upcoming route,
@@ -3244,12 +3850,12 @@ class TestRouteRoutes:
             name="Frozen Fam",
             contact_name="Live Name",
             address="Live Addr",
-            phone_primary="5550000000",
-            phone_secondary="5551112222",
+            phone_primary="tel:+1-519-576-0000",
+            phone_secondary="tel:+1-519-576-0005",
             num_children=2,
             delivery_type="Family",
         )
-        past_group = RouteGroup(name="Past Group", drive_date=datetime(2024, 1, 1))
+        past_group = RouteGroup(name="Past Group", drive_date=date(2024, 1, 1))
         test_session.add_all([note_chain, loc, past_group])
         await test_session.commit()
         await test_session.refresh(note_chain)
@@ -3282,8 +3888,8 @@ class TestRouteRoutes:
                 route_stop_id=stop.route_stop_id,
                 address="Frozen Addr",
                 contact_name="Frozen Name",
-                phone_primary="5557778888",
-                phone_secondary="5557779999",
+                phone_primary="tel:+1-519-576-8888",
+                phone_secondary="tel:+1-519-576-0008",
                 num_children=8,
                 latitude=43.4643,
                 longitude=-80.5204,
@@ -3295,7 +3901,7 @@ class TestRouteRoutes:
         # for snapshotted fields (including phone_secondary and coordinates).
         loc.address = "Changed Addr"
         loc.num_children = 1
-        loc.phone_secondary = "5550009999"
+        loc.phone_secondary = "tel:+1-519-576-9999"
         loc.latitude = 1.0
         loc.longitude = 2.0
         await test_session.commit()
@@ -3307,9 +3913,9 @@ class TestRouteRoutes:
         stop_body = stops[0]
         assert stop_body["address"] == "Frozen Addr"
         assert stop_body["contact_name"] == "Frozen Name"
-        assert stop_body["phone_primary"] == "5557778888"
+        assert stop_body["phone_primary"] == "tel:+1-519-576-8888"
         # Secondary phone is snapshotted -> frozen value, not the mutated live one.
-        assert stop_body["phone_secondary"] == "5557779999"
+        assert stop_body["phone_secondary"] == "tel:+1-519-576-0008"
         # Ditto the coordinates: a past route maps where it actually went.
         assert stop_body["latitude"] == 43.4643
         assert stop_body["longitude"] == -80.5204
@@ -3530,7 +4136,7 @@ class TestRouteRoutes:
             name="Live Fam",
             contact_name="Live Fam",
             address="10 Live Ave",
-            phone_primary="5550001111",
+            phone_primary="tel:+1-519-576-0003",
             delivery_type="Family",
             latitude=44.0,
             longitude=-79.0,
@@ -3589,7 +4195,7 @@ class TestRouteRoutes:
             name="Moved Fam",
             contact_name="Moved Fam",
             address="999 New Address",
-            phone_primary="5550002222",
+            phone_primary="tel:+1-519-576-2222",
             delivery_type="Family",
             latitude=2.0,
             longitude=2.0,
@@ -3621,7 +4227,7 @@ class TestRouteRoutes:
                     route_stop_id=stop.route_stop_id,
                     address="123 Old Address",
                     contact_name="Old Fam",
-                    phone_primary="5550002222",
+                    phone_primary="tel:+1-519-576-2222",
                     num_children=3,
                     notes="",
                     latitude=44.0,
@@ -3663,7 +4269,7 @@ class TestRouteRoutes:
             name="Unsnapped Fam",
             contact_name="Unsnapped Fam",
             address="55 Fallback Rd",
-            phone_primary="5550003333",
+            phone_primary="tel:+1-519-576-3333",
             delivery_type="Family",
             latitude=45.0,
             longitude=-80.0,
@@ -3707,7 +4313,6 @@ class TestRouteRoutes:
     ) -> None:
         """GET /routes/{id}/suggested-driver returns the active driver most
         familiar with the route's locations from past frozen deliveries."""
-        from datetime import datetime
 
         from app.models.driver import Driver
         from app.models.route import Route
@@ -3722,7 +4327,7 @@ class TestRouteRoutes:
             name="Fam A",
             contact_name="Fam A",
             address="1 A St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
         )
         loc_b = Location(
@@ -3730,7 +4335,7 @@ class TestRouteRoutes:
             name="Fam B",
             contact_name="Fam B",
             address="2 B St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="Family",
         )
         user = User(
@@ -3749,7 +4354,7 @@ class TestRouteRoutes:
         )
         # The driver's past route lives in its own (earlier) group, so the
         # no-double-book exclusion doesn't remove them from the target group.
-        past_group = RouteGroup(name="Past Day", drive_date=datetime(2020, 1, 1))
+        past_group = RouteGroup(name="Past Day", drive_date=date(2020, 1, 1))
         test_session.add_all([loc_a, loc_b, user, driver, past_group])
         await test_session.commit()
         await test_session.refresh(loc_a)
@@ -3828,7 +4433,7 @@ class TestRouteStopConstraints:
             name=f"Constraint Family {n}",
             contact_name=f"Constraint Family {n}",
             address=f"{n} Constraint St",
-            phone_primary=f"555000{n:04d}",
+            phone_primary=f"tel:+1-519-576-{n:04d}",
             delivery_type="Family",
             in_roster=True,
         )
@@ -4016,7 +4621,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="A",
             address="1 Main St",
-            phone_primary="555-0001",
+            phone_primary="tel:+1-519-576-1106",
             num_children=2,
         )
         loc_b = Location(
@@ -4025,7 +4630,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="B",
             address="2 Main St",
-            phone_primary="555-0002",
+            phone_primary="tel:+1-519-576-1107",
             num_children=4,
         )
         test_session.add_all([loc_a, loc_b])
@@ -4033,7 +4638,7 @@ class TestRouteGroupRoutes:
         route_group = RouteGroup(
             name="July 9 - Tuesday A",
             notes="original notes",
-            drive_date=datetime(2026, 7, 9, 9, 0),
+            drive_date=date(2026, 7, 9),
         )
         test_session.add(route_group)
         await test_session.flush()
@@ -4165,7 +4770,7 @@ class TestRouteGroupRoutes:
         route_group = RouteGroup(
             name=long_name,
             notes="empty group",
-            drive_date=datetime(2026, 7, 10, 9, 0),
+            drive_date=date(2026, 7, 10),
         )
         test_session.add(route_group)
         await test_session.commit()
@@ -4189,7 +4794,7 @@ class TestRouteGroupRoutes:
         route_group = RouteGroup(
             name="Tuesday A - Cambridge North",
             notes="",
-            drive_date=datetime(2026, 7, 9, 9, 0),
+            drive_date=date(2026, 7, 9),
         )
         test_session.add(route_group)
         await test_session.commit()
@@ -4198,7 +4803,7 @@ class TestRouteGroupRoutes:
             f"/route-groups/{route_group.route_group_id}/duplicate",
             json={
                 "name": "Tuesday A - Cambridge North (Copy)",
-                "drive_date": "2026-07-16T00:00:00",
+                "drive_date": "2026-07-16",
             },
         )
 
@@ -4206,9 +4811,134 @@ class TestRouteGroupRoutes:
         body = response.json()
         assert body["route_group_id"] != str(route_group.route_group_id)
         assert body["name"] == "Tuesday A - Cambridge North (Copy)"
-        assert body["drive_date"] == "2026-07-16T00:00:00"
+        assert body["drive_date"] == "2026-07-16"
         # The copy has no stops yet, so it has no delivery type to report.
         assert body["delivery_type"] is None
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_accepts_a_past_drive_date(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """A backdated copy is allowed, and immediately reads as COMPLETED.
+
+        Deliberate: admins backfill deliveries that already happened, so the
+        guard is a confirmation in the UI rather than a rejection here. The
+        nightly freeze job will snapshot the copy into driver history, which
+        is what that confirmation warns about.
+        """
+        route_group = RouteGroup(
+            name="Tuesday A", notes="", drive_date=date(2026, 7, 9)
+        )
+        test_session.add(route_group)
+        await test_session.commit()
+
+        past = date.today() - timedelta(days=30)
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={"drive_date": past.isoformat()},
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["drive_date"] == past.isoformat()
+        assert body["status"] == RouteStatusEnum.COMPLETED.value
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_without_copying_drivers(
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
+    ) -> None:
+        """copy_drivers=false leaves every copied route unassigned.
+
+        The assigned route keeps its start_time, which the copy must too: a
+        route may carry a start time with no driver, but not the reverse.
+        """
+        from sqlmodel import select
+
+        route_group = RouteGroup(
+            name="Tuesday A - Cambridge North",
+            notes="",
+            drive_date=date(2026, 7, 9),
+        )
+        test_session.add(route_group)
+        await test_session.flush()
+
+        test_session.add_all(
+            [
+                Route(
+                    name="Assigned Route",
+                    length=8.0,
+                    route_group_id=route_group.route_group_id,
+                    driver_id=test_driver.driver_id,
+                    start_time=time(8, 30),
+                ),
+                Route(
+                    name="Unassigned Route",
+                    length=4.0,
+                    route_group_id=route_group.route_group_id,
+                ),
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={"name": "Cambridge North (Copy)", "copy_drivers": False},
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["num_routes"] == 2
+        assert body["num_drivers_assigned"] == 0
+
+        result = await test_session.execute(
+            select(Route)
+            .where(Route.route_group_id == UUID(body["route_group_id"]))
+            .order_by(Route.name)
+        )
+        copied_assigned, copied_unassigned = list(result.scalars().all())
+        assert copied_assigned.name == "Assigned Route"
+        assert copied_assigned.driver_id is None
+        assert copied_assigned.start_time == time(8, 30)
+        assert copied_unassigned.driver_id is None
+
+        # The original keeps its assignment — duplication never moves drivers.
+        await test_session.refresh(route_group)
+        original = await test_session.execute(
+            select(Route).where(
+                Route.route_group_id == route_group.route_group_id,
+                Route.name == "Assigned Route",
+            )
+        )
+        assert original.scalars().one().driver_id == test_driver.driver_id
+
+    @pytest.mark.asyncio
+    async def test_duplicate_route_group_copy_drivers_true_is_explicit_default(
+        self, async_client: AsyncClient, test_session: AsyncSession, test_driver: Any
+    ) -> None:
+        """Passing copy_drivers=true matches the no-body default: drivers carry over."""
+        route_group = RouteGroup(
+            name="Thursday B", notes="", drive_date=date(2026, 7, 9)
+        )
+        test_session.add(route_group)
+        await test_session.flush()
+        test_session.add(
+            Route(
+                name="Assigned Route",
+                length=8.0,
+                route_group_id=route_group.route_group_id,
+                driver_id=test_driver.driver_id,
+                start_time=time(8, 30),
+            )
+        )
+        await test_session.commit()
+
+        response = await async_client.post(
+            f"/route-groups/{route_group.route_group_id}/duplicate",
+            json={"copy_drivers": True},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["num_drivers_assigned"] == 1
 
     @pytest.mark.asyncio
     async def test_duplicate_route_group_not_found(
@@ -4239,7 +4969,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="Delete",
             address="3 Main St",
-            phone_primary="555-0003",
+            phone_primary="tel:+1-519-576-1108",
             num_children=2,
         )
         test_session.add(location)
@@ -4273,7 +5003,7 @@ class TestRouteGroupRoutes:
                     route_stop_id=route_stop.route_stop_id,
                     address="Snapshot Address",
                     contact_name="Snapshot Contact",
-                    phone_primary="555-0100",
+                    phone_primary="tel:+1-519-576-1109",
                     num_children=2,
                     latitude=43.1,
                     longitude=-80.1,
@@ -4309,8 +5039,8 @@ class TestRouteGroupRoutes:
         test_route_group: Any,  # noqa: ARG002
     ) -> None:
         """Test GET /route-groups with date filters."""
-        start_date = datetime(2024, 1, 1).isoformat()
-        end_date = datetime(2024, 12, 31).isoformat()
+        start_date = date(2024, 1, 1).isoformat()
+        end_date = date(2024, 12, 31).isoformat()
 
         response = await async_client.get(
             f"/route-groups?start_date={start_date}&end_date={end_date}"
@@ -4326,11 +5056,11 @@ class TestRouteGroupRoutes:
         """GET /route-groups?search filters (case-insensitive) on the group name."""
         cambridge = RouteGroup(
             name="Tuesday A - Cambridge North",
-            drive_date=datetime(2026, 7, 9, 9, 0),
+            drive_date=date(2026, 7, 9),
         )
         elmira = RouteGroup(
             name="Wednesday B - Elmira",
-            drive_date=datetime(2026, 7, 10, 9, 0),
+            drive_date=date(2026, 7, 10),
         )
         test_session.add_all([cambridge, elmira])
         await test_session.commit()
@@ -4353,11 +5083,11 @@ class TestRouteGroupRoutes:
         match rather than the page.
         """
         groups = [
-            RouteGroup(name=f"Page Test {i}", drive_date=datetime(2026, 7, i, 9, 0))
+            RouteGroup(name=f"Page Test {i}", drive_date=date(2026, 7, i))
             for i in range(1, 6)
         ]
         # A group the search excludes, to prove `total` reflects the filter.
-        other = RouteGroup(name="Excluded", drive_date=datetime(2026, 7, 6, 9, 0))
+        other = RouteGroup(name="Excluded", drive_date=date(2026, 7, 6))
         test_session.add_all([*groups, other])
         await test_session.commit()
 
@@ -4396,7 +5126,7 @@ class TestRouteGroupRoutes:
         shares one date, which is the normal case (a day's worth of routes), so
         the tie-break is the only thing deciding the order.
         """
-        shared_date = datetime(2026, 8, 3, 9, 0)
+        shared_date = date(2026, 8, 3)
         test_session.add_all(
             [
                 RouteGroup(name=f"Tied {i:02d}", drive_date=shared_date)
@@ -4429,7 +5159,7 @@ class TestRouteGroupRoutes:
         The key case: a partially-staffed group counts as Unassigned, not
         Assigned.
         """
-        drive_date = datetime(2026, 8, 4, 9, 0)
+        drive_date = date(2026, 8, 4)
         full = RouteGroup(name="Full Staff", drive_date=drive_date)
         partial = RouteGroup(name="Partial Staff", drive_date=drive_date)
         none_assigned = RouteGroup(name="No Staff", drive_date=drive_date)
@@ -4504,7 +5234,7 @@ class TestRouteGroupRoutes:
             name="Fam",
             contact_name="Fam",
             address="1 Fam St",
-            phone_primary="5550000001",
+            phone_primary="tel:+1-519-576-0001",
             delivery_type="Family",
             num_children=2,
         )
@@ -4513,13 +5243,13 @@ class TestRouteGroupRoutes:
             name="Sch",
             contact_name="Sch",
             address="2 Sch St",
-            phone_primary="5550000002",
+            phone_primary="tel:+1-519-576-0002",
             delivery_type="School",
             num_children=2,
         )
         test_session.add_all([fam_loc, sch_loc])
         await test_session.flush()
-        drive_date = datetime(2026, 8, 5, 9, 0)
+        drive_date = date(2026, 8, 5)
         fam_group = RouteGroup(name="Fam Group", drive_date=drive_date)
         sch_group = RouteGroup(name="Sch Group", drive_date=drive_date)
         test_session.add_all([fam_group, sch_group])
@@ -4565,7 +5295,7 @@ class TestRouteGroupRoutes:
         Confirms the routes relationship loads without an async lazy-load 500
         and the routes payload is correctly populated.
         """
-        rg = RouteGroup(name="RG", drive_date=datetime(2026, 6, 1))
+        rg = RouteGroup(name="RG", drive_date=date(2026, 6, 1))
         test_session.add(rg)
         await test_session.commit()
         await test_session.refresh(rg)
@@ -4587,11 +5317,46 @@ class TestRouteGroupRoutes:
         assert [r["route_id"] for r in group["routes"]] == [str(route.route_id)]
 
     @pytest.mark.asyncio
+    async def test_get_route_groups_include_routes_ordered_by_number(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """The embedded routes come back in route-number order."""
+        rg = RouteGroup(name="Numbered", drive_date=date(2026, 6, 2))
+        test_session.add(rg)
+        await test_session.commit()
+        await test_session.refresh(rg)
+
+        names = [f"Route {n}" for n in (11, 2, 1, 10, 3)] + ["Spare van"]
+        test_session.add_all(
+            [
+                Route(name=name, length=1.0, route_group_id=rg.route_group_id)
+                for name in names
+            ]
+        )
+        await test_session.commit()
+
+        response = await async_client.get("/route-groups?include_routes=true")
+        assert response.status_code == 200
+        group = next(
+            g
+            for g in response.json()["items"]
+            if g["route_group_id"] == str(rg.route_group_id)
+        )
+        assert [r["name"] for r in group["routes"]] == [
+            "Route 1",
+            "Route 2",
+            "Route 3",
+            "Route 10",
+            "Route 11",
+            "Spare van",
+        ]
+
+    @pytest.mark.asyncio
     async def test_get_route_groups_aggregate_defaults(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
         """A route group with no memberships returns zeroed aggregates and expected status."""
-        rg = RouteGroup(name="Empty Group", drive_date=datetime(2020, 1, 1))
+        rg = RouteGroup(name="Empty Group", drive_date=date(2020, 1, 1))
         test_session.add(rg)
         await test_session.commit()
         await test_session.refresh(rg)
@@ -4624,12 +5389,12 @@ class TestRouteGroupRoutes:
             delivery_type="School",
             contact_name="Jane",
             address="123 Main St",
-            phone_primary="555-1234",
+            phone_primary="tel:+1-519-576-1110",
             num_children=10,
         )
         test_session.add(location)
 
-        rg = RouteGroup(name="School Group", drive_date=datetime(2020, 3, 1))
+        rg = RouteGroup(name="School Group", drive_date=date(2020, 3, 1))
         test_session.add(rg)
         await test_session.flush()
 
@@ -4669,12 +5434,12 @@ class TestRouteGroupRoutes:
             delivery_type="Pantry",
             contact_name="Pantry Contact",
             address="123 Main St",
-            phone_primary="555-1234",
+            phone_primary="tel:+1-519-576-1110",
             num_children=10,
         )
         test_session.add(location)
 
-        rg = RouteGroup(name="Pantry Route Group", drive_date=datetime(2020, 3, 1))
+        rg = RouteGroup(name="Pantry Route Group", drive_date=date(2020, 3, 1))
         test_session.add(rg)
         await test_session.flush()
 
@@ -4728,7 +5493,7 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="A",
             address="1 St",
-            phone_primary="555-0001",
+            phone_primary="tel:+1-519-576-1106",
             num_children=3,
         )
         loc_b = Location(
@@ -4737,12 +5502,12 @@ class TestRouteGroupRoutes:
             delivery_type="Family",
             contact_name="B",
             address="2 St",
-            phone_primary="555-0002",
+            phone_primary="tel:+1-519-576-1107",
             num_children=5,
         )
         test_session.add_all([loc_a, loc_b])
 
-        rg = RouteGroup(name="Boxes Group", drive_date=datetime(2020, 4, 1))
+        rg = RouteGroup(name="Boxes Group", drive_date=date(2020, 4, 1))
         test_session.add(rg)
         await test_session.flush()
 
@@ -4779,17 +5544,15 @@ class TestRouteGroupRoutes:
     ) -> None:
         """A route group whose drive_date is today reports status 'Upcoming'.
 
-        drive_date is stored date-only (midnight) and is computed here in the
-        scheduler timezone to match the service's clock.
+        drive_date is stored date-only and is computed here in the scheduler
+        timezone to match the service's clock.
         """
         from zoneinfo import ZoneInfo
 
         from app.config import settings
 
         tz = ZoneInfo(settings.scheduler_timezone)
-        today = datetime.now(tz).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-        )
+        today = datetime.now(tz).date()
 
         rg = RouteGroup(name="Today Group", drive_date=today)
         test_session.add(rg)
@@ -4836,12 +5599,16 @@ class TestNoteChainRoutes:
             json={"message": "Hello"},
         )
         assert note_resp.status_code == 201
-        note_id = note_resp.json()["note_id"]
+        note_body = note_resp.json()
+        note_id = note_body["note_id"]
+        assert note_body["author_name"] is not None
+        assert note_body["author_name"].strip() != ""
 
         # List notes
         list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
         assert list_resp.status_code == 200
         assert len(list_resp.json()) == 1
+        assert list_resp.json()[0]["author_name"] == note_body["author_name"]
 
         # Update
         patch_resp = await authed_async_client.patch(
@@ -4850,12 +5617,70 @@ class TestNoteChainRoutes:
         )
         assert patch_resp.status_code == 200
         assert patch_resp.json()["message"] == "Edited"
+        assert patch_resp.json()["author_name"] == note_body["author_name"]
 
         # Delete
         delete_note_resp = await authed_async_client.delete(
             f"/note-chains/{chain_id}/notes/{note_id}"
         )
         assert delete_note_resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_list_notes_includes_mixed_author_names(
+        self, authed_async_client: AsyncClient, test_session: Any
+    ) -> None:
+        """GET /note-chains/{id}/notes returns each author's real name.
+
+        Mirrors seeded All Stops data where a location chain has notes from
+        more than one person (admin + driver).
+        """
+        from app.models.note import Note
+        from app.models.user import User
+
+        chain_id = await self._create_chain(test_session)
+
+        other_author = User(
+            first_name="Casey",
+            last_name="Driver",
+            email="casey.driver@example.com",
+            role="driver",
+            auth_id="auth-casey-driver",
+        )
+        test_session.add(other_author)
+        await test_session.flush()
+
+        # One note from the authed admin (created via API)...
+        mine = await authed_async_client.post(
+            f"/note-chains/{chain_id}/notes",
+            json={"message": "Left boxes by the door"},
+        )
+        assert mine.status_code == 201
+
+        # ...and one from a different seeded-style author.
+        other_note = Note(
+            note_chain_id=UUID(chain_id),
+            user_id=other_author.user_id,
+            message="Gate code is 4821",
+            is_system=False,
+        )
+        test_session.add(other_note)
+        await test_session.commit()
+
+        list_resp = await authed_async_client.get(f"/note-chains/{chain_id}/notes")
+        assert list_resp.status_code == 200
+        notes = list_resp.json()
+        assert len(notes) == 2
+
+        by_message = {note["message"]: note for note in notes}
+        assert (
+            by_message["Left boxes by the door"]["author_name"]
+            == mine.json()["author_name"]
+        )
+        assert by_message["Gate code is 4821"]["author_name"] == "Casey Driver"
+        assert (
+            by_message["Left boxes by the door"]["author_name"]
+            != by_message["Gate code is 4821"]["author_name"]
+        )
 
     @pytest.mark.asyncio
     async def test_get_note_chain(
@@ -4910,7 +5735,7 @@ class TestNoteFeedRoutes:
             name=location_name,
             contact_name=location_name,
             address=f"{location_name} Address",
-            phone_primary="555-1234",
+            phone_primary="tel:+1-519-576-1110",
             delivery_type="Family",
             note_chain_id=chain.note_chain_id,
         )
@@ -4937,14 +5762,14 @@ class TestNoteFeedRoutes:
             location_name="Beta Family",
             message="Older note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Family",
             message="Newer note",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?page_size=1&sort=recent")
@@ -4980,7 +5805,7 @@ class TestNoteFeedRoutes:
             location_name="System Family",
             message="Automated note",
             user=None,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         response = await async_client.get("/notes?sort=recent")
@@ -5018,21 +5843,21 @@ class TestNoteFeedRoutes:
             location_name="Charlie Location",
             message="Admin middle",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 2, 9, 0),
+            created_at=datetime(2026, 1, 2, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Alpha Location",
             message="Driver newest",
             user=driver_user,
-            created_at=datetime(2026, 1, 3, 9, 0),
+            created_at=datetime(2026, 1, 3, 9, 0, tzinfo=timezone.utc),
         )
         await self._seed_location_note(
             test_session,
             location_name="Bravo Location",
             message="Admin oldest",
             user=test_admin_user,
-            created_at=datetime(2026, 1, 1, 9, 0),
+            created_at=datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc),
         )
 
         oldest_response = await async_client.get("/notes?sort=oldest")
@@ -5086,16 +5911,11 @@ class TestValidationErrors:
             "license_plate": "ABC123",
             "car_make_model": "Toyota Camry",
         }
-        with patch(
-            "app.dependencies.auth.auth_service.is_authorized_by_role",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            response = await async_client.post(
-                "/drivers/initialize",
-                json=invalid_data,
-                headers={"Authorization": "Bearer test-token"},
-            )
+        response = await async_client.post(
+            "/drivers/initialize",
+            json=invalid_data,
+            headers={"Authorization": "Bearer test-token"},
+        )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
@@ -5339,6 +6159,49 @@ class TestJobRoutes:
         assert response.json()["job_id"] == str(job_id)
 
     @pytest.mark.asyncio
+    async def test_generate_job_persists_input_payload(
+        self, test_session: AsyncSession
+    ) -> None:
+        """JobService.generate_job stores the request so a worker can replay it later."""
+        from app.schemas.route_generation import (
+            RouteGenerationGroupInput,
+            RouteGenerationSettings,
+        )
+        from app.services.implementations.job_service import JobService
+
+        req = RouteGenerationGroupInput(
+            location_group=LocationGroup(name="Group", color="#FF5733"),
+            settings=RouteGenerationSettings(
+                route_start_time=datetime(2026, 6, 1, 8, 0), num_routes=2
+            ),
+        )
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job(req)
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is not None
+
+        rehydrated = RouteGenerationGroupInput.model_validate(job.input_payload)
+        assert rehydrated.location_group.name == "Group"
+        assert rehydrated.settings.num_routes == 2
+
+    @pytest.mark.asyncio
+    async def test_generate_job_with_no_request_leaves_payload_null(
+        self, test_session: AsyncSession
+    ) -> None:
+        """generate_job(None) is still valid and stores no payload."""
+        from app.services.implementations.job_service import JobService
+
+        service = JobService(logger=MagicMock(), session=test_session)
+        job_id = await service.generate_job()
+
+        job = await service.get_job(job_id)
+        assert job is not None
+        assert job.input_payload is None
+
+    @pytest.mark.asyncio
     async def test_cancel_pending_job(
         self, async_client: AsyncClient, test_session: AsyncSession
     ) -> None:
@@ -5409,7 +6272,7 @@ class TestJobRoutes:
     async def test_enqueue_cancelled_job_does_not_run(
         self, test_session: AsyncSession
     ) -> None:
-        """Queued work checks job state before moving to Running."""
+        """enqueue is only a doorbell: cancelled jobs stay cancelled."""
         from app.models.job import Job
         from app.services.implementations.job_service import JobService
 
@@ -5429,9 +6292,34 @@ class TestSystemSettingsRoutes:
 
     @pytest.mark.asyncio
     async def test_get_system_settings(self, async_client: AsyncClient) -> None:
-        """GET /system-settings returns 200 (null-safe when unset)."""
+        """GET /system-settings returns the singleton row, never null."""
         response = await async_client.get("/system-settings/")
         assert response.status_code == 200
+
+        body = response.json()
+        assert body is not None
+        assert body["system_settings_id"]
+        assert body["boxes_per_car"] == 10  # model defaults
+        assert body["delivery_types"] == ["Family", "School"]
+
+    @pytest.mark.asyncio
+    async def test_get_system_settings_without_a_row_is_a_server_error(
+        self, test_session: AsyncSession
+    ) -> None:
+        """Built inline because async_client creates the row under test."""
+        app = create_app()
+
+        async def _session() -> AsyncGenerator[AsyncSession, None]:
+            yield test_session
+
+        app.dependency_overrides[get_session] = _session
+        app.dependency_overrides[require_admin] = lambda: True
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
+            response = await ac.get("/system-settings/")
+
+        assert response.status_code == 500
 
     @pytest.mark.asyncio
     async def test_patch_system_settings(self, async_client: AsyncClient) -> None:
@@ -5451,7 +6339,7 @@ class TestSystemSettingsRoutes:
         assert response.status_code == 200
         body = response.json()
         assert body["boxes_per_car"] == 12
-        assert body["contact_phone"] == "+12125551234"
+        assert body["contact_phone"] == "tel:+1-212-555-1234"
         assert body["delivery_types"] == ["School", "Family", "Pantry"]
         assert body["email_reminders"] == [
             {"days_before": 1, "time": "09:00:00"},
@@ -5493,6 +6381,20 @@ class TestSystemSettingsRoutes:
         assert response.status_code == 201, response.text
         return str(response.json()["location_id"])
 
+    async def _take_off_roster(
+        self, test_session: AsyncSession, location_id: str
+    ) -> None:
+        """Retire a location -> Inactive.
+
+        Writes the flag directly, the way the roster import does: locations
+        have no update endpoint, because a household is created and replaced
+        rather than edited in place.
+        """
+        location = await test_session.get(Location, UUID(location_id))
+        assert location is not None
+        location.in_roster = False
+        await test_session.commit()
+
     @pytest.mark.asyncio
     async def test_patch_blocks_removing_delivery_type_in_active_use(
         self,
@@ -5507,7 +6409,7 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="School",
             name="Central Elementary",
-            phone_primary="(555) 111-1111",
+            phone_primary="tel:+1-519-576-1101",
         )
 
         response = await async_client.patch(
@@ -5542,6 +6444,7 @@ class TestSystemSettingsRoutes:
     async def test_patch_allows_removing_type_used_only_by_inactive_location(
         self,
         async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
@@ -5556,13 +6459,9 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="Pantry",
             name="Old Pantry",
-            phone_primary="(555) 333-3333",
+            phone_primary="tel:+1-519-576-1104",
         )
-        # Take it off the roster -> Inactive.
-        deactivate = await async_client.patch(
-            f"/locations/{location_id}", json={"in_roster": False}
-        )
-        assert deactivate.status_code == 200
+        await self._take_off_roster(test_session, location_id)
 
         response = await async_client.patch(
             "/system-settings/", json={"delivery_types": ["School", "Family"]}
@@ -5585,7 +6484,7 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="School",
             name="Central Elementary",
-            phone_primary="(555) 111-1111",
+            phone_primary="tel:+1-519-576-1101",
         )
 
         response = await async_client.post(
@@ -5611,6 +6510,7 @@ class TestSystemSettingsRoutes:
     async def test_rename_delivery_type_cascades_to_inactive_locations(
         self,
         async_client: AsyncClient,
+        test_session: AsyncSession,
         sample_location_data: dict[str, Any],
         test_location_group: Any,
     ) -> None:
@@ -5625,12 +6525,9 @@ class TestSystemSettingsRoutes:
             str(test_location_group.location_group_id),
             delivery_type="Pantry",
             name="Old Pantry",
-            phone_primary="(555) 333-3333",
+            phone_primary="tel:+1-519-576-1104",
         )
-        deactivate = await async_client.patch(
-            f"/locations/{location_id}", json={"in_roster": False}
-        )
-        assert deactivate.status_code == 200
+        await self._take_off_roster(test_session, location_id)
 
         response = await async_client.post(
             "/system-settings/delivery-types/rename",

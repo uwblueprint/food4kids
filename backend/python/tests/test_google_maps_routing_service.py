@@ -3,16 +3,19 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
 
+from app.config import settings as app_settings
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GLOBAL_DURATION_COST_PER_HOUR,
+    GLOBAL_HORIZON_HOURS,
     MANDATORY_DELIVERY_PENALTY,
+    SCOPES,
     VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
 )
@@ -126,6 +129,120 @@ class TestBuildPayload:
             # Demand is the derived box count, not raw children:
             # ceil(2 children / 2 per box) = 1 box.
             assert delivery["loadDemands"] == {"load": {"amount": "1"}}
+
+    def test_global_start_time_anchors_the_model(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """route_start_time lands on model.globalStartTime, not on the vehicles.
+
+        A Vehicle has no scalar start time (only startTimeWindows), so a
+        timestamp put there is silently dropped by the API.
+        """
+        payload = algorithm._build_payload(
+            [make_location()], 43.0, -79.0, sample_settings
+        )
+        model = payload["model"]
+
+        # January 1st is outside DST, so America/New_York is UTC-5 here.
+        assert model["globalStartTime"] == "2025-01-01T09:00:00-05:00"
+        for vehicle in model["vehicles"]:
+            assert "startTime" not in vehicle
+
+    def test_global_end_time_is_always_sent_and_after_the_start(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        sample_settings: RouteGenerationSettings,
+    ) -> None:
+        """globalEndTime must be present and later than globalStartTime.
+
+        Omitting it defaults the field to the epoch, and the API rejects every
+        request with "`global_start_time` after `global_end_time`".
+        """
+        model = algorithm._build_payload(
+            [make_location()], 43.0, -79.0, sample_settings
+        )["model"]
+
+        assert "globalEndTime" in model
+        start = datetime.fromisoformat(model["globalStartTime"])
+        end = datetime.fromisoformat(model["globalEndTime"])
+        assert end > start
+        assert end - start == timedelta(hours=GLOBAL_HORIZON_HOURS)
+
+    def test_global_end_time_spans_a_full_day_of_slack(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """The horizon is wide enough that a long day can never overrun it."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2026, 7, 9, 8, 30),
+        )
+
+        model = algorithm._build_payload([make_location()], 43.0, -79.0, settings)[
+            "model"
+        ]
+
+        assert model["globalStartTime"] == "2026-07-09T08:30:00-04:00"
+        assert model["globalEndTime"] == "2026-07-10T08:30:00-04:00"
+
+    def test_global_end_time_follows_an_explicit_offset(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """A tz-aware start keeps its own offset on both ends of the window."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+        )
+
+        model = algorithm._build_payload([make_location()], 43.0, -79.0, settings)[
+            "model"
+        ]
+
+        assert model["globalStartTime"] == "2025-01-01T14:00:00+00:00"
+        assert model["globalEndTime"] == "2025-01-02T14:00:00+00:00"
+
+    def test_global_start_time_keeps_the_drive_date(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """The date half of route_start_time reaches the API, not just the time.
+
+        The optimizer plans against the timestamp's day, so a settings object
+        built for July must not come out anchored to some other date.
+        """
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2026, 7, 9, 8, 30),
+        )
+
+        payload = algorithm._build_payload([make_location()], 43.0, -79.0, settings)
+
+        # July is DST, so the offset shifts to UTC-4 — same wall clock, and the
+        # date is carried through untouched.
+        assert payload["model"]["globalStartTime"] == "2026-07-09T08:30:00-04:00"
+
+    def test_global_start_time_preserves_an_explicit_offset(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """A tz-aware route_start_time is passed through, not re-stamped."""
+        settings = RouteGenerationSettings(
+            num_routes=1,
+            route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+        )
+
+        payload = algorithm._build_payload([make_location()], 43.0, -79.0, settings)
+
+        assert payload["model"]["globalStartTime"] == "2025-01-01T14:00:00+00:00"
 
     def test_service_duration_on_deliveries(
         self,
@@ -431,3 +548,80 @@ class TestGenerateRoutes:
                 sample_settings,
                 timeout_seconds=0.01,
             )
+
+
+class TestEnsureCredentials:
+    """Credentials come from Application Default Credentials, never from settings."""
+
+    @pytest.fixture(autouse=True)
+    def _configured_project(self, mocker: Any) -> None:
+        mocker.patch.object(app_settings, "route_opt_project_id", "f4k-test-project")
+
+    def test_fetches_from_adc_and_refreshes(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        credentials = mocker.Mock(valid=False)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        result = algorithm._ensure_credentials()
+
+        # Mock assertions first: `assert x is credentials` narrows the Mock to
+        # the real Credentials type, after which mypy rejects .assert_called_*.
+        default.assert_called_once_with(scopes=SCOPES)
+        credentials.refresh.assert_called_once()
+        assert result is credentials
+
+    def test_caches_while_valid(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """A valid cached credential is reused without touching ADC again."""
+        credentials = mocker.Mock(valid=True)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        first = algorithm._ensure_credentials()
+        second = algorithm._ensure_credentials()
+
+        default.assert_called_once()
+        # Refreshed once on creation; the cached hit is free.
+        credentials.refresh.assert_called_once()
+        assert first is second is credentials
+
+    def test_refreshes_expired_without_refetching(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """An expired credential refreshes in place rather than re-resolving ADC."""
+        credentials = mocker.Mock(valid=False)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        algorithm._ensure_credentials()
+        algorithm._ensure_credentials()
+
+        default.assert_called_once()
+        assert credentials.refresh.call_count == 2
+
+    def test_unconfigured_project_raises(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """Fail loudly rather than calling optimizeTours against an empty project."""
+        mocker.patch.object(app_settings, "route_opt_project_id", "")
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+        )
+
+        with pytest.raises(RuntimeError, match="ROUTE_OPT_PROJECT_ID"):
+            algorithm._ensure_credentials()
+
+        default.assert_not_called()

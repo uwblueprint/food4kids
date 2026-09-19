@@ -21,7 +21,7 @@ import {
   TableToolbar,
 } from '@/common/components';
 import { useTableSort } from '@/common/hooks';
-import { formatShortDate, orDash } from '@/common/utils';
+import { formatPhone, formatShortDate, orDash } from '@/common/utils';
 
 import type { AddressesTabState } from '../hooks';
 import { AddressActionsCell } from './AddressActionsCell';
@@ -40,7 +40,8 @@ const COLUMNS: Column<LocationRead>[] = [
   {
     key: 'phone_primary',
     header: 'Phone number',
-    render: (row) => orDash(row.phone_primary),
+    render: (row) =>
+      orDash(row.phone_primary && formatPhone(row.phone_primary)),
   },
   {
     key: 'assigned_route',
@@ -107,6 +108,18 @@ const COLUMNS: Column<LocationRead>[] = [
   },
 ];
 
+// Every text column the server's `search` matches gets the highlight, so a hit
+// is visible wherever it landed rather than only in the address.
+const HIGHLIGHTED: Record<
+  string,
+  (row: LocationRead) => string | null | undefined
+> = {
+  contact_name: (row) => row.contact_name,
+  address: (row) => row.address,
+  delivery_group: (row) => row.location_group_name,
+  dietary_restrictions: (row) => row.dietary_restrictions,
+};
+
 type RouteAddressesTabProps = AddressesTabState;
 
 export function RouteAddressesTab({
@@ -132,11 +145,12 @@ export function RouteAddressesTab({
   const columns = useMemo<Column<LocationRead>[]>(
     () =>
       COLUMNS.map((col) => {
-        if (col.key === 'address') {
+        const text = HIGHLIGHTED[col.key];
+        if (text) {
           return {
             ...col,
             render: (row: LocationRead) => (
-              <HighlightText text={row.address} query={searchTerm} />
+              <HighlightText text={orDash(text(row))} query={searchTerm} />
             ),
           };
         }
@@ -187,7 +201,7 @@ export function RouteAddressesTab({
       <Modal open={filterOpen} onOpenChange={setFilterOpen}>
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>Filters</ModalTitle>
+            <ModalTitle variant="form">Filters</ModalTitle>
             <ModalDescription>Addresses</ModalDescription>
           </ModalHeader>
 

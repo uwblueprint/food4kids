@@ -1,4 +1,3 @@
-import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -11,7 +10,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlmodel import SQLModel, create_engine
 
-from app.config import settings
+from app.config import Environment, settings
+from app.database_url import SYNC_DRIVER, get_database_url
 
 # Database engines
 engine: Engine | None = None
@@ -19,44 +19,17 @@ async_engine: AsyncEngine | None = None
 async_session_maker_instance: async_sessionmaker[AsyncSession] | None = None
 
 
-def get_database_url() -> str:
-    """Get database URL based on configuration settings"""
-    # 1. Use the unified URL if provided (Cloud Run secret mount)
-    if settings.database_url:
-        url_obj = make_url(settings.database_url)
-        return url_obj.set(drivername="postgresql+asyncpg").render_as_string(
-            hide_password=False
-        )
-
-    # 2. Fallback for local development (safe for localhost, no forced SSL)
-    base_url = f"postgresql+asyncpg://{settings.postgres_user}:{settings.postgres_password}@{settings.db_host}:5432"
-
-    if settings.is_testing:
-        return f"{base_url}/{settings.postgres_db_test}"
-    else:
-        return f"{base_url}/{settings.postgres_db_dev}?sslmode=require"
-
-
 def init_database() -> None:
     """Initialize database engines and session makers"""
     global engine, async_engine, async_session_maker_instance
 
     database_url = get_database_url()
-
-    # 1. Check if we're pointing to Neon
-    is_neon = "neon.tech" in database_url
-
-    # 2. Synchronous engine (Alembic/psycopg2) loves the string parameter
-    sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
-    if is_neon and "sslmode" not in sync_database_url:
-        sync_database_url += (
-            "?sslmode=require" if "?" not in sync_database_url else "&sslmode=require"
-        )
+    sync_database_url = get_database_url(SYNC_DRIVER)
 
     # Set echo based on environment
-    app_env = os.getenv("APP_ENV")
-    echo_sql = app_env in ("development", "testing")
+    echo_sql = settings.environment in (Environment.DEVELOPMENT, Environment.TESTING)
 
+    # Synchronous engine for migrations
     engine = create_engine(sync_database_url, echo=echo_sql)
 
     # asyncpg doesn't accept libpq-style query params (sslmode, channel_binding
@@ -69,8 +42,6 @@ def init_database() -> None:
         connect_args["ssl"] = query.pop("sslmode")
         query.pop("channel_binding", None)
         async_url = async_url.set(query=query)
-    elif is_neon:
-        connect_args["ssl"] = "require"
 
     # Asynchronous engine for application
     async_engine = create_async_engine(
@@ -101,9 +72,12 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def init_app(_app: Any | None = None) -> None:
-    """Initialize database for the application"""
-    # Import models to register them with SQLModel
+def register_models() -> None:
+    """Import every model so SQLAlchemy can resolve relationships by name.
+
+    Pure imports, no connection: anything that only needs the mappers wired up
+    can call this without a database.
+    """
     from .admin import Admin  # noqa: F401
     from .announcement import Announcement  # noqa: F401
     from .announcement_last_read import AnnouncementLastRead  # noqa: F401
@@ -123,8 +97,12 @@ def init_app(_app: Any | None = None) -> None:
     from .user import User  # noqa: F401
     from .user_invite import UserInvite  # noqa: F401
 
+
+def init_app(_app: Any | None = None) -> None:
+    """Initialize database for the application"""
+    register_models()
     init_database()
 
     # Create tables if in testing mode
-    if os.getenv("APP_ENV") == "testing":
+    if settings.environment is Environment.TESTING:
         create_db_and_tables()

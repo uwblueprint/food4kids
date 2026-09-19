@@ -3,8 +3,10 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from sqlmodel import Field, Relationship, SQLModel, String
+
+from app.utilities.utils import validate_phone
 
 from .base import BaseModel
 from .enum import LocationStatusEnum
@@ -59,6 +61,19 @@ class LocationBase(SQLModel):
         unique=True,
     )
 
+    @field_validator("phone_primary", "phone_secondary")
+    @classmethod
+    def validate_phones(cls, v: str | None) -> str | None:
+        """Normalize to RFC 3966, as Driver and Admin do — POST /locations
+        would otherwise store whatever the client sent.
+
+        Not the import's validation gate: LocationImportEntry deliberately
+        doesn't inherit this, so it can report an INVALID_PHONE_NUMBER alert.
+        """
+        if v is None:
+            return None
+        return validate_phone(v)
+
 
 class Location(LocationBase, BaseModel, table=True):
     """Database table model"""
@@ -89,6 +104,7 @@ class AlertCode(str, Enum):
     INVALID_ADDRESS = "INVALID_ADDRESS"
     MISSING_PHONE_NUMBER = "MISSING_PHONE_NUMBER"
     INVALID_PHONE_NUMBER = "INVALID_PHONE_NUMBER"
+    INVALID_SECONDARY_PHONE_NUMBER = "INVALID_SECONDARY_PHONE_NUMBER"
     MISSING_NAME = "MISSING_NAME"
     INVALID_NAME = "INVALID_NAME"
     MISSING_DELIVERY_GROUP = "MISSING_DELIVERY_GROUP"
@@ -191,6 +207,11 @@ class ChangedFieldOptInt(SQLModel):
     old_value: int | None
 
 
+class ChangedFieldBool(SQLModel):
+    new_value: bool
+    old_value: bool
+
+
 class ChangedEntry(SQLModel):
     """An existing location whose fields differ from the import row.
 
@@ -201,15 +222,16 @@ class ChangedEntry(SQLModel):
     row: int
     location_id: UUID
     contact_name: str
-    # Diffed like the rest. The frames' Changed table has no Guardian Name
-    # column, but leaving it undiffed would mean a row whose only edit is the
-    # guardian's name never surfaces and the edit is dropped on ingest.
     guardian_name: str | ChangedFieldOptStr | None = None
     address: str | ChangedFieldStr
     delivery_group: str | ChangedFieldOptStr | None = None
     phone_primary: str | ChangedFieldStr
     phone_secondary: str | ChangedFieldOptStr | None = None
     num_children: int | ChangedFieldOptInt | None = None
+    # Never null: a blank cell leaves the stored value standing, so the
+    # unchanged case renders what the location already holds.
+    halal: bool | ChangedFieldBool = False
+    dietary_restrictions: str | ChangedFieldStr = ""
 
 
 class LocationImportPreview(SQLModel):
@@ -267,27 +289,6 @@ class LocationRead(LocationBase):
         if self.in_roster:
             return LocationStatusEnum.UNSCHEDULED
         return LocationStatusEnum.INACTIVE
-
-
-class LocationUpdate(SQLModel):
-    """Update request model with all fields optional"""
-
-    location_group_id: UUID | None = None
-    name: str | None = None
-    contact_name: str | None = None
-    guardian_name: str | None = None
-    address: str | None = None
-    phone_primary: str | None = None
-    phone_secondary: str | None = None
-    longitude: float | None = None
-    latitude: float | None = None
-    halal: bool | None = None
-    dietary_restrictions: str | None = None
-    place_id: str | None = None
-    num_children: int | None = None
-    delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
-    in_roster: bool | None = None
-    note_chain_id: UUID | None = None
 
 
 class LocationImportResult(SQLModel):

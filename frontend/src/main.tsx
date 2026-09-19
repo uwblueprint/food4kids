@@ -1,3 +1,4 @@
+import './instrument.ts';
 import './index.css';
 
 import { QueryClientProvider } from '@tanstack/react-query';

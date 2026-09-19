@@ -34,7 +34,10 @@ def _entry(
     *,
     contact_name: str | None = "Smith",
     address: str | None = "123 Main St",
-    phone_primary: str | None = "+15195551234",
+    # The stored form: the import normalizes an entry's phone before any
+    # matching happens, so a key built here compares against a Location's
+    # already-normalized column.
+    phone_primary: str | None = "tel:+1-519-555-1234",
     delivery_group: str | None = "Tuesday A",
 ) -> LocationImportEntry:
     return LocationImportEntry(
@@ -120,7 +123,42 @@ class TestFieldValidation:
             phone_invalid=False,
             phone_secondary_invalid=True,
         )
-        assert AlertCode.INVALID_PHONE_NUMBER in alerts
+        # Its own code, so the Validate screen does not redden a valid primary.
+        assert alerts == [AlertCode.INVALID_SECONDARY_PHONE_NUMBER]
+
+    def test_blank_phone_secondary_is_not_an_alert(self) -> None:
+        for blank in (None, "", "   "):
+            alerts = collect_field_alerts(
+                LocationImportEntry(
+                    contact_name="Smith",
+                    address="123 Main St",
+                    delivery_group="Tuesday A",
+                    phone_primary="+15195551234",
+                    phone_secondary=blank,
+                ),
+                geocode_ok=True,
+                phone_invalid=False,
+                phone_secondary_invalid=False,
+            )
+            assert alerts == []
+
+    def test_both_phones_invalid_reports_both_codes(self) -> None:
+        alerts = collect_field_alerts(
+            LocationImportEntry(
+                contact_name="Smith",
+                address="123 Main St",
+                delivery_group="Tuesday A",
+                phone_primary="not-a-phone",
+                phone_secondary="also-not-a-phone",
+            ),
+            geocode_ok=True,
+            phone_invalid=True,
+            phone_secondary_invalid=True,
+        )
+        assert alerts == [
+            AlertCode.INVALID_PHONE_NUMBER,
+            AlertCode.INVALID_SECONDARY_PHONE_NUMBER,
+        ]
 
     def test_multiple_errors_on_one_row(self) -> None:
         alerts = collect_field_alerts(
@@ -150,12 +188,12 @@ class TestDuplicateDetection:
         left = _entry(
             contact_name="Bale",
             address="10 First Ave",
-            phone_primary="+14272842498",
+            phone_primary="tel:+1-519-576-2498",
         )
         right = _entry(
             contact_name="Bale",
             address="20 Second Ave",
-            phone_primary="+14272842498",
+            phone_primary="tel:+1-519-576-2498",
         )
         assert _rows_are_duplicates(left, right)
 
@@ -176,7 +214,7 @@ class TestDuplicateDetection:
         left = _entry(
             contact_name="Weber",
             address="527 Parkside Dr",
-            phone_primary="+15191111111",
+            phone_primary="tel:+1-519-576-1111",
         )
         right = _entry(
             contact_name="Weber",
@@ -189,7 +227,7 @@ class TestDuplicateDetection:
         left = _entry(
             contact_name="Family A",
             address="100 Shared Building",
-            phone_primary="+15191111111",
+            phone_primary="tel:+1-519-576-1111",
         )
         right = _entry(
             contact_name="Family B",
@@ -218,7 +256,7 @@ class TestDuplicateDetection:
         left = _entry(
             contact_name="Smith",
             address="1 A St",
-            phone_primary="+15191111111",
+            phone_primary="tel:+1-519-576-1111",
         )
         right = _entry(
             contact_name="Smith",
@@ -253,17 +291,17 @@ class TestDuplicateDetection:
             _entry(
                 contact_name="Alpha",
                 address="1 A St",
-                phone_primary="+15191111111",
+                phone_primary="tel:+1-519-576-1111",
             ),
             _entry(
                 contact_name="Alpha",
                 address="2 B St",
-                phone_primary="+15191111111",
+                phone_primary="tel:+1-519-576-1111",
             ),
             _entry(
                 contact_name="Gamma",
                 address="2 B St",
-                phone_primary="+15191111111",
+                phone_primary="tel:+1-519-576-1111",
             ),
         ]
         groups = _find_groups(entries)
@@ -271,8 +309,12 @@ class TestDuplicateDetection:
 
     def test_all_members_in_duplicate_group(self) -> None:
         entries = [
-            _entry(contact_name="A", address="1 St", phone_primary="+15191111111"),
-            _entry(contact_name="A", address="2 St", phone_primary="+15191111111"),
+            _entry(
+                contact_name="A", address="1 St", phone_primary="tel:+1-519-576-1111"
+            ),
+            _entry(
+                contact_name="A", address="2 St", phone_primary="tel:+1-519-576-1111"
+            ),
         ]
         groups = _find_groups(entries)
         assert groups == [[0, 1]]
@@ -330,7 +372,7 @@ class TestMatchKey:
             _entry(
                 contact_name="Jones",
                 address="99 Elsewhere Rd",
-                phone_primary="+15195551234",
+                phone_primary="tel:+1-519-555-1234",
             )
         )
         location_key = location_match_key(self._location())

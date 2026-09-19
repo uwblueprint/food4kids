@@ -4,6 +4,7 @@ from . import (
     admin_routes,
     announcement_routes,
     auth_routes,
+    billing_routes,
     driver_history_routes,
     driver_routes,
     job_routes,
@@ -18,20 +19,22 @@ from . import (
     upload_routes,
 )
 
+# Every route is mounted under this prefix so Firebase Hosting can rewrite
+# /api/** to this service and the browser sees a single origin — which is what
+# lets the refresh cookie stay SameSite=strict. Hosting forwards the matched
+# path verbatim rather than stripping the prefix, so the routes carry it.
+# The rewrite lives in frontend/firebase.json; tests/test_api_prefix.py keeps
+# the two in step.
+API_PREFIX = "/api"
+
 
 def init_app(app: FastAPI) -> None:
-    """Initialize all routers with the FastAPI app.
-
-    Everything is mounted under /api so Firebase Hosting can rewrite
-    ``/api/**`` to this service and the browser sees one origin. Hosting
-    forwards the matched path verbatim — it does not strip the prefix — so the
-    routes have to carry it themselves.
-    """
-    api = APIRouter(prefix="/api")
-
+    """Initialize all routers with the FastAPI app"""
+    api = APIRouter(prefix=API_PREFIX)
     api.include_router(admin_routes.router)
     api.include_router(announcement_routes.router)
     api.include_router(auth_routes.router)
+    api.include_router(billing_routes.router)
     api.include_router(driver_history_routes.router)
     api.include_router(driver_routes.router)
     api.include_router(location_group_routes.router)

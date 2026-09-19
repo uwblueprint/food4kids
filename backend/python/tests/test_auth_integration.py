@@ -1,32 +1,15 @@
-"""
-Integration tests for route-level authorization wiring.
+"""Integration tests for route-level authorization wiring.
 
-Unlike test_auth_middleware.py (which tests the auth *dependencies* in isolation
-against synthetic routes), this module mounts the **real** application and drives
-every auth-bearing endpoint as four different account types, asserting the auth
-decision for each. It exists because conftest.py bypasses auth for all other
-router tests, so nothing else verifies that the correct guard is wired to the
-correct route.
-
-Two tests:
-
-1. ``test_route_auth_matrix`` — for each route with a role/ownership policy,
-   request it as an anonymous caller, the owning driver, a different driver, and
-   an admin, and assert each is allowed/denied as the policy requires.
-
-2. ``test_every_exposed_route_is_classified`` — a completeness guard: every route
-   the app exposes must appear in ROUTE_POLICIES. Adding a new endpoint without
-   classifying its auth fails this test, forcing an explicit decision (and, for
-   the auth-bearing policies, coverage by the matrix above).
-
-The single source of truth is ROUTE_POLICIES below: a ``(method, path) -> Policy``
-registry. ``path`` matches FastAPI's templated path exactly (e.g.
-``/drivers/{driver_id}``).
+conftest.py bypasses auth for every other router test, so this is the only place
+that mounts the real app and checks each endpoint has the right guard on it.
+ROUTE_POLICIES below is the source of truth, keyed by FastAPI's templated path:
+every exposed route must appear in it, and each auth-bearing one is driven as an
+anonymous caller, the owning driver, another driver, and an admin.
 """
 
 import re
 from collections.abc import AsyncGenerator, Iterator
-from datetime import datetime, time
+from datetime import date, time
 from enum import Enum
 from types import SimpleNamespace
 from typing import Any
@@ -41,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import create_app
 from app.dependencies.services import get_gcp_storage_client
 from app.models import get_session
+from app.routers import API_PREFIX
 
 # ---------------------------------------------------------------------------
 # Policies and actors
@@ -99,15 +83,21 @@ DENY_CODES = {401, 403}
 ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # --- admin ---
     ("GET", "/admins/test"): Policy.ADMIN_ONLY,
+    # --- billing ---
+    ("GET", "/billing/costs"): Policy.ADMIN_ONLY,
     # --- auth infrastructure (public by design) ---
     ("POST", "/auth/login"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,
     ("POST", "/auth/validate-reset-token"): Policy.PUBLIC,
-    ("POST", "/auth/logout/{user_id}"): Policy.PUBLIC,
+    ("POST", "/auth/resend-onboarding"): Policy.PUBLIC,
+    ("POST", "/auth/logout"): Policy.PUBLIC,
     ("POST", "/auth/forgot-password"): Policy.PUBLIC,
     ("POST", "/auth/update-password"): Policy.PUBLIC,
     # --- drivers ---
-    ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
+    # The full list carries every volunteer's phone, home address, licence plate
+    # and car; no driver-facing screen consumes it. Drivers read themselves via
+    # GET /drivers/{driver_id}.
+    ("GET", "/drivers/"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
@@ -118,18 +108,17 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     # /register is auth'd by the invite token in the body, not a bearer token.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
     ("POST", "/drivers/register"): Policy.PUBLIC,
-    ("POST", "/drivers/test-event-email"): Policy.PUBLIC,
     # --- jobs ---
-    ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
-    ("GET", "/jobs/{job_id}"): Policy.DRIVER_OR_ADMIN,
+    ("GET", "/jobs/"): Policy.ADMIN_ONLY,
+    ("POST", "/jobs/generate"): Policy.ADMIN_ONLY,
+    ("GET", "/jobs/{job_id}"): Policy.ADMIN_ONLY,
     ("POST", "/jobs/{job_id}/cancel"): Policy.ADMIN_ONLY,
     # --- location groups ---
-    ("GET", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
-    ("GET", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
-    ("PATCH", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
-    ("DELETE", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
+    ("GET", "/location-groups/"): Policy.ADMIN_ONLY,
+    ("POST", "/location-groups/"): Policy.ADMIN_ONLY,
+    ("GET", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
+    ("PATCH", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
+    ("DELETE", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
     # --- locations ---
     ("GET", "/locations/"): Policy.ADMIN_ONLY,
     ("DELETE", "/locations/"): Policy.ADMIN_ONLY,
@@ -137,14 +126,15 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/locations/import/preview"): Policy.ADMIN_ONLY,
     ("POST", "/locations/import"): Policy.ADMIN_ONLY,
     ("GET", "/locations/{location_id}"): Policy.ADMIN_ONLY,
-    ("PATCH", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     ("DELETE", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     # --- system settings ---
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,
+    # Public by design; scoped to name/phone by OrgContactRead.
+    ("GET", "/system-settings/contact"): Policy.PUBLIC,
     # --- reports ---
-    ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,
+    ("GET", "/reports/totals"): Policy.ADMIN_ONLY,
+    ("GET", "/reports/monthly-series"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/ranking"): Policy.ADMIN_ONLY,
-    ("GET", "/reports/monthly/{year}/{month}/totals"): Policy.ADMIN_ONLY,
     # --- note chains (authenticated, any user) ---
     ("GET", "/note-chains/{note_chain_id}"): Policy.AUTHENTICATED,
     # Deletion is admin-gated inside note_chain_service (not via a dependency).
@@ -310,7 +300,7 @@ async def seed(test_session: AsyncSession) -> Seed:
     test_session.add(admin_user)
     test_session.add(location_group)
 
-    route_group = RouteGroup(name="Test Group", drive_date=datetime(2025, 3, 1, 8, 0))
+    route_group = RouteGroup(name="Test Group", drive_date=date(2025, 3, 1))
     test_session.add(route_group)
 
     await test_session.commit()
@@ -332,7 +322,7 @@ async def seed(test_session: AsyncSession) -> Seed:
         name="Seed Location",
         contact_name="Seed Location",
         address="123 Seed St",
-        phone_primary="5550000001",
+        phone_primary="tel:+1-519-576-0001",
         num_children=8,
         delivery_type="Family",
     )
@@ -378,16 +368,18 @@ async def auth_client(
 
     app.dependency_overrides[get_session] = override_get_session
     # The GCS client constructs a real google.cloud client eagerly (no creds in
-    # tests). Stub it so upload-route dependency resolution succeeds and auth —
+    # CI). Stub it so note/upload dependency resolution succeeds and auth —
     # not a missing-credentials 500 — decides the outcome.
-    app.dependency_overrides[get_gcp_storage_client] = MagicMock
+    fake_gcp = MagicMock()
+    fake_gcp.generate_signed_url.return_value = "https://gcs.test/stub"
+    app.dependency_overrides[get_gcp_storage_client] = lambda: fake_gcp
 
     # raise_app_exceptions=False: an unhandled handler exception becomes a 500
     # response (as a real server would return) instead of propagating into the
     # test. This test only cares about the auth decision, and a 500 means auth
     # already let the request reach the handler.
     transport = ASGITransport(app=app, raise_app_exceptions=False)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
@@ -482,8 +474,11 @@ def test_every_exposed_route_is_classified() -> None:
     # the schema, which is exactly what we want (they carry no auth policy).
     http_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
     schema = app.openapi()
+    # ROUTE_POLICIES is keyed by the route's own path. Where the API is
+    # mounted is a deployment concern (API_PREFIX), and putting it in every
+    # key would mean rewriting the whole table if it ever moved.
     exposed = {
-        (method.upper(), path)
+        (method.upper(), path.removeprefix(API_PREFIX))
         for path, operations in schema["paths"].items()
         for method in operations
         if method.upper() in http_methods

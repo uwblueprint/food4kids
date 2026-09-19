@@ -58,7 +58,7 @@ export function AssignRouteModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>Assign a Route</ModalTitle>
+          <ModalTitle variant="form">Assign a Route</ModalTitle>
           <ModalDescription>Assign a route to DRIVER_NAME</ModalDescription>
         </ModalHeader>
 

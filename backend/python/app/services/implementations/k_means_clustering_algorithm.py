@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
     """K means clustering algorithm that splits locations into clusters following k means clustering algorithm.
 
-    Includes max locations per cluster handling via "greedy-esque algorithm"
+    Includes max boxes per cluster handling via "greedy-esque algorithm"
     """
 
     def __init__(self, children_per_box: int) -> None:
@@ -30,7 +30,6 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_locations_per_cluster: int | None = None,
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
@@ -38,7 +37,6 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             self._cluster_locations_sync,
             locations,
             num_clusters,
-            max_locations_per_cluster,
             max_boxes_per_cluster,
             timeout_seconds,
         )
@@ -47,21 +45,13 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         self,
         locations: list[Location],
         num_clusters: int,
-        max_locations_per_cluster: int | None = None,
         max_boxes_per_cluster: int | None = None,
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
-        # Assert that only one AT MOST of the limiting max params is set to a value
-        assert max_boxes_per_cluster is None or max_locations_per_cluster is None
-
-        # If any of num_clusters, max_locations_per_cluster, or max_boxes_per_cluster is negative (or equal to 0) raise an error
-        if (
-            num_clusters <= 0
-            or (max_locations_per_cluster and max_locations_per_cluster <= 0)
-            or (max_boxes_per_cluster and max_boxes_per_cluster <= 0)
-        ):
+        # If either num_clusters or max_boxes_per_cluster is negative (or equal to 0) raise an error
+        if num_clusters <= 0 or (max_boxes_per_cluster and max_boxes_per_cluster <= 0):
             raise ValueError(
-                "At least one of the given num_clusters, max_locations_per_cluster, and max_boxes_per_cluster param values given to the algorithm is <= 0 (invalid)"
+                "One of the given num_clusters and max_boxes_per_cluster param values given to the algorithm is <= 0 (invalid)"
             )
 
         # If no locations to cluster, return empty list
@@ -74,15 +64,6 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         )
 
         # Check that clustering is possible for the given locations
-        if max_locations_per_cluster is not None:
-            # Check if it is mathematically possible to meet the constraints on num of clusters + max locations per cluster
-            total_locations = len(locations)
-            max_possible = num_clusters * max_locations_per_cluster
-
-            if total_locations > max_possible:
-                raise ValueError(
-                    "Max locations per cluster + number of clusters clustering parameters cannot be simultaneously satisfied"
-                )
         if max_boxes_per_cluster is not None:
             # Check if it is mathematically possible to meet the constraints on num of clusters + max boxes per cluster
             total_boxes = sum(
@@ -109,17 +90,13 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             )
             kmeans.fit(coordinates)
 
-            if (
-                max_locations_per_cluster is not None
-                or max_boxes_per_cluster is not None
-            ):
+            if max_boxes_per_cluster is not None:
                 # Distance matrix representing the distance from each point to each centroid
                 distances = kmeans.transform(coordinates)
                 clusters = self._assign_with_constraints(
                     locations,
                     distances,
                     num_clusters,
-                    max_locations_per_cluster,
                     max_boxes_per_cluster,
                     start_time,
                     timeout_seconds,
@@ -153,29 +130,21 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         locations: list[Location],
         distances: np.ndarray,
         num_clusters: int,
-        max_locations_per_cluster: int | None,
-        max_boxes_per_cluster: int | None,
+        max_boxes_per_cluster: int,
         start_time: float,
         timeout_seconds: float | None,
     ) -> list[list[Location]]:
         """
-        Assign locations to clusters respecting size constraints
+        Assign locations to clusters respecting the box capacity constraint
         Greedy approach: assign closest points first
 
         Args:
             locations: List of locations to cluster
             distances: Distance matrix between each location and the clusters
             num_clusters: Target number of clusters to create
-            max_locations_per_cluster: Optional maximum number of locations
-                per cluster. If provided and cannot be satisfied with the given
-                number of clusters, the algorithm should raise an error. Can
-                assert that at most one of the max_locations_per_cluster
-                and max_boxes_per_cluster args are non-null (at least for now).
-            max_boxes_per_cluster: Optional maximum number of boxes per cluster.
-                If provided and cannot be satisfied with the given
-                number of clusters, the algorithm should raise an error. Can
-                assert that at most one of the max_locations_per_cluster
-                and max_boxes_per_cluster args are non-null (at least for now).
+            max_boxes_per_cluster: Maximum number of boxes per cluster. If it
+                cannot be satisfied with the given number of clusters, the
+                algorithm raises an error.
             start_time: Time the algorithm began running. Used for timekeeping
                 purposes to ensure time limit is not exceeded (and to ensure
                 proper handling when the time limit is exceeded)
@@ -192,10 +161,7 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
             TimeoutError: If a timeout limit is provided and execution exceeds
                 this duration.
         """
-        # Assert that only one AT MOST of the limiting max params is set to a value
-        assert max_boxes_per_cluster is None or max_locations_per_cluster is None
-
-        # Count number of locations in each cluster
+        # Count number of boxes assigned to each cluster
         cluster_counts: dict[int, int] = defaultdict(int)
 
         # Hold actual location cluster assignments (None until assigned)
@@ -211,32 +177,17 @@ class KMeansClusteringAlgorithm(ClusteringAlgorithmProtocol):
         # Sort by distance (closest first)
         candidates.sort(key=lambda x: x[2])
 
-        # Helper to check if we can place a location into a cluster w.r.t. constraints + place it if yes
+        # Helper to check if we can place a location into a cluster w.r.t. the box cap + place it if yes
         def can_place_and_put(location_index: int, cluster_id: int) -> bool:
-            # Look at each cluster, see if num of locations or num of boxes (depending on constraints) assigned to that cluster is still within max limit
-            # Because using defaultdict, "not-yet-touched" clusters have num locations/boxes = 0 by default
+            # Look at each cluster, see if num of boxes assigned to that cluster is still within max limit
+            # Because using defaultdict, "not-yet-touched" clusters have num boxes = 0 by default
             loc = locations[location_index]
-            if max_locations_per_cluster is not None:
-                # Count location
-                need = 1
-                if cluster_counts[cluster_id] + need <= max_locations_per_cluster:
-                    assignments[location_index] = cluster_id
-                    cluster_counts[cluster_id] += need
-                    return True
-                return False
-
-            # Otherwise boxes constraint must be active (by assert)
-            if max_boxes_per_cluster is not None:
-                # Count boxes at location
-                need = compute_boxes(loc.num_children, self._children_per_box)
-                if cluster_counts[cluster_id] + need <= max_boxes_per_cluster:
-                    assignments[location_index] = cluster_id
-                    cluster_counts[cluster_id] += need
-                    return True
-                return False
-
-            # If no constraints, always allow placement (should never run this function if there are no constraints, but added for mypy's happiness!)
-            return True
+            need = compute_boxes(loc.num_children, self._children_per_box)
+            if cluster_counts[cluster_id] + need <= max_boxes_per_cluster:
+                assignments[location_index] = cluster_id
+                cluster_counts[cluster_id] += need
+                return True
+            return False
 
         # Assign each location "greedily" - assign location to closest cluster with space
         for (

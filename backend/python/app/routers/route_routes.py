@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Literal
 from uuid import UUID
 
@@ -42,15 +43,23 @@ async def get_routes(
         False,
         description="If true, only return unassigned routes. If false, return all routes regardless of assignment status.",
     ),
-    start_date: str = Query(None, description="Filter route groups from this date"),
-    end_date: str = Query(None, description="Filter route groups until this date"),
+    start_date: date | None = Query(
+        None, description="Filter route groups from this date"
+    ),
+    end_date: date | None = Query(
+        None, description="Filter route groups until this date"
+    ),
     order: Literal["asc", "desc"] = Query(
         "asc",
         description="Order by drive_date: 'asc' (default, oldest-first) for the "
         "upcoming feed, 'desc' (most-recent-first) for the past feed.",
     ),
     search: str | None = Query(
-        None, description="Case-insensitive filter on the assigned driver's name"
+        None,
+        description=(
+            "Case-insensitive filter on the assigned driver's name, the route's "
+            "name, or its route group's name"
+        ),
     ),
     weekday: list[DriveDaysOfWeekEnum] | None = Query(
         None, description="Filter by one or more weekdays of the drive date"

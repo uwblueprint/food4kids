@@ -1,8 +1,9 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import Column, Field, Relationship, SQLModel
 
 from .base import BaseModel
@@ -18,15 +19,40 @@ class Attachment(SQLModel):
     url: str
 
 
+class AttachmentListJSON(TypeDecorator[list[Attachment]]):
+    """Persist ``list[Attachment]`` as JSON."""
+
+    impl = sa.JSON
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: list[Attachment] | None, _dialect: Any
+    ) -> list[dict[str, Any]] | None:
+        if value is None:
+            return None
+        return [
+            Attachment.model_validate(item).model_dump(mode="json") for item in value
+        ]
+
+    def process_result_value(
+        self, value: Any, _dialect: Any
+    ) -> list[Attachment] | None:
+        if value is None:
+            return None
+        return [Attachment.model_validate(item) for item in value]
+
+
 class NoteBase(SQLModel):
     """Shared fields between table and API models"""
 
     note_chain_id: UUID = Field(foreign_key="note_chains.note_chain_id", nullable=False)
     # Nullable and SET NULL on user delete: a note is an operational record
-    # (what happened on a delivery) that outlives its author. Deleting a driver
-    # is a hard delete of the person, not of the deliveries they logged, so the
-    # message survives with no author — the same shape as a system note, which
-    # readers already handle (see NoteChainService.get_location_notes_feed).
+    # (what happened on a delivery) that outlives its author, so deleting a
+    # driver leaves the message with no author.
+    #
+    # A null user_id therefore means "no live author", not "system note" —
+    # is_system is what tells the two apart, and readers must check it rather
+    # than the null (see noteAuthorLabel, get_location_notes_feed).
     user_id: UUID | None = Field(
         default=None,
         foreign_key="users.user_id",
@@ -36,7 +62,8 @@ class NoteBase(SQLModel):
     message: str = Field(min_length=1, max_length=2000)
     is_system: bool = Field(default=False)
     attachments: list[Attachment] = Field(
-        default=[], sa_column=Column(sa.JSON, nullable=True, default=[])
+        default=[],
+        sa_column=Column(AttachmentListJSON, nullable=True),
     )
 
 
@@ -54,7 +81,7 @@ class NoteCreate(SQLModel):
     """Create request model - chain_id and user_id set by the service"""
 
     message: str = Field(min_length=1, max_length=2000)
-    attachments: list[Attachment] = Field(default=[])
+    attachments: list[Attachment] = Field(default=[], max_length=3)
 
 
 class NoteRead(NoteBase):
@@ -63,6 +90,7 @@ class NoteRead(NoteBase):
     note_id: UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    author_name: str | None = None
 
 
 class NoteFeedItem(NoteRead):
@@ -72,7 +100,6 @@ class NoteFeedItem(NoteRead):
     location_name: str
     location_address: str
     location_group_name: str
-    author_name: str | None = None
     author_role: str | None = None
 
 

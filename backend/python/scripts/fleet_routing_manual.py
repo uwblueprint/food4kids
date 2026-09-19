@@ -8,7 +8,7 @@ NOTE: This hits the live Google API and will incur charges.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -17,6 +17,7 @@ from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GoogleMapsFleetRoutingAlgorithm,
 )
+from app.utilities.datetime_utils import today_local
 
 
 @dataclass
@@ -50,12 +51,15 @@ async def test_fleet_routing_live() -> None:
     """Hit the live Fleet Routing API and print the resulting routes."""
     from app.config import settings as app_settings
 
-    if not app_settings.route_opt_client_email:
-        pytest.skip("ROUTE_OPT_* env vars not configured")
+    if not app_settings.route_opt_project_id:
+        pytest.skip("ROUTE_OPT_PROJECT_ID not configured")
+
+    # Relative so the script doesn't rot — the API plans against the day given.
+    tomorrow_at_nine = datetime.combine(today_local() + timedelta(days=1), time(9, 0))
 
     settings = RouteGenerationSettings(
         num_routes=2,
-        route_start_time=datetime(2025, 6, 1, 9, 0),
+        route_start_time=tomorrow_at_nine,
         return_to_warehouse=True,
     )
 

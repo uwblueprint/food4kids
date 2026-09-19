@@ -11,9 +11,14 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str
+    remember_me: bool = False
 
 
 class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResendOnboardingEmailRequest(BaseModel):
     email: EmailStr
 
 
@@ -40,6 +45,9 @@ class AuthResponse(BaseModel):
     last_name: str
     email: EmailStr
     role: str
+    remember_me: bool
+    driver_id: UUID | None = None
+    admin_id: UUID | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

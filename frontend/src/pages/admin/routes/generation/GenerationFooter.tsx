@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
  */
 export function GenerationFooter({ children }: { children: ReactNode }) {
   return (
-    <div className="border-grey-300 bg-grey-200 tablet:-mx-10 tablet:px-10 desktop:-mx-12 desktop:px-12 sticky bottom-0 z-20 -mx-5 mt-auto -mb-6 flex h-21 items-center justify-between gap-4 border-t px-5 py-5">
+    <div className="border-grey-300 bg-grey-200 tablet:-mx-10 tablet:px-10 desktop:-mx-8 desktop:px-8 sticky bottom-0 z-20 -mx-5 mt-auto -mb-6 flex h-21 items-center justify-between gap-4 border-t px-5 py-5">
       {children}
     </div>
   );

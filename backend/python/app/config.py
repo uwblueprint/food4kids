@@ -1,9 +1,55 @@
-import json
 import os
+from enum import StrEnum
 from pathlib import Path
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, model_validator
+from pydantic_settings import (
+    BaseSettings,
+    JsonConfigSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+
+# Cloud Run mounts the Secret Manager secret (a JSON object of UPPER_CASE keys)
+# here; see README "Deployment". Absent locally, where .env plays that role.
+CLOUD_RUN_SECRETS_FILE = "/secrets/config.json"
+
+# Everything a deployed backend reads unconditionally. Listed by hand so a
+# typo'd key in the secret fails at startup, not at first use.
+REQUIRED_IN_PRODUCTION = (
+    "database_url",
+    "firebase_project_id",
+    "firebase_web_api_key",
+    "firebase_svc_account_private_key_id",
+    "firebase_svc_account_private_key",
+    "firebase_svc_account_client_email",
+    "firebase_svc_account_client_id",
+    "firebase_svc_account_auth_uri",
+    "firebase_svc_account_token_uri",
+    "firebase_svc_account_auth_provider_x509_cert_url",
+    "firebase_svc_account_client_x509_cert_url",
+    "mailer_refresh_token",
+    "mailer_client_id",
+    "mailer_client_secret",
+    "mailer_user",
+    "google_maps_api_key",
+    "gcp_bucket_name",
+    "route_opt_project_id",
+    "frontend_base_url",
+)
+
+
+class Environment(StrEnum):
+    """Which deployment this process is running as.
+
+    Set by APP_ENV, and the only thing that says so. Pydantic rejects any
+    other value, so a typo fails at startup rather than silently meaning
+    development.
+    """
+
+    DEVELOPMENT = "development"
+    TESTING = "testing"
+    PRODUCTION = "production"
 
 
 class Settings(BaseSettings):
@@ -12,13 +58,37 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False
+        env_file=".env",
+        env_file_encoding="utf-8",
+        json_file=CLOUD_RUN_SECRETS_FILE,
+        case_sensitive=False,
+        populate_by_name=True,
+        # The secret is shared with scripts, so it carries keys that are not
+        # settings; skip them the way unknown environment variables are skipped.
+        extra="ignore",
     )
 
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Environment variables still win, so a value can be overridden per
+        # revision without editing the secret.
+        return (
+            init_settings,
+            env_settings,
+            JsonConfigSettingsSource(settings_cls),
+            dotenv_settings,
+            file_secret_settings,
+        )
+
     # Environment
-    environment: str = Field(default="development")
-    debug: bool = Field(default=True)
-    testing: bool = Field(default=False)
+    environment: Environment = Field(default=Environment.DEVELOPMENT, alias="APP_ENV")
 
     # Database
     postgres_user: str = Field(default="")
@@ -29,24 +99,18 @@ class Settings(BaseSettings):
     database_url: str = Field(default="")
 
     # CORS
-    cors_origins: list[str] = Field(
-        default=[
-            "http://localhost:3000",
-            # No trailing slashes: the Origin header a browser sends is scheme
-            # + host + port only, and CORSMiddleware compares it exactly.
-            "https://food4kids-473501.firebaseapp.com",
-            "https://food4kids-473501.web.app",
-            "https://routes.food4kidswr.ca",
-        ]
-    )
+    # Empty by default: every deployed origin belongs to a specific
+    # deployment and is configured there. Development adds its own localhost
+    # entries in create_app(). An origin listed here is trusted with
+    # credentialed requests, so the default has to be nothing.
+    cors_origins: list[str] = Field(default=[])
     cors_supports_credentials: bool = Field(default=True)
 
     # Firebase
     firebase_project_id: str = Field(default="")
-    # Web API key for the Identity Toolkit REST sign-in/refresh calls. Must be
-    # a Settings field: on Cloud Run the config arrives as a mounted
-    # /secrets/config.json, so anything read via os.getenv() is invisible there
-    # even when it is present in the secret.
+    # Used for the Identity Toolkit REST sign-in/refresh calls. Has to be a
+    # Settings field, not an os.getenv read: on Cloud Run the config arrives
+    # as a mounted secrets file, which os.getenv cannot see.
     firebase_web_api_key: str = Field(default="")
     firebase_svc_account_private_key_id: str = Field(default="")
     firebase_svc_account_private_key: str = Field(default="")
@@ -73,23 +137,31 @@ class Settings(BaseSettings):
     # Google Maps
     google_maps_api_key: str = Field(default="")
 
-    # Route Optimization (service account for Fleet Routing API)
+    # Route Optimization (Fleet Routing API). Credentials come from Application
+    # Default Credentials, not settings — only the billed project is named here.
     route_opt_project_id: str = Field(default="")
-    route_opt_private_key_id: str = Field(default="")
-    route_opt_private_key: str = Field(default="")
-    route_opt_client_email: str = Field(default="")
 
-    # GCP
+    # GCP. Storage credentials come from Application Default Credentials, not
+    # settings — only the bucket is named here.
     gcp_bucket_name: str = Field(default="")
-    gcp_service_account_project_id: str = Field(default="")
-    gcp_service_account_private_key_id: str = Field(default="")
-    gcp_service_account_private_key: str = Field(default="")
-    gcp_service_account_client_email: str = Field(default="")
-    gcp_service_account_client_id: str = Field(default="")
-    gcp_service_account_auth_uri: str = Field(default="")
-    gcp_service_account_token_uri: str = Field(default="")
-    gcp_service_account_auth_provider_x509_cert_url: str = Field(default="")
-    gcp_service_account_client_x509_cert_url: str = Field(default="")
+
+    # Billing. Credentials come from Application Default Credentials like the
+    # rest; leave billing_account_id blank to disable the integration.
+    # billing_account_id is the Cloud Billing account
+    # ("012345-6789AB-CDEF01"); billing_target_project_id scopes spend to one
+    # project. The export dataset must live in billing_target_project_id.
+    billing_account_id: str = Field(default="")
+    billing_target_project_id: str = Field(default="")
+    billing_export_dataset: str = Field(default="")
+    billing_export_table: str = Field(default="")
+    # Cost data only refreshes every few hours, so a short TTL costs no accuracy
+    # while protecting against a polling caller running up BigQuery scans.
+    # Set to 0 to query live on every request.
+    billing_cache_ttl_seconds: int = Field(default=300)
+    # Hard ceiling per query. BigQuery kills the job rather than billing beyond
+    # this, so a runaway caller fails loudly instead of quietly costing money.
+    billing_max_bytes_billed: int = Field(default=1024**3)
+
     # Preview deploy
     preview_deploy: bool = Field(default=False)
 
@@ -97,135 +169,31 @@ class Settings(BaseSettings):
     frontend_base_url: str = Field(default="http://localhost:3000")
 
     @property
-    def is_development(self) -> bool:
-        return self.environment == "development"
-
-    @property
-    def is_production(self) -> bool:
-        return self.environment == "production"
-
-    @property
-    def is_testing(self) -> bool:
-        return self.environment == "testing"
-
-    @property
     def FRONTEND_BASE_URL(self) -> str:
         return self.frontend_base_url
 
-
-class DevelopmentSettings(Settings):
-    """Development-specific settings"""
-
-    debug: bool = True
-    testing: bool = False
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="password")
-    postgres_db_dev: str = Field(default="f4k")
-    postgres_db_test: str = Field(default="f4k_test")
-    db_host: str = Field(default="localhost")
-    firebase_project_id: str = Field(default="")
-    firebase_svc_account_private_key_id: str = Field(default="")
-    firebase_svc_account_private_key: str = Field(default="")
-    firebase_svc_account_client_email: str = Field(default="")
-    firebase_svc_account_client_id: str = Field(default="")
-    firebase_svc_account_auth_uri: str = Field(default="")
-    firebase_svc_account_token_uri: str = Field(default="")
-    firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
-    firebase_svc_account_client_x509_cert_url: str = Field(default="")
-    google_maps_api_key: str = Field(default="")
+    @model_validator(mode="after")
+    def _production_is_fully_configured(self) -> "Settings":
+        if self.environment is not Environment.PRODUCTION:
+            return self
+        # "Set" rather than "truthy": frontend_base_url defaults to localhost,
+        # and production emails must not link there.
+        missing = [
+            name.upper()
+            for name in REQUIRED_IN_PRODUCTION
+            if name not in self.model_fields_set or not getattr(self, name)
+        ]
+        if missing:
+            raise ValueError(f"production config is missing {', '.join(missing)}")
+        return self
 
 
-class ProductionSettings(Settings):
-    """Production-specific settings"""
-
-    debug: bool = False
-    testing: bool = False
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="password")
-    postgres_db_dev: str = Field(default="f4k")
-    postgres_db_test: str = Field(default="f4k_test")
-    db_host: str = Field(default="localhost")
-    firebase_project_id: str = Field(default="")
-    firebase_svc_account_private_key_id: str = Field(default="")
-    firebase_svc_account_private_key: str = Field(default="")
-    firebase_svc_account_client_email: str = Field(default="")
-    firebase_svc_account_client_id: str = Field(default="")
-    firebase_svc_account_auth_uri: str = Field(default="")
-    firebase_svc_account_token_uri: str = Field(default="")
-    firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
-    firebase_svc_account_client_x509_cert_url: str = Field(default="")
-    google_maps_api_key: str = Field(default="")
+def require_the_secret_mount(path: Path = Path(CLOUD_RUN_SECRETS_FILE)) -> None:
+    """Cloud Run sets K_SERVICE on every instance. Without this check a failed
+    mount would start the service in development mode with empty credentials."""
+    if "K_SERVICE" in os.environ and not path.is_file():
+        raise RuntimeError(f"Running on Cloud Run but {path} is not mounted")
 
 
-class TestingSettings(Settings):
-    """Testing-specific settings"""
-
-    debug: bool = False
-    testing: bool = True
-    mongodb_url: str = "mongomock://localhost"
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="password")
-    postgres_db_dev: str = Field(default="f4k")
-    postgres_db_test: str = Field(default="f4k_test")
-    db_host: str = Field(default="localhost")
-    firebase_project_id: str = Field(default="")
-    firebase_svc_account_private_key_id: str = Field(default="")
-    firebase_svc_account_private_key: str = Field(default="")
-    firebase_svc_account_client_email: str = Field(default="")
-    firebase_svc_account_client_id: str = Field(default="")
-    firebase_svc_account_auth_uri: str = Field(default="")
-    firebase_svc_account_token_uri: str = Field(default="")
-    firebase_svc_account_auth_provider_x509_cert_url: str = Field(default="")
-    firebase_svc_account_client_x509_cert_url: str = Field(default="")
-    google_maps_api_key: str = Field(default="")
-
-
-def get_settings() -> Settings:
-    """Get settings based on environment, parsing cloud secrets if mounted"""
-    environment = os.getenv("APP_ENV", "development")
-
-    secrets_file_path = Path("/secrets/config.json")
-    cloud_secrets = {}
-
-    if secrets_file_path.exists():
-        try:
-            with open(secrets_file_path) as f:
-                raw_secrets = json.load(f)
-
-                # Convert uppercase JSON keys to lowercase for Pydantic mapping
-                lowercased_secrets = {k.lower(): v for k, v in raw_secrets.items()}
-
-                target_class = DevelopmentSettings
-                if environment == "production":
-                    target_class = ProductionSettings
-                elif environment == "testing":
-                    target_class = TestingSettings
-
-                # Filter keys using Pydantic v1 __fields__ syntax to avoid breaking
-                allowed_fields = target_class.__fields__.keys()
-                cloud_secrets = {
-                    k: v for k, v in lowercased_secrets.items() if k in allowed_fields
-                }
-
-                # Print the length and first 3 characters to protect your secret while confirming it
-                pwd = cloud_secrets.get("postgres_password", "")
-                print(
-                    f"--- DIAGNOSTIC PWD_LEN: {len(pwd)} | PWD_START: '{pwd[:3]}' ---"
-                )
-
-        except Exception as e:
-            print(f"WARNING: Found secret file but failed to parse JSON: {e}")
-
-    if secrets_file_path.exists():
-        return Settings(**cloud_secrets)
-
-    if environment == "production":
-        return ProductionSettings()
-    elif environment == "testing":
-        return TestingSettings()
-    else:
-        return DevelopmentSettings()
-
-
-# Global settings instance
-settings = get_settings()
+require_the_secret_mount()
+settings = Settings()

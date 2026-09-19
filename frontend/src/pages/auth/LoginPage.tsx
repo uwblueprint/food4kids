@@ -2,9 +2,11 @@ import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { describeApiFailure, useLogin } from '@/api';
+import { useAuthStore } from '@/api/authStore';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
+import { homePathForRole } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { ErrorNote } from './ErrorNote';
@@ -38,6 +40,10 @@ const LoginForm = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<LoginError | null>(null);
 
+  // Someone sent here by an expired session was working a moment ago and did
+  // nothing wrong, so say what happened rather than presenting a bare form.
+  const sessionExpired = useAuthStore((state) => state.sessionExpired);
+
   const credentialsError = error?.scope === 'credentials';
 
   const loginMutation = useLogin();
@@ -47,10 +53,11 @@ const LoginForm = () => {
     e.preventDefault();
     setError(null);
     loginMutation.mutate(
-      { email, password },
+      { email, password, remember_me: rememberMe },
       {
-        onSuccess: () => {
-          navigate('/'); // 3. Navigate to base route on success
+        onSuccess: (data) => {
+          // Redirect based on user role
+          navigate(homePathForRole(data.role));
         },
         onError: (failure) => {
           const connectionMessage = describeApiFailure(failure);
@@ -152,9 +159,17 @@ const LoginForm = () => {
           </div>
 
           {/* Failures that aren't the credentials' fault get one note for the
-              whole form, not a red outline on fields that may be perfectly fine. */}
-          {error?.scope === 'form' && (
+              whole form, not a red outline on fields that may be perfectly fine.
+              A note about *this* attempt supersedes one about the last session. */}
+          {error?.scope === 'form' ? (
             <ErrorNote className="-mb-4">{error.message}</ErrorNote>
+          ) : (
+            !error &&
+            sessionExpired && (
+              <ErrorNote className="-mb-4">
+                Your session ended. Please log in again.
+              </ErrorNote>
+            )
           )}
 
           {/* Log In Button */}
@@ -172,16 +187,9 @@ const LoginForm = () => {
         {/* Footer */}
         <p className="desktop:mt-5 text-m-p2 tablet:font-medium tablet:mb-0 mt-6 mb-8 text-center">
           Don't have an account?{' '}
-          <a
-            href="/get-login-link"
-            className="text-blue-300 hover:underline"
-            onClick={(e) => {
-              e.preventDefault();
-              // TODO: Implement get login link action
-            }}
-          >
+          <Link to="/get-login-link" className="text-blue-300 hover:underline">
             Get your login link
-          </a>
+          </Link>
         </p>
       </div>
     </>

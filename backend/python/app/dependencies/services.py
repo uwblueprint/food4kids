@@ -17,16 +17,18 @@ from functools import lru_cache
 from fastapi import Depends
 
 from app.config import settings
+from app.services.implementations.admin_service import AdminService
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
+from app.services.implementations.billing_service import BillingService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.email_service import EmailService
+from app.services.implementations.google_maps_routing_service import (
+    GoogleMapsFleetRoutingAlgorithm,
+)
 from app.services.implementations.location_group_service import LocationGroupService
 from app.services.implementations.location_service import LocationService
-from app.services.implementations.mock_routing_algorithm import (
-    MockRoutingAlgorithm,
-)
 from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.password_reset_token_service import (
     PasswordResetTokenService,
@@ -38,6 +40,7 @@ from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.services.protocols.routing_algorithm import RoutingAlgorithmProtocol
 from app.templates.email_renderer import TemplateRenderer
+from app.utilities.billing_client import BillingClient
 from app.utilities.gcp_client import GCPStorageClient
 from app.utilities.google_maps_client import GoogleMapsClient
 
@@ -122,14 +125,24 @@ def get_driver_service() -> DriverService:
     return DriverService(logger)
 
 
+@lru_cache
+def get_admin_service() -> AdminService:
+    """Get admin service instance"""
+    logger = get_logger()
+    return AdminService(logger)
+
+
 def get_auth_service(
     user_service: UserService = Depends(get_user_service),
     driver_service: DriverService = Depends(get_driver_service),
+    admin_service: AdminService = Depends(get_admin_service),
     email_service: EmailService = Depends(get_email_service),
 ) -> AuthService:
     """Get auth service instance"""
     logger = get_logger()
-    return AuthService(logger, user_service, driver_service, email_service)
+    return AuthService(
+        logger, user_service, driver_service, admin_service, email_service
+    )
 
 
 @lru_cache
@@ -155,11 +168,12 @@ def get_route_group_service() -> RouteGroupService:
 
 @lru_cache
 def get_routing_algorithm() -> RoutingAlgorithmProtocol:
-    """Get routing algorithm instance (mock).
+    """Select the routing algorithm to use for route generation.
 
-    Swap this to use a different algorithm implementation.
+    Currently always returns the real Google Fleet Routing implementation.
+
     """
-    return MockRoutingAlgorithm()
+    return GoogleMapsFleetRoutingAlgorithm()
 
 
 @lru_cache
@@ -199,3 +213,18 @@ def get_gcp_storage_client() -> GCPStorageClient:
     """Get GCP Storage client instance"""
     logger = get_logger()
     return GCPStorageClient(logger, settings.gcp_bucket_name)
+
+
+@lru_cache
+def get_billing_client() -> BillingClient:
+    """Get billing client instance"""
+    logger = get_logger()
+    return BillingClient(logger)
+
+
+def get_billing_service(
+    billing_client: BillingClient = Depends(get_billing_client),
+) -> BillingService:
+    """Get billing service instance"""
+    logger = get_logger()
+    return BillingService(logger, billing_client)

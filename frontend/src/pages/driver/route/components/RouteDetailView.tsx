@@ -2,17 +2,16 @@ import { ChevronLeft, Map, MapPin, Package, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useOrgContact } from '@/api';
 import { getGoogleMapsLink } from '@/api/generated';
 import { Button, Spinner } from '@/common/components';
 import { RouteMap } from '@/common/components/RouteMap';
 import { useRoute } from '@/common/hooks/useRoute';
+import { formatDriveDate } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { DotSeparated } from './DotSeparated';
 import { RouteStopCard } from './RouteStopCard';
-
-// TODO: replace with the real Food4Kids office number
-const F4K_PHONE = '+1-555-0100';
 
 const statusWrapper =
   'flex w-full items-center justify-center rounded-xl border border-grey-300 bg-grey-150 p-8';
@@ -20,16 +19,6 @@ const statusWrapper =
 export interface RouteDetailViewProps {
   routeId: string;
   className?: string;
-}
-
-/** Format a date-time string as e.g. "Oct 18" (no year, per design). */
-function formatDriveDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 /** Format a time-of-day string ("08:00:00") as "8:00 AM".
@@ -50,6 +39,9 @@ function formatStartTime(value: string | null | undefined): string | null {
 
 export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
   const { data: route, isLoading, isError } = useRoute(routeId);
+  // Outside the loading gate below — a slow lookup shouldn't block the stops.
+  const { data: orgContact } = useOrgContact();
+  const contactPhone = orgContact?.contact_phone;
   const [mapsLoading, setMapsLoading] = useState(false);
   const [mapsError, setMapsError] = useState(false);
 
@@ -178,9 +170,16 @@ export function RouteDetailView({ routeId, className }: RouteDetailViewProps) {
           className="desktop:h-[408px] tablet:h-[270px] h-[182px]"
         />
         <div className="grid grid-cols-2 gap-3">
-          <Button asChild variant="secondary" className="tablet:w-full">
-            <a href={`tel:${F4K_PHONE}`}>Call Food4Kids</a>
-          </Button>
+          {/* Stored RFC 3966, so it's already the href. */}
+          {contactPhone ? (
+            <Button asChild variant="secondary" className="tablet:w-full">
+              <a href={contactPhone}>Call Food4Kids</a>
+            </Button>
+          ) : (
+            <Button variant="secondary" className="tablet:w-full" disabled>
+              Call Food4Kids
+            </Button>
+          )}
           <Button
             variant="primary"
             className="tablet:w-full"

@@ -1,14 +1,16 @@
 from enum import Enum
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.auth import require_admin
-from app.dependencies.services import get_note_chain_service
+from app.dependencies.services import get_gcp_storage_client, get_note_chain_service
 from app.models import get_session
 from app.models.note import NoteFeedItem
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.implementations.note_chain_service import NoteChainService
+from app.utilities.gcp_client import GCPStorageClient, GCSStorageError
+from app.utilities.note_attachments import refresh_attachment_urls
 
 
 class NoteFeedSort(str, Enum):
@@ -31,10 +33,31 @@ async def get_notes_feed(
     page_size: int = Query(default=50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
     note_chain_service: NoteChainService = Depends(get_note_chain_service),
+    gcp_client: GCPStorageClient = Depends(get_gcp_storage_client),
     _auth: bool = Depends(require_admin),
 ) -> PaginatedResponse[NoteFeedItem]:
     """Get location notes across all location note chains."""
     pagination = PaginationParams(page=page, page_size=page_size)
-    return await note_chain_service.get_location_notes_feed(
-        session, pagination, sort.value
-    )
+    try:
+        result = await note_chain_service.get_location_notes_feed(
+            session, pagination, sort.value
+        )
+        items = [
+            item.model_copy(
+                update={
+                    "attachments": refresh_attachment_urls(
+                        item.attachments, gcp_client
+                    ),
+                }
+            )
+            for item in result.items
+        ]
+        return PaginatedResponse.create(
+            items=items,
+            total=result.total,
+            page=result.page,
+            page_size=result.page_size,
+        )
+    except GCSStorageError as e:
+        status_code = 403 if "permission denied" in str(e).lower() else 503
+        raise HTTPException(status_code=status_code, detail=str(e)) from e

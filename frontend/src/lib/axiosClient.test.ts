@@ -1,0 +1,719 @@
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, isAxiosError } from 'axios';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { useAuthStore } from '@/api/authStore';
+import type { AuthResponse } from '@/api/generated';
+import {
+  applyLocationImport,
+  createLocationGroup,
+  previewLocationImport,
+  uploadImage,
+} from '@/api/generated/sdk.gen';
+import axiosClient from '@/lib/axiosClient';
+
+/**
+ * Pins the request that leaves the axios client — chiefly that FormData stays
+ * multipart and isn't re-serialized to JSON (see the Content-Type note in
+ * axiosClient.ts). Assertions are on the config the *adapter* receives, the
+ * last point before the wire, so a regression anywhere along the interceptor /
+ * transformRequest chain is caught. Then the response side: which failures end
+ * the session and which must not.
+ */
+
+const XLSX_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+const COLUMN_MAP = { address: 'Address', contact_name: 'Last Name' };
+
+/** Five bytes, so an assertion on `size` can prove the bytes survived. */
+function spreadsheet() {
+  return new File([new Uint8Array([1, 2, 3, 4, 5])], 'roster.xlsx', {
+    type: XLSX_TYPE,
+  });
+}
+
+let sent: InternalAxiosRequestConfig | undefined;
+const realAdapter = axiosClient.defaults.adapter;
+
+function lastRequest(): InternalAxiosRequestConfig {
+  if (!sent) throw new Error('No request reached the axios adapter');
+  return sent;
+}
+
+function sentContentType(): string {
+  return String(lastRequest().headers.get('Content-Type') ?? '');
+}
+
+function sentForm(): FormData {
+  const { data } = lastRequest();
+  if (!(data instanceof FormData)) {
+    throw new Error(`Body was ${typeof data}, expected FormData`);
+  }
+  return data;
+}
+
+beforeEach(() => {
+  sent = undefined;
+  axiosClient.defaults.adapter = async (config) => {
+    sent = config;
+    return {
+      data: {},
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    } as AxiosResponse;
+  };
+});
+
+afterEach(() => {
+  axiosClient.defaults.adapter = realAdapter;
+});
+
+const multipartOperations = [
+  {
+    name: 'previewLocationImport',
+    send: () =>
+      previewLocationImport({
+        body: {
+          file: spreadsheet(),
+          column_map: JSON.stringify(COLUMN_MAP),
+          delivery_type: 'Family',
+        },
+        throwOnError: true,
+      }),
+    scalars: {
+      column_map: JSON.stringify(COLUMN_MAP),
+      delivery_type: 'Family',
+    },
+  },
+  {
+    name: 'applyLocationImport',
+    send: () =>
+      applyLocationImport({
+        body: {
+          file: spreadsheet(),
+          column_map: JSON.stringify(COLUMN_MAP),
+          delivery_type: 'School',
+        },
+        throwOnError: true,
+      }),
+    scalars: {
+      column_map: JSON.stringify(COLUMN_MAP),
+      delivery_type: 'School',
+    },
+  },
+  {
+    name: 'uploadImage',
+    send: () =>
+      uploadImage({ body: { file: spreadsheet() }, throwOnError: true }),
+    scalars: {},
+  },
+];
+
+describe.each(multipartOperations)(
+  '$name sends real multipart',
+  ({ send, scalars }) => {
+    it('keeps the body as FormData instead of a serialized string', async () => {
+      await send();
+
+      expect(lastRequest().data).toBeInstanceOf(FormData);
+      // The regression turned the body into a JSON string; name that directly
+      // so a failure reads as the actual bug rather than a type mismatch.
+      expect(typeof lastRequest().data).not.toBe('string');
+    });
+
+    it('preserves the upload as a File with its bytes intact', async () => {
+      await send();
+
+      const file = sentForm().get('file');
+      expect(file).toBeInstanceOf(File);
+      expect((file as File).name).toBe('roster.xlsx');
+      expect((file as File).size).toBe(5);
+      expect((file as File).type).toBe(XLSX_TYPE);
+    });
+
+    it('leaves Content-Type unset so the browser can add the boundary', async () => {
+      await send();
+
+      expect(sentContentType()).not.toMatch(/application\/json/);
+    });
+
+    it('preserves the scalar form fields', async () => {
+      await send();
+
+      const form = sentForm();
+      for (const [field, value] of Object.entries(scalars)) {
+        expect(form.get(field)).toBe(value);
+      }
+    });
+  }
+);
+
+describe('JSON operations are unaffected', () => {
+  it('still send a JSON body labelled application/json', async () => {
+    await createLocationGroup({
+      body: { name: 'Tuesday A', location_ids: [] },
+      throwOnError: true,
+    });
+
+    expect(sentContentType()).toMatch(/application\/json/);
+    expect(typeof lastRequest().data).toBe('string');
+    expect(JSON.parse(lastRequest().data as string)).toEqual({
+      name: 'Tuesday A',
+      location_ids: [],
+    });
+  });
+});
+
+/**
+ * A 401 ends the session; nothing else does.
+ *
+ * The backend used to answer a revoked or expired token with 403, the same
+ * status it uses for "you are not allowed here", so the client had no way to
+ * act on either. Now that they are distinct, acting on the wrong one is the
+ * failure mode worth guarding: treating 403 as an ended session would bounce a
+ * driver who wandered into an admin route to the login page, where logging in
+ * successfully would return them to the same 403, forever.
+ */
+describe('session expiry', () => {
+  /**
+   * Answer the next request with this status instead of 200.
+   *
+   * Rejecting rather than resolving is what a real adapter does: it runs
+   * axios's `settle`, which applies `validateStatus` and rejects on a non-2xx.
+   * An adapter that merely resolves with `{ status: 401 }` skips that check
+   * entirely, so nothing would ever reach the error interceptor and every
+   * assertion here would pass against a client that does nothing.
+   */
+  function respondWith(status: number) {
+    axiosClient.defaults.adapter = async (config) => {
+      sent = config;
+      const response = {
+        data: { detail: 'nope' },
+        status,
+        statusText: 'Error',
+        headers: {},
+        config,
+      } as AxiosResponse;
+      throw new AxiosError(
+        `Request failed with status code ${status}`,
+        AxiosError.ERR_BAD_REQUEST,
+        config,
+        null,
+        response
+      );
+    };
+  }
+
+  function signedIn() {
+    useAuthStore.setState({
+      accessToken: 'token-abc',
+      user: null,
+      isAuthenticated: true,
+      isRestoringSession: false,
+      sessionExpired: false,
+    });
+  }
+
+  async function attempt() {
+    await expect(
+      createLocationGroup({
+        body: { name: 'Tuesday A', location_ids: [] },
+        throwOnError: true,
+      })
+    ).rejects.toBeDefined();
+  }
+
+  beforeEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  it('signs the user out when a request with a token gets a 401', async () => {
+    signedIn();
+    respondWith(401);
+
+    await attempt();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.accessToken).toBeNull();
+    expect(state.sessionExpired).toBe(true);
+  });
+
+  it('leaves a 401 on an unauthenticated request alone', async () => {
+    // The session-restore call on a first visit. Nobody was signed in, so
+    // there is no session to report as ended.
+    respondWith(401);
+
+    await attempt();
+
+    expect(useAuthStore.getState().sessionExpired).toBe(false);
+  });
+
+  it.each([403, 404, 422, 500])(
+    'does not sign the user out on a %i',
+    async (status) => {
+      signedIn();
+      respondWith(status);
+
+      await attempt();
+
+      const state = useAuthStore.getState();
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.accessToken).toBe('token-abc');
+      expect(state.sessionExpired).toBe(false);
+    }
+  );
+
+  it('leaves the session alone when the request never got a response', async () => {
+    signedIn();
+    axiosClient.defaults.adapter = async () => {
+      throw new Error('Network Error');
+    };
+
+    await attempt();
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('still rejects, so callers can handle the failure themselves', async () => {
+    signedIn();
+    respondWith(401);
+
+    await expect(
+      createLocationGroup({
+        body: { name: 'Tuesday A', location_ids: [] },
+        throwOnError: true,
+      })
+    ).rejects.toMatchObject({ response: { status: 401 } });
+  });
+
+  it('does not disturb a successful response', async () => {
+    signedIn();
+
+    await createLocationGroup({
+      body: { name: 'Tuesday A', location_ids: [] },
+      throwOnError: true,
+    });
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.sessionExpired).toBe(false);
+  });
+});
+
+/**
+ * Firebase access tokens last an hour, so an open tab outliving one is
+ * routine, not a dead session — the refresh cookie beside it is still good.
+ * These tests pin who gets renewed, who gets signed out, and that nothing
+ * retries forever.
+ */
+describe('refreshing an aged-out token', () => {
+  type Reply =
+    | { status: number; body?: unknown }
+    | { networkError: true; status?: never };
+
+  let requests: InternalAxiosRequestConfig[] = [];
+
+  const RENEWED: AuthResponse = {
+    access_token: 'token-xyz',
+    email: 'dana@example.com',
+    first_name: 'Dana',
+    full_name: 'Dana Bell',
+    id: 'user-1',
+    last_name: 'Bell',
+    remember_me: false,
+    role: 'Admin',
+  };
+
+  /**
+   * Reply per request rather than per test, since the whole point is that one
+   * call by the caller becomes three on the wire: the original, the refresh,
+   * and the replay.
+   */
+  function serve(reply: (config: InternalAxiosRequestConfig) => Reply) {
+    axiosClient.defaults.adapter = async (config) => {
+      requests.push(config);
+      const answer = reply(config);
+
+      if ('networkError' in answer) {
+        throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
+      }
+
+      const response = {
+        data: answer.body ?? { detail: 'nope' },
+        status: answer.status,
+        statusText: answer.status < 400 ? 'OK' : 'Error',
+        headers: {},
+        config,
+      } as AxiosResponse;
+
+      if (answer.status >= 400) {
+        throw new AxiosError(
+          `Request failed with status code ${answer.status}`,
+          AxiosError.ERR_BAD_REQUEST,
+          config,
+          null,
+          response
+        );
+      }
+      return response;
+    };
+  }
+
+  const isRefresh = (config: InternalAxiosRequestConfig) =>
+    (config.url ?? '').endsWith('/auth/refresh');
+
+  const refreshes = () => requests.filter(isRefresh);
+  const calls = () => requests.filter((config) => !isRefresh(config));
+
+  const tokenOn = (config: InternalAxiosRequestConfig) =>
+    String(config.headers.Authorization ?? '');
+
+  function signedIn() {
+    useAuthStore.setState({
+      accessToken: 'token-abc',
+      user: null,
+      isAuthenticated: true,
+      isRestoringSession: false,
+      sessionExpired: false,
+    });
+  }
+
+  function attempt() {
+    return createLocationGroup({
+      body: { name: 'Tuesday A', location_ids: [] },
+      throwOnError: true,
+    });
+  }
+
+  /**
+   * Keyed off the token rather than call order — with several requests in
+   * flight the refresh can land before the last of them is sent, and a
+   * counter would make the burst case depend on which won.
+   */
+  function staleToken(refreshReply: Reply = { status: 200, body: RENEWED }) {
+    serve((config) => {
+      if (isRefresh(config)) return refreshReply;
+      return tokenOn(config) === `Bearer ${RENEWED.access_token}`
+        ? { status: 200, body: { id: 'group-1' } }
+        : { status: 401 };
+    });
+  }
+
+  beforeEach(() => {
+    requests = [];
+    useAuthStore.getState().clearAuth();
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  it('refreshes and replays the request, so the caller never sees the 401', async () => {
+    signedIn();
+    staleToken();
+
+    const { data } = await attempt();
+
+    expect(data).toEqual({ id: 'group-1' });
+    expect(refreshes()).toHaveLength(1);
+    expect(calls()).toHaveLength(2);
+  });
+
+  it('keeps the session, and adopts the token the refresh handed back', async () => {
+    signedIn();
+    staleToken();
+
+    await attempt();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.sessionExpired).toBe(false);
+    expect(state.accessToken).toBe('token-xyz');
+    expect(state.user?.email).toBe('dana@example.com');
+  });
+
+  it('sends the replay with the new token rather than the one just refused', async () => {
+    signedIn();
+    staleToken();
+
+    await attempt();
+
+    const [first, replay] = calls();
+    expect(tokenOn(first)).toBe('Bearer token-abc');
+    expect(tokenOn(replay)).toBe('Bearer token-xyz');
+  });
+
+  it('refreshes once for a burst of requests that all go stale together', async () => {
+    signedIn();
+    staleToken();
+
+    await Promise.all([attempt(), attempt(), attempt()]);
+
+    // Each exchange rotates the refresh cookie, so a second refresh would be
+    // spending one the first had already replaced.
+    expect(refreshes()).toHaveLength(1);
+    expect(calls()).toHaveLength(6);
+  });
+
+  it('ends the session when the refresh is refused', async () => {
+    signedIn();
+    staleToken({ status: 401 });
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.accessToken).toBeNull();
+    expect(state.sessionExpired).toBe(true);
+  });
+
+  it('does not refresh again when the replay is refused too', async () => {
+    signedIn();
+    // A token minted seconds ago and still turned away: refreshing a second
+    // time would only mint another, forever.
+    serve((config) =>
+      isRefresh(config) ? { status: 200, body: RENEWED } : { status: 401 }
+    );
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    expect(refreshes()).toHaveLength(1);
+    expect(calls()).toHaveLength(2);
+    expect(useAuthStore.getState().sessionExpired).toBe(true);
+  });
+
+  it('leaves the session standing when the refresh never gets an answer', async () => {
+    signedIn();
+    // Wifi dropping in a stairwell is not the server ending the session, and
+    // signing the driver out over it would lose whatever they were mid-way
+    // through.
+    staleToken({ networkError: true });
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.accessToken).toBe('token-abc');
+    expect(state.sessionExpired).toBe(false);
+  });
+
+  it('leaves the session standing when the refresh fails for some other reason', async () => {
+    signedIn();
+    staleToken({ status: 500 });
+
+    await expect(attempt()).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+
+    expect(useAuthStore.getState().sessionExpired).toBe(false);
+  });
+
+  it('never tries to refresh the refresh', async () => {
+    signedIn();
+    serve(() => ({ status: 401 }));
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    expect(refreshes()).toHaveLength(1);
+  });
+
+  it('does not refresh for a request that carried no token', async () => {
+    // The session-restore call on a first visit. There is no session to renew.
+    serve(() => ({ status: 401 }));
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    expect(refreshes()).toHaveLength(0);
+    expect(useAuthStore.getState().sessionExpired).toBe(false);
+  });
+
+  it.each([403, 404, 422, 500])('does not refresh on a %i', async (status) => {
+    signedIn();
+    serve(() => ({ status }));
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    expect(refreshes()).toHaveLength(0);
+    expect(useAuthStore.getState().accessToken).toBe('token-abc');
+  });
+
+  /**
+   * The refresh is the one call that does not go through the generated
+   * client — it must not re-enter this interceptor — so nothing adds the
+   * /api prefix for it. Matching on `endsWith('/auth/refresh')` cannot tell
+   * a prefixed path from an unprefixed one, which is how a 404 on every
+   * session restore would slip through unnoticed.
+   */
+  it('sends the refresh to the prefixed path', async () => {
+    signedIn();
+    serve((config) =>
+      isRefresh(config) ? { status: 200, body: RENEWED } : { status: 401 }
+    );
+
+    await expect(attempt()).rejects.toBeDefined();
+
+    const [refresh] = refreshes();
+    expect(refresh.url).toBe('/api/auth/refresh');
+  });
+});
+
+describe('errors reach callers without credentials', () => {
+  /**
+   * However a request fails, the error reaching application code must not
+   * carry `config.data` (a login's is the password) or the Authorization
+   * header — while the wire still saw the body, proving the scrub runs after
+   * the replay decision rather than before it.
+   */
+  type Reply = { status: number; body?: unknown };
+
+  const RENEWED: AuthResponse = {
+    access_token: 'token-xyz',
+    email: 'dana@example.com',
+    first_name: 'Dana',
+    full_name: 'Dana Bell',
+    id: 'user-1',
+    last_name: 'Bell',
+    remember_me: false,
+    role: 'Admin',
+  };
+
+  /** `config.data` captured at adapter time — the scrub must not reach back. */
+  let bodiesOnTheWire: unknown[] = [];
+
+  function serve(reply: (config: InternalAxiosRequestConfig) => Reply) {
+    axiosClient.defaults.adapter = async (config) => {
+      bodiesOnTheWire.push(config.data);
+      const answer = reply(config);
+      const response = {
+        data: answer.body ?? { detail: 'nope' },
+        status: answer.status,
+        statusText: answer.status < 400 ? 'OK' : 'Error',
+        headers: {},
+        config,
+      } as AxiosResponse;
+      if (answer.status >= 400) {
+        throw new AxiosError(
+          `Request failed with status code ${answer.status}`,
+          AxiosError.ERR_BAD_REQUEST,
+          config,
+          null,
+          response
+        );
+      }
+      return response;
+    };
+  }
+
+  const isRefresh = (config: InternalAxiosRequestConfig) =>
+    (config.url ?? '').endsWith('/auth/refresh');
+
+  const tokenOn = (config: InternalAxiosRequestConfig) =>
+    String(config.headers.Authorization ?? '');
+
+  function signedIn() {
+    useAuthStore.setState({
+      accessToken: 'token-abc',
+      user: null,
+      isAuthenticated: true,
+      isRestoringSession: false,
+      sessionExpired: false,
+    });
+  }
+
+  function attempt() {
+    return createLocationGroup({
+      body: { name: 'Tuesday A', location_ids: [] },
+      throwOnError: true,
+    });
+  }
+
+  async function attemptAndCatch(): Promise<unknown> {
+    try {
+      await attempt();
+    } catch (error) {
+      return error;
+    }
+    throw new Error('Expected the request to fail');
+  }
+
+  function expectScrubbed(error: unknown) {
+    if (!isAxiosError(error)) throw new Error('Expected an AxiosError');
+    expect(error.config?.data).toBeUndefined();
+    expect(error.config?.headers?.Authorization).toBeUndefined();
+    // Same object by reference, but pin the other path to it anyway.
+    expect(error.response?.config.data).toBeUndefined();
+  }
+
+  beforeEach(() => {
+    bodiesOnTheWire = [];
+    useAuthStore.getState().clearAuth();
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().clearAuth();
+  });
+
+  it('scrubs a plain failure that carried a body and a token', async () => {
+    signedIn();
+    serve(() => ({ status: 500 }));
+
+    const error = await attemptAndCatch();
+
+    expect(bodiesOnTheWire[0]).toBeTruthy();
+    expectScrubbed(error);
+  });
+
+  it('scrubs the 401 handed back when the refresh is refused', async () => {
+    signedIn();
+    serve(() => ({ status: 401 }));
+
+    const error = await attemptAndCatch();
+
+    expectScrubbed(error);
+  });
+
+  it('scrubs a refused replay, which still went out with its body', async () => {
+    signedIn();
+    // Refresh succeeds; the request itself is refused before and after.
+    serve((config) =>
+      isRefresh(config) ? { status: 200, body: RENEWED } : { status: 401 }
+    );
+
+    const error = await attemptAndCatch();
+
+    // Wire order: original, refresh, replay. The replay must have carried
+    // the body — scrubbing before the retry would break every replay.
+    expect(bodiesOnTheWire).toHaveLength(3);
+    expect(bodiesOnTheWire[2]).toBeTruthy();
+    expectScrubbed(error);
+  });
+
+  it('leaves a successful replay untouched', async () => {
+    signedIn();
+    serve((config) => {
+      if (isRefresh(config)) return { status: 200, body: RENEWED };
+      return tokenOn(config) === `Bearer ${RENEWED.access_token}`
+        ? { status: 200, body: { id: 'group-1' } }
+        : { status: 401 };
+    });
+
+    const { data } = await attempt();
+
+    expect(data).toEqual({ id: 'group-1' });
+    expect(bodiesOnTheWire[2]).toBeTruthy();
+  });
+});

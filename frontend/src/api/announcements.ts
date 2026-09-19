@@ -17,7 +17,6 @@ export function useAnnouncements() {
   return useQuery({
     ...getAnnouncementsOptions(),
     enabled: isAuthenticated,
-    placeholderData: [],
   });
 }
 

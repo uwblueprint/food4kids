@@ -1,18 +1,15 @@
 import boyImg from '@/assets/illustrations/boy.png';
-import boyAnnouncingImg from '@/assets/illustrations/boy-announcing.png';
 import boyPointingImg from '@/assets/illustrations/boy-pointing.png';
-import girlConfusedImg from '@/assets/illustrations/girl-confused.png';
 import girlSearchingImg from '@/assets/illustrations/girl-searching.png';
 import grannyImg from '@/assets/illustrations/granny.png';
 import { cn } from '@/lib/utils';
 
-const CHARACTER_MAP = {
-  boy: boyImg,
-  boyPointing: boyPointingImg,
-  boyAnnouncing: boyAnnouncingImg,
-  girlConfused: girlConfusedImg,
-  girlSearching: girlSearchingImg,
-  granny: grannyImg,
+const CHARACTERS = {
+  // Further reduce sizes and push illustrations more to bottom-right so they don't overlap the numbers
+  granny: { src: grannyImg, size: 100, right: -22, bottom: -18 },
+  boy: { src: boyImg, size: 90, right: -18, bottom: -14 },
+  boyPointing: { src: boyPointingImg, size: 110, right: -20, bottom: -16 },
+  girlSearching: { src: girlSearchingImg, size: 110, right: -20, bottom: -16 },
 } as const;
 
 const COLOR_MAP = {
@@ -22,7 +19,7 @@ const COLOR_MAP = {
   pink: 'bg-brand-pink',
 } as const;
 
-type Character = keyof typeof CHARACTER_MAP;
+type Character = keyof typeof CHARACTERS;
 type StatisticsCardColor = keyof typeof COLOR_MAP;
 
 interface StatisticsCardProps {
@@ -46,7 +43,8 @@ function StatisticsCard({
     >
       <div
         className={cn(
-          'shadow-card relative h-24 w-full overflow-hidden rounded-xl p-4',
+          // reduced height and horizontal padding to tighten vertical spacing
+          'shadow-card relative h-20 w-full overflow-hidden rounded-xl px-3',
           COLOR_MAP[color]
         )}
       >
@@ -59,18 +57,24 @@ function StatisticsCard({
         <div className="absolute right-14 bottom-3 size-1.5 rotate-45 bg-white" />
 
         {/* Text */}
-        <div className="relative flex flex-col justify-center gap-0.5">
-          <p className="text-p1 text-grey-100 font-bold">{label}</p>
-          <p className="text-grey-100 text-3xl leading-10 font-bold">{value}</p>
+        <div className="relative flex h-full flex-col justify-center">
+          <p className="text-h4 text-grey-100 font-sans">{label}</p>
+          <p className="text-h2 text-grey-100 font-nunito font-bold">{value}</p>
         </div>
       </div>
 
-      {/* Character — sits on outer wrapper, pops out below card */}
+      {/* Character — on the outer wrapper so the card's clip cuts it off */}
       <img
-        src={CHARACTER_MAP[character]}
+        src={CHARACTERS[character].src}
         alt=""
         aria-hidden
-        className="absolute top-3/5 -right-2 w-38 -translate-y-1/2 object-contain"
+        className="absolute object-contain"
+        style={{
+          width: CHARACTERS[character].size,
+          height: CHARACTERS[character].size,
+          right: CHARACTERS[character].right,
+          bottom: CHARACTERS[character].bottom,
+        }}
       />
     </div>
   );

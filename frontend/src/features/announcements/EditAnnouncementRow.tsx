@@ -79,9 +79,10 @@ export function EditAnnouncementRow({
         onClick={() => onToggleDelete(announcement)}
       >
         {pendingDelete ? (
+          // Undo isn't a delete action, so it stays neutral.
           <UndoIcon className="text-grey-500 size-5" />
         ) : (
-          <TrashIcon className="text-grey-400 size-5" />
+          <TrashIcon className="text-red size-5" />
         )}
       </Button>
     </article>

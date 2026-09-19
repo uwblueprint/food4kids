@@ -2,19 +2,15 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, TypeVar
-from zoneinfo import ZoneInfo
 
 import sqlmodel as sm
 from sqlmodel import Field
 
+from app.utilities.datetime_utils import now_utc
+
 _ONGOING_MODEL_VALIDATE: ContextVar[bool] = ContextVar("_ONGOING_MODEL_VALIDATE")
 
 T = TypeVar("T", bound="BaseModel")
-
-
-def _now_est_naive() -> datetime:
-    """Current time in F4K's timezone (America/New_York), stored tz-naive."""
-    return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
 
 
 @contextmanager
@@ -27,19 +23,21 @@ def set_ongoing_model_validate() -> Any:
 class BaseModel(sm.SQLModel):
     """Enhanced base model with common fields and functionality"""
 
-    # Common timestamp fields.
-    # Industry-standard convention (Rails/Django/Laravel): both are stamped on
-    # insert (equal to within microseconds) and `updated_at` is bumped on every
-    # update. Models that genuinely need "null until first set" (e.g. Job, whose
-    # lifecycle tracks started/updated/finished) override `updated_at` explicitly.
+    # Both stamped on insert; `updated_at` is bumped by a column-level
+    # `onupdate`, so it fires for Core `update()` statements as well as ORM
+    # flushes — but not for an `update()` that sets `updated_at` itself.
+    # Models needing "null until first set" (e.g. Job) override it.
     #
-    # `updated_at` is bumped by a column-level SQLAlchemy `onupdate`, which fires
-    # for BOTH ORM flushes and Core `update()` statements — so bulk updates stay
-    # accurate too — unless the statement sets `updated_at` itself.
-    created_at: datetime | None = Field(default_factory=_now_est_naive)
+    # `timestamptz` holding UTC — a naive column reads back as the container's
+    # local time, silently shifting by the EST offset.
+    created_at: datetime | None = Field(
+        default_factory=now_utc,
+        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
+    )
     updated_at: datetime | None = Field(
-        default_factory=_now_est_naive,
-        sa_column_kwargs={"onupdate": _now_est_naive},
+        default_factory=now_utc,
+        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
+        sa_column_kwargs={"onupdate": now_utc},
     )
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

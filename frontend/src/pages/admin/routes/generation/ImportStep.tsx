@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
-import {
-  getConfiguredDeliveryTypes,
-  usePreviewLocationImport,
-  useSystemSettings,
-} from '@/api';
+import { usePreviewLocationImport, useSystemSettings } from '@/api';
 import type { Column } from '@/common/components';
 import {
   Banner,
@@ -18,12 +14,18 @@ import {
   DropdownTrigger,
   DropdownValue,
   FileInput,
+  Spinner,
 } from '@/common/components';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { GenerationFooter } from './GenerationFooter';
 
 const ACCEPTED_EXTENSIONS = new Set(['.xlsx']);
+
+// Radix Select cannot hold an item whose value is the empty string, so the
+// "leave unmapped" choice an optional field needs carries a sentinel that is
+// translated back to '' before it reaches the column map.
+const UNMAPPED = '__unmapped__';
 
 interface SystemField {
   key: string;
@@ -37,6 +39,10 @@ const SYSTEM_FIELDS: SystemField[] = [
   { key: 'address', label: 'Address', required: true },
   { key: 'delivery_group', label: 'Delivery Group', required: true },
   { key: 'phone_primary', label: 'Phone Number', required: true },
+  // Optional to match the backend: `phone_secondary` is a ChangedFieldOptStr
+  // and is absent from `_has_required_fields`, so a roster without a second
+  // phone column still imports. It is only validated when non-empty.
+  { key: 'phone_secondary', label: 'Secondary Phone Number' },
   { key: 'num_children', label: 'Number of Children', required: true },
   { key: 'dietary_restrictions', label: 'Food Restrictions', required: true },
   { key: 'halal', label: 'Halal?', required: true },
@@ -81,8 +87,10 @@ export function ImportStep() {
 
   const { mutateAsync: previewImport, isPending: isReviewing } =
     usePreviewLocationImport();
-  const { data: systemSettings } = useSystemSettings();
-  const deliveryTypes = getConfiguredDeliveryTypes(systemSettings);
+  const { data: systemSettings, isError: settingsError } = useSystemSettings();
+  // Undefined until settings load. The layout pre-selects the type when there
+  // is exactly one, so the picker then renders with its radio already checked.
+  const deliveryTypes = systemSettings?.delivery_types;
 
   const [formatError, setFormatError] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -129,7 +137,7 @@ export function ImportStep() {
       // because every row holds a control. The header is 48 and top-aligned:
       // the frames draw it as a 40px box with 16px of air beneath, which a
       // borderless table row can only approximate, and this is the split that
-      // lands both the header text and all eight rows on their frame y.
+      // lands both the header text and every row on their frame y.
       headerClassName: 'h-12 align-top',
       getCellClassName: () => 'h-14',
       render: (row) => (
@@ -137,7 +145,7 @@ export function ImportStep() {
         // imported data, and the frames set them 16/500.
         <span className="text-p1 text-grey-500">
           {row.label}
-          {row.required && <span className="text-red ml-0.5">*</span>}
+          {row.required && <span className="text-red ml-1">*</span>}
         </span>
       ),
     },
@@ -150,13 +158,21 @@ export function ImportStep() {
         <Dropdown
           value={columnMap[row.key] ?? ''}
           onValueChange={(val) =>
-            setColumnMap({ ...columnMap, [row.key]: val })
+            setColumnMap({
+              ...columnMap,
+              [row.key]: val === UNMAPPED ? '' : val,
+            })
           }
         >
           <DropdownTrigger>
             <DropdownValue placeholder="Select Column" />
           </DropdownTrigger>
           <DropdownContent>
+            {/* An optional field has to be un-settable again: without this the
+                first pick would be permanent for the rest of the wizard. */}
+            {!row.required && (
+              <DropdownItem value={UNMAPPED}>Not in my file</DropdownItem>
+            )}
             {headerOptions.map((opt) => (
               <DropdownItem key={opt.value} value={opt.value}>
                 {opt.label}
@@ -183,7 +199,13 @@ export function ImportStep() {
         deliveryType: selectedDeliveryType,
       });
       setReviewResult(result);
-      navigate('/admin/routes/generation/validate');
+      // A clean preview leaves the validate step with nothing to show and
+      // nothing to fix, so go straight to review.
+      navigate(
+        result.success
+          ? '/admin/routes/generation/review'
+          : '/admin/routes/generation/validate'
+      );
     } catch {
       setReviewError('Could not validate the file — please try again.');
     }
@@ -197,39 +219,54 @@ export function ImportStep() {
         </Banner>
       )}
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-grey-500">Select Delivery Type</h2>
-          <p className="text-p1 text-grey-500">
-            Choose the type of spreadsheet you'll be uploading:
-          </p>
+      {settingsError && (
+        <Banner variant="error">
+          Could not load the configured delivery types. Please refresh and try
+          again.
+        </Banner>
+      )}
+
+      {deliveryTypes === undefined && !settingsError && (
+        <div className="flex justify-center py-16">
+          <Spinner size="lg" />
         </div>
-        {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
-        <div className="flex flex-col gap-1">
-          {deliveryTypes.map((deliveryType) => (
-            <label
-              key={deliveryType}
-              className="text-p1 flex cursor-pointer items-center gap-2"
-            >
-              <input
-                type="radio"
-                name="delivery-type"
-                value={deliveryType}
-                checked={selectedDeliveryType === deliveryType}
-                onChange={() => {
-                  setSelectedDeliveryType(deliveryType);
-                  setFile(null);
-                  setFileHeaders([]);
-                  setReviewResult(null);
-                  setFormatError(null);
-                }}
-                className="size-5 cursor-pointer accent-blue-300"
-              />
-              {deliveryType}
-            </label>
-          ))}
-        </div>
-      </section>
+      )}
+
+      {deliveryTypes && (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-grey-500">Select Delivery Type</h2>
+            <p className="text-p1 text-grey-500">
+              Choose the type of spreadsheet you'll be uploading:
+            </p>
+          </div>
+          {/* 28px pitch: a 24px-tall row per the frames, 4px apart. */}
+          <div className="flex flex-col gap-1">
+            {deliveryTypes.map((deliveryType) => (
+              <label
+                key={deliveryType}
+                className="text-p1 flex cursor-pointer items-center gap-2"
+              >
+                <input
+                  type="radio"
+                  name="delivery-type"
+                  value={deliveryType}
+                  checked={selectedDeliveryType === deliveryType}
+                  onChange={() => {
+                    setSelectedDeliveryType(deliveryType);
+                    setFile(null);
+                    setFileHeaders([]);
+                    setReviewResult(null);
+                    setFormatError(null);
+                  }}
+                  className="size-5 cursor-pointer accent-blue-300"
+                />
+                {deliveryType}
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
 
       {selectedDeliveryType && (
         <section className="flex max-w-[700px] flex-col gap-4">

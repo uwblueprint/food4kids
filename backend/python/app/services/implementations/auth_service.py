@@ -1,6 +1,5 @@
 from logging import Logger
 from typing import TYPE_CHECKING
-from uuid import UUID
 
 import firebase_admin.auth
 import jwt
@@ -10,8 +9,7 @@ from app.schemas.auth import AuthResponse
 from app.utilities.firebase_rest_client import FirebaseRestClient, FirebaseRestError
 
 if TYPE_CHECKING:
-    from firebase_admin.auth import UserRecord
-
+    from app.services.implementations.admin_service import AdminService
     from app.services.implementations.driver_service import DriverService
     from app.services.implementations.email_service import EmailService
     from app.services.implementations.user_service import UserService
@@ -49,6 +47,7 @@ class AuthService:
         logger: Logger,
         user_service: "UserService",
         driver_service: "DriverService",
+        admin_service: "AdminService",
         email_service: "EmailService | None" = None,
     ) -> None:
         """
@@ -58,17 +57,20 @@ class AuthService:
         :type logger: Logger
         :param user_service: a user_service instance
         :type user_service: IUserService
+        :param driver_service: a driver_service instance
+        :param admin_service: an admin_service instance
         :param email_service: an email_service instance
         :type email_service: Optional[IEmailService]
         """
         self.logger: Logger = logger
         self.user_service: UserService = user_service
         self.driver_service: DriverService = driver_service
+        self.admin_service: AdminService = admin_service
         self.email_service: EmailService | None = email_service
         self.firebase_rest_client: FirebaseRestClient = FirebaseRestClient(logger)
 
     async def generate_token(
-        self, session: AsyncSession, email: str, password: str
+        self, session: AsyncSession, email: str, password: str, remember_me: bool
     ) -> tuple[AuthResponse, str]:
         try:
             # Always attempt Firebase authentication first
@@ -84,6 +86,16 @@ class AuthService:
                 raise ValueError("Invalid email or password")
 
             # Create AuthResponse with all required fields (refresh_token excluded - it goes in httpOnly cookie)
+            driver_id = None
+            if user.role.lower() == "driver" and user.auth_id:
+                driver_id = await self.driver_service.get_driver_id_by_auth_id(
+                    session, user.auth_id
+                )
+            admin_id = None
+            if user.role.lower() == "admin" and user.auth_id:
+                admin_id = await self.admin_service.get_admin_id_by_auth_id(
+                    session, user.auth_id
+                )
             auth_response = AuthResponse(
                 access_token=token.access_token,
                 id=user.user_id,
@@ -91,6 +103,9 @@ class AuthService:
                 last_name=user.last_name,
                 email=user.email,
                 role=user.role,
+                remember_me=remember_me,
+                driver_id=driver_id,
+                admin_id=admin_id,
             )
             return auth_response, token.refresh_token
         except Exception as e:
@@ -99,22 +114,39 @@ class AuthService:
             # Always return the same generic error message to prevent enumeration
             raise ValueError("Invalid email or password") from e
 
-    async def revoke_tokens(self, session: AsyncSession, user_id: UUID) -> None:
+    async def revoke_tokens(self, auth_id: str) -> None:
         try:
-            auth_id = await self.user_service.get_auth_id_by_user_id(session, user_id)
             firebase_admin.auth.revoke_refresh_tokens(auth_id)
         except Exception as e:
             reason = getattr(e, "message", None)
             error_message = [
-                f"Failed to revoke refresh tokens of user with id {user_id}",
+                f"Failed to revoke refresh tokens of user with auth_id {auth_id}",
                 "Reason =",
                 (reason if reason else str(e)),
             ]
             self.logger.error(" ".join(error_message))
             raise e
 
+    async def revoke_tokens_by_refresh_token(self, refresh_token: str) -> None:
+        try:
+            token_response = self.firebase_rest_client.refresh_token(refresh_token)
+            new_access_token = token_response.access_token
+            payload = jwt.decode(
+                new_access_token,
+                options={"verify_signature": False},
+                algorithms=["RS256"],
+            )
+            auth_id = payload.get("sub", "")
+            if auth_id:
+                await self.revoke_tokens(auth_id)
+        except Exception as e:
+            self.logger.error(
+                f"Failed to revoke refresh tokens by refresh token: {e!s}"
+            )
+            raise e
+
     async def renew_token(
-        self, session: AsyncSession, refresh_token: str
+        self, session: AsyncSession, refresh_token: str, remember_me: bool
     ) -> tuple[AuthResponse, str]:
         """Exchange a refresh token for a fresh session.
 
@@ -145,6 +177,16 @@ class AuthService:
                 f"No user in the database for Firebase auth_id {auth_id}"
             )
 
+        driver_id = None
+        if user.role.lower() == "driver" and auth_id:
+            driver_id = await self.driver_service.get_driver_id_by_auth_id(
+                session, auth_id
+            )
+        admin_id = None
+        if user.role.lower() == "admin" and auth_id:
+            admin_id = await self.admin_service.get_admin_id_by_auth_id(
+                session, auth_id
+            )
         auth_response = AuthResponse(
             access_token=new_access_token,
             id=user.user_id,
@@ -152,42 +194,8 @@ class AuthService:
             last_name=user.last_name,
             email=user.email,
             role=user.role,
+            remember_me=remember_me,
+            driver_id=driver_id,
+            admin_id=admin_id,
         )
         return auth_response, token_response.refresh_token
-
-    async def is_authorized_by_role(
-        self, _session: AsyncSession, access_token: str, roles: set[str]
-    ) -> bool:
-        try:
-            decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True, clock_skew_seconds=5
-            )
-            user_role = decoded_id_token.get("role")
-            if not user_role:
-                self.logger.warning(
-                    f"User {decoded_id_token['uid']} has no role claim set"
-                )
-                return False
-            # Allow if role is in the authorized set
-            return user_role in roles
-        except Exception as e:
-            self.logger.error(f"Authorization failed: {type(e).__name__}: {e!s}")
-            return False
-
-    def is_authorized_by_email(self, access_token: str, requested_email: str) -> bool:
-        try:
-            decoded_id_token = firebase_admin.auth.verify_id_token(
-                access_token, check_revoked=True
-            )
-            firebase_user: UserRecord = firebase_admin.auth.get_user(
-                decoded_id_token["uid"]
-            )
-            return bool(
-                firebase_user.email_verified
-                and decoded_id_token["email"] == requested_email
-            )
-        except Exception as e:
-            self.logger.error(
-                f"Authorization by email failed: {type(e).__name__}: {e!s}"
-            )
-            return False

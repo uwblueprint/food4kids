@@ -59,6 +59,7 @@
   --shadow-harsh: 0px 4px 24px #00000014;
   --shadow-light: 0px 0px 10px #0000000a;
   --shadow-admin-bento: 0px 0px 32px #0000000a;
+  --shadow-dropdown: 0px 0px 24px #00000014; /* Menus over the bento tiles */
 
   /* --- Spacing: extends Tailwind's 4px base grid ---
    * Design uses an 8px grid: 0, 4, 8, 16, 32, 64, 128, 256, 512
@@ -166,11 +167,11 @@
  * Desktop/Pn from tablet up. This is the default for body/paragraph text:
  *   text-p1 → 18→16px   text-p2 → 16→14px   text-p3 → 14→12px
  *
- * WEIGHT is part of the style. Per Figma, only P1 is non-Regular, and its
- * weight is RESPONSIVE: Mobile/P1 is Regular (400), Desktop/P1 is Medium (500)
- * — so text-p1 sets font-weight 400→500 itself (you can't express a per-tier
- * weight with a single font-* utility). P2 and P3 are Regular (400) at every
- * tier, i.e. the browser default, so text-p2/p3 don't set a weight.
+ * WEIGHT is part of the style, and for P1 and P2 it is RESPONSIVE, so the
+ * utility sets it itself (you can't express a per-tier weight with a single
+ * font-* utility): Mobile/P1 Regular (400) → Desktop/P1 Medium (500), and
+ * Mobile/P2 Regular (400) → Desktop/P2 SemiBold (600). P3 is Regular at every
+ * tier, i.e. the browser default, so text-p3 doesn't set a weight.
  *
  * text-m-p1/p2/p3 are STATIC (Mobile sizes, 18/16/14, all Regular) — for the
  * rare element whose size must stay constant across tiers (e.g. a 16px-
@@ -248,9 +249,11 @@
 @utility text-p2 {
   font-size: var(--text-m-p2);
   line-height: var(--text-m-p2--line-height);
+  font-weight: 400; /* Mobile/P2: Nunito Sans Regular */
   @media (width >= theme(--breakpoint-tablet)) {
     font-size: var(--text-p2);
     line-height: var(--text-p2--line-height);
+    font-weight: 600; /* Desktop/P2: Nunito Sans SemiBold */
   }
 }
 @utility text-p3 {
@@ -264,14 +267,14 @@
 
 @layer utilities {
   /* Page-level margins from the F4K design system, ADMIN platform only.
-   * Mobile: 20px · Tablet: 40px · Desktop: 48px left/right, 40px top.
+   * Mobile: 20px · Tablet: 40px · Desktop: 32px all round.
    *
    * Driver pages must not use this: DriverLayout already applies the driver
    * spec (20px / 32px) to the whole platform, so adding this on top of it
    * doubles the padding rather than replacing it.
    *
-   * The desktop inset is measured off the admin frames: content runs 170→1392
-   * inside a 1440 frame whose nav rail is 120 wide, i.e. 48px either side. */
+   * The desktop inset is measured off the admin frames: content runs 152→1408
+   * inside a 1440 frame whose nav rail is 120 wide, i.e. 32px either side. */
   .admin-page-margins {
     padding-left: 1.25rem; /* 20px */
     padding-right: 1.25rem;
@@ -286,9 +289,9 @@
   }
   @media (width >= theme(--breakpoint-desktop)) {
     .admin-page-margins {
-      padding-left: 3rem; /* 48px */
-      padding-right: 3rem;
-      padding-top: 2.5rem; /* 40px */
+      padding-left: 2rem; /* 32px */
+      padding-right: 2rem;
+      padding-top: 2rem;
     }
   }
 }

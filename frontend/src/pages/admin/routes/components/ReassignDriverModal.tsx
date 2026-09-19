@@ -20,7 +20,7 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/common/components';
-import { parseDateOnly } from '@/common/utils';
+import { formatDriveDate } from '@/common/utils';
 
 interface ReassignDriverModalProps {
   open: boolean;
@@ -29,13 +29,6 @@ interface ReassignDriverModalProps {
   /** Called once the reassignment saves, e.g. to highlight the row. */
   onUpdated?: () => void;
 }
-
-/** "Oct 18" — short date for the dialog's context line. */
-const formatContextDate = (isoDate: string): string =>
-  parseDateOnly(isoDate).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
 
 export function ReassignDriverModal({
   open,
@@ -81,12 +74,12 @@ export function ReassignDriverModal({
     <Modal open={open} onOpenChange={handleOpenChange}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>
+          <ModalTitle variant="form">
             {isReassign ? 'Reassign Driver' : 'Assign Driver'}
           </ModalTitle>
           <ModalDescription>
             {route.name} • {route.group_name} •{' '}
-            {formatContextDate(route.drive_date)}
+            {formatDriveDate(route.drive_date)}
           </ModalDescription>
         </ModalHeader>
 

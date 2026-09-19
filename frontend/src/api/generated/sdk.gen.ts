@@ -78,6 +78,8 @@ import type {
   GetAnnouncementResponses,
   GetAnnouncementsData,
   GetAnnouncementsResponses,
+  GetBillingCostsData,
+  GetBillingCostsResponses,
   GetDriverData,
   GetDriverErrors,
   GetDriverHistoryData,
@@ -113,9 +115,9 @@ import type {
   GetMonthlyRankingData,
   GetMonthlyRankingErrors,
   GetMonthlyRankingResponses,
-  GetMonthlyTotalsData,
-  GetMonthlyTotalsErrors,
-  GetMonthlyTotalsResponses,
+  GetMonthlySeriesData,
+  GetMonthlySeriesErrors,
+  GetMonthlySeriesResponses,
   GetNoteChainData,
   GetNoteChainErrors,
   GetNoteChainResponses,
@@ -125,6 +127,8 @@ import type {
   GetNotesFeedErrors,
   GetNotesFeedResponses,
   GetNotesResponses,
+  GetOrgContactData,
+  GetOrgContactResponses,
   GetRouteData,
   GetRouteErrors,
   GetRouteGroupsData,
@@ -139,9 +143,9 @@ import type {
   GetSuggestedDriverResponses,
   GetSystemSettingsData,
   GetSystemSettingsResponses,
-  GetTotalDeliveriesBetweenData,
-  GetTotalDeliveriesBetweenErrors,
-  GetTotalDeliveriesBetweenResponses,
+  GetTotalsData,
+  GetTotalsErrors,
+  GetTotalsResponses,
   InitializeDriverData,
   InitializeDriverErrors,
   InitializeDriverResponses,
@@ -149,7 +153,6 @@ import type {
   LoginErrors,
   LoginResponses,
   LogoutData,
-  LogoutErrors,
   LogoutResponses,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponses,
@@ -164,13 +167,13 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
+  ResendOnboardingEmailData,
+  ResendOnboardingEmailErrors,
+  ResendOnboardingEmailResponses,
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
   TestData,
-  TestEventEmailData,
-  TestEventEmailErrors,
-  TestEventEmailResponses,
   TestResponses,
   UpdateAnnouncementData,
   UpdateAnnouncementErrors,
@@ -178,12 +181,9 @@ import type {
   UpdateDriverData,
   UpdateDriverErrors,
   UpdateDriverResponses,
-  UpdateLocationData,
-  UpdateLocationErrors,
   UpdateLocationGroupData,
   UpdateLocationGroupErrors,
   UpdateLocationGroupResponses,
-  UpdateLocationResponses,
   UpdateNoteData,
   UpdateNoteErrors,
   UpdateNoteResponses,
@@ -420,14 +420,13 @@ export const login = <ThrowOnError extends boolean = false>(
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens
+ * Revokes refresh tokens and clears cookies
  */
 export const logout = <ThrowOnError extends boolean = false>(
-  options: Options<LogoutData, ThrowOnError>
+  options?: Options<LogoutData, ThrowOnError>
 ) =>
-  (options.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/auth/logout/{user_id}',
+  (options?.client ?? client).post<LogoutResponses, unknown, ThrowOnError>({
+    url: '/api/auth/logout',
     ...options,
   });
 
@@ -443,6 +442,28 @@ export const refresh = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     url: '/api/auth/refresh',
     ...options,
+  });
+
+/**
+ * Resend Onboarding Email
+ *
+ * Resends the onboarding/invite email to a pending user.
+ * Returns 204 regardless of input/status to prevent user enumeration attacks.
+ */
+export const resendOnboardingEmail = <ThrowOnError extends boolean = false>(
+  options: Options<ResendOnboardingEmailData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ResendOnboardingEmailResponses,
+    ResendOnboardingEmailErrors,
+    ThrowOnError
+  >({
+    url: '/api/auth/resend-onboarding',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -488,9 +509,36 @@ export const validateResetToken = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Figures come from the Cloud Billing export and typically lag by several
+ * hours — see ``data_as_of``. Responses are cached for
+ * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
+ */
+export const getBillingCosts = <ThrowOnError extends boolean = false>(
+  options?: Options<GetBillingCostsData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetBillingCostsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/billing/costs',
+    ...options,
+  });
+
+/**
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
+ *
+ * Admin-only: the full list exposes every volunteer's phone, home address,
+ * licence plate and car, which no driver-facing screen needs. A driver reads
+ * their own record through GET /drivers/{driver_id}.
  */
 export const getDrivers = <ThrowOnError extends boolean = false>(
   options?: Options<GetDriversData, ThrowOnError>
@@ -556,33 +604,15 @@ export const completeDriverRegistration = <
   });
 
 /**
- * Test Event Email
- *
- * Temporary endpoint to test event-driven emails.
- * Delete this after testing!
- */
-export const testEventEmail = <ThrowOnError extends boolean = false>(
-  options: Options<TestEventEmailData, ThrowOnError>
-) =>
-  (options.client ?? client).post<
-    TestEventEmailResponses,
-    TestEventEmailErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    url: '/api/drivers/test-event-email',
-    ...options,
-  });
-
-/**
  * Delete Driver
  *
  * Delete a driver by ID.
  *
  * A hard delete of the person: the user account and their Firebase login go
  * with the driver record, so a deleted driver can no longer sign in. Their
- * routes are detached (driver_id SET NULL) rather than deleted, so the
- * driver's km stop counting toward anyone.
+ * routes are detached (driver_id SET NULL) rather than deleted: the km and
+ * deliveries stay in the org's totals, they just stop being attributed to
+ * anyone in the per-driver ranking and export.
  */
 export const deleteDriver = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDriverData, ThrowOnError>
@@ -725,6 +755,10 @@ export const getJobs = <ThrowOnError extends boolean = false>(
 
 /**
  * Generate Job
+ *
+ * Accept a generation request: persist it as PENDING and wake the worker.
+ *
+ * Admin-only — route generation is an admin workflow, and it burns Maps quota.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>
@@ -1035,29 +1069,6 @@ export const getLocation = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocation = <ThrowOnError extends boolean = false>(
-  options: Options<UpdateLocationData, ThrowOnError>
-) =>
-  (options.client ?? client).patch<
-    UpdateLocationResponses,
-    UpdateLocationErrors,
-    ThrowOnError
-  >({
-    responseType: 'json',
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/locations/{location_id}',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
  * Delete Note Chain
  *
  * Delete a note chain and all its notes (admin only)
@@ -1197,22 +1208,24 @@ export const getNotesFeed = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get Total Deliveries Between
+ * Get Monthly Series
  *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
+ * Return km and deliveries per month for a trailing window, oldest first.
+ *
+ * Backs the homepage statistics bar charts, which need a whole series at
+ * once rather than one request per bar.
  */
-export const getTotalDeliveriesBetween = <ThrowOnError extends boolean = false>(
-  options: Options<GetTotalDeliveriesBetweenData, ThrowOnError>
+export const getMonthlySeries = <ThrowOnError extends boolean = false>(
+  options?: Options<GetMonthlySeriesData, ThrowOnError>
 ) =>
-  (options.client ?? client).get<
-    GetTotalDeliveriesBetweenResponses,
-    GetTotalDeliveriesBetweenErrors,
+  (options?.client ?? client).get<
+    GetMonthlySeriesResponses,
+    GetMonthlySeriesErrors,
     ThrowOnError
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/reports/deliveries/count',
+    url: '/api/reports/monthly-series',
     ...options,
   });
 
@@ -1236,21 +1249,28 @@ export const getMonthlyRanking = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get Monthly Totals
+ * Get Totals
  *
- * Return total distance driven and total deliveries for the month.
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
  */
-export const getMonthlyTotals = <ThrowOnError extends boolean = false>(
-  options: Options<GetMonthlyTotalsData, ThrowOnError>
+export const getTotals = <ThrowOnError extends boolean = false>(
+  options?: Options<GetTotalsData, ThrowOnError>
 ) =>
-  (options.client ?? client).get<
-    GetMonthlyTotalsResponses,
-    GetMonthlyTotalsErrors,
+  (options?.client ?? client).get<
+    GetTotalsResponses,
+    GetTotalsErrors,
     ThrowOnError
   >({
     responseType: 'json',
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/reports/monthly/{year}/{month}/totals',
+    url: '/api/reports/totals',
     ...options,
   });
 
@@ -1537,7 +1557,8 @@ export const getSuggestedDriver = <ThrowOnError extends boolean = false>(
 /**
  * Get System Settings
  *
- * Return the singleton system settings row, or null if none has been created.
+ * Return the singleton settings row. Never null — PATCH already raises on
+ * a missing row, so a soft read here would mean an unsaveable blank form.
  */
 export const getSystemSettings = <ThrowOnError extends boolean = false>(
   options?: Options<GetSystemSettingsData, ThrowOnError>
@@ -1574,6 +1595,25 @@ export const patchSystemSettings = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get Org Contact
+ *
+ * The org's name and phone. Unauthenticated — the error page renders for
+ * logged-out visitors, and these are published details, not member data.
+ */
+export const getOrgContact = <ThrowOnError extends boolean = false>(
+  options?: Options<GetOrgContactData, ThrowOnError>
+) =>
+  (options?.client ?? client).get<
+    GetOrgContactResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/api/system-settings/contact',
+    ...options,
   });
 
 /**

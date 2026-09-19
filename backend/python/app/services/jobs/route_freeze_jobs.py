@@ -1,34 +1,22 @@
-"""Route freeze scheduled job.
+"""Route freeze scheduled job, run nightly at 23:59.
 
-Runs nightly at 23:59. For every route that is DUE (its group's drive_date
-is today or earlier) and not yet frozen, create the RouteSnapshot +
-RouteStopSnapshot rows that lock in what was delivered. The presence of the
-snapshot is the freeze signal — there is no separate flag column.
+Snapshots every route that is due (drive_date today or earlier) and not yet
+frozen. The presence of a RouteSnapshot is the freeze signal — there is no flag
+column — and it's also what stops the next run revisiting the route, so a freeze
+has to be all-or-nothing or its stops are stranded un-snapshotted for good.
 
-The job writes no mileage: driver history is derived at read time from
-frozen routes (see DriverHistoryService). Freezing a route is what makes
-it count.
-
-Because the scan is "due and un-frozen" rather than "dated today", a missed
-run, a crash mid-run, a night with unconfigured warehouse coordinates, or a
-route whose stops aren't geocoded yet all self-heal on the next successful
-run. Each route is processed in its own session/transaction, so one failing
-route can't poison the rest of the run.
-
-Freezing a route is all-or-nothing. The route snapshot is what stops the
-scan from revisiting it, so a partial freeze would strand un-snapshotted
-stops with no preserved address or contact details, permanently.
+Scanning by "due and un-frozen" rather than "dated today" means a missed or
+crashed run self-heals the next night. Each route gets its own transaction.
 """
 
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
+    from datetime import date
     from uuid import UUID
 
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -36,7 +24,6 @@ if TYPE_CHECKING:
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.dependencies.services import get_logger
 from app.models import async_session_maker_instance
 from app.models.route import Route
@@ -45,6 +32,7 @@ from app.models.route_snapshot import RouteSnapshot
 from app.models.route_stop import RouteStop
 from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
+from app.utilities.datetime_utils import today_local
 
 
 class FreezeOutcome(StrEnum):
@@ -150,11 +138,10 @@ async def process_daily_driver_history() -> None:
         logger.error("Database session maker not initialized")
         return
 
-    # Resolve "today" in the scheduler's timezone, not the process's. The
-    # container runs UTC, so date.today() at 23:59 local is already
-    # tomorrow — which would freeze tomorrow's routes a day early.
-    today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
-    end_of_today = datetime.combine(today, datetime.max.time())
+    # Resolve "today" on the organization's clock, not the process's: the
+    # container runs UTC, so at 23:59 local it is already tomorrow — which
+    # would freeze tomorrow's routes a day early.
+    today = today_local()
 
     try:
         # --------------------------------------------------------------
@@ -165,15 +152,15 @@ async def process_daily_driver_history() -> None:
         # --------------------------------------------------------------
         async with async_session_maker_instance() as session:
             scan = await session.execute(
-                select(Route.route_id, RouteGroup.drive_date)
+                select(Route.route_id, col(RouteGroup.drive_date))
                 .join(RouteGroup, RouteGroup.route_group_id == Route.route_group_id)  # type: ignore[arg-type]
                 .outerjoin(RouteSnapshot, RouteSnapshot.route_id == Route.route_id)  # type: ignore[arg-type]
-                .where(RouteGroup.drive_date <= end_of_today)
+                .where(RouteGroup.drive_date <= today)
                 .where(col(RouteSnapshot.route_id).is_(None))
                 .order_by(col(RouteGroup.drive_date))
             )
             due: list[tuple[UUID, date]] = [
-                (route_id, drive_date.date()) for route_id, drive_date in scan.all()
+                (route_id, drive_date) for route_id, drive_date in scan.all()
             ]
 
             if not due:

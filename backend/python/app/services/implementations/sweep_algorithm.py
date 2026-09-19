@@ -92,7 +92,6 @@ class SweepAlgorithm(RoutingAlgorithmProtocol):
         clusters = await self.clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
-            max_locations_per_cluster=settings.max_stops_per_route,
             max_boxes_per_cluster=DEFAULT_MAX_BOXES_PER_CLUSTER,
         )
         check_timeout()

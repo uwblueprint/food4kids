@@ -29,7 +29,7 @@ def is_invalid_school_or_last_name(name: str) -> bool:
 
 
 def try_normalize_phone(phone: str | None) -> tuple[str | None, bool]:
-    """Return (E.164 phone, is_invalid).
+    """Return (RFC 3966 phone, is_invalid).
 
     is_invalid is True only when a non-empty value fails validation.
     """
@@ -68,8 +68,12 @@ def collect_field_alerts(
     elif phone_invalid:
         alerts.append(AlertCode.INVALID_PHONE_NUMBER)
 
+    # Its own code, not INVALID_PHONE_NUMBER: the Validate screen highlights
+    # the cell the alert names, so sharing the primary's code would mark a
+    # perfectly good primary number red. A blank secondary is not an alert —
+    # the field is optional.
     if phone_secondary_invalid:
-        alerts.append(AlertCode.INVALID_PHONE_NUMBER)
+        alerts.append(AlertCode.INVALID_SECONDARY_PHONE_NUMBER)
 
     if is_blank(entry.delivery_group):
         alerts.append(AlertCode.MISSING_DELIVERY_GROUP)
@@ -101,7 +105,7 @@ def _phone_match_key(phone: str | None) -> str | None:
     """Match key for phone_primary.
 
     Callers should normalize phones onto the entry before duplicate detection
-    (see review_locations) so valid numbers compare as E.164.
+    (see review_locations) so valid numbers compare as RFC 3966.
     """
     if not present_str(phone):
         return None

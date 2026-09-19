@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useSystemSettings } from '@/api';
-import type { LocationImportPreview } from '@/api/generated/types.gen';
+import type {
+  LocationImportPreview,
+  RouteGenerationGroupInput,
+} from '@/api/generated/types.gen';
 import ChevronRightIcon from '@/assets/icons/chevron-right.svg?react';
 
 import { ProgressStepper } from '../components';
@@ -32,6 +35,16 @@ export interface GenerationOutletContext {
   setSelectedDeliveryType: (deliveryType: string) => void;
   reviewResult: LocationImportPreview | null;
   setReviewResult: (r: LocationImportPreview | null) => void;
+  routeGenerationInputs: RouteGenerationGroupInput[];
+  setRouteGenerationInputs: (inputs: RouteGenerationGroupInput[]) => void;
+  /**
+   * Whether the step being shown has finished its work. Only the last step
+   * reports this — the frames tick "Generate Routes" off once the summary is
+   * up, and the stepper otherwise has no way to know a step it is sitting on
+   * is done.
+   */
+  currentStepComplete: boolean;
+  setCurrentStepComplete: (complete: boolean) => void;
 }
 
 export function AdminRoutesGenerationLayout() {
@@ -45,13 +58,23 @@ export function AdminRoutesGenerationLayout() {
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
   const [selectedDeliveryType, setSelectedDeliveryType] = useState('');
-  const [hasSeededColumnMap, setHasSeededColumnMap] = useState(false);
+  const [hasSeededFromSettings, setHasSeededFromSettings] = useState(false);
   const [reviewResult, setReviewResult] =
     useState<LocationImportPreview | null>(null);
+  const [routeGenerationInputs, setRouteGenerationInputs] = useState<
+    RouteGenerationGroupInput[]
+  >([]);
+  const [currentStepComplete, setCurrentStepComplete] = useState(false);
 
-  if (!hasSeededColumnMap && settingsLoaded) {
-    setHasSeededColumnMap(true);
+  if (!hasSeededFromSettings && settingsLoaded) {
+    setHasSeededFromSettings(true);
     setColumnMap(systemSettings?.import_column_map ?? {});
+    // A single configured type is pre-selected so the import step opens with
+    // its radio already checked and the upload available.
+    const deliveryTypes = systemSettings?.delivery_types ?? [];
+    if (deliveryTypes.length === 1) {
+      setSelectedDeliveryType(deliveryTypes[0]);
+    }
   }
 
   const context: GenerationOutletContext = {
@@ -65,6 +88,10 @@ export function AdminRoutesGenerationLayout() {
     setSelectedDeliveryType,
     reviewResult,
     setReviewResult,
+    routeGenerationInputs,
+    setRouteGenerationInputs,
+    currentStepComplete,
+    setCurrentStepComplete,
   };
 
   return (
@@ -93,7 +120,9 @@ export function AdminRoutesGenerationLayout() {
       </div>
 
       {/* Stepper — shared across all steps */}
-      <ProgressStepper currentStep={currentStep} />
+      <ProgressStepper
+        currentStep={currentStep + (currentStepComplete ? 1 : 0)}
+      />
 
       {/* Step content */}
       <Outlet context={context} />

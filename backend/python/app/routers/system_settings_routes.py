@@ -6,6 +6,7 @@ from app.dependencies.services import get_scheduler_service, get_system_settings
 from app.models import get_session
 from app.models.system_settings import (
     DeliveryTypeRename,
+    OrgContactRead,
     SystemSettingsRead,
     SystemSettingsUpdate,
 )
@@ -20,17 +21,31 @@ from app.services.jobs import refresh_daily_reminder_email_schedule
 router = APIRouter(prefix="/system-settings", tags=["system-settings"])
 
 
-@router.get("/", response_model=SystemSettingsRead | None)
+@router.get("/", response_model=SystemSettingsRead)
 async def get_system_settings(
     session: AsyncSession = Depends(get_session),
     system_settings_service: SystemSettingsService = Depends(
         get_system_settings_service
     ),
     _auth: bool = Depends(require_admin),
-) -> SystemSettingsRead | None:
-    """Return the singleton system settings row, or null if none has been created."""
-    settings = await system_settings_service.get_settings(session)
-    return SystemSettingsRead.model_validate(settings) if settings else None
+) -> SystemSettingsRead:
+    """Return the singleton settings row. Never null — PATCH already raises on
+    a missing row, so a soft read here would mean an unsaveable blank form."""
+    settings = await system_settings_service.require_settings(session)
+    return SystemSettingsRead.model_validate(settings)
+
+
+@router.get("/contact", response_model=OrgContactRead)
+async def get_org_contact(
+    session: AsyncSession = Depends(get_session),
+    system_settings_service: SystemSettingsService = Depends(
+        get_system_settings_service
+    ),
+) -> OrgContactRead:
+    """The org's name and phone. Unauthenticated — the error page renders for
+    logged-out visitors, and these are published details, not member data."""
+    settings = await system_settings_service.require_settings(session)
+    return OrgContactRead.model_validate(settings)
 
 
 @router.patch("/", response_model=SystemSettingsRead)

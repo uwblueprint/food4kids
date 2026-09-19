@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import date
 from typing import Any, Literal
 from uuid import UUID
 
@@ -36,12 +36,15 @@ from app.utilities.boxes import (
     compute_boxes,
     resolve_children_per_box,
 )
+from app.utilities.datetime_utils import now_utc, today_local
 from app.utilities.google_maps_link import (
     MapWaypoint,
     build_google_maps_directions_url,
 )
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_order_by
 from app.utilities.routes_utils import fetch_route_polyline
+from app.utilities.search import text_match
 
 
 class RoutingConfigurationError(Exception):
@@ -63,8 +66,8 @@ class RouteService:
         self,
         session: AsyncSession,
         unassigned_only: bool = False,
-        start_date: str | None = None,
-        end_date: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         pagination: PaginationParams | None = None,
         driver_id: UUID | None = None,
         order: Literal["asc", "desc"] = "asc",
@@ -75,25 +78,21 @@ class RouteService:
         driver_assignment_status: list[DriverAssignmentStatusEnum] | None = None,
     ) -> PaginatedResponse[RouteWithDateRead]:
         """
-        Get routes with optional filtering for unassigned routes and date range.
+        Get routes, filtered and paginated. Powers both the admin Routes tab
+        and the driver homepage feed.
 
-        unassigned_only filters to routes with no driver_id. driver_id filters
-        to routes assigned to that specific driver (powers the driver homepage
-        feed). The date range filters on the route's RouteGroup.drive_date.
-
-        search filters (case-insensitive substring) on the assigned driver's
-        full name, applied before pagination so the paged results are drawn
-        from the matches.
-
-        The Routes-tab filters mirror the Groups tab, applied per route:
-        weekday (of the group's drive_date), delivery_type (the route has a
-        stop of that type), route_status (Upcoming = today or later, Completed
-        = earlier), and driver_assignment_status (Assigned = has a driver,
-        Unassigned = none).
-
-        order controls the drive_date ordering: "asc" (default) for the
-        upcoming feed (oldest-first), "desc" for the past feed
-        (most-recent-first).
+        Args:
+            unassigned_only: Only routes with no driver_id.
+            driver_id: Only routes assigned to this driver.
+            start_date / end_date: Range over the group's drive_date.
+            search: Case-insensitive substring of the assigned driver's full
+                name, the route's name, or its group's name, applied before
+                pagination.
+            order: drive_date ordering — "asc" for the upcoming feed, "desc"
+                for the past feed.
+            weekday, delivery_type, route_status, driver_assignment_status:
+                the Groups-tab filters, applied per route. Upcoming = drive_date
+                today or later, Completed = earlier.
         """
         children_per_box = await resolve_children_per_box(session)
 
@@ -139,11 +138,14 @@ class RouteService:
             .label("delivery_type")
         )
 
-        # status: upcoming if drive_date is today or future, else completed
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        # status: upcoming if drive_date is today or future, else completed.
+        # "Today" is the warehouse's today, not UTC's — read in UTC, an evening
+        # in Eastern has already rolled over, so tomorrow's routes would show
+        # as completed. Matches RouteGroupService, which reports the same
+        # status for the group these routes belong to.
+        today = today_local()
         status_expr = case(
-            (RouteGroup.drive_date >= today_start, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
+            (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
             else_=RouteStatusEnum.COMPLETED.value,
         ).label("status")
 
@@ -177,11 +179,9 @@ class RouteService:
         ).outerjoin(User, col(User.user_id) == col(Driver.user_id))
 
         if start_date:
-            start_dt = datetime.fromisoformat(start_date)
-            statement = statement.where(RouteGroup.drive_date >= start_dt)
+            statement = statement.where(RouteGroup.drive_date >= start_date)
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-            statement = statement.where(RouteGroup.drive_date <= end_dt)
+            statement = statement.where(RouteGroup.drive_date <= end_date)
 
         if unassigned_only:
             statement = statement.where(col(Route.driver_id).is_(None))
@@ -190,9 +190,15 @@ class RouteService:
             statement = statement.where(Route.driver_id == driver_id)
 
         if search and search.strip():
+            # Driver full name, the route's own name, and its group's name.
+            # User is outer-joined, so concat() is NULL for an unassigned route
+            # and its group name is what can still match.
             statement = statement.where(
-                func.concat(User.first_name, " ", User.last_name).ilike(
-                    f"%{search.strip()}%"
+                text_match(
+                    search.strip(),
+                    func.concat(User.first_name, " ", User.last_name),
+                    col(Route.name),
+                    col(RouteGroup.name),
                 )
             )
 
@@ -224,13 +230,13 @@ class RouteService:
             )
 
         if route_status:
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Same cutoff as status_expr above — a row filtered as Upcoming has
+            # to come back labelled Upcoming.
             status_conditions: list[Any] = []
             if RouteStatusEnum.UPCOMING in route_status:
-                status_conditions.append(RouteGroup.drive_date >= today_start)
+                status_conditions.append(RouteGroup.drive_date >= today)
             if RouteStatusEnum.COMPLETED in route_status:
-                status_conditions.append(RouteGroup.drive_date < today_start)
+                status_conditions.append(RouteGroup.drive_date < today)
             if status_conditions:
                 statement = statement.where(or_(*status_conditions))
 
@@ -252,7 +258,8 @@ class RouteService:
         # share a name, and paginate_query's count and page are separate
         # statements, so any remaining tie can shuffle a row between pages.
         statement = statement.order_by(
-            drive_date_order, col(Route.name), col(Route.route_id)
+            drive_date_order,
+            *route_name_order_by(col(Route.name), col(Route.route_id)),
         )
 
         if pagination is None:
@@ -339,7 +346,7 @@ class RouteService:
             # endpoint's RouteWithDateRead).
             drive_date = (
                 await session.execute(
-                    select(RouteGroup.drive_date).where(
+                    select(col(RouteGroup.drive_date)).where(
                         RouteGroup.route_group_id == route.route_group_id
                     )
                 )
@@ -415,20 +422,10 @@ class RouteService:
     ) -> Route | None:
         """Update a route's metadata and/or stops.
 
-        If location_ids are provided:
-        - Existing route stops are deleted and replaced with the new ordered list.
-        - fetch_route_polyline is called to get the new encoded polyline + distance.
-        - Route.length and Route.encoded_polyline are updated accordingly.
-
-        Metadata fields (name, notes, driver_id, start_time) are updated
-        independently if provided.
-
-        FROZEN routes (those with a RouteSnapshot) may be edited too — it's
-        a "correct the record" operation. Driver mileage is derived from
-        routes, so a reassignment or length change updates history
-        automatically; the only extra work is rebuilding the per-stop
-        snapshots when stops change, since the old ones are cascade-deleted
-        with the old stops.
+        Passing location_ids replaces the stops wholesale and re-fetches the
+        polyline and length. Frozen routes may be edited too — it's a "correct
+        the record" operation — which means rebuilding the per-stop snapshots,
+        since the old ones cascade away with the old stops.
 
         Args:
             session: Database session
@@ -559,7 +556,7 @@ class RouteService:
                 # "corrects the record": derived mileage picks up the new
                 # length automatically.
                 route.encoded_polyline = encoded_polyline
-                route.polyline_updated_at = datetime.now(timezone.utc)
+                route.polyline_updated_at = now_utc()
                 route.length = distance_km
 
                 # Amending a FROZEN route: rebuild the per-stop snapshots

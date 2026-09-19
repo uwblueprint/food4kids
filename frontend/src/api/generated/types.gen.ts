@@ -14,6 +14,7 @@ export type AlertCode =
   | 'INVALID_ADDRESS'
   | 'MISSING_PHONE_NUMBER'
   | 'INVALID_PHONE_NUMBER'
+  | 'INVALID_SECONDARY_PHONE_NUMBER'
   | 'MISSING_NAME'
   | 'INVALID_NAME'
   | 'MISSING_DELIVERY_GROUP'
@@ -154,6 +155,14 @@ export type AuthResponse = {
    */
   access_token: string;
   /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -174,9 +183,63 @@ export type AuthResponse = {
    */
   last_name: string;
   /**
+   * Remember Me
+   */
+  remember_me: boolean;
+  /**
    * Role
    */
   role: string;
+};
+
+/**
+ * BillingCostsResponse
+ */
+export type BillingCostsResponse = {
+  /**
+   * Budget Amount
+   */
+  budget_amount: number | null;
+  /**
+   * Budget Currency
+   */
+  budget_currency: string | null;
+  /**
+   * Budget Display Name
+   */
+  budget_display_name: string | null;
+  /**
+   * Budget Scope
+   */
+  budget_scope: string | null;
+  /**
+   * Credits
+   */
+  credits: number;
+  /**
+   * Currency
+   */
+  currency: string;
+  /**
+   * Data As Of
+   */
+  data_as_of: string | null;
+  /**
+   * Gross Cost
+   */
+  gross_cost: number;
+  /**
+   * Invoice Month
+   */
+  invoice_month: string;
+  /**
+   * Month To Date Cost
+   */
+  month_to_date_cost: number;
+  /**
+   * Project Id
+   */
+  project_id: string;
 };
 
 /**
@@ -247,9 +310,17 @@ export type ChangedEntry = {
    */
   delivery_group?: string | ChangedFieldOptStr | null;
   /**
+   * Dietary Restrictions
+   */
+  dietary_restrictions?: string | ChangedFieldStr;
+  /**
    * Guardian Name
    */
   guardian_name?: string | ChangedFieldOptStr | null;
+  /**
+   * Halal
+   */
+  halal?: boolean | ChangedFieldBool;
   /**
    * Location Id
    */
@@ -270,6 +341,20 @@ export type ChangedEntry = {
    * Row
    */
   row: number;
+};
+
+/**
+ * ChangedFieldBool
+ */
+export type ChangedFieldBool = {
+  /**
+   * New Value
+   */
+  new_value: boolean;
+  /**
+   * Old Value
+   */
+  old_value: boolean;
 };
 
 /**
@@ -312,16 +397,6 @@ export type ChangedFieldStr = {
    * Old Value
    */
   old_value: string;
-};
-
-/**
- * DeliveriesCountResponse
- */
-export type DeliveriesCountResponse = {
-  /**
-   * Total Deliveries
-   */
-  total_deliveries: number;
 };
 
 /**
@@ -670,6 +745,10 @@ export type JobEnqueueResponse = {
  */
 export type JobRead = {
   /**
+   * Error Message
+   */
+  error_message?: string | null;
+  /**
    * Job Id
    */
   job_id: string;
@@ -678,6 +757,22 @@ export type JobRead = {
    * Route Group Id
    */
   route_group_id?: string | null;
+  /**
+   * Routes Created
+   */
+  routes_created?: number | null;
+  /**
+   * Total Distance Km
+   */
+  total_distance_km?: number | null;
+  /**
+   * Total Families
+   */
+  total_families?: number | null;
+  /**
+   * Total Stops
+   */
+  total_stops?: number | null;
 };
 
 /**
@@ -1090,78 +1185,6 @@ export type LocationRead = {
 export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 
 /**
- * LocationUpdate
- *
- * Update request model with all fields optional
- */
-export type LocationUpdate = {
-  /**
-   * Address
-   */
-  address?: string | null;
-  /**
-   * Contact Name
-   */
-  contact_name?: string | null;
-  /**
-   * Delivery Type
-   */
-  delivery_type?: string | null;
-  /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string | null;
-  /**
-   * Guardian Name
-   */
-  guardian_name?: string | null;
-  /**
-   * Halal
-   */
-  halal?: boolean | null;
-  /**
-   * In Roster
-   */
-  in_roster?: boolean | null;
-  /**
-   * Latitude
-   */
-  latitude?: number | null;
-  /**
-   * Location Group Id
-   */
-  location_group_id?: string | null;
-  /**
-   * Longitude
-   */
-  longitude?: number | null;
-  /**
-   * Name
-   */
-  name?: string | null;
-  /**
-   * Note Chain Id
-   */
-  note_chain_id?: string | null;
-  /**
-   * Num Children
-   */
-  num_children?: number | null;
-  /**
-   * Phone Primary
-   */
-  phone_primary?: string | null;
-  /**
-   * Phone Secondary
-   */
-  phone_secondary?: string | null;
-  /**
-   * Place Id
-   */
-  place_id?: string | null;
-};
-
-/**
  * LoginRequest
  *
  * Login request
@@ -1175,6 +1198,10 @@ export type LoginRequest = {
    * Password
    */
   password: string;
+  /**
+   * Remember Me
+   */
+  remember_me?: boolean;
 };
 
 /**
@@ -1364,6 +1391,10 @@ export type NoteRead = {
    */
   attachments?: Array<Attachment>;
   /**
+   * Author Name
+   */
+  author_name?: string | null;
+  /**
    * Created At
    */
   created_at?: string | null;
@@ -1403,6 +1434,23 @@ export type NoteUpdate = {
    * Message
    */
   message: string;
+};
+
+/**
+ * OrgContactRead
+ *
+ * Smaller response object for callers that shouldn't see all settings
+ * (driver screens, error pages).
+ */
+export type OrgContactRead = {
+  /**
+   * Contact Name
+   */
+  contact_name: string | null;
+  /**
+   * Contact Phone
+   */
+  contact_phone: string | null;
 };
 
 /**
@@ -1520,6 +1568,16 @@ export type ProgressEnum =
   | 'Failed';
 
 /**
+ * ResendOnboardingEmailRequest
+ */
+export type ResendOnboardingEmailRequest = {
+  /**
+   * Email
+   */
+  email: string;
+};
+
+/**
  * RouteDetailRead
  *
  * GET /routes/{route_id} response: the bare route plus its ordered stops.
@@ -1622,10 +1680,6 @@ export type RouteGenerationSettings = {
    */
   max_boxes_per_driver?: number;
   /**
-   * Max Stops Per Route
-   */
-  max_stops_per_route?: number | null;
-  /**
    * Num Routes
    */
   num_routes: number;
@@ -1668,10 +1722,15 @@ export type RouteGroupCreate = {
  *
  * Duplicate request model - overrides for the copied group.
  *
- * Both optional so the endpoint also works with no body: name falls back to
- * "Copy of {original}" and drive_date to the original's date.
+ * Every field has a default so the endpoint also works with no body: name
+ * falls back to "Copy of {original}", drive_date to the original's date, and
+ * driver assignments carry over.
  */
 export type RouteGroupDuplicate = {
+  /**
+   * Copy Drivers
+   */
+  copy_drivers?: boolean;
   /**
    * Drive Date
    */
@@ -2062,10 +2121,6 @@ export type SystemSettingsRead = {
    */
   contact_phone?: string | null;
   /**
-   * Default Cap
-   */
-  default_cap?: number | null;
-  /**
    * Delivery Types
    */
   delivery_types?: Array<string>;
@@ -2148,10 +2203,6 @@ export type SystemSettingsUpdate = {
    */
   contact_phone?: string | null;
   /**
-   * Default Cap
-   */
-  default_cap?: number | null;
-  /**
    * Delivery Types
    */
   delivery_types?: Array<string> | null;
@@ -2205,6 +2256,20 @@ export type SystemSettingsUpdate = {
    * Warehouse Longitude
    */
   warehouse_longitude?: number | null;
+};
+
+/**
+ * TotalsResponse
+ */
+export type TotalsResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
 };
 
 /**
@@ -2284,6 +2349,14 @@ export type AuthResponseWritable = {
    */
   access_token: string;
   /**
+   * Admin Id
+   */
+  admin_id?: string | null;
+  /**
+   * Driver Id
+   */
+  driver_id?: string | null;
+  /**
    * Email
    */
   email: string;
@@ -2299,6 +2372,10 @@ export type AuthResponseWritable = {
    * Last Name
    */
   last_name: string;
+  /**
+   * Remember Me
+   */
+  remember_me: boolean;
   /**
    * Role
    */
@@ -2794,24 +2871,10 @@ export type LoginResponse = LoginResponses[keyof LoginResponses];
 
 export type LogoutData = {
   body?: never;
-  path: {
-    /**
-     * User Id
-     */
-    user_id: string;
-  };
+  path?: never;
   query?: never;
-  url: '/api/auth/logout/{user_id}';
+  url: '/api/auth/logout';
 };
-
-export type LogoutErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type LogoutError = LogoutErrors[keyof LogoutErrors];
 
 export type LogoutResponses = {
   /**
@@ -2837,6 +2900,33 @@ export type RefreshResponses = {
 };
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
+
+export type ResendOnboardingEmailData = {
+  body: ResendOnboardingEmailRequest;
+  path?: never;
+  query?: never;
+  url: '/api/auth/resend-onboarding';
+};
+
+export type ResendOnboardingEmailErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResendOnboardingEmailError =
+  ResendOnboardingEmailErrors[keyof ResendOnboardingEmailErrors];
+
+export type ResendOnboardingEmailResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ResendOnboardingEmailResponse =
+  ResendOnboardingEmailResponses[keyof ResendOnboardingEmailResponses];
 
 export type UpdatePasswordData = {
   body: UpdatePasswordRequest;
@@ -2891,6 +2981,23 @@ export type ValidateResetTokenResponses = {
 
 export type ValidateResetTokenResponse =
   ValidateResetTokenResponses[keyof ValidateResetTokenResponses];
+
+export type GetBillingCostsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/billing/costs';
+};
+
+export type GetBillingCostsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BillingCostsResponse;
+};
+
+export type GetBillingCostsResponse =
+  GetBillingCostsResponses[keyof GetBillingCostsResponses];
 
 export type GetDriversData = {
   body?: never;
@@ -2985,42 +3092,6 @@ export type CompleteDriverRegistrationResponses = {
 
 export type CompleteDriverRegistrationResponse =
   CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
-
-export type TestEventEmailData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Test Email
-     */
-    test_email: string;
-  };
-  url: '/api/drivers/test-event-email';
-};
-
-export type TestEventEmailErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type TestEventEmailError =
-  TestEventEmailErrors[keyof TestEventEmailErrors];
-
-export type TestEventEmailResponses = {
-  /**
-   * Response Test Event Email
-   *
-   * Successful Response
-   */
-  200: {
-    [key: string]: string;
-  };
-};
-
-export type TestEventEmailResponse =
-  TestEventEmailResponses[keyof TestEventEmailResponses];
 
 export type DeleteDriverData = {
   body?: never;
@@ -3526,7 +3597,7 @@ export type GetLocationsData = {
     /**
      * Search
      *
-     * Case-insensitive filter on the delivery address/postal code
+     * Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers
      */
     search?: string | null;
     /**
@@ -3707,38 +3778,6 @@ export type GetLocationResponses = {
 
 export type GetLocationResponse =
   GetLocationResponses[keyof GetLocationResponses];
-
-export type UpdateLocationData = {
-  body: LocationUpdate;
-  path: {
-    /**
-     * Location Id
-     */
-    location_id: string;
-  };
-  query?: never;
-  url: '/api/locations/{location_id}';
-};
-
-export type UpdateLocationErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateLocationError =
-  UpdateLocationErrors[keyof UpdateLocationErrors];
-
-export type UpdateLocationResponses = {
-  /**
-   * Successful Response
-   */
-  200: LocationRead;
-};
-
-export type UpdateLocationResponse =
-  UpdateLocationResponses[keyof UpdateLocationResponses];
 
 export type DeleteNoteChainData = {
   body?: never;
@@ -3981,45 +4020,53 @@ export type GetNotesFeedResponses = {
 export type GetNotesFeedResponse =
   GetNotesFeedResponses[keyof GetNotesFeedResponses];
 
-export type GetTotalDeliveriesBetweenData = {
+export type GetMonthlySeriesData = {
   body?: never;
   path?: never;
-  query: {
+  query?: {
     /**
-     * Start
+     * Months
      *
-     * Start datetime (assumed EST if no tz)
+     * How many months to return, counting back from the end month
      */
-    start: string;
+    months?: number;
     /**
-     * End
+     * End Year
      *
-     * End datetime (assumed EST if no tz)
+     * Year of the newest month; defaults to the current month
      */
-    end: string;
+    end_year?: number | null;
+    /**
+     * End Month
+     *
+     * Month of the newest month (1-12)
+     */
+    end_month?: number | null;
   };
-  url: '/api/reports/deliveries/count';
+  url: '/api/reports/monthly-series';
 };
 
-export type GetTotalDeliveriesBetweenErrors = {
+export type GetMonthlySeriesErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type GetTotalDeliveriesBetweenError =
-  GetTotalDeliveriesBetweenErrors[keyof GetTotalDeliveriesBetweenErrors];
+export type GetMonthlySeriesError =
+  GetMonthlySeriesErrors[keyof GetMonthlySeriesErrors];
 
-export type GetTotalDeliveriesBetweenResponses = {
+export type GetMonthlySeriesResponses = {
   /**
+   * Response Get Monthly Series
+   *
    * Successful Response
    */
-  200: DeliveriesCountResponse;
+  200: Array<MonthlyTotalsResponse>;
 };
 
-export type GetTotalDeliveriesBetweenResponse =
-  GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
+export type GetMonthlySeriesResponse =
+  GetMonthlySeriesResponses[keyof GetMonthlySeriesResponses];
 
 export type GetMonthlyRankingData = {
   body?: never;
@@ -4059,41 +4106,43 @@ export type GetMonthlyRankingResponses = {
 export type GetMonthlyRankingResponse =
   GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
 
-export type GetMonthlyTotalsData = {
+export type GetTotalsData = {
   body?: never;
-  path: {
+  path?: never;
+  query?: {
     /**
-     * Year
+     * Start
+     *
+     * Start datetime, inclusive (assumed EST if no tz)
      */
-    year: number;
+    start?: string | null;
     /**
-     * Month
+     * End
+     *
+     * End datetime, exclusive (assumed EST if no tz)
      */
-    month: number;
+    end?: string | null;
   };
-  query?: never;
-  url: '/api/reports/monthly/{year}/{month}/totals';
+  url: '/api/reports/totals';
 };
 
-export type GetMonthlyTotalsErrors = {
+export type GetTotalsErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type GetMonthlyTotalsError =
-  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
+export type GetTotalsError = GetTotalsErrors[keyof GetTotalsErrors];
 
-export type GetMonthlyTotalsResponses = {
+export type GetTotalsResponses = {
   /**
    * Successful Response
    */
-  200: MonthlyTotalsResponse;
+  200: TotalsResponse;
 };
 
-export type GetMonthlyTotalsResponse =
-  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
+export type GetTotalsResponse = GetTotalsResponses[keyof GetTotalsResponses];
 
 export type GetRouteGroupsData = {
   body?: never;
@@ -4324,13 +4373,13 @@ export type GetRoutesData = {
      *
      * Filter route groups from this date
      */
-    start_date?: string;
+    start_date?: string | null;
     /**
      * End Date
      *
      * Filter route groups until this date
      */
-    end_date?: string;
+    end_date?: string | null;
     /**
      * Order
      *
@@ -4340,7 +4389,7 @@ export type GetRoutesData = {
     /**
      * Search
      *
-     * Case-insensitive filter on the assigned driver's name
+     * Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name
      */
     search?: string | null;
     /**
@@ -4583,11 +4632,9 @@ export type GetSystemSettingsData = {
 
 export type GetSystemSettingsResponses = {
   /**
-   * Response Get System Settings
-   *
    * Successful Response
    */
-  200: SystemSettingsRead | null;
+  200: SystemSettingsRead;
 };
 
 export type GetSystemSettingsResponse =
@@ -4619,6 +4666,23 @@ export type PatchSystemSettingsResponses = {
 
 export type PatchSystemSettingsResponse =
   PatchSystemSettingsResponses[keyof PatchSystemSettingsResponses];
+
+export type GetOrgContactData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/system-settings/contact';
+};
+
+export type GetOrgContactResponses = {
+  /**
+   * Successful Response
+   */
+  200: OrgContactRead;
+};
+
+export type GetOrgContactResponse =
+  GetOrgContactResponses[keyof GetOrgContactResponses];
 
 export type RenameDeliveryTypeData = {
   body: DeliveryTypeRename;

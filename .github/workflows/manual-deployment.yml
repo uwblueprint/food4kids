@@ -30,7 +30,8 @@ jobs:
           gcloud run deploy backend-service \
             --source ./backend/python \
             --region us-east1 \
-            --project food4kids-473501
+            --project food4kids-473501 \
+            --set-secrets=/secrets/config.json=f4k-development-backend-env:latest
 
   # Frontend Deployment (Firebase Hosting)
   deploy-frontend:
@@ -60,6 +61,8 @@ jobs:
           npm ci
 
       - name: Build Frontend Production Bundle
+        env:
+          VITE_API_BASE_URL: ''
         run: |
           cd frontend
           npm run build

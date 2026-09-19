@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 
+import { SELECTED_BUTTON_STROKE } from './Button.variants';
+
 function SidebarProvider({ children }: { children: React.ReactNode }) {
   return <div className="flex h-screen overflow-hidden">{children}</div>;
 }
@@ -79,6 +81,12 @@ interface SidebarMenuItemProps {
   label: string;
   to: string;
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  /**
+   * The icon's own size, for the ones whose artwork isn't square — `size-6`
+   * would stretch them. The 24px box around it stays either way, so the
+   * labels below keep their line.
+   */
+  iconClassName?: string;
   end?: boolean;
 }
 
@@ -86,6 +94,7 @@ function SidebarMenuItem({
   label,
   to,
   icon: Icon,
+  iconClassName = 'size-6',
   end = false,
 }: SidebarMenuItemProps) {
   return (
@@ -99,13 +108,15 @@ function SidebarMenuItem({
           'flex w-20 flex-col items-center justify-center gap-1 rounded-xl px-4 py-3.5',
           'transition-colors',
           isActive
-            ? 'bg-blue-50 text-blue-400 shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] outline outline-1 outline-offset-[-1px] outline-blue-100'
+            ? `bg-blue-50 text-blue-400 shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] ${SELECTED_BUTTON_STROKE}`
             : 'text-grey-500 hover:bg-grey-150'
         )
       }
     >
-      <Icon className="size-6" />
-      <span className="text-m-p2 text-center">{label}</span>
+      <span className="flex size-6 items-center justify-center">
+        <Icon className={iconClassName} />
+      </span>
+      <span className="text-p1 text-center">{label}</span>
     </NavLink>
   );
 }
@@ -116,7 +127,9 @@ function SidebarMenuItem({
 
 function SidebarInset({ className, children }: React.ComponentProps<'main'>) {
   return (
-    <main className={cn('bg-grey-200 flex-1 overflow-y-auto', className)}>
+    <main
+      className={cn('bg-grey-200 relative flex-1 overflow-y-auto', className)}
+    >
       {children}
     </main>
   );

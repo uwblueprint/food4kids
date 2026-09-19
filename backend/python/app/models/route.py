@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
@@ -139,7 +139,7 @@ class RouteDetailRead(RouteRead):
     stops.
     """
 
-    drive_date: datetime
+    drive_date: date
     delivery_type: str | None = None
     stops: list[RouteStopDetailRead] = Field(default_factory=list)
 
@@ -177,7 +177,7 @@ class RouteWithDateRead(SQLModel):
     name: str
     notes: str
     length: float
-    drive_date: datetime
+    drive_date: date
     # The group's name, for contexts that identify the route by its group
     # (e.g. the reassign-driver dialog's "{route} • {group} • {date}" line)
     group_name: str

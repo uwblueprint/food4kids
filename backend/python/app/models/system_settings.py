@@ -63,7 +63,6 @@ class EmailReminderListType(TypeDecorator[list[EmailReminder]]):
 class SystemSettingsBase(SQLModel):
     """Shared fields between table and API models"""
 
-    default_cap: int | None = Field(default=None)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
     warehouse_longitude: float | None = None
@@ -135,6 +134,14 @@ class SystemSettingsRead(SystemSettingsBase):
     system_settings_id: UUID
 
 
+class OrgContactRead(SQLModel):
+    """Smaller response object for callers that shouldn't see all settings
+    (driver screens, error pages)."""
+
+    contact_name: str | None
+    contact_phone: str | None
+
+
 class DeliveryTypeRename(SQLModel):
     """Request body for renaming a configured delivery type.
 
@@ -152,7 +159,6 @@ class DeliveryTypeRename(SQLModel):
 class SystemSettingsUpdate(SQLModel):
     """Update request model - all optional"""
 
-    default_cap: int | None = Field(default=None)
     route_start_time: datetime.time | None = Field(default=None)
     warehouse_location: str | None = Field(default=None, min_length=1)
     warehouse_longitude: float | None = None

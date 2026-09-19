@@ -45,20 +45,19 @@ DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
 # Children-per-box divisor for box estimates in this dev script.
 CHILDREN_PER_BOX = 2
 
-# Minimum drivers for exact-N mode; actual count scales up with location count.
+# Minimum drivers for exact-N mode; actual count scales up with total boxes.
 NUM_CLUSTERS = 10
-MAX_LOCATIONS_PER_CLUSTER = 5
 MAX_BOXES_PER_CLUSTER = 14
 CLUSTER_DETAIL_PRINT_LIMIT = 15
 
 OUTPUT_DIR = "./app/data"
 
 
-def _num_clusters_for_exact(location_count: int, far_count: int = 0) -> int:
-    """Enough drivers for stop/box caps; extra headroom when far routes hit time budget."""
-    stop_floor = math.ceil(location_count / MAX_LOCATIONS_PER_CLUSTER)
-    # Distant far stops can fill the soft time cap before the 5-stop limit.
-    return max(NUM_CLUSTERS, stop_floor + 2 * far_count)
+def _num_clusters_for_exact(total_boxes: int, far_count: int = 0) -> int:
+    """Enough drivers for the box cap; extra headroom when far routes hit time budget."""
+    box_floor = math.ceil(total_boxes / MAX_BOXES_PER_CLUSTER)
+    # Distant far stops can fill the soft time cap before the box cap binds.
+    return max(NUM_CLUSTERS, box_floor + 2 * far_count)
 
 
 def _unique_hex_palette(count: int) -> list[str]:
@@ -408,16 +407,15 @@ async def main() -> None:
         far_count = sum(
             1 for loc in locations if clustering_algo._location_metrics(loc).is_far
         )
-        num_clusters_exact = _num_clusters_for_exact(len(locations), far_count)
-
         total_boxes = sum(effective_boxes(loc, CHILDREN_PER_BOX) for loc in locations)
+
+        num_clusters_exact = _num_clusters_for_exact(total_boxes, far_count)
 
         print(f"Total effective boxes: {total_boxes}")
         print(f"Total locations: {len(locations)}")
 
         print("\nRunning Sweep clustering (EXACT num_clusters):")
         print(f"  - Number of clusters: {num_clusters_exact}")
-        print(f"  - Max locations per cluster: {MAX_LOCATIONS_PER_CLUSTER}")
         print(f"  - Max boxes per cluster: {MAX_BOXES_PER_CLUSTER}")
         print("-" * 60)
 
@@ -425,7 +423,6 @@ async def main() -> None:
             clusters_exact = await clustering_algo.cluster_locations(
                 locations=locations,
                 num_clusters=num_clusters_exact,
-                max_locations_per_cluster=MAX_LOCATIONS_PER_CLUSTER,
                 max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
                 timeout_seconds=120.0,
             )
@@ -460,14 +457,12 @@ async def main() -> None:
             traceback.print_exc()
 
         print("\nRunning Sweep clustering (PACK until constraints hit):")
-        print(f"  - Max locations per cluster: {MAX_LOCATIONS_PER_CLUSTER}")
         print(f"  - Max boxes per cluster: {MAX_BOXES_PER_CLUSTER}")
         print("-" * 60)
 
         try:
             clusters_packed = await clustering_algo.cluster_locations_by_constraints(
                 locations=locations,
-                max_locations_per_cluster=MAX_LOCATIONS_PER_CLUSTER,
                 max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
                 timeout_seconds=120.0,
             )

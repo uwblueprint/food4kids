@@ -54,7 +54,7 @@ export function EditAnnouncementsModal({
         style={sheetHeightStyle() as React.CSSProperties}
       >
         <ModalHeader className="shrink-0 gap-0">
-          <ModalTitle>Edit Announcements</ModalTitle>
+          <ModalTitle variant="form">Edit Announcements</ModalTitle>
         </ModalHeader>
 
         <div className="border-grey-300 min-h-0 flex-1 overflow-y-auto rounded-xl border p-4">

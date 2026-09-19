@@ -8,6 +8,7 @@
           "INVALID_ADDRESS",
           "MISSING_PHONE_NUMBER",
           "INVALID_PHONE_NUMBER",
+          "INVALID_SECONDARY_PHONE_NUMBER",
           "MISSING_NAME",
           "INVALID_NAME",
           "MISSING_DELIVERY_GROUP",
@@ -230,6 +231,30 @@
             "title": "Access Token",
             "type": "string"
           },
+          "admin_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Id"
+          },
+          "driver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          },
           "email": {
             "format": "email",
             "title": "Email",
@@ -253,6 +278,10 @@
             "title": "Last Name",
             "type": "string"
           },
+          "remember_me": {
+            "title": "Remember Me",
+            "type": "boolean"
+          },
           "role": {
             "title": "Role",
             "type": "string"
@@ -265,9 +294,109 @@
           "last_name",
           "email",
           "role",
+          "remember_me",
           "full_name"
         ],
         "title": "AuthResponse",
+        "type": "object"
+      },
+      "BillingCostsResponse": {
+        "properties": {
+          "budget_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Amount"
+          },
+          "budget_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Currency"
+          },
+          "budget_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Display Name"
+          },
+          "budget_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Scope"
+          },
+          "credits": {
+            "title": "Credits",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "data_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data As Of"
+          },
+          "gross_cost": {
+            "title": "Gross Cost",
+            "type": "number"
+          },
+          "invoice_month": {
+            "title": "Invoice Month",
+            "type": "string"
+          },
+          "month_to_date_cost": {
+            "title": "Month To Date Cost",
+            "type": "number"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "invoice_month",
+          "currency",
+          "month_to_date_cost",
+          "gross_cost",
+          "credits",
+          "budget_amount",
+          "budget_currency",
+          "budget_display_name",
+          "budget_scope",
+          "data_as_of"
+        ],
+        "title": "BillingCostsResponse",
         "type": "object"
       },
       "Body_apply_location_import": {
@@ -364,6 +493,18 @@
             ],
             "title": "Delivery Group"
           },
+          "dietary_restrictions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldStr"
+              }
+            ],
+            "default": "",
+            "title": "Dietary Restrictions"
+          },
           "guardian_name": {
             "anyOf": [
               {
@@ -377,6 +518,18 @@
               }
             ],
             "title": "Guardian Name"
+          },
+          "halal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/ChangedFieldBool"
+              }
+            ],
+            "default": false,
+            "title": "Halal"
           },
           "location_id": {
             "format": "uuid",
@@ -435,6 +588,24 @@
           "phone_primary"
         ],
         "title": "ChangedEntry",
+        "type": "object"
+      },
+      "ChangedFieldBool": {
+        "properties": {
+          "new_value": {
+            "title": "New Value",
+            "type": "boolean"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "new_value",
+          "old_value"
+        ],
+        "title": "ChangedFieldBool",
         "type": "object"
       },
       "ChangedFieldOptInt": {
@@ -517,19 +688,6 @@
           "old_value"
         ],
         "title": "ChangedFieldStr",
-        "type": "object"
-      },
-      "DeliveriesCountResponse": {
-        "properties": {
-          "total_deliveries": {
-            "title": "Total Deliveries",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "total_deliveries"
-        ],
-        "title": "DeliveriesCountResponse",
         "type": "object"
       },
       "DeliveryTypeRename": {
@@ -738,7 +896,6 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "maxLength": 20,
             "minLength": 1,
             "title": "Phone",
             "type": "string"
@@ -829,7 +986,6 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "maxLength": 20,
             "minLength": 1,
             "title": "Phone",
             "type": "string"
@@ -971,7 +1127,6 @@
           "phone": {
             "anyOf": [
               {
-                "maxLength": 20,
                 "minLength": 1,
                 "type": "string"
               },
@@ -1086,6 +1241,17 @@
       "JobRead": {
         "description": "Job response model",
         "properties": {
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
           "job_id": {
             "format": "uuid",
             "title": "Job Id",
@@ -1106,6 +1272,50 @@
               }
             ],
             "title": "Route Group Id"
+          },
+          "routes_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routes Created"
+          },
+          "total_distance_km": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Distance Km"
+          },
+          "total_families": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Families"
+          },
+          "total_stops": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Stops"
           }
         },
         "required": [
@@ -1828,193 +2038,6 @@
         "title": "LocationStatusEnum",
         "type": "string"
       },
-      "LocationUpdate": {
-        "description": "Update request model with all fields optional",
-        "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "contact_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contact Name"
-          },
-          "delivery_type": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Delivery Type"
-          },
-          "dietary_restrictions": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dietary Restrictions"
-          },
-          "guardian_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Guardian Name"
-          },
-          "halal": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Halal"
-          },
-          "in_roster": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "In Roster"
-          },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
-          "location_group_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Group Id"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "note_chain_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Chain Id"
-          },
-          "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
-          },
-          "phone_primary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Primary"
-          },
-          "phone_secondary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Secondary"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
-          }
-        },
-        "title": "LocationUpdate",
-        "type": "object"
-      },
       "LoginRequest": {
         "description": "Login request",
         "properties": {
@@ -2026,6 +2049,11 @@
           "password": {
             "title": "Password",
             "type": "string"
+          },
+          "remember_me": {
+            "default": false,
+            "title": "Remember Me",
+            "type": "boolean"
           }
         },
         "required": [
@@ -2189,6 +2217,7 @@
             "items": {
               "$ref": "#/components/schemas/Attachment"
             },
+            "maxItems": 3,
             "title": "Attachments",
             "type": "array"
           },
@@ -2355,6 +2384,17 @@
             "title": "Attachments",
             "type": "array"
           },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -2435,6 +2475,39 @@
           "message"
         ],
         "title": "NoteUpdate",
+        "type": "object"
+      },
+      "OrgContactRead": {
+        "description": "Smaller response object for callers that shouldn't see all settings\n(driver screens, error pages).",
+        "properties": {
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          }
+        },
+        "required": [
+          "contact_name",
+          "contact_phone"
+        ],
+        "title": "OrgContactRead",
         "type": "object"
       },
       "PaginatedResponse_LocationRead_": {
@@ -2592,6 +2665,20 @@
         "title": "ProgressEnum",
         "type": "string"
       },
+      "ResendOnboardingEmailRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ResendOnboardingEmailRequest",
+        "type": "object"
+      },
       "RouteDetailRead": {
         "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
         "properties": {
@@ -2619,7 +2706,7 @@
             "title": "Delivery Type"
           },
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -2764,17 +2851,6 @@
             "title": "Max Boxes Per Driver",
             "type": "integer"
           },
-          "max_stops_per_route": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Stops Per Route"
-          },
           "num_routes": {
             "title": "Num Routes",
             "type": "integer"
@@ -2807,7 +2883,7 @@
         "description": "Create request model",
         "properties": {
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -2831,12 +2907,17 @@
         "type": "object"
       },
       "RouteGroupDuplicate": {
-        "description": "Duplicate request model - overrides for the copied group.\n\nBoth optional so the endpoint also works with no body: name falls back to\n\"Copy of {original}\" and drive_date to the original's date.",
+        "description": "Duplicate request model - overrides for the copied group.\n\nEvery field has a default so the endpoint also works with no body: name\nfalls back to \"Copy of {original}\", drive_date to the original's date, and\ndriver assignments carry over.",
         "properties": {
+          "copy_drivers": {
+            "default": true,
+            "title": "Copy Drivers",
+            "type": "boolean"
+          },
           "drive_date": {
             "anyOf": [
               {
-                "format": "date-time",
+                "format": "date",
                 "type": "string"
               },
               {
@@ -2889,7 +2970,7 @@
             "title": "Delivery Type"
           },
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -2968,7 +3049,7 @@
           "drive_date": {
             "anyOf": [
               {
-                "format": "date-time",
+                "format": "date",
                 "type": "string"
               },
               {
@@ -3324,7 +3405,7 @@
             "title": "Delivery Type"
           },
           "drive_date": {
-            "format": "date-time",
+            "format": "date",
             "title": "Drive Date",
             "type": "string"
           },
@@ -3518,17 +3599,6 @@
               }
             ],
             "title": "Contact Phone"
-          },
-          "default_cap": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default Cap"
           },
           "delivery_types": {
             "items": {
@@ -3739,17 +3809,6 @@
             ],
             "title": "Contact Phone"
           },
-          "default_cap": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default Cap"
-          },
           "delivery_types": {
             "anyOf": [
               {
@@ -3916,6 +3975,24 @@
           }
         },
         "title": "SystemSettingsUpdate",
+        "type": "object"
+      },
+      "TotalsResponse": {
+        "properties": {
+          "total_deliveries": {
+            "title": "Total Deliveries",
+            "type": "integer"
+          },
+          "total_km": {
+            "title": "Total Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_km",
+          "total_deliveries"
+        ],
+        "title": "TotalsResponse",
         "type": "object"
       },
       "UpdatePasswordRequest": {
@@ -4434,42 +4511,15 @@
         ]
       }
     },
-    "/api/auth/logout/{user_id}": {
+    "/api/auth/logout": {
       "post": {
-        "description": "Revokes all of the specified driver's refresh tokens",
+        "description": "Revokes refresh tokens and clears cookies",
         "operationId": "logout",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "user_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "User Id",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "Logout",
         "tags": [
           "authentication"
@@ -4493,6 +4543,41 @@
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/auth/resend-onboarding": {
+      "post": {
+        "description": "Resends the onboarding/invite email to a pending user.\nReturns 204 regardless of input/status to prevent user enumeration attacks.",
+        "operationId": "resend_onboarding_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendOnboardingEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Onboarding Email",
         "tags": [
           "authentication"
         ]
@@ -4568,9 +4653,36 @@
         ]
       }
     },
+    "/api/billing/costs": {
+      "get": {
+        "description": "Return month-to-date spend for the configured project, against its budget.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
+        "operationId": "get_billing_costs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCostsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Billing Costs",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
     "/api/drivers/": {
       "get": {
-        "description": "Get all drivers, optionally filter by driver_id or email",
+        "description": "Get all drivers, optionally filter by driver_id or email\n\nAdmin-only: the full list exposes every volunteer's phone, home address,\nlicence plate and car, which no driver-facing screen needs. A driver reads\ntheir own record through GET /drivers/{driver_id}.",
         "operationId": "get_drivers",
         "parameters": [
           {
@@ -4737,56 +4849,9 @@
         ]
       }
     },
-    "/api/drivers/test-event-email": {
-      "post": {
-        "description": "Temporary endpoint to test event-driven emails.\nDelete this after testing!",
-        "operationId": "test_event_email",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "test_email",
-            "required": true,
-            "schema": {
-              "title": "Test Email",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Test Event Email",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Test Event Email",
-        "tags": [
-          "drivers"
-        ]
-      }
-    },
     "/api/drivers/{driver_id}": {
       "delete": {
-        "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted, so the\ndriver's km stop counting toward anyone.",
+        "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted: the km and\ndeliveries stay in the org's totals, they just stop being attributed to\nanyone in the per-driver ranking and export.",
         "operationId": "delete_driver",
         "parameters": [
           {
@@ -5181,6 +5246,7 @@
     },
     "/api/jobs/generate": {
       "post": {
+        "description": "Accept a generation request: persist it as PENDING and wake the worker.\n\nAdmin-only — route generation is an admin workflow, and it burns Maps quota.",
         "operationId": "generate_job",
         "requestBody": {
           "content": {
@@ -5632,7 +5698,7 @@
             }
           },
           {
-            "description": "Case-insensitive filter on the delivery address/postal code",
+            "description": "Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers",
             "in": "query",
             "name": "search",
             "required": false,
@@ -5645,7 +5711,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Case-insensitive filter on the delivery address/postal code",
+              "description": "Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers",
               "title": "Search"
             }
           },
@@ -5933,63 +5999,6 @@
           }
         ],
         "summary": "Get Location",
-        "tags": [
-          "locations"
-        ]
-      },
-      "patch": {
-        "description": "Update a location by ID",
-        "operationId": "update_location",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "location_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Location Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LocationUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LocationRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Update Location",
         "tags": [
           "locations"
         ]
@@ -6409,33 +6418,61 @@
         ]
       }
     },
-    "/api/reports/deliveries/count": {
+    "/api/reports/monthly-series": {
       "get": {
-        "description": "Return total deliveries (route stop snapshots) between start and end.\nQuery params are treated as EST if no timezone is provided.",
-        "operationId": "get_total_deliveries_between",
+        "description": "Return km and deliveries per month for a trailing window, oldest first.\n\nBacks the homepage statistics bar charts, which need a whole series at\nonce rather than one request per bar.",
+        "operationId": "get_monthly_series",
         "parameters": [
           {
-            "description": "Start datetime (assumed EST if no tz)",
+            "description": "How many months to return, counting back from the end month",
             "in": "query",
-            "name": "start",
-            "required": true,
+            "name": "months",
+            "required": false,
             "schema": {
-              "description": "Start datetime (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "Start",
-              "type": "string"
+              "default": 6,
+              "description": "How many months to return, counting back from the end month",
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
             }
           },
           {
-            "description": "End datetime (assumed EST if no tz)",
+            "description": "Year of the newest month; defaults to the current month",
             "in": "query",
-            "name": "end",
-            "required": true,
+            "name": "end_year",
+            "required": false,
             "schema": {
-              "description": "End datetime (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "End",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Year of the newest month; defaults to the current month",
+              "title": "End Year"
+            }
+          },
+          {
+            "description": "Month of the newest month (1-12)",
+            "in": "query",
+            "name": "end_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 12,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Month of the newest month (1-12)",
+              "title": "End Month"
             }
           }
         ],
@@ -6444,7 +6481,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeliveriesCountResponse"
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyTotalsResponse"
+                  },
+                  "title": "Response Get Monthly Series",
+                  "type": "array"
                 }
               }
             },
@@ -6466,7 +6507,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Total Deliveries Between",
+        "summary": "Get Monthly Series",
         "tags": [
           "reports"
         ]
@@ -6533,27 +6574,47 @@
         ]
       }
     },
-    "/api/reports/monthly/{year}/{month}/totals": {
+    "/api/reports/totals": {
       "get": {
-        "description": "Return total distance driven and total deliveries for the month.",
-        "operationId": "get_monthly_totals",
+        "description": "Return km driven and deliveries made — all time, or over [start, end).\n\nOmit both bounds for the all-time figures the homepage's headline totals\nshow. Supply both for a window: the params are read as EST when they carry\nno timezone, then reduced to calendar days (a drive date is a day, not an\ninstant), and the range is half-open like every other range in the\nreports, so consecutive windows tile instead of double-counting their\nshared boundary day.",
+        "operationId": "get_totals",
         "parameters": [
           {
-            "in": "path",
-            "name": "year",
-            "required": true,
+            "description": "Start datetime, inclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "start",
+            "required": false,
             "schema": {
-              "title": "Year",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start datetime, inclusive (assumed EST if no tz)",
+              "title": "Start"
             }
           },
           {
-            "in": "path",
-            "name": "month",
-            "required": true,
+            "description": "End datetime, exclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "end",
+            "required": false,
             "schema": {
-              "title": "Month",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End datetime, exclusive (assumed EST if no tz)",
+              "title": "End"
             }
           }
         ],
@@ -6562,7 +6623,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MonthlyTotalsResponse"
+                  "$ref": "#/components/schemas/TotalsResponse"
                 }
               }
             },
@@ -6584,7 +6645,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Monthly Totals",
+        "summary": "Get Totals",
         "tags": [
           "reports"
         ]
@@ -6603,7 +6664,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "format": "date-time",
+                  "format": "date",
                   "type": "string"
                 },
                 {
@@ -6622,7 +6683,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "format": "date-time",
+                  "format": "date",
                   "type": "string"
                 },
                 {
@@ -7041,9 +7102,17 @@
             "name": "start_date",
             "required": false,
             "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "Filter route groups from this date",
-              "title": "Start Date",
-              "type": "string"
+              "title": "Start Date"
             }
           },
           {
@@ -7052,9 +7121,17 @@
             "name": "end_date",
             "required": false,
             "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "Filter route groups until this date",
-              "title": "End Date",
-              "type": "string"
+              "title": "End Date"
             }
           },
           {
@@ -7074,7 +7151,7 @@
             }
           },
           {
-            "description": "Case-insensitive filter on the assigned driver's name",
+            "description": "Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name",
             "in": "query",
             "name": "search",
             "required": false,
@@ -7087,7 +7164,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Case-insensitive filter on the assigned driver's name",
+              "description": "Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name",
               "title": "Search"
             }
           },
@@ -7522,22 +7599,14 @@
     },
     "/api/system-settings/": {
       "get": {
-        "description": "Return the singleton system settings row, or null if none has been created.",
+        "description": "Return the singleton settings row. Never null — PATCH already raises on\na missing row, so a soft read here would mean an unsaveable blank form.",
         "operationId": "get_system_settings",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/SystemSettingsRead"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "title": "Response Get System Settings"
+                  "$ref": "#/components/schemas/SystemSettingsRead"
                 }
               }
             },
@@ -7595,6 +7664,28 @@
           }
         ],
         "summary": "Patch System Settings",
+        "tags": [
+          "system-settings"
+        ]
+      }
+    },
+    "/api/system-settings/contact": {
+      "get": {
+        "description": "The org's name and phone. Unauthenticated — the error page renders for\nlogged-out visitors, and these are published details, not member data.",
+        "operationId": "get_org_contact",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgContactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Org Contact",
         "tags": [
           "system-settings"
         ]

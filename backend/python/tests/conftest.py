@@ -2,9 +2,15 @@
 Global test configuration and fixtures for the Food4Kids application.
 """
 
-import asyncio
 import os
+
+# app.config freezes `settings` at import time, so this must precede any
+# `app` import or the suite silently runs against the development database.
+os.environ["APP_ENV"] = "testing"
+
+import asyncio
 from collections.abc import AsyncGenerator, Generator
+from datetime import date
 from typing import Any, NoReturn
 from unittest.mock import patch
 
@@ -27,10 +33,9 @@ from app.dependencies.auth import (
     require_self_driver_or_admin,
     resolve_route_list_driver_filter,
 )
+from app.dependencies.rate_limit import reset_all_rate_limiters
+from app.dependencies.services import get_gcp_storage_client
 from app.models import get_session
-
-# Set test environment
-os.environ["APP_ENV"] = "testing"
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +61,35 @@ def _block_real_email_sends() -> Generator[None, None, None]:
         yield
 
 
+class _FakeGCPStorageClient:
+    """Stand-in for GCS so note/upload routes don't need real credentials in CI."""
+
+    def upload_file(self, _contents: bytes, filename: str, _content_type: str) -> Any:
+        from types import SimpleNamespace
+
+        key = f"test-{filename}"
+        return SimpleNamespace(
+            filename=key,
+            url=f"https://gcs.test/{key}",
+            content_type=_content_type,
+            size_bytes=len(_contents),
+        )
+
+    def generate_signed_url(self, filename: str, expiration_hours: int = 24) -> str:
+        return f"https://gcs.test/{filename}?exp={expiration_hours}h"
+
+    def delete_file(self, _filename: str) -> None:
+        return None
+
+    def file_exists(self, _filename: str) -> bool:
+        return True
+
+
+def _apply_gcp_override(app: Any) -> None:
+    """Note routes re-sign attachment URLs via GCS; stub it for all API tests."""
+    app.dependency_overrides[get_gcp_storage_client] = _FakeGCPStorageClient
+
+
 async def _ensure_system_settings(test_session: AsyncSession) -> None:
     """Mirror app startup: API tests run with a settings row available."""
     from app.models.system_settings import SystemSettings
@@ -64,6 +98,14 @@ async def _ensure_system_settings(test_session: AsyncSession) -> None:
     if result.scalars().first() is None:
         test_session.add(SystemSettings())
         await test_session.commit()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters() -> Generator[None, None, None]:
+    """The limiters are module singletons; stop one test's hits tripping the next."""
+    reset_all_rate_limiters()
+    yield
+    reset_all_rate_limiters()
 
 
 @pytest.fixture(scope="session")
@@ -173,6 +215,7 @@ def client(test_session: AsyncSession) -> Generator[TestClient, None, None]:
 
     app.dependency_overrides[get_session] = override_get_session
     _apply_auth_overrides(app)
+    _apply_gcp_override(app)
 
     with TestClient(app, base_url="http://testserver/api") as test_client:
         yield test_client
@@ -193,6 +236,7 @@ async def async_client(
 
     app.dependency_overrides[get_session] = override_get_session
     _apply_auth_overrides(app)
+    _apply_gcp_override(app)
 
     from httpx import ASGITransport
 
@@ -227,11 +271,14 @@ async def client_with_overrides(
             # Bypass auth like the other client fixtures; explicit overrides
             # below can still replace individual auth dependencies.
             _apply_auth_overrides(app)
+            _apply_gcp_override(app)
             for dep, override in (overrides or {}).items():
                 app.dependency_overrides[dep] = override
 
             return await stack.enter_async_context(
-                AsyncClient(transport=ASGITransport(app=app), base_url="http://test/api")
+                AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test/api"
+                )
             )
 
         yield _make
@@ -272,16 +319,6 @@ def mock_firebase_admin_auth(mocker: Any) -> Any:
     mock_auth.get_user_by_email.return_value.uid = "mock_firebase_uid"
     mock_auth.create_user.return_value.uid = "mock_firebase_uid"
     return mock_auth
-
-
-@pytest.fixture
-def mock_auth_service(mocker: Any) -> Any:
-    """Mock the auth service for testing."""
-    mock_service = mocker.patch("app.services.implementations.auth_service.AuthService")
-    mock_service.return_value.is_authorized_by_role.return_value = True
-    mock_service.return_value.is_authorized_by_user_id.return_value = True
-    mock_service.return_value.is_authorized_by_email.return_value = True
-    return mock_service
 
 
 @pytest.fixture
@@ -342,7 +379,7 @@ def sample_location_data() -> dict[str, Any]:
         "contact_name": "Jane Smith",
         "delivery_type": "School",
         "address": "123 Main St, City, State 12345",
-        "phone_primary": "(555) 123-4567",
+        "phone_primary": "tel:+1-519-576-1102",
         "longitude": -122.4194,
         "latitude": 37.7749,
         "halal": False,
@@ -402,12 +439,10 @@ def sample_announcement_data() -> dict[str, Any]:
 @pytest.fixture
 def sample_route_group_data() -> dict[str, Any]:
     """Sample route group data for testing."""
-    from datetime import datetime
-
     return {
         "name": "Test Route Group",
         "notes": "Test route group for testing",
-        "drive_date": datetime(2024, 1, 15, 8, 0),
+        "drive_date": date(2024, 1, 15),
     }
 
 
@@ -450,6 +485,7 @@ async def authed_async_client(
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_database_user_id] = override_auth
     _apply_auth_overrides(app)
+    _apply_gcp_override(app)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test/api") as ac:

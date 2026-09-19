@@ -35,6 +35,7 @@ import {
   generateJob,
   getAnnouncement,
   getAnnouncements,
+  getBillingCosts,
   getDriver,
   getDriverHistory,
   getDriverHistorySummary,
@@ -47,16 +48,17 @@ import {
   getLocationGroups,
   getLocations,
   getMonthlyRanking,
-  getMonthlyTotals,
+  getMonthlySeries,
   getNoteChain,
   getNotes,
   getNotesFeed,
+  getOrgContact,
   getRoute,
   getRouteGroups,
   getRoutes,
   getSuggestedDriver,
   getSystemSettings,
-  getTotalDeliveriesBetween,
+  getTotals,
   initializeDriver,
   login,
   logout,
@@ -66,12 +68,11 @@ import {
   previewLocationImport,
   refresh,
   renameDeliveryType,
+  resendOnboardingEmail,
   sendAnnouncementEmail,
   test,
-  testEventEmail,
   updateAnnouncement,
   updateDriver,
-  updateLocation,
   updateLocationGroup,
   updateNote,
   updatePassword,
@@ -150,6 +151,8 @@ import type {
   GetAnnouncementResponse,
   GetAnnouncementsData,
   GetAnnouncementsResponse,
+  GetBillingCostsData,
+  GetBillingCostsResponse,
   GetDriverData,
   GetDriverError,
   GetDriverHistoryData,
@@ -185,9 +188,9 @@ import type {
   GetMonthlyRankingData,
   GetMonthlyRankingError,
   GetMonthlyRankingResponse,
-  GetMonthlyTotalsData,
-  GetMonthlyTotalsError,
-  GetMonthlyTotalsResponse,
+  GetMonthlySeriesData,
+  GetMonthlySeriesError,
+  GetMonthlySeriesResponse,
   GetNoteChainData,
   GetNoteChainError,
   GetNoteChainResponse,
@@ -197,6 +200,8 @@ import type {
   GetNotesFeedError,
   GetNotesFeedResponse,
   GetNotesResponse,
+  GetOrgContactData,
+  GetOrgContactResponse,
   GetRouteData,
   GetRouteError,
   GetRouteGroupsData,
@@ -211,9 +216,9 @@ import type {
   GetSuggestedDriverResponse,
   GetSystemSettingsData,
   GetSystemSettingsResponse,
-  GetTotalDeliveriesBetweenData,
-  GetTotalDeliveriesBetweenError,
-  GetTotalDeliveriesBetweenResponse,
+  GetTotalsData,
+  GetTotalsError,
+  GetTotalsResponse,
   InitializeDriverData,
   InitializeDriverError,
   InitializeDriverResponse,
@@ -221,7 +226,6 @@ import type {
   LoginError,
   LoginResponse,
   LogoutData,
-  LogoutError,
   LogoutResponse,
   MarkAnnouncementsAsReadData,
   MarkAnnouncementsAsReadResponse,
@@ -236,13 +240,13 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
+  ResendOnboardingEmailData,
+  ResendOnboardingEmailError,
+  ResendOnboardingEmailResponse,
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
   TestData,
-  TestEventEmailData,
-  TestEventEmailError,
-  TestEventEmailResponse,
   TestResponse,
   UpdateAnnouncementData,
   UpdateAnnouncementError,
@@ -250,12 +254,9 @@ import type {
   UpdateDriverData,
   UpdateDriverError,
   UpdateDriverResponse,
-  UpdateLocationData,
-  UpdateLocationError,
   UpdateLocationGroupData,
   UpdateLocationGroupError,
   UpdateLocationGroupResponse,
-  UpdateLocationResponse,
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
@@ -608,18 +609,18 @@ export const loginMutation = (
 /**
  * Logout
  *
- * Revokes all of the specified driver's refresh tokens
+ * Revokes refresh tokens and clears cookies
  */
 export const logoutMutation = (
   options?: Partial<Options<LogoutData>>
 ): UseMutationOptions<
   LogoutResponse,
-  AxiosError<LogoutError>,
+  AxiosError<DefaultError>,
   Options<LogoutData>
 > => {
   const mutationOptions: UseMutationOptions<
     LogoutResponse,
-    AxiosError<LogoutError>,
+    AxiosError<DefaultError>,
     Options<LogoutData>
   > = {
     mutationFn: async (fnOptions) => {
@@ -653,6 +654,36 @@ export const refreshMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await refresh({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Resend Onboarding Email
+ *
+ * Resends the onboarding/invite email to a pending user.
+ * Returns 204 regardless of input/status to prevent user enumeration attacks.
+ */
+export const resendOnboardingEmailMutation = (
+  options?: Partial<Options<ResendOnboardingEmailData>>
+): UseMutationOptions<
+  ResendOnboardingEmailResponse,
+  AxiosError<ResendOnboardingEmailError>,
+  Options<ResendOnboardingEmailData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ResendOnboardingEmailResponse,
+    AxiosError<ResendOnboardingEmailError>,
+    Options<ResendOnboardingEmailData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await resendOnboardingEmail({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -721,6 +752,40 @@ export const validateResetTokenMutation = (
   return mutationOptions;
 };
 
+export const getBillingCostsQueryKey = (
+  options?: Options<GetBillingCostsData>
+) => createQueryKey('getBillingCosts', options);
+
+/**
+ * Get Billing Costs
+ *
+ * Return month-to-date spend for the configured project, against its budget.
+ *
+ * Figures come from the Cloud Billing export and typically lag by several
+ * hours — see ``data_as_of``. Responses are cached for
+ * ``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.
+ */
+export const getBillingCostsOptions = (
+  options?: Options<GetBillingCostsData>
+) =>
+  queryOptions<
+    GetBillingCostsResponse,
+    AxiosError<DefaultError>,
+    GetBillingCostsResponse,
+    ReturnType<typeof getBillingCostsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getBillingCosts({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getBillingCostsQueryKey(options),
+  });
+
 export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
   createQueryKey('getDrivers', options);
 
@@ -728,6 +793,10 @@ export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
+ *
+ * Admin-only: the full list exposes every volunteer's phone, home address,
+ * licence plate and car, which no driver-facing screen needs. A driver reads
+ * their own record through GET /drivers/{driver_id}.
  */
 export const getDriversOptions = (options?: Options<GetDriversData>) =>
   queryOptions<
@@ -809,44 +878,15 @@ export const completeDriverRegistrationMutation = (
 };
 
 /**
- * Test Event Email
- *
- * Temporary endpoint to test event-driven emails.
- * Delete this after testing!
- */
-export const testEventEmailMutation = (
-  options?: Partial<Options<TestEventEmailData>>
-): UseMutationOptions<
-  TestEventEmailResponse,
-  AxiosError<TestEventEmailError>,
-  Options<TestEventEmailData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    TestEventEmailResponse,
-    AxiosError<TestEventEmailError>,
-    Options<TestEventEmailData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await testEventEmail({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
  * Delete Driver
  *
  * Delete a driver by ID.
  *
  * A hard delete of the person: the user account and their Firebase login go
  * with the driver record, so a deleted driver can no longer sign in. Their
- * routes are detached (driver_id SET NULL) rather than deleted, so the
- * driver's km stop counting toward anyone.
+ * routes are detached (driver_id SET NULL) rather than deleted: the km and
+ * deliveries stay in the org's totals, they just stop being attributed to
+ * anyone in the per-driver ranking and export.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -1056,6 +1096,10 @@ export const getJobsOptions = (options?: Options<GetJobsData>) =>
 
 /**
  * Generate Job
+ *
+ * Accept a generation request: persist it as PENDING and wake the worker.
+ *
+ * Admin-only — route generation is an admin workflow, and it burns Maps quota.
  */
 export const generateJobMutation = (
   options?: Partial<Options<GenerateJobData>>
@@ -1579,35 +1623,6 @@ export const getLocationOptions = (options: Options<GetLocationData>) =>
   });
 
 /**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocationMutation = (
-  options?: Partial<Options<UpdateLocationData>>
-): UseMutationOptions<
-  UpdateLocationResponse,
-  AxiosError<UpdateLocationError>,
-  Options<UpdateLocationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateLocationResponse,
-    AxiosError<UpdateLocationError>,
-    Options<UpdateLocationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateLocation({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
  * Delete Note Chain
  *
  * Delete a note chain and all its notes (admin only)
@@ -1905,27 +1920,29 @@ export const getNotesFeedInfiniteOptions = (
     }
   );
 
-export const getTotalDeliveriesBetweenQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) => createQueryKey('getTotalDeliveriesBetween', options);
+export const getMonthlySeriesQueryKey = (
+  options?: Options<GetMonthlySeriesData>
+) => createQueryKey('getMonthlySeries', options);
 
 /**
- * Get Total Deliveries Between
+ * Get Monthly Series
  *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
+ * Return km and deliveries per month for a trailing window, oldest first.
+ *
+ * Backs the homepage statistics bar charts, which need a whole series at
+ * once rather than one request per bar.
  */
-export const getTotalDeliveriesBetweenOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
+export const getMonthlySeriesOptions = (
+  options?: Options<GetMonthlySeriesData>
 ) =>
   queryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    GetTotalDeliveriesBetweenResponse,
-    ReturnType<typeof getTotalDeliveriesBetweenQueryKey>
+    GetMonthlySeriesResponse,
+    AxiosError<GetMonthlySeriesError>,
+    GetMonthlySeriesResponse,
+    ReturnType<typeof getMonthlySeriesQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getTotalDeliveriesBetween({
+      const { data } = await getMonthlySeries({
         ...options,
         ...queryKey[0],
         signal,
@@ -1933,61 +1950,8 @@ export const getTotalDeliveriesBetweenOptions = (
       });
       return data;
     },
-    queryKey: getTotalDeliveriesBetweenQueryKey(options),
+    queryKey: getMonthlySeriesQueryKey(options),
   });
-
-export const getTotalDeliveriesBetweenInfiniteQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-): QueryKey<Options<GetTotalDeliveriesBetweenData>> =>
-  createQueryKey('getTotalDeliveriesBetween', options, true);
-
-/**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
- */
-export const getTotalDeliveriesBetweenInfiniteOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) =>
-  infiniteQueryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    InfiniteData<GetTotalDeliveriesBetweenResponse>,
-    QueryKey<Options<GetTotalDeliveriesBetweenData>>,
-    | string
-    | Pick<
-        QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-        'body' | 'headers' | 'path' | 'query'
-      >
-  >(
-    // @ts-ignore
-    {
-      queryFn: async ({ pageParam, queryKey, signal }) => {
-        // @ts-ignore
-        const page: Pick<
-          QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-          'body' | 'headers' | 'path' | 'query'
-        > =
-          typeof pageParam === 'object'
-            ? pageParam
-            : {
-                query: {
-                  start: pageParam,
-                },
-              };
-        const params = createInfiniteParams(queryKey, page);
-        const { data } = await getTotalDeliveriesBetween({
-          ...options,
-          ...params,
-          signal,
-          throwOnError: true,
-        });
-        return data;
-      },
-      queryKey: getTotalDeliveriesBetweenInfiniteQueryKey(options),
-    }
-  );
 
 export const getMonthlyRankingQueryKey = (
   options: Options<GetMonthlyRankingData>
@@ -2019,26 +1983,30 @@ export const getMonthlyRankingOptions = (
     queryKey: getMonthlyRankingQueryKey(options),
   });
 
-export const getMonthlyTotalsQueryKey = (
-  options: Options<GetMonthlyTotalsData>
-) => createQueryKey('getMonthlyTotals', options);
+export const getTotalsQueryKey = (options?: Options<GetTotalsData>) =>
+  createQueryKey('getTotals', options);
 
 /**
- * Get Monthly Totals
+ * Get Totals
  *
- * Return total distance driven and total deliveries for the month.
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
  */
-export const getMonthlyTotalsOptions = (
-  options: Options<GetMonthlyTotalsData>
-) =>
+export const getTotalsOptions = (options?: Options<GetTotalsData>) =>
   queryOptions<
-    GetMonthlyTotalsResponse,
-    AxiosError<GetMonthlyTotalsError>,
-    GetMonthlyTotalsResponse,
-    ReturnType<typeof getMonthlyTotalsQueryKey>
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    GetTotalsResponse,
+    ReturnType<typeof getTotalsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getMonthlyTotals({
+      const { data } = await getTotals({
         ...options,
         ...queryKey[0],
         signal,
@@ -2046,8 +2014,66 @@ export const getMonthlyTotalsOptions = (
       });
       return data;
     },
-    queryKey: getMonthlyTotalsQueryKey(options),
+    queryKey: getTotalsQueryKey(options),
   });
+
+export const getTotalsInfiniteQueryKey = (
+  options?: Options<GetTotalsData>
+): QueryKey<Options<GetTotalsData>> =>
+  createQueryKey('getTotals', options, true);
+
+/**
+ * Get Totals
+ *
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
+ */
+export const getTotalsInfiniteOptions = (options?: Options<GetTotalsData>) =>
+  infiniteQueryOptions<
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    InfiniteData<GetTotalsResponse>,
+    QueryKey<Options<GetTotalsData>>,
+    | string
+    | null
+    | Pick<
+        QueryKey<Options<GetTotalsData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetTotalsData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  start: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getTotals({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getTotalsInfiniteQueryKey(options),
+    }
+  );
 
 export const getRouteGroupsQueryKey = (options?: Options<GetRouteGroupsData>) =>
   createQueryKey('getRouteGroups', options);
@@ -2539,7 +2565,8 @@ export const getSystemSettingsQueryKey = (
 /**
  * Get System Settings
  *
- * Return the singleton system settings row, or null if none has been created.
+ * Return the singleton settings row. Never null — PATCH already raises on
+ * a missing row, so a soft read here would mean an unsaveable blank form.
  */
 export const getSystemSettingsOptions = (
   options?: Options<GetSystemSettingsData>
@@ -2590,6 +2617,34 @@ export const patchSystemSettingsMutation = (
   };
   return mutationOptions;
 };
+
+export const getOrgContactQueryKey = (options?: Options<GetOrgContactData>) =>
+  createQueryKey('getOrgContact', options);
+
+/**
+ * Get Org Contact
+ *
+ * The org's name and phone. Unauthenticated — the error page renders for
+ * logged-out visitors, and these are published details, not member data.
+ */
+export const getOrgContactOptions = (options?: Options<GetOrgContactData>) =>
+  queryOptions<
+    GetOrgContactResponse,
+    AxiosError<DefaultError>,
+    GetOrgContactResponse,
+    ReturnType<typeof getOrgContactQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getOrgContact({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getOrgContactQueryKey(options),
+  });
 
 /**
  * Rename Delivery Type

@@ -1,19 +1,32 @@
 #!/usr/bin/env python3
 """
 Comprehensive database seeding script with advanced features.
+
+Every primary key here is a client-generated UUID (``default_factory=uuid4``),
+so a child row can reference its parent the moment the parent is constructed.
+Nothing flushes to obtain an id: the pending rows go out in a handful of
+batched statements at commit instead of one round trip apiece.
 """
 
+import argparse
 import csv
+import logging
 import os
 import random
+import time as time_module
 import uuid
+import zlib
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from itertools import pairwise
 from typing import cast
-from zoneinfo import ZoneInfo
 
 import faker
 import firebase_admin
 import phonenumbers
+import polyline
 from firebase_admin import auth
 from phonenumbers import PhoneNumberFormat
 from sklearn.cluster import KMeans  # type: ignore[import-untyped]
@@ -21,6 +34,8 @@ from sqlalchemy import create_engine, text
 from sqlmodel import Session, select
 
 from app import initialize_firebase
+from app.config import settings
+from app.database_url import SYNC_DRIVER, get_database_url
 from app.models.admin import Admin
 from app.models.announcement import Announcement
 from app.models.announcement_last_read import AnnouncementLastRead
@@ -44,9 +59,16 @@ from app.models.system_settings import (
 
 # Import all models to register them with SQLModel
 from app.models.user import User
+from app.utilities.datetime_utils import from_local_wall_clock, now_utc, today_local
+from app.utilities.gcp_client import GCPStorageClient
+from app.utilities.seed_images import render_seed_image
 
 # Initialize Faker
 fake = faker.Faker()
+# A second, separately-seeded generator, so deriving a stable name from an
+# account uid can't perturb the random stream every other seeded field draws
+# from.
+_name_fake = faker.Faker()
 
 # Configuration constants
 # Average number of stops per route (used to calculate number of clusters)
@@ -78,6 +100,24 @@ MAX_LOCATION_CHAIN_NOTES = 3
 MAX_ROUTE_CHAIN_NOTES = 2
 # Max notes per driver chain
 MAX_DRIVER_CHAIN_NOTES = 3
+# Probability that a location note carries image attachments. Only location
+# notes get them: that chain is what the driver's route page renders, so it is
+# the only place a thumbnail is ever seen.
+PROBABILITY_LOCATION_NOTE_IMAGES = 0.35
+# Max images per note. Matches the frontend's own cap (NOTE_IMAGE_MAX) and the
+# NoteCreate limit, so the seed can't produce a note the API would reject.
+MAX_NOTE_IMAGES = 3
+# Number of distinct placeholder images uploaded once and shared across notes.
+# Re-using a small pool keeps seeding to a handful of uploads instead of one
+# per note, and the bucket to a fixed, known set of objects.
+SEED_NOTE_IMAGE_COUNT = 6
+# Stable key prefix for those objects, so a re-seed overwrites the previous
+# run's images rather than orphaning them.
+SEED_NOTE_IMAGE_PREFIX = "seed/note-images"
+# Signed URL lifetime for seeded images. Note reads re-sign from the stored
+# filename, so this only has to outlive the seed run itself; a week is the
+# ceiling GCS V4 signing allows and costs nothing to ask for.
+SEED_NOTE_IMAGE_URL_HOURS = 24 * 7
 # Assignment ratio constants
 # Ratio of past routes that should be assigned to drivers (1.0 = 100%)
 ASSIGNMENT_RATIO_PAST_ROUTES = 1.0
@@ -101,6 +141,16 @@ MIN_DRIVERS = 5
 NUM_SEED_ADMINS = 2
 # Shared password for all seeded Firebase accounts
 SEED_PASSWORD = "test123"
+# Concurrent Firebase writes. Each one is an HTTPS round trip, so the wall
+# clock is latency, not CPU; well past this the admin API starts rate limiting
+# rather than going faster.
+FIREBASE_SYNC_WORKERS = 8
+# Attempts per account write, and the first backoff, doubling from there. The
+# admin API rate-limits account writes per project, so a run that has to write
+# every account at once — a first seed, or one after the names changed shape —
+# expects to be told to slow down.
+FIREBASE_WRITE_ATTEMPTS = 5
+FIREBASE_WRITE_BACKOFF_SECONDS = 1.0
 
 # A richer announcement feed, posted by different admins and drivers over the
 # past few weeks so the list looks like a real, lived-in noticeboard. Each
@@ -190,10 +240,6 @@ JOB_UPDATE_HOUR_MAX = 3
 JOB_FINISH_HOUR_MIN = 1
 # Maximum hours after update time for job finish time
 JOB_FINISH_HOUR_MAX = 4
-# Minimum default capacity for admin info
-DEFAULT_CAP_MIN = 10
-# Maximum default capacity for admin info
-DEFAULT_CAP_MAX = 20
 
 # Time constants
 # Default route start time (HH:MM:SS format)
@@ -226,66 +272,244 @@ WAREHOUSE_LAT, WAREHOUSE_LON = 43.402343, -80.464610
 WAREHOUSE_ADDRESS = "330 Trillium Drive, Kitchener, ON"
 
 
-def get_database_url() -> str:
-    """Build the database URL from the environment, like migrations/env.py.
-
-    In production, reads DATABASE_URL directly (supports Neon/Supabase/etc.
-    with SSL params). In development, builds from individual POSTGRES_* vars.
-    """
-    if os.environ.get("APP_ENV") == "production":
-        return os.environ["DATABASE_URL"]
-    return "postgresql://{username}:{password}@{host}:5432/{db}".format(
-        username=os.environ["POSTGRES_USER"],
-        password=os.environ["POSTGRES_PASSWORD"],
-        host=os.environ["DB_HOST"],
-        db=os.environ["POSTGRES_DB_DEV"],
-    )
-
-
 def set_timestamps(instance: BaseModel) -> None:
     """Set updated_at to match created_at for seed data"""
     if instance.created_at is not None and instance.updated_at is None:
         instance.updated_at = instance.created_at
 
 
-def ensure_firebase_user(
-    uid: str,
-    email: str,
-    password: str,
-    role: str,
-    first_name: str,
-    last_name: str,
-) -> str:
-    """Create or update a Firebase user so it is always loginable with the given credentials."""
-    full_name = f"{first_name} {last_name}"
-    try:
-        auth.get_user(uid)
-        auth.update_user(
-            uid,
-            email=email,
-            password=password,
-            email_verified=True,
-            display_name=full_name,
+def upload_seed_note_images() -> list[dict[str, str]]:
+    """Upload the shared placeholder images and return them as attachments.
+
+    Writes to fixed keys under ``SEED_NOTE_IMAGE_PREFIX`` so re-seeding replaces
+    the objects rather than piling up new ones. Returns nothing when no bucket is
+    configured, which is how the boot smoke job runs; with a bucket named, a
+    failure (including missing Application Default Credentials) is a real error
+    and propagates.
+    """
+    if not settings.gcp_bucket_name:
+        print("  GCS is not configured — seeding notes without images")
+        return []
+
+    client = GCPStorageClient(logging.getLogger(__name__), settings.gcp_bucket_name)
+
+    def upload(index: int) -> dict[str, str]:
+        filename, contents = render_seed_image(index)
+        result = client.upload_file(
+            contents,
+            filename,
+            "image/png",
+            expiration_hours=SEED_NOTE_IMAGE_URL_HOURS,
+            key=f"{SEED_NOTE_IMAGE_PREFIX}/{index:02d}-{filename}",
         )
-        print(f"  Firebase user {uid} ({email}) already exists, updated")
-    except auth.UserNotFoundError:
-        auth.create_user(
-            uid=uid,
-            email=email,
-            password=password,
-            email_verified=True,
-            display_name=full_name,
-        )
-        print(f"  Firebase user {uid} ({email}) created")
-    auth.set_custom_user_claims(
-        uid,
-        {"role": role, "given_name": first_name, "family_name": last_name},
+        return {"filename": result.filename, "url": result.url}
+
+    # Uploads are network-bound and independent, so pay for one round trip
+    # rather than SEED_NOTE_IMAGE_COUNT of them. map() preserves order and
+    # re-raises the first failure.
+    with ThreadPoolExecutor(max_workers=SEED_NOTE_IMAGE_COUNT) as pool:
+        return list(pool.map(upload, range(SEED_NOTE_IMAGE_COUNT)))
+
+
+def pick_note_attachments(pool: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Choose the attachments for one note: usually none, sometimes up to three.
+
+    Returns copies so two notes sharing an image can never alias the same dict
+    into two JSON columns.
+    """
+    if not pool or random.random() >= PROBABILITY_LOCATION_NOTE_IMAGES:
+        return []
+
+    count = random.randint(1, min(MAX_NOTE_IMAGES, len(pool)))
+    return [dict(attachment) for attachment in random.sample(pool, count)]
+
+
+@dataclass(frozen=True)
+class SeedAccount:
+    """One Firebase account the seed owns, and everything it should hold."""
+
+    uid: str
+    email: str
+    role: str
+    first_name: str
+    last_name: str
+
+    @property
+    def display_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
+
+    @property
+    def claims(self) -> dict[str, str]:
+        return {
+            "role": self.role,
+            "given_name": self.first_name,
+            "family_name": self.last_name,
+        }
+
+
+def seed_account_name(uid: str) -> tuple[str, str]:
+    """The first and last name for a seed account, derived from its uid.
+
+    Deterministic on purpose: a fresh random name every run meant every
+    re-seed rewrote every account's ``display_name`` in Firebase, one blocking
+    HTTPS round trip each. With the name pinned to the uid, a re-seed finds
+    every account already correct and writes nothing.
+    """
+    _name_fake.seed_instance(zlib.crc32(uid.encode()))
+    return _name_fake.first_name(), _name_fake.last_name()
+
+
+def make_seed_account(*, uid: str, email: str, role: str) -> SeedAccount:
+    """A seed account with its name derived from the uid, so it stays put."""
+    first_name, last_name = seed_account_name(uid)
+    return SeedAccount(
+        uid=uid, email=email, role=role, first_name=first_name, last_name=last_name
     )
-    return uid
 
 
-def generate_valid_phone() -> str:
-    """Generate a valid phone number in E164 format"""
+@dataclass(frozen=True)
+class _AccountWrite:
+    """One account's pending Firebase write, resolved from the sweep."""
+
+    account: SeedAccount
+    create: bool = False
+    # Fields that drifted on an existing account. Empty when only the claims did.
+    changes: dict[str, object] = field(default_factory=dict)
+    set_claims: bool = False
+
+    def steps(self) -> list[Callable[[], None]]:
+        """This write as separately retryable Firebase calls, in order.
+
+        Create and set-claims are two round trips and are not idempotent as a
+        pair: retrying the write as a whole after the claims call hit the rate
+        limit would re-create a uid that by then exists, raising
+        ``UidAlreadyExistsError``. Per step, only what has not landed is
+        repeated.
+        """
+        steps: list[Callable[[], None]] = []
+        if self.create:
+            steps.append(self._create)
+        elif self.changes:
+            steps.append(self._update)
+        if self.set_claims:
+            steps.append(self._set_claims)
+        return steps
+
+    def _create(self) -> None:
+        auth.create_user(
+            uid=self.account.uid,
+            email=self.account.email,
+            password=SEED_PASSWORD,
+            email_verified=True,
+            display_name=self.account.display_name,
+        )
+
+    def _update(self) -> None:
+        auth.update_user(self.account.uid, **self.changes)
+
+    def _set_claims(self) -> None:
+        auth.set_custom_user_claims(self.account.uid, self.account.claims)
+
+
+def firebase_account_snapshot() -> dict[str, auth.UserRecord]:
+    """Every Firebase account in the project, keyed by uid.
+
+    One paged sweep for the whole run, rather than a ``get_user`` per seeded
+    account: at ~90 accounts that was 90 blocking HTTPS round trips to learn
+    what a single request already says.
+    """
+    return {record.uid: record for record in auth.list_users().iterate_all()}
+
+
+def sync_firebase_accounts(
+    accounts: list[SeedAccount],
+    existing: dict[str, auth.UserRecord],
+    *,
+    reset_passwords: bool = False,
+) -> None:
+    """Create or reconcile every seeded Firebase account, in parallel.
+
+    An existing account's password is deliberately not rewritten. Firebase
+    treats a password write as a credential change and moves
+    ``tokensValidAfterTime`` to now, and since tokens are verified with
+    ``check_revoked=True``, that signs out everyone with an open session —
+    re-seeding would log developers out. Other fields don't do this and are
+    still written when they differ.
+
+    ``firebase_admin`` is synchronous and every call is an HTTPS round trip, so
+    the writes go over a thread pool rather than being gathered with asyncio.
+
+    :param existing: The project's accounts, from ``firebase_account_snapshot``.
+    :param reset_passwords: Write passwords anyway, for accounts that have
+        genuinely drifted. Signs everyone out, so it has to be asked for.
+    """
+    writes: list[_AccountWrite] = []
+    for account in accounts:
+        record = existing.get(account.uid)
+
+        if record is None:
+            writes.append(_AccountWrite(account, create=True, set_claims=True))
+            continue
+
+        changes: dict[str, object] = {}
+        if record.email != account.email:
+            changes["email"] = account.email
+        if record.display_name != account.display_name:
+            changes["display_name"] = account.display_name
+        if not record.email_verified:
+            changes["email_verified"] = True
+        if reset_passwords:
+            changes["password"] = SEED_PASSWORD
+        set_claims = (record.custom_claims or {}) != account.claims
+
+        if changes or set_claims:
+            writes.append(
+                _AccountWrite(account, changes=changes, set_claims=set_claims)
+            )
+
+    if writes:
+        with ThreadPoolExecutor(max_workers=FIREBASE_SYNC_WORKERS) as pool:
+            # list() drains the iterator, so a failed write raises here rather
+            # than being swallowed.
+            list(pool.map(_apply_account_write, writes))
+
+    created = sum(1 for write in writes if write.create)
+    print(
+        f"  Firebase accounts: {created} created, {len(writes) - created} updated, "
+        f"{len(accounts) - len(writes)} already in sync"
+    )
+
+
+def _apply_account_write(write: _AccountWrite) -> None:
+    """Apply one pending write, a resumable step at a time."""
+    for step in write.steps():
+        _with_quota_backoff(step)
+
+
+def _with_quota_backoff(step: Callable[[], None]) -> None:
+    """Make one Firebase call, backing off when Firebase says to slow down.
+
+    Account writes are rate-limited per project, and a run that has to touch
+    every account at once will hit that limit, so it is a wait rather than a
+    failure. Every other Firebase error fails the seed immediately.
+    """
+    for attempt in range(FIREBASE_WRITE_ATTEMPTS):
+        try:
+            step()
+            return
+        except firebase_admin.exceptions.FirebaseError as exc:
+            last_attempt = attempt == FIREBASE_WRITE_ATTEMPTS - 1
+            if last_attempt or "QUOTA_EXCEEDED" not in str(exc):
+                raise
+            time_module.sleep(FIREBASE_WRITE_BACKOFF_SECONDS * 2**attempt)
+
+
+def generate_valid_phone(*, with_extension: bool = False) -> str:
+    """Generate a valid phone number in the stored RFC 3966 format.
+
+    ``with_extension`` seeds the ``;ext=`` case — schools and the F4K office
+    have extensions, so at least some seeded data should carry one.
+    """
     # Valid Canadian area codes (Ontario and Quebec)
     valid_area_codes = [416, 647, 437, 514, 613, 905, 289, 519, 226, 705, 807, 343, 365]
 
@@ -296,16 +520,18 @@ def generate_valid_phone() -> str:
         exchange = random.randint(200, 999)  # Exchange code (3 digits)
         number = random.randint(1000, 9999)  # Last 4 digits
         phone_str = f"+1{area_code}{exchange:03d}{number:04d}"
+        if with_extension:
+            phone_str += f" ext. {random.randint(1, 999)}"
 
         try:
             parsed = phonenumbers.parse(phone_str, None)
             if phonenumbers.is_valid_number(parsed):
-                return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+                return phonenumbers.format_number(parsed, PhoneNumberFormat.RFC3966)
         except Exception:
             continue
 
     # Fallback: return a known valid number if we can't generate one
-    return "+14165551234"
+    return "tel:+1-416-555-1234"
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -409,6 +635,55 @@ def calculate_route_length(
     return total_length
 
 
+"""Shape of the synthetic path drawn between consecutive stops.
+
+Points per leg buys the bend its resolution; the fraction is how far off the
+straight line the middle of a leg is pushed, as a share of that leg's own
+length, so the bend stays proportional whether the next stop is 200m or 5km
+away.
+"""
+POLYLINE_POINTS_PER_LEG = 6
+POLYLINE_BEND_FRACTION = 0.12
+
+
+def build_route_polyline(ordered_coords: list[tuple[float, float]], seed: int) -> str:
+    """Encode a plausible-looking path through `ordered_coords`.
+
+    Each leg is a bowed curve, not real streets — enough that route maps read as
+    routes rather than a star out of the warehouse. Nothing may measure off a
+    seeded polyline; `Route.length` stays the haversine figure.
+
+    `seed` keeps a cluster's shape stable across runs, via a local Random so the
+    draws don't shift every other random choice in the seeder.
+    """
+    if len(ordered_coords) < 2:
+        return ""
+
+    rng = random.Random(seed)
+    path: list[tuple[float, float]] = [ordered_coords[0]]
+
+    for (lat1, lon1), (lat2, lon2) in pairwise(ordered_coords):
+        dlat, dlon = lat2 - lat1, lon2 - lon1
+        # Perpendicular to the leg, so the offset bows the segment sideways
+        # rather than stretching it past either stop.
+        perp_lat, perp_lon = -dlon, dlat
+        bend = rng.uniform(-POLYLINE_BEND_FRACTION, POLYLINE_BEND_FRACTION)
+
+        for step in range(1, POLYLINE_POINTS_PER_LEG):
+            t = step / POLYLINE_POINTS_PER_LEG
+            # Zero at t=0 and t=1, widest mid-leg: the curve always meets its
+            # stops exactly, so markers sit on the line instead of beside it.
+            arc = bend * (4.0 * t * (1.0 - t))
+            path.append(
+                (lat1 + dlat * t + perp_lat * arc, lon1 + dlon * t + perp_lon * arc)
+            )
+        path.append((lat2, lon2))
+
+    # precision=5 is the Google encoding the routing provider returns, and what
+    # the frontend's decoder assumes.
+    return polyline.encode(path, precision=5)
+
+
 class ClusterPlan:
     """Pre-computed TSP plan for one cluster within one location group.
 
@@ -424,11 +699,15 @@ class ClusterPlan:
         ordered_location_ids: list[str],
         cluster_locations: list[Location],
         length_km: float,
+        encoded_polyline: str,
     ):
         self.cluster_idx = cluster_idx
         self.ordered_location_ids = ordered_location_ids
         self.cluster_locations = cluster_locations
         self.length_km = length_km
+        # Computed with the plan, not per Route: every drive_date materialized
+        # from this cluster drives the same stops in the same order.
+        self.encoded_polyline = encoded_polyline
 
 
 def plan_clusters_for_group(
@@ -476,23 +755,39 @@ def plan_clusters_for_group(
         total_length = calculate_route_length(
             route_order, cluster_locations, WAREHOUSE_LAT, WAREHOUSE_LON
         )
+
+        # Routes leave the warehouse and finish at their last stop
+        # (ends_at_warehouse is False for seeded routes), matching the legs
+        # calculate_route_length already measures.
+        by_id = {str(loc.location_id): loc for loc in cluster_locations}
+        coords: list[tuple[float, float]] = [(WAREHOUSE_LAT, WAREHOUSE_LON)]
+        for location_id in route_order:
+            location = by_id[location_id]
+            coords.append(
+                (cast("float", location.latitude), cast("float", location.longitude))
+            )
+
         plans.append(
             ClusterPlan(
                 cluster_idx=cluster_idx,
                 ordered_location_ids=route_order,
                 cluster_locations=cluster_locations,
                 length_km=round(total_length, 2),
+                # crc32 over the stop order, not hash(): hash() is salted per
+                # process, which would reshape every route on each seed run.
+                encoded_polyline=build_route_polyline(
+                    coords, zlib.crc32("".join(route_order).encode())
+                ),
             )
         )
     return plans
 
 
-def pick_assignment_ratio(drive_date: datetime, today: date) -> float:
+def pick_assignment_ratio(drive_date: date, today: date) -> float:
     """Date-bucketed driver-assignment density (mirrors old DriverAssignment seed)."""
-    drive_date_only = drive_date.date()
-    if drive_date_only < today:
+    if drive_date < today:
         return ASSIGNMENT_RATIO_PAST_ROUTES
-    if drive_date_only <= today + timedelta(days=NEXT_WEEK_DAYS):
+    if drive_date <= today + timedelta(days=NEXT_WEEK_DAYS):
         return ASSIGNMENT_RATIO_NEXT_WEEK
     return ASSIGNMENT_RATIO_FUTURE_ROUTES
 
@@ -502,7 +797,7 @@ def materialize_route_for_group(
     route_group: RouteGroup,
     plan: ClusterPlan,
     *,
-    drive_date: datetime,
+    drive_date: date,
     today: date,
     driver_ids: list[uuid.UUID],
 ) -> Route:
@@ -535,10 +830,11 @@ def materialize_route_for_group(
         route_group_id=route_group.route_group_id,
         driver_id=driver_id,
         start_time=start_time,
+        encoded_polyline=plan.encoded_polyline or None,
+        polyline_updated_at=(now_utc() if plan.encoded_polyline else None),
     )
     set_timestamps(route)
     session.add(route)
-    session.flush()  # need route_id for stops
 
     created_stops: list[RouteStop] = []
     for stop_num, location_id in enumerate(plan.ordered_location_ids, start=1):
@@ -550,10 +846,9 @@ def materialize_route_for_group(
         set_timestamps(stop)
         session.add(stop)
         created_stops.append(stop)
-    session.flush()  # need route_stop_ids for snapshots
 
     # Freeze past routes so historical reads work without first running the cron.
-    if drive_date.date() < today:
+    if drive_date < today:
         route_snap = RouteSnapshot(
             route_id=route.route_id,
             start_address=WAREHOUSE_ADDRESS,
@@ -584,18 +879,28 @@ def materialize_route_for_group(
     return route
 
 
-def main() -> None:
-    """Main seeding function"""
+def main(*, reset_passwords: bool = False) -> None:
+    """Main seeding function
+
+    :param reset_passwords: Rewrite every seeded account's password to
+        ``SEED_PASSWORD``, signing out everyone currently holding a token. Off
+        by default so a routine re-seed leaves open sessions alone; see
+        ``sync_firebase_accounts``.
+    """
     print("Starting final database seeding...")
 
     if not firebase_admin._apps:  # type: ignore[attr-defined]
         initialize_firebase()
     print("Firebase initialized")
+    firebase_accounts = firebase_account_snapshot()
 
     # Create database connection
-    engine = create_engine(get_database_url(), echo=False)
+    engine = create_engine(get_database_url(SYNC_DRIVER), echo=False)
 
-    with Session(engine) as session:
+    # Nothing here re-reads a row after writing it, so let the objects stay
+    # usable across commits. Expiring them turned every later attribute read
+    # into its own SELECT.
+    with Session(engine, expire_on_commit=False) as session:
         try:
             # Clear existing data. Order matters: snapshots & stops first
             # (FK to routes), then routes (FK to route_groups), then
@@ -633,27 +938,24 @@ def main() -> None:
             print("Creating admin accounts...")
             admin_users: list[User] = []
 
-            for i in range(NUM_SEED_ADMINS):
-                admin_num = i + 1
-                uid = f"seed-admin-{admin_num}"
-                email = f"admin{admin_num}@f4k.dev"
-                first_name = fake.first_name()
-                last_name = fake.last_name()
-
-                ensure_firebase_user(
-                    uid=uid,
-                    email=email,
-                    password=SEED_PASSWORD,
+            admin_accounts = [
+                make_seed_account(
+                    uid=f"seed-admin-{i + 1}",
+                    email=f"admin{i + 1}@f4k.dev",
                     role="admin",
-                    first_name=first_name,
-                    last_name=last_name,
                 )
+                for i in range(NUM_SEED_ADMINS)
+            ]
+            sync_firebase_accounts(
+                admin_accounts, firebase_accounts, reset_passwords=reset_passwords
+            )
 
+            for account in admin_accounts:
                 user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    auth_id=uid,
+                    first_name=account.first_name,
+                    last_name=account.last_name,
+                    email=account.email,
+                    auth_id=account.uid,
                     role="admin",
                 )
                 set_timestamps(user)
@@ -740,7 +1042,11 @@ def main() -> None:
                             else contact_name,
                             contact_name=contact_name,
                             address=address,
-                            phone_primary=generate_valid_phone(),
+                            # Schools answer on a switchboard — seed them with
+                            # extensions so the ;ext= path is exercised.
+                            phone_primary=generate_valid_phone(
+                                with_extension=is_school
+                            ),
                             phone_secondary=generate_valid_phone()
                             if random.choice([True, False])
                             else None,
@@ -794,32 +1100,31 @@ def main() -> None:
             # plans, so size the driver pool off total_clusters (routes don't
             # exist yet at this point in the refactored ordering).
             num_drivers = max(total_clusters, MIN_DRIVERS)
+            driver_author_ids: list[uuid.UUID] = []
 
-            for i in range(num_drivers):
-                n = f"{i + 1:03d}"
-                uid = f"seed-driver-{n}"
-                email = f"driver{n}@f4k.dev"
-                first_name = fake.first_name()
-                last_name = fake.last_name()
-
-                ensure_firebase_user(
-                    uid=uid,
-                    email=email,
-                    password=SEED_PASSWORD,
+            driver_accounts = [
+                make_seed_account(
+                    uid=f"seed-driver-{i + 1:03d}",
+                    email=f"driver{i + 1:03d}@f4k.dev",
                     role="driver",
-                    first_name=first_name,
-                    last_name=last_name,
                 )
+                for i in range(num_drivers)
+            ]
+            sync_firebase_accounts(
+                driver_accounts, firebase_accounts, reset_passwords=reset_passwords
+            )
 
+            for i, account in enumerate(driver_accounts):
                 user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    auth_id=uid,
+                    first_name=account.first_name,
+                    last_name=account.last_name,
+                    email=account.email,
+                    auth_id=account.uid,
                     role="driver",
                 )
                 set_timestamps(user)
                 session.add(user)
+                driver_author_ids.append(user.user_id)
 
                 # Ensure at least the first half of drivers are active
                 is_active = (
@@ -835,7 +1140,6 @@ def main() -> None:
                 )
                 set_timestamps(note_chain)
                 session.add(note_chain)
-                session.flush()
 
                 driver = Driver(
                     user_id=user.user_id,
@@ -879,7 +1183,7 @@ def main() -> None:
             print("Creating route groups + per-day route instances...")
             route_groups_created = 0
             routes_created = 0
-            today = datetime.now().date()
+            today = today_local()
             start_date = today - timedelta(days=MONTHS_PAST * DAYS_PER_MONTH)
             end_date = today + timedelta(days=MONTHS_FUTURE * DAYS_PER_MONTH)
 
@@ -904,22 +1208,20 @@ def main() -> None:
                     if not plans:
                         continue
 
-                    drive_date = datetime.combine(current_date, datetime.min.time())
                     route_group = RouteGroup(
                         name=f"{group_name} - {current_date.strftime('%Y-%m-%d')}",
                         notes=f"Route group for {group_name} on {current_date}",
-                        drive_date=drive_date,
+                        drive_date=current_date,
                     )
                     set_timestamps(route_group)
                     session.add(route_group)
-                    session.flush()  # need route_group_id
 
                     for plan in plans:
                         materialize_route_for_group(
                             session,
                             route_group,
                             plan,
-                            drive_date=drive_date,
+                            drive_date=current_date,
                             today=today,
                             driver_ids=active_driver_ids,
                         )
@@ -934,24 +1236,14 @@ def main() -> None:
                 f"and {routes_created} route instances"
             )
 
-            # ----------------------------------------------------------------
-            # Explicit test fixtures. Dated one day before every other seeded
-            # group so they pin to the top of the oldest-first routes feed (page
-            # size 50), where the random past data is otherwise all assigned and
-            # fully stopped. These exercise UI states the random data won't
-            # reliably surface on page 1:
-            #   - two unassigned routes -> the "missing assigned drivers" banner
-            #   - a route with no stops -> route delete enabled
-            #   - a route with stops   -> route delete disabled (tooltip)
-            #   - an empty route group -> group delete enabled
-            #   - unscheduled + inactive standalone locations -> status/filter,
-            #     both safe to delete (not referenced by any route)
-            # All are named "TEST ..." so they're easy to spot and remove.
-            # ----------------------------------------------------------------
+            # Explicit "TEST ..." fixtures for UI states the random data won't
+            # reliably surface: unassigned routes (missing-driver banner), a
+            # route with and without stops (delete enabled/disabled), an empty
+            # route group, and unscheduled + inactive standalone locations.
+            # Dated a day before everything else so they land on page 1 of the
+            # oldest-first feed.
             print("Creating explicit test fixtures...")
-            fixture_date = datetime.combine(
-                start_date - timedelta(days=1), datetime.min.time()
-            )
+            fixture_date = start_date - timedelta(days=1)
             fixture_loc_group_id = group_ids["Tuesday A"]
             # Reuse a few existing locations as stops for the populated route.
             stop_locations = list(
@@ -983,7 +1275,6 @@ def main() -> None:
             )
             set_timestamps(fixture_group)
             session.add(fixture_group)
-            session.flush()
 
             route_no_stops = Route(
                 name="TEST Route (no stops)",
@@ -995,16 +1286,32 @@ def main() -> None:
             set_timestamps(route_no_stops)
             session.add(route_no_stops)
 
+            fixture_coords: list[tuple[float, float]] = [
+                (WAREHOUSE_LAT, WAREHOUSE_LON),
+                *(
+                    (loc.latitude, loc.longitude)
+                    for loc in stop_locations
+                    if loc.latitude is not None and loc.longitude is not None
+                ),
+            ]
+            fixture_polyline = build_route_polyline(
+                fixture_coords,
+                zlib.crc32(
+                    "".join(str(loc.location_id) for loc in stop_locations).encode()
+                ),
+            )
+
             route_with_stops = Route(
                 name="TEST Route (has stops)",
                 notes="Seeded fixture: unassigned, has stops (delete disabled).",
                 length=5.0,
                 route_group_id=fixture_group.route_group_id,
                 driver_id=None,
+                encoded_polyline=fixture_polyline or None,
+                polyline_updated_at=(now_utc() if fixture_polyline else None),
             )
             set_timestamps(route_with_stops)
             session.add(route_with_stops)
-            session.flush()
 
             for stop_num, loc in enumerate(stop_locations, start=1):
                 stop = RouteStop(
@@ -1059,9 +1366,16 @@ def main() -> None:
 
             # Create note chains for locations
             print("Creating note chains for locations...")
+            print("Uploading placeholder note images...")
+            note_image_pool = upload_seed_note_images()
+            if note_image_pool:
+                print(f"Uploaded {len(note_image_pool)} placeholder note images")
+
             location_chains_created = 0
             location_notes_created = 0
+            location_notes_with_images = 0
             all_locations = list(session.exec(select(Location)).all())
+            location_author_ids = admin_author_ids + driver_author_ids
 
             for location in all_locations:
                 note_chain = NoteChain(
@@ -1070,28 +1384,38 @@ def main() -> None:
                 )
                 set_timestamps(note_chain)
                 session.add(note_chain)
-                session.flush()
 
                 location.note_chain_id = note_chain.note_chain_id
                 location_chains_created += 1
 
                 if random.random() < PROBABILITY_LOCATION_CHAIN_NOTES:
                     num_notes = random.randint(1, MAX_LOCATION_CHAIN_NOTES)
-                    for _ in range(num_notes):
+                    if len(location_author_ids) >= num_notes:
+                        note_authors = random.sample(location_author_ids, num_notes)
+                    else:
+                        note_authors = [
+                            random.choice(location_author_ids) for _ in range(num_notes)
+                        ]
+                    for author_id in note_authors:
+                        attachments = pick_note_attachments(note_image_pool)
                         note = Note(
                             note_chain_id=note_chain.note_chain_id,
-                            user_id=random.choice(admin_author_ids),
+                            user_id=author_id,
                             message=fake.sentence(),
                             is_system=False,
+                            attachments=attachments,
                         )
                         set_timestamps(note)
                         session.add(note)
                         location_notes_created += 1
+                        if attachments:
+                            location_notes_with_images += 1
 
             session.commit()
             print(
                 f"Created {location_chains_created} location note chains "
-                f"with {location_notes_created} notes"
+                f"with {location_notes_created} notes "
+                f"({location_notes_with_images} carrying images)"
             )
 
             # Create note chains for routes (only a sample, since the per-day
@@ -1113,7 +1437,6 @@ def main() -> None:
                 )
                 set_timestamps(note_chain)
                 session.add(note_chain)
-                session.flush()
 
                 route.note_chain_id = note_chain.note_chain_id
                 route_chains_created += 1
@@ -1144,7 +1467,7 @@ def main() -> None:
                     """
                     SELECT route_group_id, drive_date
                     FROM route_groups
-                    WHERE drive_date < NOW()
+                    WHERE drive_date < CURRENT_DATE
                     ORDER BY drive_date DESC
                     LIMIT :limit
                     """
@@ -1162,8 +1485,18 @@ def main() -> None:
                 jobs_created = len(selected_groups)
 
                 for route_group_id, drive_date in selected_groups:
-                    started_at = drive_date + timedelta(
-                        hours=random.randint(JOB_START_HOUR_MIN, JOB_START_HOUR_MAX)
+                    # The hour is a wall-clock hour on the drive date, so read it
+                    # in the app's timezone rather than handing Postgres a naive
+                    # value it would resolve against the session timezone.
+                    started_at = from_local_wall_clock(
+                        datetime.combine(
+                            drive_date,
+                            time(
+                                hour=random.randint(
+                                    JOB_START_HOUR_MIN, JOB_START_HOUR_MAX
+                                )
+                            ),
+                        )
                     )
                     updated_at = started_at + timedelta(
                         hours=random.randint(JOB_UPDATE_HOUR_MIN, JOB_UPDATE_HOUR_MAX)
@@ -1191,7 +1524,6 @@ def main() -> None:
                 ROUTE_START_TIME, "%H:%M:%S"
             ).time()
             system_settings = SystemSettings(
-                default_cap=random.randint(DEFAULT_CAP_MIN, DEFAULT_CAP_MAX),
                 route_start_time=route_start_time_obj,
                 warehouse_location=WAREHOUSE_ADDRESS,
                 warehouse_longitude=WAREHOUSE_LON,
@@ -1200,7 +1532,8 @@ def main() -> None:
                 dropoff_minutes=3,
                 children_per_box=2,
                 contact_name="Emily Loro",
-                contact_phone=generate_valid_phone(),
+                # The real office number has an extension; keep the seed honest.
+                contact_phone=generate_valid_phone(with_extension=True),
                 f4k_wr_instagram="https://instagram.com/food4kidswr",
                 f4k_wr_facebook="https://facebook.com/food4kidswr",
                 f4k_wr_email="hello@food4kidswr.ca",
@@ -1251,9 +1584,7 @@ def main() -> None:
                     attachments=[],
                 )
                 set_timestamps(announcement)
-                posted_at = datetime.now(ZoneInfo("America/New_York")).replace(
-                    tzinfo=None
-                ) - timedelta(days=days_ago)
+                posted_at = now_utc() - timedelta(days=days_ago)
                 announcement.created_at = posted_at
                 announcement.updated_at = posted_at
                 session.add(announcement)
@@ -1273,10 +1604,7 @@ def main() -> None:
                 if random.random() < 0.6:
                     read_entry = AnnouncementLastRead(
                         user_id=driver_user_row[0],
-                        last_read_at=datetime.now(ZoneInfo("America/New_York")).replace(
-                            tzinfo=None
-                        )
-                        - timedelta(hours=random.randint(0, 72)),
+                        last_read_at=now_utc() - timedelta(hours=random.randint(0, 72)),
                     )
                     set_timestamps(read_entry)
                     session.add(read_entry)
@@ -1300,4 +1628,14 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--reset-passwords",
+        action="store_true",
+        help=(
+            f"Rewrite every seeded account's password to '{SEED_PASSWORD}'. "
+            "Signs out everyone currently logged in, so it is off by default — "
+            "use it only when a password has actually drifted."
+        ),
+    )
+    main(reset_passwords=parser.parse_args().reset_passwords)

@@ -3,14 +3,15 @@ Streamlined comprehensive tests for SQLModel models focusing on business-critica
 Reduced from 92 tests to ~60 tests by removing redundancy and focusing on core business logic.
 """
 
-from datetime import time
+from datetime import date, datetime, time, timezone
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
-# Initialize all models to ensure proper relationship resolution
-from app.models import init_app
+# Register every model so SQLAlchemy resolves the relationship strings. These
+# tests build model objects in memory and never query, so no database is needed.
+from app.models import register_models
 from app.models.admin import Admin
 from app.models.announcement import (
     Announcement,
@@ -52,7 +53,7 @@ from app.models.route_stop import RouteStop
 from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User, UserFinalize
 
-init_app()
+register_models()
 
 
 class TestCoreBusinessValidation:
@@ -77,8 +78,8 @@ class TestCoreBusinessValidation:
             license_plate="ABC123",
             car_make_model="Toyota Camry",
         )
-        # Phone gets formatted to E164 format
-        assert driver.phone.startswith("+")
+        # Normalized to RFC 3966 on the way in
+        assert driver.phone == "tel:+1-212-555-1234"
 
         # Test Admin phone validation
         admin_user = User(
@@ -91,7 +92,7 @@ class TestCoreBusinessValidation:
             user_id=admin_user.user_id,
             admin_phone=valid_phone,
         )
-        assert admin.admin_phone.startswith("+")
+        assert admin.admin_phone == "tel:+1-212-555-1234"
 
         # Test invalid phone numbers
         invalid_phones = ["invalid-phone", "123", "abc-def-ghij", "(555) 123-4567"]
@@ -267,12 +268,11 @@ class TestCoreBusinessValidation:
         assert group.color in LocationGroup.DEFAULT_PALETTE
 
         # Test RouteGroup required fields
-        from datetime import datetime
 
         with pytest.raises(ValidationError) as exc_info:
             RouteGroup(
                 name="",  # Empty name should fail
-                drive_date=datetime(2024, 1, 15, 8, 0),
+                drive_date=date(2024, 1, 15),
             )
         assert "name" in str(exc_info.value)
 
@@ -286,7 +286,7 @@ class TestCoreBusinessValidation:
                 contact_name="Jane Smith",
                 delivery_type="Family",
                 address="123 Main St",
-                phone_primary="(555) 123-4567",
+                phone_primary="tel:+1-519-576-1102",
                 longitude=-122.4194,
                 latitude=37.7749,
                 halal=False,
@@ -383,7 +383,7 @@ class TestCoreModels:
             contact_name="Jane Smith",
             delivery_type="School",
             address="123 Main St, City, State 12345",
-            phone_primary="(555) 123-4567",
+            phone_primary="tel:+1-519-576-1102",
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
@@ -401,7 +401,7 @@ class TestCoreModels:
             contact_name="John Doe",
             delivery_type="Family",
             address="456 Oak Ave, City, State 12345",
-            phone_primary="(555) 987-6543",
+            phone_primary="tel:+1-519-576-1111",
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
@@ -419,7 +419,7 @@ class TestCoreModels:
             contact_name="Jane Smith",
             delivery_type="School",
             address="123 Main St, City, State 12345",
-            phone_primary="(555) 123-4567",
+            phone_primary="tel:+1-519-576-1102",
             longitude=-122.4194,
             latitude=37.7749,
             halal=False,
@@ -457,22 +457,20 @@ class TestCoreModels:
 
     def test_route_group_core_operations(self) -> None:
         """Test RouteGroup model core operations."""
-        from datetime import datetime
-
         # Create
         route_group = RouteGroup(
             name="Morning Routes",
             notes="Routes for morning delivery",
-            drive_date=datetime(2024, 1, 15, 8, 0),
+            drive_date=date(2024, 1, 15),
         )
         assert route_group.name == "Morning Routes"
-        assert route_group.drive_date == datetime(2024, 1, 15, 8, 0)
+        assert route_group.drive_date == date(2024, 1, 15)
         assert route_group.created_at is not None
 
         # Create with defaults
         route_group_minimal = RouteGroup(
             name="Evening Routes",
-            drive_date=datetime(2024, 1, 15, 18, 0),
+            drive_date=date(2024, 1, 15),
         )
         assert route_group_minimal.notes == ""  # Default value
 
@@ -483,7 +481,7 @@ class TestCoreModels:
             route_group_id=uuid4(),
             name="Test Group",
             notes="Test notes",
-            drive_date=datetime(2024, 1, 15, 8, 0),
+            drive_date=date(2024, 1, 15),
             num_routes=3,
             status="Completed",
         )
@@ -522,12 +520,11 @@ class TestCoreModels:
         assert job_no_group.progress == ProgressEnum.RUNNING
 
         # Update
-        from datetime import datetime
 
         job_update = JobUpdate(
             progress=ProgressEnum.COMPLETED,
-            started_at=datetime(2024, 1, 15, 8, 0),
-            finished_at=datetime(2024, 1, 15, 10, 0),
+            started_at=datetime(2024, 1, 15, 8, 0, tzinfo=timezone.utc),
+            finished_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
         )
         assert job_update.progress == ProgressEnum.COMPLETED
         assert ProgressEnum.CANCELLED.value == "Cancelled"
@@ -686,7 +683,7 @@ class TestEnumsAndSerialization:
         assert user_dict["last_name"] == "Driver"
         assert user_dict["full_name"] == "Test Driver"
         assert user_dict["email"] == "test@example.com"
-        assert driver_dict["phone"] == "+12125551234"
+        assert driver_dict["phone"] == "tel:+1-212-555-1234"
         assert driver_dict["license_plate"] == "ABC123"
 
     def test_model_serialization_and_defaults(self) -> None:
@@ -724,7 +721,7 @@ class TestEnumsAndSerialization:
             contact_name="John Doe",
             delivery_type="Family",
             address="456 Oak Ave",
-            phone_primary="(555) 987-6543",
+            phone_primary="tel:+1-519-576-1111",
             longitude=-122.5000,
             latitude=37.8000,
             halal=True,
@@ -798,6 +795,21 @@ class TestModelValidation:
         valid = NoteCreate(message="x" * 2000)
         assert len(valid.message) == 2000
 
+        three = [
+            Attachment(filename=f"{i}.png", url=f"https://example.com/{i}.png")
+            for i in range(3)
+        ]
+        assert len(NoteCreate(message="ok", attachments=three).attachments) == 3
+        with pytest.raises(ValidationError) as exc_info:
+            NoteCreate(
+                message="too many",
+                attachments=[
+                    *three,
+                    Attachment(filename="4.png", url="https://example.com/4.png"),
+                ],
+            )
+        assert "attachments" in str(exc_info.value)
+
     def test_numeric_field_validation(self) -> None:
         """Test numeric field validation."""
         # Test negative int validation (if any models have this)
@@ -828,7 +840,6 @@ class TestModelValidation:
         )
         system_settings = SystemSettings()
         assert admin.receive_email_notifications is True
-        assert system_settings.default_cap is None
         assert system_settings.route_start_time is None
         assert system_settings.warehouse_location is None
         assert system_settings.boxes_per_car == 10
