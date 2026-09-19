@@ -93,6 +93,7 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/auth/logout"): Policy.PUBLIC,
     ("POST", "/auth/forgot-password"): Policy.PUBLIC,
     ("POST", "/auth/update-password"): Policy.PUBLIC,
+    ("POST", "/auth/update-password-authed"): Policy.DRIVER_OR_ADMIN,
     # --- drivers ---
     # The full list carries every volunteer's phone, home address, licence plate
     # and car; no driver-facing screen consumes it. Drivers read themselves via

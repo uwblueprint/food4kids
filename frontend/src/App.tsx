@@ -29,7 +29,12 @@ import {
   LoginPage,
   ResetPassword,
 } from './pages/auth';
-import { DriverHomePage, IndividualRoutePage } from './pages/driver';
+import {
+  DriverHomePage,
+  DriverProfile,
+  IndividualRoutePage,
+  UpdatePasswordPage,
+} from './pages/driver';
 import { StyleGuidePage } from './pages/StyleGuide';
 
 function RootRedirect() {
@@ -77,6 +82,11 @@ function App() {
         <Route path="/driver" element={<DriverLayout />}>
           <Route index element={<Navigate to="/driver/home" replace />} />
           <Route path="home" element={<DriverHomePage />} />
+          <Route path="profile" element={<DriverProfile />} />
+          <Route
+            path="profile/update-password"
+            element={<UpdatePasswordPage />}
+          />
           <Route path="route" element={<IndividualRoutePage />} />
           <Route path="route/:routeId" element={<IndividualRoutePage />} />
         </Route>

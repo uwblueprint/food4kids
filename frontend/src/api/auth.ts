@@ -13,6 +13,8 @@ import {
   resendOnboardingEmail,
   type ResendOnboardingEmailRequest,
   updatePassword,
+  updatePasswordAuthed,
+  type UpdatePasswordAuthedRequest,
   type UpdatePasswordRequest,
   type UserFinalize,
   validateResetToken,
@@ -123,6 +125,23 @@ export function useUpdatePassword() {
         throwOnError: true,
       });
       return data;
+    },
+  });
+}
+
+export function useUpdatePasswordAuthed() {
+  const setAuth = useAuthStore((state) => state.setAuth);
+
+  return useMutation({
+    mutationFn: async (payload: UpdatePasswordAuthedRequest) => {
+      const { data } = await updatePasswordAuthed({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      setAuth(data);
     },
   });
 }
