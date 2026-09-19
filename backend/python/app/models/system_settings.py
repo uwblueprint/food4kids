@@ -3,13 +3,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
-from sqlalchemy import JSON
+from sqlalchemy import JSON, String
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Column, Field, SQLModel
 
 from app.utilities.utils import validate_phone
 
 from .base import BaseModel
+from .enum import RouteGenerationMethod
 
 
 def _validate_delivery_types(v: list[str]) -> list[str]:
@@ -98,6 +99,14 @@ class SystemSettingsBase(SQLModel):
         default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
     )
+    # Default Auto spends each routing API's free monthly allowance in quality
+    # order before falling back. The explicit values pin generation to one
+    # engine and ignore quota entirely, so forcing a paid engine past its free
+    # room is a deliberate choice to start paying.
+    route_generation_method: RouteGenerationMethod = Field(
+        default=RouteGenerationMethod.AUTO,
+        sa_column=Column(String(32), nullable=False, server_default="auto"),
+    )
 
     @field_validator("contact_phone")
     @classmethod
@@ -176,6 +185,10 @@ class SystemSettingsUpdate(SQLModel):
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
     email_reminders: list[EmailReminder] | None = Field(default=None)
     delivery_types: list[str] | None = Field(default=None)
+    # Patchable so an admin can pin generation to one engine (or hand it back
+    # to Auto) without a DB edit. The worker reads this per job, so a change
+    # takes effect on the next job rather than needing a restart.
+    route_generation_method: RouteGenerationMethod | None = Field(default=None)
 
     @field_validator("contact_phone")
     @classmethod

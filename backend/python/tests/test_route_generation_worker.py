@@ -323,6 +323,19 @@ class TestEnqueueDoorbell:
             await service.enqueue(job.job_id)
 
 
+def _fixed_algorithm(algorithm: Any) -> Any:
+    """Stand in for the worker's per-job algorithm builder.
+
+    The worker picks its engine from system settings on every job; these tests
+    care about the loop, not the choice, so they pin it to one fake.
+    """
+
+    async def _build(_session: Any, _session_maker: Any) -> Any:
+        return algorithm
+
+    return _build
+
+
 class TestWorkerLoop:
     @pytest.mark.asyncio
     async def test_worker_claims_and_completes_a_pending_job(
@@ -335,7 +348,11 @@ class TestWorkerLoop:
         job = await _queue_pending_job(maker, group)
 
         algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
-        monkeypatch.setattr(worker, "get_routing_algorithm", lambda: algorithm)
+        monkeypatch.setattr(
+            worker,
+            "_build_algorithm_for_job",
+            _fixed_algorithm(algorithm),
+        )
 
         start_route_generation_worker()
         wake_route_generation_worker()
@@ -381,7 +398,11 @@ class TestWorkerLoop:
         second = await _queue_pending_job(maker, group)
 
         algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
-        monkeypatch.setattr(worker, "get_routing_algorithm", lambda: algorithm)
+        monkeypatch.setattr(
+            worker,
+            "_build_algorithm_for_job",
+            _fixed_algorithm(algorithm),
+        )
 
         start_route_generation_worker()
         wake_route_generation_worker()
@@ -407,6 +428,98 @@ class TestWorkerLoop:
                 pytest.fail("worker did not drain both jobs in time")
 
             assert algorithm.calls == 2
+
+        await stop_route_generation_worker()
+
+    @pytest.mark.asyncio
+    async def test_engine_build_failure_fails_only_that_job(
+        self, test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A job is already Running when its engine is built.
+
+        An exception there used to escape the worker task and kill it, leaving
+        the claimed job Running forever and every job behind it unprocessed.
+        """
+        maker = _maker(test_db_engine)
+        monkeypatch.setattr("app.models.async_session_maker_instance", maker)
+
+        group, _location = await _seed_routable_group(maker)
+        doomed = await _queue_pending_job(maker, group)
+        following = await _queue_pending_job(maker, group)
+
+        algorithm = FakeRoutingAlgorithm(lambda locations: [locations])
+        builds = 0
+
+        async def _build(_session: Any, _session_maker: Any) -> Any:
+            nonlocal builds
+            builds += 1
+            if builds == 1:
+                raise RuntimeError("settings row is missing")
+            return algorithm
+
+        monkeypatch.setattr(worker, "_build_algorithm_for_job", _build)
+
+        task = start_route_generation_worker()
+        wake_route_generation_worker()
+
+        async with maker() as session:
+            for _ in range(80):
+                session.expire_all()
+                jobs = {
+                    job.job_id: job
+                    for job in (
+                        await session.execute(
+                            select(Job).where(
+                                col(Job.job_id).in_([doomed.job_id, following.job_id])
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                }
+                if all(
+                    job.progress in {ProgressEnum.COMPLETED, ProgressEnum.FAILED}
+                    for job in jobs.values()
+                ):
+                    break
+                await asyncio.sleep(0.05)
+            else:
+                pytest.fail("worker did not finish both jobs in time")
+
+            failed = jobs[doomed.job_id]
+            assert failed.progress == ProgressEnum.FAILED
+            assert failed.error_message is not None
+            assert "settings row is missing" in failed.error_message
+            assert failed.finished_at is not None
+
+            # The queue kept moving, and the worker is still alive to serve it.
+            assert jobs[following.job_id].progress == ProgressEnum.COMPLETED
+            assert not task.done()
+
+        await stop_route_generation_worker()
+
+    @pytest.mark.asyncio
+    async def test_a_broken_claim_does_not_kill_the_worker(
+        self, test_db_engine: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Failures in the queue machinery itself end the drain, not the task."""
+        maker = _maker(test_db_engine)
+        monkeypatch.setattr("app.models.async_session_maker_instance", maker)
+
+        async def boom(*_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError("db unavailable")
+
+        monkeypatch.setattr(worker, "claim_next_pending_job", boom)
+
+        task = start_route_generation_worker()
+        wake_route_generation_worker()
+
+        for _ in range(40):
+            await asyncio.sleep(0.05)
+            if not worker._wake_event.is_set():
+                break
+
+        assert not task.done()
 
         await stop_route_generation_worker()
 

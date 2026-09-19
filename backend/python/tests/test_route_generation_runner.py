@@ -459,6 +459,100 @@ class TestFailedGeneration:
         assert await _route_groups(test_session) == []
 
     @pytest.mark.asyncio
+    async def test_a_failed_polyline_still_counts_the_calls_google_answered(
+        self, test_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """One failure in the batch must not leave the calls Google already
+        answered, and billed, off the Routes API counter."""
+        group = await _add_group(test_session)
+        a = await _add_location(test_session, group, "Family A")
+        b = await _add_location(test_session, group, "Family B")
+        c = await _add_location(test_session, group, "Family C")
+        await _add_warehouse(test_session)
+        job = await _queue_running_job(test_session, group, num_routes=3)
+
+        async def _one_fails(**kwargs: Any) -> tuple[str, float]:
+            if kwargs["locations"][0].name == "Family C":
+                raise HTTPException(status_code=503, detail="Google Maps API error")
+            return "fake-polyline", POLYLINE_KM
+
+        recorded: list[int] = []
+
+        async def _record(_sku: Any, units: int) -> None:
+            recorded.append(units)
+
+        monkeypatch.setattr(runner, "fetch_route_polyline", _one_fails)
+        monkeypatch.setattr(runner, "record_usage_out_of_band", _record)
+
+        algorithm = FakeRoutingAlgorithm(lambda _locations: [[a], [b], [c]])
+        await run_generation_job(job.job_id, test_session, algorithm)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.FAILED
+        assert recorded == [3]
+
+    @pytest.mark.asyncio
+    async def test_a_polyline_call_that_was_never_sent_is_not_counted(
+        self, test_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """fetch_route_polyline raises ValueError only before sending."""
+        group = await _add_group(test_session)
+        a = await _add_location(test_session, group, "Family A")
+        b = await _add_location(test_session, group, "Family B")
+        await _add_warehouse(test_session)
+        job = await _queue_running_job(test_session, group, num_routes=2)
+
+        async def _one_unsent(**kwargs: Any) -> tuple[str, float]:
+            if kwargs["locations"][0].name == "Family B":
+                raise ValueError("Google Maps API key is not configured")
+            return "fake-polyline", POLYLINE_KM
+
+        recorded: list[int] = []
+
+        async def _record(_sku: Any, units: int) -> None:
+            recorded.append(units)
+
+        monkeypatch.setattr(runner, "fetch_route_polyline", _one_unsent)
+        monkeypatch.setattr(runner, "record_usage_out_of_band", _record)
+
+        algorithm = FakeRoutingAlgorithm(lambda _locations: [[a], [b]])
+        await run_generation_job(job.job_id, test_session, algorithm)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.FAILED
+        assert recorded == [1]
+
+    @pytest.mark.asyncio
+    async def test_polylines_cut_off_by_the_budget_are_still_counted(
+        self, test_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A call in flight when the budget runs out may still be billed."""
+        group = await _add_group(test_session)
+        location = await _add_location(test_session, group, "Family A")
+        await _add_warehouse(test_session)
+        job = await _queue_running_job(test_session, group, num_routes=1)
+
+        async def _slow_polyline(**_kwargs: Any) -> tuple[str, float]:
+            await asyncio.sleep(5)
+            return "never-gets-here", 1.0
+
+        recorded: list[int] = []
+
+        async def _record(_sku: Any, units: int) -> None:
+            recorded.append(units)
+
+        monkeypatch.setattr(runner, "fetch_route_polyline", _slow_polyline)
+        monkeypatch.setattr(runner, "record_usage_out_of_band", _record)
+        monkeypatch.setattr(runner, "GENERATION_TIMEOUT_SECONDS", 0.05)
+
+        algorithm = FakeRoutingAlgorithm(lambda _locations: [[location]])
+        await run_generation_job(job.job_id, test_session, algorithm)
+
+        await test_session.refresh(job)
+        assert job.progress == ProgressEnum.FAILED
+        assert recorded == [1]
+
+    @pytest.mark.asyncio
     async def test_unset_warehouse_fails_before_calling_the_engine(
         self, test_session: AsyncSession
     ) -> None:
