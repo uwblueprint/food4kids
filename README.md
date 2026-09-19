@@ -169,6 +169,10 @@ After changing a template, regenerate both copies with one command from the repo
 
 Commit both directories together; CI fails if they drift. To preview while editing, run `pnpm run email:dev` from `frontend/`.
 
+## Deployment
+
+See Deployment Runbook on Notion for more information on deploying the software.
+
 ## Docker Commands
 
 ```bash

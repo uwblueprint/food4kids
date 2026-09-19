@@ -1,10 +1,20 @@
 import logging
-from datetime import timezone
+from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col, select
 
 from app.config import settings
+from app.dependencies.rate_limit import (
+    EMAIL_SEND_EMAIL_LIMIT,
+    EMAIL_SEND_IP_LIMIT,
+    LOGIN_EMAIL_LIMIT,
+    LOGIN_IP_LIMIT,
+    RESET_TOKEN_IP_LIMIT,
+    client_ip,
+)
 from app.dependencies.services import (
     get_auth_service,
     get_email_dispatcher_depends,
@@ -13,8 +23,11 @@ from app.dependencies.services import (
     get_user_service,
 )
 from app.models import get_session
-from app.models.password_reset_token import PASSWORD_RESET_TOKEN_EXPIRY_DAYS
-from app.models.user_invite import UserInviteCreate
+from app.models.password_reset_token import (
+    PASSWORD_RESET_TOKEN_EXPIRY_DAYS,
+    PasswordResetToken,
+)
+from app.models.user_invite import UserInvite, UserInviteCreate
 from app.schemas.auth import (
     AuthResponse,
     ForgotPasswordRequest,
@@ -42,6 +55,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 @router.post("/login", response_model=AuthResponse)
 async def login(
     login_request: LoginRequest,
+    request: Request,
     response: Response,
     session: AsyncSession = Depends(get_session),
     auth_service: AuthService = Depends(get_auth_service),
@@ -49,6 +63,9 @@ async def login(
     """
     Returns access token in response body and sets refreshToken as an httpOnly cookie
     """
+    LOGIN_IP_LIMIT.check(client_ip(request))
+    LOGIN_EMAIL_LIMIT.check(login_request.email.lower())
+
     # Never log login_request itself — its repr contains the plaintext password.
     logger.info(f"Login request for {login_request.email}")
     try:
@@ -126,9 +143,45 @@ async def logout(
         clear_auth_cookies(response)
 
 
+# Server-side twin of the countdown in RequestLinkForm.tsx; keep them in step.
+RESEND_EMAIL_COOLDOWN_SECONDS = 60
+
+
+async def _within_resend_cooldown(
+    session: AsyncSession,
+    row_model: type[PasswordResetToken] | type[UserInvite],
+    user_id: UUID,
+) -> bool:
+    """Whether this user was emailed a link less than the cooldown ago.
+
+    Both tables keep one row per user, so its `created_at` is the last send;
+    unlike the in-memory counters this holds across Cloud Run instances. Callers
+    must suppress silently and still return 204 -- the account is known to
+    exist here, so a different response would confirm it.
+    """
+    result = await session.execute(
+        select(row_model.created_at).where(col(row_model.user_id) == user_id)
+    )
+    created_at: datetime | None = result.scalar_one_or_none()
+    if created_at is None:
+        return False
+    elapsed = (now_utc() - created_at).total_seconds()
+    if elapsed < RESEND_EMAIL_COOLDOWN_SECONDS:
+        logger.info(
+            "%s email for user %s suppressed: last sent %.0fs ago (cooldown %ds)",
+            row_model.__name__,
+            user_id,
+            elapsed,
+            RESEND_EMAIL_COOLDOWN_SECONDS,
+        )
+        return True
+    return False
+
+
 @router.post("/resend-onboarding", status_code=status.HTTP_204_NO_CONTENT)
 async def resend_onboarding_email(
     request: ResendOnboardingEmailRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     user_service: UserService = Depends(get_user_service),
     user_invite_service: UserInviteService = Depends(get_user_invite_service),
@@ -139,6 +192,11 @@ async def resend_onboarding_email(
     Returns 204 regardless of input/status to prevent user enumeration attacks.
     """
     email = request.email
+
+    # Keyed on the submitted address, before the lookup and outside the try that
+    # swallows everything into a 204: a 429 is the same for fake and real addresses.
+    EMAIL_SEND_IP_LIMIT.check(client_ip(http_request))
+    EMAIL_SEND_EMAIL_LIMIT.check(email.lower())
 
     try:
         async with session.begin_nested():
@@ -154,6 +212,9 @@ async def resend_onboarding_email(
                 logger.info(
                     f"Onboarding email resend attempted for already registered email: {email}"
                 )
+                return
+
+            if await _within_resend_cooldown(session, UserInvite, user.user_id):
                 return
 
             await user_invite_service.delete_user_invite_by_user_id(
@@ -190,6 +251,7 @@ async def resend_onboarding_email(
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
 async def forgot_password(
     forgot_password_request: ForgotPasswordRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     token_service: PasswordResetTokenService = Depends(
         get_password_reset_token_service
@@ -203,12 +265,18 @@ async def forgot_password(
     """
     email = forgot_password_request.email
 
+    EMAIL_SEND_IP_LIMIT.check(client_ip(request))
+    EMAIL_SEND_EMAIL_LIMIT.check(email.lower())
+
     try:
         user = await user_service.get_user_by_email(session, email)
 
         if not user or not getattr(user, "auth_id", None):
             # Masking attack: Log it internally, but return a success status to the client
             logger.info(f"Password reset attempted for non-existent email: {email}")
+            return
+
+        if await _within_resend_cooldown(session, PasswordResetToken, user.user_id):
             return
 
         raw_token = await token_service.create(session, user.user_id)
@@ -239,6 +307,7 @@ async def forgot_password(
 @router.post("/validate-reset-token", status_code=status.HTTP_204_NO_CONTENT)
 async def validate_reset_token(
     request: ValidateResetTokenRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     token_service: PasswordResetTokenService = Depends(
         get_password_reset_token_service
@@ -247,6 +316,8 @@ async def validate_reset_token(
     """
     Validate that a password reset token exists, isn't used, and hasn't expired.
     """
+    RESET_TOKEN_IP_LIMIT.check(client_ip(http_request))
+
     token_obj = await token_service.read(session, request.password_reset_token)
     current_time = now_utc()
 
@@ -264,6 +335,7 @@ async def validate_reset_token(
 @router.post("/update-password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_password(
     update_password_request: UpdatePasswordRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     token_service: PasswordResetTokenService = Depends(
         get_password_reset_token_service
@@ -273,6 +345,8 @@ async def update_password(
     """
     Update an existing user's password if provided a valid password reset token
     """
+    RESET_TOKEN_IP_LIMIT.check(client_ip(request))
+
     token_obj = await token_service.read(
         session, update_password_request.password_reset_token
     )

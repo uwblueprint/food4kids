@@ -94,7 +94,10 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/auth/forgot-password"): Policy.PUBLIC,
     ("POST", "/auth/update-password"): Policy.PUBLIC,
     # --- drivers ---
-    ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
+    # The full list carries every volunteer's phone, home address, licence plate
+    # and car; no driver-facing screen consumes it. Drivers read themselves via
+    # GET /drivers/{driver_id}.
+    ("GET", "/drivers/"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
@@ -106,16 +109,16 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
     ("POST", "/drivers/register"): Policy.PUBLIC,
     # --- jobs ---
-    ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
-    ("GET", "/jobs/{job_id}"): Policy.DRIVER_OR_ADMIN,
+    ("GET", "/jobs/"): Policy.ADMIN_ONLY,
+    ("POST", "/jobs/generate"): Policy.ADMIN_ONLY,
+    ("GET", "/jobs/{job_id}"): Policy.ADMIN_ONLY,
     ("POST", "/jobs/{job_id}/cancel"): Policy.ADMIN_ONLY,
     # --- location groups ---
-    ("GET", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
-    ("GET", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
-    ("PATCH", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
-    ("DELETE", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
+    ("GET", "/location-groups/"): Policy.ADMIN_ONLY,
+    ("POST", "/location-groups/"): Policy.ADMIN_ONLY,
+    ("GET", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
+    ("PATCH", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
+    ("DELETE", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
     # --- locations ---
     ("GET", "/locations/"): Policy.ADMIN_ONLY,
     ("DELETE", "/locations/"): Policy.ADMIN_ONLY,

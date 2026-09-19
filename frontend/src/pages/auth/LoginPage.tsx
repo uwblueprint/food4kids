@@ -6,6 +6,7 @@ import { useAuthStore } from '@/api/authStore';
 import EyeIcon from '@/assets/icons/eye.svg?react';
 import EyeOffIcon from '@/assets/icons/eye-off.svg?react';
 import { Button, Field, FieldLabel, Input } from '@/common/components';
+import { homePathForRole } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { ErrorNote } from './ErrorNote';
@@ -56,11 +57,7 @@ const LoginForm = () => {
       {
         onSuccess: (data) => {
           // Redirect based on user role
-          if (data.role === 'driver') {
-            navigate('/driver/home');
-          } else {
-            navigate('/admin/home');
-          }
+          navigate(homePathForRole(data.role));
         },
         onError: (failure) => {
           const connectionMessage = describeApiFailure(failure);
