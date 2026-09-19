@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from sqlalchemy import update
 from sqlmodel import col, select
 
+from app.models.api_usage import ApiSku
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
@@ -30,6 +31,9 @@ from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
 from app.schemas.route_generation import RouteGenerationGroupInput
+from app.services.implementations.quota_service import (
+    record_usage_out_of_band,
+)
 from app.services.implementations.route_group_service import (
     ROUTE_GROUP_NAME_MAX_LENGTH,
 )
@@ -121,7 +125,7 @@ async def run_generation_job(
         await _save_or_discard(session, job_id, route_group)
 
     except GenerationFailed as error:
-        await _fail(session, job_id, str(error))
+        await fail_job(session, job_id, str(error))
     except TimeoutError:
         logger.warning(
             "Job %s hit the %.0fs generation budget after %.1fs.",
@@ -129,7 +133,7 @@ async def run_generation_job(
             GENERATION_TIMEOUT_SECONDS,
             time.perf_counter() - started,
         )
-        await _fail(
+        await fail_job(
             session,
             job_id,
             "Route generation took too long and was stopped. Try again with "
@@ -142,14 +146,14 @@ async def run_generation_job(
             time.perf_counter() - started,
             error.detail,
         )
-        await _fail(session, job_id, f"Routing API error: {error.detail}")
+        await fail_job(session, job_id, f"Routing API error: {error.detail}")
     except Exception as error:
         logger.exception(
             "Route generation job %s hit an unexpected error after %.1fs",
             job_id,
             time.perf_counter() - started,
         )
-        await _fail(session, job_id, f"Unexpected error: {error}")
+        await fail_job(session, job_id, f"Unexpected error: {error}")
 
 
 async def _load_running_job(session: AsyncSession, job_id: UUID) -> Job | None:
@@ -338,17 +342,38 @@ async def _build_route_group(
         drive_date=settings.route_start_time.date(),
     )
 
-    polyline_results = await asyncio.gather(
-        *(
-            fetch_route_polyline(
-                locations=cluster,
-                warehouse_lat=warehouse_lat,
-                warehouse_lon=warehouse_lon,
-                ends_at_warehouse=settings.return_to_warehouse,
-            )
-            for cluster in filled
+    # Polylines draw on the same Routes API allowance the single-vehicle tier
+    # gates on, so they have to show up in the counter or that tier will be
+    # offered room it no longer has. Recorded whether or not the batch
+    # succeeds: one failed call does not un-bill the ones Google answered.
+    #
+    # Assumes every call was sent until the results say otherwise, so a batch
+    # cut off by the generation timeout still counts what it spent.
+    # fetch_route_polyline raises ValueError only before sending, so those
+    # are the calls that cost nothing.
+    sent = len(filled)
+    try:
+        results = await asyncio.gather(
+            *(
+                fetch_route_polyline(
+                    locations=cluster,
+                    warehouse_lat=warehouse_lat,
+                    warehouse_lon=warehouse_lon,
+                    ends_at_warehouse=settings.return_to_warehouse,
+                )
+                for cluster in filled
+            ),
+            return_exceptions=True,
         )
-    )
+        sent = sum(1 for result in results if not isinstance(result, ValueError))
+    finally:
+        await record_usage_out_of_band(ApiSku.ROUTES_COMPUTE, sent)
+
+    polyline_results: list[tuple[str, float]] = []
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+        polyline_results.append(result)
 
     for number, (cluster, (encoded_polyline, distance_km)) in enumerate(
         zip(filled, polyline_results, strict=True),
@@ -434,11 +459,15 @@ async def _save_or_discard(
     )
 
 
-async def _fail(session: AsyncSession, job_id: UUID, message: str) -> None:
+async def fail_job(session: AsyncSession, job_id: UUID, message: str) -> None:
     """Undo anything half-written, then record why the job failed.
 
     Guarded the same way `JobService.update_progress` is, so a job an admin
     already cancelled stays cancelled instead of resurfacing as a failure.
+
+    Public because the worker needs it too: a job can fail before this module
+    ever sees it — while its engine is being built — and it still has to reach
+    a terminal state rather than sit in Running forever.
     """
     logger.warning("Route generation job %s failed: %s", job_id, message)
 
