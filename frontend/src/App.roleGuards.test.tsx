@@ -43,7 +43,9 @@ vi.mock('./pages/admin', () => ({
 
 vi.mock('./pages/driver', () => ({
   DriverHomePage: stub('driver-home'),
+  DriverProfile: stub('driver-profile'),
   IndividualRoutePage: stub('driver-route'),
+  UpdatePasswordPage: stub('update-password'),
 }));
 
 vi.mock('./pages/auth', () => ({
@@ -113,6 +115,8 @@ const ADMIN_PATHS = [
 const DRIVER_PATHS = [
   '/driver',
   '/driver/home',
+  '/driver/profile',
+  '/driver/profile/update-password',
   '/driver/route',
   '/driver/route/abc-123',
 ];
