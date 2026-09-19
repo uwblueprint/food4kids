@@ -99,7 +99,7 @@ export const CreatePasswordForm = ({
             {passwordError && (
               <ErrorNote>
                 {password
-                  ? 'Please make sure all criteria is met'
+                  ? 'Please make sure all password criteria is met'
                   : 'Please enter a password'}
               </ErrorNote>
             )}
