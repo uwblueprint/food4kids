@@ -34,7 +34,7 @@ from app.models.driver import Driver
 from app.models.user import User
 from app.models.user_invite import UserInvite
 from app.routers.auth_routes import RESEND_EMAIL_COOLDOWN_SECONDS
-from app.schemas.auth import TokenResponse
+from app.schemas.auth import AuthResponse, TokenResponse
 from app.services.implementations.auth_service import (
     REAUTH_REQUIRED_FIREBASE_CODES,
     AuthService,
@@ -590,3 +590,54 @@ class TestUpdatePasswordAuthed:
         )
 
         assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_update_password_authed_success(
+        self, client_with_overrides: Any
+    ) -> None:
+        service = MagicMock()
+        service.revoke_tokens = AsyncMock()
+        auth_response = AuthResponse(
+            access_token="new-access-token",
+            id=USER_ID,
+            first_name="Jane",
+            last_name="Doe",
+            email=EMAIL,
+            role="driver",
+            remember_me=False,
+            driver_id=uuid4(),
+        )
+        service.generate_token = AsyncMock(
+            return_value=(auth_response, "new-refresh-token")
+        )
+
+        user_service = MagicMock()
+        user_service.update_password = AsyncMock()
+
+        client = await client_with_overrides(
+            {
+                get_auth_service: lambda: service,
+                get_user_service: lambda: user_service,
+                get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
+            }
+        )
+
+        response = await client.post(
+            "/auth/update-password-authed",
+            json={"current_password": "correct", "new_password": "Newpassword123!"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["access_token"] == "new-access-token"
+        assert data["email"] == EMAIL
+        service.firebase_rest_client.sign_in_with_password.assert_called_once_with(
+            EMAIL, "correct"
+        )
+        user_service.update_password.assert_awaited_once_with(
+            "firebase-uid", "Newpassword123!"
+        )
+        service.revoke_tokens.assert_awaited_once_with("firebase-uid")
+        service.generate_token.assert_awaited_once()
+        assert "refreshToken" in response.cookies

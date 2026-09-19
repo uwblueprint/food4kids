@@ -298,13 +298,13 @@ class TestDriverRoutes:
         assert data["partner_driver_name"] is None
 
     @pytest.mark.asyncio
-    async def test_self_driver_updates_own_name_and_phone(
+    async def test_self_driver_updates_own_name_phone_and_address(
         self,
         client_with_overrides: Any,
         test_driver: Any,
         test_session: AsyncSession,
     ) -> None:
-        """Self-driver update can edit only User name fields and Driver phone."""
+        """Self-driver update can edit User name fields, phone, and address."""
         from app.models.user import User
 
         self_client = await client_with_overrides(
@@ -320,6 +320,7 @@ class TestDriverRoutes:
                     "first_name": "Updated",
                     "last_name": "Driver",
                     "phone": "+14165550123",
+                    "address": "456 New Address St",
                 },
             )
 
@@ -328,6 +329,7 @@ class TestDriverRoutes:
         assert data["first_name"] == "Updated"
         assert data["last_name"] == "Driver"
         assert data["phone"] == "tel:+1-416-555-0123"
+        assert data["address"] == "456 New Address St"
 
         await test_session.refresh(test_driver)
         user = await test_session.get(User, test_driver.user_id)
@@ -335,6 +337,7 @@ class TestDriverRoutes:
         assert user.first_name == "Updated"
         assert user.last_name == "Driver"
         assert test_driver.phone == "tel:+1-416-555-0123"
+        assert test_driver.address == "456 New Address St"
         mock_update_user.assert_called_once_with(
             user.auth_id,
             display_name="Updated Driver",
@@ -356,9 +359,10 @@ class TestDriverRoutes:
         test_session: AsyncSession,
     ) -> None:
         """Self-driver update rejects admin-only fields and does not persist them."""
-        original_phone = test_driver.phone
-        original_address = test_driver.address
         original_active = test_driver.active
+        original_license_plate = test_driver.license_plate
+        original_car_make_model = test_driver.car_make_model
+        original_partner_driver_name = test_driver.partner_driver_name
         self_client = await client_with_overrides(
             {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
@@ -366,17 +370,19 @@ class TestDriverRoutes:
         response = await self_client.put(
             f"/drivers/{test_driver.driver_id}",
             json={
-                "phone": "+14165550123",
-                "address": "123 Admin Only St",
                 "active": False,
+                "license_plate": "NEW-PLATE",
+                "car_make_model": "New Car",
+                "partner_driver_name": "New Partner",
             },
         )
 
         assert response.status_code == 403
         await test_session.refresh(test_driver)
-        assert test_driver.phone == original_phone
-        assert test_driver.address == original_address
         assert test_driver.active is original_active
+        assert test_driver.license_plate == original_license_plate
+        assert test_driver.car_make_model == original_car_make_model
+        assert test_driver.partner_driver_name == original_partner_driver_name
 
     @pytest.mark.asyncio
     async def test_update_driver_rejects_explicit_null(
