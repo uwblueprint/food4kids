@@ -68,6 +68,7 @@ import {
   previewLocationImport,
   refresh,
   renameDeliveryType,
+  resendOnboardingEmail,
   sendAnnouncementEmail,
   test,
   updateAnnouncement,
@@ -240,6 +241,9 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
+  ResendOnboardingEmailData,
+  ResendOnboardingEmailError,
+  ResendOnboardingEmailResponse,
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
@@ -665,6 +669,36 @@ export const refreshMutation = (
 };
 
 /**
+ * Resend Onboarding Email
+ *
+ * Resends the onboarding/invite email to a pending user.
+ * Returns 204 regardless of input/status to prevent user enumeration attacks.
+ */
+export const resendOnboardingEmailMutation = (
+  options?: Partial<Options<ResendOnboardingEmailData>>
+): UseMutationOptions<
+  ResendOnboardingEmailResponse,
+  AxiosError<ResendOnboardingEmailError>,
+  Options<ResendOnboardingEmailData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ResendOnboardingEmailResponse,
+    AxiosError<ResendOnboardingEmailError>,
+    Options<ResendOnboardingEmailData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await resendOnboardingEmail({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Update Password
  *
  * Update an existing user's password if provided a valid password reset token
@@ -793,6 +827,10 @@ export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
+ *
+ * Admin-only: the full list exposes every volunteer's phone, home address,
+ * licence plate and car, which no driver-facing screen needs. A driver reads
+ * their own record through GET /drivers/{driver_id}.
  */
 export const getDriversOptions = (options?: Options<GetDriversData>) =>
   queryOptions<
@@ -1094,6 +1132,8 @@ export const getJobsOptions = (options?: Options<GetJobsData>) =>
  * Generate Job
  *
  * Accept a generation request: persist it as PENDING and wake the worker.
+ *
+ * Admin-only — route generation is an admin workflow, and it burns Maps quota.
  */
 export const generateJobMutation = (
   options?: Partial<Options<GenerateJobData>>

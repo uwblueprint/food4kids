@@ -15,8 +15,15 @@ import type { AuthResponse } from '@/api/generated';
 // the instance default silently wins. Axios then sees FormData labelled as JSON
 // and re-serializes it (any File becomes `{}`), which the API rejects as a 422.
 // See src/lib/axiosClient.test.ts.
+// Production builds default to same-origin: Firebase Hosting rewrites /api/**
+// to the backend, and the generated client's paths already carry /api. Set
+// VITE_API_BASE_URL only to point a build somewhere else (dev, previews).
+export const API_BASE_URL: string =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? 'http://localhost:8080' : '');
+
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 

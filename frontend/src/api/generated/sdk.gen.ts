@@ -167,6 +167,9 @@ import type {
   RenameDeliveryTypeData,
   RenameDeliveryTypeErrors,
   RenameDeliveryTypeResponses,
+  ResendOnboardingEmailData,
+  ResendOnboardingEmailErrors,
+  ResendOnboardingEmailResponses,
   SendAnnouncementEmailData,
   SendAnnouncementEmailErrors,
   SendAnnouncementEmailResponses,
@@ -445,6 +448,28 @@ export const refresh = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Resend Onboarding Email
+ *
+ * Resends the onboarding/invite email to a pending user.
+ * Returns 204 regardless of input/status to prevent user enumeration attacks.
+ */
+export const resendOnboardingEmail = <ThrowOnError extends boolean = false>(
+  options: Options<ResendOnboardingEmailData, ThrowOnError>
+) =>
+  (options.client ?? client).post<
+    ResendOnboardingEmailResponses,
+    ResendOnboardingEmailErrors,
+    ThrowOnError
+  >({
+    url: '/api/auth/resend-onboarding',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Update Password
  *
  * Update an existing user's password if provided a valid password reset token
@@ -537,6 +562,10 @@ export const getBillingCosts = <ThrowOnError extends boolean = false>(
  * Get Drivers
  *
  * Get all drivers, optionally filter by driver_id or email
+ *
+ * Admin-only: the full list exposes every volunteer's phone, home address,
+ * licence plate and car, which no driver-facing screen needs. A driver reads
+ * their own record through GET /drivers/{driver_id}.
  */
 export const getDrivers = <ThrowOnError extends boolean = false>(
   options?: Options<GetDriversData, ThrowOnError>
@@ -755,6 +784,8 @@ export const getJobs = <ThrowOnError extends boolean = false>(
  * Generate Job
  *
  * Accept a generation request: persist it as PENDING and wake the worker.
+ *
+ * Admin-only — route generation is an admin workflow, and it burns Maps quota.
  */
 export const generateJob = <ThrowOnError extends boolean = false>(
   options: Options<GenerateJobData, ThrowOnError>

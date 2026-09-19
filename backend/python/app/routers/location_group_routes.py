@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_driver_or_admin
+from app.dependencies.auth import require_admin
 from app.dependencies.services import get_location_group_service
 from app.models import get_session
 from app.models.location_group import (
@@ -13,6 +13,8 @@ from app.models.location_group import (
 )
 from app.services.implementations.location_group_service import LocationGroupService
 
+# Admin-only end to end: location groups are configured in the admin generation
+# wizard and nothing driver-side reads them.
 router = APIRouter(prefix="/location-groups", tags=["location-groups"])
 
 
@@ -20,7 +22,7 @@ router = APIRouter(prefix="/location-groups", tags=["location-groups"])
 async def get_location_groups(
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> list[LocationGroupRead]:
     """
     Get all location groups
@@ -34,7 +36,7 @@ async def get_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> LocationGroupRead:
     """
     Get a single location group by ID
@@ -55,7 +57,7 @@ async def create_location_group(
     location_group: LocationGroupCreate,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> LocationGroupRead:
     """
     Create a new location group
@@ -72,7 +74,7 @@ async def update_location_group(
     location_group: LocationGroupUpdate,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> LocationGroupRead:
     """
     Update an existing location group
@@ -93,7 +95,7 @@ async def delete_location_group(
     location_group_id: UUID,
     session: AsyncSession = Depends(get_session),
     location_group_service: LocationGroupService = Depends(get_location_group_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> None:
     """
     Delete a location group by ID
