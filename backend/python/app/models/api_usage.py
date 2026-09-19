@@ -26,8 +26,6 @@ class ApiSku(str, Enum):
 
     # Route Optimization, two or more vehicles. Billed per *shipment*.
     FLEET_ROUTING = "fleet_routing"
-    # Route Optimization, single vehicle. Also billed per shipment.
-    SINGLE_VEHICLE_ROUTING = "single_vehicle_routing"
     # Routes API computeRoutes. Billed per *request* — a different unit, and a
     # far larger allowance. Also spent by route polyline lookups.
     ROUTES_COMPUTE = "routes_compute"

@@ -183,16 +183,6 @@ def get_quota_service() -> QuotaService:
     return QuotaService(logger, settings)
 
 
-@lru_cache
-def get_routing_algorithm() -> RoutingAlgorithmProtocol:
-    """The routing engine used when no system settings are available.
-
-    Prefer ``build_routing_algorithm``, which honours the configured method and
-    can cascade. This remains for callers with no session to read settings on.
-    """
-    return GoogleMapsFleetRoutingAlgorithm()
-
-
 def build_routing_algorithm(
     method: RouteGenerationMethod,
     session_maker: async_sessionmaker[AsyncSession],
@@ -207,8 +197,8 @@ def build_routing_algorithm(
     generation to a single engine and skip the quota check entirely — forcing a
     paid engine past its free room is a deliberate decision to start paying.
 
-    Built per job rather than cached: the cascade records which tier it used,
-    and a shared instance would race between concurrent jobs.
+    Built per job rather than cached: the engines are constructed around this
+    job's warehouse and box settings.
     """
     fleet_routing = GoogleMapsFleetRoutingAlgorithm()
     single_vehicle = RoutesApiSingleVehicleAlgorithm(

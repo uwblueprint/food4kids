@@ -27,6 +27,7 @@ from app.services.implementations.cascading_routing_algorithm import (
     routes_compute_units,
 )
 from app.services.implementations.quota_service import (
+    PartiallyBilledError,
     QuotaService,
     fleet_routing_units,
 )
@@ -143,7 +144,6 @@ class TestQualityOrder:
 
         assert paid.calls == 1
         assert free.calls == 0
-        assert cascade.last_tier_used == "fleet_routing"
 
     async def test_consumes_shipments_including_the_per_vehicle_pickups(
         self, maker: Any, locations: list[Any], gen_settings: Any
@@ -172,7 +172,6 @@ class TestFallback:
 
         assert paid.calls == 0
         assert free.calls == 1
-        assert cascade.last_tier_used == "cluster_sweep"
 
     async def test_the_free_floor_needs_no_quota(
         self, maker: Any, locations: list[Any], gen_settings: Any
@@ -247,17 +246,84 @@ class TestFailureHandling:
     async def test_generation_still_succeeds_when_the_paid_tier_breaks(
         self, maker: Any, locations: list[Any], gen_settings: Any
     ) -> None:
+        free = FakeAlgorithm()
         cascade = _cascade(
             _quota(fleet=1000),
             maker,
             FakeAlgorithm(error=RuntimeError("upstream 500")),
-            FakeAlgorithm(),
+            free,
         )
 
         routes = await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
 
         assert routes == [locations]
-        assert cascade.last_tier_used == "cluster_sweep"
+        assert free.calls == 1
+
+    async def test_a_partial_failure_keeps_the_units_already_billed(
+        self, maker: Any, locations: list[Any], gen_settings: Any
+    ) -> None:
+        """A tier that fans out calls can fail on one after Google answered,
+        and billed, the rest. Only the unspent units may go back."""
+        quota = _quota(fleet=12)  # no room up top, so the middle rung runs
+        middle = FakeAlgorithm(
+            error=PartiallyBilledError("1 of 4 clusters failed", units_billed=3)
+        )
+        free = FakeAlgorithm()
+        cascade = _cascade(quota, maker, FakeAlgorithm(), free, middle)
+
+        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
+
+        async with maker() as session:
+            assert await quota.units_used(session, ApiSku.ROUTES_COMPUTE) == 3
+        assert free.calls == 1
+
+    async def test_a_failed_quota_check_skips_the_tier_not_the_job(
+        self, maker: Any, locations: list[Any], gen_settings: Any
+    ) -> None:
+        """A database blip while reserving costs the paid tier, never the job:
+        the free floor needs no reservation."""
+
+        class _UnreachableQuota(QuotaService):
+            async def try_reserve(self, *_args: Any, **_kwargs: Any) -> bool:
+                raise ConnectionError("pool exhausted")
+
+        paid, free = FakeAlgorithm(), FakeAlgorithm()
+        cascade = _cascade(
+            _UnreachableQuota(logging.getLogger(__name__), Settings()),
+            maker,
+            paid,
+            free,
+        )
+
+        routes = await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
+
+        assert routes == [locations]
+        assert (paid.calls, free.calls) == (0, 1)
+
+    async def test_a_failed_release_does_not_fail_the_job(
+        self, maker: Any, locations: list[Any], gen_settings: Any
+    ) -> None:
+        """Losing a release leaves the reservation standing — an overcount,
+        the safe direction — and generation carries on down the ladder."""
+
+        class _NoRelease(QuotaService):
+            async def release(self, *_args: Any, **_kwargs: Any) -> None:
+                raise ConnectionError("connection reset")
+
+        quota = _NoRelease(
+            logging.getLogger(__name__), Settings(quota_fleet_routing_shipments=1000)
+        )
+        free = FakeAlgorithm()
+        cascade = _cascade(
+            quota, maker, FakeAlgorithm(error=ValueError("bad credentials")), free
+        )
+
+        routes = await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
+
+        assert routes == [locations]
+        assert free.calls == 1
+        async with maker() as session:
+            assert await quota.units_used(session, ApiSku.FLEET_ROUTING) == 13
 
 
 class TestUsageIsIndependentOfTheJob:
@@ -297,7 +363,6 @@ class TestThreeRungCascade:
         await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
 
         assert (paid.calls, middle.calls, free.calls) == (0, 1, 0)
-        assert cascade.last_tier_used == "single_vehicle"
 
     async def test_middle_rung_bills_per_driver_not_per_stop(
         self, maker: Any, locations: list[Any], gen_settings: Any
@@ -322,4 +387,3 @@ class TestThreeRungCascade:
         await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
 
         assert (paid.calls, middle.calls, free.calls) == (0, 0, 1)
-        assert cascade.last_tier_used == "cluster_sweep"

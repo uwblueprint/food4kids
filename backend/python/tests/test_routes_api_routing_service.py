@@ -18,8 +18,10 @@ import pytest
 
 from app.config import settings
 from app.schemas.route_generation import RouteGenerationSettings
+from app.services.implementations.quota_service import PartiallyBilledError
 from app.services.implementations.routes_api_routing_service import (
     MAX_INTERMEDIATES,
+    RoutesApiRequestNotSentError,
     RoutesApiRoutingError,
     RoutesApiSingleVehicleAlgorithm,
 )
@@ -314,6 +316,119 @@ class TestBillingShape:
         )
 
         assert requests == 12
+
+
+class TestPartialFailure:
+    """One failed cluster must not hide the siblings Google already billed."""
+
+    @staticmethod
+    def _three_clusters(
+        monkeypatch: pytest.MonkeyPatch,
+        algorithm: RoutesApiSingleVehicleAlgorithm,
+        sizes: tuple[int, int, int] = (3, 3, 3),
+    ) -> list[Any]:
+        locations = [FakeLocation(address=str(i)) for i in range(sum(sizes))]
+
+        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
+            locs = kwargs["locations"]
+            a, b, _ = sizes
+            return [locs[:a], locs[a : a + b], locs[a + b :]]
+
+        monkeypatch.setattr(
+            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
+        )
+        return locations
+
+    async def test_counts_every_request_google_answered(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Including the one it answered with an error: that request reached
+        Google, and overcounting is the safe direction."""
+        algorithm = _algorithm()
+        locations = self._three_clusters(monkeypatch, algorithm)
+
+        async def fake_order(cluster: list[Any], *_args: Any) -> list[int]:
+            if cluster[0].address == "6":
+                raise RoutesApiRoutingError("Routes API ordering failed: upstream.")
+            return list(range(len(cluster)))
+
+        monkeypatch.setattr(algorithm, "_request_order", fake_order)
+
+        with pytest.raises(PartiallyBilledError) as caught:
+            await algorithm.generate_routes(
+                locations,
+                43.4,
+                -80.5,
+                _settings(num_routes=3),
+            )
+
+        assert caught.value.units_billed == 3
+
+    async def test_a_request_that_was_never_sent_is_not_billed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        algorithm = _algorithm()
+        locations = self._three_clusters(monkeypatch, algorithm)
+
+        async def fake_order(cluster: list[Any], *_args: Any) -> list[int]:
+            if cluster[0].address == "6":
+                raise RoutesApiRequestNotSentError("rejected before sending")
+            return list(range(len(cluster)))
+
+        monkeypatch.setattr(algorithm, "_request_order", fake_order)
+
+        with pytest.raises(PartiallyBilledError) as caught:
+            await algorithm.generate_routes(
+                locations,
+                43.4,
+                -80.5,
+                _settings(num_routes=3),
+            )
+
+        assert caught.value.units_billed == 2
+
+    async def test_a_single_stop_cluster_is_never_billed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """It skips the call, so it must not be counted when a sibling fails."""
+        algorithm = _algorithm()
+        locations = self._three_clusters(monkeypatch, algorithm, sizes=(1, 3, 3))
+
+        async def fake_order(cluster: list[Any], *_args: Any) -> list[int]:
+            if cluster[0].address == "4":
+                raise RoutesApiRoutingError("Routes API ordering failed: upstream.")
+            return list(range(len(cluster)))
+
+        monkeypatch.setattr(algorithm, "_request_order", fake_order)
+
+        with pytest.raises(PartiallyBilledError) as caught:
+            await algorithm.generate_routes(
+                locations,
+                43.4,
+                -80.5,
+                _settings(num_routes=3),
+            )
+
+        assert caught.value.units_billed == 2
+
+    async def test_a_missing_api_key_bills_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A misconfigured tier must hand back its whole reservation, or it
+        burns the allowance failing on every run."""
+        monkeypatch.setattr(settings, "google_maps_api_key", "")
+        algorithm = _algorithm()
+        locations = self._three_clusters(monkeypatch, algorithm)
+
+        with pytest.raises(PartiallyBilledError) as caught:
+            await algorithm.generate_routes(
+                locations,
+                43.4,
+                -80.5,
+                _settings(num_routes=3),
+            )
+
+        assert caught.value.units_billed == 0
 
 
 class TestLogger:

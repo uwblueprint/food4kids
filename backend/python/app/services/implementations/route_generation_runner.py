@@ -342,21 +342,38 @@ async def _build_route_group(
         drive_date=settings.route_start_time.date(),
     )
 
-    polyline_results = await asyncio.gather(
-        *(
-            fetch_route_polyline(
-                locations=cluster,
-                warehouse_lat=warehouse_lat,
-                warehouse_lon=warehouse_lon,
-                ends_at_warehouse=settings.return_to_warehouse,
-            )
-            for cluster in filled
-        )
-    )
     # Polylines draw on the same Routes API allowance the single-vehicle tier
     # gates on, so they have to show up in the counter or that tier will be
-    # offered room it no longer has.
-    await record_usage_out_of_band(ApiSku.ROUTES_COMPUTE, len(filled))
+    # offered room it no longer has. Recorded whether or not the batch
+    # succeeds: one failed call does not un-bill the ones Google answered.
+    #
+    # Assumes every call was sent until the results say otherwise, so a batch
+    # cut off by the generation timeout still counts what it spent.
+    # fetch_route_polyline raises ValueError only before sending, so those
+    # are the calls that cost nothing.
+    sent = len(filled)
+    try:
+        results = await asyncio.gather(
+            *(
+                fetch_route_polyline(
+                    locations=cluster,
+                    warehouse_lat=warehouse_lat,
+                    warehouse_lon=warehouse_lon,
+                    ends_at_warehouse=settings.return_to_warehouse,
+                )
+                for cluster in filled
+            ),
+            return_exceptions=True,
+        )
+        sent = sum(1 for result in results if not isinstance(result, ValueError))
+    finally:
+        await record_usage_out_of_band(ApiSku.ROUTES_COMPUTE, sent)
+
+    polyline_results: list[tuple[str, float]] = []
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+        polyline_results.append(result)
 
     for number, (cluster, (encoded_polyline, distance_km)) in enumerate(
         zip(filled, polyline_results, strict=True),

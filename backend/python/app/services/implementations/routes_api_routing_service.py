@@ -24,6 +24,7 @@ from google.api_core.client_options import ClientOptions
 from google.maps import routing_v2
 
 from app.config import settings as app_settings
+from app.services.implementations.quota_service import PartiallyBilledError
 from app.services.implementations.sweep_clustering import (
     DEFAULT_MAX_BOXES_PER_CLUSTER,
     SweepClusteringAlgorithm,
@@ -50,6 +51,14 @@ MAX_INTERMEDIATES = 25
 
 class RoutesApiRoutingError(Exception):
     """Raised when the Routes API cannot order a cluster."""
+
+
+class RoutesApiRequestNotSentError(RoutesApiRoutingError):
+    """Raised when a cluster's request failed before it was sent.
+
+    Distinguished because nothing was billed: the cascade may hand those
+    units back, where a request Google answered with an error it may not.
+    """
 
 
 def _remaining(timeout_seconds: float | None, started: float) -> float | None:
@@ -107,7 +116,10 @@ class RoutesApiSingleVehicleAlgorithm:
         # Without it a hanging Google response would only stop at the job-level
         # timeout, which fails the whole job — the cascade needs a TimeoutError
         # from *this* tier to fall back to the free cluster+sweep instead.
-        ordered = await asyncio.wait_for(
+        #
+        # return_exceptions so one failed cluster does not hide how many of
+        # its siblings were already answered, and billed, by Google.
+        results = await asyncio.wait_for(
             asyncio.gather(
                 *(
                     self._order_cluster(
@@ -117,11 +129,38 @@ class RoutesApiSingleVehicleAlgorithm:
                         settings.return_to_warehouse,
                     )
                     for cluster in clusters
-                )
+                ),
+                return_exceptions=True,
             ),
             timeout=_remaining(timeout_seconds, started),
         )
-        return list(ordered)
+
+        ordered: list[list[Location]] = []
+        failures: list[Exception] = []
+        for result in results:
+            if isinstance(result, Exception):
+                failures.append(result)
+            elif isinstance(result, BaseException):
+                raise result
+            else:
+                ordered.append(result)
+
+        if failures:
+            # Every cluster that needed ordering issued a request, and only the
+            # ones that failed before sending went unbilled. A request Google
+            # answered with an error counts as billed: overcounting costs a
+            # worse route, undercounting costs money.
+            issued = sum(1 for cluster in clusters if len(cluster) >= 2)
+            unsent = sum(
+                1 for f in failures if isinstance(f, RoutesApiRequestNotSentError)
+            )
+            raise PartiallyBilledError(
+                f"{len(failures)} of {len(clusters)} cluster(s) could not be "
+                "ordered by the Routes API.",
+                units_billed=issued - unsent,
+            ) from failures[0]
+
+        return ordered
 
     async def _order_cluster(
         self,
@@ -139,7 +178,7 @@ class RoutesApiSingleVehicleAlgorithm:
             return list(cluster)
 
         if len(cluster) > MAX_INTERMEDIATES:
-            raise RoutesApiRoutingError(
+            raise RoutesApiRequestNotSentError(
                 f"Cluster of {len(cluster)} stops exceeds the Routes API's "
                 f"{MAX_INTERMEDIATES}-waypoint limit."
             )
@@ -158,7 +197,7 @@ class RoutesApiSingleVehicleAlgorithm:
     ) -> list[int]:
         """Ask the Routes API for the best visit order, as cluster indices."""
         if not app_settings.google_maps_api_key:
-            raise RoutesApiRoutingError(
+            raise RoutesApiRequestNotSentError(
                 "Routes API ordering is not configured. Set GOOGLE_MAPS_API_KEY."
             )
 

@@ -30,7 +30,6 @@ if TYPE_CHECKING:
 # Surfaced so a caller never has to guess what a bare count means.
 SKU_UNITS: dict[str, str] = {
     ApiSku.FLEET_ROUTING.value: "shipments",
-    ApiSku.SINGLE_VEHICLE_ROUTING.value: "shipments",
     ApiSku.ROUTES_COMPUTE.value: "requests",
 }
 
@@ -51,6 +50,19 @@ def fleet_routing_units(num_locations: int, num_vehicles: int) -> int:
 
 class QuotaExhaustedError(Exception):
     """Raised when a SKU has no free room left for the requested units."""
+
+
+class PartiallyBilledError(Exception):
+    """A tier failed after some of its calls had already reached Google.
+
+    A tier that fans out several requests can fail on one after the others were
+    answered — and billed. Carrying the billed count lets the cascade hand back
+    only the units that were never spent, rather than the whole reservation.
+    """
+
+    def __init__(self, message: str, units_billed: int) -> None:
+        super().__init__(message)
+        self.units_billed = units_billed
 
 
 async def record_usage_out_of_band(sku: ApiSku, units: int) -> None:
@@ -100,9 +112,6 @@ class QuotaService:
         """The configured free allowance for a SKU, in that SKU's own unit."""
         budgets = {
             ApiSku.FLEET_ROUTING: self.settings.quota_fleet_routing_shipments,
-            ApiSku.SINGLE_VEHICLE_ROUTING: (
-                self.settings.quota_single_vehicle_shipments
-            ),
             ApiSku.ROUTES_COMPUTE: self.settings.quota_routes_compute_requests,
         }
         return budgets[sku]

@@ -16,7 +16,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from app.models.api_usage import ApiSku
-from app.services.implementations.quota_service import fleet_routing_units
+from app.services.implementations.quota_service import (
+    PartiallyBilledError,
+    fleet_routing_units,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -67,10 +70,6 @@ class CascadingRoutingAlgorithm:
         self.quota_service = quota_service
         self.session_maker = session_maker
         self.tiers = tiers
-        # Which tier actually ran. Read by the runner to record on the job, so
-        # a silent drop to a lower-quality tier is visible rather than just
-        # producing quietly worse routes.
-        self.last_tier_used: str | None = None
 
     async def generate_routes(
         self,
@@ -81,13 +80,25 @@ class CascadingRoutingAlgorithm:
         timeout_seconds: float | None = None,
     ) -> list[list[Location]]:
         """Generate routes with the best tier that still has free quota."""
-        self.last_tier_used = None
         attempts: list[str] = []
 
         for tier in self.tiers:
             units = self._units_for(tier, len(locations), settings.num_routes)
 
-            if not await self._reserve(tier, units):
+            # Inside the fallback like the call itself: a database blip while
+            # reserving must cost this tier, not the job. Nothing has been sent
+            # to Google yet, so skipping is free — and the cluster+sweep floor
+            # needs no reservation, so it stays reachable.
+            try:
+                reserved = await self._reserve(tier, units)
+            except Exception:
+                attempts.append(f"{tier.name} (quota check failed)")
+                self.logger.exception(
+                    "Could not reserve quota for tier %s; skipping it", tier.name
+                )
+                continue
+
+            if not reserved:
                 attempts.append(f"{tier.name} (no free quota)")
                 continue
 
@@ -109,6 +120,18 @@ class CascadingRoutingAlgorithm:
                     tier.name,
                 )
                 continue
+            except PartiallyBilledError as error:
+                # Some of the tier's calls were answered before one failed.
+                # Those were billed and stay counted; only the rest go back.
+                await self._release(tier, max(units - error.units_billed, 0))
+                attempts.append(f"{tier.name} (failed)")
+                self.logger.exception(
+                    "Tier %s failed after %d billed unit(s); released the rest "
+                    "and falling back",
+                    tier.name,
+                    error.units_billed,
+                )
+                continue
             except Exception:
                 # Never reached the optimizer — a misconfiguration or a
                 # rejected payload. Hand the units back, or a persistently
@@ -121,7 +144,6 @@ class CascadingRoutingAlgorithm:
                 )
                 continue
 
-            self.last_tier_used = tier.name
             if attempts:
                 self.logger.info(
                     "Generated with %s after skipping: %s",
@@ -159,12 +181,26 @@ class CascadingRoutingAlgorithm:
             return granted
 
     async def _release(self, tier: Tier, units: int) -> None:
-        if tier.sku is None:
+        """Hand back a failed tier's unspent units, without ever raising.
+
+        Runs on the way to the next tier, so an error here would fail a job
+        the fallback could still save. Losing a release only overcounts, the
+        direction that costs a worse route rather than money.
+        """
+        if tier.sku is None or units <= 0:
             return
 
-        async with self.session_maker() as session:
-            await self.quota_service.release(session, tier.sku, units)
-            await session.commit()
+        try:
+            async with self.session_maker() as session:
+                await self.quota_service.release(session, tier.sku, units)
+                await session.commit()
+        except Exception:
+            self.logger.exception(
+                "Could not release %d unit(s) for tier %s; the counter will "
+                "over-report",
+                units,
+                tier.name,
+            )
 
 
 def build_default_cascade(

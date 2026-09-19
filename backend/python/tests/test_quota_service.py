@@ -49,7 +49,6 @@ class FakeLocation:
 def _service(**budgets: int) -> QuotaService:
     settings = Settings(
         quota_fleet_routing_shipments=budgets.get("fleet", 1000),
-        quota_single_vehicle_shipments=budgets.get("single", 1000),
         quota_routes_compute_requests=budgets.get("routes", 10000),
     )
     return QuotaService(logging.getLogger(__name__), settings)
