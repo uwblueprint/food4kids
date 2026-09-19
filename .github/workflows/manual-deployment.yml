@@ -1,6 +1,9 @@
 name: Manual Deployment (Backend & Frontend)
 
 on:
+  push:
+    branches:
+      - feat/manual-deployment-workflow
   workflow_dispatch:
 
 permissions:
@@ -31,7 +34,7 @@ jobs:
             --source ./backend/python \
             --region us-east1 \
             --project food4kids-473501 \
-            --set-secrets=/secrets/config.json=f4k-development-backend-env:latest
+            --set-secrets=/secrets/config.json=food4kids-config-dev:latest
 
   # Frontend Deployment (Firebase Hosting)
   deploy-frontend:
@@ -62,7 +65,7 @@ jobs:
 
       - name: Build Frontend Production Bundle
         env:
-          VITE_API_BASE_URL: ''
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
         run: |
           cd frontend
           npm run build
