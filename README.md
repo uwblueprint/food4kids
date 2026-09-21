@@ -149,60 +149,36 @@ otherwise, on each run.
 
 ## Creating an admin account
 
-There is no in-app way to make someone an admin — an existing admin cannot
-invite another one. A Blueprint developer with database access runs a CLI, which
-emails the F4K staff member a link; they open it and set their own password.
-The CLI never sees or prints a password, and never prints the link either.
+There is no in-app way to make someone an admin. A Blueprint developer runs a
+CLI, which emails the F4K staff member a link to set their own password. The
+CLI never sees or prints a password, and never prints the link.
 
 ```bash
-# Locally
 docker-compose exec backend python -m app.create_admin \
-  --email jane@food4kids.ca --name "Jane Doe"
-
-# --phone is optional; pass it if you have a number on file
-docker-compose exec backend python -m app.create_admin \
-  --email jane@food4kids.ca --name "Jane Doe" --phone "519-576-3443"
+  --email jane@food4kids.ca --name "Jane Doe" [--phone "519-576-3443"]
 ```
 
-It prints something like:
-
-```
-Created admin account for jane@food4kids.ca and emailed them the link to set their password (invite 6f1c…-…-…).
-The link is single-use and expires in 48 hours.
-```
-
-The email is the same `account-creation` message invited drivers get. Its link
-opens the **Create a password** page; submitting it calls `POST /auth/register`,
-which creates their Firebase account, stamps the `role: admin` custom claim on
-it, and fills in `users.auth_id`.
-
-**Both halves matter.** Authorization reads the Firebase custom claim, never
-`users.role` — see `require_authorization_by_role` in
-`backend/python/app/dependencies/auth.py`. Until the link is used, the row in
-`users` says `admin` but the person can do nothing, because there is no Firebase
-account yet. So an admin isn't real until they've followed the link.
+The link opens the **Create a password** page; submitting it calls
+`POST /auth/register`, which creates their Firebase account and stamps the
+`role: admin` custom claim. Authorization reads that claim, never `users.role`,
+so an admin isn't real until they've followed the link.
 
 Notes for whoever runs this:
 
-- **It is not `seed_database`.** `python -m app.seed_database` starts by
-  `DELETE`-ing every table. `create_admin` inserts three rows (`users`,
-  `admin_info`, `user_invites`) in one transaction and touches nothing else.
-- **Set `FRONTEND_BASE_URL`** in the backend environment before running it
-  against a deployed database, or the emailed link will point at
-  `http://localhost:3000`.
-- **The mailer credentials must be set** (`MAILER_USER`, `MAILER_CLIENT_ID`,
-  `MAILER_CLIENT_SECRET`, `MAILER_REFRESH_TOKEN`). The email is sent inside the
-  same transaction as the inserts, so if it cannot be sent nothing is created —
-  fix the environment and re-run.
-- **The email must be unused.** `users.email` is unique across drivers and
-  admins alike; the CLI refuses up front rather than writing a partial account.
-- **`--phone` is optional**, but validated when given: a malformed number is
-  rejected rather than stored. Omitting it stores NULL, not an empty string.
-- **48 hours.** If the link lapses, delete the unfinished user row and run the
-  CLI again.
-- **Running against production**: exec into the deployed backend the same way,
-  with `APP_ENV=production` and `DATABASE_URL` set — the CLI reuses the app's
-  own connection setup, so if the backend can reach the database, so can it.
+- **It is not `seed_database`** — that starts by deleting every table. This
+  inserts three rows (`users`, `admin_info`, `user_invites`) in one transaction
+  and touches nothing else.
+- **`MAILER_*` credentials must be set.** The email is sent inside the same
+  transaction, so if it can't be sent nothing is created — fix the environment
+  and re-run.
+- **Set `FRONTEND_BASE_URL`** when running against a deployed database, or the
+  link points at `http://localhost:3000`.
+- **The email must be unused** — `users.email` is unique across drivers and
+  admins; the CLI refuses up front.
+- **The link lasts 48 hours.** If it lapses, delete the unfinished user row and
+  run the CLI again.
+- **Against production**: exec into the deployed backend with `APP_ENV=production`
+  and `DATABASE_URL` set; the CLI reuses the app's own connection setup.
 
 ## API Testing
 
