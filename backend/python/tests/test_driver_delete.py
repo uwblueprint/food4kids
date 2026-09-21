@@ -61,7 +61,7 @@ async def _initialize_driver(
 async def _complete_signup(
     session: AsyncSession, user_id: UUID, auth_id: str = "firebase-uid-dana"
 ) -> None:
-    """Stand in for POST /drivers/register: attach a Firebase uid, burn the
+    """Stand in for POST /auth/register: attach a Firebase uid, burn the
     invite. Done directly so these tests exercise delete, not registration."""
     user = (
         await session.execute(select(User).where(User.user_id == user_id))

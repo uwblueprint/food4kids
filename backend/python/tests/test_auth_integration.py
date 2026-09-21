@@ -80,12 +80,15 @@ DENY_CODES = {401, 403}
 # ---------------------------------------------------------------------------
 
 ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
-    # --- admin ---
-    ("GET", "/admins/test"): Policy.ADMIN_ONLY,
     # --- billing ---
     ("GET", "/billing/costs"): Policy.ADMIN_ONLY,
     # --- auth infrastructure (public by design) ---
     ("POST", "/auth/login"): Policy.PUBLIC,
+    # Necessarily unauthenticated: the caller has no account yet. The invite id
+    # in the body is the credential — single-use, 48h, an unguessable UUID bound
+    # to one pre-created user row — and it only ever confers the role that row
+    # already holds, so it cannot be used to escalate.
+    ("POST", "/auth/register"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,
     ("POST", "/auth/validate-reset-token"): Policy.PUBLIC,
     ("POST", "/auth/logout"): Policy.PUBLIC,
@@ -99,11 +102,9 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("GET", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/summary"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/{year}/export"): Policy.ADMIN_ONLY,
-    # Two-step registration (#117): an admin creates the invite/initial user;
-    # /register is auth'd by the invite token in the body, not a bearer token.
+    # Two-step registration (#117): an admin creates the invite/initial user,
+    # who then finishes at the role-agnostic POST /auth/register above.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
-    ("POST", "/drivers/register"): Policy.PUBLIC,
-    ("POST", "/drivers/test-event-email"): Policy.PUBLIC,
     # --- jobs ---
     ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
     ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,

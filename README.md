@@ -147,6 +147,39 @@ moves the account's `tokensValidAfterTime`, which revokes every token already
 issued — so an unconditional rewrite signed out every open session, local and
 otherwise, on each run.
 
+## Creating an admin account
+
+There is no in-app way to make someone an admin. A Blueprint developer runs a
+CLI, which emails the F4K staff member a link to set their own password. The
+CLI never sees or prints a password, and never prints the link.
+
+```bash
+docker-compose exec backend python -m app.create_admin \
+  --email jane@food4kids.ca --name "Jane Doe" [--phone "519-576-3443"]
+```
+
+The link opens the **Create a password** page; submitting it calls
+`POST /auth/register`, which creates their Firebase account and stamps the
+`role: admin` custom claim. Authorization reads that claim, never `users.role`,
+so an admin isn't real until they've followed the link.
+
+Notes for whoever runs this:
+
+- **It is not `seed_database`** — that starts by deleting every table. This
+  inserts three rows (`users`, `admin_info`, `user_invites`) in one transaction
+  and touches nothing else.
+- **`MAILER_*` credentials must be set.** The email is sent inside the same
+  transaction, so if it can't be sent nothing is created — fix the environment
+  and re-run.
+- **Set `FRONTEND_BASE_URL`** when running against a deployed database, or the
+  link points at `http://localhost:3000`.
+- **The email must be unused** — `users.email` is unique across drivers and
+  admins; the CLI refuses up front.
+- **The link lasts 48 hours.** If it lapses, delete the unfinished user row and
+  run the CLI again.
+- **Against production**: exec into the deployed backend with `APP_ENV=production`
+  and `DATABASE_URL` set; the CLI reuses the app's own connection setup.
+
 ## API Testing
 
 Use the interactive Swagger UI at http://localhost:8080/docs, or see the [Postman Setup Guide](https://www.notion.so/uwblueprintexecs/Postman-Setup-28410f3fb1dc80f8b1e8c414c4a21802).

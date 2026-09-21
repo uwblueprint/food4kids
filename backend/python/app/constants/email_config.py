@@ -14,9 +14,10 @@ class EmailTemplateConfig(TypedDict):
 EMAIL_TEMPLATES: dict[str, EmailTemplateConfig] = {
     "account-creation": {
         "filename": "account-creation.html",
-        "default_subject": "Your Food4Kids Driver Account is Ready",
+        "default_subject": "Your Food4Kids {{ Role_To_Replace | capitalize }} Account is Ready",
         "required_context": [
-            "Driver_Name_To_Replace",
+            "Name_To_Replace",
+            "Role_To_Replace",
             "Sign_Up_URL",
             "Hours_Till_Expiry",
         ],
@@ -25,7 +26,7 @@ EMAIL_TEMPLATES: dict[str, EmailTemplateConfig] = {
         "filename": "check-latest-announcement.html",
         "default_subject": "New Announcement",
         "required_context": [
-            "Driver_Name_To_Replace",
+            "Name_To_Replace",
             "Announcement_Name",
             "Announcement_Body",
             "Announcement_URL",
@@ -35,7 +36,7 @@ EMAIL_TEMPLATES: dict[str, EmailTemplateConfig] = {
         "filename": "reset-password.html",
         "default_subject": "Reset Your F4K Account Password!",
         "required_context": [
-            "Driver_Name_To_Replace",
+            "Name_To_Replace",
             "Reset_Password_URL",
             "Days_Till_Expiry",
         ],
@@ -44,7 +45,7 @@ EMAIL_TEMPLATES: dict[str, EmailTemplateConfig] = {
         "filename": "view-upcoming-route.html",
         "default_subject": "View Your Upcoming F4K Route",
         "required_context": [
-            "Driver_Name_To_Replace",
+            "Name_To_Replace",
             "Date_To_Replace",
             "Time_To_Replace",
             "Route_Duration_To_Replace",

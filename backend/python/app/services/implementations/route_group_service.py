@@ -29,6 +29,7 @@ from app.models.route_stop import RouteStop
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.utilities.boxes import box_count_expr, resolve_children_per_box
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_sort_key
 
 ROUTE_GROUP_COPY_PREFIX = "Copy of "
 ROUTE_GROUP_NAME_MAX_LENGTH = 255
@@ -119,7 +120,9 @@ class RouteGroupService:
         )
         session.add(duplicated_group)
 
-        for route in sorted(route_group.routes, key=lambda item: item.name):
+        for route in sorted(
+            route_group.routes, key=lambda r: route_name_sort_key(r.name)
+        ):
             duplicated_route = Route(
                 name=route.name,
                 notes=route.notes,
@@ -261,7 +264,8 @@ class RouteGroupService:
 
         routes: list[RouteReadSummary] = []
         if include_routes:
-            for route in rg.routes:
+            # The relationship load has no order of its own.
+            for route in sorted(rg.routes, key=lambda r: route_name_sort_key(r.name)):
                 routes.append(
                     RouteReadSummary(
                         route_id=route.route_id,
