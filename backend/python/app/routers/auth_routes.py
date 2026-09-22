@@ -15,6 +15,8 @@ from app.dependencies.rate_limit import (
     LOGIN_EMAIL_LIMIT,
     LOGIN_IP_LIMIT,
     RESET_TOKEN_IP_LIMIT,
+    UPDATE_PASSWORD_AUTHED_EMAIL_LIMIT,
+    UPDATE_PASSWORD_AUTHED_IP_LIMIT,
     client_ip,
 )
 from app.dependencies.services import (
@@ -393,6 +395,7 @@ async def update_password(
 @router.post("/update-password-authed", response_model=AuthResponse)
 async def update_password_authed(
     update_password_request: UpdatePasswordAuthedRequest,
+    request: Request,
     response: Response,
     session: AsyncSession = Depends(get_session),
     decoded_token: dict[str, Any] = Depends(get_verified_token),
@@ -403,7 +406,9 @@ async def update_password_authed(
     Update an authenticated user's password after verifying their current password,
     revokes existing refresh tokens, and issues a fresh session with new tokens.
     """
+    UPDATE_PASSWORD_AUTHED_IP_LIMIT.check(client_ip(request))
     email = decoded_token["email"]
+    UPDATE_PASSWORD_AUTHED_EMAIL_LIMIT.check(email.lower())
     auth_id = decoded_token["uid"]
 
     # 1. Verify that the current password is correct, raise 400 if incorrect
