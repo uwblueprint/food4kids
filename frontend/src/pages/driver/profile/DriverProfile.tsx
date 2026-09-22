@@ -28,7 +28,6 @@ const DriverProfileLoaded = ({
   const navigate = useNavigate();
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
 
   const logoutMutation = useLogout();
   const updateDriverMutation = useUpdateDriver(driverId);
@@ -45,11 +44,7 @@ const DriverProfileLoaded = ({
       hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
   );
 
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      setIsUnsavedModalOpen(true);
-    }
-  }, [blocker.state]);
+  const isUnsavedModalOpen = blocker.state === 'blocked';
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -97,7 +92,6 @@ const DriverProfileLoaded = ({
   };
 
   const handleDiscardChanges = () => {
-    setIsUnsavedModalOpen(false);
     if (blocker.state === 'blocked') {
       blocker.proceed();
     }
@@ -194,7 +188,6 @@ const DriverProfileLoaded = ({
         <ConfirmModal
           open={isUnsavedModalOpen}
           onOpenChange={(open) => {
-            setIsUnsavedModalOpen(open);
             if (!open) {
               if (blocker.state === 'blocked') {
                 blocker.reset();
