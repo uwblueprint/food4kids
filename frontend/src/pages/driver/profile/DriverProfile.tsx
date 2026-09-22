@@ -1,6 +1,6 @@
 import { ChevronLeftIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useBlocker, useNavigate } from 'react-router-dom';
 
 import { useLogout } from '@/api/auth';
 import { useAuthStore, type User } from '@/api/authStore';
@@ -29,9 +29,6 @@ const DriverProfileLoaded = ({
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<
-    (() => void) | null
-  >(null);
 
   const logoutMutation = useLogout();
   const updateDriverMutation = useUpdateDriver(driverId);
@@ -42,6 +39,17 @@ const DriverProfileLoaded = ({
   const hasUnsavedChanges =
     phoneInput !== (driverDetails.phone || '') ||
     addressInput !== (driverDetails.address || '');
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      setIsUnsavedModalOpen(true);
+    }
+  }, [blocker.state]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -73,19 +81,8 @@ const DriverProfileLoaded = ({
     });
   };
 
-  const confirmNavigation = (action: () => void) => {
-    if (hasUnsavedChanges) {
-      setPendingNavigation(() => action);
-      setIsUnsavedModalOpen(true);
-    } else {
-      action();
-    }
-  };
-
   const handleChangePassword = () => {
-    confirmNavigation(() => {
-      navigate('/driver/profile/update-password');
-    });
+    navigate('/driver/profile/update-password');
   };
 
   const handleSaveChanges = () => {
@@ -101,9 +98,8 @@ const DriverProfileLoaded = ({
 
   const handleDiscardChanges = () => {
     setIsUnsavedModalOpen(false);
-    if (pendingNavigation) {
-      pendingNavigation();
-      setPendingNavigation(null);
+    if (blocker.state === 'blocked') {
+      blocker.proceed();
     }
   };
 
@@ -114,12 +110,6 @@ const DriverProfileLoaded = ({
           <Link
             to="/driver/home"
             className="flex gap-1 self-start text-blue-400"
-            onClick={(e) => {
-              if (hasUnsavedChanges) {
-                e.preventDefault();
-                confirmNavigation(() => navigate('/driver/home'));
-              }
-            }}
           >
             <ChevronLeftIcon className="size-6" />
             <h2>Back to home</h2>
@@ -205,7 +195,11 @@ const DriverProfileLoaded = ({
           open={isUnsavedModalOpen}
           onOpenChange={(open) => {
             setIsUnsavedModalOpen(open);
-            if (!open) setPendingNavigation(null);
+            if (!open) {
+              if (blocker.state === 'blocked') {
+                blocker.reset();
+              }
+            }
           }}
           onConfirm={handleDiscardChanges}
           title="Unsaved changes"

@@ -1,4 +1,11 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Navigate,
+  Outlet,
+  Route,
+  RouterProvider,
+} from 'react-router-dom';
 
 import { useAuthStore } from './api/authStore';
 import {
@@ -8,6 +15,7 @@ import {
   ServiceUnavailablePage,
 } from './common/components';
 import { homePathForRole } from './common/utils';
+import { AuthProvider } from './contexts/AuthProvider';
 import { RequireRole } from './contexts/RequireRole';
 import { AdminLayout, DriverLayout } from './layouts';
 import {
@@ -48,9 +56,17 @@ function RootRedirect() {
   return <Navigate to={homePathForRole(user?.role)} replace />;
 }
 
-function App() {
+function RootLayout() {
   return (
-    <Routes>
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  );
+}
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<RootLayout />}>
       {/* Redirect root based on user role */}
       <Route path="/" element={<RootRedirect />} />
 
@@ -114,8 +130,12 @@ function App() {
         </>
       )}
       <Route path="*" element={<NotFoundPage />} />
-    </Routes>
-  );
+    </Route>
+  )
+);
+
+export function App() {
+  return <RouterProvider router={router} />;
 }
 
 export default App;
