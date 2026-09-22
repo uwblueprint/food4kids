@@ -99,7 +99,14 @@ export function UnassignedRoutePreviewCard({
       <ReassignDriverModal
         open={assignOpen}
         onOpenChange={setAssignOpen}
-        route={route}
+        routeId={route.route_id}
+        currentDriverName={route.driver_name}
+        contextLabel={
+          <>
+            {route.name} • {route.group_name} •{' '}
+            {formatDriveDate(route.drive_date)}
+          </>
+        }
       />
     </>
   );

@@ -1963,6 +1963,10 @@ export type RouteStopDetailRead = {
    */
   latitude?: number | null;
   /**
+   * Location Id
+   */
+  location_id: string;
+  /**
    * Longitude
    */
   longitude?: number | null;
