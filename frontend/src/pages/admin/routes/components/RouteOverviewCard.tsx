@@ -1,20 +1,15 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { useDrivers } from '@/api/drivers';
-import { getRouteQueryKey } from '@/api/generated/@tanstack/react-query.gen';
 import type { RouteDetailRead } from '@/api/generated/types.gen';
-import { useUpdateRouteGroup } from '@/api/route-groups';
 import MoreVerticalIcon from '@/assets/icons/more-vertical.svg?react';
 import {
   Button,
-  Calendar,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/common/components';
-import { parseDateOnly, toNaiveDateString } from '@/common/utils';
+import { parseDateOnly } from '@/common/utils';
 import { cn } from '@/lib/utils';
 
 import { ReassignDriverModal } from './ReassignDriverModal';
@@ -40,87 +35,12 @@ function Metric({ label, children }: { label: string; children: ReactNode }) {
     <div className="flex flex-col gap-4">
       {/* Label spec (Figma): #1C1B1F (grey-500), 16px (text-p1), bold. */}
       <span className="text-p1 text-grey-500 font-bold">{label}</span>
-      {/* Text values render at 18px (text-m-p1); the Date pill and Assign
-          button override with their own 16px, per Figma. */}
+      {/* Text values render at 18px (text-m-p1); the Assign button overrides
+          with its own 16px, per Figma. */}
       <div className="text-m-p1 text-grey-500 flex flex-1 items-center">
         {children}
       </div>
     </div>
-  );
-}
-
-/** Inline delivery-date editor: a bordered control that opens a calendar. */
-function DeliveryDateEditor({
-  routeId,
-  routeGroupId,
-  driveDate,
-}: {
-  routeId: string;
-  routeGroupId: string;
-  driveDate: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const { mutate: updateRouteGroup } = useUpdateRouteGroup();
-
-  const selected = parseDateOnly(driveDate);
-  const [, timePart = '00:00:00'] = driveDate.split('T');
-
-  const handleSelect = (date: Date | undefined) => {
-    if (!date) return;
-    updateRouteGroup(
-      {
-        path: { route_group_id: routeGroupId },
-        body: { drive_date: `${toNaiveDateString(date)}T${timePart}` },
-      },
-      {
-        // The group hook refreshes the route lists, but this page reads the
-        // route detail (GET /routes/{id}), which drive_date also feeds — so
-        // invalidate it here or the card keeps showing the old date.
-        onSuccess: () =>
-          queryClient.invalidateQueries({
-            queryKey: getRouteQueryKey({ path: { route_id: routeId } }),
-          }),
-      }
-    );
-    setOpen(false);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {/* Pill trigger mirroring the shared Dropdown (rounded-full). */}
-        <button
-          type="button"
-          className={cn(
-            'inline-flex cursor-pointer items-center justify-between gap-2 rounded-full px-6 py-3',
-            'text-p1 text-grey-500 transition-colors',
-            'bg-grey-100 outline-grey-300 outline outline-1 outline-offset-[-1px]',
-            'focus:outline-2 focus:outline-blue-300',
-            'data-[state=open]:outline-2 data-[state=open]:outline-blue-300'
-          )}
-        >
-          {formatOverviewDate(driveDate)}
-          <ChevronDown className="text-grey-500 size-4 shrink-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-auto p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <Calendar
-          mode="single"
-          selected={selected}
-          onSelect={handleSelect}
-          defaultMonth={selected}
-          classNames={{
-            month_caption: 'flex h-(--cell-size) items-center pl-1',
-            nav: 'absolute top-0 right-0 flex items-center gap-1',
-          }}
-        />
-      </PopoverContent>
-    </Popover>
   );
 }
 
@@ -143,7 +63,7 @@ function DriverControl({ route }: { route: RouteDetailRead }) {
     <>
       {driverName ? (
         <div className="flex items-center gap-1">
-          <span className="text-p1 text-grey-500">{driverName}</span>
+          <span className="text-m-p1 text-grey-500">{driverName}</span>
           <Popover open={menuOpen} onOpenChange={setMenuOpen}>
             <PopoverTrigger asChild>
               <button
@@ -209,11 +129,7 @@ export function RouteOverviewCard({ route }: RouteOverviewCardProps) {
         )}
       >
         <Metric label="Delivery Date">
-          <DeliveryDateEditor
-            routeId={route.route_id}
-            routeGroupId={route.route_group_id}
-            driveDate={route.drive_date}
-          />
+          {formatOverviewDate(route.drive_date)}
         </Metric>
         <Metric label="Delivery Type">{route.delivery_type ?? '—'}</Metric>
         <Metric label="Stops">{stops.length}</Metric>
