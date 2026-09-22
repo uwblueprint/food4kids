@@ -1,9 +1,6 @@
 name: Manual Deployment (Backend & Frontend)
 
 on:
-  push:
-    branches:
-      - feat/manual-deployment-workflow
   workflow_dispatch:
 
 permissions:
