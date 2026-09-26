@@ -65,7 +65,7 @@ vi.mock('./pages/auth', () => ({
 vi.mock('./pages/StyleGuide', () => ({ StyleGuidePage: stub('style-guide') }));
 
 // Imported after the mocks so App picks up the stubbed modules.
-const { routes } = await import('./App');
+const { routes } = await import('./router');
 
 function signIn(role: string | null) {
   useAuthStore.setState({
