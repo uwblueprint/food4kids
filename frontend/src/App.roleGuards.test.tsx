@@ -9,15 +9,7 @@
  * components are stubbed, so no page needs a query client or an API.
  */
 import { cleanup, render, screen } from '@testing-library/react';
-import type { ReactElement } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { waitFor } from '@testing-library/react';
-import {
-  createMemoryRouter,
-  Outlet,
-  RouterProvider,
-  useLocation,
-} from 'react-router-dom';
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAuthStore } from './api/authStore';
@@ -74,11 +66,6 @@ vi.mock('./pages/StyleGuide', () => ({ StyleGuidePage: stub('style-guide') }));
 
 // Imported after the mocks so App picks up the stubbed modules.
 const { routes } = await import('./App');
-
-function LocationProbe(): ReactElement {
-  const { pathname } = useLocation();
-  return <div data-testid="pathname">{pathname}</div>;
-}
 
 function signIn(role: string | null) {
   useAuthStore.setState({

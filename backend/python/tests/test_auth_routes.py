@@ -536,9 +536,7 @@ class TestResendOnboardingEmail:
 
 class TestUpdatePasswordAuthed:
     @pytest.mark.asyncio
-    async def test_same_password_returns_400(
-        self, client_with_overrides: Any
-    ) -> None:
+    async def test_same_password_returns_400(self, client_with_overrides: Any) -> None:
         client = await client_with_overrides(
             {
                 get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
@@ -552,7 +550,10 @@ class TestUpdatePasswordAuthed:
         )
 
         assert response.status_code == 400
-        assert response.json()["detail"] == "New password cannot be the same as current password."
+        assert (
+            response.json()["detail"]
+            == "New password cannot be the same as current password."
+        )
 
     @pytest.mark.asyncio
     async def test_invalid_password_returns_400(
