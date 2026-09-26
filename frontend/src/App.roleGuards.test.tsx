@@ -10,7 +10,14 @@
  */
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { MemoryRouter, Outlet, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { waitFor } from '@testing-library/react';
+import {
+  createMemoryRouter,
+  Outlet,
+  RouterProvider,
+  useLocation,
+} from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAuthStore } from './api/authStore';
@@ -22,6 +29,13 @@ const shell = (name: string) => () => (
     <Outlet />
   </div>
 );
+
+vi.mock('./api/auth', () => ({
+  useRefresh: vi.fn(),
+  useLogout: () => ({
+    mutate: vi.fn(),
+  }),
+}));
 
 vi.mock('./layouts', () => ({
   AdminLayout: shell('admin-layout'),
@@ -59,7 +73,7 @@ vi.mock('./pages/auth', () => ({
 vi.mock('./pages/StyleGuide', () => ({ StyleGuidePage: stub('style-guide') }));
 
 // Imported after the mocks so App picks up the stubbed modules.
-const { default: App } = await import('./App');
+const { routes } = await import('./App');
 
 function LocationProbe(): ReactElement {
   const { pathname } = useLocation();
@@ -89,13 +103,13 @@ function signIn(role: string | null) {
 
 /** Render the app at `path` and report where the router settled. */
 function visit(path: string): string {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <LocationProbe />
-      <App />
-    </MemoryRouter>
-  );
-  return screen.getByTestId('pathname').textContent ?? '';
+  const router = createMemoryRouter(routes, {
+    initialEntries: [path],
+  });
+
+  render(<RouterProvider router={router} />);
+
+  return router.state.location.pathname;
 }
 
 const ADMIN_PATHS = [
@@ -183,6 +197,7 @@ describe('the root redirect follows the role', () => {
   });
 
   it('sends an unauthenticated visitor to /login', () => {
+    useAuthStore.getState().clearAuth();
     expect(visit('/')).toBe('/login');
   });
 
