@@ -9,8 +9,7 @@
  * components are stubbed, so no page needs a query client or an API.
  */
 import { cleanup, render, screen } from '@testing-library/react';
-import type { ReactElement } from 'react';
-import { MemoryRouter, Outlet, useLocation } from 'react-router-dom';
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAuthStore } from './api/authStore';
@@ -22,6 +21,13 @@ const shell = (name: string) => () => (
     <Outlet />
   </div>
 );
+
+vi.mock('./api/auth', () => ({
+  useRefresh: vi.fn(),
+  useLogout: () => ({
+    mutate: vi.fn(),
+  }),
+}));
 
 vi.mock('./layouts', () => ({
   AdminLayout: shell('admin-layout'),
@@ -43,7 +49,9 @@ vi.mock('./pages/admin', () => ({
 
 vi.mock('./pages/driver', () => ({
   DriverHomePage: stub('driver-home'),
+  DriverProfile: stub('driver-profile'),
   IndividualRoutePage: stub('driver-route'),
+  UpdatePasswordPage: stub('update-password'),
 }));
 
 vi.mock('./pages/auth', () => ({
@@ -57,12 +65,7 @@ vi.mock('./pages/auth', () => ({
 vi.mock('./pages/StyleGuide', () => ({ StyleGuidePage: stub('style-guide') }));
 
 // Imported after the mocks so App picks up the stubbed modules.
-const { default: App } = await import('./App');
-
-function LocationProbe(): ReactElement {
-  const { pathname } = useLocation();
-  return <div data-testid="pathname">{pathname}</div>;
-}
+const { routes } = await import('./router');
 
 function signIn(role: string | null) {
   useAuthStore.setState({
@@ -87,13 +90,13 @@ function signIn(role: string | null) {
 
 /** Render the app at `path` and report where the router settled. */
 function visit(path: string): string {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <LocationProbe />
-      <App />
-    </MemoryRouter>
-  );
-  return screen.getByTestId('pathname').textContent ?? '';
+  const router = createMemoryRouter(routes, {
+    initialEntries: [path],
+  });
+
+  render(<RouterProvider router={router} />);
+
+  return router.state.location.pathname;
 }
 
 const ADMIN_PATHS = [
@@ -113,6 +116,8 @@ const ADMIN_PATHS = [
 const DRIVER_PATHS = [
   '/driver',
   '/driver/home',
+  '/driver/profile',
+  '/driver/profile/update-password',
   '/driver/route',
   '/driver/route/abc-123',
 ];
@@ -179,6 +184,7 @@ describe('the root redirect follows the role', () => {
   });
 
   it('sends an unauthenticated visitor to /login', () => {
+    useAuthStore.getState().clearAuth();
     expect(visit('/')).toBe('/login');
   });
 

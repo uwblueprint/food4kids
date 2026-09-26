@@ -1,9 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getDriverHistorySummaryOptions,
   getDriverOptions,
+  getDriverQueryKey,
   getDriversOptions,
+  updateDriverMutation,
 } from './generated/@tanstack/react-query.gen';
 
 /** Fetch the list of drivers (e.g. for the reassign-driver dropdown). */
@@ -12,12 +14,13 @@ export function useDrivers() {
 }
 
 /** Fetch a single driver by ID. */
-export function useDriver(driverId: string) {
-  return useQuery(
-    getDriverOptions({
+export function useDriver(driverId: string, enabled = true) {
+  return useQuery({
+    ...getDriverOptions({
       path: { driver_id: driverId },
-    })
-  );
+    }),
+    enabled,
+  });
 }
 
 /** Fetch driver's lifetime and current year KM summary. */
@@ -27,5 +30,18 @@ export function useDriverHistorySummary(driverId: string, enabled = true) {
       path: { driver_id: driverId },
     }),
     enabled: enabled && !!driverId,
+  });
+}
+
+/** Update an existing driver. */
+export function useUpdateDriver(driverId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...updateDriverMutation(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: getDriverQueryKey({ path: { driver_id: driverId } }),
+      });
+    },
   });
 }

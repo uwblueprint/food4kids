@@ -1,0 +1,112 @@
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Navigate,
+  Route,
+} from 'react-router-dom';
+
+import {
+  CatchAllErrorPage,
+  ForbiddenPage,
+  NotFoundPage,
+  ServiceUnavailablePage,
+} from './common/components';
+import { RequireRole } from './contexts/RequireRole';
+import { AdminLayout, DriverLayout } from './layouts';
+import {
+  AdminDriversPage,
+  AdminHomePage,
+  AdminRoutesGenerationLayout,
+  AdminRoutesPage,
+  AdminSettingsPage,
+  ConfigureStep,
+  GenerateStep,
+  ImportStep,
+  ReviewStep,
+  ValidateStep,
+} from './pages/admin';
+import {
+  CreatePassword,
+  ForgotPassword,
+  GetLoginLink,
+  LoginPage,
+  ResetPassword,
+} from './pages/auth';
+import {
+  DriverHomePage,
+  DriverProfile,
+  IndividualRoutePage,
+  UpdatePasswordPage,
+} from './pages/driver';
+import { StyleGuidePage } from './pages/StyleGuide';
+import { RootLayout, RootRedirect } from './RouterComponents';
+
+export const routes = createRoutesFromElements(
+  <Route element={<RootLayout />}>
+    {/* Redirect root based on user role */}
+    <Route path="/" element={<RootRedirect />} />
+
+    {/* Admin Routes */}
+    <Route element={<RequireRole requiredRole="admin" />}>
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/admin/home" replace />} />
+        <Route path="home" element={<AdminHomePage />} />
+        <Route path="drivers" element={<AdminDriversPage />} />
+        <Route path="routes" element={<AdminRoutesPage />} />
+        {/* Route Generation */}
+        <Route
+          path="routes/generation"
+          element={<AdminRoutesGenerationLayout />}
+        >
+          <Route index element={<Navigate to="import" replace />} />
+          <Route path="import" element={<ImportStep />} />
+          <Route path="validate" element={<ValidateStep />} />
+          <Route path="review" element={<ReviewStep />} />
+          <Route path="configure" element={<ConfigureStep />} />
+          <Route path="generate" element={<GenerateStep />} />
+        </Route>
+        <Route path="settings" element={<AdminSettingsPage />} />
+      </Route>
+    </Route>
+
+    {/* Driver Routes */}
+    <Route element={<RequireRole requiredRole="driver" />}>
+      <Route path="/driver" element={<DriverLayout />}>
+        <Route index element={<Navigate to="/driver/home" replace />} />
+        <Route path="home" element={<DriverHomePage />} />
+        <Route path="profile" element={<DriverProfile />} />
+        <Route
+          path="profile/update-password"
+          element={<UpdatePasswordPage />}
+        />
+        <Route path="route" element={<IndividualRoutePage />} />
+        <Route path="route/:routeId" element={<IndividualRoutePage />} />
+      </Route>
+    </Route>
+
+    {/* Auth Routes */}
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/create-password/:token" element={<CreatePassword />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/forgot-password/:token" element={<ResetPassword />} />
+    <Route path="/get-login-link" element={<GetLoginLink />} />
+
+    {/* Dev-only: style guide is not accessible in production */}
+    {import.meta.env.DEV && (
+      <Route path="/style-guide" element={<StyleGuidePage />} />
+    )}
+
+    {/* Error pages (dev preview) */}
+    {import.meta.env.DEV && (
+      <>
+        <Route path="/403" element={<ForbiddenPage />} />
+        <Route path="/404" element={<NotFoundPage />} />
+        <Route path="/503" element={<ServiceUnavailablePage />} />
+        <Route path="/error" element={<CatchAllErrorPage />} />
+      </>
+    )}
+    <Route path="*" element={<NotFoundPage />} />
+  </Route>
+);
+
+export const router = createBrowserRouter(routes);
