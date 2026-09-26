@@ -411,6 +411,12 @@ async def update_password_authed(
     UPDATE_PASSWORD_AUTHED_EMAIL_LIMIT.check(email.lower())
     auth_id = decoded_token["uid"]
 
+    if update_password_request.new_password == update_password_request.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password cannot be the same as current password.",
+        )
+
     # 1. Verify that the current password is correct, raise 400 if incorrect
     try:
         auth_service.firebase_rest_client.sign_in_with_password(

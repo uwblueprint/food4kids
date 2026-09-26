@@ -40,7 +40,8 @@ export const UpdatePasswordForm = ({
     e.preventDefault();
 
     const isCurrentInvalid = !currentPassword;
-    const isPasswordInvalid = !password || !allRequirementsMet;
+    const isPasswordInvalid =
+      !password || !allRequirementsMet || password === currentPassword;
     const isConfirmInvalid = !confirmPassword || password !== confirmPassword;
 
     if (isCurrentInvalid) {
@@ -147,9 +148,11 @@ export const UpdatePasswordForm = ({
             </div>
             {passwordError && (
               <ErrorNote>
-                {password
-                  ? 'Please make sure all password criteria is met'
-                  : 'Please enter a password'}
+                {password === currentPassword
+                  ? 'New password cannot be same as old password'
+                  : password
+                    ? 'Please make sure all password criteria is met'
+                    : 'Please enter a password'}
               </ErrorNote>
             )}
           </Field>
