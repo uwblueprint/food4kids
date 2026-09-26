@@ -5,6 +5,7 @@ import { Link, useBlocker, useNavigate } from 'react-router-dom';
 import { useLogout } from '@/api/auth';
 import { useAuthStore, type User } from '@/api/authStore';
 import { useDriver, useUpdateDriver } from '@/api/drivers';
+import { describeApiFailure } from '@/api/errors';
 import { type DriverRead } from '@/api/generated';
 import {
   Banner,
@@ -13,6 +14,8 @@ import {
   Input,
   Spinner,
 } from '@/common/components';
+import { formatPhone, formatPhoneInput } from '@/common/utils';
+import { ErrorNote } from '@/pages/auth/ErrorNote';
 
 interface DriverProfileLoadedProps {
   driverDetails: DriverRead;
@@ -28,15 +31,18 @@ const DriverProfileLoaded = ({
   const navigate = useNavigate();
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const logoutMutation = useLogout();
   const updateDriverMutation = useUpdateDriver(driverId);
 
-  const [phoneInput, setPhoneInput] = useState(driverDetails.phone || '');
+  const initialPhone = formatPhone(driverDetails.phone || '');
+  const [phoneInput, setPhoneInput] = useState(initialPhone);
   const [addressInput, setAddressInput] = useState(driverDetails.address || '');
 
   const hasUnsavedChanges =
-    phoneInput !== (driverDetails.phone || '') ||
+    phoneInput !== initialPhone ||
     addressInput !== (driverDetails.address || '');
 
   const blocker = useBlocker(
@@ -82,13 +88,35 @@ const DriverProfileLoaded = ({
 
   const handleSaveChanges = () => {
     if (!driverId) return;
-    updateDriverMutation.mutate({
-      path: { driver_id: driverId },
-      body: {
-        phone: phoneInput,
-        address: addressInput,
+    setSaveError(null);
+    setPhoneError(null);
+
+    const digits = phoneInput.replace(/\D/g, '');
+
+    if (digits.length !== 10) {
+      setPhoneError('Please enter a valid phone number');
+      return;
+    }
+
+    const phoneToSubmit = `+1${digits}`;
+
+    updateDriverMutation.mutate(
+      {
+        path: { driver_id: driverId },
+        body: {
+          phone: phoneToSubmit,
+          address: addressInput,
+        },
       },
-    });
+      {
+        onError: (error) => {
+          setSaveError(describeApiFailure(error) ?? 'Changes failed to save.');
+        },
+        onSuccess: () => {
+          setSaveError(null);
+        },
+      }
+    );
   };
 
   const handleDiscardChanges = () => {
@@ -108,6 +136,16 @@ const DriverProfileLoaded = ({
             <ChevronLeftIcon className="size-6" />
             <h2>Back to home</h2>
           </Link>
+
+          {saveError && (
+            <Banner
+              variant="error"
+              className="w-full"
+              onDismiss={() => setSaveError(null)}
+            >
+              {saveError}
+            </Banner>
+          )}
 
           <div className="tablet:mt-0 mt-3 flex flex-col items-center gap-1">
             {/* 1. Profile circle showing initials */}
@@ -132,9 +170,15 @@ const DriverProfileLoaded = ({
             <h2>Phone number</h2>
             <Input
               className="bg-grey-150 text-p2 w-full rounded-[8px] p-3"
+              inputMode="numeric"
               value={phoneInput}
-              onChange={(e) => setPhoneInput(e.target.value)}
+              onChange={(e) => {
+                setPhoneInput(formatPhoneInput(e.target.value));
+                setSaveError(null);
+                setPhoneError(null);
+              }}
             />
+            {phoneError && <ErrorNote>{phoneError}</ErrorNote>}
           </div>
 
           {/* 5. Address subheading on the left, followed by a field below it */}
@@ -143,7 +187,10 @@ const DriverProfileLoaded = ({
             <Input
               className="bg-grey-150 text-p2 w-full rounded-[8px] p-3"
               value={addressInput}
-              onChange={(e) => setAddressInput(e.target.value)}
+              onChange={(e) => {
+                setAddressInput(e.target.value);
+                setSaveError(null);
+              }}
             />
           </div>
         </div>

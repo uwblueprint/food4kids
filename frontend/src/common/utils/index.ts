@@ -6,7 +6,7 @@ export {
   parseDateOnly,
   toNaiveDateString,
 } from './dateUtils';
-export { formatPhone } from './phoneUtils';
+export { formatPhone, formatPhoneInput } from './phoneUtils';
 export type { Role, RoleAccess } from './roleAccess';
 export {
   HOME_PATH,
