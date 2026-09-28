@@ -28,7 +28,7 @@ from app.dependencies.auth import (
 )
 from app.dependencies.services import get_google_maps_client
 from app.models import get_session
-from app.models.enum import ProgressEnum, RouteStatusEnum
+from app.models.enum import NotePermission, ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -1442,7 +1442,9 @@ class TestLocationRoutes:
         """GET /locations returns the most recent non-system note as latest_note."""
         from app.models.note import Note
 
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         test_session.add(chain)
         await test_session.flush()
 
@@ -5580,7 +5582,9 @@ class TestNoteChainRoutes:
         """Helper: create a NoteChain directly in DB, return its ID as string."""
         from app.models.note_chain import NoteChain
 
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         session.add(chain)
         await session.commit()
         await session.refresh(chain)
@@ -5726,7 +5730,9 @@ class TestNoteFeedRoutes:
         from app.models.note_chain import NoteChain
 
         group = LocationGroup(name=f"{location_name} Group", color="#000000", notes="")
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         session.add_all([group, chain])
         await session.flush()
 

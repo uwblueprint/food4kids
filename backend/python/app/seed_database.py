@@ -45,7 +45,7 @@ from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
-from app.models.note import Note
+from app.models.note import Attachment, Note
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -1403,7 +1403,7 @@ def main(*, reset_passwords: bool = False) -> None:
                             user_id=author_id,
                             message=fake.sentence(),
                             is_system=False,
-                            attachments=attachments,
+                            attachments=[Attachment(**a) for a in attachments],
                         )
                         set_timestamps(note)
                         session.add(note)
