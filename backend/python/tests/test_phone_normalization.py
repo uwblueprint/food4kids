@@ -172,6 +172,11 @@ class TestUpdateModelsNormalize:
         """Nullable column, so ``{"admin_phone": null}`` means "clear it"."""
         assert AdminUpdate(admin_phone=None).admin_phone is None
 
+    def test_admin_update_rejects_whitespace_phone(self) -> None:
+        """Only ``""`` means "no number"; blank-looking input is a typo, not absence."""
+        with pytest.raises(ValidationError):
+            AdminUpdate(admin_phone="   ")
+
     def test_admin_update_omitting_phone_is_unchanged(self) -> None:
         assert AdminUpdate(first_name="Emily").admin_phone is None
 

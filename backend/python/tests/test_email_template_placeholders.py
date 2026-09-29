@@ -9,8 +9,11 @@ template loses a placeholder, gains one, or renames it, the mismatch fails
 here instead of shipping an email that reads "Hi Name_To_Replace,".
 """
 
+import logging
 import re
 from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -139,3 +142,61 @@ def test_account_creation_copy_follows_the_role(
     assert absent not in rendered
     # The ``{% if %}`` around the greeting must resolve, not reach the inbox.
     assert "{%" not in rendered and "%}" not in rendered
+
+
+def _dispatcher() -> tuple[Any, MagicMock]:
+    from app.services.implementations.email_dispatcher import EmailDispatcher
+    from app.templates.email_renderer import TemplateRenderer
+
+    email_service = MagicMock()
+    dispatcher = EmailDispatcher(
+        email_service=email_service,
+        template_renderer=TemplateRenderer(template_dir=str(TEMPLATE_DIR)),
+        logger=logging.getLogger(__name__),
+    )
+    return dispatcher, email_service
+
+
+def _context(name: str) -> dict[str, Any]:
+    return {
+        "Name_To_Replace": name,
+        "Announcement_Name": "Name",
+        "Announcement_Body": "Body",
+        "Announcement_URL": "https://example.test/a",
+    }
+
+
+@pytest.mark.asyncio
+async def test_caller_subject_is_sent_literally() -> None:
+    """An announcement's subject is user-written, so Jinja must never run on it."""
+    dispatcher, email_service = _dispatcher()
+    subject = "{{ Name_To_Replace }} {{ ''.__class__ }}"
+
+    await dispatcher.dispatch(
+        email_type="check-latest-announcement",
+        to="a@example.com",
+        context=_context("Jane"),
+        subject=subject,
+    )
+
+    assert email_service.send_email.call_args.kwargs["subject"] == subject
+
+
+@pytest.mark.asyncio
+async def test_default_subject_is_not_html_escaped() -> None:
+    """Subjects are plain-text headers; ``&`` must not arrive as ``&amp;``."""
+    dispatcher, email_service = _dispatcher()
+
+    await dispatcher.dispatch(
+        email_type="account-creation",
+        to="a@example.com",
+        context={
+            "Name_To_Replace": "Jane",
+            "Role_To_Replace": "R&D",
+            "Sign_Up_URL": "https://example.test/create-password/x",
+            "Hours_Till_Expiry": 48,
+        },
+    )
+
+    sent = email_service.send_email.call_args.kwargs["subject"]
+    assert sent == "Your Food4Kids R&d Account is Ready"

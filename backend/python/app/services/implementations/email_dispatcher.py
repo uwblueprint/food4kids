@@ -53,10 +53,14 @@ class EmailDispatcher:
         template_config = EMAIL_TEMPLATES[email_type]
         template_name = template_config["filename"]
 
-        # The subject is a template too, so it can carry the same placeholders.
-        subject_str: str = self.template_renderer.render_string(
-            subject if subject is not None else template_config["default_subject"],
-            context,
+        # Only the repo-owned default subject is a template. A caller's subject can
+        # be user-written (an announcement's), so it is sent literally.
+        subject_str: str = (
+            subject
+            if subject is not None
+            else self.template_renderer.render_string(
+                template_config["default_subject"], context
+            )
         )
 
         # Render template with context
