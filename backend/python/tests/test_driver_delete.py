@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver import Driver
+from app.models.enum import NotePermission
 from app.models.note import Note
 from app.models.note_chain import NoteChain
 from app.models.password_reset_token import PasswordResetToken
@@ -413,7 +414,9 @@ async def test_notes_the_driver_wrote_elsewhere_survive_without_an_author(
     user_id = UUID(driver_json["user_id"])
     await _complete_signup(test_session, user_id)
 
-    shared_chain = NoteChain(read_permission="All", write_permission="All")
+    shared_chain = NoteChain(
+        read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+    )
     test_session.add(shared_chain)
     await test_session.flush()
     note = Note(

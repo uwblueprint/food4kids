@@ -111,22 +111,42 @@ def configure_logging() -> None:
     dictConfig(base_config)
 
 
-def initialize_firebase():
+def initialize_firebase() -> None:
     private_key = settings.firebase_svc_account_private_key
     if private_key:
-        private_key = private_key.strip('"\'').replace("\\n", "\n")
+        private_key = private_key.strip("\"'").replace("\\n", "\n")
 
     cred_dict = {
         "type": "service_account",
-        "project_id": settings.firebase_project_id.strip('"\'') if settings.firebase_project_id else None,
-        "private_key_id": settings.firebase_svc_account_private_key_id.strip('"\'') if settings.firebase_svc_account_private_key_id else None,
+        "project_id": settings.firebase_project_id.strip("\"'")
+        if settings.firebase_project_id
+        else None,
+        "private_key_id": settings.firebase_svc_account_private_key_id.strip("\"'")
+        if settings.firebase_svc_account_private_key_id
+        else None,
         "private_key": private_key,
-        "client_email": settings.firebase_svc_account_client_email.strip('"\'') if settings.firebase_svc_account_client_email else None,
-        "client_id": settings.firebase_svc_account_client_id.strip('"\'') if settings.firebase_svc_account_client_id else None,
-        "auth_uri": settings.firebase_svc_account_auth_uri.strip('"\'') if settings.firebase_svc_account_auth_uri else "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": settings.firebase_svc_account_token_uri.strip('"\'') if settings.firebase_svc_account_token_uri else "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": settings.firebase_svc_account_auth_provider_x509_cert_url.strip('"\'') if settings.firebase_svc_account_auth_provider_x509_cert_url else "https://www.googleapis.com/oauth2/v1/certs",
-        "client_x509_cert_url": settings.firebase_svc_account_client_x509_cert_url.strip('"\'') if settings.firebase_svc_account_client_x509_cert_url else None,
+        "client_email": settings.firebase_svc_account_client_email.strip("\"'")
+        if settings.firebase_svc_account_client_email
+        else None,
+        "client_id": settings.firebase_svc_account_client_id.strip("\"'")
+        if settings.firebase_svc_account_client_id
+        else None,
+        "auth_uri": settings.firebase_svc_account_auth_uri.strip("\"'")
+        if settings.firebase_svc_account_auth_uri
+        else "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": settings.firebase_svc_account_token_uri.strip("\"'")
+        if settings.firebase_svc_account_token_uri
+        else "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": settings.firebase_svc_account_auth_provider_x509_cert_url.strip(
+            "\"'"
+        )
+        if settings.firebase_svc_account_auth_provider_x509_cert_url
+        else "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": settings.firebase_svc_account_client_x509_cert_url.strip(
+            "\"'"
+        )
+        if settings.firebase_svc_account_client_x509_cert_url
+        else None,
     }
 
     cred = firebase_admin.credentials.Certificate(cred_dict)

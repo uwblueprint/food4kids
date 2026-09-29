@@ -585,6 +585,8 @@ class RouteService:
                     for new_stop, location in zip(
                         new_stops, ordered_locations, strict=True
                     ):
+                        assert location.latitude is not None
+                        assert location.longitude is not None
                         session.add(
                             RouteStopSnapshot(
                                 route_stop_id=new_stop.route_stop_id,

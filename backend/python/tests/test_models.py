@@ -28,6 +28,7 @@ from app.models.enum import (
     NotePermission,
     ProgressEnum,
     RoleEnum,
+    RouteStatusEnum,
 )
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
@@ -483,7 +484,7 @@ class TestCoreModels:
             notes="Test notes",
             drive_date=date(2024, 1, 15),
             num_routes=3,
-            status="Completed",
+            status=RouteStatusEnum.COMPLETED,
         )
         assert route_group_read.route_group_id is not None
 
@@ -885,11 +886,9 @@ class TestAnnouncementModel:
 
     def test_announcement_create_schema(self) -> None:
         """Test AnnouncementCreate validation."""
-        user_id = uuid4()
         create = AnnouncementCreate(
             subject="New Announcement",
             message="Details here",
-            user_id=user_id,
         )
         assert create.subject == "New Announcement"
         assert create.attachments == []
@@ -897,7 +896,6 @@ class TestAnnouncementModel:
         create_with_attachments = AnnouncementCreate(
             subject="With Images",
             message="See attached",
-            user_id=user_id,
             attachments=["https://example.com/img1.png"],
         )
         assert len(create_with_attachments.attachments) == 1
@@ -915,17 +913,11 @@ class TestAnnouncementModel:
     def test_announcement_required_fields(self) -> None:
         """Test that subject and message are required."""
         with pytest.raises(ValidationError) as exc_info:
-            AnnouncementCreate(
-                message="No subject",
-                user_id=uuid4(),
-            )
+            AnnouncementCreate.model_validate({"message": "No subject"})
         assert "subject" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            AnnouncementCreate(
-                subject="No message",
-                user_id=uuid4(),
-            )
+            AnnouncementCreate.model_validate({"subject": "No message"})
         assert "message" in str(exc_info.value)
 
     def test_announcement_subject_validation(self) -> None:
@@ -934,5 +926,4 @@ class TestAnnouncementModel:
             AnnouncementCreate(
                 subject="",
                 message="Some message",
-                user_id=uuid4(),
             )
