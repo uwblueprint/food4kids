@@ -58,7 +58,7 @@ function ModalContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             aria-label="Close"
-            className="shadow-light text-grey-400 hover:text-grey-500 absolute top-4 right-4 flex size-11 items-center justify-center rounded-full bg-white transition-colors"
+            className="shadow-light text-grey-400 hover:text-grey-500 absolute top-4 right-4 flex size-11 cursor-pointer items-center justify-center rounded-full bg-white transition-colors"
           >
             <XIcon className="size-5" />
           </DialogPrimitive.Close>
