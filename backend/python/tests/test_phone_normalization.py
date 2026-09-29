@@ -168,21 +168,16 @@ class TestUpdateModelsNormalize:
         with pytest.raises(ValidationError):
             AdminUpdate(admin_phone="555-1234")
 
+    def test_admin_update_clears_phone_on_explicit_null(self) -> None:
+        """Nullable column, so ``{"admin_phone": null}`` means "clear it"."""
+        assert AdminUpdate(admin_phone=None).admin_phone is None
 
-class TestUpdateModelsRejectExplicitNull:
-    """A non-nullable phone column must reject an explicit ``null``.
-
-    The ``None`` default means "field omitted" and never reaches a validator,
-    so a client sending ``{"admin_phone": null}`` would otherwise assign None
-    onto the row and fail as an IntegrityError at commit — a 500 — instead of
-    a 422 naming the field.
-    """
-
-    def test_admin_update_rejects_null_phone(self) -> None:
+    def test_admin_update_rejects_whitespace_phone(self) -> None:
+        """Only ``""`` means "no number"; blank-looking input is a typo, not absence."""
         with pytest.raises(ValidationError):
-            AdminUpdate(admin_phone=None)
+            AdminUpdate(admin_phone="   ")
 
-    def test_admin_update_still_allows_omitting_phone(self) -> None:
+    def test_admin_update_omitting_phone_is_unchanged(self) -> None:
         assert AdminUpdate(first_name="Emily").admin_phone is None
 
     def test_driver_update_allows_null_phone(self) -> None:
