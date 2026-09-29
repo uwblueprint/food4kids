@@ -32,11 +32,11 @@ class BaseModel(sm.SQLModel):
     # local time, silently shifting by the EST offset.
     created_at: datetime | None = Field(
         default_factory=now_utc,
-        sa_type=sm.DateTime(timezone=True),
+        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
     )
     updated_at: datetime | None = Field(
         default_factory=now_utc,
-        sa_type=sm.DateTime(timezone=True),
+        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
         sa_column_kwargs={"onupdate": now_utc},
     )
 

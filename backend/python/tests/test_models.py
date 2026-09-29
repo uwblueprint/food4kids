@@ -915,13 +915,13 @@ class TestAnnouncementModel:
     def test_announcement_required_fields(self) -> None:
         """Test that subject and message are required."""
         with pytest.raises(ValidationError) as exc_info:
-            AnnouncementCreate(  # type: ignore[call-arg]  # subject omitted on purpose
+            AnnouncementCreate(
                 message="No subject",
             )
         assert "subject" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            AnnouncementCreate(  # type: ignore[call-arg]  # message omitted on purpose
+            AnnouncementCreate(
                 subject="No message",
             )
         assert "message" in str(exc_info.value)
