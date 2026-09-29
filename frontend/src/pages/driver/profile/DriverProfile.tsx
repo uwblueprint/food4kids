@@ -241,11 +241,16 @@ const DriverProfileLoaded = ({
               }
             }
           }}
-          onConfirm={handleDiscardChanges}
+          onConfirm={() => {
+            if (blocker.state === 'blocked') {
+              blocker.reset();
+            }
+          }}
+          onCancel={handleDiscardChanges}
           title="Unsaved changes"
           description="Are you sure you want to go back to the home screen?"
-          confirmLabel="Discard changes"
-          cancelLabel="Keep editing"
+          confirmLabel="Keep editing"
+          cancelLabel="Discard changes"
         />
       </main>
     </>
