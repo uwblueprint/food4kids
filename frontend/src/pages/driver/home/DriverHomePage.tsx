@@ -6,8 +6,11 @@ import { useDriverRoutes, useRoute } from '@/api/routes';
 import noUpcoming from '@/assets/illustrations/boy-edge-case-with-questions.png';
 import noPast from '@/assets/illustrations/girl-confused.png';
 import logo from '@/assets/logos/logo_mobile_one_line.svg';
+import { SELECTED_BUTTON_STROKE } from '@/common/components/Button.variants';
 import { StatisticsCard } from '@/common/components/StatisticsCard';
+import { parseDateOnly } from '@/common/utils';
 import { AnnouncementsBoard } from '@/features/announcements';
+import { cn } from '@/lib/utils';
 
 import { RouteCard } from './components';
 
@@ -50,23 +53,24 @@ export const DriverHomePage = () => {
   );
   const { data: routesData } = useDriverRoutes();
 
-  // Filter routes into upcoming vs past based on drive_date
+  // Filter routes into upcoming vs past based on drive_date. drive_date is
+  // date-only, and new Date('YYYY-MM-DD') reads it as UTC midnight -- which
+  // is the previous evening here, so today's route sorted as past and
+  // displayed a day early. parseDateOnly reads it as local midnight.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const routes = routesData?.items || [];
-  const upcomingRoutes = routes.filter((route) => {
-    const driveDate = new Date(route.drive_date);
-    return driveDate >= today;
-  });
-  const pastRoutes = routes.filter((route) => {
-    const driveDate = new Date(route.drive_date);
-    return driveDate < today;
-  });
+  const upcomingRoutes = routes.filter(
+    (route) => parseDateOnly(route.drive_date) >= today
+  );
+  const pastRoutes = routes.filter(
+    (route) => parseDateOnly(route.drive_date) < today
+  );
 
   // Format date for display
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseDateOnly(dateString);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -121,23 +125,23 @@ export const DriverHomePage = () => {
           <div className="flex w-full rounded-full">
             <button
               onClick={() => setTab('upcoming')}
-              className={
-                (tab === 'upcoming'
-                  ? 'bg-blue-50 text-blue-300'
-                  : 'text-grey-500') +
-                ' text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold'
-              }
+              className={cn(
+                'text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold',
+                tab === 'upcoming'
+                  ? `bg-blue-50 text-blue-300 ${SELECTED_BUTTON_STROKE}`
+                  : 'text-grey-500'
+              )}
             >
               Upcoming
             </button>
             <button
               onClick={() => setTab('past')}
-              className={
-                (tab === 'past'
-                  ? 'bg-blue-50 text-blue-300'
-                  : 'text-grey-500') +
-                ' text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold'
-              }
+              className={cn(
+                'text-p2 flex-1 rounded-full px-4 py-3 text-center font-semibold',
+                tab === 'past'
+                  ? `bg-blue-50 text-blue-300 ${SELECTED_BUTTON_STROKE}`
+                  : 'text-grey-500'
+              )}
             >
               Past
             </button>

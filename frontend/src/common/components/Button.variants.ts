@@ -1,5 +1,30 @@
 import { cva } from 'class-variance-authority';
 
+/* Stroke rule (design, platform-wide): a filled button on a DARK ground
+ * (blue, red) carries no stroke; one on a LIGHT ground (white, grey) carries a
+ * 1px stroke. Unfilled variants (textLink, ghost) have no ground and so no
+ * stroke either. Exported so Button.variants.test.ts can hold every variant to
+ * the rule — a new variant fails the test until it's classified there. */
+export const buttonVariantClasses = {
+  primary: 'bg-blue-300 text-grey-100 hover:bg-blue-400',
+  secondary:
+    'bg-grey-200 text-grey-500 border border-grey-300 hover:bg-grey-300',
+  /* Figma's Type=Tertiary, State=Hover keeps the fill and stroke and adds
+   * only a 0 0 10px rgba(0,0,0,.04) shadow — our `shadow-light` token. */
+  tertiary:
+    'bg-grey-100 text-grey-500 border border-grey-300 hover:shadow-light',
+  textLink: 'bg-transparent text-blue-300 hover:underline',
+  ghost: 'bg-transparent text-grey-500 hover:bg-grey-200',
+  destructive: 'bg-red text-grey-100 hover:opacity-90',
+} as const;
+
+/* The same 1px light-ground stroke, for selected/active buttons outside this
+ * component (active sidebar item, driver-home segmented control, unassigned
+ * route row). Button treatment only — a selected calendar day is a flat
+ * ellipse with no stroke. Call sites are listed in Button.variants.test.ts. */
+export const SELECTED_BUTTON_STROKE =
+  'outline outline-1 outline-offset-[-1px] outline-blue-100';
+
 export const buttonVariants = cva(
   /* ---- shared base ---- */
   [
@@ -12,16 +37,7 @@ export const buttonVariants = cva(
   ],
   {
     variants: {
-      variant: {
-        primary:
-          'bg-blue-300 text-grey-100 border border-blue-400 hover:bg-blue-400',
-        secondary:
-          'bg-grey-200 text-grey-500 border border-grey-300 hover:bg-grey-300',
-        tertiary: 'bg-grey-100 text-grey-500 border border-grey-300',
-        textLink: 'bg-transparent text-blue-300 hover:underline',
-        ghost: 'bg-transparent text-grey-500 hover:bg-grey-200',
-        destructive: 'bg-red text-light-red hover:opacity-90',
-      },
+      variant: buttonVariantClasses,
       shape: {
         default: [
           'font-nunito text-button', // UI/Button: Nunito 16/20, constant

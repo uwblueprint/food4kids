@@ -10,9 +10,9 @@ import type { GetLocationsData } from './generated/types.gen';
 /**
  * Fetch the (paginated) list of locations for the admin routes "Addresses" tab.
  *
- * The status and delivery_type filters reach the server; GET /locations has no
- * full-text search param yet, so the tab's search box is local-only UI (see
- * useAddressesTabState).
+ * The status and delivery_type filters and the `search` box all reach the
+ * server; `search` matches (case-insensitively) every text column the table
+ * shows, plus the phone numbers by digits.
  */
 export function useAddresses(query?: GetLocationsData['query']) {
   return useQuery({

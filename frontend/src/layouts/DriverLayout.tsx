@@ -1,5 +1,7 @@
 import { Outlet } from 'react-router-dom';
 
+import { PopupHost } from '@/common/components/PopupHost';
+
 /**
  * Driver platform shell.
  *
@@ -11,8 +13,10 @@ import { Outlet } from 'react-router-dom';
  */
 export const DriverLayout = () => {
   return (
-    <div className="tablet:p-8 mx-auto flex min-h-screen w-full max-w-[834px] flex-col p-5">
-      <Outlet />
+    <div className="tablet:p-8 relative mx-auto flex min-h-screen w-full max-w-[834px] flex-col p-5">
+      <PopupHost>
+        <Outlet />
+      </PopupHost>
     </div>
   );
 };

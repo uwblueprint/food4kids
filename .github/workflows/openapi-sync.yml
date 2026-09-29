@@ -95,7 +95,7 @@ jobs:
         if: steps.changes.outputs.contract == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.1"
+          node-version: "24.13.0"
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -111,7 +111,9 @@ jobs:
       - name: Regenerate the OpenAPI client (schema + TS)
         if: steps.changes.outputs.contract == 'true'
         env:
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          # Fake on purpose — CI must never hold a working Maps key; see
+          # .github/workflows/pytest.yml.
+          GOOGLE_MAPS_API_KEY: AIzaSyDUMMY-not-a-real-key-for-tests
         run: ./scripts/regen-openapi.sh
 
       # If the regen changed anything, auto-commit it back to the PR branch. We
@@ -206,7 +208,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.1"
+          node-version: "24.13.0"
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -217,7 +219,9 @@ jobs:
       # Same byte-deterministic regen the PR job and the pre-commit hook run.
       - name: Regenerate the OpenAPI client (schema + TS)
         env:
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          # Fake on purpose — CI must never hold a working Maps key; see
+          # .github/workflows/pytest.yml.
+          GOOGLE_MAPS_API_KEY: AIzaSyDUMMY-not-a-real-key-for-tests
         run: ./scripts/regen-openapi.sh
 
       # Fail loudly if the committed client doesn't match a fresh regen. No

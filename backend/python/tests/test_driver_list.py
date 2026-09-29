@@ -33,7 +33,8 @@ def local_new_year() -> Any:
     with (
         patch("app.services.implementations.driver_service.datetime", NewYearClock),
         patch(
-            "app.services.implementations.driver_history_service.datetime", NewYearClock
+            "app.services.implementations.driver_history_service.now_local",
+            return_value=NewYearClock.now(ZoneInfo("America/Toronto")),
         ),
         patch(
             "app.routers.driver_routes.driver_service.timezone",

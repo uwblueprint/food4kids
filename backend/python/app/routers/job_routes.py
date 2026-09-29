@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import require_admin, require_driver_or_admin
+from app.dependencies.auth import require_admin
 from app.models import get_session
 from app.models.enum import ProgressEnum
 from app.models.job import JobRead
@@ -14,6 +14,8 @@ from app.services.implementations.job_service import JobService
 
 logger = logging.getLogger(__name__)
 
+# Every endpoint here is admin-only: jobs are route-generation runs, driven from
+# the admin generation wizard and nothing driver-side.
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
@@ -25,7 +27,7 @@ def get_job_service(session: AsyncSession = Depends(get_session)) -> JobService:
 async def get_jobs(
     progress: ProgressEnum | None = Query(None, description="Filter by job status"),
     service: JobService = Depends(get_job_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> list[JobRead]:
     """Get all jobs"""
     jobs = await service.get_jobs(progress=progress)
@@ -36,9 +38,12 @@ async def get_jobs(
 async def generate_job(
     req: RouteGenerationGroupInput,
     service: JobService = Depends(get_job_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> JobEnqueueResponse:
-    """Accept a generation request: persist it as PENDING and wake the worker."""
+    """Accept a generation request: persist it as PENDING and wake the worker.
+
+    Admin-only — route generation is an admin workflow, and it burns Maps quota.
+    """
     job_id = await service.generate_job(req)
     await service.enqueue(job_id)
     return JobEnqueueResponse(job_id=job_id)
@@ -48,7 +53,7 @@ async def generate_job(
 async def get_job(
     job_id: UUID,
     service: JobService = Depends(get_job_service),
-    _auth: bool = Depends(require_driver_or_admin),
+    _auth: bool = Depends(require_admin),
 ) -> JobRead:
     job = await service.get_job(job_id)
     if not job:

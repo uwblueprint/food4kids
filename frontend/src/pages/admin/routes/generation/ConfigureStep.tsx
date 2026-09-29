@@ -7,19 +7,14 @@ import type { Column } from '@/common/components';
 import {
   Banner,
   Button,
+  ConfirmModal,
   DataTable,
   DatePicker,
   Input,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
   Spinner,
   TimePicker,
+  Toggle,
 } from '@/common/components';
-import { cn } from '@/lib/utils';
 
 import type { GenerationOutletContext } from './AdminRoutesGenerationLayout';
 import { GenerationFooter } from './GenerationFooter';
@@ -90,45 +85,6 @@ function defaultRouteName(groupName: string, routeDate: Date): string {
     day: 'numeric',
   });
   return `${date} - ${groupName}`;
-}
-
-function ReturnToggle({
-  checked,
-  disabled = false,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-2',
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-      )}
-    >
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'relative h-5 w-9 rounded-full transition-colors',
-          checked ? 'bg-blue-300' : 'bg-grey-300'
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 left-0 size-4 rounded-full bg-white transition-transform',
-            checked ? 'translate-x-[18px]' : 'translate-x-0.5'
-          )}
-        />
-      </button>
-      <span className="text-p2">{checked ? 'Yes' : 'No'}</span>
-    </div>
-  );
 }
 
 export function ConfigureStep() {
@@ -403,7 +359,7 @@ export function ConfigureStep() {
       key: 'return_to_warehouse',
       header: 'End at Warehouse',
       render: (row) => (
-        <ReturnToggle
+        <Toggle
           checked={row.form.returnToWarehouse}
           disabled={deselectedGroups.has(row.deliveryGroup)}
           onChange={(returnToWarehouse) =>
@@ -463,50 +419,24 @@ export function ConfigureStep() {
         </Button>
       </GenerationFooter>
 
-      <Modal open={leaveOpen} onOpenChange={setLeaveOpen}>
-        <ModalContent showCloseButton={false}>
-          <ModalHeader>
-            <ModalTitle variant="confirmation">Leave without Saving</ModalTitle>
-            <ModalDescription>
-              If you go back now, all the data you entered will be lost. Would
-              you still like to go back anyway?
-            </ModalDescription>
-          </ModalHeader>
-          <ModalFooter className="justify-end">
-            <Button variant="secondary" onClick={() => setLeaveOpen(false)}>
-              Stay on this page
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => navigate('/admin/routes/generation/review')}
-            >
-              Leave anyway
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ConfirmModal
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+        onConfirm={() => navigate('/admin/routes/generation/review')}
+        title="Leave without Saving"
+        description="If you go back now, all the data you entered will be lost. Would you still like to go back anyway?"
+        cancelLabel="Stay on this page"
+        confirmLabel="Leave anyway"
+      />
 
-      <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <ModalContent showCloseButton={false}>
-          <ModalHeader>
-            <ModalTitle variant="confirmation">
-              Continue to Generation
-            </ModalTitle>
-            <ModalDescription>
-              You're about to generate delivery routes for routes you have
-              selected. This action cannot be undone.
-            </ModalDescription>
-          </ModalHeader>
-          <ModalFooter className="justify-end">
-            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleConfirm}>
-              Generate routes
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ConfirmModal
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={handleConfirm}
+        title="Continue to Generation"
+        description="You're about to generate delivery routes for routes you have selected. This action cannot be undone."
+        confirmLabel="Generate routes"
+      />
     </>
   );
 }
