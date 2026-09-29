@@ -45,7 +45,7 @@ from app.models.enum import NotePermission, ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
 from app.models.location_group import LocationGroup
-from app.models.note import Note
+from app.models.note import Attachment, Note
 from app.models.note_chain import NoteChain
 from app.models.route import Route
 from app.models.route_group import RouteGroup
@@ -1147,7 +1147,7 @@ def main(*, reset_passwords: bool = False) -> None:
                     partner_driver_name=fake.name()
                     if random.choice([True, False])
                     else None,
-                    availability=[random.choice([True, False]) for _ in range(7)],
+                    availability=[random.choice([True, False]) for _ in range(5)],
                     address=fake.address(),
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),
@@ -1403,7 +1403,7 @@ def main(*, reset_passwords: bool = False) -> None:
                             user_id=author_id,
                             message=fake.sentence(),
                             is_system=False,
-                            attachments=attachments,
+                            attachments=[Attachment(**a) for a in attachments],
                         )
                         set_timestamps(note)
                         session.add(note)

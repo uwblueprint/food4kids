@@ -185,6 +185,6 @@ class TestUpdateModelsRejectExplicitNull:
     def test_admin_update_still_allows_omitting_phone(self) -> None:
         assert AdminUpdate(first_name="Emily").admin_phone is None
 
-    def test_driver_update_rejects_null_phone(self) -> None:
-        with pytest.raises(ValidationError):
-            DriverUpdate(phone=None)
+    def test_driver_update_allows_null_phone(self) -> None:
+        """Phone is optional for admin-created driver profiles."""
+        assert DriverUpdate(phone=None).phone is None

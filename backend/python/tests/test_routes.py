@@ -28,7 +28,7 @@ from app.dependencies.auth import (
 )
 from app.dependencies.services import get_google_maps_client
 from app.models import get_session
-from app.models.enum import ProgressEnum, RouteStatusEnum
+from app.models.enum import NotePermission, ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -106,10 +106,16 @@ class TestDriverRoutes:
 
     @pytest.mark.asyncio
     async def test_get_drivers_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /drivers returns empty list when no drivers exist."""
+        """Test GET /drivers returns an empty paginated result."""
         response = await async_client.get("/drivers/")
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {
+            "items": [],
+            "total": 0,
+            "page": 1,
+            "page_size": 50,
+            "total_pages": 0,
+        }
 
     @pytest.mark.asyncio
     async def test_initialize_driver(
@@ -239,12 +245,14 @@ class TestDriverRoutes:
     async def test_get_drivers_with_data(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """Test GET /drivers returns list of drivers."""
+        """Test GET /drivers returns paginated driver rows."""
         response = await async_client.get("/drivers/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        assert str(data[0]["driver_id"]) == str(test_driver.driver_id)
+        assert data["total"] == 1
+        assert str(data["items"][0]["driver_id"]) == str(test_driver.driver_id)
+        assert data["items"][0]["is_active"] is False
+        assert data["items"][0]["current_year_km"] == 0
 
     @pytest.mark.asyncio
     async def test_get_driver_by_id(
@@ -478,11 +486,10 @@ class TestDriverRoutes:
         assert get_response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_driver_by_email(
+    async def test_search_driver_by_name(
         self, async_client: AsyncClient, test_driver: Any, test_session: AsyncSession
     ) -> None:
-        """Test GET /drivers?email= filters by email."""
-        # Get the user associated with test_driver to find the email
+        """GET /drivers searches first and last name server-side."""
         from sqlmodel import select
 
         from app.models.user import User
@@ -492,11 +499,15 @@ class TestDriverRoutes:
         )
         user = result.scalar_one()
 
-        response = await async_client.get(f"/drivers/?email={user.email}")
+        response = await async_client.get(f"/drivers/?search={user.first_name}")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        assert str(data[0]["driver_id"]) == str(test_driver.driver_id)
+        assert data["total"] == 1
+        assert str(data["items"][0]["driver_id"]) == str(test_driver.driver_id)
+
+        response = await async_client.get("/drivers/?search=does-not-exist")
+        assert response.status_code == 200
+        assert response.json()["items"] == []
 
 
 class TestLocationRoutes:
@@ -1442,7 +1453,9 @@ class TestLocationRoutes:
         """GET /locations returns the most recent non-system note as latest_note."""
         from app.models.note import Note
 
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         test_session.add(chain)
         await test_session.flush()
 
@@ -5584,7 +5597,9 @@ class TestNoteChainRoutes:
         """Helper: create a NoteChain directly in DB, return its ID as string."""
         from app.models.note_chain import NoteChain
 
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         session.add(chain)
         await session.commit()
         await session.refresh(chain)
@@ -5730,7 +5745,9 @@ class TestNoteFeedRoutes:
         from app.models.note_chain import NoteChain
 
         group = LocationGroup(name=f"{location_name} Group", color="#000000", notes="")
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         session.add_all([group, chain])
         await session.flush()
 
@@ -6704,6 +6721,7 @@ class TestDriverHistoryRoutes:
         body = response.json()
         assert "lifetime_km" in body
         assert "current_year_km" in body
+        assert "last_year_km" in body
 
     @pytest.mark.asyncio
     async def test_get_summary_driver_not_found(

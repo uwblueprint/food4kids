@@ -474,9 +474,101 @@ export type DriverHistorySummary = {
    */
   current_year_km: number;
   /**
+   * Last Year Km
+   */
+  last_year_km: number;
+  /**
    * Lifetime Km
    */
   lifetime_km: number;
+};
+
+/**
+ * DriverListRead
+ *
+ * Driver table row with aggregates computed by the list query.
+ */
+export type DriverListRead = {
+  /**
+   * Active
+   */
+  active?: boolean;
+  /**
+   * Address
+   */
+  address?: string | null;
+  /**
+   * Auth Id
+   */
+  auth_id: string | null;
+  /**
+   * Availability
+   */
+  availability?: Array<boolean>;
+  /**
+   * Car Make Model
+   */
+  car_make_model?: string | null;
+  /**
+   * Current Year Km
+   */
+  current_year_km?: number;
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Email
+   */
+  email: string;
+  /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Full Name
+   */
+  readonly full_name: string;
+  /**
+   * Is Active
+   */
+  is_active?: boolean;
+  /**
+   * Last Delivery
+   */
+  last_delivery?: string | null;
+  /**
+   * Last Name
+   */
+  last_name: string;
+  /**
+   * Last Year Km
+   */
+  last_year_km?: number;
+  /**
+   * License Plate
+   */
+  license_plate?: string | null;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Partner Driver Name
+   */
+  partner_driver_name?: string | null;
+  /**
+   * Phone
+   */
+  phone?: string | null;
+  /**
+   * Role
+   */
+  role: string;
+  /**
+   * User Id
+   */
+  user_id: string;
 };
 
 /**
@@ -508,7 +600,7 @@ export type DriverRead = {
   /**
    * Address
    */
-  address: string;
+  address?: string | null;
   /**
    * Auth Id
    */
@@ -520,7 +612,7 @@ export type DriverRead = {
   /**
    * Car Make Model
    */
-  car_make_model: string;
+  car_make_model?: string | null;
   /**
    * Driver Id
    */
@@ -544,7 +636,7 @@ export type DriverRead = {
   /**
    * License Plate
    */
-  license_plate: string;
+  license_plate?: string | null;
   /**
    * Note Chain Id
    */
@@ -556,7 +648,7 @@ export type DriverRead = {
   /**
    * Phone
    */
-  phone: string;
+  phone?: string | null;
   /**
    * Role
    */
@@ -576,7 +668,7 @@ export type DriverRegister = {
   /**
    * Address
    */
-  address: string;
+  address?: string | null;
   /**
    * Availability
    */
@@ -584,7 +676,7 @@ export type DriverRegister = {
   /**
    * Car Make Model
    */
-  car_make_model: string;
+  car_make_model?: string | null;
   /**
    * Email
    */
@@ -600,7 +692,7 @@ export type DriverRegister = {
   /**
    * License Plate
    */
-  license_plate: string;
+  license_plate?: string | null;
   /**
    * Partner Driver Name
    */
@@ -608,7 +700,7 @@ export type DriverRegister = {
   /**
    * Phone
    */
-  phone: string;
+  phone?: string | null;
 };
 
 /**
@@ -1451,6 +1543,32 @@ export type OrgContactRead = {
    * Contact Phone
    */
   contact_phone: string | null;
+};
+
+/**
+ * PaginatedResponse[DriverListRead]
+ */
+export type PaginatedResponseDriverListRead = {
+  /**
+   * Items
+   */
+  items: Array<DriverListRead>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
 };
 
 /**
@@ -2387,9 +2505,11 @@ export type AuthResponseWritable = {
 };
 
 /**
- * DriverRead
+ * DriverListRead
+ *
+ * Driver table row with aggregates computed by the list query.
  */
-export type DriverReadWritable = {
+export type DriverListReadWritable = {
   /**
    * Active
    */
@@ -2397,7 +2517,7 @@ export type DriverReadWritable = {
   /**
    * Address
    */
-  address: string;
+  address?: string | null;
   /**
    * Auth Id
    */
@@ -2409,7 +2529,89 @@ export type DriverReadWritable = {
   /**
    * Car Make Model
    */
-  car_make_model: string;
+  car_make_model?: string | null;
+  /**
+   * Current Year Km
+   */
+  current_year_km?: number;
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Email
+   */
+  email: string;
+  /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Is Active
+   */
+  is_active?: boolean;
+  /**
+   * Last Delivery
+   */
+  last_delivery?: string | null;
+  /**
+   * Last Name
+   */
+  last_name: string;
+  /**
+   * Last Year Km
+   */
+  last_year_km?: number;
+  /**
+   * License Plate
+   */
+  license_plate?: string | null;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Partner Driver Name
+   */
+  partner_driver_name?: string | null;
+  /**
+   * Phone
+   */
+  phone?: string | null;
+  /**
+   * Role
+   */
+  role: string;
+  /**
+   * User Id
+   */
+  user_id: string;
+};
+
+/**
+ * DriverRead
+ */
+export type DriverReadWritable = {
+  /**
+   * Active
+   */
+  active?: boolean;
+  /**
+   * Address
+   */
+  address?: string | null;
+  /**
+   * Auth Id
+   */
+  auth_id: string | null;
+  /**
+   * Availability
+   */
+  availability?: Array<boolean>;
+  /**
+   * Car Make Model
+   */
+  car_make_model?: string | null;
   /**
    * Driver Id
    */
@@ -2429,7 +2631,7 @@ export type DriverReadWritable = {
   /**
    * License Plate
    */
-  license_plate: string;
+  license_plate?: string | null;
   /**
    * Note Chain Id
    */
@@ -2441,7 +2643,7 @@ export type DriverReadWritable = {
   /**
    * Phone
    */
-  phone: string;
+  phone?: string | null;
   /**
    * Role
    */
@@ -2580,6 +2782,32 @@ export type LocationReadWritable = {
    * Total Deliveries
    */
   total_deliveries?: number;
+};
+
+/**
+ * PaginatedResponse[DriverListRead]
+ */
+export type PaginatedResponseDriverListReadWritable = {
+  /**
+   * Items
+   */
+  items: Array<DriverListReadWritable>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
 };
 
 /**
@@ -3008,17 +3236,31 @@ export type GetDriversData = {
   path?: never;
   query?: {
     /**
-     * Driver Id
+     * Search
      *
-     * Filter by driver ID
+     * Filter by first or last name
      */
-    driver_id?: string | null;
+    search?: string | null;
     /**
-     * Email
-     *
-     * Filter by email
+     * Sort By
      */
-    email?: string | null;
+    sort_by?: 'name' | 'current_year_km' | 'last_year_km' | 'last_delivery';
+    /**
+     * Order
+     */
+    order?: 'asc' | 'desc';
+    /**
+     * Page
+     *
+     * Page number (1-indexed)
+     */
+    page?: number;
+    /**
+     * Page Size
+     *
+     * Number of items per page
+     */
+    page_size?: number;
   };
   url: '/api/drivers/';
 };
@@ -3034,11 +3276,9 @@ export type GetDriversError = GetDriversErrors[keyof GetDriversErrors];
 
 export type GetDriversResponses = {
   /**
-   * Response Get Drivers
-   *
    * Successful Response
    */
-  200: Array<DriverRead>;
+  200: PaginatedResponseDriverListRead;
 };
 
 export type GetDriversResponse = GetDriversResponses[keyof GetDriversResponses];
