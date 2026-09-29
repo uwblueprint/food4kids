@@ -31,6 +31,7 @@ vi.mock('./layouts', () => ({
 vi.mock('./pages/admin', () => ({
   AdminDriversPage: stub('admin-drivers'),
   AdminHomePage: stub('admin-home'),
+  AdminIndividualRoutePage: stub('admin-individual-route'),
   AdminRoutesGenerationLayout: shell('admin-generation'),
   AdminRoutesPage: stub('admin-routes'),
   AdminSettingsPage: stub('admin-settings'),
@@ -101,6 +102,7 @@ const ADMIN_PATHS = [
   '/admin/home',
   '/admin/drivers',
   '/admin/routes',
+  '/admin/routes/abc-123',
   '/admin/routes/generation',
   '/admin/routes/generation/import',
   '/admin/routes/generation/validate',
