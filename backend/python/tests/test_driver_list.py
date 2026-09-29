@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date, datetime, time, timezone
-from typing import Any
+from typing import Any, Self
 from unittest.mock import patch
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -22,9 +22,9 @@ from app.services.implementations.driver_history_service import DriverHistorySer
 
 class NewYearClock(datetime):
     @classmethod
-    def now(cls, tz: Any = None) -> datetime:
+    def now(cls, tz: Any = None) -> Self:
         # UTC has reached 2027; Toronto is still in 2026.
-        instant = datetime(2027, 1, 1, 2, tzinfo=timezone.utc)
+        instant = cls(2027, 1, 1, 2, tzinfo=timezone.utc)
         return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
 
 
@@ -129,7 +129,6 @@ async def test_driver_list_aggregates_match_history_at_local_new_year(
     assert rows["Charlie"]["is_active"] is False
 
     history = DriverHistoryService(logging.getLogger(__name__))
-    history.timezone = ZoneInfo("America/Toronto")
     for name, driver in drivers.items():
         summary = await history.get_driver_history_summary(
             test_session, driver.driver_id
