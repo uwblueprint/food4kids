@@ -30,6 +30,7 @@ from app.models.route_group import RouteGroup  # noqa: F401
 from app.models.route_snapshot import RouteSnapshot  # noqa: F401
 from app.models.route_stop import RouteStop  # noqa: F401
 from app.models.route_stop_snapshot import RouteStopSnapshot  # noqa: F401
+from app.models.system_settings import SystemSettings
 from app.services.implementations.k_means_clustering_algorithm import (
     KMeansClusteringAlgorithm,
 )
@@ -38,15 +39,14 @@ from app.utilities.boxes import compute_boxes
 # Use the same connection string as seed_database.py
 DATABASE_URL = "postgresql://postgres:postgres@f4k_db:5432/f4k"
 
-# Children-per-box divisor for box estimates in this dev script.
-CHILDREN_PER_BOX = 2
+# Box sizing and per-car capacity are read from the system_settings row at run
+# time — this script clusters against whatever the org has configured.
 
 # Configure number of locations pulled from csv for testing
 LOCATIONS_COUNT = 18
 
-# Configure number of clusters + locations per cluster and max boxes per cluster limits
+# Configure number of clusters to split those locations across
 NUM_CLUSTERS = 10
-MAX_BOXES_PER_CLUSTER = 14
 
 
 async def main() -> None:
@@ -69,6 +69,13 @@ async def main() -> None:
             print("Not enough locations with coordinates to cluster!")
             return
 
+        system_settings = session.exec(select(SystemSettings).limit(1)).first()
+        if system_settings is None:
+            raise RuntimeError("No SystemSettings row found in the database.")
+
+        children_per_box = system_settings.children_per_box
+        max_boxes_per_cluster = system_settings.boxes_per_car
+
         # Count total number of boxes
         total_boxes = 0
 
@@ -80,28 +87,28 @@ async def main() -> None:
             print(f"  {name}")
             print(f"    Address: {loc.address}")
             print(f"    Coords: ({loc.latitude}, {loc.longitude})")
-            print(f"    Boxes: {compute_boxes(loc.num_children, CHILDREN_PER_BOX)}")
+            print(f"    Boxes: {compute_boxes(loc.num_children, children_per_box)}")
             print()
             total_boxes = sum(
-                compute_boxes(loc.num_children, CHILDREN_PER_BOX) for loc in locations
+                compute_boxes(loc.num_children, children_per_box) for loc in locations
             )
 
         print("Total number of boxes: ", total_boxes)
         print("Total locations: ", len(locations))
 
         # Run clustering
-        clustering_algo = KMeansClusteringAlgorithm(CHILDREN_PER_BOX)
+        clustering_algo = KMeansClusteringAlgorithm(children_per_box)
 
         print("Running K-Means clustering:")
         print(f"  - Number of clusters: {NUM_CLUSTERS}")
-        print(f"  - Max boxes per cluster: {MAX_BOXES_PER_CLUSTER}")
+        print(f"  - Max boxes per cluster: {max_boxes_per_cluster}")
         print("-" * 60)
 
         try:
             clusters = await clustering_algo.cluster_locations(
                 locations=locations,
                 num_clusters=NUM_CLUSTERS,
-                max_boxes_per_cluster=MAX_BOXES_PER_CLUSTER,
+                max_boxes_per_cluster=max_boxes_per_cluster,
                 timeout_seconds=30.0,
             )
 
@@ -124,7 +131,7 @@ async def main() -> None:
                     print(f"  • {name}")
                     print(f"    {loc.address}")
                     print(f"    Coords: ({loc.latitude}, {loc.longitude})")
-                    box_count = compute_boxes(loc.num_children, CHILDREN_PER_BOX)
+                    box_count = compute_boxes(loc.num_children, children_per_box)
                     print(f"    Boxes: {box_count}")
                     total_boxes += box_count
                     new_row = {
