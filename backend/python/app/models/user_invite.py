@@ -8,6 +8,9 @@ from app.utilities.datetime_utils import now_utc
 
 from .base import BaseModel
 
+# How long a create-password link stays valid; quoted in the invite email too.
+INVITE_VALID_HOURS = 48
+
 
 class UserInviteBase(SQLModel):
     user_id: UUID = Field(
@@ -15,7 +18,7 @@ class UserInviteBase(SQLModel):
     )
     expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
-        default_factory=lambda: now_utc() + timedelta(days=2),
+        default_factory=lambda: now_utc() + timedelta(hours=INVITE_VALID_HOURS),
     )
     is_used: bool = Field(default=False)
 

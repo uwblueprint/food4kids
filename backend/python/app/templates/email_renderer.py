@@ -23,6 +23,14 @@ class TemplateRenderer:
             loader=FileSystemLoader(self.template_dir),
             autoescape=select_autoescape(enabled_extensions=("html", "xml")),
         )
+        # ``{% if Role_To_Replace is admin %}``. A test rather than a string
+        # comparison because the templates are exported from React, which
+        # escapes the quotes a literal ``== "admin"`` would need.
+        self.env.tests["admin"] = lambda role: role == "admin"
+
+    def render_string(self, source: str, context: dict) -> str:
+        """Render an inline template — the subject line — with the same context."""
+        return self.env.from_string(source).render(context)
 
     def render(self, template_name: str, context: dict) -> str:
         """Render a template with context variables

@@ -53,9 +53,10 @@ class EmailDispatcher:
         template_config = EMAIL_TEMPLATES[email_type]
         template_name = template_config["filename"]
 
-        # Use provided subject or template default (ensure non-None str)
-        subject_str: str = (
-            subject if subject is not None else template_config["default_subject"]
+        # The subject is a template too, so it can carry the same placeholders.
+        subject_str: str = self.template_renderer.render_string(
+            subject if subject is not None else template_config["default_subject"],
+            context,
         )
 
         # Render template with context

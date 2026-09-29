@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { type AuthResponse, type DriverRegisterResponse } from './generated';
+import { type AuthResponse } from './generated';
 
 interface AuthState {
   accessToken: string | null;
@@ -24,8 +24,8 @@ interface AuthState {
    */
   sessionExpired: boolean;
   rememberMe: boolean;
+  /** Called after a successful login *or* registration — both return an AuthResponse. */
   setAuth: (authData: AuthResponse) => void;
-  setAuthFromRegister: (registerData: DriverRegisterResponse) => void;
   clearAuth: () => void;
   /** Sign out because the server rejected our token. See `axiosClient`. */
   expireSession: () => void;
@@ -39,7 +39,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   sessionExpired: false,
   rememberMe: false,
 
-  // Called after a successful Login
+  // Called after a successful login or registration
   setAuth: (authData) =>
     set({
       accessToken: authData.access_token,
@@ -58,26 +58,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Whatever ended the last session, this one supersedes it.
       sessionExpired: false,
       rememberMe: authData.remember_me,
-    }),
-
-  // Called after a successful Registration
-  setAuthFromRegister: (registerData) =>
-    set({
-      accessToken: registerData.auth.access_token,
-      user: {
-        id: registerData.auth.id,
-        firstName: registerData.auth.first_name,
-        lastName: registerData.auth.last_name,
-        email: registerData.auth.email,
-        fullName: registerData.auth.full_name,
-        role: registerData.driver.role,
-        driverId: registerData.driver.driver_id,
-        adminId: registerData.auth.admin_id ?? null,
-      },
-      isAuthenticated: true,
-      isRestoringSession: false,
-      sessionExpired: false,
-      rememberMe: registerData.auth.remember_me,
     }),
 
   clearAuth: () =>
