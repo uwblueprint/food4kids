@@ -8,7 +8,7 @@ snapshot over the live location, so a null snapshot coordinate falls back to
 the live one.
 
 Revision ID: a512180dfb8c
-Revises: b8e3f1a70c92
+Revises: c3a5e7f9b1d2
 Create Date: 2026-09-27 23:35:52.545838
 
 """
@@ -18,7 +18,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "a512180dfb8c"
-down_revision = "b8e3f1a70c92"
+down_revision = "c3a5e7f9b1d2"
 branch_labels = None
 depends_on = None
 
