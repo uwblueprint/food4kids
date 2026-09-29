@@ -81,7 +81,8 @@ def _run_seed_script() -> None:
         patch.object(seed_module, "get_database_url", return_value=sync_db_url),
         patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
         patch("app.seed_database.initialize_firebase"),
-        patch("app.seed_database.ensure_firebase_user"),
+        patch("app.seed_database.firebase_account_snapshot", return_value={}),
+        patch("app.seed_database.sync_firebase_accounts"),
         patch(
             "app.seed_database.upload_seed_note_images",
             return_value=FAKE_NOTE_IMAGES,
@@ -215,10 +216,11 @@ class TestDataValidation:
     async def test_phone_numbers_are_rfc3966(self, test_session: AsyncSession) -> None:
         drivers = (await test_session.execute(select(Driver))).scalars().all()
         for driver in drivers:
+            assert driver.phone is not None
             assert driver.phone.startswith("tel:+"), (
                 f"Driver phone {driver.phone} should be RFC 3966"
             )
-            assert len(driver.availability) == 7
+            assert len(driver.availability) == 5
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(driver.phone, None)
             ), f"Driver phone {driver.phone} should parse as valid"

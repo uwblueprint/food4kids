@@ -1,7 +1,6 @@
 import { useDeleteAddress } from '@/api/addresses';
 import type { LocationRead } from '@/api/generated/types.gen';
-
-import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ConfirmModal } from '@/common/components';
 
 interface DeleteAddressModalProps {
   open: boolean;
@@ -35,7 +34,7 @@ export function DeleteAddressModal({
   };
 
   return (
-    <ConfirmDeleteModal
+    <ConfirmModal
       open={open}
       onOpenChange={handleOpenChange}
       title="Delete Address"
@@ -45,9 +44,14 @@ export function DeleteAddressModal({
           cannot be undone.
         </>
       }
-      isPending={isPending}
-      isError={isError}
-      errorMessage="Something went wrong deleting the address. Please try again."
+      confirmLabel="Delete"
+      confirmVariant="destructive"
+      isLoading={isPending}
+      error={
+        isError
+          ? 'Something went wrong deleting the address. Please try again.'
+          : null
+      }
       onConfirm={handleDelete}
     />
   );

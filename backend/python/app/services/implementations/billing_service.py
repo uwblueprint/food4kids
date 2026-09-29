@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 from app.config import settings
 from app.utilities.billing_client import BillingError
+from app.utilities.datetime_utils import now_local
 
 if TYPE_CHECKING:
     import logging
+    from datetime import datetime
 
     from app.utilities.billing_client import BillingClient, BudgetInfo
 
@@ -50,7 +50,7 @@ class BillingService:
         they run concurrently, since neither lookup feeds the other and each
         carries its own timeout.
         """
-        now = datetime.now(ZoneInfo(settings.scheduler_timezone))
+        now = now_local()
 
         cost, budget = await asyncio.gather(
             asyncio.wait_for(

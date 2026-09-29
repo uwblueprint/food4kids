@@ -11,9 +11,13 @@ export interface MetricPoint extends CalendarMonth {
 interface MonthlyMetricViewProps {
   /** Trailing months, oldest first — the last entry is the current month. */
   points: MetricPoint[];
-  /** Caption under the summed figure, e.g. "Total Kilometers". */
+  /**
+   * The all-time figure, which the caller fetches separately.
+   */
+  total: number;
+  /** Caption under the total, e.g. "Total Kilometers". */
   totalLabel: string;
-  /** Renders both the summed figure and each month's value. */
+  /** Renders the total, and each month's value. */
   formatValue: (value: number) => string;
 }
 
@@ -27,10 +31,10 @@ interface MonthlyMetricViewProps {
  */
 export function MonthlyMetricView({
   points,
+  total,
   totalLabel,
   formatValue,
 }: MonthlyMetricViewProps) {
-  const total = points.reduce((sum, point) => sum + point.value, 0);
   const peak = Math.max(...points.map((point) => point.value), 0);
   const currentMonth = points.at(-1);
 

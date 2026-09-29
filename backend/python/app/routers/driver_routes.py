@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -9,7 +9,6 @@ from app.config import settings
 from app.dependencies.auth import (
     DriverAccess,
     require_admin,
-    require_driver_or_admin,
     require_self_driver_or_admin,
 )
 from app.dependencies.services import (
@@ -22,6 +21,7 @@ from app.dependencies.services import (
 from app.models import get_session
 from app.models.driver import (
     DriverCreate,
+    DriverListRead,
     DriverRead,
     DriverRegister,
     DriverUpdate,
@@ -29,6 +29,7 @@ from app.models.driver import (
 from app.models.user import UserBase, UserFinalize
 from app.models.user_invite import UserInviteCreate
 from app.schemas.auth import DriverRegisterResponse
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.auth_service import AuthService
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
@@ -36,6 +37,7 @@ from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
 from app.utilities.cookies import set_refresh_token_cookie
+from app.utilities.datetime_utils import now_utc
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -44,43 +46,23 @@ driver_service = DriverService(logger)
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
 
-@router.get("/", response_model=list[DriverRead])
+@router.get("/", response_model=PaginatedResponse[DriverListRead])
 async def get_drivers(
     session: AsyncSession = Depends(get_session),
-    driver_id: UUID | None = Query(None, description="Filter by driver ID"),
-    email: str | None = Query(None, description="Filter by email"),
-    _auth: bool = Depends(require_driver_or_admin),
-) -> list[DriverRead]:
+    search: str | None = Query(None, description="Filter by first or last name"),
+    sort_by: Literal[
+        "name", "current_year_km", "last_year_km", "last_delivery"
+    ] = Query("name"),
+    order: Literal["asc", "desc"] = Query("asc"),
+    pagination: PaginationParams = Depends(get_pagination),
+    _auth: bool = Depends(require_admin),
+) -> PaginatedResponse[DriverListRead]:
     """
-    Get all drivers, optionally filter by driver_id or email
+    Paginated driver rows with server-side name search and list aggregates.
     """
-    if driver_id and email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot query by both driver_id and email",
-        )
-
-    if driver_id:
-        driver = await driver_service.get_driver_by_id(session, driver_id)
-        if not driver:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver with id {driver_id} not found",
-            )
-        return [DriverRead.model_validate(driver)]
-
-    elif email:
-        driver = await driver_service.get_driver_by_email(session, email)
-        if not driver:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver with email {email} not found",
-            )
-        return [DriverRead.model_validate(driver)]
-
-    else:
-        drivers = await driver_service.get_drivers(session)
-        return [DriverRead.model_validate(driver) for driver in drivers]
+    return await driver_service.get_driver_list(
+        session, pagination, search, sort_by, order
+    )
 
 
 @router.get("/{driver_id}", response_model=DriverRead)
@@ -182,11 +164,7 @@ async def complete_driver_registration(
             session, user_invite_id, for_update=True
         )
 
-        if (
-            not user_invite
-            or user_invite.is_used
-            or user_invite.expires_at < datetime.now(timezone.utc)
-        ):
+        if not user_invite or user_invite.is_used or user_invite.expires_at < now_utc():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid or expired registration link.",
@@ -259,8 +237,9 @@ async def delete_driver(
 
     A hard delete of the person: the user account and their Firebase login go
     with the driver record, so a deleted driver can no longer sign in. Their
-    routes are detached (driver_id SET NULL) rather than deleted, so the
-    driver's km stop counting toward anyone.
+    routes are detached (driver_id SET NULL) rather than deleted: the km and
+    deliveries stay in the org's totals, they just stop being attributed to
+    anyone in the per-driver ranking and export.
     """
     # Deleting the `users` row cascades to `drivers`, `user_invites`,
     # `password_reset_tokens`, `announcement_last_reads` and `announcements`. A
@@ -284,37 +263,3 @@ async def delete_driver(
         await note_chain_service.delete_note_chain_rows(session, driver.note_chain_id)
 
     await user_service.delete_user_by_id(session, driver.user_id)
-
-
-@router.post("/test-event-email")
-async def test_event_email(
-    test_email: str, dispatcher: EmailDispatcher = Depends(get_email_dispatcher_depends)
-) -> dict[str, str]:
-    """
-    Temporary endpoint to test event-driven emails.
-    Delete this after testing!
-    """
-    simulated_db_info = {
-        "first_name": "Test-Driver-Bob",
-        "url": "https://food4kids.ca/fake-link-123",
-    }
-
-    # Test email sending (feel free to change with provided params, etc. as needed!)
-    """
-     Testable options: 
-     - account-creation (context params that need to be filled in: Driver_Name_To_Replace, Sign_Up_URL, Hours_Till_Expiry), 
-     - check-latest-announcement (context params that need to be filled in: Driver_Name_To_Replace, Announcement_Name, Announcement_Body, Announcement_URL), 
-     - reset-password (context params that need to be filled in: Driver_Name_To_Replace, Reset_Password_URL, Days_Till_Expiry), 
-     - view-upcoming-route (context params that need to be filled in: Driver_Name_To_Replace, Date_To_Replace, Time_To_Replace, Route_Duration_To_Replace,Upcoming_Route_URL)
-    """
-    await dispatcher.dispatch(
-        email_type="reset-password",
-        to=test_email,
-        context={
-            "Driver_Name_To_Replace": simulated_db_info["first_name"],
-            "Reset_Password_URL": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "Days_Till_Expiry": 10000,
-        },
-    )
-
-    return {"message": f"Test email dispatched to {test_email}!"}

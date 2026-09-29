@@ -1,3 +1,5 @@
+import { PopupHost } from '@/common/components/PopupHost';
+
 import { BannersSection } from './sections/BannersSection';
 import { ButtonsSection } from './sections/ButtonsSection';
 import { CalendarSection } from './sections/CalendarSection';
@@ -23,36 +25,38 @@ import { TypekitSection } from './sections/TypekitSection';
 
 export const StyleGuidePage = () => {
   return (
-    <div className="admin-page-margins min-h-screen pb-16">
-      <h1 className="mb-2 text-blue-300">F4K Design System</h1>
-      <p className="text-p2 text-grey-400 mb-2">
-        Tailwind CSS v4 theme — typography, colors, shadows, and spacing.
-      </p>
+    <div className="admin-page-margins relative min-h-screen pb-16">
+      <PopupHost>
+        <h1 className="mb-2 text-blue-300">F4K Design System</h1>
+        <p className="text-p2 text-grey-400 mb-2">
+          Tailwind CSS v4 theme — typography, colors, shadows, and spacing.
+        </p>
 
-      <hr className="border-grey-300 mb-12" />
+        <hr className="border-grey-300 mb-12" />
 
-      <TypekitSection />
-      <ColorsSection />
-      <ShadowsSection />
-      <SpacingSection />
-      <BannersSection />
-      <TagsSection />
-      <CardSection />
-      <TableSection />
-      <ButtonsSection />
-      <FormFieldsSection />
-      <DropdownSection />
-      <CalendarSection />
-      <DatePickerSection />
-      <TimePickerSection />
-      <ModalSection />
-      <SpinnerSection />
-      <ProgressSection />
-      <StatisticsCardSection />
-      <TabsSection />
-      <IllustrationsSection />
-      <LogosSection />
-      <IconographySection />
+        <TypekitSection />
+        <ColorsSection />
+        <ShadowsSection />
+        <SpacingSection />
+        <BannersSection />
+        <TagsSection />
+        <CardSection />
+        <TableSection />
+        <ButtonsSection />
+        <FormFieldsSection />
+        <DropdownSection />
+        <CalendarSection />
+        <DatePickerSection />
+        <TimePickerSection />
+        <ModalSection />
+        <SpinnerSection />
+        <ProgressSection />
+        <StatisticsCardSection />
+        <TabsSection />
+        <IllustrationsSection />
+        <LogosSection />
+        <IconographySection />
+      </PopupHost>
     </div>
   );
 };

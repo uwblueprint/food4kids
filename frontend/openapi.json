@@ -690,19 +690,6 @@
         "title": "ChangedFieldStr",
         "type": "object"
       },
-      "DeliveriesCountResponse": {
-        "properties": {
-          "total_deliveries": {
-            "title": "Total Deliveries",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "total_deliveries"
-        ],
-        "title": "DeliveriesCountResponse",
-        "type": "object"
-      },
       "DeliveryTypeRename": {
         "description": "Request body for renaming a configured delivery type.\n\nRename is a distinct operation from the list-replacing PATCH: it preserves\nthe type's identity, cascading the new name onto every location (active or\nnot) that references the old one. A plain PATCH that swaps a name looks like\na remove + add and is blocked by the in-use guard, so renames must come\nthrough here.",
         "properties": {
@@ -783,6 +770,10 @@
             "title": "Current Year Km",
             "type": "number"
           },
+          "last_year_km": {
+            "title": "Last Year Km",
+            "type": "number"
+          },
           "lifetime_km": {
             "title": "Lifetime Km",
             "type": "number"
@@ -790,9 +781,180 @@
         },
         "required": [
           "lifetime_km",
-          "current_year_km"
+          "current_year_km",
+          "last_year_km"
         ],
         "title": "DriverHistorySummary",
+        "type": "object"
+      },
+      "DriverListRead": {
+        "description": "Driver table row with aggregates computed by the list query.",
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "auth_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Id"
+          },
+          "availability": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Availability",
+            "type": "array"
+          },
+          "car_make_model": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Make Model"
+          },
+          "current_year_km": {
+            "default": 0,
+            "title": "Current Year Km",
+            "type": "number"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "full_name": {
+            "readOnly": true,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "is_active": {
+            "default": false,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "last_delivery": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Delivery"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "last_year_km": {
+            "default": 0,
+            "title": "Last Year Km",
+            "type": "number"
+          },
+          "license_plate": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Plate"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "partner_driver_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Driver Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver_id",
+          "user_id",
+          "auth_id",
+          "first_name",
+          "last_name",
+          "email",
+          "role",
+          "full_name"
+        ],
+        "title": "DriverListRead",
         "type": "object"
       },
       "DriverRankingItem": {
@@ -826,10 +988,16 @@
             "type": "boolean"
           },
           "address": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Address",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
           },
           "auth_id": {
             "anyOf": [
@@ -850,10 +1018,16 @@
             "type": "array"
           },
           "car_make_model": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Car Make Model",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Make Model"
           },
           "driver_id": {
             "format": "uuid",
@@ -879,10 +1053,16 @@
             "type": "string"
           },
           "license_plate": {
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "License Plate",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Plate"
           },
           "note_chain_id": {
             "anyOf": [
@@ -909,9 +1089,15 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "minLength": 1,
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "role": {
             "title": "Role",
@@ -924,10 +1110,6 @@
           }
         },
         "required": [
-          "phone",
-          "license_plate",
-          "car_make_model",
-          "address",
           "driver_id",
           "user_id",
           "auth_id",
@@ -944,10 +1126,16 @@
         "description": "Driver registration request",
         "properties": {
           "address": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Address",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
           },
           "availability": {
             "items": {
@@ -957,10 +1145,16 @@
             "type": "array"
           },
           "car_make_model": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Car Make Model",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Make Model"
           },
           "email": {
             "format": "email",
@@ -981,10 +1175,16 @@
             "type": "string"
           },
           "license_plate": {
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "License Plate",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Plate"
           },
           "partner_driver_name": {
             "anyOf": [
@@ -999,19 +1199,21 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "minLength": 1,
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           }
         },
         "required": [
           "first_name",
           "last_name",
-          "email",
-          "phone",
-          "license_plate",
-          "car_make_model",
-          "address"
+          "email"
         ],
         "title": "DriverRegister",
         "type": "object"
@@ -1050,7 +1252,6 @@
             "anyOf": [
               {
                 "maxLength": 255,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -1077,7 +1278,6 @@
             "anyOf": [
               {
                 "maxLength": 255,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -1116,7 +1316,6 @@
             "anyOf": [
               {
                 "maxLength": 20,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -1140,7 +1339,6 @@
           "phone": {
             "anyOf": [
               {
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -2051,193 +2249,6 @@
         "title": "LocationStatusEnum",
         "type": "string"
       },
-      "LocationUpdate": {
-        "description": "Update request model with all fields optional",
-        "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "contact_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contact Name"
-          },
-          "delivery_type": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Delivery Type"
-          },
-          "dietary_restrictions": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dietary Restrictions"
-          },
-          "guardian_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Guardian Name"
-          },
-          "halal": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Halal"
-          },
-          "in_roster": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "In Roster"
-          },
-          "latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latitude"
-          },
-          "location_group_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Group Id"
-          },
-          "longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Longitude"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "note_chain_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Chain Id"
-          },
-          "num_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Num Children"
-          },
-          "phone_primary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Primary"
-          },
-          "phone_secondary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone Secondary"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
-          }
-        },
-        "title": "LocationUpdate",
-        "type": "object"
-      },
       "LoginRequest": {
         "description": "Login request",
         "properties": {
@@ -2710,6 +2721,42 @@
         "title": "OrgContactRead",
         "type": "object"
       },
+      "PaginatedResponse_DriverListRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DriverListRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[DriverListRead]",
+        "type": "object"
+      },
       "PaginatedResponse_LocationRead_": {
         "properties": {
           "items": {
@@ -2864,6 +2911,20 @@
         ],
         "title": "ProgressEnum",
         "type": "string"
+      },
+      "ResendOnboardingEmailRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ResendOnboardingEmailRequest",
+        "type": "object"
       },
       "RouteDetailRead": {
         "description": "GET /routes/{route_id} response: the bare route plus its ordered stops.\n\nStops are assembled with snapshot-over-live precedence. See\nRouteStopDetailRead.\n\ndrive_date is sourced from the route's RouteGroup (mirrors\nRouteWithDateRead). delivery_type is uniform across a route's locations, so\nit's read from the first stop's Location and is None when the route has no\nstops.",
@@ -3093,8 +3154,13 @@
         "type": "object"
       },
       "RouteGroupDuplicate": {
-        "description": "Duplicate request model - overrides for the copied group.\n\nBoth optional so the endpoint also works with no body: name falls back to\n\"Copy of {original}\" and drive_date to the original's date.",
+        "description": "Duplicate request model - overrides for the copied group.\n\nEvery field has a default so the endpoint also works with no body: name\nfalls back to \"Copy of {original}\", drive_date to the original's date, and\ndriver assignments carry over.",
         "properties": {
+          "copy_drivers": {
+            "default": true,
+            "title": "Copy Drivers",
+            "type": "boolean"
+          },
           "drive_date": {
             "anyOf": [
               {
@@ -3514,6 +3580,11 @@
             ],
             "title": "Latitude"
           },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
           "longitude": {
             "anyOf": [
               {
@@ -3559,6 +3630,7 @@
         },
         "required": [
           "stop_number",
+          "location_id",
           "address",
           "contact_name",
           "phone_primary",
@@ -4158,6 +4230,24 @@
         "title": "SystemSettingsUpdate",
         "type": "object"
       },
+      "TotalsResponse": {
+        "properties": {
+          "total_deliveries": {
+            "title": "Total Deliveries",
+            "type": "integer"
+          },
+          "total_km": {
+            "title": "Total Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_km",
+          "total_deliveries"
+        ],
+        "title": "TotalsResponse",
+        "type": "object"
+      },
       "UpdatePasswordRequest": {
         "properties": {
           "new_password": {
@@ -4267,7 +4357,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/admins/test": {
+    "/api/admins/test": {
       "get": {
         "description": "Admin only route example",
         "operationId": "test",
@@ -4295,7 +4385,7 @@
         ]
       }
     },
-    "/announcements/": {
+    "/api/announcements/": {
       "get": {
         "description": "Retrieve all announcements with is_read status for the authenticated user.",
         "operationId": "get_announcements",
@@ -4371,7 +4461,7 @@
         ]
       }
     },
-    "/announcements/mark-read": {
+    "/api/announcements/mark-read": {
       "post": {
         "description": "Mark all announcements as read for the authenticated user.",
         "operationId": "mark_announcements_as_read",
@@ -4398,7 +4488,7 @@
         ]
       }
     },
-    "/announcements/{announcement_id}": {
+    "/api/announcements/{announcement_id}": {
       "delete": {
         "description": "Delete an announcement",
         "operationId": "delete_announcement",
@@ -4544,7 +4634,7 @@
         ]
       }
     },
-    "/announcements/{announcement_id}/email": {
+    "/api/announcements/{announcement_id}/email": {
       "post": {
         "description": "Send announcement notification emails to all active drivers (admin only).",
         "operationId": "send_announcement_email",
@@ -4597,7 +4687,7 @@
         ]
       }
     },
-    "/auth/forgot-password": {
+    "/api/auth/forgot-password": {
       "post": {
         "description": "Triggers password reset for user with specified email (reset link will be emailed)\nReturns 204 regardless to avoid enumeration attacks",
         "operationId": "forgot_password",
@@ -4632,7 +4722,7 @@
         ]
       }
     },
-    "/auth/login": {
+    "/api/auth/login": {
       "post": {
         "description": "Returns access token in response body and sets refreshToken as an httpOnly cookie",
         "operationId": "login",
@@ -4674,7 +4764,7 @@
         ]
       }
     },
-    "/auth/logout": {
+    "/api/auth/logout": {
       "post": {
         "description": "Revokes refresh tokens and clears cookies",
         "operationId": "logout",
@@ -4689,7 +4779,7 @@
         ]
       }
     },
-    "/auth/refresh": {
+    "/api/auth/refresh": {
       "post": {
         "description": "Returns access token in response body and sets refreshToken as an httpOnly cookie",
         "operationId": "refresh",
@@ -4711,7 +4801,42 @@
         ]
       }
     },
-    "/auth/update-password": {
+    "/api/auth/resend-onboarding": {
+      "post": {
+        "description": "Resends the onboarding/invite email to a pending user.\nReturns 204 regardless of input/status to prevent user enumeration attacks.",
+        "operationId": "resend_onboarding_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendOnboardingEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Onboarding Email",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/auth/update-password": {
       "post": {
         "description": "Update an existing user's password if provided a valid password reset token",
         "operationId": "update_password",
@@ -4746,7 +4871,7 @@
         ]
       }
     },
-    "/auth/validate-reset-token": {
+    "/api/auth/validate-reset-token": {
       "post": {
         "description": "Validate that a password reset token exists, isn't used, and hasn't expired.",
         "operationId": "validate_reset_token",
@@ -4781,7 +4906,7 @@
         ]
       }
     },
-    "/billing/costs": {
+    "/api/billing/costs": {
       "get": {
         "description": "Return month-to-date spend for the configured project, against its budget.\n\nFigures come from the Cloud Billing export and typically lag by several\nhours — see ``data_as_of``. Responses are cached for\n``BILLING_CACHE_TTL_SECONDS``, which is well under that lag.",
         "operationId": "get_billing_costs",
@@ -4808,46 +4933,84 @@
         ]
       }
     },
-    "/drivers/": {
+    "/api/drivers/": {
       "get": {
-        "description": "Get all drivers, optionally filter by driver_id or email",
+        "description": "Paginated driver rows with server-side name search and list aggregates.",
         "operationId": "get_drivers",
         "parameters": [
           {
-            "description": "Filter by driver ID",
+            "description": "Filter by first or last name",
             "in": "query",
-            "name": "driver_id",
+            "name": "search",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "format": "uuid",
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Filter by driver ID",
-              "title": "Driver Id"
+              "description": "Filter by first or last name",
+              "title": "Search"
             }
           },
           {
-            "description": "Filter by email",
             "in": "query",
-            "name": "email",
+            "name": "sort_by",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
+              "default": "name",
+              "enum": [
+                "name",
+                "current_year_km",
+                "last_year_km",
+                "last_delivery"
               ],
-              "description": "Filter by email",
-              "title": "Email"
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number (1-indexed)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number (1-indexed)",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items per page",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Number of items per page",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
             }
           }
         ],
@@ -4856,11 +5019,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DriverRead"
-                  },
-                  "title": "Response Get Drivers",
-                  "type": "array"
+                  "$ref": "#/components/schemas/PaginatedResponse_DriverListRead_"
                 }
               }
             },
@@ -4888,7 +5047,7 @@
         ]
       }
     },
-    "/drivers/initialize": {
+    "/api/drivers/initialize": {
       "post": {
         "description": "Register a new driver in our backend, creates a User and Driver object, returns DriverRead\nNOTE: This does not create a firebase user, ie the User is in a hanging state\nWe need to do this so that we can implement our invite only system",
         "operationId": "initialize_driver",
@@ -4935,7 +5094,7 @@
         ]
       }
     },
-    "/drivers/register": {
+    "/api/drivers/register": {
       "post": {
         "description": "Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse",
         "operationId": "complete_driver_registration",
@@ -4977,56 +5136,9 @@
         ]
       }
     },
-    "/drivers/test-event-email": {
-      "post": {
-        "description": "Temporary endpoint to test event-driven emails.\nDelete this after testing!",
-        "operationId": "test_event_email",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "test_email",
-            "required": true,
-            "schema": {
-              "title": "Test Email",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Test Event Email",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Test Event Email",
-        "tags": [
-          "drivers"
-        ]
-      }
-    },
-    "/drivers/{driver_id}": {
+    "/api/drivers/{driver_id}": {
       "delete": {
-        "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted, so the\ndriver's km stop counting toward anyone.",
+        "description": "Delete a driver by ID.\n\nA hard delete of the person: the user account and their Firebase login go\nwith the driver record, so a deleted driver can no longer sign in. Their\nroutes are detached (driver_id SET NULL) rather than deleted: the km and\ndeliveries stay in the org's totals, they just stop being attributed to\nanyone in the per-driver ranking and export.",
         "operationId": "delete_driver",
         "parameters": [
           {
@@ -5170,7 +5282,7 @@
         ]
       }
     },
-    "/drivers/{driver_id}/history/": {
+    "/api/drivers/{driver_id}/history/": {
       "get": {
         "description": "Get monthly km totals, derived from the driver's frozen routes\n(bucketed by drive_date month).\nRules:\n- No year, no month: return all months with activity\n- Year only: return all months for that year\n- Year + month: return specific month\n- Month without year: 400 error",
         "operationId": "get_driver_history",
@@ -5259,7 +5371,7 @@
         ]
       }
     },
-    "/drivers/{driver_id}/history/summary": {
+    "/api/drivers/{driver_id}/history/summary": {
       "get": {
         "description": "Get lifetime and current year KM summary for a driver",
         "operationId": "get_driver_history_summary",
@@ -5308,7 +5420,7 @@
         ]
       }
     },
-    "/drivers/{driver_id}/history/{year}/export": {
+    "/api/drivers/{driver_id}/history/{year}/export": {
       "get": {
         "description": "Export history for all drivers for a specific year. Includes data from that year and the previous year.\n\n- driver_id: Must be \"all\"\n- year: The year to export data for",
         "operationId": "export_all_drivers_history",
@@ -5358,7 +5470,7 @@
         ]
       }
     },
-    "/jobs/": {
+    "/api/jobs/": {
       "get": {
         "description": "Get all jobs",
         "operationId": "get_jobs",
@@ -5419,9 +5531,9 @@
         ]
       }
     },
-    "/jobs/generate": {
+    "/api/jobs/generate": {
       "post": {
-        "description": "Accept a generation request: persist it as PENDING and wake the worker.",
+        "description": "Accept a generation request: persist it as PENDING and wake the worker.\n\nAdmin-only — route generation is an admin workflow, and it burns Maps quota.",
         "operationId": "generate_job",
         "requestBody": {
           "content": {
@@ -5466,7 +5578,7 @@
         ]
       }
     },
-    "/jobs/{job_id}": {
+    "/api/jobs/{job_id}": {
       "get": {
         "operationId": "get_job",
         "parameters": [
@@ -5514,7 +5626,7 @@
         ]
       }
     },
-    "/jobs/{job_id}/cancel": {
+    "/api/jobs/{job_id}/cancel": {
       "post": {
         "description": "Cancel an in-flight route generation job.",
         "operationId": "cancel_job",
@@ -5563,7 +5675,7 @@
         ]
       }
     },
-    "/location-groups/": {
+    "/api/location-groups/": {
       "get": {
         "description": "Get all location groups",
         "operationId": "get_location_groups",
@@ -5639,7 +5751,7 @@
         ]
       }
     },
-    "/location-groups/{location_group_id}": {
+    "/api/location-groups/{location_group_id}": {
       "delete": {
         "description": "Delete a location group by ID",
         "operationId": "delete_location_group",
@@ -5785,7 +5897,7 @@
         ]
       }
     },
-    "/locations/": {
+    "/api/locations/": {
       "delete": {
         "description": "Delete all locations",
         "operationId": "delete_all_locations",
@@ -5873,7 +5985,7 @@
             }
           },
           {
-            "description": "Case-insensitive filter on the delivery address/postal code",
+            "description": "Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers",
             "in": "query",
             "name": "search",
             "required": false,
@@ -5886,7 +5998,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Case-insensitive filter on the delivery address/postal code",
+              "description": "Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers",
               "title": "Search"
             }
           },
@@ -5996,7 +6108,7 @@
         ]
       }
     },
-    "/locations/import": {
+    "/api/locations/import": {
       "post": {
         "description": "Apply this import: create net-new locations, update the ones that changed,\nand take stale ones off the roster.\n\nTakes the same file and mapping as the preview rather than a diff posted\nback from it, so the plan is recomputed here by the same planner and the\ncaller cannot choose which rows get rewritten. Rejected with a 400 while\nthe file still has validation errors.",
         "operationId": "apply_location_import",
@@ -6043,7 +6155,7 @@
         ]
       }
     },
-    "/locations/import/preview": {
+    "/api/locations/import/preview": {
       "post": {
         "description": "Describe what importing this file would do — row validation plus the\nnet_new / stale / changed split — without writing anything. Requires a\ncolumn_map JSON string mapping system field names to file headers.\n\nSide effect: the submitted column_map is persisted to system_settings so it\nbecomes the default mapping on the next import.",
         "operationId": "preview_location_import",
@@ -6090,7 +6202,7 @@
         ]
       }
     },
-    "/locations/{location_id}": {
+    "/api/locations/{location_id}": {
       "delete": {
         "description": "Delete a location by ID",
         "operationId": "delete_location",
@@ -6177,66 +6289,9 @@
         "tags": [
           "locations"
         ]
-      },
-      "patch": {
-        "description": "Update a location by ID",
-        "operationId": "update_location",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "location_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Location Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LocationUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LocationRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Update Location",
-        "tags": [
-          "locations"
-        ]
       }
     },
-    "/note-chains/{note_chain_id}": {
+    "/api/note-chains/{note_chain_id}": {
       "delete": {
         "description": "Delete a note chain and all its notes (admin only)",
         "operationId": "delete_note_chain",
@@ -6325,7 +6380,7 @@
         ]
       }
     },
-    "/note-chains/{note_chain_id}/notes": {
+    "/api/note-chains/{note_chain_id}/notes": {
       "get": {
         "description": "Get notes for a chain with pagination.",
         "operationId": "get_notes",
@@ -6458,7 +6513,7 @@
         ]
       }
     },
-    "/note-chains/{note_chain_id}/notes/{note_id}": {
+    "/api/note-chains/{note_chain_id}/notes/{note_id}": {
       "delete": {
         "description": "Delete a note (author or admin only)",
         "operationId": "delete_note",
@@ -6577,7 +6632,7 @@
         ]
       }
     },
-    "/notes": {
+    "/api/notes": {
       "get": {
         "description": "Get location notes across all location note chains.",
         "operationId": "get_notes_feed",
@@ -6650,70 +6705,7 @@
         ]
       }
     },
-    "/reports/deliveries/count": {
-      "get": {
-        "description": "Return total deliveries (route stop snapshots) between start and end.\nQuery params are treated as EST if no timezone is provided.",
-        "operationId": "get_total_deliveries_between",
-        "parameters": [
-          {
-            "description": "Start datetime (assumed EST if no tz)",
-            "in": "query",
-            "name": "start",
-            "required": true,
-            "schema": {
-              "description": "Start datetime (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "Start",
-              "type": "string"
-            }
-          },
-          {
-            "description": "End datetime (assumed EST if no tz)",
-            "in": "query",
-            "name": "end",
-            "required": true,
-            "schema": {
-              "description": "End datetime (assumed EST if no tz)",
-              "format": "date-time",
-              "title": "End",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeliveriesCountResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Total Deliveries Between",
-        "tags": [
-          "reports"
-        ]
-      }
-    },
-    "/reports/monthly-series": {
+    "/api/reports/monthly-series": {
       "get": {
         "description": "Return km and deliveries per month for a trailing window, oldest first.\n\nBacks the homepage statistics bar charts, which need a whole series at\nonce rather than one request per bar.",
         "operationId": "get_monthly_series",
@@ -6808,7 +6800,7 @@
         ]
       }
     },
-    "/reports/monthly/{year}/{month}/ranking": {
+    "/api/reports/monthly/{year}/{month}/ranking": {
       "get": {
         "description": "Return monthly ranking list of drivers by km (descending).",
         "operationId": "get_monthly_ranking",
@@ -6869,27 +6861,47 @@
         ]
       }
     },
-    "/reports/monthly/{year}/{month}/totals": {
+    "/api/reports/totals": {
       "get": {
-        "description": "Return total distance driven and total deliveries for the month.",
-        "operationId": "get_monthly_totals",
+        "description": "Return km driven and deliveries made — all time, or over [start, end).\n\nOmit both bounds for the all-time figures the homepage's headline totals\nshow. Supply both for a window: the params are read as EST when they carry\nno timezone, then reduced to calendar days (a drive date is a day, not an\ninstant), and the range is half-open like every other range in the\nreports, so consecutive windows tile instead of double-counting their\nshared boundary day.",
+        "operationId": "get_totals",
         "parameters": [
           {
-            "in": "path",
-            "name": "year",
-            "required": true,
+            "description": "Start datetime, inclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "start",
+            "required": false,
             "schema": {
-              "title": "Year",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start datetime, inclusive (assumed EST if no tz)",
+              "title": "Start"
             }
           },
           {
-            "in": "path",
-            "name": "month",
-            "required": true,
+            "description": "End datetime, exclusive (assumed EST if no tz)",
+            "in": "query",
+            "name": "end",
+            "required": false,
             "schema": {
-              "title": "Month",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End datetime, exclusive (assumed EST if no tz)",
+              "title": "End"
             }
           }
         ],
@@ -6898,7 +6910,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MonthlyTotalsResponse"
+                  "$ref": "#/components/schemas/TotalsResponse"
                 }
               }
             },
@@ -6920,13 +6932,13 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Monthly Totals",
+        "summary": "Get Totals",
         "tags": [
           "reports"
         ]
       }
     },
-    "/route-groups": {
+    "/api/route-groups": {
       "get": {
         "description": "Retrieve all route groups, optionally filtered by date range, weekday, delivery type, route status, and driver assignment status.\nCan include associated routes in the response.",
         "operationId": "get_route_groups",
@@ -7189,7 +7201,7 @@
         ]
       }
     },
-    "/route-groups/{route_group_id}": {
+    "/api/route-groups/{route_group_id}": {
       "delete": {
         "description": "Delete a route group and all its route group memberships",
         "operationId": "delete_route_group",
@@ -7288,7 +7300,7 @@
         ]
       }
     },
-    "/route-groups/{route_group_id}/duplicate": {
+    "/api/route-groups/{route_group_id}/duplicate": {
       "post": {
         "description": "Duplicate a route group and its routes/stops for a new planning cycle.\nOptional body overrides the copy's name and drive date.",
         "operationId": "duplicate_route_group",
@@ -7354,7 +7366,7 @@
         ]
       }
     },
-    "/routes": {
+    "/api/routes": {
       "get": {
         "description": "Get routes with pagination and optional filtering for unassigned routes and date range.\nReturns routes with their drive dates - routes can appear multiple times for different dates.\nWhen unassigned_only is False, returns all routes (no assignment filter).\nWhen unassigned_only is True, returns only routes that are unassigned for the given route group.\n\nRequires a driver or admin caller.\nAdmins may scope to any driver via driver_id (or omit it for all routes).\nDrivers are always scoped to their own routes: omitting driver_id returns\ntheir own routes, and requesting another driver's is rejected.",
         "operationId": "get_routes",
@@ -7426,7 +7438,7 @@
             }
           },
           {
-            "description": "Case-insensitive filter on the assigned driver's name",
+            "description": "Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name",
             "in": "query",
             "name": "search",
             "required": false,
@@ -7439,7 +7451,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Case-insensitive filter on the assigned driver's name",
+              "description": "Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name",
               "title": "Search"
             }
           },
@@ -7607,7 +7619,7 @@
         ]
       }
     },
-    "/routes/{route_id}": {
+    "/api/routes/{route_id}": {
       "delete": {
         "description": "Delete a route by its unique identifier.\n\nParameters:\n    route_id (UUID): The unique identifier of the route to delete.\n    session (AsyncSession): The database session dependency.\n    _ (bool): Indicates that the user is authenticated as a driver (injected by dependency).\n\nReturns:\n    None. Responds with HTTP 204 No Content on successful deletion.",
         "operationId": "delete_route",
@@ -7753,7 +7765,7 @@
         ]
       }
     },
-    "/routes/{route_id}/google-maps-link": {
+    "/api/routes/{route_id}/google-maps-link": {
       "get": {
         "description": "Generate a Google Maps directions URL for a route.\n\nTakes a route ID, looks up its stops in order, and builds a Google Maps\ndirections link starting from the warehouse and visiting each stop.\n\nParameters:\n    route_id (UUID): The unique identifier of the route.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    The Google Maps directions URL as a plain string.",
         "operationId": "get_google_maps_link",
@@ -7803,7 +7815,7 @@
         ]
       }
     },
-    "/routes/{route_id}/suggested-driver": {
+    "/api/routes/{route_id}/suggested-driver": {
       "get": {
         "description": "Suggest a driver to assign to a route: the active driver most familiar\nwith the route's locations (by past completed deliveries), excluding\ndrivers already assigned within the given route group.\n\nParameters:\n    route_id (UUID): The route to suggest a driver for.\n    route_group_id (UUID): The route group the assignment is within.\n    session (AsyncSession): The database session dependency.\n\nReturns:\n    The suggested driver, or null if there's no candidate.",
         "operationId": "get_suggested_driver",
@@ -7872,7 +7884,7 @@
         ]
       }
     },
-    "/system-settings/": {
+    "/api/system-settings/": {
       "get": {
         "description": "Return the singleton settings row. Never null — PATCH already raises on\na missing row, so a soft read here would mean an unsaveable blank form.",
         "operationId": "get_system_settings",
@@ -7944,7 +7956,7 @@
         ]
       }
     },
-    "/system-settings/contact": {
+    "/api/system-settings/contact": {
       "get": {
         "description": "The org's name and phone. Unauthenticated — the error page renders for\nlogged-out visitors, and these are published details, not member data.",
         "operationId": "get_org_contact",
@@ -7966,7 +7978,7 @@
         ]
       }
     },
-    "/system-settings/delivery-types/rename": {
+    "/api/system-settings/delivery-types/rename": {
       "post": {
         "description": "Rename a configured delivery type, cascading onto every location using it.",
         "operationId": "rename_delivery_type",
@@ -8013,7 +8025,7 @@
         ]
       }
     },
-    "/upload/": {
+    "/api/upload/": {
       "post": {
         "description": "Create a file upload",
         "operationId": "upload_image",
@@ -8064,7 +8076,7 @@
         ]
       }
     },
-    "/upload/{filename}": {
+    "/api/upload/{filename}": {
       "delete": {
         "description": "Delete a file given the filename",
         "operationId": "delete_image",

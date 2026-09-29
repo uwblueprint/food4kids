@@ -1,8 +1,7 @@
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any, Literal
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import case, func, or_
@@ -10,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.config import settings
 from app.models.driver import Driver
 from app.models.enum import (
     DriveDaysOfWeekEnum,
@@ -38,12 +36,15 @@ from app.utilities.boxes import (
     compute_boxes,
     resolve_children_per_box,
 )
+from app.utilities.datetime_utils import now_utc, today_local
 from app.utilities.google_maps_link import (
     MapWaypoint,
     build_google_maps_directions_url,
 )
 from app.utilities.pagination import paginate_query
+from app.utilities.route_ordering import route_name_order_by
 from app.utilities.routes_utils import fetch_route_polyline
+from app.utilities.search import text_match
 
 
 class RoutingConfigurationError(Exception):
@@ -85,7 +86,8 @@ class RouteService:
             driver_id: Only routes assigned to this driver.
             start_date / end_date: Range over the group's drive_date.
             search: Case-insensitive substring of the assigned driver's full
-                name, applied before pagination.
+                name, the route's name, or its group's name, applied before
+                pagination.
             order: drive_date ordering — "asc" for the upcoming feed, "desc"
                 for the past feed.
             weekday, delivery_type, route_status, driver_assignment_status:
@@ -141,7 +143,7 @@ class RouteService:
         # in Eastern has already rolled over, so tomorrow's routes would show
         # as completed. Matches RouteGroupService, which reports the same
         # status for the group these routes belong to.
-        today = datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
+        today = today_local()
         status_expr = case(
             (RouteGroup.drive_date >= today, RouteStatusEnum.UPCOMING.value),  # type: ignore[arg-type]
             else_=RouteStatusEnum.COMPLETED.value,
@@ -188,9 +190,15 @@ class RouteService:
             statement = statement.where(Route.driver_id == driver_id)
 
         if search and search.strip():
+            # Driver full name, the route's own name, and its group's name.
+            # User is outer-joined, so concat() is NULL for an unassigned route
+            # and its group name is what can still match.
             statement = statement.where(
-                func.concat(User.first_name, " ", User.last_name).ilike(
-                    f"%{search.strip()}%"
+                text_match(
+                    search.strip(),
+                    func.concat(User.first_name, " ", User.last_name),
+                    col(Route.name),
+                    col(RouteGroup.name),
                 )
             )
 
@@ -250,7 +258,8 @@ class RouteService:
         # share a name, and paginate_query's count and page are separate
         # statements, so any remaining tie can shuffle a row between pages.
         statement = statement.order_by(
-            drive_date_order, col(Route.name), col(Route.route_id)
+            drive_date_order,
+            *route_name_order_by(col(Route.name), col(Route.route_id)),
         )
 
         if pagination is None:
@@ -351,6 +360,7 @@ class RouteService:
         stops = [
             RouteStopDetailRead(
                 stop_number=stop.stop_number,
+                location_id=stop.location_id,
                 # Snapshot wins for frozen (past) stops; live Location otherwise.
                 address=snapshot.address if snapshot else location.address,
                 contact_name=(
@@ -547,7 +557,7 @@ class RouteService:
                 # "corrects the record": derived mileage picks up the new
                 # length automatically.
                 route.encoded_polyline = encoded_polyline
-                route.polyline_updated_at = datetime.now(timezone.utc)
+                route.polyline_updated_at = now_utc()
                 route.length = distance_km
 
                 # Amending a FROZEN route: rebuild the per-stop snapshots

@@ -1,12 +1,4 @@
-import {
-  Button,
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
-} from '@/common/components';
+import { ConfirmModal } from '@/common/components';
 
 interface NoteDeleteConfirmModalProps {
   open: boolean;
@@ -24,38 +16,16 @@ export function NoteDeleteConfirmModal({
   error = null,
 }: NoteDeleteConfirmModalProps) {
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="max-w-[480px]">
-        <ModalHeader>
-          <ModalTitle variant="confirmation">Delete note?</ModalTitle>
-          <ModalDescription>
-            Once you delete a note, it cannot be recovered.
-          </ModalDescription>
-        </ModalHeader>
-        {error && (
-          <p className="text-p2 text-red" role="alert">
-            {error}
-          </p>
-        )}
-        <ModalFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Deleting…' : 'Delete'}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+    <ConfirmModal
+      open={open}
+      onOpenChange={onOpenChange}
+      onConfirm={onConfirm}
+      title="Delete note?"
+      description="Once you delete a note, it cannot be recovered."
+      confirmLabel={isLoading ? 'Deleting\u2026' : 'Delete'}
+      confirmVariant="destructive"
+      isLoading={isLoading}
+      error={error}
+    />
   );
 }

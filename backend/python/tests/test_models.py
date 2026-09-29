@@ -9,8 +9,9 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-# Initialize all models to ensure proper relationship resolution
-from app.models import init_app
+# Register every model so SQLAlchemy resolves the relationship strings. These
+# tests build model objects in memory and never query, so no database is needed.
+from app.models import register_models
 from app.models.admin import Admin
 from app.models.announcement import (
     Announcement,
@@ -27,6 +28,7 @@ from app.models.enum import (
     NotePermission,
     ProgressEnum,
     RoleEnum,
+    RouteStatusEnum,
 )
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
@@ -52,7 +54,7 @@ from app.models.route_stop import RouteStop
 from app.models.system_settings import EmailReminder, SystemSettings
 from app.models.user import User, UserFinalize
 
-init_app()
+register_models()
 
 
 class TestCoreBusinessValidation:
@@ -348,16 +350,12 @@ class TestCoreModels:
 
         None as a *default* means "not provided" and stays valid; only a null
         that the client actually sent is rejected. partner_driver_name is the
-        one nullable column, where explicit null legitimately clears the value.
+        nullable profile fields, where explicit null legitimately clears the value.
         """
         non_nullable_fields = [
             "first_name",
             "last_name",
-            "phone",
             "availability",
-            "address",
-            "license_plate",
-            "car_make_model",
             "active",
         ]
         for field in non_nullable_fields:
@@ -368,10 +366,16 @@ class TestCoreModels:
         empty_update = DriverUpdate.model_validate({})
         assert empty_update.model_fields_set == set()
 
-        # Explicit null still clears the nullable partner_driver_name
-        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
-        assert cleared.partner_driver_name is None
-        assert "partner_driver_name" in cleared.model_fields_set
+        for field in (
+            "phone",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "partner_driver_name",
+        ):
+            cleared = DriverUpdate.model_validate({field: None})
+            assert getattr(cleared, field) is None
+            assert field in cleared.model_fields_set
 
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
@@ -482,7 +486,7 @@ class TestCoreModels:
             notes="Test notes",
             drive_date=date(2024, 1, 15),
             num_routes=3,
-            status="Completed",
+            status=RouteStatusEnum.COMPLETED,
         )
         assert route_group_read.route_group_id is not None
 
@@ -884,11 +888,9 @@ class TestAnnouncementModel:
 
     def test_announcement_create_schema(self) -> None:
         """Test AnnouncementCreate validation."""
-        user_id = uuid4()
         create = AnnouncementCreate(
             subject="New Announcement",
             message="Details here",
-            user_id=user_id,
         )
         assert create.subject == "New Announcement"
         assert create.attachments == []
@@ -896,7 +898,6 @@ class TestAnnouncementModel:
         create_with_attachments = AnnouncementCreate(
             subject="With Images",
             message="See attached",
-            user_id=user_id,
             attachments=["https://example.com/img1.png"],
         )
         assert len(create_with_attachments.attachments) == 1
@@ -916,14 +917,12 @@ class TestAnnouncementModel:
         with pytest.raises(ValidationError) as exc_info:
             AnnouncementCreate(
                 message="No subject",
-                user_id=uuid4(),
             )
         assert "subject" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
             AnnouncementCreate(
                 subject="No message",
-                user_id=uuid4(),
             )
         assert "message" in str(exc_info.value)
 
@@ -933,5 +932,4 @@ class TestAnnouncementModel:
             AnnouncementCreate(
                 subject="",
                 message="Some message",
-                user_id=uuid4(),
             )
