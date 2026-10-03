@@ -173,9 +173,12 @@ const DriverProfileLoaded = ({
               inputMode="numeric"
               value={phoneInput}
               onChange={(e) => {
-                setPhoneInput(formatPhoneInput(e.target.value));
+                setPhoneInput(e.target.value);
                 setSaveError(null);
                 setPhoneError(null);
+              }}
+              onBlur={() => {
+                setPhoneInput(formatPhoneInput(phoneInput));
               }}
             />
             {phoneError && <ErrorNote>{phoneError}</ErrorNote>}
