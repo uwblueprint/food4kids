@@ -4,6 +4,7 @@ import {
   deleteDriverMutation,
   getDriverHistorySummaryOptions,
   getDriverOptions,
+  getDriverQueryKey,
   getDriversOptions,
   getDriversQueryKey,
   initializeDriverMutation,
@@ -26,10 +27,12 @@ export function useDrivers() {
   });
 }
 
-export function useDriver(driverId: string | null) {
+export function useDriver(driverId: string, enabled = true) {
   return useQuery({
-    ...getDriverOptions({ path: { driver_id: driverId ?? '' } }),
-    enabled: !!driverId,
+    ...getDriverOptions({
+      path: { driver_id: driverId },
+    }),
+    enabled,
   });
 }
 
@@ -54,14 +57,6 @@ export function useInitializeDriver() {
   });
 }
 
-export function useUpdateDriver() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    ...updateDriverMutation(),
-    onSuccess: () => invalidateDrivers(queryClient),
-  });
-}
-
 export function useDeleteDriver() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -77,5 +72,20 @@ export function useDriverHistorySummary(driverId: string, enabled = true) {
       path: { driver_id: driverId },
     }),
     enabled: enabled && !!driverId,
+  });
+}
+
+/** Update an existing driver and refresh relevant list and detail caches. */
+export function useUpdateDriver(driverId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    ...updateDriverMutation(),
+    onSuccess: () => {
+      void invalidateDrivers(queryClient);
+      void queryClient.invalidateQueries({
+        queryKey: getDriverQueryKey({ path: { driver_id: driverId } }),
+      });
+    },
   });
 }
