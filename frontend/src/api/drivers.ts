@@ -1,25 +1,67 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  deleteDriverMutation,
   getDriverHistorySummaryOptions,
   getDriverOptions,
   getDriverQueryKey,
   getDriversOptions,
+  getDriversQueryKey,
+  initializeDriverMutation,
   updateDriverMutation,
 } from './generated/@tanstack/react-query.gen';
+import type { GetDriversData } from './generated/types.gen';
 
-/** Fetch the list of drivers (e.g. for the reassign-driver dropdown). */
-export function useDrivers() {
-  return useQuery(getDriversOptions());
+export function useDriverList(query?: GetDriversData['query']) {
+  return useQuery({
+    ...getDriversOptions({ query }),
+    placeholderData: (previous) => previous,
+  });
 }
 
-/** Fetch a single driver by ID. */
+/** Compact driver list used by assignment dropdowns. */
+export function useDrivers() {
+  return useQuery({
+    ...getDriversOptions({ query: { page_size: 200 } }),
+    select: (data) => data.items,
+  });
+}
+
 export function useDriver(driverId: string, enabled = true) {
   return useQuery({
     ...getDriverOptions({
       path: { driver_id: driverId },
     }),
     enabled,
+  });
+}
+
+export function useDriverSummary(driverId: string | null) {
+  return useQuery({
+    ...getDriverHistorySummaryOptions({
+      path: { driver_id: driverId ?? '' },
+    }),
+    enabled: !!driverId,
+  });
+}
+
+function invalidateDrivers(queryClient: ReturnType<typeof useQueryClient>) {
+  return queryClient.invalidateQueries({ queryKey: getDriversQueryKey() });
+}
+
+export function useInitializeDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...initializeDriverMutation(),
+    onSuccess: () => invalidateDrivers(queryClient),
+  });
+}
+
+export function useDeleteDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...deleteDriverMutation(),
+    onSuccess: () => invalidateDrivers(queryClient),
   });
 }
 
@@ -33,12 +75,14 @@ export function useDriverHistorySummary(driverId: string, enabled = true) {
   });
 }
 
-/** Update an existing driver. */
+/** Update an existing driver and refresh relevant list and detail caches. */
 export function useUpdateDriver(driverId: string) {
   const queryClient = useQueryClient();
+
   return useMutation({
     ...updateDriverMutation(),
     onSuccess: () => {
+      void invalidateDrivers(queryClient);
       void queryClient.invalidateQueries({
         queryKey: getDriverQueryKey({ path: { driver_id: driverId } }),
       });

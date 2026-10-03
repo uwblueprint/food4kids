@@ -16,6 +16,7 @@ import { AdminLayout, DriverLayout } from './layouts';
 import {
   AdminDriversPage,
   AdminHomePage,
+  AdminIndividualRoutePage,
   AdminRoutesGenerationLayout,
   AdminRoutesPage,
   AdminSettingsPage,
@@ -65,6 +66,9 @@ export const routes = createRoutesFromElements(
           <Route path="configure" element={<ConfigureStep />} />
           <Route path="generate" element={<GenerateStep />} />
         </Route>
+        {/* Individual route detail (row click on the Routes tab). Inside
+            the admin layout so it mounts at /admin/routes/:routeId. */}
+        <Route path="routes/:routeId" element={<AdminIndividualRoutePage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
     </Route>

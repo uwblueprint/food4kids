@@ -44,6 +44,12 @@ export interface DataTableProps<T> {
   sort?: SortState | null;
   /** Called with a column key when its sortable header is clicked. */
   onSortChange?: (key: string) => void;
+  /**
+   * When set, whole rows become clickable (navigate/select on click or Enter),
+   * with a pointer cursor and hover highlight. Interactive cell content (e.g.
+   * an inline editor or kebab) should stop propagation so it isn't hijacked.
+   */
+  onRowClick?: (row: T) => void;
 }
 
 function compareSortValues(a: SortValue, b: SortValue): number {
@@ -107,6 +113,7 @@ function DataTable<T>({
   className,
   sort,
   onSortChange,
+  onRowClick,
 }: DataTableProps<T>) {
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
@@ -191,7 +198,24 @@ function DataTable<T>({
                 <tr
                   key={getRowKey(row)}
                   data-row-key={getRowKey(row)}
-                  className={getRowClassName?.(row)}
+                  className={cn(
+                    onRowClick &&
+                      'hover:bg-grey-150 focus-visible:bg-grey-150 cursor-pointer outline-none',
+                    getRowClassName?.(row)
+                  )}
+                  {...(onRowClick
+                    ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        onClick: () => onRowClick(row),
+                        onKeyDown: (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onRowClick(row);
+                          }
+                        },
+                      }
+                    : {})}
                 >
                   {columns.map((col) => (
                     <td

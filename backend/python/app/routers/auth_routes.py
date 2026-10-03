@@ -31,7 +31,8 @@ from app.models.password_reset_token import (
     PASSWORD_RESET_TOKEN_EXPIRY_DAYS,
     PasswordResetToken,
 )
-from app.models.user_invite import UserInvite, UserInviteCreate
+from app.models.user import UserFinalize
+from app.models.user_invite import INVITE_VALID_HOURS, UserInvite, UserInviteCreate
 from app.schemas.auth import (
     AuthResponse,
     ForgotPasswordRequest,
@@ -51,6 +52,7 @@ from app.services.implementations.user_service import UserService
 from app.utilities.cookies import clear_auth_cookies, set_refresh_token_cookie
 from app.utilities.datetime_utils import now_utc
 from app.utilities.firebase_rest_client import FirebaseRestError
+from app.utilities.utils import build_invite_url
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -92,6 +94,64 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         ) from e
+
+
+@router.post(
+    "/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
+)
+async def register(
+    registration_data: UserFinalize,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service),
+    user_invite_service: UserInviteService = Depends(get_user_invite_service),
+) -> AuthResponse:
+    """
+    Finish an invited account: create the Firebase user, stamp its role claim,
+    fill in ``users.auth_id``, burn the invite, and log the caller in.
+
+    Deliberately role-agnostic. ``UserInvite`` doesn't distinguish a driver from
+    an admin and ``link_firebase_to_user`` reads the role off the user row, so
+    one endpoint serves both — a driver invited by an admin and an admin created
+    by ``python -m app.create_admin`` follow the identical link and page.
+
+    Unauthenticated by necessity: the caller has no account yet. The invite id
+    in the body *is* the credential — a single-use, 48-hour, unguessable UUID
+    bound to one pre-created user row. It grants exactly the role that row
+    already carries, so possession of a link can never escalate anyone.
+    """
+    async with session.begin_nested():
+        # Validate invite token and lock the row to prevent race conditions
+        user_invite = await user_invite_service.get_user_invite_by_id(
+            session, registration_data.user_invite_id, for_update=True
+        )
+
+        if not user_invite or user_invite.is_used or user_invite.expires_at < now_utc():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid or expired registration link.",
+            )
+
+        # Create Firebase account for user
+        user = user_invite.user
+        await user_service.link_firebase_to_user(
+            session, user, registration_data.password
+        )
+
+        user_invite.is_used = True
+
+    await session.commit()
+
+    # Generate authentication tokens
+    auth_dto, refresh_token = await auth_service.generate_token(
+        session, user.email, registration_data.password, remember_me=False
+    )
+
+    # Set refresh token as httpOnly cookie
+    set_refresh_token_cookie(response, refresh_token, remember_me=False)
+
+    return auth_dto
 
 
 @router.post("/refresh", response_model=AuthResponse)
@@ -234,16 +294,16 @@ async def resend_onboarding_email(
 
         await session.commit()
 
-        signup_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite.user_invite_id}"
         user_name = f"{user.first_name} {user.last_name}".strip()
 
         await email_dispatcher.dispatch(
             email_type="account-creation",
             to=email,
             context={
-                "Driver_Name_To_Replace": user_name if user_name else "Driver",
-                "Sign_Up_URL": signup_url,
-                "Hours_Till_Expiry": 48,
+                "Name_To_Replace": user_name if user_name else user.role.capitalize(),
+                "Role_To_Replace": user.role,
+                "Sign_Up_URL": build_invite_url(user_invite.user_invite_id),
+                "Hours_Till_Expiry": INVITE_VALID_HOURS,
             },
         )
 
@@ -295,7 +355,7 @@ async def forgot_password(
             email_type="reset-password",
             to=email,
             context={
-                "Driver_Name_To_Replace": user.first_name,
+                "Name_To_Replace": user.first_name,
                 "Reset_Password_URL": reset_link,
                 "Days_Till_Expiry": str(PASSWORD_RESET_TOKEN_EXPIRY_DAYS),
             },

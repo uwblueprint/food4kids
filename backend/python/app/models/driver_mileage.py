@@ -26,3 +26,4 @@ class DriverHistorySummary(SQLModel):
 
     lifetime_km: float
     current_year_km: float
+    last_year_km: float

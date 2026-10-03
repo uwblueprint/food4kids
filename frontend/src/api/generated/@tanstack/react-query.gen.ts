@@ -13,7 +13,6 @@ import { client } from '../client.gen';
 import {
   applyLocationImport,
   cancelJob,
-  completeDriverRegistration,
   createAnnouncement,
   createLocation,
   createLocationGroup,
@@ -67,10 +66,10 @@ import {
   patchSystemSettings,
   previewLocationImport,
   refresh,
+  register,
   renameDeliveryType,
   resendOnboardingEmail,
   sendAnnouncementEmail,
-  test,
   updateAnnouncement,
   updateDriver,
   updateLocationGroup,
@@ -89,9 +88,6 @@ import type {
   CancelJobData,
   CancelJobError,
   CancelJobResponse,
-  CompleteDriverRegistrationData,
-  CompleteDriverRegistrationError,
-  CompleteDriverRegistrationResponse,
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
@@ -238,6 +234,9 @@ import type {
   PreviewLocationImportResponse,
   RefreshData,
   RefreshResponse,
+  RegisterData,
+  RegisterError,
+  RegisterResponse,
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
@@ -247,8 +246,6 @@ import type {
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
-  TestData,
-  TestResponse,
   UpdateAnnouncementData,
   UpdateAnnouncementError,
   UpdateAnnouncementResponse,
@@ -320,33 +317,6 @@ const createQueryKey = <TOptions extends Options>(
   }
   return [params];
 };
-
-export const testQueryKey = (options?: Options<TestData>) =>
-  createQueryKey('test', options);
-
-/**
- * Test
- *
- * Admin only route example
- */
-export const testOptions = (options?: Options<TestData>) =>
-  queryOptions<
-    TestResponse,
-    AxiosError<DefaultError>,
-    TestResponse,
-    ReturnType<typeof testQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await test({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: testQueryKey(options),
-  });
 
 export const getAnnouncementsQueryKey = (
   options?: Options<GetAnnouncementsData>
@@ -669,6 +639,46 @@ export const refreshMutation = (
 };
 
 /**
+ * Register
+ *
+ * Finish an invited account: create the Firebase user, stamp its role claim,
+ * fill in ``users.auth_id``, burn the invite, and log the caller in.
+ *
+ * Deliberately role-agnostic. ``UserInvite`` doesn't distinguish a driver from
+ * an admin and ``link_firebase_to_user`` reads the role off the user row, so
+ * one endpoint serves both — a driver invited by an admin and an admin created
+ * by ``python -m app.create_admin`` follow the identical link and page.
+ *
+ * Unauthenticated by necessity: the caller has no account yet. The invite id
+ * in the body *is* the credential — a single-use, 48-hour, unguessable UUID
+ * bound to one pre-created user row. It grants exactly the role that row
+ * already carries, so possession of a link can never escalate anyone.
+ */
+export const registerMutation = (
+  options?: Partial<Options<RegisterData>>
+): UseMutationOptions<
+  RegisterResponse,
+  AxiosError<RegisterError>,
+  Options<RegisterData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RegisterResponse,
+    AxiosError<RegisterError>,
+    Options<RegisterData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await register({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Resend Onboarding Email
  *
  * Resends the onboarding/invite email to a pending user.
@@ -826,11 +836,7 @@ export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
 /**
  * Get Drivers
  *
- * Get all drivers, optionally filter by driver_id or email
- *
- * Admin-only: the full list exposes every volunteer's phone, home address,
- * licence plate and car, which no driver-facing screen needs. A driver reads
- * their own record through GET /drivers/{driver_id}.
+ * Paginated driver rows with server-side name search and list aggregates.
  */
 export const getDriversOptions = (options?: Options<GetDriversData>) =>
   queryOptions<
@@ -850,6 +856,90 @@ export const getDriversOptions = (options?: Options<GetDriversData>) =>
     },
     queryKey: getDriversQueryKey(options),
   });
+
+const createInfiniteParams = <
+  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
+>(
+  queryKey: QueryKey<Options>,
+  page: K
+) => {
+  const params = { ...queryKey[0] };
+  if (page.body) {
+    params.body = {
+      ...(queryKey[0].body as any),
+      ...(page.body as any),
+    };
+  }
+  if (page.headers) {
+    params.headers = {
+      ...queryKey[0].headers,
+      ...page.headers,
+    };
+  }
+  if (page.path) {
+    params.path = {
+      ...(queryKey[0].path as any),
+      ...(page.path as any),
+    };
+  }
+  if (page.query) {
+    params.query = {
+      ...(queryKey[0].query as any),
+      ...(page.query as any),
+    };
+  }
+  return params as unknown as typeof page;
+};
+
+export const getDriversInfiniteQueryKey = (
+  options?: Options<GetDriversData>
+): QueryKey<Options<GetDriversData>> =>
+  createQueryKey('getDrivers', options, true);
+
+/**
+ * Get Drivers
+ *
+ * Paginated driver rows with server-side name search and list aggregates.
+ */
+export const getDriversInfiniteOptions = (options?: Options<GetDriversData>) =>
+  infiniteQueryOptions<
+    GetDriversResponse,
+    AxiosError<GetDriversError>,
+    InfiniteData<GetDriversResponse>,
+    QueryKey<Options<GetDriversData>>,
+    | number
+    | Pick<
+        QueryKey<Options<GetDriversData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetDriversData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getDrivers({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getDriversInfiniteQueryKey(options),
+    }
+  );
 
 /**
  * Initialize Driver
@@ -872,35 +962,6 @@ export const initializeDriverMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await initializeDriver({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Complete Driver Registration
- *
- * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
- */
-export const completeDriverRegistrationMutation = (
-  options?: Partial<Options<CompleteDriverRegistrationData>>
-): UseMutationOptions<
-  CompleteDriverRegistrationResponse,
-  AxiosError<CompleteDriverRegistrationError>,
-  Options<CompleteDriverRegistrationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CompleteDriverRegistrationResponse,
-    AxiosError<CompleteDriverRegistrationError>,
-    Options<CompleteDriverRegistrationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await completeDriverRegistration({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1415,40 +1476,6 @@ export const getLocationsOptions = (options?: Options<GetLocationsData>) =>
     },
     queryKey: getLocationsQueryKey(options),
   });
-
-const createInfiniteParams = <
-  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
->(
-  queryKey: QueryKey<Options>,
-  page: K
-) => {
-  const params = { ...queryKey[0] };
-  if (page.body) {
-    params.body = {
-      ...(queryKey[0].body as any),
-      ...(page.body as any),
-    };
-  }
-  if (page.headers) {
-    params.headers = {
-      ...queryKey[0].headers,
-      ...page.headers,
-    };
-  }
-  if (page.path) {
-    params.path = {
-      ...(queryKey[0].path as any),
-      ...(page.path as any),
-    };
-  }
-  if (page.query) {
-    params.query = {
-      ...(queryKey[0].query as any),
-      ...(page.query as any),
-    };
-  }
-  return params as unknown as typeof page;
-};
 
 export const getLocationsInfiniteQueryKey = (
   options?: Options<GetLocationsData>

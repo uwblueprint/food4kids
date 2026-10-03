@@ -32,7 +32,7 @@ from app.dependencies.services import (
 )
 from app.models.driver import Driver
 from app.models.user import User
-from app.models.user_invite import UserInvite
+from app.models.user_invite import INVITE_VALID_HOURS, UserInvite
 from app.routers.auth_routes import RESEND_EMAIL_COOLDOWN_SECONDS
 from app.schemas.auth import AuthResponse, TokenResponse
 from app.services.implementations.auth_service import (
@@ -41,6 +41,7 @@ from app.services.implementations.auth_service import (
     SessionExpiredError,
 )
 from app.utilities.firebase_rest_client import FirebaseRestError
+from app.utilities.utils import build_invite_url
 
 USER_ID: UUID = uuid4()
 EMAIL = "driver@example.com"
@@ -502,9 +503,9 @@ class TestResendOnboardingEmail:
         assert call_kwargs["email_type"] == "account-creation"
         assert call_kwargs["to"] == "pending@example.com"
         context = call_kwargs["context"]
-        assert context["Driver_Name_To_Replace"] == "Jane Doe"
-        assert "Sign_Up_URL" in context
-        assert context["Hours_Till_Expiry"] == 48
+        assert context["Name_To_Replace"] == "Jane Doe"
+        assert context["Role_To_Replace"] == "driver"
+        assert context["Hours_Till_Expiry"] == INVITE_VALID_HOURS
 
         invites = (
             (
@@ -517,6 +518,35 @@ class TestResendOnboardingEmail:
         )
         assert len(invites) == 1
         assert invites[0].user_invite_id != old_invite_id
+        assert context["Sign_Up_URL"] == build_invite_url(invites[0].user_invite_id)
+
+    @pytest.mark.asyncio
+    async def test_pending_admin_gets_the_admin_email(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """An admin from ``create_admin`` whose invite lapsed resends it as an admin."""
+        user = User(
+            first_name="Ada",
+            last_name="Admin",
+            email="admin@example.com",
+            role="admin",
+            auth_id=None,
+        )
+        test_session.add(user)
+        await test_session.commit()
+
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "admin@example.com"}
+            )
+
+        assert response.status_code == 204
+        context = dispatch.call_args.kwargs["context"]
+        assert context["Name_To_Replace"] == "Ada Admin"
+        assert context["Role_To_Replace"] == "admin"
 
     @pytest.mark.asyncio
     async def test_exception_inside_try_block_returns_204_for_enumeration_safety(
