@@ -21,7 +21,7 @@ python-multipart>=0.0.6
 # Keep the version verified by CI; newer releases change model typing.
 sqlmodel==0.0.42
 asyncpg>=0.29.0
-psycopg2>=2.8.6
+psycopg2-binary==2.9.12
 alembic>=1.13.1
 
 # Authentication & Security
