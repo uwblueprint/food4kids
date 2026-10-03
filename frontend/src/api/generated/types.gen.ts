@@ -1772,6 +1772,21 @@ export type RouteGenerationGroupInput = {
 };
 
 /**
+ * RouteGenerationMethod
+ *
+ * Which engine route generation should use.
+ *
+ * ``AUTO`` walks the tiers in quality order, spending each API's free monthly
+ * allowance before moving on. The rest pin generation to one engine
+ * regardless of remaining quota — including past it, into paid usage.
+ */
+export type RouteGenerationMethod =
+  | 'auto'
+  | 'fleet_routing'
+  | 'single_vehicle'
+  | 'cluster_sweep';
+
+/**
  * RouteGenerationSettings
  *
  * Settings for route generation.
@@ -2277,6 +2292,7 @@ export type SystemSettingsRead = {
   import_column_map?: {
     [key: string]: string;
   } | null;
+  route_generation_method?: RouteGenerationMethod;
   /**
    * Route Start Time
    */
@@ -2359,6 +2375,7 @@ export type SystemSettingsUpdate = {
   import_column_map?: {
     [key: string]: string;
   } | null;
+  route_generation_method?: RouteGenerationMethod | null;
   /**
    * Route Start Time
    */
