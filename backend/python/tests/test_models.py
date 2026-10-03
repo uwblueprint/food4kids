@@ -95,6 +95,12 @@ class TestCoreBusinessValidation:
         )
         assert admin.admin_phone == "tel:+1-212-555-1234"
 
+        # Optional: an admin created without a number stores NULL, and so does
+        # one handed an empty string. Absence is allowed; a bad number is not.
+        assert Admin(user_id=admin_user.user_id).admin_phone is None
+        assert Admin(user_id=admin_user.user_id, admin_phone=None).admin_phone is None
+        assert Admin(user_id=admin_user.user_id, admin_phone="").admin_phone is None
+
         # Test invalid phone numbers
         invalid_phones = ["invalid-phone", "123", "abc-def-ghij", "(555) 123-4567"]
 
@@ -350,16 +356,12 @@ class TestCoreModels:
 
         None as a *default* means "not provided" and stays valid; only a null
         that the client actually sent is rejected. partner_driver_name is the
-        one nullable column, where explicit null legitimately clears the value.
+        nullable profile fields, where explicit null legitimately clears the value.
         """
         non_nullable_fields = [
             "first_name",
             "last_name",
-            "phone",
             "availability",
-            "address",
-            "license_plate",
-            "car_make_model",
             "active",
         ]
         for field in non_nullable_fields:
@@ -370,10 +372,16 @@ class TestCoreModels:
         empty_update = DriverUpdate.model_validate({})
         assert empty_update.model_fields_set == set()
 
-        # Explicit null still clears the nullable partner_driver_name
-        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
-        assert cleared.partner_driver_name is None
-        assert "partner_driver_name" in cleared.model_fields_set
+        for field in (
+            "phone",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "partner_driver_name",
+        ):
+            cleared = DriverUpdate.model_validate({field: None})
+            assert getattr(cleared, field) is None
+            assert field in cleared.model_fields_set
 
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
@@ -754,18 +762,16 @@ class TestModelValidation:
             )
         assert "first_name" in str(exc_info.value)
 
-        with pytest.raises(ValidationError) as exc_info:
-            user = User(
-                first_name="Test",
-                last_name="Admin",
-                email="admin@example.com",
-                auth_id="test-123",
-            )
-            Admin(
-                user_id=user.user_id,
-                admin_phone="",  # Empty phone fails
-            )
-        assert "admin_phone" in str(exc_info.value)
+        # admin_phone is nullable, so an empty string means "no number" and
+        # normalizes to NULL rather than being stored as ''. A *malformed*
+        # number is still rejected — see test_admin_phone_optional below.
+        user = User(
+            first_name="Test",
+            last_name="Admin",
+            email="admin@example.com",
+            auth_id="test-123",
+        )
+        assert Admin(user_id=user.user_id, admin_phone="").admin_phone is None
 
         with pytest.raises(ValidationError) as exc_info:
             Driver(
@@ -913,11 +919,17 @@ class TestAnnouncementModel:
     def test_announcement_required_fields(self) -> None:
         """Test that subject and message are required."""
         with pytest.raises(ValidationError) as exc_info:
-            AnnouncementCreate.model_validate({"message": "No subject"})
+            AnnouncementCreate(
+                message="No subject",
+                user_id=uuid4(),
+            )
         assert "subject" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            AnnouncementCreate.model_validate({"subject": "No message"})
+            AnnouncementCreate(
+                subject="No message",
+                user_id=uuid4(),
+            )
         assert "message" in str(exc_info.value)
 
     def test_announcement_subject_validation(self) -> None:

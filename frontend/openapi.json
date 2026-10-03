@@ -770,6 +770,10 @@
             "title": "Current Year Km",
             "type": "number"
           },
+          "last_year_km": {
+            "title": "Last Year Km",
+            "type": "number"
+          },
           "lifetime_km": {
             "title": "Lifetime Km",
             "type": "number"
@@ -777,9 +781,180 @@
         },
         "required": [
           "lifetime_km",
-          "current_year_km"
+          "current_year_km",
+          "last_year_km"
         ],
         "title": "DriverHistorySummary",
+        "type": "object"
+      },
+      "DriverListRead": {
+        "description": "Driver table row with aggregates computed by the list query.",
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "auth_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Id"
+          },
+          "availability": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Availability",
+            "type": "array"
+          },
+          "car_make_model": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Make Model"
+          },
+          "current_year_km": {
+            "default": 0,
+            "title": "Current Year Km",
+            "type": "number"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "full_name": {
+            "readOnly": true,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "is_active": {
+            "default": false,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "last_delivery": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Delivery"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "last_year_km": {
+            "default": 0,
+            "title": "Last Year Km",
+            "type": "number"
+          },
+          "license_plate": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Plate"
+          },
+          "note_chain_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Chain Id"
+          },
+          "partner_driver_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Driver Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver_id",
+          "user_id",
+          "auth_id",
+          "first_name",
+          "last_name",
+          "email",
+          "role",
+          "full_name"
+        ],
+        "title": "DriverListRead",
         "type": "object"
       },
       "DriverRankingItem": {
@@ -813,10 +988,16 @@
             "type": "boolean"
           },
           "address": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Address",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
           },
           "auth_id": {
             "anyOf": [
@@ -837,10 +1018,16 @@
             "type": "array"
           },
           "car_make_model": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Car Make Model",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Make Model"
           },
           "driver_id": {
             "format": "uuid",
@@ -866,10 +1053,16 @@
             "type": "string"
           },
           "license_plate": {
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "License Plate",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Plate"
           },
           "note_chain_id": {
             "anyOf": [
@@ -896,9 +1089,15 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "minLength": 1,
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "role": {
             "title": "Role",
@@ -911,10 +1110,6 @@
           }
         },
         "required": [
-          "phone",
-          "license_plate",
-          "car_make_model",
-          "address",
           "driver_id",
           "user_id",
           "auth_id",
@@ -931,10 +1126,16 @@
         "description": "Driver registration request",
         "properties": {
           "address": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Address",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
           },
           "availability": {
             "items": {
@@ -944,10 +1145,16 @@
             "type": "array"
           },
           "car_make_model": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Car Make Model",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Make Model"
           },
           "email": {
             "format": "email",
@@ -968,10 +1175,16 @@
             "type": "string"
           },
           "license_plate": {
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "License Plate",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Plate"
           },
           "partner_driver_name": {
             "anyOf": [
@@ -986,38 +1199,23 @@
             "title": "Partner Driver Name"
           },
           "phone": {
-            "minLength": 1,
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           }
         },
         "required": [
           "first_name",
           "last_name",
-          "email",
-          "phone",
-          "license_plate",
-          "car_make_model",
-          "address"
+          "email"
         ],
         "title": "DriverRegister",
-        "type": "object"
-      },
-      "DriverRegisterResponse": {
-        "description": "Driver registration response - contains Driver object and AuthResponse",
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/AuthResponse"
-          },
-          "driver": {
-            "$ref": "#/components/schemas/DriverRead"
-          }
-        },
-        "required": [
-          "driver",
-          "auth"
-        ],
-        "title": "DriverRegisterResponse",
         "type": "object"
       },
       "DriverUpdate": {
@@ -1037,7 +1235,6 @@
             "anyOf": [
               {
                 "maxLength": 255,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -1064,7 +1261,6 @@
             "anyOf": [
               {
                 "maxLength": 255,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -1103,7 +1299,6 @@
             "anyOf": [
               {
                 "maxLength": 20,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -1127,7 +1322,6 @@
           "phone": {
             "anyOf": [
               {
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -2510,6 +2704,42 @@
         "title": "OrgContactRead",
         "type": "object"
       },
+      "PaginatedResponse_DriverListRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DriverListRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "PaginatedResponse[DriverListRead]",
+        "type": "object"
+      },
       "PaginatedResponse_LocationRead_": {
         "properties": {
           "items": {
@@ -2837,16 +3067,14 @@
         "type": "object"
       },
       "RouteGenerationSettings": {
-        "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.",
+        "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.\n\nThe three configured numbers below — ``max_boxes_per_driver``,\n``children_per_box`` and ``service_time_minutes`` — are required, with no\nschema-level defaults. They come from the ``system_settings`` row (see\n``SystemSettings.boxes_per_car`` / ``children_per_box`` /\n``dropoff_minutes``), and a default here would silently outrank whatever the\norg configured whenever a caller dropped the key. Omitting one is a 422.",
         "properties": {
           "children_per_box": {
-            "default": 2,
             "minimum": 1,
             "title": "Children Per Box",
             "type": "integer"
           },
           "max_boxes_per_driver": {
-            "default": 14,
             "exclusiveMinimum": 0,
             "title": "Max Boxes Per Driver",
             "type": "integer"
@@ -2866,15 +3094,17 @@
             "type": "string"
           },
           "service_time_minutes": {
-            "default": 15,
-            "exclusiveMinimum": 0,
+            "minimum": 0,
             "title": "Service Time Minutes",
             "type": "integer"
           }
         },
         "required": [
           "route_start_time",
-          "num_routes"
+          "num_routes",
+          "max_boxes_per_driver",
+          "children_per_box",
+          "service_time_minutes"
         ],
         "title": "RouteGenerationSettings",
         "type": "object"
@@ -3333,6 +3563,11 @@
             ],
             "title": "Latitude"
           },
+          "location_id": {
+            "format": "uuid",
+            "title": "Location Id",
+            "type": "string"
+          },
           "longitude": {
             "anyOf": [
               {
@@ -3378,6 +3613,7 @@
         },
         "required": [
           "stop_number",
+          "location_id",
           "address",
           "contact_name",
           "phone_primary",
@@ -3564,7 +3800,7 @@
         "properties": {
           "boxes_per_car": {
             "default": 10,
-            "minimum": 0,
+            "minimum": 1,
             "title": "Boxes Per Car",
             "type": "integer"
           },
@@ -3762,7 +3998,7 @@
           "boxes_per_car": {
             "anyOf": [
               {
-                "minimum": 0,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -4104,34 +4340,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/admins/test": {
-      "get": {
-        "description": "Admin only route example",
-        "operationId": "test",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "title": "Response Test",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Test",
-        "tags": [
-          "admins"
-        ]
-      }
-    },
     "/api/announcements/": {
       "get": {
         "description": "Retrieve all announcements with is_read status for the authenticated user.",
@@ -4548,6 +4756,48 @@
         ]
       }
     },
+    "/api/auth/register": {
+      "post": {
+        "description": "Finish an invited account: create the Firebase user, stamp its role claim,\nfill in ``users.auth_id``, burn the invite, and log the caller in.\n\nDeliberately role-agnostic. ``UserInvite`` doesn't distinguish a driver from\nan admin and ``link_firebase_to_user`` reads the role off the user row, so\none endpoint serves both — a driver invited by an admin and an admin created\nby ``python -m app.create_admin`` follow the identical link and page.\n\nUnauthenticated by necessity: the caller has no account yet. The invite id\nin the body *is* the credential — a single-use, 48-hour, unguessable UUID\nbound to one pre-created user row. It grants exactly the role that row\nalready carries, so possession of a link can never escalate anyone.",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserFinalize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
     "/api/auth/resend-onboarding": {
       "post": {
         "description": "Resends the onboarding/invite email to a pending user.\nReturns 204 regardless of input/status to prevent user enumeration attacks.",
@@ -4682,44 +4932,82 @@
     },
     "/api/drivers/": {
       "get": {
-        "description": "Get all drivers, optionally filter by driver_id or email\n\nAdmin-only: the full list exposes every volunteer's phone, home address,\nlicence plate and car, which no driver-facing screen needs. A driver reads\ntheir own record through GET /drivers/{driver_id}.",
+        "description": "Paginated driver rows with server-side name search and list aggregates.",
         "operationId": "get_drivers",
         "parameters": [
           {
-            "description": "Filter by driver ID",
+            "description": "Filter by first or last name",
             "in": "query",
-            "name": "driver_id",
+            "name": "search",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "format": "uuid",
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Filter by driver ID",
-              "title": "Driver Id"
+              "description": "Filter by first or last name",
+              "title": "Search"
             }
           },
           {
-            "description": "Filter by email",
             "in": "query",
-            "name": "email",
+            "name": "sort_by",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
+              "default": "name",
+              "enum": [
+                "name",
+                "current_year_km",
+                "last_year_km",
+                "last_delivery"
               ],
-              "description": "Filter by email",
-              "title": "Email"
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number (1-indexed)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number (1-indexed)",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items per page",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Number of items per page",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
             }
           }
         ],
@@ -4728,11 +5016,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DriverRead"
-                  },
-                  "title": "Response Get Drivers",
-                  "type": "array"
+                  "$ref": "#/components/schemas/PaginatedResponse_DriverListRead_"
                 }
               }
             },
@@ -4802,48 +5086,6 @@
           }
         ],
         "summary": "Initialize Driver",
-        "tags": [
-          "drivers"
-        ]
-      }
-    },
-    "/api/drivers/register": {
-      "post": {
-        "description": "Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse",
-        "operationId": "complete_driver_registration",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserFinalize"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DriverRegisterResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Complete Driver Registration",
         "tags": [
           "drivers"
         ]

@@ -1147,7 +1147,7 @@ def main(*, reset_passwords: bool = False) -> None:
                     partner_driver_name=fake.name()
                     if random.choice([True, False])
                     else None,
-                    availability=[random.choice([True, False]) for _ in range(7)],
+                    availability=[random.choice([True, False]) for _ in range(5)],
                     address=fake.address(),
                     license_plate=fake.license_plate(),
                     car_make_model=fake.word().title() + " " + fake.word().title(),
@@ -1403,10 +1403,7 @@ def main(*, reset_passwords: bool = False) -> None:
                             user_id=author_id,
                             message=fake.sentence(),
                             is_system=False,
-                            attachments=[
-                                Attachment.model_validate(attachment)
-                                for attachment in attachments
-                            ],
+                            attachments=[Attachment(**a) for a in attachments],
                         )
                         set_timestamps(note)
                         session.add(note)
@@ -1531,9 +1528,6 @@ def main(*, reset_passwords: bool = False) -> None:
                 warehouse_location=WAREHOUSE_ADDRESS,
                 warehouse_longitude=WAREHOUSE_LON,
                 warehouse_latitude=WAREHOUSE_LAT,
-                boxes_per_car=10,
-                dropoff_minutes=3,
-                children_per_box=2,
                 contact_name="Emily Loro",
                 # The real office number has an extension; keep the seed honest.
                 contact_phone=generate_valid_phone(with_extension=True),

@@ -40,5 +40,6 @@ class MockRoutingAlgorithm(RoutingAlgorithmProtocol):
         return await clustering_algorithm.cluster_locations(
             locations=locations,
             num_clusters=settings.num_routes,
+            max_boxes_per_cluster=settings.max_boxes_per_driver,
             timeout_seconds=timeout_seconds,
         )

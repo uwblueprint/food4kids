@@ -6,11 +6,14 @@ render the placeholders as literal ``{{ Name }}`` text, so the export is
 idempotent -- but nothing in the frontend toolchain knows which names the
 backend actually substitutes. These tests are that link: if a regenerated
 template loses a placeholder, gains one, or renames it, the mismatch fails
-here instead of shipping an email that reads "Hi Driver_Name_To_Replace,".
+here instead of shipping an email that reads "Hi Name_To_Replace,".
 """
 
+import logging
 import re
 from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -18,8 +21,11 @@ from app.constants.email_config import EMAIL_TEMPLATES
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "app" / "templates"
 
-# ``{{ Name }}`` as react-email emits it, tolerating arbitrary inner whitespace.
-JINJA_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+# ``{{ Name }}`` as react-email emits it, tolerating whitespace and a filter
+# (``{{ Name | capitalize }}``).
+JINJA_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\w+)\s*(?:\|[^}]*)?\}\}")
+# ``{% if Name is admin %}`` and friends — statements, not substitutions.
+JINJA_STATEMENT_RE = re.compile(r"\{%.*?%\}")
 
 # Every placeholder name any template may legitimately use. Used to detect a
 # name that survived export as bare text rather than a Jinja2 expression.
@@ -61,7 +67,7 @@ def test_template_has_no_bare_placeholder_identifiers(email_type: str) -> None:
     substitutes it and the recipient sees the raw identifier.
     """
     html = _read_template(email_type)
-    stripped = JINJA_PLACEHOLDER_RE.sub("", html)
+    stripped = JINJA_STATEMENT_RE.sub("", JINJA_PLACEHOLDER_RE.sub("", html))
 
     bare = sorted(name for name in ALL_PLACEHOLDER_NAMES if name in stripped)
     assert not bare, (
@@ -92,3 +98,105 @@ def test_template_renders_without_leftover_placeholders(email_type: str) -> None
         assert f"value-for-{name}" in rendered, (
             f"{email_type}: context value for {name} did not reach the output"
         )
+
+
+@pytest.mark.parametrize(
+    ("role", "subject", "greeting", "absent"),
+    [
+        (
+            "driver",
+            "Your Food4Kids Driver Account is Ready",
+            "Thank you for volunteering as a driver for Food4Kids!",
+            "Welcome to the Food4Kids platform!",
+        ),
+        (
+            "admin",
+            "Your Food4Kids Admin Account is Ready",
+            "Welcome to the Food4Kids platform!",
+            "volunteering as a driver",
+        ),
+    ],
+)
+def test_account_creation_copy_follows_the_role(
+    role: str, subject: str, greeting: str, absent: str
+) -> None:
+    """One template serves both roles; the role decides the wording."""
+    from app.templates.email_renderer import TemplateRenderer
+
+    renderer = TemplateRenderer(template_dir=str(TEMPLATE_DIR))
+    context = {
+        "Name_To_Replace": "Jane",
+        "Role_To_Replace": role,
+        "Sign_Up_URL": "https://example.test/create-password/x",
+        "Hours_Till_Expiry": 48,
+    }
+    config = EMAIL_TEMPLATES["account-creation"]
+
+    assert renderer.render_string(config["default_subject"], context) == subject
+
+    # React separates adjacent text nodes with ``<!-- -->``; mail clients don't show it.
+    rendered = re.sub(r"<!--.*?-->", "", renderer.render(config["filename"], context))
+    assert f"Create your {role} account" in rendered
+    assert f"not an F4K Waterloo {role}" in rendered
+    assert greeting in rendered
+    assert absent not in rendered
+    # The ``{% if %}`` around the greeting must resolve, not reach the inbox.
+    assert "{%" not in rendered and "%}" not in rendered
+
+
+def _dispatcher() -> tuple[Any, MagicMock]:
+    from app.services.implementations.email_dispatcher import EmailDispatcher
+    from app.templates.email_renderer import TemplateRenderer
+
+    email_service = MagicMock()
+    dispatcher = EmailDispatcher(
+        email_service=email_service,
+        template_renderer=TemplateRenderer(template_dir=str(TEMPLATE_DIR)),
+        logger=logging.getLogger(__name__),
+    )
+    return dispatcher, email_service
+
+
+def _context(name: str) -> dict[str, Any]:
+    return {
+        "Name_To_Replace": name,
+        "Announcement_Name": "Name",
+        "Announcement_Body": "Body",
+        "Announcement_URL": "https://example.test/a",
+    }
+
+
+@pytest.mark.asyncio
+async def test_caller_subject_is_sent_literally() -> None:
+    """An announcement's subject is user-written, so Jinja must never run on it."""
+    dispatcher, email_service = _dispatcher()
+    subject = "{{ Name_To_Replace }} {{ ''.__class__ }}"
+
+    await dispatcher.dispatch(
+        email_type="check-latest-announcement",
+        to="a@example.com",
+        context=_context("Jane"),
+        subject=subject,
+    )
+
+    assert email_service.send_email.call_args.kwargs["subject"] == subject
+
+
+@pytest.mark.asyncio
+async def test_default_subject_is_not_html_escaped() -> None:
+    """Subjects are plain-text headers; ``&`` must not arrive as ``&amp;``."""
+    dispatcher, email_service = _dispatcher()
+
+    await dispatcher.dispatch(
+        email_type="account-creation",
+        to="a@example.com",
+        context={
+            "Name_To_Replace": "Jane",
+            "Role_To_Replace": "R&D",
+            "Sign_Up_URL": "https://example.test/create-password/x",
+            "Hours_Till_Expiry": 48,
+        },
+    )
+
+    sent = email_service.send_email.call_args.kwargs["subject"]
+    assert sent == "Your Food4Kids R&d Account is Ready"
