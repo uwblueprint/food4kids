@@ -15,6 +15,7 @@ interface ConfirmModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  onCancel?: () => void;
   title: string;
   description: React.ReactNode;
   /** Label for the confirming button, e.g. "Duplicate anyway". */
@@ -37,6 +38,7 @@ export function ConfirmModal({
   open,
   onOpenChange,
   onConfirm,
+  onCancel,
   title,
   description,
   confirmLabel,
@@ -57,7 +59,13 @@ export function ConfirmModal({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              if (onCancel) {
+                onCancel();
+              } else {
+                onOpenChange(false);
+              }
+            }}
             disabled={isLoading}
           >
             {cancelLabel}

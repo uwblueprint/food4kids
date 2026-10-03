@@ -27,7 +27,7 @@ export function EditDriverModal({
   open,
   onOpenChange,
 }: EditDriverModalProps) {
-  const update = useUpdateDriver();
+  const update = useUpdateDriver(driver.driver_id);
   const [availability, setAvailability] = useState(
     driver.availability ?? [false, false, false, false, false]
   );

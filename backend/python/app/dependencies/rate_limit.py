@@ -148,3 +148,10 @@ EMAIL_SEND_EMAIL_LIMIT = RateLimiter(
 RESET_TOKEN_IP_LIMIT = RateLimiter(
     name="reset-token-per-ip", limit=20, window_seconds=15 * 60
 )
+
+UPDATE_PASSWORD_AUTHED_IP_LIMIT = RateLimiter(
+    name="update-password-authed-per-ip", limit=20, window_seconds=5 * 60
+)
+UPDATE_PASSWORD_AUTHED_EMAIL_LIMIT = RateLimiter(
+    name="update-password-authed-per-email", limit=10, window_seconds=15 * 60
+)
