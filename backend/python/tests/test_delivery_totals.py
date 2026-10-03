@@ -154,6 +154,8 @@ async def _add_route(
         )
     )
     for stop, location in zip(stops, locations, strict=True):
+        assert location.latitude is not None
+        assert location.longitude is not None
         session.add(
             RouteStopSnapshot(
                 route_stop_id=stop.route_stop_id,
