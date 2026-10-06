@@ -23,7 +23,7 @@ const shell = (name: string) => () => (
 );
 
 vi.mock('./api/auth', () => ({
-  useRefresh: vi.fn(),
+  useRefresh: () => ({ isError: false, isFetching: false, refetch: vi.fn() }),
   useLogout: () => ({
     mutate: vi.fn(),
   }),
