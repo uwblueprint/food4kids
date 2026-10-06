@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Food4Kids — Site Under Construction</title>
+  <meta name="description" content="The Food4Kids platform is currently under construction. Check back soon!" />
+  <link rel="icon" type="image/png" href="assets/boy-Cyn8ZllV.png" />
+  <style>
+    :root {
+      --f4k-blue: #2d7bdf;
+      --f4k-muted: rgba(255, 255, 255, 0.85);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--f4k-blue);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .card {
+      max-width: 640px;
+      width: 100%;
+      padding: 48px 40px 40px;
+      text-align: center;
+    }
+
+    .logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+
+    .logos img { display: block; }
+
+    .logos .bp-logo { height: 56px; width: auto; }
+
+    .logos .f4k-logo { height: 40px; width: auto; }
+
+    .logos .divider {
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--f4k-muted);
+      line-height: 1;
+    }
+
+    /* Render dark logos as white so they read on the blue background */
+    .logos .f4k-logo { filter: brightness(0) invert(1); }
+
+    .hero { margin: 8px 0 28px; }
+
+    .hero img {
+      width: 220px;
+      max-width: 70%;
+      height: auto;
+    }
+
+    h1 {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    p.subtitle {
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--f4k-muted);
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    .pill {
+      display: inline-block;
+      margin-top: 28px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    footer {
+      margin-top: 32px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 36px 22px 30px; }
+      h1 { font-size: 24px; }
+      p.subtitle { font-size: 15px; }
+      .logos .bp-logo { height: 44px; }
+      .logos .f4k-logo { height: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logos">
+      <img class="bp-logo" src="assets/bp-logo.svg" alt="UW Blueprint logo" />
+      <span class="divider">×</span>
+      <img class="f4k-logo" src="assets/logo_mobile_one_line-cYzWdVlz.svg" alt="Food4Kids logo" />
+    </div>
+
+    <div class="hero">
+      <img src="assets/boy-Cyn8ZllV.png" alt="Illustration of a boy holding a toy car" />
+    </div>
+
+    <h1>Site Under Construction</h1>
+    <p class="subtitle">
+      We're busy building something great. The Food4Kids platform will be
+      here soon. Thanks for your patience!
+    </p>
+
+    <span class="pill">🚧 Coming Soon</span>
+
+    <footer>
+      Built by UW Blueprint for Food4Kids
+    </footer>
+  </main>
+</body>
+</html>

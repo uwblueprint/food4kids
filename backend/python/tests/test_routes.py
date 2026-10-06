@@ -28,7 +28,7 @@ from app.dependencies.auth import (
 )
 from app.dependencies.services import get_google_maps_client
 from app.models import get_session
-from app.models.enum import ProgressEnum, RouteStatusEnum
+from app.models.enum import NotePermission, ProgressEnum, RouteStatusEnum
 from app.models.location import Location
 from app.models.location_group import LocationGroup
 from app.models.note_chain import NoteChain
@@ -106,10 +106,16 @@ class TestDriverRoutes:
 
     @pytest.mark.asyncio
     async def test_get_drivers_empty(self, async_client: AsyncClient) -> None:
-        """Test GET /drivers returns empty list when no drivers exist."""
+        """Test GET /drivers returns an empty paginated result."""
         response = await async_client.get("/drivers/")
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {
+            "items": [],
+            "total": 0,
+            "page": 1,
+            "page_size": 50,
+            "total_pages": 0,
+        }
 
     @pytest.mark.asyncio
     async def test_initialize_driver(
@@ -151,100 +157,17 @@ class TestDriverRoutes:
             assert "driver_id" in data
 
     @pytest.mark.asyncio
-    async def test_register_driver(
-        self,
-        async_client: AsyncClient,
-        sample_driver_data: dict[str, Any],
-    ) -> None:
-        """Test POST /drivers/register creates a new driver."""
-        mock_firebase_user = MagicMock()
-        mock_firebase_user.uid = "fake-auth-id-123"
-
-        from app.models.driver import Driver
-        from app.models.user import User
-        from app.models.user_invite import UserInvite
-
-        fake_user = User(
-            user_id=uuid4(),
-            auth_id=None,
-            email="testemail@gmail.com",
-            first_name="Test",
-            last_name="User",
-            role="driver",
-        )
-
-        fake_driver = Driver(
-            user_id=fake_user.user_id,
-            phone=sample_driver_data["phone"],
-            address=sample_driver_data["address"],
-            license_plate=sample_driver_data["license_plate"],
-            car_make_model=sample_driver_data["car_make_model"],
-        )
-        fake_user.driver = fake_driver
-
-        fake_user_invite = UserInvite(
-            user_invite_id=uuid4(),
-            user_id=fake_user.user_id,
-            is_used=False,
-            expires_at=datetime.now(timezone.utc) + timedelta(days=2),
-        )
-        fake_user_invite.user = fake_user
-
-        fake_auth_dto = {
-            "access_token": "fake-access-token",
-            "first_name": sample_driver_data["first_name"],
-            "last_name": sample_driver_data["last_name"],
-            "id": str(uuid4()),
-            "email": "newdriver@example.com",
-            "role": "driver",
-            "remember_me": False,
-        }
-        # We don't want to actually call firebase so we mock the call
-        with (
-            patch("firebase_admin.auth.create_user", return_value=mock_firebase_user),
-            patch("firebase_admin.auth.set_custom_user_claims"),
-            patch("firebase_admin.auth.delete_user"),
-            patch(
-                "sqlalchemy.ext.asyncio.AsyncSession.refresh", new_callable=AsyncMock
-            ),
-            patch("sqlalchemy.ext.asyncio.AsyncSession.commit", new_callable=AsyncMock),
-            patch(
-                "app.services.implementations.user_invite_service.UserInviteService.get_user_invite_by_id",
-                return_value=fake_user_invite,
-            ),
-            patch(
-                "app.services.implementations.auth_service.AuthService.generate_token",
-                return_value=(fake_auth_dto, "fake_refresh_token"),
-            ),
-        ):
-            user_finalize_data = {
-                "user_invite_id": str(fake_user_invite.user_invite_id),
-                "password": "Testing123!",
-            }
-            response = await async_client.post(
-                "/drivers/register", json=user_finalize_data
-            )
-            assert response.status_code == 201
-            data = response.json()
-            assert data["driver"]["phone"] == "tel:+1-212-555-1234"
-            assert (
-                data["driver"]["license_plate"] == sample_driver_data["license_plate"]
-            )
-            assert data["driver"]["role"] == "driver"
-            assert data["auth"]["email"] == "newdriver@example.com"
-            assert "access_token" in data["auth"]
-            assert "driver_id" in data["driver"]
-
-    @pytest.mark.asyncio
     async def test_get_drivers_with_data(
         self, async_client: AsyncClient, test_driver: Any
     ) -> None:
-        """Test GET /drivers returns list of drivers."""
+        """Test GET /drivers returns paginated driver rows."""
         response = await async_client.get("/drivers/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        assert str(data[0]["driver_id"]) == str(test_driver.driver_id)
+        assert data["total"] == 1
+        assert str(data["items"][0]["driver_id"]) == str(test_driver.driver_id)
+        assert data["items"][0]["is_active"] is False
+        assert data["items"][0]["current_year_km"] == 0
 
     @pytest.mark.asyncio
     async def test_get_driver_by_id(
@@ -298,13 +221,13 @@ class TestDriverRoutes:
         assert data["partner_driver_name"] is None
 
     @pytest.mark.asyncio
-    async def test_self_driver_updates_own_name_and_phone(
+    async def test_self_driver_updates_own_name_phone_and_address(
         self,
         client_with_overrides: Any,
         test_driver: Any,
         test_session: AsyncSession,
     ) -> None:
-        """Self-driver update can edit only User name fields and Driver phone."""
+        """Self-driver update can edit User name fields, phone, and address."""
         from app.models.user import User
 
         self_client = await client_with_overrides(
@@ -320,6 +243,7 @@ class TestDriverRoutes:
                     "first_name": "Updated",
                     "last_name": "Driver",
                     "phone": "+14165550123",
+                    "address": "456 New Address St",
                 },
             )
 
@@ -328,6 +252,7 @@ class TestDriverRoutes:
         assert data["first_name"] == "Updated"
         assert data["last_name"] == "Driver"
         assert data["phone"] == "tel:+1-416-555-0123"
+        assert data["address"] == "456 New Address St"
 
         await test_session.refresh(test_driver)
         user = await test_session.get(User, test_driver.user_id)
@@ -335,6 +260,7 @@ class TestDriverRoutes:
         assert user.first_name == "Updated"
         assert user.last_name == "Driver"
         assert test_driver.phone == "tel:+1-416-555-0123"
+        assert test_driver.address == "456 New Address St"
         mock_update_user.assert_called_once_with(
             user.auth_id,
             display_name="Updated Driver",
@@ -356,9 +282,10 @@ class TestDriverRoutes:
         test_session: AsyncSession,
     ) -> None:
         """Self-driver update rejects admin-only fields and does not persist them."""
-        original_phone = test_driver.phone
-        original_address = test_driver.address
         original_active = test_driver.active
+        original_license_plate = test_driver.license_plate
+        original_car_make_model = test_driver.car_make_model
+        original_partner_driver_name = test_driver.partner_driver_name
         self_client = await client_with_overrides(
             {require_self_driver_or_admin: lambda: DriverAccess.SELF}
         )
@@ -366,17 +293,19 @@ class TestDriverRoutes:
         response = await self_client.put(
             f"/drivers/{test_driver.driver_id}",
             json={
-                "phone": "+14165550123",
-                "address": "123 Admin Only St",
                 "active": False,
+                "license_plate": "NEW-PLATE",
+                "car_make_model": "New Car",
+                "partner_driver_name": "New Partner",
             },
         )
 
         assert response.status_code == 403
         await test_session.refresh(test_driver)
-        assert test_driver.phone == original_phone
-        assert test_driver.address == original_address
         assert test_driver.active is original_active
+        assert test_driver.license_plate == original_license_plate
+        assert test_driver.car_make_model == original_car_make_model
+        assert test_driver.partner_driver_name == original_partner_driver_name
 
     @pytest.mark.asyncio
     async def test_update_driver_rejects_explicit_null(
@@ -478,11 +407,10 @@ class TestDriverRoutes:
         assert get_response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_driver_by_email(
+    async def test_search_driver_by_name(
         self, async_client: AsyncClient, test_driver: Any, test_session: AsyncSession
     ) -> None:
-        """Test GET /drivers?email= filters by email."""
-        # Get the user associated with test_driver to find the email
+        """GET /drivers searches first and last name server-side."""
         from sqlmodel import select
 
         from app.models.user import User
@@ -492,11 +420,15 @@ class TestDriverRoutes:
         )
         user = result.scalar_one()
 
-        response = await async_client.get(f"/drivers/?email={user.email}")
+        response = await async_client.get(f"/drivers/?search={user.first_name}")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        assert str(data[0]["driver_id"]) == str(test_driver.driver_id)
+        assert data["total"] == 1
+        assert str(data["items"][0]["driver_id"]) == str(test_driver.driver_id)
+
+        response = await async_client.get("/drivers/?search=does-not-exist")
+        assert response.status_code == 200
+        assert response.json()["items"] == []
 
 
 class TestLocationRoutes:
@@ -1442,7 +1374,9 @@ class TestLocationRoutes:
         """GET /locations returns the most recent non-system note as latest_note."""
         from app.models.note import Note
 
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         test_session.add(chain)
         await test_session.flush()
 
@@ -3816,6 +3750,7 @@ class TestRouteRoutes:
 
         first, second = stops
         # Stop 1 -> loc_b
+        assert first["location_id"] == str(loc_b.location_id)
         assert first["address"] == "2 B St"
         assert first["contact_name"] == "Bob"
         assert first["phone_primary"] == "tel:+1-519-576-0002"
@@ -3823,6 +3758,7 @@ class TestRouteRoutes:
         assert first["boxes"] == 5  # ceil(10 / 2)
         assert first["note_chain_id"] == str(chain_b.note_chain_id)
         # Stop 2 -> loc_a
+        assert second["location_id"] == str(loc_a.location_id)
         assert second["address"] == "1 A St"
         assert second["phone_secondary"] == "tel:+1-519-576-9991"
         assert second["boxes"] == 3  # ceil(6 / 2)
@@ -3911,6 +3847,8 @@ class TestRouteRoutes:
         stops = response.json()["stops"]
         assert len(stops) == 1
         stop_body = stops[0]
+        # location_id is read from the live route_stop (not snapshotted).
+        assert stop_body["location_id"] == str(loc.location_id)
         assert stop_body["address"] == "Frozen Addr"
         assert stop_body["contact_name"] == "Frozen Name"
         assert stop_body["phone_primary"] == "tel:+1-519-576-8888"
@@ -5580,7 +5518,9 @@ class TestNoteChainRoutes:
         """Helper: create a NoteChain directly in DB, return its ID as string."""
         from app.models.note_chain import NoteChain
 
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         session.add(chain)
         await session.commit()
         await session.refresh(chain)
@@ -5726,7 +5666,9 @@ class TestNoteFeedRoutes:
         from app.models.note_chain import NoteChain
 
         group = LocationGroup(name=f"{location_name} Group", color="#000000", notes="")
-        chain = NoteChain(read_permission="All", write_permission="All")
+        chain = NoteChain(
+            read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+        )
         session.add_all([group, chain])
         await session.flush()
 
@@ -6152,7 +6094,13 @@ class TestJobRoutes:
         client = await client_with_overrides({get_job_service: _FakeJobService})
         body = {
             "location_group": {"name": "Group", "color": "#FF5733", "notes": ""},
-            "settings": {"route_start_time": "2026-06-01T08:00:00", "num_routes": 2},
+            "settings": {
+                "route_start_time": "2026-06-01T08:00:00",
+                "num_routes": 2,
+                "max_boxes_per_driver": 10,
+                "children_per_box": 2,
+                "service_time_minutes": 3,
+            },
         }
         response = await client.post("/jobs/generate", json=body)
         assert response.status_code == 202
@@ -6172,7 +6120,11 @@ class TestJobRoutes:
         req = RouteGenerationGroupInput(
             location_group=LocationGroup(name="Group", color="#FF5733"),
             settings=RouteGenerationSettings(
-                route_start_time=datetime(2026, 6, 1, 8, 0), num_routes=2
+                route_start_time=datetime(2026, 6, 1, 8, 0),
+                num_routes=2,
+                max_boxes_per_driver=10,
+                children_per_box=2,
+                service_time_minutes=3,
             ),
         )
 
@@ -6700,6 +6652,7 @@ class TestDriverHistoryRoutes:
         body = response.json()
         assert "lifetime_km" in body
         assert "current_year_km" in body
+        assert "last_year_km" in body
 
     @pytest.mark.asyncio
     async def test_get_summary_driver_not_found(

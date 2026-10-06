@@ -1,4 +1,4 @@
-import { CheckIcon, EyeOffIcon } from 'lucide-react';
+import { EyeOffIcon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import EyeIcon from '@/assets/icons/eye.svg?react';
@@ -6,7 +6,8 @@ import { Button, Field, FieldLabel, Input } from '@/common/components';
 import { cn } from '@/lib/utils';
 
 import { ErrorNote } from './ErrorNote';
-import { fieldNote } from './styles';
+import { PasswordRequirementsList } from './PasswordRequirements';
+import { getPasswordRequirements } from './passwordUtils';
 
 interface CreatePasswordFormProps {
   onSubmit: (password: string) => void;
@@ -29,25 +30,7 @@ export const CreatePasswordForm = ({
   const [passwordError, setPasswordError] = useState(false);
   const [confirmPasswordError, setConfirmPasswordError] = useState(false);
 
-  const requirements = [
-    {
-      label: '8+ characters (12 or more is recommended)',
-      isSatisfied: password.length >= 8,
-    },
-    {
-      label: 'One uppercase and one lowercase letter',
-      isSatisfied: /[a-z]/.test(password) && /[A-Z]/.test(password),
-    },
-    {
-      label: 'One number',
-      isSatisfied: /\d/.test(password),
-    },
-    {
-      label: 'One special character (e.g. ! @ # $ %)',
-      isSatisfied: /[^A-Za-z0-9]/.test(password),
-    },
-  ];
-
+  const requirements = getPasswordRequirements(password);
   const allRequirementsMet = requirements.every((req) => req.isSatisfied);
 
   const submitPassword = (e: FormEvent<HTMLFormElement>) => {
@@ -116,7 +99,7 @@ export const CreatePasswordForm = ({
             {passwordError && (
               <ErrorNote>
                 {password
-                  ? 'Please make sure all criteria is met'
+                  ? 'Please make sure all password criteria is met'
                   : 'Please enter a password'}
               </ErrorNote>
             )}
@@ -171,18 +154,7 @@ export const CreatePasswordForm = ({
         </form>
 
         {/* Password Requirements */}
-        <div className="desktop:mt-5 mt-2">
-          <p className={cn(fieldNote, 'mb-[3px]')}>Password must include:</p>
-          <ul className="space-y-[3px]">
-            {requirements.map((req, index) => (
-              <PasswordRequirement
-                key={index}
-                label={req.label}
-                isSatisfied={req.isSatisfied}
-              />
-            ))}
-          </ul>
-        </div>
+        <PasswordRequirementsList password={password} />
 
         {/* Create Account Button */}
         <div className="flex flex-col">
@@ -203,39 +175,5 @@ export const CreatePasswordForm = ({
         </div>
       </div>
     </>
-  );
-};
-
-interface PasswordRequirementProps {
-  label: string;
-  isSatisfied: boolean;
-}
-
-const PasswordRequirement = ({
-  label,
-  isSatisfied,
-}: PasswordRequirementProps) => {
-  return (
-    <li className={cn(fieldNote, 'flex items-center gap-1')}>
-      {isSatisfied ? (
-        <CheckIcon
-          className="h-4 w-4 shrink-0 text-green-500"
-          strokeWidth={3}
-        />
-      ) : (
-        // A little custom gray dot indicator when invalid
-        <div className="flex h-4 w-4 shrink-0 items-center justify-center">
-          <span className="h-1 w-1 rounded-full bg-black" />
-        </div>
-      )}
-      <span
-        className={cn(
-          'transition-colors duration-200',
-          isSatisfied ? 'text-success-stroke' : 'text-current'
-        )}
-      >
-        {label}
-      </span>
-    </li>
   );
 };

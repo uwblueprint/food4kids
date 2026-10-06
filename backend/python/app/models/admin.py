@@ -1,4 +1,3 @@
-from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, computed_field, field_validator
@@ -14,13 +13,14 @@ class AdminBase(SQLModel):
     """Shared fields between table and API models"""
 
     receive_email_notifications: bool = Field(default=True, nullable=False)
-    admin_phone: str = Field(min_length=1, max_length=100, nullable=False)
+    # Optional: an admin bootstrapped from the CLI may not have a number on file.
+    admin_phone: str | None = Field(default=None, max_length=100)
 
     @field_validator("admin_phone")
     @classmethod
-    def validate_phone(cls, v: str) -> str:
-        """Validate phone number using phonenumbers library"""
-        return validate_phone(v)
+    def validate_phone(cls, v: str | None) -> str | None:
+        """Validate when present; an empty string is absence and stores NULL."""
+        return validate_phone(v) if v else None
 
 
 class Admin(AdminBase, BaseModel, table=True):
@@ -66,26 +66,16 @@ class AdminUpdate(SQLModel):
     """Update request model - all optional"""
 
     # admin-specific
-    admin_phone: str | None = Field(default=None, min_length=1, max_length=100)
-
-    @field_validator("admin_phone", mode="before")
-    @classmethod
-    def reject_explicit_null(cls, v: Any) -> Any:
-        """``admin_info.admin_phone`` is NOT NULL, so an explicit ``null`` has
-        to fail here as a 422 rather than as an IntegrityError at commit. The
-        ``None`` default means "not provided" and never reaches a validator —
-        same guard as DriverUpdate's."""
-        if v is None:
-            raise ValueError("cannot be null; omit the field to leave it unchanged")
-        return v
+    # An explicit ``null`` clears the number, same as DriverUpdate's phone.
+    admin_phone: str | None = Field(default=None, max_length=100)
 
     @field_validator("admin_phone")
     @classmethod
-    def validate_admin_phone(cls, v: str) -> str:
+    def validate_admin_phone(cls, v: str | None) -> str | None:
         """Normalize on update too — the service assigns straight onto the row,
         and SQLModel table instances don't re-run validators on assignment, so
         without this an edit writes whatever string the client sent."""
-        return validate_phone(v)
+        return validate_phone(v) if v else None
 
     # user fields
     first_name: str | None = Field(default=None, min_length=1, max_length=255)

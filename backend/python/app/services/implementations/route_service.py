@@ -364,6 +364,7 @@ class RouteService:
         stops = [
             RouteStopDetailRead(
                 stop_number=stop.stop_number,
+                location_id=stop.location_id,
                 # Snapshot wins for frozen (past) stops; live Location otherwise.
                 address=snapshot.address if snapshot else location.address,
                 contact_name=(
@@ -604,6 +605,8 @@ class RouteService:
                     for new_stop, location in zip(
                         new_stops, ordered_locations, strict=True
                     ):
+                        assert location.latitude is not None
+                        assert location.longitude is not None
                         session.add(
                             RouteStopSnapshot(
                                 route_stop_id=new_stop.route_stop_id,
