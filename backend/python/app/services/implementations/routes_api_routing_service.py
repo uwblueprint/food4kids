@@ -25,15 +25,11 @@ from google.maps import routing_v2
 
 from app.config import settings as app_settings
 from app.services.implementations.quota_service import PartiallyBilledError
-from app.services.implementations.sweep_clustering import (
-    DEFAULT_MAX_BOXES_PER_CLUSTER,
-    SweepClusteringAlgorithm,
-)
+from app.services.implementations.sweep_clustering import SweepRoutingAlgorithm
 
 if TYPE_CHECKING:
     from app.models.location import Location
     from app.schemas.route_generation import RouteGenerationSettings
-    from app.services.protocols.clustering_algorithm import ClusteringAlgorithmProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -75,18 +71,8 @@ def _remaining(timeout_seconds: float | None, started: float) -> float | None:
 class RoutesApiSingleVehicleAlgorithm:
     """Clusters in-house, then orders each cluster with the Routes API."""
 
-    clustering_algorithm: ClusteringAlgorithmProtocol
-
-    def __init__(
-        self, warehouse_lat: float, warehouse_lon: float, children_per_box: int
-    ) -> None:
-        self.warehouse_lat = warehouse_lat
-        self.warehouse_lon = warehouse_lon
-        self.clustering_algorithm = SweepClusteringAlgorithm(
-            warehouse_lat=warehouse_lat,
-            warehouse_lon=warehouse_lon,
-            children_per_box=children_per_box,
-        )
+    def __init__(self) -> None:
+        self.clustering = SweepRoutingAlgorithm()
 
     async def generate_routes(
         self,
@@ -101,10 +87,11 @@ class RoutesApiSingleVehicleAlgorithm:
             return []
 
         started = time.monotonic()
-        clusters = await self.clustering_algorithm.cluster_locations(
-            locations=locations,
-            num_clusters=settings.num_routes,
-            max_boxes_per_cluster=DEFAULT_MAX_BOXES_PER_CLUSTER,
+        clusters = await self.clustering.generate_routes(
+            locations,
+            warehouse_lat,
+            warehouse_lon,
+            settings,
             timeout_seconds=timeout_seconds,
         )
 

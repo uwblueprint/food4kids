@@ -230,28 +230,14 @@ async def _build_algorithm_for_job(
     session: AsyncSession,
     session_maker: Any,
 ) -> Any:
-    """Build this job's routing engine from the configured method.
-
-    The warehouse and box size come from the same settings row, since the
-    in-house engine clusters around the depot and needs both up front.
-    """
-    row = (await session.execute(select(SystemSettings).limit(1))).scalars().first()
-    if row is None:
-        raise RuntimeError(
-            "SystemSettings row is missing; it must be created at startup "
-            "via ensure_settings()."
-        )
-
-    method = RouteGenerationMethod(row.route_generation_method)
-    logger.info("Route generation method: %s", method.value)
-
-    return build_routing_algorithm(
-        method,
-        session_maker,
-        warehouse_lat=row.warehouse_latitude or 0.0,
-        warehouse_lon=row.warehouse_longitude or 0.0,
-        children_per_box=row.children_per_box,
+    """Build this job's routing engine from the configured method."""
+    method = RouteGenerationMethod(
+        (
+            await session.execute(select(SystemSettings.route_generation_method))
+        ).scalar_one()
     )
+    logger.info("Route generation method: %s", method.value)
+    return build_routing_algorithm(method, session_maker)
 
 
 async def _claim_and_run_one() -> bool:

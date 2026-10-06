@@ -44,7 +44,7 @@ from app.services.implementations.routes_api_routing_service import (
     RoutesApiSingleVehicleAlgorithm,
 )
 from app.services.implementations.scheduler_service import SchedulerService
-from app.services.implementations.sweep_algorithm import SweepAlgorithm
+from app.services.implementations.sweep_clustering import SweepRoutingAlgorithm
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
@@ -186,9 +186,6 @@ def get_quota_service() -> QuotaService:
 def build_routing_algorithm(
     method: RouteGenerationMethod,
     session_maker: async_sessionmaker[AsyncSession],
-    warehouse_lat: float,
-    warehouse_lon: float,
-    children_per_box: int,
 ) -> RoutingAlgorithmProtocol:
     """Build the routing engine for one generation job.
 
@@ -196,36 +193,22 @@ def build_routing_algorithm(
     allowance in quality order before falling back. The explicit methods pin
     generation to a single engine and skip the quota check entirely — forcing a
     paid engine past its free room is a deliberate decision to start paying.
-
-    Built per job rather than cached: the engines are constructed around this
-    job's warehouse and box settings.
     """
-    fleet_routing = GoogleMapsFleetRoutingAlgorithm()
-    single_vehicle = RoutesApiSingleVehicleAlgorithm(
-        warehouse_lat=warehouse_lat,
-        warehouse_lon=warehouse_lon,
-        children_per_box=children_per_box,
-    )
-    cluster_sweep = SweepAlgorithm(
-        warehouse_lat=warehouse_lat,
-        warehouse_lon=warehouse_lon,
-        children_per_box=children_per_box,
-    )
-
-    if method == RouteGenerationMethod.FLEET_ROUTING:
-        return fleet_routing
-    if method == RouteGenerationMethod.SINGLE_VEHICLE:
-        return single_vehicle
-    if method == RouteGenerationMethod.CLUSTER_SWEEP:
-        return cluster_sweep
-
-    return build_default_cascade(
-        get_quota_service(),
-        session_maker,
-        fleet_routing,
-        single_vehicle,
-        cluster_sweep,
-    )
+    match method:
+        case RouteGenerationMethod.FLEET_ROUTING:
+            return GoogleMapsFleetRoutingAlgorithm()
+        case RouteGenerationMethod.SINGLE_VEHICLE:
+            return RoutesApiSingleVehicleAlgorithm()
+        case RouteGenerationMethod.CLUSTER_SWEEP:
+            return SweepRoutingAlgorithm()
+        case RouteGenerationMethod.AUTO:
+            return build_default_cascade(
+                get_quota_service(),
+                session_maker,
+                GoogleMapsFleetRoutingAlgorithm(),
+                RoutesApiSingleVehicleAlgorithm(),
+                SweepRoutingAlgorithm(),
+            )
 
 
 @lru_cache

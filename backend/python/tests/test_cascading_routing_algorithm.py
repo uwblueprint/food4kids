@@ -70,7 +70,11 @@ class FakeAlgorithm:
 @pytest.fixture
 def gen_settings() -> RouteGenerationSettings:
     return RouteGenerationSettings(
-        route_start_time=datetime(2026, 8, 21, 8, 0), num_routes=4
+        route_start_time=datetime(2026, 8, 21, 8, 0),
+        num_routes=4,
+        max_boxes_per_driver=10,
+        children_per_box=2,
+        service_time_minutes=3,
     )
 
 

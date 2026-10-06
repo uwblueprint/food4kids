@@ -41,9 +41,7 @@ class FakeLocation:
 
 
 def _algorithm() -> RoutesApiSingleVehicleAlgorithm:
-    return RoutesApiSingleVehicleAlgorithm(
-        warehouse_lat=43.4, warehouse_lon=-80.5, children_per_box=2
-    )
+    return RoutesApiSingleVehicleAlgorithm()
 
 
 def _settings(num_routes: int = 2, return_to_warehouse: bool = True) -> Any:
@@ -51,6 +49,9 @@ def _settings(num_routes: int = 2, return_to_warehouse: bool = True) -> Any:
         route_start_time=datetime(2026, 9, 2, 8, 0),
         num_routes=num_routes,
         return_to_warehouse=return_to_warehouse,
+        max_boxes_per_driver=10,
+        children_per_box=2,
+        service_time_minutes=3,
     )
 
 
@@ -111,16 +112,16 @@ class TestGenerateRoutes:
         algorithm = _algorithm()
         locations = [FakeLocation(address=str(i)) for i in range(8)]
 
-        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
-            locs = kwargs["locations"]
+        async def fake_cluster(
+            locations: list[Any], *_args: Any, **_kwargs: Any
+        ) -> list[list[Any]]:
+            locs = locations
             return [locs[:4], locs[4:]]
 
         async def fake_order(cluster: list[Any], *_args: Any) -> list[int]:
             return list(reversed(range(len(cluster))))
 
-        monkeypatch.setattr(
-            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
-        )
+        monkeypatch.setattr(algorithm.clustering, "generate_routes", fake_cluster)
         monkeypatch.setattr(algorithm, "_request_order", fake_order)
 
         routes = await algorithm.generate_routes(
@@ -148,8 +149,10 @@ class TestTierTimeout:
         locations = [FakeLocation(address=str(i)) for i in range(4)]
         cancelled = False
 
-        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
-            return [kwargs["locations"]]
+        async def fake_cluster(
+            locations: list[Any], *_args: Any, **_kwargs: Any
+        ) -> list[list[Any]]:
+            return [locations]
 
         async def hanging_order(*_args: Any, **_kwargs: Any) -> list[int]:
             nonlocal cancelled
@@ -160,9 +163,7 @@ class TestTierTimeout:
                 raise
             return [0, 1, 2, 3]
 
-        monkeypatch.setattr(
-            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
-        )
+        monkeypatch.setattr(algorithm.clustering, "generate_routes", fake_cluster)
         monkeypatch.setattr(algorithm, "_request_order", hanging_order)
 
         with pytest.raises(TimeoutError):
@@ -184,17 +185,17 @@ class TestTierTimeout:
         """Remaining time is clamped at zero, not read as 'no timeout'."""
         algorithm = _algorithm()
 
-        async def slow_cluster(**kwargs: Any) -> list[list[Any]]:
+        async def slow_cluster(
+            locations: list[Any], *_args: Any, **_kwargs: Any
+        ) -> list[list[Any]]:
             await asyncio.sleep(0.05)
-            return [kwargs["locations"]]
+            return [locations]
 
         async def hanging_order(*_args: Any, **_kwargs: Any) -> list[int]:
             await asyncio.sleep(30)
             return [0, 1]
 
-        monkeypatch.setattr(
-            algorithm.clustering_algorithm, "cluster_locations", slow_cluster
-        )
+        monkeypatch.setattr(algorithm.clustering, "generate_routes", slow_cluster)
         monkeypatch.setattr(algorithm, "_request_order", hanging_order)
 
         with pytest.raises(TimeoutError):
@@ -211,15 +212,15 @@ class TestTierTimeout:
     ) -> None:
         algorithm = _algorithm()
 
-        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
-            return [kwargs["locations"]]
+        async def fake_cluster(
+            locations: list[Any], *_args: Any, **_kwargs: Any
+        ) -> list[list[Any]]:
+            return [locations]
 
         async def fake_order(cluster: list[Any], *_args: Any) -> list[int]:
             return list(reversed(range(len(cluster))))
 
-        monkeypatch.setattr(
-            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
-        )
+        monkeypatch.setattr(algorithm.clustering, "generate_routes", fake_cluster)
         monkeypatch.setattr(algorithm, "_request_order", fake_order)
 
         routes = await algorithm.generate_routes(
@@ -293,8 +294,10 @@ class TestBillingShape:
         locations = [FakeLocation(address=str(i)) for i in range(75)]
         requests = 0
 
-        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
-            locs = kwargs["locations"]
+        async def fake_cluster(
+            locations: list[Any], *_args: Any, **_kwargs: Any
+        ) -> list[list[Any]]:
+            locs = locations
             size = len(locs) // 12
             return [locs[i * size : (i + 1) * size] for i in range(12)]
 
@@ -303,9 +306,7 @@ class TestBillingShape:
             requests += 1
             return list(range(len(cluster)))
 
-        monkeypatch.setattr(
-            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
-        )
+        monkeypatch.setattr(algorithm.clustering, "generate_routes", fake_cluster)
         monkeypatch.setattr(algorithm, "_request_order", fake_order)
 
         await algorithm.generate_routes(
@@ -329,14 +330,14 @@ class TestPartialFailure:
     ) -> list[Any]:
         locations = [FakeLocation(address=str(i)) for i in range(sum(sizes))]
 
-        async def fake_cluster(**kwargs: Any) -> list[list[Any]]:
-            locs = kwargs["locations"]
+        async def fake_cluster(
+            locations: list[Any], *_args: Any, **_kwargs: Any
+        ) -> list[list[Any]]:
+            locs = locations
             a, b, _ = sizes
             return [locs[:a], locs[a : a + b], locs[a + b :]]
 
-        monkeypatch.setattr(
-            algorithm.clustering_algorithm, "cluster_locations", fake_cluster
-        )
+        monkeypatch.setattr(algorithm.clustering, "generate_routes", fake_cluster)
         return locations
 
     async def test_counts_every_request_google_answered(

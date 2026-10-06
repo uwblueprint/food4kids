@@ -1,16 +1,22 @@
-"""Tests for SweepClusteringAlgorithm."""
+"""Tests for SweepClusteringAlgorithm and the SweepRoutingAlgorithm engine."""
 
 from __future__ import annotations
 
+import math
+from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 import pytest
 
 from app.models.location import Location
+from app.schemas.route_generation import RouteGenerationSettings
+from app.services.implementations import sweep_clustering
 from app.services.implementations.sweep_clustering import (
     FAR_DISTANCE_KM_THRESHOLD,
     FAR_MAX_STOPS_PER_CLUSTER,
     SweepClusteringAlgorithm,
+    SweepRoutingAlgorithm,
     effective_boxes,
 )
 
@@ -275,3 +281,151 @@ async def test_cluster_locations_raises_when_no_feasible_driver() -> None:
             num_clusters=2,
             max_boxes_per_cluster=MAX_BOXES,
         )
+
+
+def _routing_settings(
+    *, num_routes: int, max_boxes: int = MAX_BOXES, children_per_box: int = 2
+) -> RouteGenerationSettings:
+    return RouteGenerationSettings(
+        route_start_time=datetime(2026, 7, 7, 9, 0),
+        num_routes=num_routes,
+        max_boxes_per_driver=max_boxes,
+        children_per_box=children_per_box,
+        service_time_minutes=SERVICE_MINUTES_PER_STOP,
+    )
+
+
+def _ring(count: int, num_children: int = 2) -> list[Location]:
+    """Stops spread around the warehouse so the sweep has angles to order."""
+    return [
+        _location(
+            lat=WAREHOUSE_LAT + 0.05 * math.sin(math.tau * i / count),
+            lon=WAREHOUSE_LON + 0.05 * math.cos(math.tau * i / count),
+            num_children=num_children,
+            name=f"Stop {i}",
+        )
+        for i in range(count)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_routing_builds_clustering_from_call_time_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every configured number reaches clustering; none is baked in up front."""
+    seen: dict[str, Any] = {}
+
+    class SpyClustering(SweepClusteringAlgorithm):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            seen["init"] = kwargs
+            super().__init__(*args, **kwargs)
+
+        async def cluster_locations(
+            self,
+            locations: list[Location],
+            num_clusters: int,
+            max_boxes_per_cluster: int,
+            timeout_seconds: float | None = None,
+        ) -> list[list[Location]]:
+            seen["cluster"] = {
+                "locations": locations,
+                "num_clusters": num_clusters,
+                "max_boxes_per_cluster": max_boxes_per_cluster,
+                "timeout_seconds": timeout_seconds,
+            }
+            return await super().cluster_locations(
+                locations, num_clusters, max_boxes_per_cluster, timeout_seconds
+            )
+
+    monkeypatch.setattr(sweep_clustering, "SweepClusteringAlgorithm", SpyClustering)
+    stops = _ring(6)
+
+    await SweepRoutingAlgorithm().generate_routes(
+        stops,
+        WAREHOUSE_LAT,
+        WAREHOUSE_LON,
+        _routing_settings(num_routes=2, max_boxes=9, children_per_box=3),
+        timeout_seconds=12.0,
+    )
+
+    assert seen["init"] == {
+        "warehouse_lat": WAREHOUSE_LAT,
+        "warehouse_lon": WAREHOUSE_LON,
+        "children_per_box": 3,
+        "service_minutes_per_stop": SERVICE_MINUTES_PER_STOP,
+    }
+    assert seen["cluster"] == {
+        "locations": stops,
+        "num_clusters": 2,
+        "max_boxes_per_cluster": 9,
+        "timeout_seconds": 12.0,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("num_routes", [1, 2, 3, 6])
+async def test_routing_returns_every_stop_once_across_num_routes(
+    num_routes: int,
+) -> None:
+    stops = _ring(6)
+
+    routes = await SweepRoutingAlgorithm().generate_routes(
+        stops,
+        WAREHOUSE_LAT,
+        WAREHOUSE_LON,
+        _routing_settings(num_routes=num_routes),
+    )
+
+    assert len(routes) == num_routes
+    returned = [stop.location_id for route in routes for stop in route]
+    assert sorted(returned) == sorted(stop.location_id for stop in stops)
+
+
+@pytest.mark.asyncio
+async def test_routing_visits_each_route_in_sweep_order() -> None:
+    """The cluster order is the visit order, so it must already be swept."""
+
+    def angle(stop: Location) -> float:
+        assert stop.latitude is not None and stop.longitude is not None
+        return (
+            math.atan2(stop.latitude - WAREHOUSE_LAT, stop.longitude - WAREHOUSE_LON)
+            % math.tau
+        )
+
+    routes = await SweepRoutingAlgorithm().generate_routes(
+        list(reversed(_ring(12))),
+        WAREHOUSE_LAT,
+        WAREHOUSE_LON,
+        _routing_settings(num_routes=3),
+    )
+
+    for route in routes:
+        angles = [angle(stop) for stop in route]
+        assert angles == sorted(angles)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("children_per_box", "fits"),
+    [
+        (2, True),  # 4 children -> 2 boxes, at the cap of 2
+        (1, False),  # 4 children -> 4 boxes, over the cap of 2
+    ],
+)
+async def test_routing_enforces_the_configured_box_cap(
+    children_per_box: int, fits: bool
+) -> None:
+    stops = _ring(1, num_children=4)
+    settings = _routing_settings(
+        num_routes=1, max_boxes=2, children_per_box=children_per_box
+    )
+    engine = SweepRoutingAlgorithm()
+
+    if fits:
+        routes = await engine.generate_routes(
+            stops, WAREHOUSE_LAT, WAREHOUSE_LON, settings
+        )
+        assert routes == [stops]
+    else:
+        with pytest.raises(ValueError, match="per-driver maximum of 2"):
+            await engine.generate_routes(stops, WAREHOUSE_LAT, WAREHOUSE_LON, settings)

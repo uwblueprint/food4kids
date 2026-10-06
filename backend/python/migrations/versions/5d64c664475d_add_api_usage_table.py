@@ -1,7 +1,7 @@
 """Add api_usage table for per-SKU quota tracking
 
 Revision ID: 5d64c664475d
-Revises: b8e3f1a70c92
+Revises: e7b21f4a9c53
 Create Date: 2026-08-21 10:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "5d64c664475d"
-down_revision = "b8e3f1a70c92"
+down_revision = "e7b21f4a9c53"
 branch_labels = None
 depends_on = None
 
