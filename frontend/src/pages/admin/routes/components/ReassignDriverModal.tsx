@@ -78,17 +78,23 @@ export function ReassignDriverModal({
 }: ReassignDriverModalProps) {
   const [driverId, setDriverId] = useState('');
   const [time, setTime] = useState(() => fromApiTime(startTime));
+  // Reset on open, not on close: the route the modal stays mounted for may have
+  // a new start time by then, e.g. the one it was just assigned.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setDriverId('');
+      setTime(fromApiTime(startTime));
+    }
+  }
   const { data: drivers = [] } = useDrivers();
   const { data: suggestion } = useSuggestedDriver(routeId, routeGroupId, open);
   const { mutate: updateRoute, isPending, isError, reset } = useUpdateRoute();
 
   const handleOpenChange = (next: boolean) => {
     onOpenChange(next);
-    if (!next) {
-      setDriverId('');
-      setTime(fromApiTime(startTime));
-      reset();
-    }
+    if (!next) reset();
   };
 
   const handleSubmit = () => {

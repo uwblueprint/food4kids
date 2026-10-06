@@ -44,7 +44,7 @@ const patchRoute = vi.fn(
 
 vi.mock('@/api/generated/sdk.gen', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getDrivers: () => ({ data: DRIVERS }),
+  getDrivers: () => ({ data: { items: DRIVERS } }),
   getSuggestedDriver: () => ({ data: suggestion }),
   updateRoute: (options: Parameters<typeof patchRoute>[0]) =>
     patchRoute(options),
@@ -65,19 +65,31 @@ function renderModal(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <ReassignDriverModal
-          open
-          onOpenChange={() => {}}
-          routeId="r-1"
-          routeGroupId="rg-1"
-          {...props}
-        />
-      </MemoryRouter>
-    </QueryClientProvider>
+  const modal = (
+    next: Partial<React.ComponentProps<typeof ReassignDriverModal>>
+  ) => (
+    <ReassignDriverModal
+      open
+      onOpenChange={() => {}}
+      routeId="r-1"
+      routeGroupId="rg-1"
+      {...next}
+    />
   );
+  const result = render(modal(props), {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter>{children}</MemoryRouter>
+      </QueryClientProvider>
+    ),
+  });
+  return {
+    ...result,
+    /** Re-renders the same mounted modal with new props. */
+    rerenderModal: (
+      next: Partial<React.ComponentProps<typeof ReassignDriverModal>>
+    ) => result.rerender(modal(next)),
+  };
 }
 
 /** Pick a driver from the Radix dropdown by its displayed name. */
@@ -118,7 +130,7 @@ describe('ReassignDriverModal', () => {
       screen.getByRole('heading', { name: 'Reassign Driver' })
     ).toBeDefined();
     expect(screen.getByText('Jane Doe')).toBeDefined();
-    expect(screen.getByText('7:45 AM')).toBeDefined();
+    expect(screen.getByDisplayValue('7:45 AM')).toBeDefined();
 
     await selectDriver(user);
     await user.click(screen.getByRole('button', { name: 'Reassign' }));
@@ -137,11 +149,9 @@ describe('ReassignDriverModal', () => {
     renderModal();
 
     await selectDriver(user);
-    await user.click(screen.getByText('9:00 AM'));
-    // 11 names only an hour — minutes are the 5s, so 10/15/… would be ambiguous.
-    await user.click(await screen.findByRole('button', { name: '11' }));
-    await user.click(screen.getByRole('button', { name: 'PM' }));
-    await user.keyboard('{Escape}');
+    const field = screen.getByDisplayValue('9:00 AM');
+    await user.clear(field);
+    await user.type(field, '11:00 PM{Enter}');
     await user.click(screen.getByRole('button', { name: 'Assign' }));
 
     await waitFor(() =>
@@ -151,6 +161,45 @@ describe('ReassignDriverModal', () => {
         })
       )
     );
+  });
+
+  it('opens with the route’s current start time, not the one it mounted with', async () => {
+    // The individual route screen keeps one modal mounted for both Assign and
+    // the kebab's Reassign, so the start time just assigned arrives as a new
+    // prop while it is closed.
+    const user = userEvent.setup();
+    const { rerenderModal } = renderModal({ open: false, startTime: null });
+    rerenderModal({ open: false, startTime: '10:30:00' });
+    rerenderModal({ currentDriverName: 'Marcus Smith', startTime: '10:30:00' });
+
+    expect(screen.getByDisplayValue('10:30 AM')).toBeDefined();
+    await selectDriver(user);
+    await user.click(screen.getByRole('button', { name: 'Reassign' }));
+    await waitFor(() =>
+      expect(patchRoute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: { driver_id: 'd-1', start_time: '10:30:00' },
+        })
+      )
+    );
+  });
+
+  it('discards an unsaved driver and time when reopened', async () => {
+    const user = userEvent.setup();
+    const { rerenderModal } = renderModal({ startTime: '07:45:00' });
+
+    await selectDriver(user);
+    const field = screen.getByDisplayValue('7:45 AM');
+    await user.clear(field);
+    await user.type(field, '11:00 PM{Enter}');
+    rerenderModal({ open: false, startTime: '07:45:00' });
+    rerenderModal({ startTime: '07:45:00' });
+
+    expect(screen.getByDisplayValue('7:45 AM')).toBeDefined();
+    expect(
+      (screen.getByRole('button', { name: 'Assign' }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
   });
 
   it('shows the suggested driver as helper text when the API returns one', async () => {
