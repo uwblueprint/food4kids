@@ -1776,9 +1776,8 @@ export type RouteGenerationGroupInput = {
  *
  * Which engine route generation should use.
  *
- * ``AUTO`` walks the tiers in quality order, spending each API's free monthly
- * allowance before moving on. The rest pin generation to one engine
- * regardless of remaining quota — including past it, into paid usage.
+ * ``AUTO`` uses the best engine the GCP budget allows, falling back to the
+ * free in-house sweep. The rest pin one engine, paid or not.
  */
 export type RouteGenerationMethod =
   | 'auto'
