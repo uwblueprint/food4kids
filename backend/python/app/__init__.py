@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from logging.config import dictConfig
+from typing import assert_never
 
 import firebase_admin
 from fastapi import FastAPI
@@ -20,7 +21,7 @@ from app.services.implementations.route_generation_worker import (
 )
 from app.services.jobs import init_jobs
 
-from .config import settings
+from .config import Environment, settings
 from .middleware import UnhandledExceptionMiddleware, log_request_validation_error
 from .models import init_app as init_models
 from .routers import init_app as init_routers
@@ -43,87 +44,113 @@ def configure_logging() -> None:
         "root": {},
     }
 
-    if settings.is_development:
-        # Development: Log to console with INFO level, and errors to file
-        base_config["handlers"] = {
-            "console": {
-                "class": "logging.StreamHandler",
-                "level": "INFO",
-                "formatter": "detailed",
-                "stream": "ext://sys.stdout",
-            },
-            "file": {
-                "class": "logging.FileHandler",
-                "level": "ERROR",
-                "filename": "error.log",
-                "formatter": "detailed",
-            },
-        }
-        base_config["root"] = {"level": "INFO", "handlers": ["console", "file"]}
+    match settings.environment:
+        case Environment.DEVELOPMENT:
+            # Log to console with INFO level, and errors to file
+            base_config["handlers"] = {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "level": "INFO",
+                    "formatter": "detailed",
+                    "stream": "ext://sys.stdout",
+                },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "level": "ERROR",
+                    "filename": "error.log",
+                    "formatter": "detailed",
+                },
+            }
+            base_config["root"] = {"level": "INFO", "handlers": ["console", "file"]}
 
-        # Set specific loggers to appropriate levels
-        base_config["loggers"] = {
-            "uvicorn": {"level": "INFO"},
-            "uvicorn.access": {"level": "INFO"},
-            "sqlalchemy.engine": {
-                "level": "INFO"
-            },  # Use "WARNING" to avoid SQL query noise
-            "app": {"level": "DEBUG"},  # Your app logs at DEBUG level
-        }
+            # Set specific loggers to appropriate levels
+            base_config["loggers"] = {
+                "uvicorn": {"level": "INFO"},
+                "uvicorn.access": {"level": "INFO"},
+                "sqlalchemy.engine": {
+                    "level": "INFO"
+                },  # Use "WARNING" to avoid SQL query noise
+                "app": {"level": "DEBUG"},  # Your app logs at DEBUG level
+            }
 
-    elif settings.is_testing:
-        # Testing: Minimal logging to avoid test output noise
-        base_config["handlers"] = {
-            "console": {
-                "class": "logging.StreamHandler",
-                "level": "WARNING",
-                "formatter": "simple",
-                "stream": "ext://sys.stdout",
-            },
-        }
-        base_config["root"] = {"level": "WARNING", "handlers": ["console"]}
+        case Environment.TESTING:
+            # Minimal logging to avoid test output noise
+            base_config["handlers"] = {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "level": "WARNING",
+                    "formatter": "simple",
+                    "stream": "ext://sys.stdout",
+                },
+            }
+            base_config["root"] = {"level": "WARNING", "handlers": ["console"]}
 
-    else:  # Production
-        # Production: Only errors to file, warnings and above to console
-        base_config["handlers"] = {
-            "console": {
-                "class": "logging.StreamHandler",
-                "level": "WARNING",
-                "formatter": "simple",
-                "stream": "ext://sys.stdout",
-            },
-            "file": {
-                "class": "logging.FileHandler",
-                "level": "ERROR",
-                "filename": "error.log",
-                "formatter": "detailed",
-            },
-        }
-        base_config["root"] = {"level": "WARNING", "handlers": ["console", "file"]}
+        case Environment.PRODUCTION:
+            # Only errors to file, warnings and above to console
+            base_config["handlers"] = {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "level": "WARNING",
+                    "formatter": "simple",
+                    "stream": "ext://sys.stdout",
+                },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "level": "ERROR",
+                    "filename": "error.log",
+                    "formatter": "detailed",
+                },
+            }
+            base_config["root"] = {"level": "WARNING", "handlers": ["console", "file"]}
+
+        case unreachable:
+            # Adding an environment without deciding how it logs is a mypy
+            # error here, not a silent fall through to somebody else's config.
+            assert_never(unreachable)
 
     dictConfig(base_config)
 
 
 def initialize_firebase() -> None:
-    """Initialize Firebase Admin SDK"""
-    firebase_admin.initialize_app(
-        firebase_admin.credentials.Certificate(
-            {
-                "type": "service_account",
-                "project_id": settings.firebase_project_id,
-                "private_key_id": settings.firebase_svc_account_private_key_id,
-                "private_key": settings.firebase_svc_account_private_key.replace(
-                    "\\n", "\n"
-                ),
-                "client_email": settings.firebase_svc_account_client_email,
-                "client_id": settings.firebase_svc_account_client_id,
-                "auth_uri": settings.firebase_svc_account_auth_uri,
-                "token_uri": settings.firebase_svc_account_token_uri,
-                "auth_provider_x509_cert_url": settings.firebase_svc_account_auth_provider_x509_cert_url,
-                "client_x509_cert_url": settings.firebase_svc_account_client_x509_cert_url,
-            }
-        ),
-    )
+    private_key = settings.firebase_svc_account_private_key
+    if private_key:
+        private_key = private_key.strip("\"'").replace("\\n", "\n")
+
+    cred_dict = {
+        "type": "service_account",
+        "project_id": settings.firebase_project_id.strip("\"'")
+        if settings.firebase_project_id
+        else None,
+        "private_key_id": settings.firebase_svc_account_private_key_id.strip("\"'")
+        if settings.firebase_svc_account_private_key_id
+        else None,
+        "private_key": private_key,
+        "client_email": settings.firebase_svc_account_client_email.strip("\"'")
+        if settings.firebase_svc_account_client_email
+        else None,
+        "client_id": settings.firebase_svc_account_client_id.strip("\"'")
+        if settings.firebase_svc_account_client_id
+        else None,
+        "auth_uri": settings.firebase_svc_account_auth_uri.strip("\"'")
+        if settings.firebase_svc_account_auth_uri
+        else "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": settings.firebase_svc_account_token_uri.strip("\"'")
+        if settings.firebase_svc_account_token_uri
+        else "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": settings.firebase_svc_account_auth_provider_x509_cert_url.strip(
+            "\"'"
+        )
+        if settings.firebase_svc_account_auth_provider_x509_cert_url
+        else "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": settings.firebase_svc_account_client_x509_cert_url.strip(
+            "\"'"
+        )
+        if settings.firebase_svc_account_client_x509_cert_url
+        else None,
+    }
+
+    cred = firebase_admin.credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred)
 
 
 @asynccontextmanager
@@ -192,28 +219,29 @@ def _assert_unique_operation_ids(app: FastAPI) -> None:
 def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
 
+    # Interactive docs and the localhost CORS entries are development
+    # conveniences; neither should be reachable on a deployed instance.
+    is_development = settings.environment is Environment.DEVELOPMENT
+
     app = FastAPI(
         title="Food4Kids API",
         description="Backend API for the Food4Kids application",
         version="1.0.0",
         lifespan=lifespan,
-        docs_url="/docs" if settings.is_development else None,
-        redoc_url="/redoc" if settings.is_development else None,
+        docs_url="/docs" if is_development else None,
+        redoc_url="/redoc" if is_development else None,
         generate_unique_id_function=_use_route_name_as_operation_id,
     )
 
     # Configure CORS
     cors_origins = settings.cors_origins.copy()
-    if settings.is_development:
+    if is_development:
         cors_origins.extend(
             [
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
             ]
         )
-
-    # Add regex pattern for preview deployments
-    cors_origins.append("https://uw-blueprint-starter-code--pr.*\\.web\\.app")
 
     # Added before CORS so it ends up *inside* it: the last middleware added is
     # the outermost, and a 500 without CORS headers is unreadable to a browser.

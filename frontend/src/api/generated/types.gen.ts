@@ -400,16 +400,6 @@ export type ChangedFieldStr = {
 };
 
 /**
- * DeliveriesCountResponse
- */
-export type DeliveriesCountResponse = {
-  /**
-   * Total Deliveries
-   */
-  total_deliveries: number;
-};
-
-/**
  * DeliveryTypeRename
  *
  * Request body for renaming a configured delivery type.
@@ -484,9 +474,101 @@ export type DriverHistorySummary = {
    */
   current_year_km: number;
   /**
+   * Last Year Km
+   */
+  last_year_km: number;
+  /**
    * Lifetime Km
    */
   lifetime_km: number;
+};
+
+/**
+ * DriverListRead
+ *
+ * Driver table row with aggregates computed by the list query.
+ */
+export type DriverListRead = {
+  /**
+   * Active
+   */
+  active?: boolean;
+  /**
+   * Address
+   */
+  address?: string | null;
+  /**
+   * Auth Id
+   */
+  auth_id: string | null;
+  /**
+   * Availability
+   */
+  availability?: Array<boolean>;
+  /**
+   * Car Make Model
+   */
+  car_make_model?: string | null;
+  /**
+   * Current Year Km
+   */
+  current_year_km?: number;
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Email
+   */
+  email: string;
+  /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Full Name
+   */
+  readonly full_name: string;
+  /**
+   * Is Active
+   */
+  is_active?: boolean;
+  /**
+   * Last Delivery
+   */
+  last_delivery?: string | null;
+  /**
+   * Last Name
+   */
+  last_name: string;
+  /**
+   * Last Year Km
+   */
+  last_year_km?: number;
+  /**
+   * License Plate
+   */
+  license_plate?: string | null;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Partner Driver Name
+   */
+  partner_driver_name?: string | null;
+  /**
+   * Phone
+   */
+  phone?: string | null;
+  /**
+   * Role
+   */
+  role: string;
+  /**
+   * User Id
+   */
+  user_id: string;
 };
 
 /**
@@ -518,7 +600,7 @@ export type DriverRead = {
   /**
    * Address
    */
-  address: string;
+  address?: string | null;
   /**
    * Auth Id
    */
@@ -530,7 +612,7 @@ export type DriverRead = {
   /**
    * Car Make Model
    */
-  car_make_model: string;
+  car_make_model?: string | null;
   /**
    * Driver Id
    */
@@ -554,7 +636,7 @@ export type DriverRead = {
   /**
    * License Plate
    */
-  license_plate: string;
+  license_plate?: string | null;
   /**
    * Note Chain Id
    */
@@ -566,7 +648,7 @@ export type DriverRead = {
   /**
    * Phone
    */
-  phone: string;
+  phone?: string | null;
   /**
    * Role
    */
@@ -586,7 +668,7 @@ export type DriverRegister = {
   /**
    * Address
    */
-  address: string;
+  address?: string | null;
   /**
    * Availability
    */
@@ -594,7 +676,7 @@ export type DriverRegister = {
   /**
    * Car Make Model
    */
-  car_make_model: string;
+  car_make_model?: string | null;
   /**
    * Email
    */
@@ -610,7 +692,7 @@ export type DriverRegister = {
   /**
    * License Plate
    */
-  license_plate: string;
+  license_plate?: string | null;
   /**
    * Partner Driver Name
    */
@@ -618,17 +700,7 @@ export type DriverRegister = {
   /**
    * Phone
    */
-  phone: string;
-};
-
-/**
- * DriverRegisterResponse
- *
- * Driver registration response - contains Driver object and AuthResponse
- */
-export type DriverRegisterResponse = {
-  auth: AuthResponse;
-  driver: DriverRead;
+  phone?: string | null;
 };
 
 /**
@@ -1195,78 +1267,6 @@ export type LocationRead = {
 export type LocationStatusEnum = 'Active' | 'Unscheduled' | 'Inactive';
 
 /**
- * LocationUpdate
- *
- * Update request model with all fields optional
- */
-export type LocationUpdate = {
-  /**
-   * Address
-   */
-  address?: string | null;
-  /**
-   * Contact Name
-   */
-  contact_name?: string | null;
-  /**
-   * Delivery Type
-   */
-  delivery_type?: string | null;
-  /**
-   * Dietary Restrictions
-   */
-  dietary_restrictions?: string | null;
-  /**
-   * Guardian Name
-   */
-  guardian_name?: string | null;
-  /**
-   * Halal
-   */
-  halal?: boolean | null;
-  /**
-   * In Roster
-   */
-  in_roster?: boolean | null;
-  /**
-   * Latitude
-   */
-  latitude?: number | null;
-  /**
-   * Location Group Id
-   */
-  location_group_id?: string | null;
-  /**
-   * Longitude
-   */
-  longitude?: number | null;
-  /**
-   * Name
-   */
-  name?: string | null;
-  /**
-   * Note Chain Id
-   */
-  note_chain_id?: string | null;
-  /**
-   * Num Children
-   */
-  num_children?: number | null;
-  /**
-   * Phone Primary
-   */
-  phone_primary?: string | null;
-  /**
-   * Phone Secondary
-   */
-  phone_secondary?: string | null;
-  /**
-   * Place Id
-   */
-  place_id?: string | null;
-};
-
-/**
  * LoginRequest
  *
  * Login request
@@ -1536,6 +1536,32 @@ export type OrgContactRead = {
 };
 
 /**
+ * PaginatedResponse[DriverListRead]
+ */
+export type PaginatedResponseDriverListRead = {
+  /**
+   * Items
+   */
+  items: Array<DriverListRead>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
+};
+
+/**
  * PaginatedResponse[LocationRead]
  */
 export type PaginatedResponseLocationRead = {
@@ -1650,6 +1676,16 @@ export type ProgressEnum =
   | 'Failed';
 
 /**
+ * ResendOnboardingEmailRequest
+ */
+export type ResendOnboardingEmailRequest = {
+  /**
+   * Email
+   */
+  email: string;
+};
+
+/**
  * RouteDetailRead
  *
  * GET /routes/{route_id} response: the bare route plus its ordered stops.
@@ -1741,16 +1777,23 @@ export type RouteGenerationGroupInput = {
  * Settings for route generation.
  *
  * These are not persisted to the database; used as inputs to services.
+ *
+ * The three configured numbers below — ``max_boxes_per_driver``,
+ * ``children_per_box`` and ``service_time_minutes`` — are required, with no
+ * schema-level defaults. They come from the ``system_settings`` row (see
+ * ``SystemSettings.boxes_per_car`` / ``children_per_box`` /
+ * ``dropoff_minutes``), and a default here would silently outrank whatever the
+ * org configured whenever a caller dropped the key. Omitting one is a 422.
  */
 export type RouteGenerationSettings = {
   /**
    * Children Per Box
    */
-  children_per_box?: number;
+  children_per_box: number;
   /**
    * Max Boxes Per Driver
    */
-  max_boxes_per_driver?: number;
+  max_boxes_per_driver: number;
   /**
    * Num Routes
    */
@@ -1766,7 +1809,7 @@ export type RouteGenerationSettings = {
   /**
    * Service Time Minutes
    */
-  service_time_minutes?: number;
+  service_time_minutes: number;
 };
 
 /**
@@ -1794,10 +1837,15 @@ export type RouteGroupCreate = {
  *
  * Duplicate request model - overrides for the copied group.
  *
- * Both optional so the endpoint also works with no body: name falls back to
- * "Copy of {original}" and drive_date to the original's date.
+ * Every field has a default so the endpoint also works with no body: name
+ * falls back to "Copy of {original}", drive_date to the original's date, and
+ * driver assignments carry over.
  */
 export type RouteGroupDuplicate = {
+  /**
+   * Copy Drivers
+   */
+  copy_drivers?: boolean;
   /**
    * Drive Date
    */
@@ -2029,6 +2077,10 @@ export type RouteStopDetailRead = {
    * Latitude
    */
   latitude?: number | null;
+  /**
+   * Location Id
+   */
+  location_id: string;
   /**
    * Longitude
    */
@@ -2326,6 +2378,34 @@ export type SystemSettingsUpdate = {
 };
 
 /**
+ * TotalsResponse
+ */
+export type TotalsResponse = {
+  /**
+   * Total Deliveries
+   */
+  total_deliveries: number;
+  /**
+   * Total Km
+   */
+  total_km: number;
+};
+
+/**
+ * UpdatePasswordAuthedRequest
+ */
+export type UpdatePasswordAuthedRequest = {
+  /**
+   * Current Password
+   */
+  current_password: string;
+  /**
+   * New Password
+   */
+  new_password: string;
+};
+
+/**
  * UpdatePasswordRequest
  */
 export type UpdatePasswordRequest = {
@@ -2436,9 +2516,11 @@ export type AuthResponseWritable = {
 };
 
 /**
- * DriverRead
+ * DriverListRead
+ *
+ * Driver table row with aggregates computed by the list query.
  */
-export type DriverReadWritable = {
+export type DriverListReadWritable = {
   /**
    * Active
    */
@@ -2446,7 +2528,7 @@ export type DriverReadWritable = {
   /**
    * Address
    */
-  address: string;
+  address?: string | null;
   /**
    * Auth Id
    */
@@ -2458,7 +2540,89 @@ export type DriverReadWritable = {
   /**
    * Car Make Model
    */
-  car_make_model: string;
+  car_make_model?: string | null;
+  /**
+   * Current Year Km
+   */
+  current_year_km?: number;
+  /**
+   * Driver Id
+   */
+  driver_id: string;
+  /**
+   * Email
+   */
+  email: string;
+  /**
+   * First Name
+   */
+  first_name: string;
+  /**
+   * Is Active
+   */
+  is_active?: boolean;
+  /**
+   * Last Delivery
+   */
+  last_delivery?: string | null;
+  /**
+   * Last Name
+   */
+  last_name: string;
+  /**
+   * Last Year Km
+   */
+  last_year_km?: number;
+  /**
+   * License Plate
+   */
+  license_plate?: string | null;
+  /**
+   * Note Chain Id
+   */
+  note_chain_id?: string | null;
+  /**
+   * Partner Driver Name
+   */
+  partner_driver_name?: string | null;
+  /**
+   * Phone
+   */
+  phone?: string | null;
+  /**
+   * Role
+   */
+  role: string;
+  /**
+   * User Id
+   */
+  user_id: string;
+};
+
+/**
+ * DriverRead
+ */
+export type DriverReadWritable = {
+  /**
+   * Active
+   */
+  active?: boolean;
+  /**
+   * Address
+   */
+  address?: string | null;
+  /**
+   * Auth Id
+   */
+  auth_id: string | null;
+  /**
+   * Availability
+   */
+  availability?: Array<boolean>;
+  /**
+   * Car Make Model
+   */
+  car_make_model?: string | null;
   /**
    * Driver Id
    */
@@ -2478,7 +2642,7 @@ export type DriverReadWritable = {
   /**
    * License Plate
    */
-  license_plate: string;
+  license_plate?: string | null;
   /**
    * Note Chain Id
    */
@@ -2490,7 +2654,7 @@ export type DriverReadWritable = {
   /**
    * Phone
    */
-  phone: string;
+  phone?: string | null;
   /**
    * Role
    */
@@ -2499,16 +2663,6 @@ export type DriverReadWritable = {
    * User Id
    */
   user_id: string;
-};
-
-/**
- * DriverRegisterResponse
- *
- * Driver registration response - contains Driver object and AuthResponse
- */
-export type DriverRegisterResponseWritable = {
-  auth: AuthResponseWritable;
-  driver: DriverReadWritable;
 };
 
 /**
@@ -2632,6 +2786,32 @@ export type LocationReadWritable = {
 };
 
 /**
+ * PaginatedResponse[DriverListRead]
+ */
+export type PaginatedResponseDriverListReadWritable = {
+  /**
+   * Items
+   */
+  items: Array<DriverListReadWritable>;
+  /**
+   * Page
+   */
+  page: number;
+  /**
+   * Page Size
+   */
+  page_size: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
+};
+
+/**
  * PaginatedResponse[LocationRead]
  */
 export type PaginatedResponseLocationReadWritable = {
@@ -2657,29 +2837,11 @@ export type PaginatedResponseLocationReadWritable = {
   total_pages: number;
 };
 
-export type TestData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/admins/test';
-};
-
-export type TestResponses = {
-  /**
-   * Response Test
-   *
-   * Successful Response
-   */
-  200: string;
-};
-
-export type TestResponse = TestResponses[keyof TestResponses];
-
 export type GetAnnouncementsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/announcements/';
+  url: '/api/announcements/';
 };
 
 export type GetAnnouncementsResponses = {
@@ -2698,7 +2860,7 @@ export type CreateAnnouncementData = {
   body: AnnouncementCreate;
   path?: never;
   query?: never;
-  url: '/announcements/';
+  url: '/api/announcements/';
 };
 
 export type CreateAnnouncementErrors = {
@@ -2725,7 +2887,7 @@ export type MarkAnnouncementsAsReadData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/announcements/mark-read';
+  url: '/api/announcements/mark-read';
 };
 
 export type MarkAnnouncementsAsReadResponses = {
@@ -2747,7 +2909,7 @@ export type DeleteAnnouncementData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}';
+  url: '/api/announcements/{announcement_id}';
 };
 
 export type DeleteAnnouncementErrors = {
@@ -2779,7 +2941,7 @@ export type GetAnnouncementData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}';
+  url: '/api/announcements/{announcement_id}';
 };
 
 export type GetAnnouncementErrors = {
@@ -2811,7 +2973,7 @@ export type UpdateAnnouncementData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}';
+  url: '/api/announcements/{announcement_id}';
 };
 
 export type UpdateAnnouncementErrors = {
@@ -2843,7 +3005,7 @@ export type SendAnnouncementEmailData = {
     announcement_id: string;
   };
   query?: never;
-  url: '/announcements/{announcement_id}/email';
+  url: '/api/announcements/{announcement_id}/email';
 };
 
 export type SendAnnouncementEmailErrors = {
@@ -2874,7 +3036,7 @@ export type ForgotPasswordData = {
   body: ForgotPasswordRequest;
   path?: never;
   query?: never;
-  url: '/auth/forgot-password';
+  url: '/api/auth/forgot-password';
 };
 
 export type ForgotPasswordErrors = {
@@ -2901,7 +3063,7 @@ export type LoginData = {
   body: LoginRequest;
   path?: never;
   query?: never;
-  url: '/auth/login';
+  url: '/api/auth/login';
 };
 
 export type LoginErrors = {
@@ -2926,7 +3088,7 @@ export type LogoutData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/auth/logout';
+  url: '/api/auth/logout';
 };
 
 export type LogoutResponses = {
@@ -2942,7 +3104,7 @@ export type RefreshData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/auth/refresh';
+  url: '/api/auth/refresh';
 };
 
 export type RefreshResponses = {
@@ -2954,11 +3116,63 @@ export type RefreshResponses = {
 
 export type RefreshResponse = RefreshResponses[keyof RefreshResponses];
 
+export type RegisterData = {
+  body: UserFinalize;
+  path?: never;
+  query?: never;
+  url: '/api/auth/register';
+};
+
+export type RegisterErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RegisterError = RegisterErrors[keyof RegisterErrors];
+
+export type RegisterResponses = {
+  /**
+   * Successful Response
+   */
+  201: AuthResponse;
+};
+
+export type RegisterResponse = RegisterResponses[keyof RegisterResponses];
+
+export type ResendOnboardingEmailData = {
+  body: ResendOnboardingEmailRequest;
+  path?: never;
+  query?: never;
+  url: '/api/auth/resend-onboarding';
+};
+
+export type ResendOnboardingEmailErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResendOnboardingEmailError =
+  ResendOnboardingEmailErrors[keyof ResendOnboardingEmailErrors];
+
+export type ResendOnboardingEmailResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ResendOnboardingEmailResponse =
+  ResendOnboardingEmailResponses[keyof ResendOnboardingEmailResponses];
+
 export type UpdatePasswordData = {
   body: UpdatePasswordRequest;
   path?: never;
   query?: never;
-  url: '/auth/update-password';
+  url: '/api/auth/update-password';
 };
 
 export type UpdatePasswordErrors = {
@@ -2981,11 +3195,38 @@ export type UpdatePasswordResponses = {
 export type UpdatePasswordResponse =
   UpdatePasswordResponses[keyof UpdatePasswordResponses];
 
+export type UpdatePasswordAuthedData = {
+  body: UpdatePasswordAuthedRequest;
+  path?: never;
+  query?: never;
+  url: '/api/auth/update-password-authed';
+};
+
+export type UpdatePasswordAuthedErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdatePasswordAuthedError =
+  UpdatePasswordAuthedErrors[keyof UpdatePasswordAuthedErrors];
+
+export type UpdatePasswordAuthedResponses = {
+  /**
+   * Successful Response
+   */
+  200: AuthResponse;
+};
+
+export type UpdatePasswordAuthedResponse =
+  UpdatePasswordAuthedResponses[keyof UpdatePasswordAuthedResponses];
+
 export type ValidateResetTokenData = {
   body: ValidateResetTokenRequest;
   path?: never;
   query?: never;
-  url: '/auth/validate-reset-token';
+  url: '/api/auth/validate-reset-token';
 };
 
 export type ValidateResetTokenErrors = {
@@ -3012,7 +3253,7 @@ export type GetBillingCostsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/billing/costs';
+  url: '/api/billing/costs';
 };
 
 export type GetBillingCostsResponses = {
@@ -3030,19 +3271,33 @@ export type GetDriversData = {
   path?: never;
   query?: {
     /**
-     * Driver Id
+     * Search
      *
-     * Filter by driver ID
+     * Filter by first or last name
      */
-    driver_id?: string | null;
+    search?: string | null;
     /**
-     * Email
-     *
-     * Filter by email
+     * Sort By
      */
-    email?: string | null;
+    sort_by?: 'name' | 'current_year_km' | 'last_year_km' | 'last_delivery';
+    /**
+     * Order
+     */
+    order?: 'asc' | 'desc';
+    /**
+     * Page
+     *
+     * Page number (1-indexed)
+     */
+    page?: number;
+    /**
+     * Page Size
+     *
+     * Number of items per page
+     */
+    page_size?: number;
   };
-  url: '/drivers/';
+  url: '/api/drivers/';
 };
 
 export type GetDriversErrors = {
@@ -3056,11 +3311,9 @@ export type GetDriversError = GetDriversErrors[keyof GetDriversErrors];
 
 export type GetDriversResponses = {
   /**
-   * Response Get Drivers
-   *
    * Successful Response
    */
-  200: Array<DriverRead>;
+  200: PaginatedResponseDriverListRead;
 };
 
 export type GetDriversResponse = GetDriversResponses[keyof GetDriversResponses];
@@ -3069,7 +3322,7 @@ export type InitializeDriverData = {
   body: DriverRegister;
   path?: never;
   query?: never;
-  url: '/drivers/initialize';
+  url: '/api/drivers/initialize';
 };
 
 export type InitializeDriverErrors = {
@@ -3092,33 +3345,6 @@ export type InitializeDriverResponses = {
 export type InitializeDriverResponse =
   InitializeDriverResponses[keyof InitializeDriverResponses];
 
-export type CompleteDriverRegistrationData = {
-  body: UserFinalize;
-  path?: never;
-  query?: never;
-  url: '/drivers/register';
-};
-
-export type CompleteDriverRegistrationErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CompleteDriverRegistrationError =
-  CompleteDriverRegistrationErrors[keyof CompleteDriverRegistrationErrors];
-
-export type CompleteDriverRegistrationResponses = {
-  /**
-   * Successful Response
-   */
-  201: DriverRegisterResponse;
-};
-
-export type CompleteDriverRegistrationResponse =
-  CompleteDriverRegistrationResponses[keyof CompleteDriverRegistrationResponses];
-
 export type DeleteDriverData = {
   body?: never;
   path: {
@@ -3128,7 +3354,7 @@ export type DeleteDriverData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}';
+  url: '/api/drivers/{driver_id}';
 };
 
 export type DeleteDriverErrors = {
@@ -3159,7 +3385,7 @@ export type GetDriverData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}';
+  url: '/api/drivers/{driver_id}';
 };
 
 export type GetDriverErrors = {
@@ -3189,7 +3415,7 @@ export type UpdateDriverData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}';
+  url: '/api/drivers/{driver_id}';
 };
 
 export type UpdateDriverErrors = {
@@ -3229,7 +3455,7 @@ export type GetDriverHistoryData = {
      */
     month?: number | null;
   };
-  url: '/drivers/{driver_id}/history/';
+  url: '/api/drivers/{driver_id}/history/';
 };
 
 export type GetDriverHistoryErrors = {
@@ -3263,7 +3489,7 @@ export type GetDriverHistorySummaryData = {
     driver_id: string;
   };
   query?: never;
-  url: '/drivers/{driver_id}/history/summary';
+  url: '/api/drivers/{driver_id}/history/summary';
 };
 
 export type GetDriverHistorySummaryErrors = {
@@ -3299,7 +3525,7 @@ export type ExportAllDriversHistoryData = {
     year: number;
   };
   query?: never;
-  url: '/drivers/{driver_id}/history/{year}/export';
+  url: '/api/drivers/{driver_id}/history/{year}/export';
 };
 
 export type ExportAllDriversHistoryErrors = {
@@ -3330,7 +3556,7 @@ export type GetJobsData = {
      */
     progress?: ProgressEnum | null;
   };
-  url: '/jobs/';
+  url: '/api/jobs/';
 };
 
 export type GetJobsErrors = {
@@ -3357,7 +3583,7 @@ export type GenerateJobData = {
   body: RouteGenerationGroupInput;
   path?: never;
   query?: never;
-  url: '/jobs/generate';
+  url: '/api/jobs/generate';
 };
 
 export type GenerateJobErrors = {
@@ -3388,7 +3614,7 @@ export type GetJobData = {
     job_id: string;
   };
   query?: never;
-  url: '/jobs/{job_id}';
+  url: '/api/jobs/{job_id}';
 };
 
 export type GetJobErrors = {
@@ -3418,7 +3644,7 @@ export type CancelJobData = {
     job_id: string;
   };
   query?: never;
-  url: '/jobs/{job_id}/cancel';
+  url: '/api/jobs/{job_id}/cancel';
 };
 
 export type CancelJobErrors = {
@@ -3443,7 +3669,7 @@ export type GetLocationGroupsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/location-groups/';
+  url: '/api/location-groups/';
 };
 
 export type GetLocationGroupsResponses = {
@@ -3462,7 +3688,7 @@ export type CreateLocationGroupData = {
   body: LocationGroupCreate;
   path?: never;
   query?: never;
-  url: '/location-groups/';
+  url: '/api/location-groups/';
 };
 
 export type CreateLocationGroupErrors = {
@@ -3494,7 +3720,7 @@ export type DeleteLocationGroupData = {
     location_group_id: string;
   };
   query?: never;
-  url: '/location-groups/{location_group_id}';
+  url: '/api/location-groups/{location_group_id}';
 };
 
 export type DeleteLocationGroupErrors = {
@@ -3526,7 +3752,7 @@ export type GetLocationGroupData = {
     location_group_id: string;
   };
   query?: never;
-  url: '/location-groups/{location_group_id}';
+  url: '/api/location-groups/{location_group_id}';
 };
 
 export type GetLocationGroupErrors = {
@@ -3558,7 +3784,7 @@ export type UpdateLocationGroupData = {
     location_group_id: string;
   };
   query?: never;
-  url: '/location-groups/{location_group_id}';
+  url: '/api/location-groups/{location_group_id}';
 };
 
 export type UpdateLocationGroupErrors = {
@@ -3585,7 +3811,7 @@ export type DeleteAllLocationsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/locations/';
+  url: '/api/locations/';
 };
 
 export type DeleteAllLocationsResponses = {
@@ -3623,7 +3849,7 @@ export type GetLocationsData = {
     /**
      * Search
      *
-     * Case-insensitive filter on the delivery address/postal code
+     * Case-insensitive filter across the address/postal code, location, contact and guardian names, food restrictions, delivery group, and phone numbers
      */
     search?: string | null;
     /**
@@ -3639,7 +3865,7 @@ export type GetLocationsData = {
      */
     page_size?: number;
   };
-  url: '/locations/';
+  url: '/api/locations/';
 };
 
 export type GetLocationsErrors = {
@@ -3665,7 +3891,7 @@ export type CreateLocationData = {
   body: LocationCreate;
   path?: never;
   query?: never;
-  url: '/locations/';
+  url: '/api/locations/';
 };
 
 export type CreateLocationErrors = {
@@ -3692,7 +3918,7 @@ export type ApplyLocationImportData = {
   body: BodyApplyLocationImport;
   path?: never;
   query?: never;
-  url: '/locations/import';
+  url: '/api/locations/import';
 };
 
 export type ApplyLocationImportErrors = {
@@ -3719,7 +3945,7 @@ export type PreviewLocationImportData = {
   body: BodyPreviewLocationImport;
   path?: never;
   query?: never;
-  url: '/locations/import/preview';
+  url: '/api/locations/import/preview';
 };
 
 export type PreviewLocationImportErrors = {
@@ -3751,7 +3977,7 @@ export type DeleteLocationData = {
     location_id: string;
   };
   query?: never;
-  url: '/locations/{location_id}';
+  url: '/api/locations/{location_id}';
 };
 
 export type DeleteLocationErrors = {
@@ -3783,7 +4009,7 @@ export type GetLocationData = {
     location_id: string;
   };
   query?: never;
-  url: '/locations/{location_id}';
+  url: '/api/locations/{location_id}';
 };
 
 export type GetLocationErrors = {
@@ -3805,38 +4031,6 @@ export type GetLocationResponses = {
 export type GetLocationResponse =
   GetLocationResponses[keyof GetLocationResponses];
 
-export type UpdateLocationData = {
-  body: LocationUpdate;
-  path: {
-    /**
-     * Location Id
-     */
-    location_id: string;
-  };
-  query?: never;
-  url: '/locations/{location_id}';
-};
-
-export type UpdateLocationErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type UpdateLocationError =
-  UpdateLocationErrors[keyof UpdateLocationErrors];
-
-export type UpdateLocationResponses = {
-  /**
-   * Successful Response
-   */
-  200: LocationRead;
-};
-
-export type UpdateLocationResponse =
-  UpdateLocationResponses[keyof UpdateLocationResponses];
-
 export type DeleteNoteChainData = {
   body?: never;
   path: {
@@ -3846,7 +4040,7 @@ export type DeleteNoteChainData = {
     note_chain_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}';
+  url: '/api/note-chains/{note_chain_id}';
 };
 
 export type DeleteNoteChainErrors = {
@@ -3878,7 +4072,7 @@ export type GetNoteChainData = {
     note_chain_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}';
+  url: '/api/note-chains/{note_chain_id}';
 };
 
 export type GetNoteChainErrors = {
@@ -3918,7 +4112,7 @@ export type GetNotesData = {
      */
     offset?: number;
   };
-  url: '/note-chains/{note_chain_id}/notes';
+  url: '/api/note-chains/{note_chain_id}/notes';
 };
 
 export type GetNotesErrors = {
@@ -3950,7 +4144,7 @@ export type CreateNoteData = {
     note_chain_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}/notes';
+  url: '/api/note-chains/{note_chain_id}/notes';
 };
 
 export type CreateNoteErrors = {
@@ -3984,7 +4178,7 @@ export type DeleteNoteData = {
     note_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}/notes/{note_id}';
+  url: '/api/note-chains/{note_chain_id}/notes/{note_id}';
 };
 
 export type DeleteNoteErrors = {
@@ -4018,7 +4212,7 @@ export type UpdateNoteData = {
     note_id: string;
   };
   query?: never;
-  url: '/note-chains/{note_chain_id}/notes/{note_id}';
+  url: '/api/note-chains/{note_chain_id}/notes/{note_id}';
 };
 
 export type UpdateNoteErrors = {
@@ -4056,7 +4250,7 @@ export type GetNotesFeedData = {
      */
     page_size?: number;
   };
-  url: '/notes';
+  url: '/api/notes';
 };
 
 export type GetNotesFeedErrors = {
@@ -4077,46 +4271,6 @@ export type GetNotesFeedResponses = {
 
 export type GetNotesFeedResponse =
   GetNotesFeedResponses[keyof GetNotesFeedResponses];
-
-export type GetTotalDeliveriesBetweenData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Start
-     *
-     * Start datetime (assumed EST if no tz)
-     */
-    start: string;
-    /**
-     * End
-     *
-     * End datetime (assumed EST if no tz)
-     */
-    end: string;
-  };
-  url: '/reports/deliveries/count';
-};
-
-export type GetTotalDeliveriesBetweenErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type GetTotalDeliveriesBetweenError =
-  GetTotalDeliveriesBetweenErrors[keyof GetTotalDeliveriesBetweenErrors];
-
-export type GetTotalDeliveriesBetweenResponses = {
-  /**
-   * Successful Response
-   */
-  200: DeliveriesCountResponse;
-};
-
-export type GetTotalDeliveriesBetweenResponse =
-  GetTotalDeliveriesBetweenResponses[keyof GetTotalDeliveriesBetweenResponses];
 
 export type GetMonthlySeriesData = {
   body?: never;
@@ -4141,7 +4295,7 @@ export type GetMonthlySeriesData = {
      */
     end_month?: number | null;
   };
-  url: '/reports/monthly-series';
+  url: '/api/reports/monthly-series';
 };
 
 export type GetMonthlySeriesErrors = {
@@ -4179,7 +4333,7 @@ export type GetMonthlyRankingData = {
     month: number;
   };
   query?: never;
-  url: '/reports/monthly/{year}/{month}/ranking';
+  url: '/api/reports/monthly/{year}/{month}/ranking';
 };
 
 export type GetMonthlyRankingErrors = {
@@ -4204,41 +4358,43 @@ export type GetMonthlyRankingResponses = {
 export type GetMonthlyRankingResponse =
   GetMonthlyRankingResponses[keyof GetMonthlyRankingResponses];
 
-export type GetMonthlyTotalsData = {
+export type GetTotalsData = {
   body?: never;
-  path: {
+  path?: never;
+  query?: {
     /**
-     * Year
+     * Start
+     *
+     * Start datetime, inclusive (assumed EST if no tz)
      */
-    year: number;
+    start?: string | null;
     /**
-     * Month
+     * End
+     *
+     * End datetime, exclusive (assumed EST if no tz)
      */
-    month: number;
+    end?: string | null;
   };
-  query?: never;
-  url: '/reports/monthly/{year}/{month}/totals';
+  url: '/api/reports/totals';
 };
 
-export type GetMonthlyTotalsErrors = {
+export type GetTotalsErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type GetMonthlyTotalsError =
-  GetMonthlyTotalsErrors[keyof GetMonthlyTotalsErrors];
+export type GetTotalsError = GetTotalsErrors[keyof GetTotalsErrors];
 
-export type GetMonthlyTotalsResponses = {
+export type GetTotalsResponses = {
   /**
    * Successful Response
    */
-  200: MonthlyTotalsResponse;
+  200: TotalsResponse;
 };
 
-export type GetMonthlyTotalsResponse =
-  GetMonthlyTotalsResponses[keyof GetMonthlyTotalsResponses];
+export type GetTotalsResponse = GetTotalsResponses[keyof GetTotalsResponses];
 
 export type GetRouteGroupsData = {
   body?: never;
@@ -4305,7 +4461,7 @@ export type GetRouteGroupsData = {
      */
     page_size?: number;
   };
-  url: '/route-groups';
+  url: '/api/route-groups';
 };
 
 export type GetRouteGroupsErrors = {
@@ -4332,7 +4488,7 @@ export type CreateRouteGroupData = {
   body: RouteGroupCreate;
   path?: never;
   query?: never;
-  url: '/route-groups';
+  url: '/api/route-groups';
 };
 
 export type CreateRouteGroupErrors = {
@@ -4364,7 +4520,7 @@ export type DeleteRouteGroupData = {
     route_group_id: string;
   };
   query?: never;
-  url: '/route-groups/{route_group_id}';
+  url: '/api/route-groups/{route_group_id}';
 };
 
 export type DeleteRouteGroupErrors = {
@@ -4396,7 +4552,7 @@ export type UpdateRouteGroupData = {
     route_group_id: string;
   };
   query?: never;
-  url: '/route-groups/{route_group_id}';
+  url: '/api/route-groups/{route_group_id}';
 };
 
 export type UpdateRouteGroupErrors = {
@@ -4431,7 +4587,7 @@ export type DuplicateRouteGroupData = {
     route_group_id: string;
   };
   query?: never;
-  url: '/route-groups/{route_group_id}/duplicate';
+  url: '/api/route-groups/{route_group_id}/duplicate';
 };
 
 export type DuplicateRouteGroupErrors = {
@@ -4485,7 +4641,7 @@ export type GetRoutesData = {
     /**
      * Search
      *
-     * Case-insensitive filter on the assigned driver's name
+     * Case-insensitive filter on the assigned driver's name, the route's name, or its route group's name
      */
     search?: string | null;
     /**
@@ -4531,7 +4687,7 @@ export type GetRoutesData = {
      */
     driver_id?: string | null;
   };
-  url: '/routes';
+  url: '/api/routes';
 };
 
 export type GetRoutesErrors = {
@@ -4561,7 +4717,7 @@ export type DeleteRouteData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}';
+  url: '/api/routes/{route_id}';
 };
 
 export type DeleteRouteErrors = {
@@ -4592,7 +4748,7 @@ export type GetRouteData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}';
+  url: '/api/routes/{route_id}';
 };
 
 export type GetRouteErrors = {
@@ -4622,7 +4778,7 @@ export type UpdateRouteData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}';
+  url: '/api/routes/{route_id}';
 };
 
 export type UpdateRouteErrors = {
@@ -4653,7 +4809,7 @@ export type GetGoogleMapsLinkData = {
     route_id: string;
   };
   query?: never;
-  url: '/routes/{route_id}/google-maps-link';
+  url: '/api/routes/{route_id}/google-maps-link';
 };
 
 export type GetGoogleMapsLinkErrors = {
@@ -4694,7 +4850,7 @@ export type GetSuggestedDriverData = {
      */
     route_group_id: string;
   };
-  url: '/routes/{route_id}/suggested-driver';
+  url: '/api/routes/{route_id}/suggested-driver';
 };
 
 export type GetSuggestedDriverErrors = {
@@ -4723,7 +4879,7 @@ export type GetSystemSettingsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/system-settings/';
+  url: '/api/system-settings/';
 };
 
 export type GetSystemSettingsResponses = {
@@ -4740,7 +4896,7 @@ export type PatchSystemSettingsData = {
   body: SystemSettingsUpdate;
   path?: never;
   query?: never;
-  url: '/system-settings/';
+  url: '/api/system-settings/';
 };
 
 export type PatchSystemSettingsErrors = {
@@ -4767,7 +4923,7 @@ export type GetOrgContactData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/system-settings/contact';
+  url: '/api/system-settings/contact';
 };
 
 export type GetOrgContactResponses = {
@@ -4784,7 +4940,7 @@ export type RenameDeliveryTypeData = {
   body: DeliveryTypeRename;
   path?: never;
   query?: never;
-  url: '/system-settings/delivery-types/rename';
+  url: '/api/system-settings/delivery-types/rename';
 };
 
 export type RenameDeliveryTypeErrors = {
@@ -4811,7 +4967,7 @@ export type UploadImageData = {
   body: BodyUploadImage;
   path?: never;
   query?: never;
-  url: '/upload/';
+  url: '/api/upload/';
 };
 
 export type UploadImageErrors = {
@@ -4846,7 +5002,7 @@ export type DeleteImageData = {
     filename: string;
   };
   query?: never;
-  url: '/upload/{filename}';
+  url: '/api/upload/{filename}';
 };
 
 export type DeleteImageErrors = {

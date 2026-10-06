@@ -28,6 +28,7 @@ from app.models.enum import (
     NotePermission,
     ProgressEnum,
     RoleEnum,
+    RouteStatusEnum,
 )
 from app.models.job import Job, JobUpdate
 from app.models.location import Location, LocationRead
@@ -93,6 +94,12 @@ class TestCoreBusinessValidation:
             admin_phone=valid_phone,
         )
         assert admin.admin_phone == "tel:+1-212-555-1234"
+
+        # Optional: an admin created without a number stores NULL, and so does
+        # one handed an empty string. Absence is allowed; a bad number is not.
+        assert Admin(user_id=admin_user.user_id).admin_phone is None
+        assert Admin(user_id=admin_user.user_id, admin_phone=None).admin_phone is None
+        assert Admin(user_id=admin_user.user_id, admin_phone="").admin_phone is None
 
         # Test invalid phone numbers
         invalid_phones = ["invalid-phone", "123", "abc-def-ghij", "(555) 123-4567"]
@@ -349,16 +356,12 @@ class TestCoreModels:
 
         None as a *default* means "not provided" and stays valid; only a null
         that the client actually sent is rejected. partner_driver_name is the
-        one nullable column, where explicit null legitimately clears the value.
+        nullable profile fields, where explicit null legitimately clears the value.
         """
         non_nullable_fields = [
             "first_name",
             "last_name",
-            "phone",
             "availability",
-            "address",
-            "license_plate",
-            "car_make_model",
             "active",
         ]
         for field in non_nullable_fields:
@@ -369,10 +372,16 @@ class TestCoreModels:
         empty_update = DriverUpdate.model_validate({})
         assert empty_update.model_fields_set == set()
 
-        # Explicit null still clears the nullable partner_driver_name
-        cleared = DriverUpdate.model_validate({"partner_driver_name": None})
-        assert cleared.partner_driver_name is None
-        assert "partner_driver_name" in cleared.model_fields_set
+        for field in (
+            "phone",
+            "address",
+            "license_plate",
+            "car_make_model",
+            "partner_driver_name",
+        ):
+            cleared = DriverUpdate.model_validate({field: None})
+            assert getattr(cleared, field) is None
+            assert field in cleared.model_fields_set
 
     def test_location_core_operations(self) -> None:
         """Test Location model core operations."""
@@ -483,7 +492,7 @@ class TestCoreModels:
             notes="Test notes",
             drive_date=date(2024, 1, 15),
             num_routes=3,
-            status="Completed",
+            status=RouteStatusEnum.COMPLETED,
         )
         assert route_group_read.route_group_id is not None
 
@@ -753,18 +762,16 @@ class TestModelValidation:
             )
         assert "first_name" in str(exc_info.value)
 
-        with pytest.raises(ValidationError) as exc_info:
-            user = User(
-                first_name="Test",
-                last_name="Admin",
-                email="admin@example.com",
-                auth_id="test-123",
-            )
-            Admin(
-                user_id=user.user_id,
-                admin_phone="",  # Empty phone fails
-            )
-        assert "admin_phone" in str(exc_info.value)
+        # admin_phone is nullable, so an empty string means "no number" and
+        # normalizes to NULL rather than being stored as ''. A *malformed*
+        # number is still rejected — see test_admin_phone_optional below.
+        user = User(
+            first_name="Test",
+            last_name="Admin",
+            email="admin@example.com",
+            auth_id="test-123",
+        )
+        assert Admin(user_id=user.user_id, admin_phone="").admin_phone is None
 
         with pytest.raises(ValidationError) as exc_info:
             Driver(
@@ -885,11 +892,9 @@ class TestAnnouncementModel:
 
     def test_announcement_create_schema(self) -> None:
         """Test AnnouncementCreate validation."""
-        user_id = uuid4()
         create = AnnouncementCreate(
             subject="New Announcement",
             message="Details here",
-            user_id=user_id,
         )
         assert create.subject == "New Announcement"
         assert create.attachments == []
@@ -897,7 +902,6 @@ class TestAnnouncementModel:
         create_with_attachments = AnnouncementCreate(
             subject="With Images",
             message="See attached",
-            user_id=user_id,
             attachments=["https://example.com/img1.png"],
         )
         assert len(create_with_attachments.attachments) == 1
@@ -934,5 +938,4 @@ class TestAnnouncementModel:
             AnnouncementCreate(
                 subject="",
                 message="Some message",
-                user_id=uuid4(),
             )

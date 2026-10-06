@@ -9,11 +9,13 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.config import settings as app_settings
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.google_maps_routing_service import (
     GLOBAL_DURATION_COST_PER_HOUR,
     GLOBAL_HORIZON_HOURS,
     MANDATORY_DELIVERY_PENALTY,
+    SCOPES,
     VEHICLE_COST_PER_HOUR,
     GoogleMapsFleetRoutingAlgorithm,
 )
@@ -57,12 +59,27 @@ def make_location() -> Any:
     return _make
 
 
+# The three configured numbers have no schema defaults, so every settings
+# object in this file states them. These stand in for a system_settings row.
+CONFIGURED_BOXES_PER_CAR = 10
+CONFIGURED_CHILDREN_PER_BOX = 2
+CONFIGURED_DROPOFF_MINUTES = 3
+
+
+def _settings(**overrides: Any) -> RouteGenerationSettings:
+    base: dict[str, Any] = {
+        "num_routes": 1,
+        "route_start_time": datetime(2025, 1, 1, 9, 0),
+        "max_boxes_per_driver": CONFIGURED_BOXES_PER_CAR,
+        "children_per_box": CONFIGURED_CHILDREN_PER_BOX,
+        "service_time_minutes": CONFIGURED_DROPOFF_MINUTES,
+    }
+    return RouteGenerationSettings(**{**base, **overrides})
+
+
 @pytest.fixture()
 def sample_settings() -> RouteGenerationSettings:
-    return RouteGenerationSettings(
-        num_routes=2,
-        route_start_time=datetime(2025, 1, 1, 9, 0),
-    )
+    return _settings(num_routes=2)
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +193,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """The horizon is wide enough that a long day can never overrun it."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2026, 7, 9, 8, 30),
         )
@@ -194,7 +211,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """A tz-aware start keeps its own offset on both ends of the window."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
         )
@@ -216,7 +233,7 @@ class TestBuildPayload:
         The optimizer plans against the timestamp's day, so a settings object
         built for July must not come out anchored to some other date.
         """
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2026, 7, 9, 8, 30),
         )
@@ -233,7 +250,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """A tz-aware route_start_time is passed through, not re-stamped."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
         )
@@ -248,7 +265,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """Deliveries include duration based on service_time_minutes."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 9, 0),
             service_time_minutes=10,
@@ -266,7 +283,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """When return_to_warehouse is True, vehicles get endLocation."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 9, 0),
             return_to_warehouse=True,
@@ -351,7 +368,7 @@ class TestBuildPayload:
         make_location: Any,
     ) -> None:
         """Box derivation honours a non-default children_per_box."""
-        settings = RouteGenerationSettings(
+        settings = _settings(
             num_routes=1,
             route_start_time=datetime(2025, 1, 1, 9, 0),
             children_per_box=3,
@@ -546,3 +563,80 @@ class TestGenerateRoutes:
                 sample_settings,
                 timeout_seconds=0.01,
             )
+
+
+class TestEnsureCredentials:
+    """Credentials come from Application Default Credentials, never from settings."""
+
+    @pytest.fixture(autouse=True)
+    def _configured_project(self, mocker: Any) -> None:
+        mocker.patch.object(app_settings, "route_opt_project_id", "f4k-test-project")
+
+    def test_fetches_from_adc_and_refreshes(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        credentials = mocker.Mock(valid=False)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        result = algorithm._ensure_credentials()
+
+        # Mock assertions first: `assert x is credentials` narrows the Mock to
+        # the real Credentials type, after which mypy rejects .assert_called_*.
+        default.assert_called_once_with(scopes=SCOPES)
+        credentials.refresh.assert_called_once()
+        assert result is credentials
+
+    def test_caches_while_valid(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """A valid cached credential is reused without touching ADC again."""
+        credentials = mocker.Mock(valid=True)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        first = algorithm._ensure_credentials()
+        second = algorithm._ensure_credentials()
+
+        default.assert_called_once()
+        # Refreshed once on creation; the cached hit is free.
+        credentials.refresh.assert_called_once()
+        assert first is second is credentials
+
+    def test_refreshes_expired_without_refetching(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """An expired credential refreshes in place rather than re-resolving ADC."""
+        credentials = mocker.Mock(valid=False)
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+            return_value=(credentials, "f4k-test-project"),
+        )
+
+        algorithm._ensure_credentials()
+        algorithm._ensure_credentials()
+
+        default.assert_called_once()
+        assert credentials.refresh.call_count == 2
+
+    def test_unconfigured_project_raises(
+        self, algorithm: GoogleMapsFleetRoutingAlgorithm, mocker: Any
+    ) -> None:
+        """Fail loudly rather than calling optimizeTours against an empty project."""
+        mocker.patch.object(app_settings, "route_opt_project_id", "")
+        default = mocker.patch(
+            "app.services.implementations.google_maps_routing_service."
+            "google.auth.default",
+        )
+
+        with pytest.raises(RuntimeError, match="ROUTE_OPT_PROJECT_ID"):
+            algorithm._ensure_credentials()
+
+        default.assert_not_called()

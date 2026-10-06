@@ -14,26 +14,34 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import jwt
 import pytest
 from fastapi import HTTPException
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
+from app.dependencies.auth import get_verified_token
 from app.dependencies.services import (
     get_auth_service,
     get_password_reset_token_service,
     get_user_service,
 )
-from app.schemas.auth import TokenResponse
+from app.models.driver import Driver
+from app.models.user import User
+from app.models.user_invite import INVITE_VALID_HOURS, UserInvite
+from app.routers.auth_routes import RESEND_EMAIL_COOLDOWN_SECONDS
+from app.schemas.auth import AuthResponse, TokenResponse
 from app.services.implementations.auth_service import (
     REAUTH_REQUIRED_FIREBASE_CODES,
     AuthService,
     SessionExpiredError,
 )
 from app.utilities.firebase_rest_client import FirebaseRestError
+from app.utilities.utils import build_invite_url
 
 USER_ID: UUID = uuid4()
 EMAIL = "driver@example.com"
@@ -395,3 +403,291 @@ class TestLogout:
         )
 
         assert response.status_code == 204
+
+
+class TestResendOnboardingEmail:
+    """Tests for POST /auth/resend-onboarding endpoint and UserInviteService deletion/creation."""
+
+    @pytest.mark.asyncio
+    async def test_non_existent_email_returns_204_and_touches_nothing(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Non-existent email returns 204 with no invite or email dispatched (enumeration safety)."""
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "ghost@example.com"}
+            )
+
+        assert response.status_code == 204
+        dispatch.assert_not_called()
+        invites = (await test_session.execute(select(UserInvite))).scalars().all()
+        assert invites == []
+
+    @pytest.mark.asyncio
+    async def test_already_registered_email_returns_204_and_touches_nothing(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Already registered email (auth_id not None) returns 204 with no invite or email touched."""
+        user = User(
+            first_name="Registered",
+            last_name="User",
+            email="registered@example.com",
+            role="driver",
+            auth_id="firebase-uid-abc",
+        )
+        test_session.add(user)
+        await test_session.commit()
+
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "registered@example.com"}
+            )
+
+        assert response.status_code == 204
+        dispatch.assert_not_called()
+        invites = (await test_session.execute(select(UserInvite))).scalars().all()
+        assert invites == []
+
+    @pytest.mark.asyncio
+    async def test_pending_user_deletes_old_invite_creates_new_and_dispatches_email(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """Pending user gets old invite deleted, new invite created, and email dispatched with context."""
+        user = User(
+            first_name="Jane",
+            last_name="Doe",
+            email="pending@example.com",
+            role="driver",
+            auth_id=None,
+        )
+        test_session.add(user)
+        await test_session.flush()
+
+        test_session.add(
+            Driver(
+                user_id=user.user_id,
+                phone="+12125551234",
+                address="123 Main St",
+                license_plate="XYZ789",
+                car_make_model="Honda Civic",
+            )
+        )
+        # Old enough to be past the resend cooldown, or the endpoint would
+        # (correctly) suppress the email instead of replacing the invite.
+        old_invite = UserInvite(
+            user_id=user.user_id,
+            created_at=datetime.now(timezone.utc)
+            - timedelta(seconds=RESEND_EMAIL_COOLDOWN_SECONDS + 1),
+        )
+        test_session.add(old_invite)
+        await test_session.commit()
+        old_invite_id = old_invite.user_invite_id
+
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "pending@example.com"}
+            )
+
+        assert response.status_code == 204
+        dispatch.assert_called_once()
+        call_kwargs = dispatch.call_args.kwargs
+        assert call_kwargs["email_type"] == "account-creation"
+        assert call_kwargs["to"] == "pending@example.com"
+        context = call_kwargs["context"]
+        assert context["Name_To_Replace"] == "Jane Doe"
+        assert context["Role_To_Replace"] == "driver"
+        assert context["Hours_Till_Expiry"] == INVITE_VALID_HOURS
+
+        invites = (
+            (
+                await test_session.execute(
+                    select(UserInvite).where(UserInvite.user_id == user.user_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(invites) == 1
+        assert invites[0].user_invite_id != old_invite_id
+        assert context["Sign_Up_URL"] == build_invite_url(invites[0].user_invite_id)
+
+    @pytest.mark.asyncio
+    async def test_pending_admin_gets_the_admin_email(
+        self, async_client: AsyncClient, test_session: AsyncSession
+    ) -> None:
+        """An admin from ``create_admin`` whose invite lapsed resends it as an admin."""
+        user = User(
+            first_name="Ada",
+            last_name="Admin",
+            email="admin@example.com",
+            role="admin",
+            auth_id=None,
+        )
+        test_session.add(user)
+        await test_session.commit()
+
+        with patch(
+            "app.services.implementations.email_dispatcher.EmailDispatcher.dispatch",
+            new_callable=AsyncMock,
+        ) as dispatch:
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "admin@example.com"}
+            )
+
+        assert response.status_code == 204
+        context = dispatch.call_args.kwargs["context"]
+        assert context["Name_To_Replace"] == "Ada Admin"
+        assert context["Role_To_Replace"] == "admin"
+
+    @pytest.mark.asyncio
+    async def test_exception_inside_try_block_returns_204_for_enumeration_safety(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Exception inside the try block still returns 204 (enumeration safety under failure)."""
+        with patch(
+            "app.services.implementations.user_service.UserService.get_user_by_email",
+            side_effect=RuntimeError("database on fire"),
+        ):
+            response = await async_client.post(
+                "/auth/resend-onboarding", json={"email": "someone@example.com"}
+            )
+
+        assert response.status_code == 204
+
+
+class TestUpdatePasswordAuthed:
+    @pytest.mark.asyncio
+    async def test_same_password_returns_400(self, client_with_overrides: Any) -> None:
+        client = await client_with_overrides(
+            {
+                get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
+            }
+        )
+
+        response = await client.post(
+            "/auth/update-password-authed",
+            json={"current_password": "Password123!", "new_password": "Password123!"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        assert response.status_code == 400
+        assert (
+            response.json()["detail"]
+            == "New password cannot be the same as current password."
+        )
+
+    @pytest.mark.asyncio
+    async def test_invalid_password_returns_400(
+        self, client_with_overrides: Any
+    ) -> None:
+        service = MagicMock()
+        service.firebase_rest_client.sign_in_with_password.side_effect = (
+            FirebaseRestError("INVALID_LOGIN_CREDENTIALS")
+        )
+
+        client = await client_with_overrides(
+            {
+                get_auth_service: lambda: service,
+                get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
+            }
+        )
+
+        response = await client.post(
+            "/auth/update-password-authed",
+            json={"current_password": "wrong", "new_password": "Newpassword123!"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Incorrect current password."
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(
+                FirebaseRestError("USER_DISABLED"), id="firebase-user-disabled"
+            ),
+            pytest.param(RuntimeError("database on fire"), id="runtime-error"),
+        ],
+    )
+    async def test_other_errors_return_500(
+        self, client_with_overrides: Any, error: Exception
+    ) -> None:
+        service = MagicMock()
+        service.firebase_rest_client.sign_in_with_password.side_effect = error
+
+        client = await client_with_overrides(
+            {
+                get_auth_service: lambda: service,
+                get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
+            }
+        )
+
+        response = await client.post(
+            "/auth/update-password-authed",
+            json={"current_password": "password", "new_password": "Newpassword123!"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_update_password_authed_success(
+        self, client_with_overrides: Any
+    ) -> None:
+        service = MagicMock()
+        service.revoke_tokens = AsyncMock()
+        auth_response = AuthResponse(
+            access_token="new-access-token",
+            id=USER_ID,
+            first_name="Jane",
+            last_name="Doe",
+            email=EMAIL,
+            role="driver",
+            remember_me=False,
+            driver_id=uuid4(),
+        )
+        service.generate_token = AsyncMock(
+            return_value=(auth_response, "new-refresh-token")
+        )
+
+        user_service = MagicMock()
+        user_service.update_password = AsyncMock()
+
+        client = await client_with_overrides(
+            {
+                get_auth_service: lambda: service,
+                get_user_service: lambda: user_service,
+                get_verified_token: lambda: {"email": EMAIL, "uid": "firebase-uid"},
+            }
+        )
+
+        response = await client.post(
+            "/auth/update-password-authed",
+            json={"current_password": "correct", "new_password": "Newpassword123!"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["access_token"] == "new-access-token"
+        assert data["email"] == EMAIL
+        service.firebase_rest_client.sign_in_with_password.assert_called_once_with(
+            EMAIL, "correct"
+        )
+        user_service.update_password.assert_awaited_once_with(
+            "firebase-uid", "Newpassword123!"
+        )
+        service.revoke_tokens.assert_awaited_once_with("firebase-uid")
+        service.generate_token.assert_awaited_once()
+        assert "refreshToken" in response.cookies

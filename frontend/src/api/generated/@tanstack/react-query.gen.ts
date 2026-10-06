@@ -13,7 +13,6 @@ import { client } from '../client.gen';
 import {
   applyLocationImport,
   cancelJob,
-  completeDriverRegistration,
   createAnnouncement,
   createLocation,
   createLocationGroup,
@@ -49,7 +48,6 @@ import {
   getLocations,
   getMonthlyRanking,
   getMonthlySeries,
-  getMonthlyTotals,
   getNoteChain,
   getNotes,
   getNotesFeed,
@@ -59,7 +57,7 @@ import {
   getRoutes,
   getSuggestedDriver,
   getSystemSettings,
-  getTotalDeliveriesBetween,
+  getTotals,
   initializeDriver,
   login,
   logout,
@@ -68,15 +66,16 @@ import {
   patchSystemSettings,
   previewLocationImport,
   refresh,
+  register,
   renameDeliveryType,
+  resendOnboardingEmail,
   sendAnnouncementEmail,
-  test,
   updateAnnouncement,
   updateDriver,
-  updateLocation,
   updateLocationGroup,
   updateNote,
   updatePassword,
+  updatePasswordAuthed,
   updateRoute,
   updateRouteGroup,
   uploadImage,
@@ -89,9 +88,6 @@ import type {
   CancelJobData,
   CancelJobError,
   CancelJobResponse,
-  CompleteDriverRegistrationData,
-  CompleteDriverRegistrationError,
-  CompleteDriverRegistrationResponse,
   CreateAnnouncementData,
   CreateAnnouncementError,
   CreateAnnouncementResponse,
@@ -192,9 +188,6 @@ import type {
   GetMonthlySeriesData,
   GetMonthlySeriesError,
   GetMonthlySeriesResponse,
-  GetMonthlyTotalsData,
-  GetMonthlyTotalsError,
-  GetMonthlyTotalsResponse,
   GetNoteChainData,
   GetNoteChainError,
   GetNoteChainResponse,
@@ -220,9 +213,9 @@ import type {
   GetSuggestedDriverResponse,
   GetSystemSettingsData,
   GetSystemSettingsResponse,
-  GetTotalDeliveriesBetweenData,
-  GetTotalDeliveriesBetweenError,
-  GetTotalDeliveriesBetweenResponse,
+  GetTotalsData,
+  GetTotalsError,
+  GetTotalsResponse,
   InitializeDriverData,
   InitializeDriverError,
   InitializeDriverResponse,
@@ -241,29 +234,33 @@ import type {
   PreviewLocationImportResponse,
   RefreshData,
   RefreshResponse,
+  RegisterData,
+  RegisterError,
+  RegisterResponse,
   RenameDeliveryTypeData,
   RenameDeliveryTypeError,
   RenameDeliveryTypeResponse,
+  ResendOnboardingEmailData,
+  ResendOnboardingEmailError,
+  ResendOnboardingEmailResponse,
   SendAnnouncementEmailData,
   SendAnnouncementEmailError,
   SendAnnouncementEmailResponse,
-  TestData,
-  TestResponse,
   UpdateAnnouncementData,
   UpdateAnnouncementError,
   UpdateAnnouncementResponse,
   UpdateDriverData,
   UpdateDriverError,
   UpdateDriverResponse,
-  UpdateLocationData,
-  UpdateLocationError,
   UpdateLocationGroupData,
   UpdateLocationGroupError,
   UpdateLocationGroupResponse,
-  UpdateLocationResponse,
   UpdateNoteData,
   UpdateNoteError,
   UpdateNoteResponse,
+  UpdatePasswordAuthedData,
+  UpdatePasswordAuthedError,
+  UpdatePasswordAuthedResponse,
   UpdatePasswordData,
   UpdatePasswordError,
   UpdatePasswordResponse,
@@ -320,33 +317,6 @@ const createQueryKey = <TOptions extends Options>(
   }
   return [params];
 };
-
-export const testQueryKey = (options?: Options<TestData>) =>
-  createQueryKey('test', options);
-
-/**
- * Test
- *
- * Admin only route example
- */
-export const testOptions = (options?: Options<TestData>) =>
-  queryOptions<
-    TestResponse,
-    AxiosError<DefaultError>,
-    TestResponse,
-    ReturnType<typeof testQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await test({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: testQueryKey(options),
-  });
 
 export const getAnnouncementsQueryKey = (
   options?: Options<GetAnnouncementsData>
@@ -669,6 +639,76 @@ export const refreshMutation = (
 };
 
 /**
+ * Register
+ *
+ * Finish an invited account: create the Firebase user, stamp its role claim,
+ * fill in ``users.auth_id``, burn the invite, and log the caller in.
+ *
+ * Deliberately role-agnostic. ``UserInvite`` doesn't distinguish a driver from
+ * an admin and ``link_firebase_to_user`` reads the role off the user row, so
+ * one endpoint serves both — a driver invited by an admin and an admin created
+ * by ``python -m app.create_admin`` follow the identical link and page.
+ *
+ * Unauthenticated by necessity: the caller has no account yet. The invite id
+ * in the body *is* the credential — a single-use, 48-hour, unguessable UUID
+ * bound to one pre-created user row. It grants exactly the role that row
+ * already carries, so possession of a link can never escalate anyone.
+ */
+export const registerMutation = (
+  options?: Partial<Options<RegisterData>>
+): UseMutationOptions<
+  RegisterResponse,
+  AxiosError<RegisterError>,
+  Options<RegisterData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RegisterResponse,
+    AxiosError<RegisterError>,
+    Options<RegisterData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await register({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Resend Onboarding Email
+ *
+ * Resends the onboarding/invite email to a pending user.
+ * Returns 204 regardless of input/status to prevent user enumeration attacks.
+ */
+export const resendOnboardingEmailMutation = (
+  options?: Partial<Options<ResendOnboardingEmailData>>
+): UseMutationOptions<
+  ResendOnboardingEmailResponse,
+  AxiosError<ResendOnboardingEmailError>,
+  Options<ResendOnboardingEmailData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ResendOnboardingEmailResponse,
+    AxiosError<ResendOnboardingEmailError>,
+    Options<ResendOnboardingEmailData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await resendOnboardingEmail({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Update Password
  *
  * Update an existing user's password if provided a valid password reset token
@@ -687,6 +727,36 @@ export const updatePasswordMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await updatePassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update Password Authed
+ *
+ * Update an authenticated user's password after verifying their current password,
+ * revokes existing refresh tokens, and issues a fresh session with new tokens.
+ */
+export const updatePasswordAuthedMutation = (
+  options?: Partial<Options<UpdatePasswordAuthedData>>
+): UseMutationOptions<
+  UpdatePasswordAuthedResponse,
+  AxiosError<UpdatePasswordAuthedError>,
+  Options<UpdatePasswordAuthedData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    UpdatePasswordAuthedResponse,
+    AxiosError<UpdatePasswordAuthedError>,
+    Options<UpdatePasswordAuthedData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updatePasswordAuthed({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -766,7 +836,7 @@ export const getDriversQueryKey = (options?: Options<GetDriversData>) =>
 /**
  * Get Drivers
  *
- * Get all drivers, optionally filter by driver_id or email
+ * Paginated driver rows with server-side name search and list aggregates.
  */
 export const getDriversOptions = (options?: Options<GetDriversData>) =>
   queryOptions<
@@ -786,6 +856,90 @@ export const getDriversOptions = (options?: Options<GetDriversData>) =>
     },
     queryKey: getDriversQueryKey(options),
   });
+
+const createInfiniteParams = <
+  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
+>(
+  queryKey: QueryKey<Options>,
+  page: K
+) => {
+  const params = { ...queryKey[0] };
+  if (page.body) {
+    params.body = {
+      ...(queryKey[0].body as any),
+      ...(page.body as any),
+    };
+  }
+  if (page.headers) {
+    params.headers = {
+      ...queryKey[0].headers,
+      ...page.headers,
+    };
+  }
+  if (page.path) {
+    params.path = {
+      ...(queryKey[0].path as any),
+      ...(page.path as any),
+    };
+  }
+  if (page.query) {
+    params.query = {
+      ...(queryKey[0].query as any),
+      ...(page.query as any),
+    };
+  }
+  return params as unknown as typeof page;
+};
+
+export const getDriversInfiniteQueryKey = (
+  options?: Options<GetDriversData>
+): QueryKey<Options<GetDriversData>> =>
+  createQueryKey('getDrivers', options, true);
+
+/**
+ * Get Drivers
+ *
+ * Paginated driver rows with server-side name search and list aggregates.
+ */
+export const getDriversInfiniteOptions = (options?: Options<GetDriversData>) =>
+  infiniteQueryOptions<
+    GetDriversResponse,
+    AxiosError<GetDriversError>,
+    InfiniteData<GetDriversResponse>,
+    QueryKey<Options<GetDriversData>>,
+    | number
+    | Pick<
+        QueryKey<Options<GetDriversData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetDriversData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getDrivers({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getDriversInfiniteQueryKey(options),
+    }
+  );
 
 /**
  * Initialize Driver
@@ -819,43 +973,15 @@ export const initializeDriverMutation = (
 };
 
 /**
- * Complete Driver Registration
- *
- * Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
- */
-export const completeDriverRegistrationMutation = (
-  options?: Partial<Options<CompleteDriverRegistrationData>>
-): UseMutationOptions<
-  CompleteDriverRegistrationResponse,
-  AxiosError<CompleteDriverRegistrationError>,
-  Options<CompleteDriverRegistrationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    CompleteDriverRegistrationResponse,
-    AxiosError<CompleteDriverRegistrationError>,
-    Options<CompleteDriverRegistrationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await completeDriverRegistration({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
  * Delete Driver
  *
  * Delete a driver by ID.
  *
  * A hard delete of the person: the user account and their Firebase login go
  * with the driver record, so a deleted driver can no longer sign in. Their
- * routes are detached (driver_id SET NULL) rather than deleted, so the
- * driver's km stop counting toward anyone.
+ * routes are detached (driver_id SET NULL) rather than deleted: the km and
+ * deliveries stay in the org's totals, they just stop being attributed to
+ * anyone in the per-driver ranking and export.
  */
 export const deleteDriverMutation = (
   options?: Partial<Options<DeleteDriverData>>
@@ -1067,6 +1193,8 @@ export const getJobsOptions = (options?: Options<GetJobsData>) =>
  * Generate Job
  *
  * Accept a generation request: persist it as PENDING and wake the worker.
+ *
+ * Admin-only — route generation is an admin workflow, and it burns Maps quota.
  */
 export const generateJobMutation = (
   options?: Partial<Options<GenerateJobData>>
@@ -1349,40 +1477,6 @@ export const getLocationsOptions = (options?: Options<GetLocationsData>) =>
     queryKey: getLocationsQueryKey(options),
   });
 
-const createInfiniteParams = <
-  K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>,
->(
-  queryKey: QueryKey<Options>,
-  page: K
-) => {
-  const params = { ...queryKey[0] };
-  if (page.body) {
-    params.body = {
-      ...(queryKey[0].body as any),
-      ...(page.body as any),
-    };
-  }
-  if (page.headers) {
-    params.headers = {
-      ...queryKey[0].headers,
-      ...page.headers,
-    };
-  }
-  if (page.path) {
-    params.path = {
-      ...(queryKey[0].path as any),
-      ...(page.path as any),
-    };
-  }
-  if (page.query) {
-    params.query = {
-      ...(queryKey[0].query as any),
-      ...(page.query as any),
-    };
-  }
-  return params as unknown as typeof page;
-};
-
 export const getLocationsInfiniteQueryKey = (
   options?: Options<GetLocationsData>
 ): QueryKey<Options<GetLocationsData>> =>
@@ -1588,35 +1682,6 @@ export const getLocationOptions = (options: Options<GetLocationData>) =>
     },
     queryKey: getLocationQueryKey(options),
   });
-
-/**
- * Update Location
- *
- * Update a location by ID
- */
-export const updateLocationMutation = (
-  options?: Partial<Options<UpdateLocationData>>
-): UseMutationOptions<
-  UpdateLocationResponse,
-  AxiosError<UpdateLocationError>,
-  Options<UpdateLocationData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateLocationResponse,
-    AxiosError<UpdateLocationError>,
-    Options<UpdateLocationData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateLocation({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 /**
  * Delete Note Chain
@@ -1916,90 +1981,6 @@ export const getNotesFeedInfiniteOptions = (
     }
   );
 
-export const getTotalDeliveriesBetweenQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) => createQueryKey('getTotalDeliveriesBetween', options);
-
-/**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
- */
-export const getTotalDeliveriesBetweenOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) =>
-  queryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    GetTotalDeliveriesBetweenResponse,
-    ReturnType<typeof getTotalDeliveriesBetweenQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getTotalDeliveriesBetween({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getTotalDeliveriesBetweenQueryKey(options),
-  });
-
-export const getTotalDeliveriesBetweenInfiniteQueryKey = (
-  options: Options<GetTotalDeliveriesBetweenData>
-): QueryKey<Options<GetTotalDeliveriesBetweenData>> =>
-  createQueryKey('getTotalDeliveriesBetween', options, true);
-
-/**
- * Get Total Deliveries Between
- *
- * Return total deliveries (route stop snapshots) between start and end.
- * Query params are treated as EST if no timezone is provided.
- */
-export const getTotalDeliveriesBetweenInfiniteOptions = (
-  options: Options<GetTotalDeliveriesBetweenData>
-) =>
-  infiniteQueryOptions<
-    GetTotalDeliveriesBetweenResponse,
-    AxiosError<GetTotalDeliveriesBetweenError>,
-    InfiniteData<GetTotalDeliveriesBetweenResponse>,
-    QueryKey<Options<GetTotalDeliveriesBetweenData>>,
-    | string
-    | Pick<
-        QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-        'body' | 'headers' | 'path' | 'query'
-      >
-  >(
-    // @ts-ignore
-    {
-      queryFn: async ({ pageParam, queryKey, signal }) => {
-        // @ts-ignore
-        const page: Pick<
-          QueryKey<Options<GetTotalDeliveriesBetweenData>>[0],
-          'body' | 'headers' | 'path' | 'query'
-        > =
-          typeof pageParam === 'object'
-            ? pageParam
-            : {
-                query: {
-                  start: pageParam,
-                },
-              };
-        const params = createInfiniteParams(queryKey, page);
-        const { data } = await getTotalDeliveriesBetween({
-          ...options,
-          ...params,
-          signal,
-          throwOnError: true,
-        });
-        return data;
-      },
-      queryKey: getTotalDeliveriesBetweenInfiniteQueryKey(options),
-    }
-  );
-
 export const getMonthlySeriesQueryKey = (
   options?: Options<GetMonthlySeriesData>
 ) => createQueryKey('getMonthlySeries', options);
@@ -2063,26 +2044,30 @@ export const getMonthlyRankingOptions = (
     queryKey: getMonthlyRankingQueryKey(options),
   });
 
-export const getMonthlyTotalsQueryKey = (
-  options: Options<GetMonthlyTotalsData>
-) => createQueryKey('getMonthlyTotals', options);
+export const getTotalsQueryKey = (options?: Options<GetTotalsData>) =>
+  createQueryKey('getTotals', options);
 
 /**
- * Get Monthly Totals
+ * Get Totals
  *
- * Return total distance driven and total deliveries for the month.
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
  */
-export const getMonthlyTotalsOptions = (
-  options: Options<GetMonthlyTotalsData>
-) =>
+export const getTotalsOptions = (options?: Options<GetTotalsData>) =>
   queryOptions<
-    GetMonthlyTotalsResponse,
-    AxiosError<GetMonthlyTotalsError>,
-    GetMonthlyTotalsResponse,
-    ReturnType<typeof getMonthlyTotalsQueryKey>
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    GetTotalsResponse,
+    ReturnType<typeof getTotalsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getMonthlyTotals({
+      const { data } = await getTotals({
         ...options,
         ...queryKey[0],
         signal,
@@ -2090,8 +2075,66 @@ export const getMonthlyTotalsOptions = (
       });
       return data;
     },
-    queryKey: getMonthlyTotalsQueryKey(options),
+    queryKey: getTotalsQueryKey(options),
   });
+
+export const getTotalsInfiniteQueryKey = (
+  options?: Options<GetTotalsData>
+): QueryKey<Options<GetTotalsData>> =>
+  createQueryKey('getTotals', options, true);
+
+/**
+ * Get Totals
+ *
+ * Return km driven and deliveries made — all time, or over [start, end).
+ *
+ * Omit both bounds for the all-time figures the homepage's headline totals
+ * show. Supply both for a window: the params are read as EST when they carry
+ * no timezone, then reduced to calendar days (a drive date is a day, not an
+ * instant), and the range is half-open like every other range in the
+ * reports, so consecutive windows tile instead of double-counting their
+ * shared boundary day.
+ */
+export const getTotalsInfiniteOptions = (options?: Options<GetTotalsData>) =>
+  infiniteQueryOptions<
+    GetTotalsResponse,
+    AxiosError<GetTotalsError>,
+    InfiniteData<GetTotalsResponse>,
+    QueryKey<Options<GetTotalsData>>,
+    | string
+    | null
+    | Pick<
+        QueryKey<Options<GetTotalsData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetTotalsData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  start: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getTotals({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getTotalsInfiniteQueryKey(options),
+    }
+  );
 
 export const getRouteGroupsQueryKey = (options?: Options<GetRouteGroupsData>) =>
   createQueryKey('getRouteGroups', options);

@@ -81,7 +81,8 @@ def _run_seed_script() -> None:
         patch.object(seed_module, "get_database_url", return_value=sync_db_url),
         patch.dict(os.environ, {"LOCATIONS_CSV_PATH": TEST_CSV_PATH}),
         patch("app.seed_database.initialize_firebase"),
-        patch("app.seed_database.ensure_firebase_user"),
+        patch("app.seed_database.firebase_account_snapshot", return_value={}),
+        patch("app.seed_database.sync_firebase_accounts"),
         patch(
             "app.seed_database.upload_seed_note_images",
             return_value=FAKE_NOTE_IMAGES,
@@ -215,10 +216,11 @@ class TestDataValidation:
     async def test_phone_numbers_are_rfc3966(self, test_session: AsyncSession) -> None:
         drivers = (await test_session.execute(select(Driver))).scalars().all()
         for driver in drivers:
+            assert driver.phone is not None
             assert driver.phone.startswith("tel:+"), (
                 f"Driver phone {driver.phone} should be RFC 3966"
             )
-            assert len(driver.availability) == 7
+            assert len(driver.availability) == 5
             assert phonenumbers.is_valid_number(
                 phonenumbers.parse(driver.phone, None)
             ), f"Driver phone {driver.phone} should parse as valid"
@@ -234,12 +236,14 @@ class TestDataValidation:
 
         admins = (await test_session.execute(select(Admin))).scalars().all()
         for admin in admins:
-            assert admin.admin_phone.startswith("tel:+"), (
-                f"Admin phone {admin.admin_phone} should be RFC 3966"
+            # admin_phone is nullable in general, but the seeder always sets one
+            # — a seeded admin with no number would be a seeding bug.
+            phone = admin.admin_phone
+            assert phone is not None, "Seeded admins should have a phone number"
+            assert phone.startswith("tel:+"), f"Admin phone {phone} should be RFC 3966"
+            assert phonenumbers.is_valid_number(phonenumbers.parse(phone, None)), (
+                f"Admin phone {phone} should parse as valid"
             )
-            assert phonenumbers.is_valid_number(
-                phonenumbers.parse(admin.admin_phone, None)
-            ), f"Admin phone {admin.admin_phone} should parse as valid"
 
     @pytest.mark.asyncio
     async def test_email_addresses_match_pattern(

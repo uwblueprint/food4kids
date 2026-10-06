@@ -35,6 +35,7 @@ from app.services.implementations.location_service import (
 )
 from app.services.implementations.route_group_service import RouteGroupService
 from app.services.implementations.route_service import RouteService
+from app.utilities.datetime_utils import today_local
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ async def _add_frozen_route(
     session.add(stop)
     await session.commit()
     await session.refresh(stop)
+
+    assert location.latitude is not None
+    assert location.longitude is not None
 
     session.add(
         RouteSnapshot(
@@ -181,14 +185,14 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
     for loc in locations:
         await test_session.refresh(loc)
 
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = today_local() - timedelta(days=1)
     rg = RouteGroup(
         name="Frozen group",
         drive_date=yesterday,
     )
     future_rg = RouteGroup(
         name="Future group",
-        drive_date=date.today() + timedelta(days=7),
+        drive_date=today_local() + timedelta(days=7),
     )
     test_session.add_all([rg, future_rg])
     await test_session.commit()
@@ -222,6 +226,9 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
     test_session.add(stop)
     await test_session.commit()
     await test_session.refresh(stop)
+
+    assert locations[0].latitude is not None
+    assert locations[0].longitude is not None
 
     # Freeze the past route: snapshot + stop snapshot, as the nightly job does.
     test_session.add(

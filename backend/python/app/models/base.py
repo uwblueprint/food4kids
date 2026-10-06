@@ -13,6 +13,11 @@ _ONGOING_MODEL_VALIDATE: ContextVar[bool] = ContextVar("_ONGOING_MODEL_VALIDATE"
 T = TypeVar("T", bound="BaseModel")
 
 
+class UTCDateTime(sm.DateTime):
+    def __init__(self) -> None:
+        super().__init__(timezone=True)
+
+
 @contextmanager
 def set_ongoing_model_validate() -> Any:
     token = _ONGOING_MODEL_VALIDATE.set(True)
@@ -32,11 +37,11 @@ class BaseModel(sm.SQLModel):
     # local time, silently shifting by the EST offset.
     created_at: datetime | None = Field(
         default_factory=now_utc,
-        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
+        sa_type=UTCDateTime,
     )
     updated_at: datetime | None = Field(
         default_factory=now_utc,
-        sa_type=sm.DateTime(timezone=True),  # type: ignore[call-overload]
+        sa_type=UTCDateTime,
         sa_column_kwargs={"onupdate": now_utc},
     )
 

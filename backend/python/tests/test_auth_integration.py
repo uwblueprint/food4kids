@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import create_app
 from app.dependencies.services import get_gcp_storage_client
 from app.models import get_session
+from app.routers import API_PREFIX
 
 # ---------------------------------------------------------------------------
 # Policies and actors
@@ -80,40 +81,47 @@ DENY_CODES = {401, 403}
 # ---------------------------------------------------------------------------
 
 ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
-    # --- admin ---
-    ("GET", "/admins/test"): Policy.ADMIN_ONLY,
     # --- billing ---
     ("GET", "/billing/costs"): Policy.ADMIN_ONLY,
     # --- auth infrastructure (public by design) ---
     ("POST", "/auth/login"): Policy.PUBLIC,
+    # Necessarily unauthenticated: the caller has no account yet. The invite id
+    # in the body is the credential — single-use, 48h, an unguessable UUID bound
+    # to one pre-created user row — and it only ever confers the role that row
+    # already holds, so it cannot be used to escalate.
+    ("POST", "/auth/register"): Policy.PUBLIC,
     ("POST", "/auth/refresh"): Policy.PUBLIC,
     ("POST", "/auth/validate-reset-token"): Policy.PUBLIC,
+    ("POST", "/auth/resend-onboarding"): Policy.PUBLIC,
     ("POST", "/auth/logout"): Policy.PUBLIC,
     ("POST", "/auth/forgot-password"): Policy.PUBLIC,
     ("POST", "/auth/update-password"): Policy.PUBLIC,
+    ("POST", "/auth/update-password-authed"): Policy.DRIVER_OR_ADMIN,
     # --- drivers ---
-    ("GET", "/drivers/"): Policy.DRIVER_OR_ADMIN,
+    # The full list carries every volunteer's phone, home address, licence plate
+    # and car; no driver-facing screen consumes it. Drivers read themselves via
+    # GET /drivers/{driver_id}.
+    ("GET", "/drivers/"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("PUT", "/drivers/{driver_id}"): Policy.SELF_DRIVER_OR_ADMIN,
     ("DELETE", "/drivers/{driver_id}"): Policy.ADMIN_ONLY,
     ("GET", "/drivers/{driver_id}/history/"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/summary"): Policy.SELF_DRIVER_OR_ADMIN,
     ("GET", "/drivers/{driver_id}/history/{year}/export"): Policy.ADMIN_ONLY,
-    # Two-step registration (#117): an admin creates the invite/initial user;
-    # /register is auth'd by the invite token in the body, not a bearer token.
+    # Two-step registration (#117): an admin creates the invite/initial user,
+    # who then finishes at the role-agnostic POST /auth/register above.
     ("POST", "/drivers/initialize"): Policy.ADMIN_ONLY,
-    ("POST", "/drivers/register"): Policy.PUBLIC,
     # --- jobs ---
-    ("GET", "/jobs/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/jobs/generate"): Policy.DRIVER_OR_ADMIN,
-    ("GET", "/jobs/{job_id}"): Policy.DRIVER_OR_ADMIN,
+    ("GET", "/jobs/"): Policy.ADMIN_ONLY,
+    ("POST", "/jobs/generate"): Policy.ADMIN_ONLY,
+    ("GET", "/jobs/{job_id}"): Policy.ADMIN_ONLY,
     ("POST", "/jobs/{job_id}/cancel"): Policy.ADMIN_ONLY,
     # --- location groups ---
-    ("GET", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
-    ("POST", "/location-groups/"): Policy.DRIVER_OR_ADMIN,
-    ("GET", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
-    ("PATCH", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
-    ("DELETE", "/location-groups/{location_group_id}"): Policy.DRIVER_OR_ADMIN,
+    ("GET", "/location-groups/"): Policy.ADMIN_ONLY,
+    ("POST", "/location-groups/"): Policy.ADMIN_ONLY,
+    ("GET", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
+    ("PATCH", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
+    ("DELETE", "/location-groups/{location_group_id}"): Policy.ADMIN_ONLY,
     # --- locations ---
     ("GET", "/locations/"): Policy.ADMIN_ONLY,
     ("DELETE", "/locations/"): Policy.ADMIN_ONLY,
@@ -121,17 +129,15 @@ ROUTE_POLICIES: dict[tuple[str, str], Policy] = {
     ("POST", "/locations/import/preview"): Policy.ADMIN_ONLY,
     ("POST", "/locations/import"): Policy.ADMIN_ONLY,
     ("GET", "/locations/{location_id}"): Policy.ADMIN_ONLY,
-    ("PATCH", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     ("DELETE", "/locations/{location_id}"): Policy.ADMIN_ONLY,
     # --- system settings ---
     ("GET", "/system-settings/"): Policy.ADMIN_ONLY,
     # Public by design; scoped to name/phone by OrgContactRead.
     ("GET", "/system-settings/contact"): Policy.PUBLIC,
     # --- reports ---
-    ("GET", "/reports/deliveries/count"): Policy.ADMIN_ONLY,
+    ("GET", "/reports/totals"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly-series"): Policy.ADMIN_ONLY,
     ("GET", "/reports/monthly/{year}/{month}/ranking"): Policy.ADMIN_ONLY,
-    ("GET", "/reports/monthly/{year}/{month}/totals"): Policy.ADMIN_ONLY,
     # --- note chains (authenticated, any user) ---
     ("GET", "/note-chains/{note_chain_id}"): Policy.AUTHENTICATED,
     # Deletion is admin-gated inside note_chain_service (not via a dependency).
@@ -376,7 +382,7 @@ async def auth_client(
     # test. This test only cares about the auth decision, and a 500 means auth
     # already let the request reach the handler.
     transport = ASGITransport(app=app, raise_app_exceptions=False)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 
@@ -471,8 +477,11 @@ def test_every_exposed_route_is_classified() -> None:
     # the schema, which is exactly what we want (they carry no auth policy).
     http_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
     schema = app.openapi()
+    # ROUTE_POLICIES is keyed by the route's own path. Where the API is
+    # mounted is a deployment concern (API_PREFIX), and putting it in every
+    # key would mean rewriting the whole table if it ever moved.
     exposed = {
-        (method.upper(), path)
+        (method.upper(), path.removeprefix(API_PREFIX))
         for path, operations in schema["paths"].items()
         for method in operations
         if method.upper() in http_methods

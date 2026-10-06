@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { useRegisterDriver } from '@/api/auth';
+import { useRegisterUser } from '@/api/auth';
 import { describeApiFailure } from '@/api/errors';
 import { Button, NotFoundPage } from '@/common/components';
 import { cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ export const CreatePassword = () => {
       ? 'Create an account to access the app'
       : "You're in! Get ready to help fill some lunch bags and put smiles on some faces.";
 
-  const { mutate, isPending } = useRegisterDriver();
+  const { mutate, isPending } = useRegisterUser();
 
   const { token } = useParams();
   const uuidRegex =

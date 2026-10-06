@@ -56,14 +56,16 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-          cache-dependency-path: backend/python/requirements.txt
+          cache-dependency-path: backend/python/requirements*.txt
 
       - name: Install dependencies
         if: steps.changes.outputs.python-backend == 'true'
         working-directory: ./backend/python
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          # pytest and the test-only clients (httpx, aiosqlite) live in
+          # requirements-dev.txt, which pulls in requirements.txt via `-r`.
+          python -m pip install -r requirements-dev.txt
 
       - name: Run tests
         if: steps.changes.outputs.python-backend == 'true'

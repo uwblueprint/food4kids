@@ -89,7 +89,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
@@ -98,7 +98,9 @@ jobs:
         working-directory: ./backend/python
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # ruff, mypy and the type stubs live in requirements-dev.txt, which
+          # pulls in requirements.txt via `-r`.
+          pip install -r requirements-dev.txt
 
       - name: Run Ruff linter
         if: steps.changes.outputs.python-backend == 'true'

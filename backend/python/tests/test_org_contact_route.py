@@ -32,7 +32,7 @@ async def anonymous_client(
     app.dependency_overrides[get_gcp_storage_client] = lambda: None
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
 
 

@@ -14,7 +14,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import HTTPException
@@ -359,7 +358,7 @@ async def _build_route_group(
             name=f"Route {number}",
             length=distance_km,
             encoded_polyline=encoded_polyline,
-            polyline_updated_at=datetime.now(timezone.utc),
+            polyline_updated_at=now_utc(),
             ends_at_warehouse=settings.return_to_warehouse,
             route_group_id=route_group.route_group_id,
         )

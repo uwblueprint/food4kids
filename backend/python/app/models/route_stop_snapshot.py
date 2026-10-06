@@ -26,8 +26,11 @@ class RouteStopSnapshotBase(SQLModel):
     phone_secondary: str | None = None
     num_children: int = Field(ge=0)
     notes: str = Field(default="")
-    latitude: float
-    longitude: float
+    # Nullable to mirror Location.latitude/longitude (a location may not be
+    # geocoded yet). Reads COALESCE snapshot over live location, so a null here
+    # falls back to the live coordinate — same as the other snapshot fields.
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class RouteStopSnapshot(RouteStopSnapshotBase, BaseModel, table=True):

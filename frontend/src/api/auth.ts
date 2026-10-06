@@ -4,34 +4,40 @@ import { isRefreshRefusal, refreshSession } from '@/lib/axiosClient';
 
 import { useAuthStore } from './authStore';
 import {
-  completeDriverRegistration,
   forgotPassword,
   type ForgotPasswordRequest,
   login,
   type LoginRequest,
   logout,
+  register,
+  resendOnboardingEmail,
+  type ResendOnboardingEmailRequest,
   updatePassword,
+  updatePasswordAuthed,
+  type UpdatePasswordAuthedRequest,
   type UpdatePasswordRequest,
   type UserFinalize,
   validateResetToken,
   type ValidateResetTokenRequest,
 } from './generated';
 
-export function useRegisterDriver() {
-  const setAuthFromRegister = useAuthStore(
-    (state) => state.setAuthFromRegister
-  );
+/**
+ * Finish an invited account (driver or admin) from a create-password link.
+ * The backend reads the role off the invite, so the caller doesn't branch.
+ */
+export function useRegisterUser() {
+  const setAuth = useAuthStore((state) => state.setAuth);
 
   return useMutation({
     mutationFn: async (payload: UserFinalize) => {
-      const { data } = await completeDriverRegistration({
+      const { data } = await register({
         body: payload,
         throwOnError: true,
       });
       return data;
     },
     onSuccess: (data) => {
-      setAuthFromRegister(data);
+      setAuth(data);
     },
   });
 }
@@ -90,6 +96,18 @@ export function useForgotPassword() {
   });
 }
 
+export function useResendOnboardingEmail() {
+  return useMutation({
+    mutationFn: async (payload: ResendOnboardingEmailRequest) => {
+      const { data } = await resendOnboardingEmail({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    },
+  });
+}
+
 export function useValidateResetToken(payload: ValidateResetTokenRequest) {
   return useQuery({
     queryKey: ['validate-reset-token', payload],
@@ -113,6 +131,23 @@ export function useUpdatePassword() {
         throwOnError: true,
       });
       return data;
+    },
+  });
+}
+
+export function useUpdatePasswordAuthed() {
+  const setAuth = useAuthStore((state) => state.setAuth);
+
+  return useMutation({
+    mutationFn: async (payload: UpdatePasswordAuthedRequest) => {
+      const { data } = await updatePasswordAuthed({
+        body: payload,
+        throwOnError: true,
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      setAuth(data);
     },
   });
 }

@@ -12,7 +12,7 @@ export default function ViewUpcomingRouteEmail() {
             </Heading>
             
             <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
-                Hi {"{{ Driver_Name_To_Replace }}"},
+                Hi {"{{ Name_To_Replace }}"},
             </Text>
             <Text className="text-[16px] text-grey-500 m-0 mb-[24px]">
                 This is a reminder that you have an upcoming delivery route scheduled:

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from pydantic import computed_field, field_validator
@@ -64,8 +64,8 @@ class LocationBase(SQLModel):
     @field_validator("phone_primary", "phone_secondary")
     @classmethod
     def validate_phones(cls, v: str | None) -> str | None:
-        """Normalize to RFC 3966, as Driver and Admin do — POST/PATCH
-        /locations would otherwise store whatever the client sent.
+        """Normalize to RFC 3966, as Driver and Admin do — POST /locations
+        would otherwise store whatever the client sent.
 
         Not the import's validation gate: LocationImportEntry deliberately
         doesn't inherit this, so it can report an INVALID_PHONE_NUMBER alert.
@@ -289,46 +289,6 @@ class LocationRead(LocationBase):
         if self.in_roster:
             return LocationStatusEnum.UNSCHEDULED
         return LocationStatusEnum.INACTIVE
-
-
-class LocationUpdate(SQLModel):
-    """Update request model with all fields optional"""
-
-    location_group_id: UUID | None = None
-    name: str | None = None
-    contact_name: str | None = None
-    guardian_name: str | None = None
-    address: str | None = None
-    phone_primary: str | None = None
-    phone_secondary: str | None = None
-    longitude: float | None = None
-    latitude: float | None = None
-    halal: bool | None = None
-    dietary_restrictions: str | None = None
-    place_id: str | None = None
-    num_children: int | None = None
-    delivery_type: str | None = Field(default=None, min_length=1, max_length=100)
-    in_roster: bool | None = None
-    note_chain_id: UUID | None = None
-
-    @field_validator("phone_primary", mode="before")
-    @classmethod
-    def reject_explicit_null_primary(cls, v: Any) -> Any:
-        """``locations.phone_primary`` is NOT NULL, so an explicit ``null`` has
-        to fail here as a 422 rather than as an IntegrityError at commit.
-        ``phone_secondary`` is nullable — null there legitimately clears it."""
-        if v is None:
-            raise ValueError("cannot be null; omit the field to leave it unchanged")
-        return v
-
-    @field_validator("phone_primary", "phone_secondary")
-    @classmethod
-    def validate_phones(cls, v: str | None) -> str | None:
-        """Normalize on update too — the service assigns onto the row, and
-        SQLModel table instances don't re-run validators on assignment."""
-        if v is None:
-            return None
-        return validate_phone(v)
 
 
 class LocationImportResult(SQLModel):

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.driver import Driver
+from app.models.enum import NotePermission
 from app.models.note import Note
 from app.models.note_chain import NoteChain
 from app.models.password_reset_token import PasswordResetToken
@@ -61,7 +62,7 @@ async def _initialize_driver(
 async def _complete_signup(
     session: AsyncSession, user_id: UUID, auth_id: str = "firebase-uid-dana"
 ) -> None:
-    """Stand in for POST /drivers/register: attach a Firebase uid, burn the
+    """Stand in for POST /auth/register: attach a Firebase uid, burn the
     invite. Done directly so these tests exercise delete, not registration."""
     user = (
         await session.execute(select(User).where(User.user_id == user_id))
@@ -413,7 +414,9 @@ async def test_notes_the_driver_wrote_elsewhere_survive_without_an_author(
     user_id = UUID(driver_json["user_id"])
     await _complete_signup(test_session, user_id)
 
-    shared_chain = NoteChain(read_permission="All", write_permission="All")
+    shared_chain = NoteChain(
+        read_permission=NotePermission.ALL, write_permission=NotePermission.ALL
+    )
     test_session.add(shared_chain)
     await test_session.flush()
     note = Note(

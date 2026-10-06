@@ -1,7 +1,12 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 from app.config import settings
+
+
+def app_timezone() -> ZoneInfo:
+    """The zone the organization operates in, per `settings.scheduler_timezone`."""
+    return ZoneInfo(settings.scheduler_timezone)
 
 
 def now_utc() -> datetime:
@@ -20,6 +25,28 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def now_local() -> datetime:
+    """The same instant as `now_utc()`, rendered on the organization's clock.
+
+    Aware, so it stays comparable with stored `timestamptz` values. Use it when
+    the answer is a wall-clock fact — which calendar day, month or year it is
+    where the deliveries happen — rather than a point on the timeline.
+    """
+    return now_utc().astimezone(app_timezone())
+
+
+def today_local() -> date:
+    """Today's calendar date on the organization's clock.
+
+    Drive dates, freeze runs and reminder lead days are all local calendar
+    facts, so this is the only correct source for "today" in that logic.
+    `date.today()` reads the process clock, which is UTC in every container we
+    deploy: for the four or five hours between local evening and local midnight
+    it is already tomorrow, and nothing raises.
+    """
+    return now_local().date()
+
+
 def from_local_wall_clock(wall_clock: datetime) -> datetime:
     """Read a naive local wall-clock time as a real instant, in UTC.
 
@@ -36,6 +63,4 @@ def from_local_wall_clock(wall_clock: datetime) -> datetime:
             f"expected a naive wall-clock datetime, got {wall_clock!r} "
             "which already carries a timezone"
         )
-    return wall_clock.replace(tzinfo=ZoneInfo(settings.scheduler_timezone)).astimezone(
-        timezone.utc
-    )
+    return wall_clock.replace(tzinfo=app_timezone()).astimezone(timezone.utc)

@@ -85,7 +85,9 @@ export const WrapperWithLogo = ({
             )}
             {/* Heading */}
             <h1>{headerTitle}</h1>
-            <p className="text-m-p2 tablet:font-medium">{subheaderTitle}</p>
+            <p className="text-m-p2 tablet:font-medium whitespace-pre-line">
+              {subheaderTitle}
+            </p>
           </div>
           {children}
         </div>

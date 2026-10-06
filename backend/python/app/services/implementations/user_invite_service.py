@@ -1,9 +1,10 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.models.user import User
 from app.models.user_invite import UserInvite, UserInviteCreate
@@ -44,3 +45,11 @@ class UserInviteService:
         session.add(user_invite)
         await session.flush()
         return user_invite
+
+    async def delete_user_invite_by_user_id(
+        self, session: AsyncSession, user_id: UUID
+    ) -> None:
+        """Delete user invite by user ID"""
+        statement = delete(UserInvite).where(col(UserInvite.user_id) == user_id)
+        await session.execute(statement)
+        await session.flush()

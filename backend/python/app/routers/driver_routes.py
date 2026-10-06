@@ -1,19 +1,16 @@
 import logging
-from datetime import datetime, timezone
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.dependencies.auth import (
     DriverAccess,
     require_admin,
-    require_driver_or_admin,
     require_self_driver_or_admin,
 )
 from app.dependencies.services import (
-    get_auth_service,
     get_email_dispatcher_depends,
     get_note_chain_service,
     get_user_invite_service,
@@ -22,20 +19,20 @@ from app.dependencies.services import (
 from app.models import get_session
 from app.models.driver import (
     DriverCreate,
+    DriverListRead,
     DriverRead,
     DriverRegister,
     DriverUpdate,
 )
-from app.models.user import UserBase, UserFinalize
-from app.models.user_invite import UserInviteCreate
-from app.schemas.auth import DriverRegisterResponse
-from app.services.implementations.auth_service import AuthService
+from app.models.user import UserBase
+from app.models.user_invite import INVITE_VALID_HOURS, UserInviteCreate
+from app.schemas.pagination import PaginatedResponse, PaginationParams, get_pagination
 from app.services.implementations.driver_service import DriverService
 from app.services.implementations.email_dispatcher import EmailDispatcher
 from app.services.implementations.note_chain_service import NoteChainService
 from app.services.implementations.user_invite_service import UserInviteService
 from app.services.implementations.user_service import UserService
-from app.utilities.cookies import set_refresh_token_cookie
+from app.utilities.utils import build_invite_url
 
 # Initialize service
 logger = logging.getLogger(__name__)
@@ -44,43 +41,23 @@ driver_service = DriverService(logger)
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
 
-@router.get("/", response_model=list[DriverRead])
+@router.get("/", response_model=PaginatedResponse[DriverListRead])
 async def get_drivers(
     session: AsyncSession = Depends(get_session),
-    driver_id: UUID | None = Query(None, description="Filter by driver ID"),
-    email: str | None = Query(None, description="Filter by email"),
-    _auth: bool = Depends(require_driver_or_admin),
-) -> list[DriverRead]:
+    search: str | None = Query(None, description="Filter by first or last name"),
+    sort_by: Literal[
+        "name", "current_year_km", "last_year_km", "last_delivery"
+    ] = Query("name"),
+    order: Literal["asc", "desc"] = Query("asc"),
+    pagination: PaginationParams = Depends(get_pagination),
+    _auth: bool = Depends(require_admin),
+) -> PaginatedResponse[DriverListRead]:
     """
-    Get all drivers, optionally filter by driver_id or email
+    Paginated driver rows with server-side name search and list aggregates.
     """
-    if driver_id and email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot query by both driver_id and email",
-        )
-
-    if driver_id:
-        driver = await driver_service.get_driver_by_id(session, driver_id)
-        if not driver:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver with id {driver_id} not found",
-            )
-        return [DriverRead.model_validate(driver)]
-
-    elif email:
-        driver = await driver_service.get_driver_by_email(session, email)
-        if not driver:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Driver with email {email} not found",
-            )
-        return [DriverRead.model_validate(driver)]
-
-    else:
-        drivers = await driver_service.get_drivers(session)
-        return [DriverRead.model_validate(driver) for driver in drivers]
+    return await driver_service.get_driver_list(
+        session, pagination, search, sort_by, order
+    )
 
 
 @router.get("/{driver_id}", response_model=DriverRead)
@@ -143,76 +120,21 @@ async def initialize_driver(
     await session.refresh(created_driver)
 
     # Send invitation email
-    driver_signup_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/create-password/{user_invite.user_invite_id}"
+    driver_signup_url = build_invite_url(user_invite.user_invite_id)
     driver_name = f"{register_request.first_name} {register_request.last_name}".strip()
 
     await email_dispatcher.dispatch(
         email_type="account-creation",
         to=register_request.email,
         context={
-            "Driver_Name_To_Replace": driver_name if driver_name else "Driver",
+            "Name_To_Replace": driver_name if driver_name else "Driver",
+            "Role_To_Replace": "driver",
             "Sign_Up_URL": driver_signup_url,
-            "Hours_Till_Expiry": 48,
+            "Hours_Till_Expiry": INVITE_VALID_HOURS,
         },
     )
 
     return DriverRead.model_validate(created_driver)
-
-
-@router.post(
-    "/register",
-    response_model=DriverRegisterResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def complete_driver_registration(
-    registration_data: UserFinalize,
-    response: Response,
-    session: AsyncSession = Depends(get_session),
-    auth_service: AuthService = Depends(get_auth_service),
-    user_service: UserService = Depends(get_user_service),
-    user_invite_service: UserInviteService = Depends(get_user_invite_service),
-) -> DriverRegisterResponse:
-    """
-    Creates Firebase user and attaches to hanging state user in our local db, returns DriverRegisterResponse
-    """
-    async with session.begin_nested():
-        # Validate invite token and lock the row to prevent race conditions
-        user_invite_id = registration_data.user_invite_id
-        user_invite = await user_invite_service.get_user_invite_by_id(
-            session, user_invite_id, for_update=True
-        )
-
-        if (
-            not user_invite
-            or user_invite.is_used
-            or user_invite.expires_at < datetime.now(timezone.utc)
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid or expired registration link.",
-            )
-
-        # Create Firebase account for user
-        user = user_invite.user
-        await user_service.link_firebase_to_user(
-            session, user, registration_data.password
-        )
-
-        user_invite.is_used = True
-
-    await session.commit()
-
-    # Generate authentication tokens
-    auth_dto, refresh_token = await auth_service.generate_token(
-        session, user.email, registration_data.password, remember_me=False
-    )
-
-    # Set refresh token as httpOnly cookie
-    set_refresh_token_cookie(response, refresh_token, remember_me=False)
-
-    return DriverRegisterResponse(
-        driver=DriverRead.model_validate(user.driver), auth=auth_dto
-    )
 
 
 @router.put("/{driver_id}", response_model=DriverRead)
@@ -226,7 +148,7 @@ async def update_driver(
     Update an existing driver
     """
     if access is not DriverAccess.ADMIN:
-        self_editable_fields = {"first_name", "last_name", "phone"}
+        self_editable_fields = {"first_name", "last_name", "phone", "address"}
         requested_fields = set(driver.model_fields_set)
         admin_only_fields = requested_fields - self_editable_fields
         if admin_only_fields:
@@ -259,8 +181,9 @@ async def delete_driver(
 
     A hard delete of the person: the user account and their Firebase login go
     with the driver record, so a deleted driver can no longer sign in. Their
-    routes are detached (driver_id SET NULL) rather than deleted, so the
-    driver's km stop counting toward anyone.
+    routes are detached (driver_id SET NULL) rather than deleted: the km and
+    deliveries stay in the org's totals, they just stop being attributed to
+    anyone in the per-driver ranking and export.
     """
     # Deleting the `users` row cascades to `drivers`, `user_invites`,
     # `password_reset_tokens`, `announcement_last_reads` and `announcements`. A
