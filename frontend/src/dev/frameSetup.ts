@@ -156,6 +156,45 @@ const REGISTERED = {
   driver: { role: 'Driver' },
 };
 
+/**
+ * The route the "Routes (Individual - Driver)" frames draw, as GET
+ * /routes/{id} returns it. Taken from a real response off a seeded database,
+ * so the field names and shapes are the server's, not a guess.
+ */
+const ROUTE_FIXTURE = {
+  name: 'Tuesday A – Cambridge North',
+  notes: '',
+  length: 23.4,
+  encoded_polyline: '{bhhGnsmjNwVoFkRcVkMsb@sNsb@oP{^',
+  polyline_updated_at: null,
+  ends_at_warehouse: false,
+  start_time: '08:00:00',
+  route_group_id: '8f49e8d2-0fb2-473d-ae3a-962c9aed0c6c',
+  driver_id: null,
+  cloned_from_route_id: null,
+  note_chain_id: null,
+  route_id: '11111111-2222-4333-8444-555555555555',
+  drive_date: '2026-10-18T00:00:00',
+  delivery_type: 'Family',
+  stops: [
+    ['123 Main Street', '(289) 412-5638', '(519) 412-5638', 43.4643, -80.5204],
+    ['456 Oak Avenue', '(289) 412-5639', null, 43.4681, -80.5192],
+    ['789 Elm Street', '(289) 412-5640', null, 43.4712, -80.5155],
+    ['321 Pine Road', '(289) 412-5641', null, 43.4735, -80.5098],
+    ['654 Maple Drive', '(289) 412-5642', null, 43.476, -80.5041],
+  ].map(([street, primary, secondary, latitude, longitude], i) => ({
+    stop_number: i + 1,
+    address: `${street}, Waterloo, ON N2L 3G${i + 1}, Canada`,
+    contact_name: 'John Smith',
+    phone_primary: primary,
+    phone_secondary: secondary,
+    boxes: 1,
+    note_chain_id: null,
+    latitude,
+    longitude,
+  })),
+};
+
 const RECIPES: Recipe[] = [
   {
     labels: ['Login | Error', 'Default Log In - Error States', 'Redo Log in'],
@@ -250,6 +289,48 @@ const RECIPES: Recipe[] = [
       // The check runs as the screen mounts, so it has already failed by now.
       await reenterRoute(doc);
       await until(() => /Enter new password/.test(doc.body.innerText));
+    },
+  },
+  {
+    labels: ['Individual Route'],
+    /*
+     * The page loads a route by UUID pasted into its dev-only input, so there
+     * is nothing to reach from a cold load. The stop data is stubbed to the
+     * frame's own fixture — five Waterloo stops, one box each — because the
+     * comparison is of layout, and driving a different route through it would
+     * shift every card and read as a bug.
+     */
+    describe:
+      'loaded the frame’s route (GET /routes/{id} stubbed, dev Route-ID input hidden)',
+    run: async (doc) => {
+      stubResponse(
+        doc,
+        (url, method) =>
+          method === 'GET' && /\/routes\/[0-9a-f-]{36}$/.test(url),
+        200,
+        ROUTE_FIXTURE
+      );
+      const input = doc.querySelector<HTMLInputElement>('#route-id');
+      if (!input) return;
+      setValue(input, ROUTE_FIXTURE.route_id);
+      const load = Array.from(doc.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Load'
+      );
+      load?.click();
+      await until(() => /All Stops/.test(doc.body.innerText));
+      /*
+       * The page's own dev-only Route-ID field is scaffolding the frame does
+       * not draw, and it pushes the real content down — every element then
+       * reads as misplaced when only the offset is. Hide the block so the back
+       * link starts where the frame's does. Anchored on the field rather than
+       * a heading, because the heading is not always there.
+       */
+      const field = input.closest('div')?.parentElement;
+      if (field instanceof (doc.defaultView?.HTMLElement ?? HTMLElement)) {
+        field.style.display = 'none';
+      }
+      // The frame shows stop 1 expanded.
+      doc.querySelector('details')?.setAttribute('open', '');
     },
   },
   {
