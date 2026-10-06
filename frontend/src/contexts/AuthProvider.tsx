@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isError && !isFetching) {
       return (
         <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-gray-50">
-          <span className="text-sm font-medium text-gray-500">
+          <span role="alert" className="text-sm font-medium text-gray-500">
             Couldn&apos;t reach the server to restore your session.
           </span>
           <Button variant="primary" onClick={() => void refetch()}>
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
-        <span className="text-sm font-medium text-gray-500">
+        <span role="status" className="text-sm font-medium text-gray-500">
           Restoring your session...
         </span>
       </div>

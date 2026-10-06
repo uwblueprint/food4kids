@@ -35,7 +35,8 @@ const SESSION: AuthResponse = {
 type Reply =
   | { session: AuthResponse }
   | { status: number }
-  | { networkError: true };
+  | { networkError: true }
+  | { timedOut: true };
 
 const realAdapter = axiosClient.defaults.adapter;
 
@@ -62,6 +63,9 @@ async function fakeAdapter(config: InternalAxiosRequestConfig) {
 
   if ('networkError' in reply) {
     throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
+  }
+  if ('timedOut' in reply) {
+    throw new AxiosError('timeout exceeded', AxiosError.ECONNABORTED, config);
   }
 
   const status = 'session' in reply ? 200 : reply.status;
@@ -152,28 +156,26 @@ describe('while the session is being restored', () => {
 });
 
 describe('when the refresh fails', () => {
-  // Every 4xx is the server rejecting the cookie, and a retry would repeat it.
-  it.each([400, 401, 403, 404])(
-    'sends a visitor with no session to the login page on a %i',
-    async (status) => {
-      renderApp();
-      answer({ status });
+  it('sends a visitor with no session to the login page on a 401', async () => {
+    renderApp();
+    answer({ status: 401 });
 
-      expect(await screen.findByText('Login page')).toBeTruthy();
+    expect(await screen.findByText('Login page')).toBeTruthy();
 
-      const state = useAuthStore.getState();
-      expect(state.isRestoringSession).toBe(false);
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.accessToken).toBeNull();
-    }
-  );
+    const state = useAuthStore.getState();
+    expect(state.isRestoringSession).toBe(false);
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.accessToken).toBeNull();
+  });
 
   // The bug this file was written for: a blip used to clear the store and
   // sign out someone whose refresh cookie was still good.
   it.each([
     ['a connection that never landed', { networkError: true } as const],
-    ['a 500 from the server', { status: 500 } as const],
-    ['a 503 from the server', { status: 503 } as const],
+    ['a request that timed out', { timedOut: true } as const],
+    ...[400, 403, 404, 408, 429, 500, 503].map(
+      (status) => [`a ${status} from the server`, { status }] as const
+    ),
   ])('leaves the session alone on %s', async (_label, reply) => {
     renderApp();
     answer(reply);

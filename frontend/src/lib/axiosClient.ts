@@ -46,14 +46,13 @@ axiosClient.interceptors.request.use((config) => {
 const REFRESH_PATH = '/api/auth/refresh';
 
 /**
- * Any 4xx from `/auth/refresh` means the server looked at the refresh cookie
- * and rejected it, so retrying cannot help. A 5xx or a network error says
- * nothing about the cookie.
+ * `/auth/refresh` refuses a cookie with a 401 and nothing else. Any other
+ * failure, including a 429 from Cloud Run under load, says nothing about the
+ * cookie.
  */
 export function isRefreshRefusal(error: unknown): error is AxiosError {
   if (!isAxiosError(error)) return false;
-  const status = error.response?.status;
-  return status !== undefined && status >= 400 && status < 500;
+  return error.response?.status === 401;
 }
 
 // Without a timeout a hung refresh never errors, and the startup screen never
