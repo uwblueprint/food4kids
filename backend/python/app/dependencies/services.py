@@ -40,10 +40,10 @@ from app.services.implementations.password_reset_token_service import (
 )
 from app.services.implementations.quota_service import QuotaService
 from app.services.implementations.route_group_service import RouteGroupService
-from app.services.implementations.routes_api_routing_service import (
-    RoutesApiSingleVehicleAlgorithm,
-)
 from app.services.implementations.scheduler_service import SchedulerService
+from app.services.implementations.single_vehicle_routing import (
+    SingleVehicleRoutingAlgorithm,
+)
 from app.services.implementations.sweep_clustering import SweepRoutingAlgorithm
 from app.services.implementations.system_settings_service import SystemSettingsService
 from app.services.implementations.user_invite_service import UserInviteService
@@ -198,7 +198,7 @@ def build_routing_algorithm(
         case RouteGenerationMethod.FLEET_ROUTING:
             return GoogleMapsFleetRoutingAlgorithm()
         case RouteGenerationMethod.SINGLE_VEHICLE:
-            return RoutesApiSingleVehicleAlgorithm()
+            return SingleVehicleRoutingAlgorithm()
         case RouteGenerationMethod.CLUSTER_SWEEP:
             return SweepRoutingAlgorithm()
         case RouteGenerationMethod.AUTO:
@@ -206,7 +206,7 @@ def build_routing_algorithm(
                 get_quota_service(),
                 session_maker,
                 GoogleMapsFleetRoutingAlgorithm(),
-                RoutesApiSingleVehicleAlgorithm(),
+                SingleVehicleRoutingAlgorithm(),
                 SweepRoutingAlgorithm(),
             )
 

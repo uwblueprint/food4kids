@@ -150,9 +150,8 @@ class Settings(BaseSettings):
     # of a typical 75-stop group. Set below the true allowance to leave headroom
     # for our counter drifting from Google's.
     quota_fleet_routing_shipments: int = Field(default=1000)
-    # Routes API computeRoutes bills per *request* — a much larger allowance,
-    # also drawn on by route polyline lookups.
-    quota_routes_compute_requests: int = Field(default=10000)
+    # One-vehicle Route Optimization requests bill to their own SKU.
+    quota_single_vehicle_shipments: int = Field(default=5000)
 
     # GCP. Storage credentials come from Application Default Credentials, not
     # settings — only the bucket is named here.

@@ -12,25 +12,28 @@ than sailing into paid usage on a miscount.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
-from app.config import settings
 from app.models.api_usage import ApiSku
+from app.services.implementations.google_maps_routing_service import (
+    forced_pickup_count,
+)
 from app.utilities.datetime_utils import current_billing_month
 
 if TYPE_CHECKING:
+    import logging
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.config import Settings
 
-# Route Optimization bills per shipment; the Routes API bills per request.
+# Both Route Optimization SKUs bill per shipment, at different prices.
 # Surfaced so a caller never has to guess what a bare count means.
 SKU_UNITS: dict[str, str] = {
     ApiSku.FLEET_ROUTING.value: "shipments",
-    ApiSku.ROUTES_COMPUTE.value: "requests",
+    ApiSku.SINGLE_VEHICLE_ROUTING.value: "shipments",
 }
 
 
@@ -38,67 +41,17 @@ def fleet_routing_units(num_locations: int, num_vehicles: int) -> int:
     """Shipments one Fleet Routing request will be billed for.
 
     Route Optimization bills per shipment, and ``_build_payload`` sends one
-    shipment per delivery *plus* one forced pickup per vehicle to stop drivers
-    sitting idle. Counting only the deliveries undercounts every run by the
-    vehicle count — about 14% on a typical group.
+    shipment per delivery *plus* the forced pickups that stop drivers sitting
+    idle. Counting only the deliveries undercounts every multi-vehicle run.
 
     ``test_quota_service`` pins this against the real payload builder, so the
     two cannot drift apart silently.
     """
-    return num_locations + num_vehicles
+    return num_locations + forced_pickup_count(num_vehicles)
 
 
 class QuotaExhaustedError(Exception):
     """Raised when a SKU has no free room left for the requested units."""
-
-
-class PartiallyBilledError(Exception):
-    """A tier failed after some of its calls had already reached Google.
-
-    A tier that fans out several requests can fail on one after the others were
-    answered — and billed. Carrying the billed count lets the cascade hand back
-    only the units that were never spent, rather than the whole reservation.
-    """
-
-    def __init__(self, message: str, units_billed: int) -> None:
-        super().__init__(message)
-        self.units_billed = units_billed
-
-
-async def record_usage_out_of_band(sku: ApiSku, units: int) -> None:
-    """Record usage from a call that had no session to hand.
-
-    For ungated Google calls made deep in a request — route polylines, say —
-    which spend a SKU's allowance without going through the cascade. Left
-    unrecorded, the counter under-reports, and the cascade would offer a tier
-    room it no longer has. Undercounting is the direction that costs money.
-
-    Opens its own session and commits: Google billed the call regardless of
-    what the surrounding transaction eventually does. Never raises, because
-    losing count is a smaller problem than failing the work that prompted it.
-    """
-    if units <= 0:
-        return
-
-    from app import models as app_models
-
-    session_maker = app_models.async_session_maker_instance
-    if session_maker is None:
-        return
-
-    try:
-        service = QuotaService(logging.getLogger(__name__), settings)
-        async with session_maker() as session:
-            await service.record(session, sku, units)
-            await session.commit()
-    except Exception:
-        logging.getLogger(__name__).warning(
-            "Could not record %d %s against %s; the counter will under-report",
-            units,
-            SKU_UNITS[sku.value],
-            sku.value,
-            exc_info=True,
-        )
 
 
 class QuotaService:
@@ -112,7 +65,9 @@ class QuotaService:
         """The configured free allowance for a SKU, in that SKU's own unit."""
         budgets = {
             ApiSku.FLEET_ROUTING: self.settings.quota_fleet_routing_shipments,
-            ApiSku.ROUTES_COMPUTE: self.settings.quota_routes_compute_requests,
+            ApiSku.SINGLE_VEHICLE_ROUTING: (
+                self.settings.quota_single_vehicle_shipments
+            ),
         }
         return budgets[sku]
 
@@ -205,36 +160,6 @@ class QuotaService:
             budget,
         )
         return True
-
-    async def record(
-        self,
-        session: AsyncSession,
-        sku: ApiSku,
-        units: int,
-        month: str | None = None,
-    ) -> None:
-        """Add usage unconditionally, past the budget if need be.
-
-        For calls we do not gate — route polylines are issued as part of saving
-        a generation and are not worth failing over — where the counter still
-        has to reflect that the allowance was spent.
-        """
-        if units <= 0:
-            return
-
-        billing_month = month or current_billing_month()
-        await session.execute(
-            text(
-                "INSERT INTO api_usage "
-                "  (api_usage_id, sku, billing_month, units_used, "
-                "   created_at, updated_at) "
-                "VALUES (gen_random_uuid(), :sku, :month, :units, now(), now()) "
-                "ON CONFLICT (sku, billing_month) DO UPDATE "
-                "SET units_used = api_usage.units_used + :units, "
-                "    updated_at = now()"
-            ),
-            {"sku": sku.value, "month": billing_month, "units": units},
-        )
 
     async def release(
         self,

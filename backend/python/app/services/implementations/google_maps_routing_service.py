@@ -48,6 +48,16 @@ VEHICLE_COST_PER_HOUR = 1
 GLOBAL_HORIZON_HOURS = 24
 
 
+def forced_pickup_count(num_routes: int) -> int:
+    """How many forced pickups the payload adds ahead of the deliveries.
+
+    They exist to stop the optimizer leaving a driver idle, which cannot
+    happen with one vehicle: every delivery is mandatory, so it gets them all.
+    Each one is a billed shipment, so one-vehicle requests send none.
+    """
+    return num_routes if num_routes > 1 else 0
+
+
 def _localize(moment: datetime) -> datetime:
     """Return `moment` as a timezone-aware datetime in warehouse-local time.
 
@@ -129,7 +139,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
         ]
 
         # Force every vehicle to be used by giving each a mandatory pickup.
-        # Without this some drivers may be left idle.
+        # Without this some drivers may be left idle. See forced_pickup_count.
         # loadDemands is explicitly 0 so it doesn't consume capacity meant
         # for actual deliveries (each delivery adds its box count to the load).
         forced_pickups = [
@@ -143,7 +153,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 ],
                 "allowedVehicleIndices": [i],
             }
-            for i in range(settings.num_routes)
+            for i in range(forced_pickup_count(settings.num_routes))
         ]
 
         service_duration = f"{settings.service_time_minutes * 60}s"
@@ -261,8 +271,8 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
 
         The API response contains a list of routes (one per vehicle) with visits.
         Each visit references a shipment index. We skip the forced-pickup shipments
-        (indices 0..num_routes-1) and map the remaining delivery shipments back to
-        locations using: location_index = shipment_index - num_routes.
+        that lead the array and map the remaining delivery shipments back to
+        locations by subtracting their count.
         """
 
         # Every delivery is mandatory — if the API skipped any, something is
@@ -276,6 +286,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
             )
 
         routes: list[list[Location]] = [[] for _ in range(num_routes)]
+        forced_pickups = forced_pickup_count(num_routes)
 
         for route_data in result.get("routes", []):
             vehicle_index = route_data.get("vehicleIndex", 0)
@@ -291,9 +302,7 @@ class GoogleMapsFleetRoutingAlgorithm(RoutingAlgorithmProtocol):
                 if visit.get("isPickup", False):
                     continue
                 shipment_index = visit.get("shipmentIndex", 0)
-                # Offset by num_routes because forced-pickup shipments occupy
-                # indices 0..num_routes-1 in the shipments array.
-                location_index = shipment_index - num_routes
+                location_index = shipment_index - forced_pickups
                 # Guard also protects against missing shipmentIndex
                 # (defaults to 0, yielding a negative location_index)
                 if 0 <= location_index < len(locations):

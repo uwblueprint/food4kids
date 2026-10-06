@@ -21,7 +21,6 @@ from pydantic import ValidationError
 from sqlalchemy import update
 from sqlmodel import col, select
 
-from app.models.api_usage import ApiSku
 from app.models.enum import ProgressEnum
 from app.models.job import Job
 from app.models.location import Location
@@ -31,9 +30,6 @@ from app.models.route_group import RouteGroup
 from app.models.route_stop import RouteStop
 from app.models.system_settings import SystemSettings
 from app.schemas.route_generation import RouteGenerationGroupInput
-from app.services.implementations.quota_service import (
-    record_usage_out_of_band,
-)
 from app.services.implementations.route_group_service import (
     ROUTE_GROUP_NAME_MAX_LENGTH,
 )
@@ -342,38 +338,17 @@ async def _build_route_group(
         drive_date=settings.route_start_time.date(),
     )
 
-    # Polylines draw on the same Routes API allowance the single-vehicle tier
-    # gates on, so they have to show up in the counter or that tier will be
-    # offered room it no longer has. Recorded whether or not the batch
-    # succeeds: one failed call does not un-bill the ones Google answered.
-    #
-    # Assumes every call was sent until the results say otherwise, so a batch
-    # cut off by the generation timeout still counts what it spent.
-    # fetch_route_polyline raises ValueError only before sending, so those
-    # are the calls that cost nothing.
-    sent = len(filled)
-    try:
-        results = await asyncio.gather(
-            *(
-                fetch_route_polyline(
-                    locations=cluster,
-                    warehouse_lat=warehouse_lat,
-                    warehouse_lon=warehouse_lon,
-                    ends_at_warehouse=settings.return_to_warehouse,
-                )
-                for cluster in filled
-            ),
-            return_exceptions=True,
+    polyline_results = await asyncio.gather(
+        *(
+            fetch_route_polyline(
+                locations=cluster,
+                warehouse_lat=warehouse_lat,
+                warehouse_lon=warehouse_lon,
+                ends_at_warehouse=settings.return_to_warehouse,
+            )
+            for cluster in filled
         )
-        sent = sum(1 for result in results if not isinstance(result, ValueError))
-    finally:
-        await record_usage_out_of_band(ApiSku.ROUTES_COMPUTE, sent)
-
-    polyline_results: list[tuple[str, float]] = []
-    for result in results:
-        if isinstance(result, BaseException):
-            raise result
-        polyline_results.append(result)
+    )
 
     for number, (cluster, (encoded_polyline, distance_km)) in enumerate(
         zip(filled, polyline_results, strict=True),

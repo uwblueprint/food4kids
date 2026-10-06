@@ -1,7 +1,7 @@
 """Per-SKU usage counters for the paid Google APIs route generation calls.
 
 Google's free monthly allowances are granted per SKU and do not pool: spending
-Fleet Routing's allowance leaves the Routes API's untouched. Route generation
+Fleet Routing's allowance leaves Single Vehicle Routing's untouched. Route generation
 walks its tiers in quality order, so it needs to know which individual SKU is
 exhausted, which one combined total could not answer.
 
@@ -26,9 +26,9 @@ class ApiSku(str, Enum):
 
     # Route Optimization, two or more vehicles. Billed per *shipment*.
     FLEET_ROUTING = "fleet_routing"
-    # Routes API computeRoutes. Billed per *request* — a different unit, and a
-    # far larger allowance. Also spent by route polyline lookups.
-    ROUTES_COMPUTE = "routes_compute"
+    # Route Optimization, exactly one vehicle. Also billed per shipment, with
+    # a larger allowance and a third of the price.
+    SINGLE_VEHICLE_ROUTING = "single_vehicle_routing"
 
 
 class ApiUsageBase(SQLModel):

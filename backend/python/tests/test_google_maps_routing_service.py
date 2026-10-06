@@ -274,8 +274,28 @@ class TestBuildPayload:
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
 
-        delivery = payload["model"]["shipments"][1]["deliveries"][0]
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["duration"] == "600s"  # 10 min * 60
+
+    @pytest.mark.parametrize(("num_routes", "forced"), [(1, 0), (2, 2), (5, 5)])
+    def test_forced_pickups_only_with_more_than_one_vehicle(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+        num_routes: int,
+        forced: int,
+    ) -> None:
+        """Every shipment is billed, and one vehicle cannot be left idle."""
+        settings = _settings(num_routes=num_routes)
+        locs = [make_location() for _ in range(5)]
+
+        shipments = algorithm._build_payload(locs, 43.0, -79.0, settings)["model"][
+            "shipments"
+        ]
+
+        assert len(shipments) == forced + len(locs)
+        assert all("pickups" in s for s in shipments[:forced])
+        assert all("deliveries" in s for s in shipments[forced:])
 
     def test_return_to_warehouse_sets_end_location(
         self,
@@ -377,7 +397,7 @@ class TestBuildPayload:
 
         payload = algorithm._build_payload(locs, 43.0, -79.0, settings)
 
-        delivery = payload["model"]["shipments"][1]["deliveries"][0]
+        delivery = payload["model"]["shipments"][0]["deliveries"][0]
         assert delivery["loadDemands"] == {"load": {"amount": "3"}}
 
 
@@ -429,7 +449,7 @@ class TestParseResponse:
     ) -> None:
         """Visits with isPickup=True are excluded from routes."""
         locs = [make_location()]
-        num_routes = 1
+        num_routes = 2
 
         response = {
             "routes": [
@@ -437,16 +457,40 @@ class TestParseResponse:
                     "vehicleIndex": 0,
                     "visits": [
                         {"shipmentIndex": 0, "isPickup": True},
-                        {"shipmentIndex": 1},  # locs[0]
+                        {"shipmentIndex": 2},  # locs[0]
                     ],
-                }
+                },
+                {
+                    "vehicleIndex": 1,
+                    "visits": [{"shipmentIndex": 1, "isPickup": True}],
+                },
             ]
         }
 
         routes = algorithm._parse_response(response, locs, num_routes)
 
-        assert len(routes) == 1
-        assert routes[0] == [locs[0]]
+        assert routes == [[locs[0]], []]
+
+    def test_one_vehicle_has_no_forced_pickup_to_offset(
+        self,
+        algorithm: GoogleMapsFleetRoutingAlgorithm,
+        make_location: Any,
+    ) -> None:
+        """With no forced pickup, shipment 0 is the first delivery."""
+        locs = [make_location(address="a"), make_location(address="b")]
+
+        response = {
+            "routes": [
+                {
+                    "vehicleIndex": 0,
+                    "visits": [{"shipmentIndex": 1}, {"shipmentIndex": 0}],
+                }
+            ]
+        }
+
+        routes = algorithm._parse_response(response, locs, num_routes=1)
+
+        assert routes == [[locs[1], locs[0]]]
 
     def test_empty_response(
         self,

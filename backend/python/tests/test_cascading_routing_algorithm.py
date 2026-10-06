@@ -24,10 +24,9 @@ from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.cascading_routing_algorithm import (
     CascadingRoutingAlgorithm,
     Tier,
-    routes_compute_units,
+    single_vehicle_units,
 )
 from app.services.implementations.quota_service import (
-    PartiallyBilledError,
     QuotaService,
     fleet_routing_units,
 )
@@ -101,7 +100,7 @@ def _quota(**budgets: int) -> QuotaService:
         logging.getLogger(__name__),
         Settings(
             quota_fleet_routing_shipments=budgets.get("fleet", 1000),
-            quota_routes_compute_requests=budgets.get("routes", 10000),
+            quota_single_vehicle_shipments=budgets.get("single", 5000),
         ),
     )
 
@@ -127,8 +126,8 @@ def _cascade(
             Tier(
                 name="single_vehicle",
                 algorithm=middle,
-                sku=ApiSku.ROUTES_COMPUTE,
-                units_for=routes_compute_units,
+                sku=ApiSku.SINGLE_VEHICLE_ROUTING,
+                units_for=single_vehicle_units,
             )
         )
     tiers.append(Tier(name="cluster_sweep", algorithm=free))
@@ -263,24 +262,6 @@ class TestFailureHandling:
         assert routes == [locations]
         assert free.calls == 1
 
-    async def test_a_partial_failure_keeps_the_units_already_billed(
-        self, maker: Any, locations: list[Any], gen_settings: Any
-    ) -> None:
-        """A tier that fans out calls can fail on one after Google answered,
-        and billed, the rest. Only the unspent units may go back."""
-        quota = _quota(fleet=12)  # no room up top, so the middle rung runs
-        middle = FakeAlgorithm(
-            error=PartiallyBilledError("1 of 4 clusters failed", units_billed=3)
-        )
-        free = FakeAlgorithm()
-        cascade = _cascade(quota, maker, FakeAlgorithm(), free, middle)
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        async with maker() as session:
-            assert await quota.units_used(session, ApiSku.ROUTES_COMPUTE) == 3
-        assert free.calls == 1
-
     async def test_a_failed_quota_check_skips_the_tier_not_the_job(
         self, maker: Any, locations: list[Any], gen_settings: Any
     ) -> None:
@@ -349,14 +330,14 @@ class TestUsageIsIndependentOfTheJob:
 class TestBillingUnitsPerTier:
     """Units are not comparable across SKUs."""
 
-    async def test_routes_compute_counts_requests_not_shipments(self) -> None:
-        """One computeRoutes call per vehicle, regardless of stop count."""
-        assert routes_compute_units(75, 12) == 12
+    async def test_single_vehicle_skips_the_forced_pickups(self) -> None:
+        """One-vehicle requests carry only deliveries; fleet adds a pickup each."""
+        assert single_vehicle_units(75, 12) == 75
         assert fleet_routing_units(75, 12) == 87
 
 
 class TestThreeRungCascade:
-    """The shipped ladder: Fleet Routing, then Routes API, then in-house."""
+    """The shipped ladder: Fleet Routing, then single-vehicle, then in-house."""
 
     async def test_middle_rung_catches_the_job_when_the_top_is_spent(
         self, maker: Any, locations: list[Any], gen_settings: Any
@@ -368,10 +349,10 @@ class TestThreeRungCascade:
 
         assert (paid.calls, middle.calls, free.calls) == (0, 1, 0)
 
-    async def test_middle_rung_bills_per_driver_not_per_stop(
+    async def test_middle_rung_bills_only_the_deliveries(
         self, maker: Any, locations: list[Any], gen_settings: Any
     ) -> None:
-        """9 stops over 4 drivers costs 4 requests, against 13 shipments."""
+        """9 stops over 4 drivers: 9 shipments, against fleet routing's 13."""
         quota = _quota(fleet=12)
         cascade = _cascade(
             quota, maker, FakeAlgorithm(), FakeAlgorithm(), FakeAlgorithm()
@@ -380,13 +361,13 @@ class TestThreeRungCascade:
         await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
 
         async with maker() as session:
-            assert await quota.units_used(session, ApiSku.ROUTES_COMPUTE) == 4
+            assert await quota.units_used(session, ApiSku.SINGLE_VEHICLE_ROUTING) == 9
 
     async def test_drops_to_the_floor_only_when_both_apis_are_spent(
         self, maker: Any, locations: list[Any], gen_settings: Any
     ) -> None:
         paid, middle, free = FakeAlgorithm(), FakeAlgorithm(), FakeAlgorithm()
-        cascade = _cascade(_quota(fleet=0, routes=0), maker, paid, free, middle)
+        cascade = _cascade(_quota(fleet=0, single=0), maker, paid, free, middle)
 
         await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
 

@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from app.models.api_usage import ApiSku
 from app.models.driver import Driver
 from app.models.enum import (
     DriveDaysOfWeekEnum,
@@ -32,9 +31,6 @@ from app.models.route_stop_snapshot import RouteStopSnapshot
 from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.services.implementations.quota_service import (
-    record_usage_out_of_band,
-)
 from app.utilities.boxes import (
     box_count_expr,
     compute_boxes,
@@ -524,28 +520,13 @@ class RouteService:
                 warehouse_lat = system_settings.warehouse_latitude
                 warehouse_lon = system_settings.warehouse_longitude
 
-                # Route edits spend the same Routes API allowance as the
-                # single-vehicle generation tier; unrecorded, they would leave
-                # the counter reporting room that is already gone.
-                #
-                # Recorded in a finally, as the generation runner does: a
-                # request that reaches Google and comes back an error is
-                # billed all the same, and dropping it under-reports — the
-                # direction that spends real money. ValueError is the one
-                # failure raised before anything is sent, so it costs nothing.
-                sent = 1
-                try:
-                    encoded_polyline, distance_km = await fetch_route_polyline(
-                        locations=ordered_locations,
-                        warehouse_lat=warehouse_lat,
-                        warehouse_lon=warehouse_lon,
-                        ends_at_warehouse=route.ends_at_warehouse,
-                    )
-                except ValueError:
-                    sent = 0
-                    raise
-                finally:
-                    await record_usage_out_of_band(ApiSku.ROUTES_COMPUTE, sent)
+                # Call fetch route polyline for new polyline + distance
+                encoded_polyline, distance_km = await fetch_route_polyline(
+                    locations=ordered_locations,
+                    warehouse_lat=warehouse_lat,
+                    warehouse_lon=warehouse_lon,
+                    ends_at_warehouse=route.ends_at_warehouse,
+                )
 
                 # Delete existing route stops
                 existing_stops_result = await session.execute(

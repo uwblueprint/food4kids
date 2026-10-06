@@ -16,10 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from app.models.api_usage import ApiSku
-from app.services.implementations.quota_service import (
-    PartiallyBilledError,
-    fleet_routing_units,
-)
+from app.services.implementations.quota_service import fleet_routing_units
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,9 +48,12 @@ class Tier:
     units_for: Callable[[int, int], int] | None = None
 
 
-def routes_compute_units(_num_locations: int, num_vehicles: int) -> int:
-    """computeRoutes is billed per request, and we issue one per vehicle."""
-    return num_vehicles
+def single_vehicle_units(num_locations: int, _num_vehicles: int) -> int:
+    """One-vehicle requests send no forced pickup, so only the deliveries.
+
+    Clusters of one stop skip the request, so this can overcount, never under.
+    """
+    return num_locations
 
 
 class CascadingRoutingAlgorithm:
@@ -118,18 +118,6 @@ class CascadingRoutingAlgorithm:
                 self.logger.warning(
                     "Tier %s timed out; keeping its reservation and falling back",
                     tier.name,
-                )
-                continue
-            except PartiallyBilledError as error:
-                # Some of the tier's calls were answered before one failed.
-                # Those were billed and stay counted; only the rest go back.
-                await self._release(tier, max(units - error.units_billed, 0))
-                attempts.append(f"{tier.name} (failed)")
-                self.logger.exception(
-                    "Tier %s failed after %d billed unit(s); released the rest "
-                    "and falling back",
-                    tier.name,
-                    error.units_billed,
                 )
                 continue
             except Exception:
@@ -231,8 +219,8 @@ def build_default_cascade(
             Tier(
                 name="single_vehicle",
                 algorithm=single_vehicle,
-                sku=ApiSku.ROUTES_COMPUTE,
-                units_for=routes_compute_units,
+                sku=ApiSku.SINGLE_VEHICLE_ROUTING,
+                units_for=single_vehicle_units,
             ),
             Tier(name="cluster_sweep", algorithm=cluster_sweep),
         ],

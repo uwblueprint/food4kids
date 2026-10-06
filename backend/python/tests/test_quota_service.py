@@ -49,7 +49,7 @@ class FakeLocation:
 def _service(**budgets: int) -> QuotaService:
     settings = Settings(
         quota_fleet_routing_shipments=budgets.get("fleet", 1000),
-        quota_routes_compute_requests=budgets.get("routes", 10000),
+        quota_single_vehicle_shipments=budgets.get("single", 5000),
     )
     return QuotaService(logging.getLogger(__name__), settings)
 
@@ -142,11 +142,11 @@ class TestTryReserve:
         self, test_session: AsyncSession
     ) -> None:
         """Google grants these per SKU; spending one must not touch another."""
-        service = _service(fleet=100, routes=100)
+        service = _service(fleet=100, single=100)
         await service.try_reserve(test_session, ApiSku.FLEET_ROUTING, 100, MONTH)
 
         assert await service.try_reserve(
-            test_session, ApiSku.ROUTES_COMPUTE, 100, MONTH
+            test_session, ApiSku.SINGLE_VEHICLE_ROUTING, 100, MONTH
         )
 
     async def test_a_new_month_starts_from_zero(
@@ -213,34 +213,6 @@ class TestConcurrentReservation:
 
         assert sum(results) == budget // units
         assert used == budget
-
-
-class TestRecord:
-    """Ungated calls still have to show up in the counter."""
-
-    async def test_records_past_the_budget(self, test_session: AsyncSession) -> None:
-        """Polylines are issued while saving a generation, too late to refuse.
-
-        The allowance is spent either way, so the counter must say so rather
-        than quietly under-reporting.
-        """
-        service = _service(routes=10)
-
-        await service.record(test_session, ApiSku.ROUTES_COMPUTE, 25, MONTH)
-
-        assert (
-            await service.units_used(test_session, ApiSku.ROUTES_COMPUTE, MONTH) == 25
-        )
-
-    async def test_accumulates(self, test_session: AsyncSession) -> None:
-        service = _service()
-
-        await service.record(test_session, ApiSku.ROUTES_COMPUTE, 12, MONTH)
-        await service.record(test_session, ApiSku.ROUTES_COMPUTE, 12, MONTH)
-
-        assert (
-            await service.units_used(test_session, ApiSku.ROUTES_COMPUTE, MONTH) == 24
-        )
 
 
 class TestRelease:
