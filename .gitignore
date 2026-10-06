@@ -1,5 +1,6 @@
 **/node_modules
 **/.env
+**/.env.production
 **/.env.local
 **/build
 **/venv
@@ -21,6 +22,7 @@ CLAUDE.md
 .postman/
 postman/globals/
 backend/python/app/data/
+backend/python/.venv
 **/*service-account*.json
 **/*secrets*.json
 frontend/emails/html/static/

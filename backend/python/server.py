@@ -15,7 +15,7 @@ if __name__ == "__main__":
             host=settings.host,
             port=settings.port,
             log_level="info",
-            reload=True,
+            reload=False,
             factory=True,
         )
     else:

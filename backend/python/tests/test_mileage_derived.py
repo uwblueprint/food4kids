@@ -86,6 +86,9 @@ async def _add_frozen_route(
     await session.commit()
     await session.refresh(stop)
 
+    assert location.latitude is not None
+    assert location.longitude is not None
+
     session.add(
         RouteSnapshot(
             route_id=route.route_id,
@@ -223,6 +226,9 @@ async def frozen_world(test_session: AsyncSession) -> dict[str, Any]:
     test_session.add(stop)
     await test_session.commit()
     await test_session.refresh(stop)
+
+    assert locations[0].latitude is not None
+    assert locations[0].longitude is not None
 
     # Freeze the past route: snapshot + stop snapshot, as the nightly job does.
     test_session.add(

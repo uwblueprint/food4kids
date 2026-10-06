@@ -921,12 +921,14 @@ class TestAnnouncementModel:
         with pytest.raises(ValidationError) as exc_info:
             AnnouncementCreate(
                 message="No subject",
+                user_id=uuid4(),
             )
         assert "subject" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
             AnnouncementCreate(
                 subject="No message",
+                user_id=uuid4(),
             )
         assert "message" in str(exc_info.value)
 

@@ -109,6 +109,8 @@ async def _freeze_route(
             if stop.snapshot is not None:
                 continue
             loc = stop.location
+            assert loc.latitude is not None
+            assert loc.longitude is not None
             session.add(
                 RouteStopSnapshot(
                     route_stop_id=stop.route_stop_id,
