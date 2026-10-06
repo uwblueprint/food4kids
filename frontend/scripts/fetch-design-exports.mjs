@@ -85,6 +85,13 @@ const ROUTES = {
   "First Time Login - Passwords Don't Match": `/create-password/${DEMO_TOKEN}`,
   'First Time Login - Empty State': `/create-password/${DEMO_TOKEN}`,
   'Create Password - New Drivers': `/create-password/${DEMO_TOKEN}`,
+  // Hi-fi "Dashboard | Final" section — admin home
+  'Homepage Final': '/admin/home',
+  'Homepage Final | None Assigned': '/admin/home',
+  'Homepage Final | Details Popup': '/admin/home',
+  'Homepage | Calendar Dates Changed': '/admin/home',
+  'Homepage | Kilometers Driven': '/admin/home',
+  'Homepage | Top Drivers': '/admin/home',
 };
 
 /**
