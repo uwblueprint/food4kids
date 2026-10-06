@@ -170,12 +170,13 @@ describe('when the refresh fails', () => {
 
   // The bug this file was written for: a blip used to clear the store and
   // sign out someone whose refresh cookie was still good.
-  it.each([
-    ['a connection that never landed', { networkError: true } as const],
-    ['a request that timed out', { timedOut: true } as const],
-    ...[400, 403, 404, 408, 429, 500, 503].map(
-      (status) => [`a ${status} from the server`, { status }] as const
-    ),
+  it.each<[string, Reply]>([
+    ['a connection that never landed', { networkError: true }],
+    ['a request that timed out', { timedOut: true }],
+    ...[400, 403, 404, 408, 429, 500, 503].map((status): [string, Reply] => [
+      `a ${status} from the server`,
+      { status },
+    ]),
   ])('leaves the session alone on %s', async (_label, reply) => {
     renderApp();
     answer(reply);
