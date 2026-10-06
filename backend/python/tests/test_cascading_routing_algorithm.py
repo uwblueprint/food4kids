@@ -14,8 +14,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.dependencies.services import build_routing_algorithm
-from app.models.enum import RouteGenerationMethod
+from app.dependencies.services import get_routing_algorithm
 from app.schemas.route_generation import RouteGenerationSettings
 from app.services.implementations.cascading_routing_algorithm import (
     FLEET_ROUTING_USD_PER_SHIPMENT,
@@ -87,11 +86,6 @@ class FakeSpend:
             self.charged.append((tier, shipments, cost_usd))
             return True
         return False
-
-    async def charge(self, tier: str, shipments: int, cost_usd: float) -> None:
-        if self.error is not None:
-            raise self.error
-        self.charged.append((tier, shipments, cost_usd))
 
 
 @pytest.fixture
@@ -273,39 +267,6 @@ class TestFallback:
         assert "cluster_sweep (failed: ValueError('not enough drivers'))" in message
 
 
-class TestPinnedEngine:
-    """With the budget not enforced, a paid tier is recorded but not refused."""
-
-    async def test_records_and_runs_without_asking(
-        self, locations: list[Any], gen_settings: Any
-    ) -> None:
-        spend = FakeSpend()  # would refuse everything
-        engine = FakeAlgorithm()
-        cascade = CascadingRoutingAlgorithm(
-            spend,  # type: ignore[arg-type]
-            [_paid("fleet_routing", engine)],
-            enforce_budget=False,
-        )
-
-        await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-        assert engine.calls == 1
-        assert spend.checked == []
-        assert [tier for tier, _, _ in spend.charged] == ["fleet_routing"]
-
-    async def test_a_failure_fails_the_job_with_the_cause(
-        self, locations: list[Any], gen_settings: Any
-    ) -> None:
-        cascade = CascadingRoutingAlgorithm(
-            FakeSpend(),  # type: ignore[arg-type]
-            [_paid("fleet_routing", FakeAlgorithm(RuntimeError("quota exceeded")))],
-            enforce_budget=False,
-        )
-
-        with pytest.raises(RuntimeError, match="quota exceeded"):
-            await cascade.generate_routes(locations, 43.0, -79.0, gen_settings)
-
-
 class TestShippedTiers:
     """The real tiers bill what their engines send, at Google's list price."""
 
@@ -337,34 +298,12 @@ class TestShippedTiers:
         assert pricing.usd_per_shipment == per_shipment
 
 
-class TestBuildRoutingAlgorithm:
-    """Each configured method gets the engine and budget rule it promises."""
+async def test_the_shipped_algorithm_is_the_full_ladder() -> None:
+    algorithm = get_routing_algorithm(session_maker=None)  # type: ignore[arg-type]
 
-    @pytest.mark.parametrize(
-        ("method", "tiers", "enforced"),
-        [
-            (
-                RouteGenerationMethod.AUTO,
-                ["fleet_routing", "single_vehicle", "cluster_sweep"],
-                True,
-            ),
-            (RouteGenerationMethod.FLEET_ROUTING, ["fleet_routing"], False),
-            (RouteGenerationMethod.SINGLE_VEHICLE, ["single_vehicle"], False),
-        ],
-    )
-    async def test_cascading_methods(
-        self, method: RouteGenerationMethod, tiers: list[str], enforced: bool
-    ) -> None:
-        algorithm = build_routing_algorithm(method, session_maker=None)  # type: ignore[arg-type]
-
-        assert isinstance(algorithm, CascadingRoutingAlgorithm)
-        assert [tier.name for tier in algorithm.tiers] == tiers
-        assert algorithm.enforce_budget is enforced
-
-    async def test_cluster_sweep_is_the_bare_free_engine(self) -> None:
-        algorithm = build_routing_algorithm(
-            RouteGenerationMethod.CLUSTER_SWEEP,
-            session_maker=None,  # type: ignore[arg-type]
-        )
-
-        assert isinstance(algorithm, SweepRoutingAlgorithm)
+    assert isinstance(algorithm, CascadingRoutingAlgorithm)
+    assert [tier.name for tier in algorithm.tiers] == [
+        "fleet_routing",
+        "single_vehicle",
+        "cluster_sweep",
+    ]

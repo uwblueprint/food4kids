@@ -1,9 +1,7 @@
 """Keeps paid route generation inside the project's GCP budget.
 
-A paid request may run only if month-to-date spend, plus what recent paid
-requests will add once the billing export catches up, plus the request itself,
-still fits the budget. Recent requests come from ``routing_charge``, written
-here as each one is approved.
+The billing export lags by hours, so approved requests are also written to
+``routing_charge`` and counted until the export has caught up with them.
 """
 
 from __future__ import annotations
@@ -28,9 +26,8 @@ if TYPE_CHECKING:
         BillingSummary,
     )
 
-# The export's last refresh does not mean everything before it is included:
-# usage can land in a later export. Charges this far behind the refresh still
-# count, which double-counts some spend rather than missing any.
+# Usage can land in an export later than its own time, so charges this far
+# before the last refresh still count: double-counting beats missing spend.
 EXPORT_LAG = timedelta(days=1)
 
 # Any fixed number; every instance must take the same one.
@@ -63,8 +60,7 @@ class RoutingSpendService:
     async def try_charge(self, tier: str, shipments: int, cost_usd: float) -> bool:
         """Record the request and return True if it fits the budget.
 
-        Returns False, recording nothing, when it would not fit or when the
-        budget cannot be read: spending blind is the one outcome to avoid.
+        False, recording nothing, if it doesn't or the budget is unreadable.
         """
         try:
             summary = await self.billing_service.get_month_to_date_summary()
@@ -116,12 +112,6 @@ class RoutingSpendService:
             summary.budget_amount,
         )
         return True
-
-    async def charge(self, tier: str, shipments: int, cost_usd: float) -> None:
-        """Record a request made without a budget check (a pinned engine)."""
-        async with self.session_maker() as session:
-            session.add(_charge(tier, shipments, cost_usd))
-            await session.commit()
 
     @staticmethod
     async def _pending_usd(session: AsyncSession, data_as_of: datetime | None) -> float:

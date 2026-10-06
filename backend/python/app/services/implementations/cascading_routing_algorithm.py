@@ -1,11 +1,7 @@
-"""Route generation that uses the best engine the budget allows.
+"""Route generation with the best engine the budget allows.
 
-Tiers run in quality order. A paid tier runs only if the spend service approves
-its estimated cost; otherwise, or if it fails, generation falls to the next.
-The in-house sweep is the floor: free, so always available.
-
-Implements ``RoutingAlgorithmProtocol`` so the generation runner is unchanged;
-it sees one algorithm and never learns there were tiers.
+Tiers run in quality order; a paid tier runs only if the spend service approves
+it, and any refusal or failure falls to the next. The in-house sweep is free.
 """
 
 from __future__ import annotations
@@ -66,8 +62,8 @@ def fleet_routing_tier() -> Tier:
 
 
 def single_vehicle_tier() -> Tier:
-    # One request per route, each with one vehicle. Single-stop routes skip
-    # the request, so this can overcount but never undercounts.
+    # One single-vehicle request per route; single-stop routes skip theirs,
+    # so this can only overcount.
     return Tier(
         name="single_vehicle",
         algorithm=SingleVehicleRoutingAlgorithm(),
@@ -83,21 +79,11 @@ def cluster_sweep_tier() -> Tier:
 
 
 class CascadingRoutingAlgorithm:
-    """Tries each tier in turn, skipping any the budget cannot cover.
+    """Tries each tier in turn, skipping any the budget cannot cover."""
 
-    With ``enforce_budget`` off, paid tiers are recorded but never refused:
-    pinning an engine is a deliberate choice to pay for it.
-    """
-
-    def __init__(
-        self,
-        spend: RoutingSpendService,
-        tiers: list[Tier],
-        enforce_budget: bool = True,
-    ) -> None:
+    def __init__(self, spend: RoutingSpendService, tiers: list[Tier]) -> None:
         self.spend = spend
         self.tiers = tiers
-        self.enforce_budget = enforce_budget
 
     async def generate_routes(
         self,
@@ -110,8 +96,7 @@ class CascadingRoutingAlgorithm:
         attempts: list[str] = []
 
         for tier in self.tiers:
-            # A database blip while checking spend costs this tier, not the
-            # job: nothing has been sent yet, and the free floor needs no check.
+            # Nothing is sent yet, so a failed check only costs this tier.
             try:
                 approved = await self._approve(tier, len(locations), settings)
             except Exception:
@@ -122,9 +107,7 @@ class CascadingRoutingAlgorithm:
                 attempts.append(f"{tier.name} (over budget)")
                 continue
 
-            # Any failure, a timeout included, falls back. The charge stands:
-            # the request may have been billed, and an overestimate only lasts
-            # until the billing export catches up.
+            # The charge stands on failure: the request may have been billed.
             try:
                 routes = await tier.algorithm.generate_routes(
                     locations,
@@ -153,7 +136,4 @@ class CascadingRoutingAlgorithm:
             return True
         shipments = tier.pricing.shipments_for(num_locations, settings.num_routes)
         cost_usd = shipments * tier.pricing.usd_per_shipment
-        if not self.enforce_budget:
-            await self.spend.charge(tier.name, shipments, cost_usd)
-            return True
         return await self.spend.try_charge(tier.name, shipments, cost_usd)

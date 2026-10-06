@@ -16,19 +16,6 @@ class ProgressEnum(str, Enum):
     FAILED = "Failed"
 
 
-class RouteGenerationMethod(str, Enum):
-    """Which engine route generation should use.
-
-    ``AUTO`` uses the best engine the GCP budget allows, falling back to the
-    free in-house sweep. The rest pin one engine, paid or not.
-    """
-
-    AUTO = "auto"
-    FLEET_ROUTING = "fleet_routing"
-    SINGLE_VEHICLE = "single_vehicle"
-    CLUSTER_SWEEP = "cluster_sweep"
-
-
 class NotePermission(str, Enum):
     """Controls who can read/write on a note chain"""
 

@@ -3066,17 +3066,6 @@
         "title": "RouteGenerationGroupInput",
         "type": "object"
       },
-      "RouteGenerationMethod": {
-        "description": "Which engine route generation should use.\n\n``AUTO`` uses the best engine the GCP budget allows, falling back to the\nfree in-house sweep. The rest pin one engine, paid or not.",
-        "enum": [
-          "auto",
-          "fleet_routing",
-          "single_vehicle",
-          "cluster_sweep"
-        ],
-        "title": "RouteGenerationMethod",
-        "type": "string"
-      },
       "RouteGenerationSettings": {
         "description": "Settings for route generation.\n\nThese are not persisted to the database; used as inputs to services.\n\nThe three configured numbers below — ``max_boxes_per_driver``,\n``children_per_box`` and ``service_time_minutes`` — are required, with no\nschema-level defaults. They come from the ``system_settings`` row (see\n``SystemSettings.boxes_per_car`` / ``children_per_box`` /\n``dropoff_minutes``), and a default here would silently outrank whatever the\norg configured whenever a caller dropped the key. Omitting one is a 422.",
         "properties": {
@@ -3945,10 +3934,6 @@
             ],
             "title": "Import Column Map"
           },
-          "route_generation_method": {
-            "$ref": "#/components/schemas/RouteGenerationMethod",
-            "default": "auto"
-          },
           "route_start_time": {
             "anyOf": [
               {
@@ -4177,16 +4162,6 @@
               }
             ],
             "title": "Import Column Map"
-          },
-          "route_generation_method": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RouteGenerationMethod"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "route_start_time": {
             "anyOf": [

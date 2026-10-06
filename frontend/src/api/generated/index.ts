@@ -410,7 +410,6 @@ export type {
   ResendOnboardingEmailResponses,
   RouteDetailRead,
   RouteGenerationGroupInput,
-  RouteGenerationMethod,
   RouteGenerationSettings,
   RouteGroupCreate,
   RouteGroupDuplicate,

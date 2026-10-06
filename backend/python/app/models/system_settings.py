@@ -3,14 +3,13 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
-from sqlalchemy import JSON, String
+from sqlalchemy import JSON
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Column, Field, SQLModel
 
 from app.utilities.utils import validate_phone
 
 from .base import BaseModel
-from .enum import RouteGenerationMethod
 
 # Default settings constants (should only be defined here)
 DEFAULT_BOXES_PER_CAR = 10
@@ -106,12 +105,6 @@ class SystemSettingsBase(SQLModel):
         default_factory=lambda: ["Family", "School"],
         sa_column=Column(JSON, nullable=False),
     )
-    # See RouteGenerationMethod: Auto stays inside the GCP budget, the
-    # explicit values pin one engine regardless of it.
-    route_generation_method: RouteGenerationMethod = Field(
-        default=RouteGenerationMethod.AUTO,
-        sa_column=Column(String(32), nullable=False, server_default="auto"),
-    )
 
     @field_validator("contact_phone")
     @classmethod
@@ -190,10 +183,6 @@ class SystemSettingsUpdate(SQLModel):
     f4k_wr_address: str | None = Field(default=None, min_length=1, max_length=255)
     email_reminders: list[EmailReminder] | None = Field(default=None)
     delivery_types: list[str] | None = Field(default=None)
-    # Patchable so an admin can pin generation to one engine (or hand it back
-    # to Auto) without a DB edit. The worker reads this per job, so a change
-    # takes effect on the next job rather than needing a restart.
-    route_generation_method: RouteGenerationMethod | None = Field(default=None)
 
     @field_validator("contact_phone")
     @classmethod

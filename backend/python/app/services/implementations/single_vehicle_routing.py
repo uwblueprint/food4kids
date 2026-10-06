@@ -1,10 +1,7 @@
-"""Per-driver route ordering via one-vehicle Route Optimization requests.
+"""Sweep clustering, then one-vehicle Route Optimization to order each route.
 
-The middle rung of the generation cascade. Sweep clustering decides which stops
-go to which driver, then each driver's stops are ordered by Route Optimization
-with a single vehicle. Google bills one-vehicle requests to its Single Vehicle
-Routing SKU (5,000 free shipments a month, then a third of Fleet Routing's
-price), so this keeps Google's ordering and gives up only its assignment.
+One-vehicle requests bill to the Single Vehicle Routing SKU at a third of Fleet
+Routing's price, giving up Google's assignment of stops but not its ordering.
 """
 
 from __future__ import annotations
@@ -58,8 +55,7 @@ class SingleVehicleRoutingAlgorithm:
         )
         one_vehicle = settings.model_copy(update={"num_routes": 1})
 
-        # The tier's own deadline, so a hanging request raises TimeoutError
-        # here and the cascade can fall back instead of the job timing out.
+        # Time out here, not at the job, so the cascade can still fall back.
         routes = await asyncio.wait_for(
             asyncio.gather(
                 *(

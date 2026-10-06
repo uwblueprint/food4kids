@@ -110,8 +110,7 @@ class CostInfo:
     gross_cost: float
     credits: float
     currency: str
-    # US dollars to ``currency``, for pricing usage Google lists in USD. None
-    # until the month has export rows to read it from.
+    # USD to ``currency``; None until the month has export rows.
     usd_conversion_rate: float | None
     last_export_time: datetime | None
 

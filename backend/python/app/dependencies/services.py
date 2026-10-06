@@ -18,7 +18,6 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
-from app.models.enum import RouteGenerationMethod
 from app.services.implementations.admin_service import AdminService
 from app.services.implementations.announcement_service import AnnouncementService
 from app.services.implementations.auth_service import AuthService
@@ -172,38 +171,19 @@ def get_route_group_service() -> RouteGroupService:
     return RouteGroupService(logger)
 
 
-def build_routing_algorithm(
-    method: RouteGenerationMethod,
+def get_routing_algorithm(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> RoutingAlgorithmProtocol:
-    """Build the routing engine for one generation job.
-
-    ``AUTO`` cascades through the tiers the GCP budget allows. The explicit
-    methods pin one engine: a paid one is still recorded, so later budget
-    checks see it, but never refused.
-    """
+    """The best routing engine the GCP budget allows, falling back to free."""
     spend = RoutingSpendService(
         get_logger(),
         BillingService(get_logger(), get_billing_client()),
         session_maker,
         settings.google_maps_monthly_credit_usd,
     )
-    match method:
-        case RouteGenerationMethod.AUTO:
-            return CascadingRoutingAlgorithm(
-                spend,
-                [fleet_routing_tier(), single_vehicle_tier(), cluster_sweep_tier()],
-            )
-        case RouteGenerationMethod.FLEET_ROUTING:
-            return CascadingRoutingAlgorithm(
-                spend, [fleet_routing_tier()], enforce_budget=False
-            )
-        case RouteGenerationMethod.SINGLE_VEHICLE:
-            return CascadingRoutingAlgorithm(
-                spend, [single_vehicle_tier()], enforce_budget=False
-            )
-        case RouteGenerationMethod.CLUSTER_SWEEP:
-            return cluster_sweep_tier().algorithm
+    return CascadingRoutingAlgorithm(
+        spend, [fleet_routing_tier(), single_vehicle_tier(), cluster_sweep_tier()]
+    )
 
 
 @lru_cache

@@ -25,14 +25,10 @@ from sqlalchemy import update
 from sqlmodel import col, select
 
 from app import models as app_models
-from app.dependencies.services import build_routing_algorithm
-from app.models.enum import ProgressEnum, RouteGenerationMethod
+from app.dependencies.services import get_routing_algorithm
+from app.models.enum import ProgressEnum
 from app.models.job import Job
-from app.models.system_settings import SystemSettings
-from app.services.implementations.route_generation_runner import (
-    fail_job,
-    run_generation_job,
-)
+from app.services.implementations.route_generation_runner import run_generation_job
 from app.utilities.datetime_utils import now_utc
 
 if TYPE_CHECKING:
@@ -208,36 +204,15 @@ async def route_generation_worker_loop() -> None:
                 try:
                     ran = await _claim_and_run_one()
                 except Exception:
-                    # Last line of defence. Everything inside marks its own job
-                    # terminal, so reaching here means the failure was in the
-                    # queue machinery itself (claiming, or recording a failure).
-                    # Stop draining and go back to waiting rather than dying:
-                    # a dead worker never processes another job, and spinning
-                    # on a broken session would just hammer the database.
-                    logger.exception(
-                        "Route generation worker hit an unexpected error while "
-                        "draining; waiting for the next wake."
-                    )
+                    # Jobs mark themselves terminal, so this is the queue itself
+                    # failing. Wait for the next wake rather than let the task die.
+                    logger.exception("Route generation worker failed while draining")
                     break
                 if not ran:
                     break
     except asyncio.CancelledError:
         logger.info("Route generation worker stopping")
         raise
-
-
-async def _build_algorithm_for_job(
-    session: AsyncSession,
-    session_maker: Any,
-) -> Any:
-    """Build this job's routing engine from the configured method."""
-    method = RouteGenerationMethod(
-        (
-            await session.execute(select(SystemSettings.route_generation_method))
-        ).scalar_one()
-    )
-    logger.info("Route generation method: %s", method.value)
-    return build_routing_algorithm(method, session_maker)
 
 
 async def _claim_and_run_one() -> bool:
@@ -253,32 +228,12 @@ async def _claim_and_run_one() -> bool:
         )
         return False
 
+    algorithm = get_routing_algorithm(session_maker)
     async with session_maker() as session:
         job_id = await claim_next_pending_job(session)
         if job_id is None:
             return False
         logger.info("Claimed route generation job %s", job_id)
-        # Built per job, after claiming, so an admin changing the method in
-        # settings takes effect on the next job rather than at process start.
-        #
-        # Guarded because the job is already Running by this point: a missing
-        # settings row, an unreadable route_generation_method, or a transient
-        # DB error here would otherwise escape into the worker task and kill
-        # it, stranding this job in Running and stalling the queue behind it.
-        # run_generation_job has the same contract for everything after.
-        try:
-            algorithm = await _build_algorithm_for_job(session, session_maker)
-        except Exception as error:
-            logger.exception(
-                "Could not build the routing engine for job %s; failing it.", job_id
-            )
-            await fail_job(
-                session,
-                job_id,
-                f"Route generation could not start: {error}",
-            )
-            return True
-
         started = time.perf_counter()
         await run_generation_job(job_id, session, algorithm)
         logger.info(

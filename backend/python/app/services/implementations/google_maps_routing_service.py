@@ -49,11 +49,9 @@ GLOBAL_HORIZON_HOURS = 24
 
 
 def forced_pickup_count(num_routes: int) -> int:
-    """How many forced pickups the payload adds ahead of the deliveries.
+    """Forced pickups ahead of the deliveries, each a billed shipment.
 
-    They exist to stop the optimizer leaving a driver idle, which cannot
-    happen with one vehicle: every delivery is mandatory, so it gets them all.
-    Each one is a billed shipment, so one-vehicle requests send none.
+    They stop a fleet leaving a driver idle; one vehicle gets every delivery.
     """
     return num_routes if num_routes > 1 else 0
 

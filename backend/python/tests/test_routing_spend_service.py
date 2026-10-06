@@ -284,21 +284,6 @@ class TestUnreadableBilling:
         assert not await _service(maker, billing).try_charge("t", 1, 0.01)
 
 
-class TestPinnedCharge:
-    async def test_records_whatever_the_budget_says(self, maker: Any) -> None:
-        service = _service(maker, FakeBilling(_summary(month_to_date_cost=999.0)))
-
-        await service.charge("fleet_routing", 87, 2.61)
-
-        assert await _charges(maker) == [("fleet_routing", 87, 2.61)]
-
-    async def test_pinned_charges_count_against_later_checks(self, maker: Any) -> None:
-        service = _service(maker)
-        await service.charge("fleet_routing", 1, 70.0)
-
-        assert not await service.try_charge("t", 1, 10.01)
-
-
 class TestConcurrency:
     async def test_racing_checks_never_overspend(self, maker: Any) -> None:
         """Ten $20 calls race for $80 of room. Separate sessions, real
